@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Settings</h2>
+          <p class="text-slate-500 mt-1">Manage your profile, security, and notification preferences.</p>
+        </div>
+
+        <!-- ========== PROFILE / KYC CARD ========== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+          <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
+            <div class="flex items-center gap-4">
+              <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0">JD</div>
+              <div>
+                <p class="text-lg font-semibold text-navy">John Doe</p>
+                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-navy/10 text-navy">Individual Account</span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>KYC Verified</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Editable: Email + Phone -->
+          <div class="border-t border-slate-100">
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100">
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-slate-500">Email</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="email-view">john.doe@example.com</p>
+                <div class="hidden mt-2" id="email-edit">
+                  <input type="email" id="email-input" class="w-full max-w-xs px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <p class="text-xs text-red-500 hidden mt-1" id="email-error">Enter a valid email address.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button type="button" class="edit-btn text-xs font-medium text-navy hover:underline" data-field="email">Edit</button>
+                <button type="button" class="save-btn hidden px-3 py-1.5 rounded-lg bg-navy text-white text-xs font-medium hover:bg-navy-dark transition" data-field="email">Save</button>
+                <button type="button" class="cancel-btn hidden text-xs font-medium text-slate-500 hover:underline" data-field="email">Cancel</button>
+              </div>
+            </div>
+
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100">
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-slate-500">Phone</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="phone-view">+1 (415) 555-0182</p>
+                <div class="hidden mt-2" id="phone-edit">
+                  <input type="tel" id="phone-input" class="w-full max-w-xs px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <p class="text-xs text-red-500 hidden mt-1" id="phone-error">Enter a valid phone number.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button type="button" class="edit-btn text-xs font-medium text-navy hover:underline" data-field="phone">Edit</button>
+                <button type="button" class="save-btn hidden px-3 py-1.5 rounded-lg bg-navy text-white text-xs font-medium hover:bg-navy-dark transition" data-field="phone">Save</button>
+                <button type="button" class="cancel-btn hidden text-xs font-medium text-slate-500 hover:underline" data-field="phone">Cancel</button>
+              </div>
+            </div>
+
+            <!-- Read-only: Request Change fields — display text is now rendered from
+                 getSettingsProfile() rather than hardcoded (Request Change redesign, Aug 21,
+                 2026), so it reflects a real approved change on next load. -->
+            <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100" data-field-row="legalName">
+              <div>
+                <p class="text-xs text-slate-500">Legal Name</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="legalName-display">—</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-field="legalName" data-label="Legal Name">Request Change</button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100" data-field-row="address">
+              <div>
+                <p class="text-xs text-slate-500">Address</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="address-display">—</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-field="address" data-label="Address">Request Change</button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-4 py-3" data-field-row="idDocument">
+              <div>
+                <p class="text-xs text-slate-500">ID / Document</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="idDocument-display">—</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-field="idDocument" data-label="ID / Document">Request Change</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== SECURITY ========== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+          <h3 class="font-semibold text-navy mb-5">Security</h3>
+
+          <!-- Password Change -->
+          <div class="pb-6 border-b border-slate-100">
+            <p class="text-sm font-medium text-navy mb-4">Change Password</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
+                <input type="password" id="current-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+                <input type="password" id="new-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
+                  <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
+                </div>
+                <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
+                <input type="password" id="confirm-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+            </div>
+            <p class="text-xs text-red-500 hidden mt-3" id="password-error"></p>
+            <button type="button" id="password-submit" class="mt-4 px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Update Password</button>
+          </div>
+
+          <!-- 2FA -->
+          <div class="py-6 border-b border-slate-100">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p class="text-sm font-medium text-navy">Two-Factor Authentication</p>
+                <p class="text-xs text-slate-500 mt-0.5">Add an extra layer of security to your account.</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="twofa-status-badge" class="hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Enabled</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="twofa-toggle" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                    <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="hidden bg-slate-50 rounded-xl border border-slate-100 p-5 mt-4" id="twofa-setup-panel">
+              <p class="text-sm font-medium text-navy mb-3">Set Up Two-Factor Authentication</p>
+              <div class="flex flex-col sm:flex-row items-center gap-5">
+                <div class="w-28 h-28 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-white shrink-0">
+                  <svg class="w-14 h-14 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 4.5h4.5v4.5h-4.5v-4.5zM15.75 4.5h4.5v4.5h-4.5v-4.5zM3.75 15h4.5v4.5h-4.5v-4.5zM13.5 13.5h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25h-2.25v-2.25zm-4.5 4.5h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25h-2.25v-2.25z"/></svg>
+                </div>
+                <div class="flex-1 w-full">
+                  <p class="text-xs text-slate-500 mb-3">Scan this QR code with your authenticator app, then enter the 6-digit code it generates.</p>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmation Code</label>
+                  <div class="flex flex-wrap gap-2">
+                    <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="w-32 px-4 py-2.5 rounded-lg border border-slate-200 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                    <button type="button" id="twofa-confirm" class="px-4 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm</button>
+                  </div>
+                  <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code from your app.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Sessions -->
+          <div class="pt-6">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <p class="text-sm font-medium text-navy">Active Sessions & Linked Devices</p>
+              <button type="button" id="logout-all-btn" class="text-xs font-medium text-red-500 hover:underline">Log out all other sessions</button>
+            </div>
+            <div class="space-y-2" id="sessions-list">
+              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
+                <div class="flex items-center gap-3 min-w-0">
+                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-navy truncate">Chrome on Windows <span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span></p>
+                    <p class="text-xs text-slate-500">Boston, MA, United States · Active now</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100" data-session="s2">
+                <div class="flex items-center gap-3 min-w-0">
+                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18h3"/></svg>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-navy truncate">Safari on iPhone</p>
+                    <p class="text-xs text-slate-500">Boston, MA, United States · 2 hours ago</p>
+                  </div>
+                </div>
+                <button type="button" class="session-logout-btn text-xs font-medium text-red-500 hover:underline shrink-0" data-session="s2" data-name="Safari on iPhone">Log out</button>
+              </div>
+
+              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100" data-session="s3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-navy truncate">Chrome on MacBook Pro</p>
+                    <p class="text-xs text-slate-500">New York, NY, United States · 3 days ago</p>
+                  </div>
+                </div>
+                <button type="button" class="session-logout-btn text-xs font-medium text-red-500 hover:underline shrink-0" data-session="s3" data-name="Chrome on MacBook Pro">Log out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== NOTIFICATION PREFERENCES ========== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-navy">Notification Preferences</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th scope="col" class="text-left font-medium px-4 py-3 rounded-l-lg">Notification Type</th>
+                  <th scope="col" class="text-center font-medium px-4 py-3 w-24 rounded-r-lg">Email</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="px-4 py-3 font-medium text-navy">Statements & Reports</td>
+                  <td class="px-4 py-3 text-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="statements" data-channel="email">
+                      <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                      </div>
+                    </label>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-medium text-navy">Allocation Approvals</td>
+                  <td class="px-4 py-3 text-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="allocations" data-channel="email">
+                      <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                      </div>
+                    </label>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-medium text-navy">Document Uploads & Signatures</td>
+                  <td class="px-4 py-3 text-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="documents" data-channel="email">
+                      <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                      </div>
+                    </label>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-medium text-navy">Deadlines</td>
+                  <td class="px-4 py-3 text-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="deadlines" data-channel="email">
+                      <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                      </div>
+                    </label>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-400 mt-3">These preferences control delivery for notifications already surfaced elsewhere in your dashboard — e.g. the Documents & Reporting badge alerts and allocation approval requests on Asset & Performance.</p>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========== REQUEST CHANGE MODAL ========== -->
+  <!-- Request Change redesign (Aug 21, 2026): one modal, four field-specific bodies
+       (change-body[data-body]) toggled by which field's "Request Change" was clicked —
+       same multi-variant-body pattern already used by high-yield-savings.html's New
+       Pocket modal (.np-step) and Withdraw modal (.wd-step). -->
+  <div id="change-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="change-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-4">
+        <h3 class="font-semibold text-navy text-lg" id="change-modal-title">Request Change</h3>
+        <button type="button" id="change-modal-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+
+      <!-- Legal Name -->
+      <div class="change-body hidden space-y-4" data-body="legalName">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Name</label>
+          <p class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5" id="cm-legalName-current">—</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New First Name</label>
+            <input type="text" id="cm-legalName-firstName" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New Last Name</label>
+            <input type="text" id="cm-legalName-lastName" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="change-body hidden space-y-4" data-body="address">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Address</label>
+          <p class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5" id="cm-address-current">—</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">New Street</label>
+          <input type="text" id="cm-address-street" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New City</label>
+            <input type="text" id="cm-address-city" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New State</label>
+            <input type="text" id="cm-address-state" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New ZIP</label>
+            <input type="text" id="cm-address-zip" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">New Country</label>
+            <input type="text" id="cm-address-country" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+        </div>
+      </div>
+
+      <!-- ID / Document -->
+      <div class="change-body hidden space-y-4" data-body="idDocument">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Document Type</label>
+          <p class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5" id="cm-idDocument-current">—</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">New Document Type</label>
+          <input type="text" id="cm-idDocument-documentType" placeholder="e.g. Passport, Driver's License" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">New Document File</label>
+          <input type="file" id="cm-idDocument-file" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-navy file:text-white file:text-sm file:font-medium hover:file:bg-navy-dark file:cursor-pointer cursor-pointer">
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Reason for Change <span class="text-slate-400 font-normal">(optional)</span></label>
+        <textarea id="change-modal-reason" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></textarea>
+      </div>
+      <p class="text-xs text-red-500 hidden mt-2" id="change-modal-error"></p>
+
+      <div class="flex gap-3 pt-5">
+        <button type="button" id="change-modal-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="change-modal-submit" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="settings-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="settings-toast-title">Done</p>
+    <p class="text-xs text-white/70 mt-1" id="settings-toast-body"></p>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('settings');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Toast helper
+    const toast = document.getElementById('settings-toast');
+    const toastTitle = document.getElementById('settings-toast-title');
+    const toastBody = document.getElementById('settings-toast-body');
+    let toastTimer;
+    function showToast(title, body) {
+      toastTitle.textContent = title;
+      toastBody.textContent = body;
+      toast.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    // ---- Editable profile fields (Email, Phone) ----
+    (function () {
+      // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
+      // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
+      const STORAGE_KEY = clientScopedKey('marketswave_settings_profile');
+      const DEFAULTS = { email: 'john.doe@example.com', phone: '+1 (415) 555-0182' };
+      let profile = { ...DEFAULTS };
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (stored) profile = { ...DEFAULTS, ...stored };
+      } catch (e) { /* ignore malformed storage */ }
+
+      document.getElementById('email-view').textContent = profile.email;
+      document.getElementById('phone-view').textContent = profile.phone;
+
+      function enterEdit(field) {
+        document.getElementById(`${field}-view`).classList.add('hidden');
+        document.getElementById(`${field}-edit`).classList.remove('hidden');
+        document.querySelector(`.edit-btn[data-field="${field}"]`).classList.add('hidden');
+        document.querySelector(`.save-btn[data-field="${field}"]`).classList.remove('hidden');
+        document.querySelector(`.cancel-btn[data-field="${field}"]`).classList.remove('hidden');
+        document.getElementById(`${field}-input`).value = profile[field];
+        document.getElementById(`${field}-error`).classList.add('hidden');
+      }
+      function exitEdit(field) {
+        document.getElementById(`${field}-view`).classList.remove('hidden');
+        document.getElementById(`${field}-edit`).classList.add('hidden');
+        document.querySelector(`.edit-btn[data-field="${field}"]`).classList.remove('hidden');
+        document.querySelector(`.save-btn[data-field="${field}"]`).classList.add('hidden');
+        document.querySelector(`.cancel-btn[data-field="${field}"]`).classList.add('hidden');
+      }
+
+      ['email', 'phone'].forEach(field => {
+        document.querySelector(`.edit-btn[data-field="${field}"]`).addEventListener('click', () => enterEdit(field));
+        document.querySelector(`.cancel-btn[data-field="${field}"]`).addEventListener('click', () => exitEdit(field));
+        document.querySelector(`.save-btn[data-field="${field}"]`).addEventListener('click', () => {
+          const value = document.getElementById(`${field}-input`).value.trim();
+          const errorEl = document.getElementById(`${field}-error`);
+
+          if (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          if (field === 'phone' && value.replace(/\D/g, '').length < 7) {
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          errorEl.classList.add('hidden');
+
+          profile[field] = value;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+          document.getElementById(`${field}-view`).textContent = value;
+          exitEdit(field);
+          showToast(`${field === 'email' ? 'Email' : 'Phone'} Updated`, `Your ${field} has been updated to ${value}.`);
+        });
+      });
+    })();
+
+    // ---- Request Change redesign (Aug 21, 2026): Legal Name / Address / ID-Document now go
+    // through a real request queue (requestSettingsChange() in engine-core.js) instead of
+    // marketswave_settings_pending's field-names-only array. Display text and the modal's
+    // "current value" both read from getSettingsProfile() instead of hardcoded HTML, so an
+    // approved change is visible on next load. Email/Phone are untouched — self-service, no
+    // request queue, out of scope for this redesign. Date of Birth was originally part of
+    // this redesign but removed as a requestable field same-day (Aug 21, 2026) — see
+    // engine-core.js's REQUESTABLE_SETTINGS_FIELDS comment. ----
+    (function () {
+      if (typeof getSettingsProfile !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      function formatFieldDisplay(field, value) {
+        if (field === 'legalName') return `${value.firstName} ${value.lastName}`;
+        if (field === 'address') return `${value.street}, ${value.city}, ${value.state} ${value.zip}, ${value.country}`;
+        if (field === 'idDocument') return value.fileName ? `${value.documentType} — ${value.fileName}` : value.documentType;
+        return '—';
+      }
+
+      // Date of Birth removed as a requestable field (Aug 21, 2026) — see engine-core.js's
+      // REQUESTABLE_SETTINGS_FIELDS comment for why. A legacy pending/resolved dateOfBirth
+      // request may still exist in marketswave_settings_change_requests test data; it is
+      // intentionally NOT surfaced anywhere on this page anymore (no row, no modal body), but
+      // it is still visible and actionable in admin-settings-changes.html.
+      const FIELDS = ['legalName', 'address', 'idDocument'];
+
+      function renderProfileDisplay() {
+        const profile = getSettingsProfile();
+        FIELDS.forEach(field => {
+          const el = document.getElementById(`${field}-display`);
+          if (el) el.textContent = formatFieldDisplay(field, profile[field]);
+        });
+      }
+
+      function renderPendingBadges() {
+        const requests = getSettingsChangeRequests();
+        FIELDS.forEach(field => {
+          const isPending = requests.some(r => r.field === field && r.status === 'pending');
+          const row = document.querySelector(`[data-field-row="${field}"]`);
+          if (!row) return;
+          row.querySelector('.pending-badge').classList.toggle('hidden', !isPending);
+          row.querySelector('.request-change-btn').classList.toggle('hidden', isPending);
+        });
+      }
+
+      renderProfileDisplay();
+      renderPendingBadges();
+
+      const modal = document.getElementById('change-modal');
+      const titleEl = document.getElementById('change-modal-title');
+      const reasonInput = document.getElementById('change-modal-reason');
+      const errorEl = document.getElementById('change-modal-error');
+      let activeField = null;
+
+      function closeModal() { modal.classList.add('hidden'); }
+
+      function showBody(field) {
+        document.querySelectorAll('.change-body').forEach(b => b.classList.toggle('hidden', b.dataset.body !== field));
+      }
+
+      function clearNewValueInputs() {
+        document.getElementById('cm-legalName-firstName').value = '';
+        document.getElementById('cm-legalName-lastName').value = '';
+        document.getElementById('cm-address-street').value = '';
+        document.getElementById('cm-address-city').value = '';
+        document.getElementById('cm-address-state').value = '';
+        document.getElementById('cm-address-zip').value = '';
+        document.getElementById('cm-address-country').value = '';
+        document.getElementById('cm-idDocument-documentType').value = '';
+        document.getElementById('cm-idDocument-file').value = '';
+      }
+
+      document.querySelectorAll('.request-change-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeField = btn.dataset.field;
+          titleEl.textContent = `Request Change — ${btn.dataset.label}`;
+          const currentValue = getSettingsProfile()[activeField];
+          document.getElementById(`cm-${activeField}-current`).textContent = formatFieldDisplay(activeField, currentValue);
+          clearNewValueInputs();
+          reasonInput.value = '';
+          errorEl.classList.add('hidden');
+          showBody(activeField);
+          modal.classList.remove('hidden');
+        });
+      });
+
+      document.getElementById('change-modal-close').addEventListener('click', closeModal);
+      document.getElementById('change-modal-backdrop').addEventListener('click', closeModal);
+      document.getElementById('change-modal-cancel').addEventListener('click', closeModal);
+
+      // Builds the requestedValue object for whichever field is active — engine-core.js
+      // validates the shape itself (missing required sub-fields throw), so this only needs
+      // to assemble what the form collected, not duplicate that validation client-side.
+      function buildRequestedValue(field) {
+        if (field === 'legalName') {
+          return {
+            firstName: document.getElementById('cm-legalName-firstName').value.trim(),
+            lastName: document.getElementById('cm-legalName-lastName').value.trim()
+          };
+        }
+        if (field === 'address') {
+          return {
+            street: document.getElementById('cm-address-street').value.trim(),
+            city: document.getElementById('cm-address-city').value.trim(),
+            state: document.getElementById('cm-address-state').value.trim(),
+            zip: document.getElementById('cm-address-zip').value.trim(),
+            country: document.getElementById('cm-address-country').value.trim()
+          };
+        }
+        if (field === 'idDocument') {
+          const fileInput = document.getElementById('cm-idDocument-file');
+          const fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : null;
+          return {
+            documentType: document.getElementById('cm-idDocument-documentType').value.trim(),
+            fileName: fileName
+          };
+        }
+        return null;
+      }
+
+      document.getElementById('change-modal-submit').addEventListener('click', () => {
+        const requestedValue = buildRequestedValue(activeField);
+        const reason = reasonInput.value.trim() || null;
+        try {
+          requestSettingsChange(activeField, requestedValue, reason);
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+        closeModal();
+        renderPendingBadges();
+        const label = document.querySelector(`.request-change-btn[data-field="${activeField}"]`).dataset.label;
+        showToast('Change Request Sent', `Your request to update ${label} has been submitted for review.`);
+      });
+    })();
+
+    // ---- Password change — reuses signup.html's step-2 strength/match validation ----
+    (function () {
+      const passwordInput = document.getElementById('new-password');
+      const strengthFill = document.getElementById('strength-fill');
+      const strengthText = document.getElementById('strength-text');
+
+      const levels = [
+        { width: '0%', color: '#E5E2DC', text: 'Enter a password' },
+        { width: '25%', color: '#DC2626', text: 'Weak' },
+        { width: '50%', color: '#F59E0B', text: 'Fair' },
+        { width: '75%', color: '#10B981', text: 'Good' },
+        { width: '100%', color: '#059669', text: 'Strong' }
+      ];
+
+      function applyLevel(level) {
+        strengthFill.style.width = level.width;
+        strengthFill.style.background = level.color;
+        strengthText.textContent = level.text;
+        strengthText.style.color = level.color;
+      }
+
+      passwordInput.addEventListener('input', () => {
+        const val = passwordInput.value;
+        let score = 0;
+        if (val.length >= 8) score++;
+        if (val.length >= 12) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        applyLevel(val.length === 0 ? levels[0] : levels[Math.min(score, 4)]);
+      });
+
+      document.getElementById('password-submit').addEventListener('click', () => {
+        const current = document.getElementById('current-password').value;
+        const next = passwordInput.value;
+        const confirm = document.getElementById('confirm-password').value;
+        const errorEl = document.getElementById('password-error');
+
+        if (!current) {
+          errorEl.textContent = 'Please enter your current password.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        if (!next || next.length < 8) {
+          errorEl.textContent = 'New password must be at least 8 characters.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        if (next !== confirm) {
+          errorEl.textContent = 'Passwords do not match.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+
+        document.getElementById('current-password').value = '';
+        passwordInput.value = '';
+        document.getElementById('confirm-password').value = '';
+        applyLevel(levels[0]);
+
+        showToast('Password Updated', 'Your password has been changed successfully.');
+      });
+    })();
+
+    // ---- Two-Factor Authentication — stub setup flow, no real TOTP backend ----
+    (function () {
+      const STORAGE_KEY = clientScopedKey('marketswave_settings_2fa');
+      const toggle = document.getElementById('twofa-toggle');
+      const setupPanel = document.getElementById('twofa-setup-panel');
+      const statusBadge = document.getElementById('twofa-status-badge');
+      const codeInput = document.getElementById('twofa-code');
+      const codeError = document.getElementById('twofa-error');
+
+      function setState(enabled) {
+        toggle.checked = enabled;
+        statusBadge.classList.toggle('hidden', !enabled);
+        localStorage.setItem(STORAGE_KEY, enabled ? 'enabled' : 'disabled');
+      }
+
+      toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+          setupPanel.classList.remove('hidden');
+        } else {
+          setupPanel.classList.add('hidden');
+          setState(false);
+          showToast('Two-Factor Authentication Disabled', 'Your account no longer requires a second verification step.');
+        }
+      });
+
+      document.getElementById('twofa-confirm').addEventListener('click', () => {
+        const code = codeInput.value.trim();
+        if (!/^\d{6}$/.test(code)) {
+          codeError.classList.remove('hidden');
+          return;
+        }
+        codeError.classList.add('hidden');
+        codeInput.value = '';
+        setupPanel.classList.add('hidden');
+        setState(true);
+        showToast('Two-Factor Authentication Enabled', 'Your account is now protected with an extra verification step.');
+      });
+
+      setState(localStorage.getItem(STORAGE_KEY) === 'enabled');
+    })();
+
+    // ---- Active Sessions — in-memory demo data, no persistence needed across reload ----
+    (function () {
+      document.getElementById('logout-all-btn').addEventListener('click', () => {
+        const rows = document.querySelectorAll('.session-logout-btn');
+        if (rows.length === 0) return;
+        if (!window.confirm('Log out all other sessions? Those devices will need to sign in again.')) return;
+        document.querySelectorAll('#sessions-list [data-session]').forEach(row => row.remove());
+        showToast('Sessions Logged Out', 'All other sessions have been signed out.');
+      });
+
+      document.getElementById('sessions-list').addEventListener('click', (e) => {
+        const btn = e.target.closest('.session-logout-btn');
+        if (!btn) return;
+        if (!window.confirm(`Log out ${btn.dataset.name}?`)) return;
+        btn.closest('[data-session]').remove();
+        showToast('Session Logged Out', `${btn.dataset.name} was signed out.`);
+      });
+    })();
+
+    // ---- Notification Preferences — persisted per channel per notification type ----
+    (function () {
+      const STORAGE_KEY = clientScopedKey('marketswave_settings_notifications');
+      const DEFAULTS = {
+        statements: { email: true },
+        allocations: { email: true },
+        documents: { email: true },
+        deadlines: { email: true }
+      };
+      let prefs = JSON.parse(JSON.stringify(DEFAULTS));
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (stored) prefs = { ...prefs, ...stored };
+      } catch (e) { /* ignore malformed storage */ }
+
+      document.querySelectorAll('.notif-toggle').forEach(input => {
+        const notif = input.dataset.notif;
+        const channel = input.dataset.channel;
+        input.checked = !!(prefs[notif] && prefs[notif][channel]);
+        input.addEventListener('change', () => {
+          if (!prefs[notif]) prefs[notif] = {};
+          prefs[notif][channel] = input.checked;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

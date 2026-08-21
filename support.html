@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Support</h2>
+          <p class="text-slate-500 mt-1">Get help from our team or track your open requests.</p>
+        </div>
+
+        <!-- ========== QUICK CONTACT OPTIONS ========== -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <!-- Call Us -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>
+            </div>
+            <h3 class="font-semibold text-navy mb-1">Call Us</h3>
+            <p class="text-sm font-medium text-navy mt-2">+1 (800) 555-0199</p>
+            <p class="text-xs text-slate-500 mt-1">Mon–Fri, 8am–8pm ET</p>
+            <div class="mt-auto pt-4">
+              <button type="button" id="open-callback-btn" class="w-full py-2 rounded-lg border border-slate-200 text-sm font-medium text-navy hover:bg-slate-50 transition">Request a Callback</button>
+            </div>
+          </div>
+
+          <!-- Chat with Us -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+            </div>
+            <h3 class="font-semibold text-navy mb-1">Chat with Us</h3>
+            <p class="text-sm text-slate-500 mt-2">Get real-time help from our support team.</p>
+            <div class="mt-auto pt-4">
+              <button type="button" id="open-chat-btn" class="w-full py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Start Chat</button>
+            </div>
+          </div>
+
+          <!-- Email Support -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+            </div>
+            <h3 class="font-semibold text-navy mb-1">Email Support</h3>
+            <p class="text-sm font-medium text-navy mt-2">support@marketswave.com</p>
+            <p class="text-xs text-slate-500 mt-1">We typically reply within 1 business day.</p>
+            <div class="flex gap-2 mt-auto pt-4">
+              <button type="button" id="copy-email-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-medium text-navy hover:bg-slate-50 transition">Copy</button>
+              <a href="mailto:support@marketswave.com" class="flex-1 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition text-center">Email Us</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== OPEN A DISPUTE ========== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+          <h3 class="font-semibold text-navy mb-1">Open a Dispute</h3>
+          <p class="text-sm text-slate-500 mb-5">Report an issue with a transaction, your account, billing, or a document — we'll investigate and follow up.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
+              <select id="dispute-category" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                <option value="">Select a category</option>
+                <option value="Transaction Issue">Transaction Issue</option>
+                <option value="Account Access">Account Access</option>
+                <option value="Billing/Fees">Billing/Fees</option>
+                <option value="Document/Signature Issue">Document/Signature Issue</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+              <textarea id="dispute-description" rows="4" placeholder="Describe the issue in detail..." class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></textarea>
+            </div>
+            <div class="md:col-span-2">
+              <label for="dispute-evidence" class="block text-sm font-medium text-slate-700 mb-1.5">Evidence <span class="text-slate-400 font-normal">(optional)</span></label>
+              <input type="file" id="dispute-evidence" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-navy file:text-white file:text-sm file:font-medium hover:file:bg-navy-dark file:cursor-pointer cursor-pointer">
+            </div>
+          </div>
+          <div class="max-w-3xl mt-8 pt-6 border-t border-slate-200">
+            <p class="text-xs text-red-500 hidden mb-3" id="dispute-error">Please select a category and describe the issue.</p>
+            <button type="button" id="dispute-submit" class="px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Dispute</button>
+          </div>
+        </div>
+
+        <!-- ========== MY REQUESTS ========== -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-navy">My Requests</h3>
+            <span class="text-xs text-slate-400" id="requests-count">—</span>
+          </div>
+          <div id="requests-empty" class="hidden bg-slate-50 rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-400 text-sm">
+            You don't have any support requests yet.
+          </div>
+          <div class="space-y-3" id="requests-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========== CALLBACK MODAL ========== -->
+  <div id="callback-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="callback-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-4">
+        <h3 class="font-semibold text-navy text-lg">Request a Callback</h3>
+        <button type="button" id="callback-modal-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
+          <input type="text" id="callback-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
+          <input type="tel" id="callback-phone" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Best Time to Call</label>
+          <select id="callback-time" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <option value="Morning">Morning (8am–12pm ET)</option>
+            <option value="Afternoon">Afternoon (12pm–4pm ET)</option>
+            <option value="Evening">Evening (4pm–8pm ET)</option>
+          </select>
+        </div>
+        <p class="text-xs text-red-500 hidden" id="callback-error">Please provide a name and phone number.</p>
+      </div>
+      <div class="flex gap-3 pt-5">
+        <button type="button" id="callback-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="callback-submit" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Request Callback</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CHAT PANEL ========== -->
+  <div id="chat-panel" class="hidden fixed bottom-6 right-6 w-full max-w-sm h-[520px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-navy rounded-t-2xl shrink-0">
+      <div>
+        <p class="text-sm font-semibold text-white">Marketswave Support</p>
+        <p class="text-xs text-white/60" id="chat-status">Connecting...</p>
+      </div>
+      <button type="button" id="chat-close" class="text-white/70 hover:text-white transition text-xl leading-none">&times;</button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3" id="chat-messages"></div>
+    <div class="border-t border-slate-100 p-3 flex gap-2 shrink-0">
+      <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+      <button type="button" id="chat-send" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Send</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="support-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="support-toast-title">Done</p>
+    <p class="text-xs text-white/70 mt-1" id="support-toast-body"></p>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('support');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Toast helper
+    const toast = document.getElementById('support-toast');
+    const toastTitle = document.getElementById('support-toast-title');
+    const toastBody = document.getElementById('support-toast-body');
+    let toastTimer;
+    function showToast(title, body) {
+      toastTitle.textContent = title;
+      toastBody.textContent = body;
+      toast.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    const DEMO_USER_NAME = 'John Doe';
+
+    // ---- Request a Callback ----
+    (function () {
+      const modal = document.getElementById('callback-modal');
+      const nameInput = document.getElementById('callback-name');
+      const phoneInput = document.getElementById('callback-phone');
+      const timeInput = document.getElementById('callback-time');
+      const errorEl = document.getElementById('callback-error');
+
+      function defaultPhone() {
+        try {
+          const profile = JSON.parse(localStorage.getItem(clientScopedKey('marketswave_settings_profile')));
+          if (profile && profile.phone) return profile.phone;
+        } catch (e) { /* ignore malformed storage */ }
+        return '+1 (415) 555-0182';
+      }
+
+      function openModal() {
+        nameInput.value = DEMO_USER_NAME;
+        phoneInput.value = defaultPhone();
+        timeInput.value = 'Morning';
+        errorEl.classList.add('hidden');
+        modal.classList.remove('hidden');
+      }
+      function closeModal() { modal.classList.add('hidden'); }
+
+      document.getElementById('open-callback-btn').addEventListener('click', openModal);
+      document.getElementById('callback-modal-close').addEventListener('click', closeModal);
+      document.getElementById('callback-modal-backdrop').addEventListener('click', closeModal);
+      document.getElementById('callback-cancel').addEventListener('click', closeModal);
+
+      document.getElementById('callback-submit').addEventListener('click', () => {
+        const name = nameInput.value.trim();
+        const phone = phoneInput.value.trim();
+        if (!name || !phone) {
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+        closeModal();
+        showToast('Callback Requested', `We'll call ${name} at ${phone} during the ${timeInput.value.toLowerCase()} window.`);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+      });
+    })();
+
+    // ---- Copy Email ----
+    (function () {
+      const email = 'support@marketswave.com';
+      function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) { /* best effort */ }
+        document.body.removeChild(ta);
+      }
+      document.getElementById('copy-email-btn').addEventListener('click', () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(email).catch(() => fallbackCopy(email));
+        } else {
+          fallbackCopy(email);
+        }
+        showToast('Email Copied', `${email} has been copied to your clipboard.`);
+      });
+    })();
+
+    // ---- Chat with Us — frontend-only stub, canned replies, no real chat backend ----
+    (function () {
+      const panel = document.getElementById('chat-panel');
+      const statusEl = document.getElementById('chat-status');
+      const messagesEl = document.getElementById('chat-messages');
+      const input = document.getElementById('chat-input');
+
+      const CANNED_REPLIES = [
+        "Thanks for the details — let me look into that for you.",
+        "Got it. I'm checking your account now, one moment.",
+        "I've made a note of this for the team. Is there anything else I can help with?"
+      ];
+      let replyIndex = 0;
+      let started = false;
+
+      function addMessage(text, sender) {
+        const row = document.createElement('div');
+        if (sender === 'system') {
+          row.className = 'text-center text-xs text-slate-400 italic';
+          row.textContent = text;
+        } else {
+          const isClient = sender === 'client';
+          row.className = `flex ${isClient ? 'justify-end' : 'justify-start'}`;
+          const bubble = document.createElement('div');
+          bubble.className = isClient
+            ? 'max-w-[80%] bg-navy text-white text-sm rounded-2xl rounded-br-sm px-3.5 py-2'
+            : 'max-w-[80%] bg-slate-100 text-slate-700 text-sm rounded-2xl rounded-bl-sm px-3.5 py-2';
+          bubble.textContent = text;
+          row.appendChild(bubble);
+        }
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function openChat() {
+        panel.classList.remove('hidden');
+        if (started) return;
+        started = true;
+        statusEl.textContent = 'Connecting...';
+        addMessage('Connecting you to an agent...', 'system');
+        setTimeout(() => {
+          statusEl.textContent = 'Online';
+          const firstName = DEMO_USER_NAME.split(' ')[0];
+          addMessage(`Hi ${firstName}, this is Sarah from Marketswave Support. How can I help you today?`, 'agent');
+        }, 1500);
+      }
+      function closeChat() { panel.classList.add('hidden'); }
+
+      function sendMessage() {
+        const text = input.value.trim();
+        if (!text) return;
+        addMessage(text, 'client');
+        input.value = '';
+        const reply = CANNED_REPLIES[replyIndex % CANNED_REPLIES.length];
+        replyIndex++;
+        setTimeout(() => addMessage(reply, 'agent'), 900 + Math.random() * 600);
+      }
+
+      document.getElementById('open-chat-btn').addEventListener('click', openChat);
+      document.getElementById('chat-close').addEventListener('click', closeChat);
+      document.getElementById('chat-send').addEventListener('click', sendMessage);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) closeChat();
+      });
+    })();
+
+    // ---- My Requests + Open a Dispute — persisted to localStorage, seeded on first load ----
+    (function () {
+      // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
+      // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
+      const STORAGE_KEY = clientScopedKey('marketswave_support_requests');
+      const SEED = [
+        { id: 'TCK-1042', reference: null, category: 'Account Access', description: 'Unable to log in after password reset — received an error on the final step.', status: 'Resolved', dateOpened: '2026-08-10', lastUpdated: '2026-08-12', evidence: null },
+        { id: 'DSP-2077', reference: 'TXN-48213', category: 'Billing/Fees', description: 'Management fee appears to have been charged twice for the August billing cycle.', status: 'In Progress', dateOpened: '2026-08-15', lastUpdated: '2026-08-18', evidence: 'fee_statement_aug.pdf' },
+        { id: 'TCK-1055', reference: null, category: 'Document/Signature Issue', description: "The signature request for the Custody Agreement Amendment isn't loading on mobile Safari.", status: 'Open', dateOpened: '2026-08-17', lastUpdated: '2026-08-17', evidence: null }
+      ];
+
+      let requests = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        requests = Array.isArray(stored) && stored.length ? stored : SEED.slice();
+      } catch (e) { requests = SEED.slice(); }
+
+      function saveRequests() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+      }
+      function fmtDate(iso) {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      }
+
+      const STATUS_CLASSES = {
+        Open: 'bg-amber-50 text-amber-700',
+        'In Progress': 'bg-blue-50 text-blue-700',
+        Resolved: 'bg-emerald-50 text-emerald-700'
+      };
+      const STATUS_DOT = {
+        Open: 'bg-amber-500',
+        'In Progress': 'bg-blue-500',
+        Resolved: 'bg-emerald-500'
+      };
+
+      function buildRequestRow(req) {
+        const wrap = document.createElement('div');
+        wrap.className = 'request-row border border-slate-200 rounded-xl overflow-hidden';
+        wrap.innerHTML = `
+          <button type="button" class="request-row-toggle w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition text-left">
+            <div class="flex items-center gap-4 min-w-0">
+              <span class="text-xs font-mono text-slate-400 shrink-0">${req.id}${req.reference ? ` · ${req.reference}` : ''}</span>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-navy truncate">${req.category}</p>
+                <p class="text-xs text-slate-500 truncate">${req.description}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="hidden sm:block text-xs text-slate-400">Opened ${fmtDate(req.dateOpened)}</span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CLASSES[req.status]}"><span class="w-1.5 h-1.5 rounded-full ${STATUS_DOT[req.status]}"></span>${req.status}</span>
+              <svg class="request-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </button>
+          <div class="request-detail hidden px-5 pb-4 pt-1 border-t border-slate-100 bg-slate-50/50">
+            <p class="text-xs text-slate-500 mb-1">Full Description</p>
+            <p class="text-sm text-slate-700 mb-3">${req.description}</p>
+            ${req.pmNote ? `
+            <p class="text-xs text-slate-500 mb-1">Portfolio Manager Response</p>
+            <p class="text-sm text-navy bg-navy/5 border border-navy/10 rounded-lg px-3 py-2 mb-3">${req.pmNote}</p>
+            ` : ''}
+            <div class="flex items-center justify-between text-xs text-slate-400 flex-wrap gap-1">
+              <span>Evidence: ${req.evidence ? req.evidence : 'None attached'}</span>
+              <span>Last updated ${fmtDate(req.lastUpdated)}</span>
+            </div>
+          </div>
+        `;
+        return wrap;
+      }
+
+      function renderRequests() {
+        const list = document.getElementById('requests-list');
+        const empty = document.getElementById('requests-empty');
+        const count = document.getElementById('requests-count');
+        list.innerHTML = '';
+        if (requests.length === 0) {
+          empty.classList.remove('hidden');
+        } else {
+          empty.classList.add('hidden');
+          [...requests].reverse().forEach(req => list.appendChild(buildRequestRow(req)));
+        }
+        count.textContent = `${requests.length} request${requests.length === 1 ? '' : 's'}`;
+      }
+      renderRequests();
+
+      document.getElementById('requests-list').addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('.request-row-toggle');
+        if (!toggleBtn) return;
+        const detail = toggleBtn.nextElementSibling;
+        const chevron = toggleBtn.querySelector('.request-chevron');
+        detail.classList.toggle('hidden');
+        chevron.classList.toggle('rotate-180');
+      });
+
+      // Open a Dispute — appends to the same requests list. Reference number is system-assigned
+      // at submission (DISP-0001 style), matching the sequential-id convention used across the
+      // engine (PROD-, TXN-, REQ-, SELL-) rather than typed in by the client.
+      function nextDisputeId() {
+        let maxNum = 0;
+        const re = /^DISP-(\d+)$/;
+        requests.forEach(r => {
+          const match = re.exec(r.id);
+          if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+        });
+        return `DISP-${String(maxNum + 1).padStart(4, '0')}`;
+      }
+
+      document.getElementById('dispute-submit').addEventListener('click', () => {
+        const category = document.getElementById('dispute-category').value;
+        const description = document.getElementById('dispute-description').value.trim();
+        const evidenceInput = document.getElementById('dispute-evidence');
+        const errorEl = document.getElementById('dispute-error');
+
+        if (!category || !description) {
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+
+        const id = nextDisputeId();
+        const today = new Date().toISOString().slice(0, 10);
+        const evidenceName = evidenceInput.files && evidenceInput.files[0] ? evidenceInput.files[0].name : null;
+
+        requests.push({
+          id,
+          reference: null,
+          category,
+          description,
+          status: 'Open',
+          dateOpened: today,
+          lastUpdated: today,
+          evidence: evidenceName
+        });
+        saveRequests();
+        renderRequests();
+
+        document.getElementById('dispute-category').value = '';
+        document.getElementById('dispute-description').value = '';
+        evidenceInput.value = '';
+
+        showToast('Dispute Submitted', `Dispute ${id} submitted.`);
+      });
+    })();
+  </script>
+</body>
+</html>

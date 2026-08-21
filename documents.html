@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documents & Reporting — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    @keyframes rowFlash {
+      0%, 100% { background-color: transparent; }
+      30% { background-color: rgba(200, 168, 87, 0.18); }
+    }
+    .row-flash { animation: rowFlash 1.6s ease; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8 flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <h2 class="text-2xl font-semibold text-navy">Documents & Reporting</h2>
+            <p class="text-slate-500 mt-1">Two-way document exchange between you and Marketswave.</p>
+          </div>
+          <div class="flex flex-wrap gap-2" id="notification-chips">
+            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition" data-target="new">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              <span id="chip-new-count">2</span> New Documents
+            </button>
+            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition" data-target="signature">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span id="chip-signature-count">1</span> Signature Required
+            </button>
+            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition" data-target="deadline">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+              <span id="chip-deadline-count">1</span> Deadline This Week
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label for="filter-category" class="block text-xs text-slate-500 mb-1">Category</label>
+              <select id="filter-category" name="category" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="">All Categories</option>
+                <option value="Contracts">Contracts</option>
+                <option value="Signature Required">Signature Required</option>
+                <option value="Statements & Reports">Statements & Reports</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+            <div>
+              <label for="filter-direction" class="block text-xs text-slate-500 mb-1">Direction</label>
+              <select id="filter-direction" name="direction" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="">All</option>
+                <option value="from">From Marketswave</option>
+                <option value="upload">Uploaded by You</option>
+              </select>
+            </div>
+            <div>
+              <label for="filter-date-from" class="block text-xs text-slate-500 mb-1">Date From</label>
+              <input type="date" id="filter-date-from" name="date_from" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+            </div>
+            <div>
+              <label for="filter-date-to" class="block text-xs text-slate-500 mb-1">Date To</label>
+              <input type="date" id="filter-date-to" name="date_to" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+            </div>
+            <button type="button" id="apply-filters" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Apply Filters</button>
+            <button type="button" id="reset-filters" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Reset</button>
+          </div>
+        </div>
+
+        <!-- From Marketswave -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8" id="from-section">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+              <h3 class="font-semibold text-navy">From Marketswave</h3>
+            </div>
+            <span class="text-xs text-slate-400" id="from-count">Showing all documents</span>
+          </div>
+          <div class="divide-y divide-slate-100" id="from-list">
+            <div id="from-empty" class="hidden px-6 py-10 text-center text-slate-400">No documents match your filters.</div>
+          </div>
+        </div>
+
+        <!-- Upload to Marketswave -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden" id="upload-section">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 3m0 0L7.5 7.5M12 3v13.5"/></svg>
+              <h3 class="font-semibold text-navy">Upload to Marketswave</h3>
+            </div>
+            <span class="text-xs text-slate-400" id="upload-count">Showing all uploads</span>
+          </div>
+
+          <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <div class="flex flex-wrap gap-3 items-end">
+              <div class="flex-1 min-w-[220px]">
+                <label for="upload-file" class="block text-xs text-slate-500 mb-1">File</label>
+                <input type="file" id="upload-file" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-navy file:text-white file:text-sm file:font-medium hover:file:bg-navy-dark file:cursor-pointer cursor-pointer">
+              </div>
+              <div>
+                <label for="upload-category" class="block text-xs text-slate-500 mb-1">Category</label>
+                <select id="upload-category" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                  <option value="Contracts">Contracts</option>
+                  <option value="Statements & Reports">Statements & Reports</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
+              <button type="button" id="submit-upload" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Upload Document</button>
+            </div>
+          </div>
+
+          <div class="divide-y divide-slate-100" id="upload-list">
+            <div id="upload-empty" class="hidden px-6 py-10 text-center text-slate-400">No uploads match your filters.</div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Confirmation Toast -->
+  <div id="doc-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="doc-toast-title">Done</p>
+    <p class="text-xs text-white/70 mt-1" id="doc-toast-body"></p>
+  </div>
+
+  <!-- Remove Document Confirm Modal -->
+  <div id="remove-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="remove-confirm-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-navy">Remove Document</p>
+        <button type="button" id="remove-confirm-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-6">Remove <span class="font-medium text-navy" id="remove-confirm-filename">this document</span> from your uploads?</p>
+      <div class="flex gap-3">
+        <button type="button" id="remove-confirm-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="remove-confirm-submit" class="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    // Sidebar must be mounted before the notification-count logic below runs, since that
+    // logic looks up #sidebar-doc-badge (rendered inside the sidebar) and overwrites its
+    // text with the real, live-computed count.
+    initDashboardSidebar('documents');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Migrated to read/write through engine-core.js's document store (Aug 20, 2026) instead
+    // of this page's own logic — same UI, same filters, same upload/sign/download/remove
+    // flows, same badge behavior, just backed by the shared engine now. Rows are rendered
+    // fresh from getDocuments() rather than hardcoded HTML, so every action re-renders
+    // rather than surgically patching one row's DOM in place (a behavior-preserving internal
+    // change, not a user-visible one).
+    (function () {
+      if (typeof getDocuments !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      // ---- Toast helper ----
+      var toast = document.getElementById('doc-toast');
+      var toastTitle = document.getElementById('doc-toast-title');
+      var toastBody = document.getElementById('doc-toast-body');
+      var toastTimer;
+      function showToast(title, body) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 3500);
+      }
+
+      // ---- Notification badge counts — now a reusable engine function, not logic living
+      // only in this page's script (getDocumentNotificationCounts() in engine-core.js) ----
+      function refreshNotificationCounts() {
+        var counts = getDocumentNotificationCounts();
+        document.getElementById('chip-new-count').textContent = counts.newCount;
+        document.getElementById('chip-signature-count').textContent = counts.signatureCount;
+        document.getElementById('chip-deadline-count').textContent = counts.deadlineCount;
+        var sidebarBadge = document.getElementById('sidebar-doc-badge');
+        sidebarBadge.textContent = counts.urgentCount;
+        sidebarBadge.classList.toggle('hidden', counts.urgentCount === 0);
+      }
+
+      function formatDisplayDate(isoDate) {
+        var d = new Date(isoDate + 'T00:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      // ---- Row rendering: one function producing the exact same markup the old hardcoded
+      // rows used, now driven by a document object instead of being written by hand ----
+      function docRowHTML(doc) {
+        var isFrom = doc.direction === 'from';
+        var parts = [];
+        if (doc.isNew) parts.push('<span class="new-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">New</span>');
+        if (doc.deadlineLabel) parts.push('<span class="deadline-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">' + doc.deadlineLabel + '</span>');
+        if (isFrom && doc.status === 'Signature Required') {
+          parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Signature Required</span>');
+          parts.push('<button type="button" class="sign-btn px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition">Sign</button>');
+        } else if (isFrom && doc.status === 'Signed') {
+          parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Signed</span>');
+        }
+        if (isFrom) {
+          parts.push('<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Download</button>');
+        } else {
+          var statusClass = doc.status === 'Under Review' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
+          parts.push('<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + statusClass + '">' + (doc.status || 'Received') + '</span>');
+          parts.push('<button type="button" class="remove-upload-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Remove</button>');
+        }
+
+        return '<div class="doc-row flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50/50 transition" data-doc-id="' + doc.id + '" data-category="' + doc.category + '" data-direction="' + doc.direction + '" data-date="' + doc.date + '" data-new="' + doc.isNew + '" data-signature="' + (doc.status === 'Signature Required') + '" data-deadline="' + (!!doc.deadlineLabel) + '">' +
+          '<div class="flex items-center gap-3 min-w-0">' +
+          '<div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center text-navy shrink-0">' +
+          '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+          '</div>' +
+          '<div class="min-w-0">' +
+          '<p class="text-sm font-medium text-navy truncate doc-name">' + doc.filename + '</p>' +
+          '<p class="text-xs text-slate-500">' + doc.category + ' · ' + formatDisplayDate(doc.date) + '</p>' +
+          '</div>' +
+          '</div>' +
+          '<div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">' +
+          parts.join('') +
+          '</div>' +
+          '</div>';
+      }
+
+      function renderDocumentLists() {
+        var allDocs = getDocuments();
+        var fromDocs = allDocs.filter(function (d) { return d.direction === 'from'; });
+        var uploadDocs = allDocs.filter(function (d) { return d.direction === 'upload'; });
+
+        var fromListEl = document.getElementById('from-list');
+        var uploadListEl = document.getElementById('upload-list');
+        var fromEmpty = document.getElementById('from-empty');
+        var uploadEmpty = document.getElementById('upload-empty');
+
+        Array.prototype.slice.call(fromListEl.querySelectorAll('.doc-row')).forEach(function (r) { r.remove(); });
+        Array.prototype.slice.call(uploadListEl.querySelectorAll('.doc-row')).forEach(function (r) { r.remove(); });
+
+        fromEmpty.insertAdjacentHTML('beforebegin', fromDocs.map(docRowHTML).join(''));
+        uploadEmpty.insertAdjacentHTML('beforebegin', uploadDocs.map(docRowHTML).join(''));
+      }
+
+      // ---- Filtering — category, direction, date range across both sections (same logic
+      // as before, now just re-querying freshly-rendered rows each time) ----
+      var fromEmpty = document.getElementById('from-empty');
+      var uploadEmpty = document.getElementById('upload-empty');
+      var fromCount = document.getElementById('from-count');
+      var uploadCount = document.getElementById('upload-count');
+      var fromSection = document.getElementById('from-section');
+      var uploadSection = document.getElementById('upload-section');
+
+      function applyFilters() {
+        var fromRows = Array.prototype.slice.call(document.querySelectorAll('#from-list .doc-row'));
+        var uploadRows = Array.prototype.slice.call(document.querySelectorAll('#upload-list .doc-row'));
+        var category = document.getElementById('filter-category').value;
+        var direction = document.getElementById('filter-direction').value;
+        var dateFrom = document.getElementById('filter-date-from').value;
+        var dateTo = document.getElementById('filter-date-to').value;
+
+        function filterSet(rows) {
+          var visible = 0;
+          rows.forEach(function (row) {
+            var matchesCategory = !category || row.dataset.category === category;
+            var matchesFrom = !dateFrom || row.dataset.date >= dateFrom;
+            var matchesTo = !dateTo || row.dataset.date <= dateTo;
+            var matchesDirection = !direction || row.dataset.direction === direction;
+            var isMatch = matchesCategory && matchesFrom && matchesTo && matchesDirection;
+            row.classList.toggle('hidden', !isMatch);
+            if (isMatch) visible++;
+          });
+          return visible;
+        }
+
+        var showFrom = !direction || direction === 'from';
+        var showUpload = !direction || direction === 'upload';
+
+        fromSection.classList.toggle('hidden', !showFrom);
+        uploadSection.classList.toggle('hidden', !showUpload);
+
+        var visibleFrom = showFrom ? filterSet(fromRows) : 0;
+        var visibleUpload = showUpload ? filterSet(uploadRows) : 0;
+
+        fromEmpty.classList.toggle('hidden', !showFrom || visibleFrom > 0);
+        uploadEmpty.classList.toggle('hidden', !showUpload || visibleUpload > 0);
+
+        fromCount.textContent = visibleFrom === fromRows.length
+          ? 'Showing all documents'
+          : 'Showing ' + visibleFrom + ' of ' + fromRows.length + ' documents';
+        uploadCount.textContent = visibleUpload === uploadRows.length
+          ? 'Showing all uploads'
+          : 'Showing ' + visibleUpload + ' of ' + uploadRows.length + ' uploads';
+      }
+
+      function resetFilters() {
+        document.getElementById('filter-category').value = '';
+        document.getElementById('filter-direction').value = '';
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        applyFilters();
+      }
+
+      document.getElementById('apply-filters').addEventListener('click', applyFilters);
+      document.getElementById('reset-filters').addEventListener('click', resetFilters);
+
+      function flashRow(row) {
+        if (!row) return;
+        row.classList.remove('row-flash');
+        void row.offsetWidth;
+        row.classList.add('row-flash');
+      }
+
+      // ---- Notification chips — clear filters, then jump to and flash the first matching row ----
+      document.querySelectorAll('.notif-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          resetFilters();
+          var target = chip.dataset.target;
+          var attr = target === 'new' ? 'new' : target === 'signature' ? 'signature' : 'deadline';
+          var row = document.querySelector('.doc-row[data-' + attr + '="true"]');
+          if (!row) return;
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          flashRow(row);
+        });
+      });
+
+      // ---- Sign action: updateDocument() clears status/isNew/deadlineLabel together in
+      // one atomic engine call, then the row re-renders from the updated data ----
+      document.getElementById('from-list').addEventListener('click', function (e) {
+        var signBtn = e.target.closest('.sign-btn');
+        var downloadBtn = e.target.closest('.download-btn');
+        if (signBtn) {
+          var docId = signBtn.closest('.doc-row').dataset.docId;
+          var doc = getDocument(docId);
+          if (!doc) return;
+          updateDocument(docId, { status: 'Signed', isNew: false, deadlineLabel: null });
+          renderDocumentLists();
+          applyFilters();
+          refreshNotificationCounts();
+          showToast('Signature Captured', doc.filename + ' has been marked as signed.');
+        } else if (downloadBtn) {
+          var dId = downloadBtn.closest('.doc-row').dataset.docId;
+          var d = getDocument(dId);
+          if (!d) return;
+          if (d.isNew) {
+            updateDocument(dId, { isNew: false });
+            renderDocumentLists();
+            applyFilters();
+            refreshNotificationCounts();
+          }
+          showToast('Download Started', d.filename + ' is downloading.');
+        }
+      });
+
+      // ---- Upload form: addDocument() creates the record, then the row renders from it ----
+      document.getElementById('submit-upload').addEventListener('click', function () {
+        var fileInput = document.getElementById('upload-file');
+        var category = document.getElementById('upload-category').value;
+        var fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'Untitled Document.pdf';
+
+        var newDoc = addDocument({ filename: fileName, category: category, direction: 'upload', status: 'Received', isNew: false, deadlineLabel: null });
+
+        fileInput.value = '';
+        renderDocumentLists();
+        applyFilters();
+        refreshNotificationCounts();
+        flashRow(document.querySelector('.doc-row[data-doc-id="' + newDoc.id + '"]'));
+        showToast('Document Uploaded', fileName + ' was sent to Marketswave and is pending review.');
+      });
+
+      // ---- Remove uploaded document: custom confirm modal (not window.confirm — native dialogs
+      // block browser automation entirely), removeDocument() deletes the record, then re-renders ----
+      var removeConfirmModal = document.getElementById('remove-confirm-modal');
+      var removeConfirmFilename = document.getElementById('remove-confirm-filename');
+      var pendingRemoveDocId = null;
+
+      function closeRemoveConfirmModal() {
+        removeConfirmModal.classList.add('hidden');
+        pendingRemoveDocId = null;
+      }
+
+      document.getElementById('upload-list').addEventListener('click', function (e) {
+        var removeBtn = e.target.closest('.remove-upload-btn');
+        if (!removeBtn) return;
+        var docId = removeBtn.closest('.doc-row').dataset.docId;
+        var doc = getDocument(docId);
+        if (!doc) return;
+        pendingRemoveDocId = docId;
+        removeConfirmFilename.textContent = doc.filename;
+        removeConfirmModal.classList.remove('hidden');
+      });
+
+      document.getElementById('remove-confirm-close').addEventListener('click', closeRemoveConfirmModal);
+      document.getElementById('remove-confirm-backdrop').addEventListener('click', closeRemoveConfirmModal);
+      document.getElementById('remove-confirm-cancel').addEventListener('click', closeRemoveConfirmModal);
+
+      document.getElementById('remove-confirm-submit').addEventListener('click', function () {
+        if (!pendingRemoveDocId) return;
+        var doc = getDocument(pendingRemoveDocId);
+        if (!doc) { closeRemoveConfirmModal(); return; }
+        removeDocument(pendingRemoveDocId);
+        closeRemoveConfirmModal();
+        renderDocumentLists();
+        applyFilters();
+        refreshNotificationCounts();
+        showToast('Document Removed', doc.filename + ' was removed from your uploads.');
+      });
+
+      // ---- Initial load ----
+      renderDocumentLists();
+      applyFilters();
+      refreshNotificationCounts();
+    })();
+  </script>
+</body>
+</html>

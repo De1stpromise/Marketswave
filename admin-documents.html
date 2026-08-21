@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documents — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Documents</h2>
+          <p class="text-slate-500 mt-1">Client uploads awaiting review, and documents published from Marketswave — across every client.</p>
+        </div>
+
+        <!-- Client uploads awaiting review -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Client Uploads Awaiting Review <span id="pending-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="pending-list"></div>
+        </div>
+
+        <!-- Publish to Client -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Publish to Client</h3>
+            <p class="text-xs text-slate-500 mt-1">Delivers a new "From Marketswave" document straight into the selected client's Documents &amp; Reporting page.</p>
+          </div>
+          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Client</label>
+              <select id="publish-client" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+              <select id="publish-category" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+                <option value="Contracts">Contracts</option>
+                <option value="Statements & Reports">Statements &amp; Reports</option>
+                <option value="Signature Required">Signature Required</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-slate-700 mb-1">Document File</label>
+              <input type="file" id="publish-file" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-slate-900 file:text-white file:text-sm file:font-medium hover:file:bg-slate-700 file:cursor-pointer cursor-pointer" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Due Date <span class="text-slate-400 font-normal">(optional)</span></label>
+              <input type="date" id="publish-due-date" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+            </div>
+            <div class="flex items-center gap-2 mt-6">
+              <input type="checkbox" id="publish-signature-required" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+              <label for="publish-signature-required" class="text-sm text-slate-700">Signature required</label>
+            </div>
+            <p class="text-xs text-red-500 hidden md:col-span-2" id="publish-error"></p>
+            <div class="md:col-span-2">
+              <button type="button" id="publish-submit" class="px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Publish Document</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">History</h3>
+            <p class="text-xs text-slate-500 mt-1">Every document published from Marketswave, plus reviewed client uploads — across every client, newest first.</p>
+          </div>
+          <div id="history-list" class="overflow-x-auto"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('documents');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getAllClientDocuments !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function formatDisplayDate(isoDate) {
+        var d = new Date(isoDate + 'T00:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      // ---- Client dropdown for the Publish to Client form ----
+      var clientSelect = document.getElementById('publish-client');
+      function populateClientSelect() {
+        var clients = getAllClients();
+        clientSelect.innerHTML = clients.map(function (c) {
+          return '<option value="' + c.id + '">' + c.name + ' (' + c.id + ')</option>';
+        }).join('');
+      }
+
+      function renderPending() {
+        var uploads = getAllClientDocuments()
+          .filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; })
+          .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
+        document.getElementById('pending-count').textContent = uploads.length ? '(' + uploads.length + ')' : '';
+        var listEl = document.getElementById('pending-list');
+
+        if (uploads.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No client uploads awaiting review.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + uploads.map(function (d) {
+          var statusClass = d.status === 'Under Review' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
+          return '<div class="px-6 py-4 flex flex-wrap items-center justify-between gap-4">' +
+            '<div class="min-w-0">' +
+              '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + d.clientName + ' (' + d.clientId + ')</span>' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + (d.status || 'Received') + '</span>' +
+              '</div>' +
+              '<p class="text-sm font-medium text-slate-900">' + d.filename + '</p>' +
+              '<p class="text-xs text-slate-500">' + d.category + ' · Uploaded ' + formatDisplayDate(d.date) + '</p>' +
+            '</div>' +
+            '<div class="shrink-0 flex gap-2">' +
+              '<button type="button" class="download-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-filename="' + d.filename.replace(/"/g, '&quot;') + '">Download</button>' +
+              '<button type="button" class="review-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + d.clientId + '" data-doc="' + d.id + '">Mark Reviewed</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      function renderHistory() {
+        var items = getAllClientDocuments()
+          .filter(function (d) { return d.direction === 'from' || d.status === 'Reviewed'; })
+          .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
+        var listEl = document.getElementById('history-list');
+
+        if (items.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No document activity yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
+          '<th class="text-left font-medium px-6 py-3">Document</th>' +
+          '<th class="text-left font-medium px-6 py-3">Category</th>' +
+          '<th class="text-left font-medium px-6 py-3">Direction</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Date</th>' +
+          '<th class="text-left font-medium px-6 py-3"></th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          items.map(function (d) {
+            var directionLabel = d.direction === 'from' ? 'From Marketswave' : 'Uploaded by Client';
+            var actionCell = d.direction === 'upload'
+              ? '<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-filename="' + d.filename.replace(/"/g, '&quot;') + '">Download</button>'
+              : '';
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + d.clientName + ' (' + d.clientId + ')</td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + d.filename + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + d.category + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + directionLabel + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + (d.status || '—') + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + formatDisplayDate(d.date) + '</td>' +
+              '<td class="px-6 py-4 text-right">' + actionCell + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      function renderAll() {
+        renderPending();
+        renderHistory();
+      }
+
+      // Download is a stub, matching documents.html's own existing "Download" button for
+      // "From Marketswave" documents (see its download-btn handler) — this project never
+      // stores real file bytes anywhere, only the filename a client typed/selected at upload
+      // time (see engine-core.js's Documents & Reporting section), so there is no real file
+      // content behind either button to actually transfer. Confirms the action fired rather
+      // than leaving the control decorative, per the project's own stub convention.
+      function handleDownloadClick(e) {
+        var btn = e.target.closest('.download-btn');
+        if (!btn) return;
+        showToast('Download Started', btn.dataset.filename + ' is downloading.');
+      }
+
+      document.getElementById('pending-list').addEventListener('click', function (e) {
+        handleDownloadClick(e);
+        var btn = e.target.closest('.review-btn');
+        if (!btn) return;
+        try {
+          var result = updateDocumentForClient(btn.dataset.client, btn.dataset.doc, { status: 'Reviewed' });
+          showToast('Document Reviewed', result.filename + ' marked as reviewed.');
+          renderAll();
+        } catch (e2) {
+          showToast('Error', e2.message, true);
+        }
+      });
+
+      document.getElementById('history-list').addEventListener('click', handleDownloadClick);
+
+      document.getElementById('publish-submit').addEventListener('click', function () {
+        var errorEl = document.getElementById('publish-error');
+        errorEl.classList.add('hidden');
+        var clientId = clientSelect.value;
+        var category = document.getElementById('publish-category').value;
+        var fileInput = document.getElementById('publish-file');
+        var filename = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+        var dueDate = document.getElementById('publish-due-date').value || null;
+        var signatureRequired = document.getElementById('publish-signature-required').checked;
+
+        if (!filename) {
+          errorEl.textContent = 'Choose a file to publish.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        try {
+          var result = publishDocumentToClient(clientId, {
+            filename: filename,
+            category: category,
+            signatureRequired: signatureRequired,
+            dueDate: dueDate
+          });
+          showToast('Document Published', result.filename + ' delivered to ' + clientSelect.options[clientSelect.selectedIndex].text + '.');
+          fileInput.value = '';
+          document.getElementById('publish-due-date').value = '';
+          document.getElementById('publish-signature-required').checked = false;
+          renderAll();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.classList.remove('hidden');
+        }
+      });
+
+      populateClientSelect();
+      renderAll();
+    })();
+  </script>
+
+</body>
+</html>

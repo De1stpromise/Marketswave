@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>High Yield Savings — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">High Yield Savings</h2>
+          <p class="text-slate-500 mt-1">A separate savings pool, held apart from your main portfolio.</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">HYS Total Balance</p>
+            <p class="text-2xl font-semibold text-navy" id="hys-total-balance">$0.00</p>
+            <p class="text-xs text-slate-400 mt-2">Held separately — not included in your Total Portfolio Value.</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Active Pockets</p>
+            <p class="text-2xl font-semibold text-navy" id="hys-active-count">0</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Total Projected Interest</p>
+            <p class="text-2xl font-semibold text-emerald-600" id="hys-total-interest">$0.00</p>
+          </div>
+        </div>
+
+        <!-- My Pockets -->
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-navy">My Pockets</h3>
+          <button type="button" id="open-new-pocket-btn" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">+ Open New Pocket</button>
+        </div>
+
+        <div id="pockets-empty" class="hidden bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
+          You don't have any savings pockets yet. Open one to start earning.
+        </div>
+        <div id="pockets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+        <!-- My Pocket Requests — "show everything" principle, same as asset-performance.html's
+             own My Requests section: every request, every status, newest first. -->
+        <div class="mt-8">
+          <h3 class="text-lg font-semibold text-navy mb-4">My Pocket Requests</h3>
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div id="pocket-requests-list"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========== NEW POCKET MODAL ========== -->
+  <div id="new-pocket-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="np-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-5">
+        <h3 class="font-semibold text-navy text-lg">Open a New Pocket</h3>
+        <button type="button" id="np-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+
+      <!-- Step: type -->
+      <div class="np-step" data-step="type">
+        <p class="text-sm text-slate-500 mb-4">Choose the type of savings pocket you'd like to open.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button type="button" class="np-type-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-type="fixed">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Fixed Deposit</h4>
+            <p class="text-xs text-slate-500">Lock funds for a set term and earn a fixed rate.</p>
+          </button>
+          <button type="button" class="np-type-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-type="ayw">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">As You Want</h4>
+            <p class="text-xs text-slate-500">No term, no minimum. Withdraw anytime.</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step: fd-details -->
+      <div class="np-step hidden" data-step="fd-details">
+        <div class="flex gap-1.5 mb-4 flex-wrap" id="np-term-mode-tabs">
+          <button type="button" class="np-term-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-navy text-white transition" data-mode="short">Short-Term (1–12 Months)</button>
+          <button type="button" class="np-term-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-mode="locked">Locked (1–5 Years)</button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Term</label>
+            <select id="np-term-select" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount</label>
+            <input type="number" id="np-fd-amount" placeholder="5000" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <p class="text-xs text-slate-400 mt-1">$5,000 minimum.</p>
+            <p class="text-xs text-red-500 hidden mt-1" id="np-fd-amount-error">Minimum deposit is $5,000.</p>
+          </div>
+
+          <div class="bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm">
+            <div class="flex justify-between mb-1.5"><span class="text-slate-500">Rate</span><span class="font-medium text-navy" id="np-fd-rate">—</span></div>
+            <div class="flex justify-between mb-1.5"><span class="text-slate-500">Maturity Date</span><span class="font-medium text-navy" id="np-fd-maturity">—</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Estimated Interest</span><span class="font-medium text-emerald-600" id="np-fd-interest">—</span></div>
+            <p class="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-200">Simple annualized interest, not compounding.</p>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
+          <button type="button" id="np-fd-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step: ayw-details -->
+      <div class="np-step hidden" data-step="ayw-details">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount</label>
+            <input type="number" id="np-ayw-amount" placeholder="0.00" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <p class="text-xs text-red-500 hidden mt-1" id="np-ayw-amount-error">Please enter an amount.</p>
+          </div>
+          <p class="text-xs text-slate-400">As You Want pockets have no minimum, no fixed term, and no fixed rate — withdraw anytime.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
+          <button type="button" id="np-ayw-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step: funding -->
+      <div class="np-step hidden" data-step="funding">
+        <p class="text-sm text-slate-600 mb-4">Funding amount: <span class="font-semibold text-navy" id="np-funding-amount">$0.00</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button type="button" class="np-funding-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="crypto">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Crypto</h4>
+            <p class="text-xs text-slate-500">Fund from a digital wallet.</p>
+          </button>
+          <button type="button" class="np-funding-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="bank">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Bank</h4>
+            <p class="text-xs text-slate-500">Fund via bank transfer.</p>
+          </button>
+        </div>
+        <div class="pt-5">
+          <button type="button" id="np-funding-back" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
+        </div>
+      </div>
+
+      <!-- Step: funding-crypto -->
+      <div class="np-step hidden" data-step="funding-crypto">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
+            <select id="np-crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <option value="">Select asset</option>
+              <option value="BTC">Bitcoin (BTC)</option>
+              <option value="ETH">Ethereum (ETH)</option>
+              <option value="USDT">Tether (USDT)</option>
+              <option value="USDC">USD Coin (USDC)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Network</label>
+            <select id="np-crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <option value="">Select network</option>
+              <option value="ERC20">ERC-20</option>
+              <option value="TRC20">TRC-20</option>
+              <option value="BEP20">BEP-20</option>
+              <option value="Native">Native</option>
+            </select>
+          </div>
+          <p class="text-xs text-red-500 hidden" id="np-crypto-error">Please select an asset and network.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="funding">Back</button>
+          <button type="button" id="np-crypto-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm &amp; Submit Request</button>
+        </div>
+      </div>
+
+      <!-- Step: funding-bank -->
+      <div class="np-step hidden" data-step="funding-bank">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Full Legal Name</label>
+            <input type="text" id="np-bank-name" placeholder="As it appears on your bank account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
+            <input type="text" id="np-bank-institution" placeholder="Name of your bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
+            <input type="text" id="np-bank-account" placeholder="Your account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
+              <input type="text" id="np-bank-routing" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC</label>
+              <input type="text" id="np-bank-swift" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">Provide either a routing number or a SWIFT / BIC code.</p>
+          <p class="text-xs text-red-500 hidden" id="np-bank-error">Please complete the required fields, including a routing number or SWIFT / BIC code.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="funding">Back</button>
+          <button type="button" id="np-bank-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm &amp; Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== WITHDRAW MODAL ========== -->
+  <div id="withdraw-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="wd-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-5">
+        <h3 class="font-semibold text-navy text-lg">Withdraw Pocket</h3>
+        <button type="button" id="wd-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="wd-step hidden" data-step="warning">
+        <div class="rounded-xl bg-red-50 border border-red-100 p-4 mb-5">
+          <p class="text-sm font-medium text-red-700 mb-1">Interest will be forfeited</p>
+          <p class="text-xs text-red-600">This pocket has not yet reached maturity. Withdrawing now returns your principal of <span id="wd-warning-principal" class="font-semibold">$0.00</span> only — the accrued interest of <span id="wd-warning-interest" class="font-semibold">$0.00</span> will be forfeited.</p>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" id="wd-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+          <button type="button" id="wd-warning-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue Anyway</button>
+        </div>
+      </div>
+
+      <div class="wd-step hidden" data-step="destination">
+        <p class="text-sm text-slate-600 mb-4">You will receive <span class="font-semibold text-navy" id="wd-receive-amount">$0.00</span>.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button type="button" class="wd-method-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="crypto">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Crypto</h4>
+            <p class="text-xs text-slate-500">Send to a digital wallet.</p>
+          </button>
+          <button type="button" class="wd-method-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="bank">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Bank</h4>
+            <p class="text-xs text-slate-500">Send to a bank account.</p>
+          </button>
+        </div>
+      </div>
+
+      <div class="wd-step hidden" data-step="crypto">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Destination Wallet Address</label>
+            <input type="text" id="wd-crypto-address" placeholder="Your wallet address" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
+            <select id="wd-crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <option value="">Select asset</option>
+              <option value="BTC">Bitcoin (BTC)</option>
+              <option value="ETH">Ethereum (ETH)</option>
+              <option value="USDT">Tether (USDT)</option>
+              <option value="USDC">USD Coin (USDC)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Network</label>
+            <select id="wd-crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <option value="">Select network</option>
+              <option value="ERC20">ERC-20</option>
+              <option value="TRC20">TRC-20</option>
+              <option value="BEP20">BEP-20</option>
+              <option value="Native">Native</option>
+            </select>
+          </div>
+          <p class="text-xs text-red-500 hidden" id="wd-crypto-error">Please complete all fields.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="wd-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="destination">Back</button>
+          <button type="button" id="wd-crypto-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm Withdrawal</button>
+        </div>
+      </div>
+
+      <div class="wd-step hidden" data-step="bank">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Recipient Full Name</label>
+            <input type="text" id="wd-bank-name" placeholder="As it appears on your bank account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
+            <input type="text" id="wd-bank-institution" placeholder="Name of your bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
+            <input type="text" id="wd-bank-account" placeholder="Recipient account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
+              <input type="text" id="wd-bank-routing" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC</label>
+              <input type="text" id="wd-bank-swift" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+          </div>
+          <p class="text-xs text-slate-400">Provide either a routing number or a SWIFT / BIC code.</p>
+          <p class="text-xs text-red-500 hidden" id="wd-bank-error">Please complete the required fields, including a routing number or SWIFT / BIC code.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="wd-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="destination">Back</button>
+          <button type="button" id="wd-bank-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm Withdrawal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="hys-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="hys-toast-title">Done</p>
+    <p class="text-xs text-white/70 mt-1" id="hys-toast-body"></p>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('high-yield-savings');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // ---- Data ----
+    // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
+    // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
+    const STORAGE_KEY = clientScopedKey('marketswave_hys_pockets');
+    const SHORT_TERM_BRACKETS = [
+      { max: 2, rate: 5 }, { max: 4, rate: 7 }, { max: 6, rate: 8.5 },
+      { max: 8, rate: 9.5 }, { max: 10, rate: 10.5 }, { max: 12, rate: 12 }
+    ];
+    const LOCKED_RATES = { 1: 14, 2: 16, 3: 17.5, 4: 19, 5: 20 };
+
+    let pockets = [];
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (Array.isArray(stored)) pockets = stored;
+    } catch (e) { pockets = []; }
+
+    function savePockets() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pockets));
+    }
+
+    // ---- Helpers ----
+    function fmt(n) {
+      return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    function formatDate(iso) {
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    }
+    function daysUntil(iso) {
+      return Math.ceil((new Date(iso) - new Date()) / 86400000);
+    }
+    function getShortTermRate(months) {
+      const bracket = SHORT_TERM_BRACKETS.find(b => months <= b.max);
+      return bracket ? bracket.rate : SHORT_TERM_BRACKETS[SHORT_TERM_BRACKETS.length - 1].rate;
+    }
+    function computeFDFields(amount, mode, termValue) {
+      const now = new Date();
+      let rate, maturity, termInYears, termLabel, termMonths = null, termYears = null;
+      if (mode === 'short') {
+        termMonths = termValue;
+        rate = getShortTermRate(termMonths);
+        maturity = new Date(now); maturity.setMonth(maturity.getMonth() + termMonths);
+        termInYears = termMonths / 12;
+        termLabel = `${termMonths} Month${termMonths > 1 ? 's' : ''}`;
+      } else {
+        termYears = termValue;
+        rate = LOCKED_RATES[termYears];
+        maturity = new Date(now); maturity.setFullYear(maturity.getFullYear() + termYears);
+        termInYears = termYears;
+        termLabel = `${termYears} Year${termYears > 1 ? 's' : ''}`;
+      }
+      const projectedInterest = amount * (rate / 100) * termInYears;
+      return { rate, maturityDate: maturity.toISOString(), termLabel, termMonths, termYears, projectedInterest };
+    }
+
+    // ---- Render ----
+    function updatePocketStatuses() {
+      const now = new Date();
+      let changed = false;
+      pockets.forEach(p => {
+        if (p.type === 'fixed' && p.status === 'active' && p.maturityDate && new Date(p.maturityDate) <= now) {
+          p.status = 'matured';
+          changed = true;
+        }
+      });
+      if (changed) savePockets();
+    }
+
+    function renderSummary() {
+      const held = pockets.filter(p => p.status !== 'withdrawn');
+      const total = held.reduce((sum, p) => sum + p.amount, 0);
+      const totalInterest = held.filter(p => p.type === 'fixed').reduce((sum, p) => sum + p.projectedInterest, 0);
+      document.getElementById('hys-total-balance').textContent = fmt(total);
+      document.getElementById('hys-active-count').textContent = held.length;
+      document.getElementById('hys-total-interest').textContent = fmt(totalInterest);
+    }
+
+    function buildPocketCard(p) {
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-2xl border border-slate-200 p-5' + (p.status === 'withdrawn' ? ' opacity-60' : '');
+
+      const statusClasses = {
+        active: 'bg-emerald-50 text-emerald-700',
+        matured: 'bg-blue-50 text-blue-700',
+        withdrawn: 'bg-slate-100 text-slate-500'
+      };
+      const statusLabel = { active: 'Active', matured: 'Matured', withdrawn: 'Withdrawn' }[p.status];
+      const title = p.type === 'fixed' ? `Fixed Deposit — ${p.termLabel}` : 'As You Want';
+
+      let termBlock;
+      if (p.type === 'fixed') {
+        const days = daysUntil(p.maturityDate);
+        const maturityText = (p.status !== 'withdrawn' && days > 0)
+          ? `Matures in ${days} day${days === 1 ? '' : 's'} · ${formatDate(p.maturityDate)}`
+          : `Matured ${formatDate(p.maturityDate)}`;
+        const interestLabel = p.status === 'withdrawn' ? 'Interest Paid' : 'Projected Interest';
+        const interestValue = p.status === 'withdrawn' ? (p.withdrawnAmount - p.amount) : p.projectedInterest;
+        termBlock = `
+          <div class="flex justify-between text-sm mb-1"><span class="text-slate-500">Term</span><span class="font-medium text-navy">${p.termLabel} @ ${p.rate}% APR</span></div>
+          <div class="flex justify-between text-sm mb-1"><span class="text-slate-500">Maturity</span><span class="font-medium text-navy">${maturityText}</span></div>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">${interestLabel}</span><span class="font-medium ${interestValue > 0 ? 'text-emerald-600' : 'text-slate-400'}">${fmt(interestValue)}</span></div>
+        `;
+      } else {
+        termBlock = `<div class="flex justify-between text-sm"><span class="text-slate-500">Projected Interest</span><span class="font-medium text-slate-400">N/A — no fixed rate</span></div>`;
+      }
+
+      let actionBlock;
+      if (p.status === 'withdrawn') {
+        actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Withdrawn ${formatDate(p.withdrawnAt)} · ${fmt(p.withdrawnAmount)} to ${p.withdrawalMethod}</p>`;
+      } else if (p.type === 'fixed' && p.termMode === 'locked' && p.status === 'active') {
+        actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Locked until maturity — no early withdrawal available.</p>`;
+      } else {
+        actionBlock = `<button type="button" class="withdraw-btn mt-4 w-full py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition" data-id="${p.id}">Withdraw</button>`;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <p class="font-semibold text-navy">${title}</p>
+            <p class="text-xs text-slate-400 mt-0.5">Opened ${formatDate(p.createdAt)}</p>
+          </div>
+          <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${statusClasses[p.status]}">${statusLabel}</span>
+        </div>
+        <p class="text-2xl font-semibold text-navy mb-3">${fmt(p.amount)}</p>
+        ${termBlock}
+        ${actionBlock}
+      `;
+      return card;
+    }
+
+    function renderPockets() {
+      updatePocketStatuses();
+      const grid = document.getElementById('pockets-grid');
+      const empty = document.getElementById('pockets-empty');
+      grid.innerHTML = '';
+
+      if (pockets.length === 0) {
+        empty.classList.remove('hidden');
+      } else {
+        empty.classList.add('hidden');
+        [...pockets].reverse().forEach(p => grid.appendChild(buildPocketCard(p)));
+      }
+      renderSummary();
+    }
+
+    // ---- My Pocket Requests ----
+    const POCKET_REQUEST_STATUS_STYLES = {
+      pending: 'bg-amber-50 text-amber-700',
+      credited: 'bg-emerald-50 text-emerald-700',
+      rejected: 'bg-red-50 text-red-700'
+    };
+
+    function pocketRequestTypeLabel(r) {
+      return r.pocketType === 'fixed' ? `Fixed Deposit (${r.termLabel})` : 'As You Want';
+    }
+
+    function renderPocketRequests() {
+      const listEl = document.getElementById('pocket-requests-list');
+      if (!listEl || typeof getHYSDepositRequests !== 'function') return;
+      const requests = getHYSDepositRequests().sort((a, b) => b.requestedAtMs - a.requestedAtMs);
+
+      if (requests.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No requests yet.</p>';
+        return;
+      }
+
+      listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+        '<th class="text-left font-medium px-6 py-3">Request</th>' +
+        '<th class="text-left font-medium px-6 py-3">Type</th>' +
+        '<th class="text-right font-medium px-6 py-3">Amount</th>' +
+        '<th class="text-left font-medium px-6 py-3">Method</th>' +
+        '<th class="text-left font-medium px-6 py-3">Status</th>' +
+        '<th class="text-left font-medium px-6 py-3">Requested</th>' +
+        '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+        '</tr></thead><tbody class="divide-y divide-slate-100">' +
+        requests.map(r => {
+          const statusClass = POCKET_REQUEST_STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+          const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+          const amountCell = r.status === 'credited' && r.creditedAmount !== r.requestedAmount
+            ? `${fmt(r.creditedAmount)} <span class="text-amber-600 text-xs">(requested ${fmt(r.requestedAmount)})</span>`
+            : fmt(r.requestedAmount);
+          const resolvedText = r.resolvedAt
+            ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
+            : '—';
+          return '<tr class="hover:bg-slate-50/50">' +
+            `<td class="px-6 py-4 font-medium text-navy">${r.id}</td>` +
+            `<td class="px-6 py-4">${pocketRequestTypeLabel(r)}</td>` +
+            `<td class="px-6 py-4 text-right">${amountCell}</td>` +
+            `<td class="px-6 py-4 text-slate-500">${r.method === 'crypto' ? 'Crypto' : 'Bank Transfer'}</td>` +
+            `<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ${statusClass}">${statusLabel}</span></td>` +
+            `<td class="px-6 py-4 text-slate-500">${r.requestedAt}</td>` +
+            `<td class="px-6 py-4 text-slate-500">${resolvedText}</td>` +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+    }
+
+    // ---- Toast ----
+    const hysToast = document.getElementById('hys-toast');
+    const hysToastTitle = document.getElementById('hys-toast-title');
+    const hysToastBody = document.getElementById('hys-toast-body');
+    let hysToastTimer;
+    function showToast(title, body) {
+      hysToastTitle.textContent = title;
+      hysToastBody.textContent = body;
+      hysToast.classList.remove('hidden');
+      clearTimeout(hysToastTimer);
+      hysToastTimer = setTimeout(() => hysToast.classList.add('hidden'), 3500);
+    }
+
+    // ---- New Pocket modal ----
+    const newPocketModal = document.getElementById('new-pocket-modal');
+    let draft = {};
+    let currentTermMode = 'short';
+
+    function showNpStep(name) {
+      document.querySelectorAll('#new-pocket-modal .np-step').forEach(el => {
+        el.classList.toggle('hidden', el.dataset.step !== name);
+      });
+    }
+
+    function renderTermOptions(mode) {
+      const select = document.getElementById('np-term-select');
+      select.innerHTML = '';
+      if (mode === 'short') {
+        for (let m = 1; m <= 12; m++) {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = `${m} Month${m > 1 ? 's' : ''} — ${getShortTermRate(m)}% APR`;
+          select.appendChild(opt);
+        }
+      } else {
+        for (let y = 1; y <= 5; y++) {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = `${y} Year${y > 1 ? 's' : ''} — ${LOCKED_RATES[y]}% APR`;
+          select.appendChild(opt);
+        }
+      }
+      updateFDPreview();
+    }
+
+    function updateFDPreview() {
+      const amountRaw = parseFloat(document.getElementById('np-fd-amount').value);
+      const amount = amountRaw > 0 ? amountRaw : 0;
+      const termValue = parseInt(document.getElementById('np-term-select').value, 10);
+      const rateEl = document.getElementById('np-fd-rate');
+      const maturityEl = document.getElementById('np-fd-maturity');
+      const interestEl = document.getElementById('np-fd-interest');
+      if (!termValue) { rateEl.textContent = '—'; maturityEl.textContent = '—'; interestEl.textContent = '—'; return; }
+      const fields = computeFDFields(amount, currentTermMode, termValue);
+      rateEl.textContent = `${fields.rate}% APR`;
+      maturityEl.textContent = formatDate(fields.maturityDate);
+      interestEl.textContent = amount > 0 ? fmt(fields.projectedInterest) : '—';
+    }
+
+    function resetAllNpForms() {
+      document.getElementById('np-fd-amount').value = '';
+      document.getElementById('np-fd-amount-error').classList.add('hidden');
+      document.getElementById('np-ayw-amount').value = '';
+      document.getElementById('np-ayw-amount-error').classList.add('hidden');
+      document.getElementById('np-crypto-asset').value = '';
+      document.getElementById('np-crypto-network').value = '';
+      document.getElementById('np-crypto-error').classList.add('hidden');
+      document.getElementById('np-bank-name').value = '';
+      document.getElementById('np-bank-institution').value = '';
+      document.getElementById('np-bank-account').value = '';
+      document.getElementById('np-bank-routing').value = '';
+      document.getElementById('np-bank-swift').value = '';
+      document.getElementById('np-bank-error').classList.add('hidden');
+
+      currentTermMode = 'short';
+      document.querySelectorAll('.np-term-mode-tab').forEach(t => {
+        const active = t.dataset.mode === 'short';
+        t.classList.toggle('bg-navy', active);
+        t.classList.toggle('text-white', active);
+        t.classList.toggle('bg-slate-100', !active);
+        t.classList.toggle('text-slate-600', !active);
+      });
+      renderTermOptions('short');
+    }
+
+    function openNewPocketModal() {
+      draft = {};
+      resetAllNpForms();
+      showNpStep('type');
+      newPocketModal.classList.remove('hidden');
+    }
+    function closeNewPocketModal() {
+      newPocketModal.classList.add('hidden');
+    }
+
+    function goToFunding() {
+      document.getElementById('np-funding-amount').textContent = fmt(draft.amount);
+      document.getElementById('np-funding-back').dataset.target = draft.type === 'fixed' ? 'fd-details' : 'ayw-details';
+      showNpStep('funding');
+    }
+
+    // Multi-Client Data Model / HYS Deposit Approval Queue phase (Aug 21, 2026): "Open a New
+    // Pocket" now submits a request via requestHYSDeposit() instead of creating the pocket
+    // immediately — same UX shift Deploy Capital already went through for portfolio
+    // allocations. The pocket itself is only ever created by creditHYSDeposit(), called from
+    // the admin tool once a Portfolio Manager approves — this function no longer touches
+    // `pockets`/savePockets() at all.
+    function submitPocketRequest(method, details) {
+      const term = draft.type === 'fixed'
+        ? { mode: draft.termMode, value: draft.termMode === 'short' ? draft.termMonths : draft.termYears }
+        : null;
+      try {
+        requestHYSDeposit(draft.type, term, draft.amount, method, details);
+      } catch (e) {
+        return { error: e.message };
+      }
+      renderPocketRequests();
+      closeNewPocketModal();
+      const typeLabel = draft.type === 'fixed' ? `Fixed Deposit (${draft.termLabel})` : 'As You Want';
+      showToast('Pocket Request Sent', `${typeLabel} request for ${fmt(draft.amount)} submitted. Pending Portfolio Manager approval.`);
+      return { error: null };
+    }
+
+    document.getElementById('open-new-pocket-btn').addEventListener('click', openNewPocketModal);
+    document.getElementById('np-close').addEventListener('click', closeNewPocketModal);
+    document.getElementById('np-backdrop').addEventListener('click', closeNewPocketModal);
+
+    document.querySelectorAll('.np-back').forEach(btn => {
+      btn.addEventListener('click', () => showNpStep(btn.dataset.target));
+    });
+
+    document.querySelectorAll('.np-type-card').forEach(card => {
+      card.addEventListener('click', () => {
+        showNpStep(card.dataset.type === 'fixed' ? 'fd-details' : 'ayw-details');
+      });
+    });
+
+    document.querySelectorAll('.np-term-mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentTermMode = tab.dataset.mode;
+        document.querySelectorAll('.np-term-mode-tab').forEach(t => {
+          const active = t === tab;
+          t.classList.toggle('bg-navy', active);
+          t.classList.toggle('text-white', active);
+          t.classList.toggle('bg-slate-100', !active);
+          t.classList.toggle('text-slate-600', !active);
+        });
+        renderTermOptions(currentTermMode);
+      });
+    });
+    document.getElementById('np-term-select').addEventListener('change', updateFDPreview);
+    document.getElementById('np-fd-amount').addEventListener('input', updateFDPreview);
+
+    document.getElementById('np-fd-continue').addEventListener('click', () => {
+      const amount = parseFloat(document.getElementById('np-fd-amount').value);
+      const errorEl = document.getElementById('np-fd-amount-error');
+      if (!amount || amount < 5000) { errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+      const termValue = parseInt(document.getElementById('np-term-select').value, 10);
+      const fields = computeFDFields(amount, currentTermMode, termValue);
+      draft = { type: 'fixed', amount, termMode: currentTermMode, ...fields };
+      goToFunding();
+    });
+
+    document.getElementById('np-ayw-continue').addEventListener('click', () => {
+      const amount = parseFloat(document.getElementById('np-ayw-amount').value);
+      const errorEl = document.getElementById('np-ayw-amount-error');
+      if (!amount || amount <= 0) { errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+      draft = { type: 'ayw', amount };
+      goToFunding();
+    });
+
+    document.querySelectorAll('.np-funding-card').forEach(card => {
+      card.addEventListener('click', () => {
+        showNpStep(card.dataset.method === 'crypto' ? 'funding-crypto' : 'funding-bank');
+      });
+    });
+
+    document.getElementById('np-crypto-confirm').addEventListener('click', () => {
+      const asset = document.getElementById('np-crypto-asset').value;
+      const network = document.getElementById('np-crypto-network').value;
+      const errorEl = document.getElementById('np-crypto-error');
+      if (!asset || !network) {
+        errorEl.textContent = 'Please select an asset and network.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      const result = submitPocketRequest('crypto', { asset, network });
+      if (result.error) { errorEl.textContent = result.error; errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+    });
+
+    document.getElementById('np-bank-confirm').addEventListener('click', () => {
+      const name = document.getElementById('np-bank-name').value.trim();
+      const institution = document.getElementById('np-bank-institution').value.trim();
+      const account = document.getElementById('np-bank-account').value.trim();
+      const routing = document.getElementById('np-bank-routing').value.trim();
+      const swift = document.getElementById('np-bank-swift').value.trim();
+      const errorEl = document.getElementById('np-bank-error');
+      if (!name || !institution || !account || (!routing && !swift)) {
+        errorEl.textContent = 'Please complete the required fields, including a routing number or SWIFT / BIC code.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      const result = submitPocketRequest('bank', { senderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null });
+      if (result.error) { errorEl.textContent = result.error; errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+    });
+
+    // ---- Withdraw modal ----
+    const withdrawModal = document.getElementById('withdraw-modal');
+    let currentWithdrawId = null;
+    let currentForfeit = false;
+
+    function showWdStep(name) {
+      document.querySelectorAll('#withdraw-modal .wd-step').forEach(el => {
+        el.classList.toggle('hidden', el.dataset.step !== name);
+      });
+    }
+
+    function resetWdForms() {
+      document.getElementById('wd-crypto-address').value = '';
+      document.getElementById('wd-crypto-asset').value = '';
+      document.getElementById('wd-crypto-network').value = '';
+      document.getElementById('wd-crypto-error').classList.add('hidden');
+      document.getElementById('wd-bank-name').value = '';
+      document.getElementById('wd-bank-institution').value = '';
+      document.getElementById('wd-bank-account').value = '';
+      document.getElementById('wd-bank-routing').value = '';
+      document.getElementById('wd-bank-swift').value = '';
+      document.getElementById('wd-bank-error').classList.add('hidden');
+    }
+
+    function computeReceiveAmount(pocket, forfeit) {
+      if (pocket.type === 'ayw') return pocket.amount;
+      return forfeit ? pocket.amount : pocket.amount + pocket.projectedInterest;
+    }
+
+    function openWithdrawModal(id) {
+      currentWithdrawId = id;
+      resetWdForms();
+      const pocket = pockets.find(p => p.id === id);
+      if (!pocket) return;
+
+      const needsWarning = pocket.type === 'fixed' && pocket.status === 'active';
+      currentForfeit = needsWarning;
+
+      if (needsWarning) {
+        document.getElementById('wd-warning-principal').textContent = fmt(pocket.amount);
+        document.getElementById('wd-warning-interest').textContent = fmt(pocket.projectedInterest);
+        showWdStep('warning');
+      } else {
+        document.getElementById('wd-receive-amount').textContent = fmt(computeReceiveAmount(pocket, false));
+        showWdStep('destination');
+      }
+      withdrawModal.classList.remove('hidden');
+    }
+    function closeWithdrawModal() {
+      withdrawModal.classList.add('hidden');
+    }
+
+    function finalizeWithdrawal(methodLabel) {
+      const pocket = pockets.find(p => p.id === currentWithdrawId);
+      const receiveAmount = computeReceiveAmount(pocket, currentForfeit);
+      pocket.status = 'withdrawn';
+      pocket.withdrawnAt = new Date().toISOString();
+      pocket.withdrawnAmount = receiveAmount;
+      pocket.withdrawalMethod = methodLabel;
+      savePockets();
+      renderPockets();
+      closeWithdrawModal();
+      showToast('Withdrawal Submitted', `${fmt(receiveAmount)} is on its way to your ${methodLabel}. Pocket marked as Withdrawn.`);
+    }
+
+    document.getElementById('wd-close').addEventListener('click', closeWithdrawModal);
+    document.getElementById('wd-backdrop').addEventListener('click', closeWithdrawModal);
+    document.getElementById('wd-cancel').addEventListener('click', closeWithdrawModal);
+
+    document.getElementById('wd-warning-continue').addEventListener('click', () => {
+      const pocket = pockets.find(p => p.id === currentWithdrawId);
+      document.getElementById('wd-receive-amount').textContent = fmt(computeReceiveAmount(pocket, true));
+      showWdStep('destination');
+    });
+
+    document.querySelectorAll('.wd-back').forEach(btn => {
+      btn.addEventListener('click', () => showWdStep(btn.dataset.target));
+    });
+
+    document.querySelectorAll('.wd-method-card').forEach(card => {
+      card.addEventListener('click', () => {
+        showWdStep(card.dataset.method === 'crypto' ? 'crypto' : 'bank');
+      });
+    });
+
+    document.getElementById('wd-crypto-confirm').addEventListener('click', () => {
+      const address = document.getElementById('wd-crypto-address').value.trim();
+      const asset = document.getElementById('wd-crypto-asset').value;
+      const network = document.getElementById('wd-crypto-network').value;
+      const errorEl = document.getElementById('wd-crypto-error');
+      if (!address || !asset || !network) { errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+      finalizeWithdrawal('crypto wallet');
+    });
+
+    document.getElementById('wd-bank-confirm').addEventListener('click', () => {
+      const name = document.getElementById('wd-bank-name').value.trim();
+      const institution = document.getElementById('wd-bank-institution').value.trim();
+      const account = document.getElementById('wd-bank-account').value.trim();
+      const routing = document.getElementById('wd-bank-routing').value.trim();
+      const swift = document.getElementById('wd-bank-swift').value.trim();
+      const errorEl = document.getElementById('wd-bank-error');
+      if (!name || !institution || !account || (!routing && !swift)) { errorEl.classList.remove('hidden'); return; }
+      errorEl.classList.add('hidden');
+      finalizeWithdrawal('bank account');
+    });
+
+    document.getElementById('pockets-grid').addEventListener('click', (e) => {
+      const btn = e.target.closest('.withdraw-btn');
+      if (btn) openWithdrawModal(btn.dataset.id);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!newPocketModal.classList.contains('hidden')) closeNewPocketModal();
+      if (!withdrawModal.classList.contains('hidden')) closeWithdrawModal();
+    });
+
+    // ---- Init ----
+    renderPockets();
+    renderPocketRequests();
+  </script>
+</body>
+</html>

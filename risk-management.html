@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Risk Management — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+
+    /* Risk Meter sliding-pill segmented control — deliberate gold/mahogany + deep-green
+       accent moment, distinct from the navy/cream tokens used everywhere else. Do not
+       reuse this palette on other dashboard elements or pages. */
+    .rm-track {
+      position: relative;
+      display: flex;
+      background: #EFE6D2;
+      border-radius: 999px;
+      padding: 5px;
+      height: 58px;
+      box-shadow: inset 0 1px 3px rgba(17,14,9,0.12);
+    }
+    .rm-pill {
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      left: 5px;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #C8860A, #8B5A0F);
+      box-shadow: 0 3px 12px rgba(17,14,9,0.35);
+      transition: left 280ms cubic-bezier(0.4,0,0.2,1), width 280ms cubic-bezier(0.4,0,0.2,1);
+    }
+    .rm-segment {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border-radius: 999px;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      transition: background-color 150ms ease;
+    }
+    .rm-segment:hover:not(.is-active) {
+      background-color: rgba(139,90,15,0.07);
+    }
+    .rm-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      border: 1.5px solid #1B3D2A;
+      background: transparent;
+      opacity: 0;
+      transition: background-color 200ms ease, opacity 150ms ease;
+    }
+    .rm-dot.is-saved { opacity: 1; }
+    .rm-dot.is-filled { background: #E8D5A8; }
+    .rm-label {
+      font-size: 0.8125rem;
+      font-weight: 400;
+      color: #8A7A63;
+      transition: color 200ms ease;
+    }
+    .rm-label.is-active {
+      color: #E8D5A8;
+      font-weight: 700;
+    }
+    .rm-current-badge {
+      display: inline-flex;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #EFE6D2;
+      color: #1B3D2A;
+    }
+    .rm-preview-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: #EFE6D2;
+      color: #1B3D2A;
+    }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Risk Management</h2>
+          <p class="text-slate-500 mt-1">Your risk profile and the regulatory standards governing your account.</p>
+        </div>
+
+        <!-- Risk Meter -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="font-semibold text-navy">Risk Meter</h3>
+            <span id="risk-current-pill" class="rm-current-badge">Current Profile: Balanced</span>
+          </div>
+
+          <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+            <span class="text-xs font-medium text-slate-500">Preview a risk level:</span>
+            <div class="hidden items-center gap-2 flex-wrap" id="risk-preview-indicator">
+              <span class="rm-preview-note">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Preview only — not saved
+              </span>
+              <button type="button" id="risk-save-profile" class="px-3 py-1.5 rounded-lg bg-navy text-white text-xs font-medium hover:bg-navy-dark transition">Save as My Risk Profile</button>
+              <button type="button" id="risk-preview-reset" class="text-xs font-medium text-navy hover:underline">Reset to current</button>
+            </div>
+          </div>
+
+          <div class="rm-track" id="rm-track">
+            <div class="rm-pill" id="rm-pill"></div>
+            <button type="button" class="rm-segment risk-preview-tab" data-level="conservative">
+              <span class="rm-dot" id="rm-dot-conservative"></span>
+              <span class="rm-label" id="risk-label-conservative">Conservative</span>
+            </button>
+            <button type="button" class="rm-segment risk-preview-tab" data-level="balanced">
+              <span class="rm-dot" id="rm-dot-balanced"></span>
+              <span class="rm-label" id="risk-label-balanced">Balanced</span>
+            </button>
+            <button type="button" class="rm-segment risk-preview-tab" data-level="aggressive">
+              <span class="rm-dot" id="rm-dot-aggressive"></span>
+              <span class="rm-label" id="risk-label-aggressive">Aggressive</span>
+            </button>
+          </div>
+
+          <!-- Breakdown -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
+              <p class="text-xs text-slate-500 mb-1">Risk Tolerance</p>
+              <p class="text-lg font-semibold text-navy" id="risk-tolerance-value">Balanced</p>
+              <p class="text-xs text-slate-500 mt-1" id="risk-tolerance-description">Comfortable accepting short-term volatility in pursuit of long-term growth.</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
+              <p class="text-xs text-slate-500 mb-1">Risk Capacity</p>
+              <p class="text-lg font-semibold text-navy">Moderate–High</p>
+              <p class="text-xs text-slate-500 mt-1">Stable income and sufficient reserves support measured risk-taking.</p>
+              <div class="mt-3 pt-3 border-t border-slate-200">
+                <span id="capacity-suitability-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium">—</span>
+              </div>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
+              <p class="text-xs text-slate-500 mb-1">Portfolio Diversification Score</p>
+              <p class="text-lg font-semibold text-navy">78/100 — Well Diversified</p>
+              <p class="text-xs text-slate-500 mt-1">Highest concentration is Private Equity at 32% of allocated capital, with the remainder spread across four other asset classes.</p>
+              <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200" id="diversification-delta">—</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-400 mt-6 pt-4 border-t border-slate-100">
+            This risk profile will drive portfolio allocation recommendations once the portfolio engine is built. For now, it is a static reference for your PM and advisory team.
+          </p>
+        </div>
+
+        <!-- Regulatory Heatmap -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="font-semibold text-navy">Regulatory Heatmap</h3>
+            <span class="text-xs text-slate-400">Account-level compliance standing</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-xl border border-slate-200 p-5">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p class="font-medium text-navy">KYC / AML</p>
+                  <p class="text-xs text-slate-500">Know Your Customer & Anti-Money Laundering checks</p>
+                </div>
+                <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Compliant
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-3">Last reviewed Aug 12, 2026</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 p-5">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p class="font-medium text-navy">GDPR</p>
+                  <p class="text-xs text-slate-500">Data privacy & protection compliance</p>
+                </div>
+                <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Compliant
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-3">Last reviewed Jul 30, 2026</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 p-5">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p class="font-medium text-navy">SEC</p>
+                  <p class="text-xs text-slate-500">U.S. securities regulatory compliance</p>
+                </div>
+                <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Compliant
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-3">Last reviewed Aug 05, 2026</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 p-5">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p class="font-medium text-navy">Global Standards</p>
+                  <p class="text-xs text-slate-500">Cross-border regulatory alignment</p>
+                </div>
+                <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Compliant
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-3">Last reviewed Jul 22, 2026</p>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Risk Profile Save Toast -->
+  <div id="risk-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm">Risk Profile Updated</p>
+    <p class="text-xs text-white/70 mt-1" id="risk-toast-body"></p>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('risk-management');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Risk Meter preview + save — preview is frontend-only until saved; save persists to localStorage
+    (function () {
+      // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
+      // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
+      const STORAGE_KEY = clientScopedKey('marketswave_risk_profile');
+      const LEVELS = ['conservative', 'balanced', 'aggressive'];
+      const LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
+      const TOLERANCE_DESCRIPTIONS = {
+        conservative: 'Prioritizes preserving capital; prefers minimal short-term fluctuation even if it means lower long-term growth.',
+        balanced: 'Comfortable accepting short-term volatility in pursuit of long-term growth.',
+        aggressive: 'Prioritizes long-term growth and can tolerate significant short-term volatility, including drawdowns.'
+      };
+
+      // Suitability check: previewed tolerance vs. the client's actual (fixed) risk capacity.
+      // Capacity itself never moves — it's a fact about the client, not a function of preview state.
+      const TOLERANCE_ORDINAL = { conservative: 1, balanced: 2, aggressive: 3 };
+      const CAPACITY_ORDINAL = 2; // client's actual capacity ("Moderate"), fixed demo data
+
+      // Reference model mixes per tolerance level, used only for the diversification delta line.
+      // Balanced === the client's real 32/22/18/12/16 holdings by design.
+      const ASSET_LABELS = {
+        privateEquity: 'Private Equity',
+        realAssets: 'Real Assets',
+        stocksEtfs: 'Stocks & ETFs',
+        crypto: 'Crypto',
+        cash: 'Unallocated / Cash'
+      };
+      const MODEL_MIXES = {
+        conservative: { privateEquity: 10, realAssets: 20, stocksEtfs: 20, crypto: 5, cash: 45 },
+        balanced: { privateEquity: 32, realAssets: 22, stocksEtfs: 18, crypto: 12, cash: 16 },
+        aggressive: { privateEquity: 35, realAssets: 15, stocksEtfs: 20, crypto: 25, cash: 5 }
+      };
+
+      function computeDiversification(mix) {
+        const hhi = Object.values(mix).reduce((sum, pct) => sum + Math.pow(pct / 100, 2), 0);
+        const score = Math.round((1 - hhi) * 100);
+        const label = score >= 75 ? 'Well Diversified' : score >= 60 ? 'Moderately Diversified' : 'Concentrated';
+        let topKey = Object.keys(mix)[0];
+        Object.keys(mix).forEach(key => { if (mix[key] > mix[topKey]) topKey = key; });
+        return { score, label, topLabel: ASSET_LABELS[topKey], topPct: mix[topKey] };
+      }
+
+      const pill = document.getElementById('rm-pill');
+      const tabs = Array.from(document.querySelectorAll('.risk-preview-tab'));
+      const segmentEls = {
+        conservative: document.querySelector('.rm-segment[data-level="conservative"]'),
+        balanced: document.querySelector('.rm-segment[data-level="balanced"]'),
+        aggressive: document.querySelector('.rm-segment[data-level="aggressive"]')
+      };
+      const labelEls = {
+        conservative: document.getElementById('risk-label-conservative'),
+        balanced: document.getElementById('risk-label-balanced'),
+        aggressive: document.getElementById('risk-label-aggressive')
+      };
+      const dotEls = {
+        conservative: document.getElementById('rm-dot-conservative'),
+        balanced: document.getElementById('rm-dot-balanced'),
+        aggressive: document.getElementById('rm-dot-aggressive')
+      };
+      const indicatorGroup = document.getElementById('risk-preview-indicator');
+      const resetBtn = document.getElementById('risk-preview-reset');
+      const saveBtn = document.getElementById('risk-save-profile');
+      const currentPill = document.getElementById('risk-current-pill');
+      const toast = document.getElementById('risk-toast');
+      const toastBody = document.getElementById('risk-toast-body');
+      let toastTimer;
+
+      function showToast(text) {
+        toastBody.textContent = text;
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+      }
+
+      const stored = localStorage.getItem(STORAGE_KEY);
+      let actualLevel = LEVELS.includes(stored) ? stored : 'balanced';
+      let previewLevel = actualLevel;
+
+      function renderActual() {
+        currentPill.textContent = `Current Profile: ${LABELS[actualLevel]}`;
+      }
+
+      // Position/size the sliding pill from the clicked segment's actual rendered box —
+      // never fixed percentages — so it stays correct regardless of container width.
+      function positionPill(level) {
+        const btn = segmentEls[level];
+        pill.style.left = `${btn.offsetLeft}px`;
+        pill.style.width = `${btn.offsetWidth}px`;
+      }
+
+      // Saved-profile dot: only the actualLevel segment shows one at all. Hollow ring while
+      // previewing something else, filled parchment once the pill is back on that segment.
+      function renderSavedDot() {
+        LEVELS.forEach(level => {
+          const isSaved = level === actualLevel;
+          dotEls[level].classList.toggle('is-saved', isSaved);
+          dotEls[level].classList.toggle('is-filled', isSaved && previewLevel === actualLevel);
+        });
+      }
+
+      function renderSuitability() {
+        const badge = document.getElementById('capacity-suitability-badge');
+        const exceeds = TOLERANCE_ORDINAL[previewLevel] > CAPACITY_ORDINAL;
+        badge.textContent = exceeds
+          ? '⚠ Selected tolerance exceeds your risk capacity'
+          : '✓ Aligned with your risk capacity';
+        badge.classList.toggle('bg-amber-50', exceeds);
+        badge.classList.toggle('text-amber-700', exceeds);
+        badge.classList.toggle('bg-emerald-50', !exceeds);
+        badge.classList.toggle('text-emerald-700', !exceeds);
+      }
+
+      function renderTolerance() {
+        document.getElementById('risk-tolerance-value').textContent = LABELS[previewLevel];
+        document.getElementById('risk-tolerance-description').textContent = TOLERANCE_DESCRIPTIONS[previewLevel];
+      }
+
+      // The client's real holdings (32/22/18/12/16) are identical to the Balanced model mix by design,
+      // so this is the one true "current" score — used only to compute the delta, never displayed directly
+      // (the visible 78/100 block above stays static HTML, per spec: it must never change with the toggle).
+      const CURRENT_DIVERSIFICATION = computeDiversification(MODEL_MIXES.balanced);
+
+      function renderDiversificationDelta() {
+        const el = document.getElementById('diversification-delta');
+        if (previewLevel === actualLevel) {
+          el.textContent = 'This is your current allocation.';
+          return;
+        }
+        const model = computeDiversification(MODEL_MIXES[previewLevel]);
+        const diff = model.score - CURRENT_DIVERSIFICATION.score;
+        const diffLabel = diff > 0 ? `+${diff}` : `${diff}`;
+        el.textContent = `Under ${LABELS[previewLevel]}: ${model.score}/100 (${diffLabel} pts), concentrated in ${model.topLabel}.`;
+      }
+
+      function renderPreview() {
+        positionPill(previewLevel);
+
+        LEVELS.forEach(level => {
+          const active = level === previewLevel;
+          segmentEls[level].classList.toggle('is-active', active);
+          labelEls[level].classList.toggle('is-active', active);
+        });
+
+        const isPreview = previewLevel !== actualLevel;
+        indicatorGroup.classList.toggle('hidden', !isPreview);
+        indicatorGroup.classList.toggle('flex', isPreview);
+
+        renderSavedDot();
+        renderTolerance();
+        renderSuitability();
+        renderDiversificationDelta();
+      }
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          previewLevel = tab.dataset.level;
+          renderPreview();
+        });
+      });
+
+      resetBtn.addEventListener('click', () => {
+        previewLevel = actualLevel;
+        renderPreview();
+      });
+
+      saveBtn.addEventListener('click', () => {
+        actualLevel = previewLevel;
+        localStorage.setItem(STORAGE_KEY, actualLevel);
+        // Explicitly re-sync preview to the newly saved level, then re-render every piece of state
+        // that depends on it (pill position, active label, saved dot, preview indicator,
+        // tolerance card, capacity suitability chip, diversification delta) — nothing should be
+        // left showing whatever was previewed a moment ago.
+        previewLevel = actualLevel;
+        renderActual();
+        renderPreview();
+        showToast(`Risk profile updated to ${LABELS[actualLevel]}.`);
+      });
+
+      renderActual();
+      renderPreview();
+
+      // The pill's left/width are read from live layout (offsetLeft/offsetWidth), so keep them
+      // correct if web-font swap or a window resize shifts the segments after first paint.
+      window.addEventListener('load', () => positionPill(previewLevel));
+      window.addEventListener('resize', () => positionPill(previewLevel));
+    })();
+  </script>
+</body>
+</html>

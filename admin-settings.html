@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Settings</h2>
+          <p class="text-slate-500 mt-1">Account-wide settings only a Portfolio Manager should control.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 max-w-md">
+          <h3 class="font-semibold text-slate-900 mb-1">Advisory Fee Rate</h3>
+          <p class="text-sm text-slate-500 mb-4">Annual percentage rate used to compute accrued advisory fees across every client-facing page. This is the only place this rate can be changed — <code class="text-xs bg-slate-100 px-1 py-0.5 rounded">setAdvisoryFeeRate()</code> is not exposed on any client page.</p>
+
+          <p class="text-xs text-slate-400 mb-1">Current rate</p>
+          <p class="text-2xl font-bold text-slate-900 mb-4" id="current-rate-display">—%</p>
+
+          <label class="block text-sm font-medium text-slate-700 mb-1">New Rate (%)</label>
+          <div class="flex gap-3">
+            <input type="number" id="rate-input" step="0.01" min="0" class="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+            <button type="button" id="save-rate-btn" class="px-5 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition">Save</button>
+          </div>
+          <p class="text-xs text-red-500 hidden mt-2" id="rate-error"></p>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('settings');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getAccountState !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      var currentRateDisplay = document.getElementById('current-rate-display');
+      var rateInput = document.getElementById('rate-input');
+      var rateError = document.getElementById('rate-error');
+
+      function refreshRateDisplay() {
+        var rate = getAccountState().advisoryFeeRate;
+        currentRateDisplay.textContent = rate + '%';
+        rateInput.value = rate;
+      }
+      refreshRateDisplay();
+
+      document.getElementById('save-rate-btn').addEventListener('click', function () {
+        var newRate = parseFloat(rateInput.value);
+        try {
+          setAdvisoryFeeRate(newRate);
+          rateError.classList.add('hidden');
+          refreshRateDisplay();
+          showToast('Advisory Fee Rate Updated', 'New rate: ' + newRate + '%. Reflected on transactions.html on next load.');
+        } catch (e) {
+          rateError.textContent = e.message;
+          rateError.classList.remove('hidden');
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>

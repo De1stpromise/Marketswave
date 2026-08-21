@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Marketswave</title>
+  <meta name="description" content="Login to your Marketswave client portal." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* Login page specific */
+    body.login-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1B3A4B;
+    }
+
+    .login-section {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Frosted background */
+    .login-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url('login-bg.jpg') center center / cover no-repeat;
+      z-index: 0;
+    }
+
+    .login-section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: rgba(18, 42, 56, 0.45);
+      z-index: 0;
+    }
+
+    .login-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 16px;
+      padding: 44px 40px 40px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+    }
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .login-logo a {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+
+    .login-title {
+      text-align: center;
+      font-size: 1.55rem;
+      color: var(--primary);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    .login-lead {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    .login-form .form-group {
+      margin-bottom: 18px;
+    }
+
+    .login-form label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .login-form input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1.5px solid #D8D4CD;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #FCFBF9;
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+    }
+
+    .login-form input:hover {
+      border-color: #C4BFB6;
+      background: #FFFFFF;
+    }
+
+    .login-form input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+    }
+
+    .login-form .form-actions {
+      margin-top: 28px;
+    }
+
+    .login-form .btn {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 0.95rem;
+    }
+
+    .login-links {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .login-links a {
+      color: var(--primary);
+      font-weight: 500;
+    }
+    .login-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* ========== LOADING SCREEN ========== */
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: #122A38;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .loading-screen.is-active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #FFFFFF;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+      margin-bottom: 24px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: rgba(255,255,255,0.9);
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .loading-sub {
+      margin-top: 8px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.9rem;
+    }
+
+    /* Simple top bar on login page */
+    .login-topbar {
+      position: relative;
+      z-index: 2;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .login-topbar .logo {
+      color: white;
+      font-size: 1.3rem;
+    }
+
+    .login-topbar a.back-link {
+      color: rgba(255,255,255,0.75);
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .login-topbar a.back-link:hover {
+      color: white;
+    }
+
+    /* Forgot password steps */
+    .forgot-step {
+      display: none;
+      animation: fadeIn 0.35s ease;
+    }
+    .forgot-step.is-active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Re-use form styles inside forgot panel */
+    #forgot-panel .form-group {
+      margin-bottom: 18px;
+    }
+    #forgot-panel label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    #forgot-panel input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1.5px solid #D8D4CD;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #FCFBF9;
+    }
+    #forgot-panel input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+    }
+  </style>
+</head>
+<body class="login-page">
+
+  <div class="login-topbar">
+    <a href="index.html" class="logo">MARKETSWAVE</a>
+    <a href="index.html" class="back-link-panel">← Back to site</a>
+  </div>
+
+  <section class="login-section">
+    <div class="login-card">
+      <h1 class="login-title">Welcome Back</h1>
+      <p class="login-lead">Sign in to your client portal</p>
+
+      <form class="login-form" id="login-form" action="#" method="POST">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Enter</button>
+        </div>
+      </form>
+
+      <div class="login-links">
+        <a href="#" id="forgot-password-link">Forgot password?</a>
+        <span style="margin: 0 8px; opacity: 0.4;">·</span>
+        <a href="signup.html">Create an account</a>
+      </div>
+    </div>
+
+    <!-- ========== FORGOT PASSWORD PANEL ========== -->
+    <div class="login-card" id="forgot-panel" style="display: none;">
+      <!-- Step 1: Enter Email -->
+      <div class="forgot-step is-active" data-forgot-step="1">
+        <h1 class="login-title">Reset Password</h1>
+        <p class="login-lead">Enter the email associated with your account. We’ll send you a verification code.</p>
+
+        <div class="form-group">
+          <label for="reset-email">Email Address</label>
+          <input type="email" id="reset-email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="form-actions" style="margin-top: 24px;">
+          <button type="button" class="btn btn-primary" id="btn-send-code" style="width:100%;">Send Code</button>
+        </div>
+        <div class="login-links" style="margin-top: 20px;">
+          <a href="#" id="back-to-login-1">← Back to Login</a>
+        </div>
+      </div>
+
+      <!-- Step 2: Enter Code -->
+      <div class="forgot-step" data-forgot-step="2">
+        <h1 class="login-title">Enter Verification Code</h1>
+        <p class="login-lead">We’ve sent a 6-digit code to your email. Enter it below.</p>
+
+        <div class="form-group">
+          <label for="reset-code">Verification Code</label>
+          <input type="text" id="reset-code" placeholder="Enter 6-digit code" maxlength="6" required>
+        </div>
+
+        <div class="form-actions" style="margin-top: 24px;">
+          <button type="button" class="btn btn-primary" id="btn-verify-code" style="width:100%;">Verify Code</button>
+        </div>
+        <div class="login-links" style="margin-top: 20px;">
+          <a href="#" id="back-to-login-2">← Back to Login</a>
+        </div>
+      </div>
+
+      <!-- Step 3: New Password -->
+      <div class="forgot-step" data-forgot-step="3">
+        <h1 class="login-title">Set New Password</h1>
+        <p class="login-lead">Create a strong new password for your account.</p>
+
+        <div class="form-group">
+          <label for="new-password">New Password</label>
+          <input type="password" id="new-password" placeholder="New password" required minlength="8">
+        </div>
+        <div class="form-group">
+          <label for="confirm-new-password">Confirm New Password</label>
+          <input type="password" id="confirm-new-password" placeholder="Confirm new password" required minlength="8">
+        </div>
+
+        <div class="form-actions" style="margin-top: 24px;">
+          <button type="button" class="btn btn-primary" id="btn-update-password" style="width:100%;">Update Password</button>
+        </div>
+        <div class="login-links" style="margin-top: 20px;">
+          <a href="#" id="back-to-login-3">← Back to Login</a>
+        </div>
+      </div>
+
+      <!-- Step 4: Success -->
+      <div class="forgot-step" data-forgot-step="4">
+        <h1 class="login-title">Password Updated</h1>
+        <p class="login-lead">Your password has been successfully updated. You can now log in with your new password.</p>
+
+        <div class="form-actions" style="margin-top: 28px;">
+          <button type="button" class="btn btn-primary" id="btn-go-login" style="width:100%;">Go to Login</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loading-screen">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Signing you in</div>
+    <div class="loading-sub">Preparing your portal…</div>
+  </div>
+
+  <script>
+    (function () {
+      // ---------- Login form (existing) ----------
+      const form = document.getElementById('login-form');
+      const loadingScreen = document.getElementById('loading-screen');
+
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          loadingScreen.classList.add('is-active');
+          setTimeout(function () {
+            window.location.href = 'dashboard.html';
+          }, 2200);
+        });
+      }
+
+      // ---------- Forgot Password multi-step ----------
+      const loginCard = document.querySelector('.login-card');
+      const forgotPanel = document.getElementById('forgot-panel');
+      const forgotLink = document.getElementById('forgot-password-link');
+
+      function showForgotStep(step) {
+        document.querySelectorAll('.forgot-step').forEach(el => {
+          el.classList.toggle('is-active', Number(el.dataset.forgotStep) === step);
+        });
+      }
+
+      function showForgotPanel() {
+        loginCard.style.display = 'none';
+        forgotPanel.style.display = 'block';
+        showForgotStep(1);
+      }
+
+      function showLoginPanel() {
+        forgotPanel.style.display = 'none';
+        loginCard.style.display = 'block';
+      }
+
+      // Open forgot panel
+      if (forgotLink) {
+        forgotLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          showForgotPanel();
+        });
+      }
+
+      // Back to login links
+      ['back-to-login-1', 'back-to-login-2', 'back-to-login-3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', function (e) {
+          e.preventDefault();
+          showLoginPanel();
+        });
+      });
+
+      // Step 1 → Send Code
+      const btnSendCode = document.getElementById('btn-send-code');
+      if (btnSendCode) {
+        btnSendCode.addEventListener('click', function () {
+          const email = document.getElementById('reset-email').value.trim();
+          if (!email) {
+            alert('Please enter your email address.');
+            return;
+          }
+          // Later: call backend here
+          showForgotStep(2);
+        });
+      }
+
+      // Step 2 → Verify Code
+      const btnVerifyCode = document.getElementById('btn-verify-code');
+      if (btnVerifyCode) {
+        btnVerifyCode.addEventListener('click', function () {
+          const code = document.getElementById('reset-code').value.trim();
+          if (!code || code.length < 4) {
+            alert('Please enter the verification code.');
+            return;
+          }
+          // Later: call backend to verify code
+          showForgotStep(3);
+        });
+      }
+
+      // Step 3 → Update Password
+      const btnUpdatePassword = document.getElementById('btn-update-password');
+      if (btnUpdatePassword) {
+        btnUpdatePassword.addEventListener('click', function () {
+          const pass = document.getElementById('new-password').value;
+          const confirm = document.getElementById('confirm-new-password').value;
+
+          if (!pass || pass.length < 8) {
+            alert('Password must be at least 8 characters.');
+            return;
+          }
+          if (pass !== confirm) {
+            alert('Passwords do not match.');
+            return;
+          }
+          // Later: call backend to update password
+          showForgotStep(4);
+        });
+      }
+
+      // Step 4 → Go to Login
+      const btnGoLogin = document.getElementById('btn-go-login');
+      if (btnGoLogin) {
+        btnGoLogin.addEventListener('click', function () {
+          showLoginPanel();
+        });
+      }
+    })();
+  </script>
+
+</body>
+</html>

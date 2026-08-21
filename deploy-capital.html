@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deploy Capital — Marketswave</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              DEFAULT: '#1B3A4B',
+              dark: '#122A38',
+              light: '#2A4F63'
+            },
+            cream: {
+              DEFAULT: '#F7F6F3',
+              dark: '#EDE8E1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .option-card { transition: all 0.2s ease; }
+    .option-card.is-selected {
+      border-color: #1B3A4B;
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.12);
+    }
+    .form-panel { display: none; }
+    .form-panel.is-active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Deploy Capital</h2>
+          <p class="text-slate-500 mt-1">Choose how you would like to add funds to your account.</p>
+        </div>
+
+        <!-- Option Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" id="option-cards">
+          <!-- Crypto -->
+          <button type="button" class="option-card text-left bg-white rounded-2xl border-2 border-slate-200 p-6 hover:border-navy/40" data-method="crypto">
+            <div class="w-12 h-12 rounded-xl bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-navy mb-1">Crypto Deposit</h3>
+            <p class="text-sm text-slate-500">Transfer digital assets (BTC, ETH, USDT, etc.) to your Marketswave wallet.</p>
+          </button>
+
+          <!-- Bank -->
+          <button type="button" class="option-card text-left bg-white rounded-2xl border-2 border-slate-200 p-6 hover:border-navy/40" data-method="bank">
+            <div class="w-12 h-12 rounded-xl bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-navy mb-1">Bank Transfer</h3>
+            <p class="text-sm text-slate-500">Send funds via bank transfer. We’ll provide recipient details after you submit.</p>
+          </button>
+        </div>
+
+        <!-- Crypto Form -->
+        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-6 max-w-xl" id="form-crypto">
+          <h3 class="font-semibold text-navy mb-1">Crypto Deposit</h3>
+          <p class="text-sm text-slate-500 mb-6">Select asset and amount. You will receive wallet details after submission.</p>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
+              <select id="crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                <option value="">Select asset</option>
+                <option value="BTC">Bitcoin (BTC)</option>
+                <option value="ETH">Ethereum (ETH)</option>
+                <option value="USDT">Tether (USDT)</option>
+                <option value="USDC">USD Coin (USDC)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount</label>
+              <input type="number" id="crypto-amount" placeholder="0.00" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Network (if applicable)</label>
+              <select id="crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                <option value="">Select network</option>
+                <option value="ERC20">ERC-20</option>
+                <option value="TRC20">TRC-20</option>
+                <option value="BEP20">BEP-20</option>
+                <option value="Native">Native</option>
+              </select>
+            </div>
+            <div class="flex gap-3 pt-2">
+              <button type="button" class="btn-back flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Back</button>
+              <button type="button" id="submit-crypto" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Request</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bank Form -->
+        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-8 max-w-4xl" id="form-bank">
+          <h3 class="font-semibold text-navy mb-1">Bank Transfer</h3>
+          <p class="text-sm text-slate-500 mb-8">Provide your sender and bank details. We will email you the recipient account information once your request is reviewed.</p>
+
+          <!-- Sender Information -->
+          <div class="mb-8">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-4 pb-2 border-b border-slate-100">Sender Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Full Legal Name of Account Holder</label>
+                <input type="text" id="bank-name" placeholder="As it appears on your bank account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Residential or Business Address</label>
+                <input type="text" id="bank-address" placeholder="Street, city, postal code, country" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Contact Phone Number</label>
+                <input type="tel" id="bank-phone" placeholder="+1 000 000 0000" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Contact Email Address</label>
+                <input type="email" id="bank-email" placeholder="you@example.com" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount to Send</label>
+                <input type="number" id="bank-amount" placeholder="0.00" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
+                <select id="bank-currency" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="SEK">SEK</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bank Information -->
+          <div class="mb-8">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-navy/70 mb-4 pb-2 border-b border-slate-100">Sending Bank Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
+                <input type="text" id="bank-institution" placeholder="Name of your bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Account Number</label>
+                <input type="text" id="bank-account-number" placeholder="Your account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Branch Address</label>
+                <input type="text" id="bank-branch-address" placeholder="Branch street, city, postal code, country" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
+                <input type="text" id="bank-routing" placeholder="Domestic routing number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC Code</label>
+                <input type="text" id="bank-swift" placeholder="For international transfers" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Provide either a routing number or a SWIFT / BIC code, whichever applies to your bank.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Additional Notes (optional)</label>
+            <textarea id="bank-notes" rows="2" placeholder="Any extra information..." class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></textarea>
+          </div>
+
+          <div class="flex gap-3 pt-6">
+            <button type="button" class="btn-back flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Back</button>
+            <button type="button" id="submit-bank" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Request</button>
+          </div>
+        </div>
+
+        <!-- Success State -->
+        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-8 max-w-xl text-center" id="form-success">
+          <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h3 class="text-xl font-semibold text-navy mb-2">Request Submitted</h3>
+          <p class="text-slate-500 mb-6">Your deposit request has been received. You will receive further instructions (wallet address or bank details) by email shortly.</p>
+          <a href="dashboard.html" class="inline-flex items-center justify-center px-6 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">
+            Return to Dashboard
+          </a>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('deploy-capital');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Deploy Capital logic
+    const optionCards = document.getElementById('option-cards');
+    const formCrypto = document.getElementById('form-crypto');
+    const formBank = document.getElementById('form-bank');
+    const formSuccess = document.getElementById('form-success');
+
+    function hideAllForms() {
+      formCrypto.classList.remove('is-active');
+      formBank.classList.remove('is-active');
+      formSuccess.classList.remove('is-active');
+      document.querySelectorAll('.option-card').forEach(c => c.classList.remove('is-selected'));
+    }
+
+    document.querySelectorAll('.option-card').forEach(card => {
+      card.addEventListener('click', () => {
+        hideAllForms();
+        card.classList.add('is-selected');
+        optionCards.style.display = 'none';
+
+        if (card.dataset.method === 'crypto') {
+          formCrypto.classList.add('is-active');
+        } else {
+          formBank.classList.add('is-active');
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-back').forEach(btn => {
+      btn.addEventListener('click', () => {
+        hideAllForms();
+        optionCards.style.display = 'grid';
+      });
+    });
+
+    document.getElementById('submit-crypto').addEventListener('click', () => {
+      const asset = document.getElementById('crypto-asset').value;
+      const amount = document.getElementById('crypto-amount').value;
+      if (!asset || !amount) {
+        alert('Please select an asset and enter an amount.');
+        return;
+      }
+      hideAllForms();
+      formSuccess.classList.add('is-active');
+    });
+
+    document.getElementById('submit-bank').addEventListener('click', () => {
+      const name = document.getElementById('bank-name').value.trim();
+      const address = document.getElementById('bank-address').value.trim();
+      const phone = document.getElementById('bank-phone').value.trim();
+      const email = document.getElementById('bank-email').value.trim();
+      const amount = document.getElementById('bank-amount').value;
+      const institution = document.getElementById('bank-institution').value.trim();
+      const accountNumber = document.getElementById('bank-account-number').value.trim();
+      const branchAddress = document.getElementById('bank-branch-address').value.trim();
+      const routing = document.getElementById('bank-routing').value.trim();
+      const swift = document.getElementById('bank-swift').value.trim();
+
+      if (!name || !address || (!phone && !email) || !amount || !institution || !accountNumber || !branchAddress) {
+        alert('Please fill in all required fields, including a phone number or email.');
+        return;
+      }
+      if (!routing && !swift) {
+        alert('Please provide either a routing number or a SWIFT / BIC code.');
+        return;
+      }
+      hideAllForms();
+      formSuccess.classList.add('is-active');
+    });
+  </script>
+</body>
+</html>

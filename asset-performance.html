@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Asset & Performance — Marketswave</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              DEFAULT: '#1B3A4B',
+              dark: '#122A38',
+              light: '#2A4F63'
+            },
+            cream: {
+              DEFAULT: '#F7F6F3',
+              dark: '#EDE8E1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Top bar -->
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Asset & Performance</h2>
+          <p class="text-slate-500 mt-1">Allocation and performance across your portfolio.</p>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-sm text-slate-500 mb-1">Total Allocated Capital</p>
+            <p class="text-2xl font-semibold text-navy" id="total-allocated-amount">$1,078,980</p>
+            <p class="text-xs text-slate-400 mt-1" id="total-allocated-pct">84% of portfolio</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-sm text-slate-500 mb-1">Unallocated Capital</p>
+            <p class="text-2xl font-semibold text-navy" id="unallocated-amount">$205,520</p>
+            <p class="text-xs text-slate-400 mt-1" id="unallocated-pct">16% of portfolio</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-sm text-slate-500 mb-1">Total Asset Returns
+              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle ml-1">Unrealized</span>
+            </p>
+            <p class="text-2xl font-semibold text-emerald-600" id="total-asset-returns-amount">+$142,800</p>
+            <p class="text-xs text-slate-400 mt-1">Live preview — not yet realized</p>
+          </div>
+        </div>
+
+        <!-- Return Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-navy">Return Table</h3>
+            <span class="text-xs text-slate-400">Performance tracked separately from allocation</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="text-left font-medium px-6 py-3">Asset</th>
+                  <th class="text-left font-medium px-6 py-3">Asset Class</th>
+                  <th class="text-left font-medium px-6 py-3">Investment Type</th>
+                  <th class="text-right font-medium px-6 py-3">Capital Allocated</th>
+                  <th class="text-right font-medium px-6 py-3">Return %</th>
+                  <th class="text-right font-medium px-6 py-3">Realized Amount</th>
+                  <th class="text-right font-medium px-6 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" id="return-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Asset Collection -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="font-semibold text-navy">Asset Collection</h3>
+              <p class="text-sm text-slate-500 mt-0.5">Browse available assets. Requests are sent for Portfolio Manager approval.</p>
+            </div>
+          </div>
+
+          <!-- Category tabs -->
+          <div class="flex flex-wrap gap-2 mb-6" id="category-tabs">
+            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-navy text-white" data-category="">All</button>
+            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Private Equity">Private Equity</button>
+            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Real Assets">Real Assets</button>
+            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Stocks & ETFs">Stocks & ETFs</button>
+            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Crypto">Crypto</button>
+          </div>
+
+          <!-- Asset cards grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="asset-cards-grid"></div>
+        </div>
+
+        <!-- My Requests -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-navy">My Requests</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Full history of your allocation and sell requests — every status, not just pending.</p>
+          </div>
+          <div class="overflow-x-auto" id="my-requests-list"></div>
+        </div>
+
+        <!-- Allocation Request Confirmation Toast -->
+        <div id="allocation-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+          <p class="font-medium text-sm" id="allocation-toast-title">Request Sent</p>
+          <p class="text-xs text-white/70 mt-1" id="allocation-toast-body"></p>
+        </div>
+
+        <!-- ========== SELL MODAL ========== -->
+        <div id="sell-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div class="absolute inset-0 bg-navy-dark/60" id="sell-backdrop"></div>
+          <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between mb-1">
+              <div>
+                <h3 class="font-semibold text-navy text-lg" id="sell-modal-title">Sell —</h3>
+                <p class="text-xs text-slate-500 mt-0.5" id="sell-modal-price">Current unit price: —</p>
+              </div>
+              <button type="button" id="sell-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+            </div>
+
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm my-4">
+              <div class="flex justify-between mb-1.5"><span class="text-slate-500">Available to sell</span><span class="font-medium text-navy" id="sell-available-units">—</span></div>
+              <div class="flex justify-between mb-1.5"><span class="text-slate-500">Current value</span><span class="font-medium text-navy" id="sell-current-value">—</span></div>
+              <div class="flex justify-between mb-1.5"><span class="text-slate-500">Cost basis</span><span class="font-medium text-navy" id="sell-cost-basis">—</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Projected gain/loss</span><span class="font-medium" id="sell-gain-loss">—</span></div>
+            </div>
+
+            <div class="flex gap-1.5 mb-4" id="sell-mode-tabs">
+              <button type="button" class="sell-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-navy text-white transition" data-mode="all">Sell All</button>
+              <button type="button" class="sell-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-mode="partial">Partial</button>
+            </div>
+
+            <div id="sell-partial-input-wrap" class="hidden mb-4">
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Units to Sell</label>
+              <input type="number" min="0" step="any" id="sell-units-input" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <p class="text-xs text-red-500 hidden mt-1" id="sell-units-error"></p>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-5">This submits a sell request pending Portfolio Manager approval — it does not sell immediately.</p>
+
+            <button type="button" id="sell-submit" class="w-full py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Sell Request</button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('asset-performance');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Wires this page to engine-core.js (Phase 4b) — summary cards, the Return Table, the
+    // Asset Collection cards, Request Allocation, and My Allocation Requests all now read
+    // live engine state instead of hardcoded demo numbers.
+    (function () {
+      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      settleAllProducts(); // catch prices up to today before reading any engine value
+
+      var UNALLOCATABLE_CLASS = 'Unallocated / Cash';
+
+      function formatUSD(n, decimals) {
+        var sign = n < 0 ? '-' : '';
+        var abs = Math.abs(n);
+        return sign + '$' + abs.toLocaleString('en-US', {
+          minimumFractionDigits: decimals || 0,
+          maximumFractionDigits: decimals || 0
+        });
+      }
+
+      var account = getAccountState();
+      var tpv = getTotalPortfolioValue();
+      var holdings = getHoldings();
+      var products = getAllProducts();
+      var totalUnrealized = getTotalUnrealizedReturns();
+
+      function productById(id) { return products.find(function (p) { return p.id === id; }); }
+      function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
+
+      // ---- Summary cards ----
+      var allocatedEl = document.getElementById('total-allocated-amount');
+      var allocatedPctEl = document.getElementById('total-allocated-pct');
+      if (allocatedEl) allocatedEl.textContent = formatUSD(Math.round(account.allocatedCapital));
+      if (allocatedPctEl) allocatedPctEl.textContent = (tpv > 0 ? Math.round((account.allocatedCapital / tpv) * 100) : 0) + '% of portfolio';
+
+      var unallocatedEl = document.getElementById('unallocated-amount');
+      var unallocatedPctEl = document.getElementById('unallocated-pct');
+      if (unallocatedEl) unallocatedEl.textContent = formatUSD(Math.round(account.unallocatedCapital));
+      if (unallocatedPctEl) unallocatedPctEl.textContent = (tpv > 0 ? Math.round((account.unallocatedCapital / tpv) * 100) : 0) + '% of portfolio';
+
+      // Total Asset Returns is deliberately the live UNREALIZED preview (getTotalUnrealizedReturns()),
+      // not Account State's realized-only assetReturns (which stays $0 until something actually
+      // sells) — labeled "Unrealized" in the card so it's never mistaken for a realized figure.
+      var returnsEl = document.getElementById('total-asset-returns-amount');
+      if (returnsEl) {
+        returnsEl.textContent = (totalUnrealized >= 0 ? '+' : '') + formatUSD(Math.round(totalUnrealized));
+        returnsEl.className = 'text-2xl font-semibold ' + (totalUnrealized >= 0 ? 'text-emerald-600' : 'text-red-600');
+      }
+
+      // ---- Return Table: one row per current holding ----
+      var ledger = getTransactionLedger();
+      // Realized Amount is genuinely realized now — the actual sum of realizedReturn across
+      // every SELL transaction for that product, not the live unrealized preview (that's the
+      // summary card above). "—" only when that sum is genuinely zero (no sells exist for
+      // this product yet), which happens to look identical to a fresh seed but stays correct
+      // if a sell is ever executed via any path, not just hardcoded to always show "—".
+      function realizedAmountForProduct(productId) {
+        return round2ish(ledger.reduce(function (sum, t) {
+          return t.type === 'SELL' && t.productId === productId ? sum + t.realizedReturn : sum;
+        }, 0));
+      }
+      function round2ish(n) { return Math.round(n * 100) / 100; }
+
+      // Sum of unitsToSell across this product's own PENDING sell requests — subtracted from
+      // the holding before offering a new Sell, so a client can't submit a second request
+      // that's already doomed to fail at approval time (Phase 3B's re-validation would
+      // reject it). Re-fetched fresh each call, not cached, so it stays accurate after a
+      // submission changes the pending set.
+      function pendingSellUnitsForProduct(productId) {
+        return getSellRequests().reduce(function (sum, r) {
+          return r.productId === productId && r.status === 'pending' ? sum + r.unitsToSell : sum;
+        }, 0);
+      }
+      function availableToSell(holding) {
+        return holding.units - pendingSellUnitsForProduct(holding.productId);
+      }
+
+      var tableBody = document.getElementById('return-table-body');
+      function renderReturnTable() {
+        if (!tableBody) return;
+        var currentHoldings = getHoldings();
+        if (currentHoldings.length === 0) {
+          tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
+          return;
+        }
+        tableBody.innerHTML = currentHoldings.map(function (h) {
+          var product = productById(h.productId);
+          if (!product) return '';
+          var pct = getUnrealizedReturnPercent(h.productId);
+          var pctColor = pct > 0 ? 'text-emerald-600' : (pct < 0 ? 'text-red-600' : 'text-slate-500');
+          var pctSign = pct > 0 ? '+' : '';
+          var realizedAmount = realizedAmountForProduct(h.productId);
+          var realizedCell = realizedAmount === 0
+            ? '<td class="px-6 py-4 text-right text-slate-400">—</td>'
+            : '<td class="px-6 py-4 text-right font-medium ' + (realizedAmount > 0 ? 'text-emerald-600' : 'text-red-600') + '">' +
+              (realizedAmount > 0 ? '+' : '') + formatUSD(Math.round(realizedAmount)) + '</td>';
+
+          // No holding means no row at all here (the Return Table only ever iterates
+          // current holdings — Cash never has one, a fully-sold product's holding is
+          // removed entirely by executeSell()), so the "no button" case from the spec is
+          // naturally satisfied; the case actually reachable here is a pending sell request
+          // already covering the full position, handled by the availableUnits <= 0 check.
+          var available = availableToSell(h);
+          var actionCell = available > 1e-6
+            ? '<td class="px-6 py-4 text-right"><button type="button" class="sell-request-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition" data-product-id="' + h.productId + '">Sell</button></td>'
+            : '<td class="px-6 py-4 text-right"><button type="button" class="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 cursor-not-allowed" disabled title="Pending sell request already covers your full position.">Sell</button></td>';
+
+          return '<tr class="hover:bg-slate-50/50">' +
+            '<td class="px-6 py-4 font-medium text-navy">' + product.name + '</td>' +
+            '<td class="px-6 py-4 text-slate-600">' + product.assetClass + '</td>' +
+            '<td class="px-6 py-4 text-slate-600">' + product.investmentType + '</td>' +
+            '<td class="px-6 py-4 text-right">' + formatUSD(Math.round(h.costBasis)) + '</td>' +
+            '<td class="px-6 py-4 text-right font-medium ' + pctColor + '">' + pctSign + pct.toFixed(1) + '%</td>' +
+            realizedCell +
+            actionCell +
+            '</tr>';
+        }).join('');
+      }
+      renderReturnTable();
+
+      // ---- Asset Collection: cards from the Product Catalog. Cash is excluded — it
+      // represents the Unallocated bucket itself and requestAllocation() rejects it as a
+      // target (same reasoning as engine-core.js's own guard).
+      var cardsGrid = document.getElementById('asset-cards-grid');
+      var allocatableProducts = products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
+      if (cardsGrid) {
+        cardsGrid.innerHTML = allocatableProducts.map(function (product) {
+          var holding = holdingByProductId(product.id);
+          var badgeHtml;
+          if (holding) {
+            var pct = getUnrealizedReturnPercent(product.id);
+            var pctColor = pct > 0 ? 'bg-emerald-50 text-emerald-700' : (pct < 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600');
+            badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full ' + pctColor + '">' + (pct > 0 ? '+' : '') + pct.toFixed(1) + '%</span>';
+          } else {
+            badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-500">No position</span>';
+          }
+          var allocatedLine = holding ? 'Allocated: ' + formatUSD(Math.round(holding.costBasis)) : 'Not yet allocated';
+
+          // flex flex-col + mt-auto on the CTA block anchors the input/button to the
+          // bottom of the card regardless of how many lines the content above it takes —
+          // the grid's default align-items:stretch equalizes each card's outer height
+          // within a row, but without this, variable-length content above the button
+          // (a long name, a wrapped return %, or the "No position" fallback) would push
+          // the button to a different vertical position per card even at equal card height.
+          return '<div class="border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition flex flex-col" data-product-id="' + product.id + '" data-class="' + product.assetClass + '">' +
+            '<div class="flex items-start justify-between mb-3">' +
+            '<div><p class="font-medium text-navy">' + product.name + '</p>' +
+            '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
+            badgeHtml +
+            '</div>' +
+            '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
+            '<p class="text-xs text-slate-400 mb-4">Minimum investment: ' + formatUSD(product.minimumInvestment) + '</p>' +
+            '<div class="mt-auto">' +
+            '<label class="block text-xs font-medium text-slate-500 mb-1.5">Requested Allocation Amount</label>' +
+            '<input type="number" min="0" step="100" placeholder="$0.00" class="allocation-amount-input w-full px-3 py-2 mb-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">' +
+            '<button type="button" class="request-allocation-btn w-full py-2 rounded-lg text-sm font-medium border border-navy text-navy hover:bg-navy hover:text-white transition">Request Allocation</button>' +
+            '</div>' +
+            '</div>';
+        }).join('');
+      }
+
+      // ---- Category tab filtering (cards already rendered above by the time this binds) ----
+      var tabs = document.querySelectorAll('.category-tab');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          tabs.forEach(function (t) {
+            t.classList.remove('bg-navy', 'text-white');
+            t.classList.add('bg-slate-100', 'text-slate-600');
+          });
+          tab.classList.remove('bg-slate-100', 'text-slate-600');
+          tab.classList.add('bg-navy', 'text-white');
+
+          var category = tab.dataset.category;
+          document.querySelectorAll('#asset-cards-grid > div').forEach(function (card) {
+            var matches = !category || card.dataset.class === category;
+            card.classList.toggle('hidden', !matches);
+          });
+        });
+      });
+
+      // ---- My Requests: allocation + sell requests merged, full history, every status,
+      // newest first — sorted by requestedAtMs (Phase 4c addition), a real millisecond
+      // timestamp set at request time, so same-day ordering between an allocation request
+      // and a sell request is now genuinely correct, not just a documented stable-merge
+      // approximation. Records from before this field existed get a deterministic
+      // end-of-day fallback computed by getAllocationRequests()/getSellRequests() themselves
+      // (see engine-core.js), so old and new requests still sort reasonably together.
+      var STATUS_STYLES = {
+        pending: 'bg-amber-50 text-amber-700',
+        approved: 'bg-emerald-50 text-emerald-700',
+        rejected: 'bg-red-50 text-red-700'
+      };
+      var TYPE_STYLES = {
+        Allocation: 'bg-navy/10 text-navy',
+        Sell: 'bg-purple-50 text-purple-700'
+      };
+
+      function renderMyRequests() {
+        var listEl = document.getElementById('my-requests-list');
+        if (!listEl) return;
+        var allocations = getAllocationRequests().map(function (r) {
+          return { kind: 'Allocation', id: r.id, productId: r.productId, amountLabel: formatUSD(Math.round(r.amount)),
+            status: r.status, requestedAt: r.requestedAt, requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason };
+        });
+        var sells = getSellRequests().map(function (r) {
+          return { kind: 'Sell', id: r.id, productId: r.productId, amountLabel: r.unitsToSell.toFixed(4) + ' units',
+            status: r.status, requestedAt: r.requestedAt, requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason };
+        });
+        var requests = allocations.concat(sells)
+          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-6 text-center">No requests yet.</p>';
+          return;
+        }
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Asset</th>' +
+          '<th class="text-left font-medium px-6 py-3">Type</th>' +
+          '<th class="text-right font-medium px-6 py-3">Amount</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Requested</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          requests.map(function (r) {
+            var product = productById(r.productId);
+            var name = product ? product.name : r.productId;
+            var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+            var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+            var typeClass = TYPE_STYLES[r.kind] || 'bg-slate-100 text-slate-600';
+            var resolvedText = r.resolvedAt
+              ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
+              : '—';
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 font-medium text-navy">' + name + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeClass + '">' + r.kind + '</span></td>' +
+              '<td class="px-6 py-4 text-right">' + r.amountLabel + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + r.requestedAt + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>';
+      }
+
+      renderMyRequests();
+
+      // ---- Request Allocation: real engine wiring, not just a toast ----
+      var toast = document.getElementById('allocation-toast');
+      var toastTitle = document.getElementById('allocation-toast-title');
+      var toastBody = document.getElementById('allocation-toast-body');
+      var toastTimer;
+
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-navy', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      if (cardsGrid) {
+        cardsGrid.addEventListener('click', function (e) {
+          var btn = e.target.closest('.request-allocation-btn');
+          if (!btn) return;
+          var card = btn.closest('[data-product-id]');
+          var productId = card.dataset.productId;
+          var product = productById(productId);
+          var input = card.querySelector('.allocation-amount-input');
+          var amount = parseFloat(input.value);
+
+          if (!amount || amount <= 0) {
+            input.focus();
+            input.classList.add('border-red-400');
+            setTimeout(function () { input.classList.remove('border-red-400'); }, 1500);
+            return;
+          }
+
+          try {
+            requestAllocation(productId, amount);
+            showToast('Allocation Request Sent', '$' + amount.toLocaleString() + ' requested for ' + product.name + '. Pending Portfolio Manager approval.', false);
+            input.value = '';
+            renderMyRequests();
+          } catch (err) {
+            showToast('Request Not Sent', err.message, true);
+          }
+        });
+      }
+
+      // ---- Sell Request: opens a preview modal, submits requestSell() — does not execute
+      // immediately, same request/approve discipline as Request Allocation. ----
+      var sellModal = document.getElementById('sell-modal');
+      var sellModalTitle = document.getElementById('sell-modal-title');
+      var sellModalPrice = document.getElementById('sell-modal-price');
+      var sellAvailableEl = document.getElementById('sell-available-units');
+      var sellCurrentValueEl = document.getElementById('sell-current-value');
+      var sellCostBasisEl = document.getElementById('sell-cost-basis');
+      var sellGainLossEl = document.getElementById('sell-gain-loss');
+      var sellModeTabs = document.querySelectorAll('.sell-mode-tab');
+      var sellPartialWrap = document.getElementById('sell-partial-input-wrap');
+      var sellUnitsInput = document.getElementById('sell-units-input');
+      var sellUnitsError = document.getElementById('sell-units-error');
+      var sellSubmitBtn = document.getElementById('sell-submit');
+      var sellState = { productId: null, holding: null, product: null, available: 0, mode: 'all' };
+
+      function closeSellModal() {
+        if (sellModal) sellModal.classList.add('hidden');
+      }
+
+      // Live preview only — mirrors executeSell()'s exact proportional cost-basis formula
+      // (costBasisPortion = holding.costBasis * (units / holding.units), denominator is
+      // always the FULL holding, not the available-to-sell amount) so the numbers shown
+      // here match what would actually happen on approval, without executing anything.
+      function updateSellPreview() {
+        var holding = sellState.holding;
+        var product = sellState.product;
+        if (!holding || !product) return;
+
+        var units = sellState.mode === 'all'
+          ? sellState.available
+          : (parseFloat(sellUnitsInput.value) || 0);
+
+        var unitsValid = units > 0 && units <= sellState.available + 1e-9;
+        if (sellState.mode === 'partial') {
+          sellUnitsError.classList.toggle('hidden', unitsValid || sellUnitsInput.value === '');
+          if (!unitsValid && sellUnitsInput.value !== '') {
+            sellUnitsError.textContent = units > sellState.available
+              ? 'Cannot exceed available units (' + sellState.available.toFixed(4) + ').'
+              : 'Enter a positive number of units.';
+          }
+        }
+
+        var currentValue = units * product.unitPrice;
+        var costBasisPortion = holding.units > 0 ? holding.costBasis * (units / holding.units) : 0;
+        var gainLoss = currentValue - costBasisPortion;
+
+        sellCurrentValueEl.textContent = formatUSD(Math.round(currentValue));
+        sellCostBasisEl.textContent = formatUSD(Math.round(costBasisPortion));
+        sellGainLossEl.textContent = (gainLoss >= 0 ? '+' : '') + formatUSD(Math.round(gainLoss));
+        sellGainLossEl.className = 'font-medium ' + (gainLoss >= 0 ? 'text-emerald-600' : 'text-red-600');
+
+        sellSubmitBtn.disabled = !unitsValid;
+        sellSubmitBtn.classList.toggle('opacity-50', !unitsValid);
+        sellSubmitBtn.classList.toggle('cursor-not-allowed', !unitsValid);
+
+        sellState.unitsToSell = units;
+      }
+
+      function openSellModal(productId) {
+        var holding = holdingByProductId(productId);
+        var product = productById(productId);
+        if (!holding || !product) return;
+        var available = availableToSell(holding);
+        if (available <= 1e-6) return; // defensive — the disabled button shouldn't fire a click at all
+
+        sellState = { productId: productId, holding: holding, product: product, available: available, mode: 'all' };
+
+        sellModalTitle.textContent = 'Sell — ' + product.name;
+        sellModalPrice.textContent = 'Current unit price: ' + formatUSD(product.unitPrice, 2);
+        sellAvailableEl.textContent = available.toFixed(4) + ' units';
+
+        sellModeTabs.forEach(function (t) {
+          var isAll = t.dataset.mode === 'all';
+          t.classList.toggle('bg-navy', isAll);
+          t.classList.toggle('text-white', isAll);
+          t.classList.toggle('bg-slate-100', !isAll);
+          t.classList.toggle('text-slate-600', !isAll);
+        });
+        sellPartialWrap.classList.add('hidden');
+        sellUnitsInput.value = '';
+        sellUnitsError.classList.add('hidden');
+
+        updateSellPreview();
+        sellModal.classList.remove('hidden');
+      }
+
+      if (tableBody) {
+        tableBody.addEventListener('click', function (e) {
+          var btn = e.target.closest('.sell-request-btn');
+          if (!btn) return;
+          openSellModal(btn.dataset.productId);
+        });
+      }
+
+      sellModeTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var mode = tab.dataset.mode;
+          sellState.mode = mode;
+          sellModeTabs.forEach(function (t) {
+            var active = t === tab;
+            t.classList.toggle('bg-navy', active);
+            t.classList.toggle('text-white', active);
+            t.classList.toggle('bg-slate-100', !active);
+            t.classList.toggle('text-slate-600', !active);
+          });
+          sellPartialWrap.classList.toggle('hidden', mode !== 'partial');
+          if (mode === 'partial' && !sellUnitsInput.value) {
+            sellUnitsInput.value = sellState.available.toFixed(4);
+          }
+          updateSellPreview();
+        });
+      });
+
+      if (sellUnitsInput) sellUnitsInput.addEventListener('input', updateSellPreview);
+      if (document.getElementById('sell-close')) document.getElementById('sell-close').addEventListener('click', closeSellModal);
+      if (document.getElementById('sell-backdrop')) document.getElementById('sell-backdrop').addEventListener('click', closeSellModal);
+
+      if (sellSubmitBtn) {
+        sellSubmitBtn.addEventListener('click', function () {
+          if (sellSubmitBtn.disabled) return;
+          var units = sellState.unitsToSell;
+          var product = sellState.product;
+          try {
+            requestSell(sellState.productId, units);
+            closeSellModal();
+            showToast('Sell Request Sent', units.toFixed(4) + ' units of ' + product.name + ' submitted. Pending Portfolio Manager approval.', false);
+            renderReturnTable();
+            renderMyRequests();
+          } catch (err) {
+            showToast('Request Not Sent', err.message, true);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

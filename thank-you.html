@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Received — Marketswave</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1B3A4B;
+    }
+    .ty-section {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ty-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url('thankyou-bg.jpg') center center / cover no-repeat;
+      z-index: 0;
+    }
+    .ty-section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(18, 42, 56, 0.45);
+      z-index: 0;
+    }
+    .ty-card {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      width: 100%;
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+      padding: 48px 40px;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+    }
+    .ty-card h1 {
+      font-size: 1.7rem;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .ty-card p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      margin-bottom: 28px;
+    }
+    .ty-note {
+      background: #F7F6F3;
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 32px;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <div class="ty-section">
+    <div class="ty-card">
+      <h1>Thank You for choosing Marketswave</h1>
+      <p>Your application has been successfully submitted.</p>
+      <div class="ty-note">
+        Please check your email for a confirmation message. Our team will carefully review your information and contact you with the next steps of the onboarding process. This usually takes 1–2 business days.
+      </div>
+      <a href="index.html" class="btn btn-primary">Return to Website</a>
+    </div>
+  </div>
+</body>
+</html>

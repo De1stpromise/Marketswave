@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Support &amp; Disputes</h2>
+          <p class="text-slate-500 mt-1">Support requests and disputes across every client.</p>
+        </div>
+
+        <!-- Needs Attention -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Needs Attention <span id="pending-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="pending-list"></div>
+        </div>
+
+        <!-- Resolved -->
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Resolved</h3>
+          </div>
+          <div id="history-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Update modal -->
+  <div id="update-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="update-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Update Request</p>
+        <button type="button" id="update-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4" id="update-request-label"></p>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+      <select id="update-status-input" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-3">
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Resolved">Resolved</option>
+      </select>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Response / Note <span class="text-slate-400 font-normal">(visible to the client)</span></label>
+      <textarea id="update-note-input" rows="4" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Optional note the client will see on this request..."></textarea>
+      <p class="text-xs text-red-500 hidden mb-2" id="update-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="update-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="update-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Save Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('support');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getAllClientSupportRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var STATUS_STYLES = {
+        Open: 'bg-amber-50 text-amber-700',
+        'In Progress': 'bg-blue-50 text-blue-700',
+        Resolved: 'bg-emerald-50 text-emerald-700'
+      };
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function fmtDate(iso) {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+      }
+
+      function renderPending() {
+        var requests = getAllClientSupportRequests()
+          .filter(function (r) { return r.status !== 'Resolved'; })
+          .sort(function (a, b) { return (a.lastUpdated < b.lastUpdated) ? 1 : -1; });
+        document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
+        var listEl = document.getElementById('pending-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">Nothing needs attention right now.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
+          var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+          return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
+            '<div class="min-w-0">' +
+              '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + r.status + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + (r.reference ? ' · ' + r.reference : '') + ' · Opened ' + fmtDate(r.dateOpened) + '</span>' +
+              '</div>' +
+              '<p class="text-sm font-medium text-slate-900">' + r.category + '</p>' +
+              '<p class="text-sm text-slate-500">' + r.description + '</p>' +
+            '</div>' +
+            '<div class="shrink-0">' +
+              '<button type="button" class="update-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-status="' + r.status + '">Update</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      function renderHistory() {
+        var requests = getAllClientSupportRequests()
+          .filter(function (r) { return r.status === 'Resolved'; })
+          .sort(function (a, b) { return (a.lastUpdated < b.lastUpdated) ? 1 : -1; });
+        var listEl = document.getElementById('history-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No resolved requests yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
+          '<th class="text-left font-medium px-6 py-3">Request</th>' +
+          '<th class="text-left font-medium px-6 py-3">Category</th>' +
+          '<th class="text-left font-medium px-6 py-3">PM Response</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          requests.map(function (r) {
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + r.category + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + (r.pmNote ? r.pmNote : '—') + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + fmtDate(r.lastUpdated) + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      function renderAll() {
+        renderPending();
+        renderHistory();
+      }
+
+      // ---- Update modal ----
+      var updateModal = document.getElementById('update-modal');
+      var updateRequestLabel = document.getElementById('update-request-label');
+      var updateStatusInput = document.getElementById('update-status-input');
+      var updateNoteInput = document.getElementById('update-note-input');
+      var updateError = document.getElementById('update-error');
+      var activeClientId = null;
+      var activeRequestId = null;
+
+      function openUpdateModal(clientId, requestId, currentStatus) {
+        activeClientId = clientId;
+        activeRequestId = requestId;
+        var req = getAllClientSupportRequests().find(function (r) { return r.clientId === clientId && r.id === requestId; });
+        updateRequestLabel.textContent = requestId + ' — ' + (req ? req.category : '');
+        updateStatusInput.value = currentStatus;
+        updateNoteInput.value = req && req.pmNote ? req.pmNote : '';
+        updateError.classList.add('hidden');
+        updateModal.classList.remove('hidden');
+      }
+      function closeUpdateModal() {
+        updateModal.classList.add('hidden');
+        activeClientId = null;
+        activeRequestId = null;
+      }
+
+      document.getElementById('update-modal-close').addEventListener('click', closeUpdateModal);
+      document.getElementById('update-modal-backdrop').addEventListener('click', closeUpdateModal);
+      document.getElementById('update-cancel').addEventListener('click', closeUpdateModal);
+      document.getElementById('update-submit').addEventListener('click', function () {
+        try {
+          var today = new Date().toISOString().slice(0, 10);
+          var result = updateSupportRequestForClient(activeClientId, activeRequestId, {
+            status: updateStatusInput.value,
+            pmNote: updateNoteInput.value.trim() || null,
+            lastUpdated: today
+          });
+          closeUpdateModal();
+          showToast('Request Updated', result.id + ' is now ' + result.status + '.');
+          renderAll();
+        } catch (e) {
+          updateError.textContent = e.message;
+          updateError.classList.remove('hidden');
+        }
+      });
+
+      document.getElementById('pending-list').addEventListener('click', function (e) {
+        var btn = e.target.closest('.update-btn');
+        if (!btn) return;
+        openUpdateModal(btn.dataset.client, btn.dataset.id, btn.dataset.status);
+      });
+
+      renderAll();
+    })();
+  </script>
+
+</body>
+</html>

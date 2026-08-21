@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transactions — Marketswave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
+            cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">Logout</a>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Transactions</h2>
+          <p class="text-slate-500 mt-1">Chronological ledger of all portfolio activity.</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Total Buys</p>
+            <p class="text-xl font-semibold text-navy" id="total-buys-amount">$0</p>
+            <p class="text-xs text-slate-400 mt-1" id="total-buys-count">0 transactions</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Total Sells</p>
+            <p class="text-xl font-semibold text-navy" id="total-sells-amount">$0</p>
+            <p class="text-xs text-slate-400 mt-1" id="total-sells-count">0 transactions</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Net Invested</p>
+            <p class="text-xl font-semibold text-navy" id="net-invested-amount">$0</p>
+            <p class="text-xs text-slate-400 mt-1">Cost basis of current holdings</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-xs text-slate-500 mb-1">Est. Monthly Advisory Fee</p>
+            <p class="text-xl font-semibold text-navy" id="advisory-fee-amount">$0</p>
+            <p class="text-xs text-slate-400 mt-1">Based on a 30-day accrual at <span id="advisory-fee-rate-display">—</span>% annual</p>
+          </div>
+        </div>
+
+        <!-- Recent Activity + Visual Insights -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <!-- Recent Activity Quick Card -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-4">Recent Activity</h3>
+            <div class="space-y-3" id="recent-activity-list"></div>
+          </div>
+
+          <!-- Transaction Volume Chart -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-4">Transaction Volume</h3>
+            <div class="h-40"><canvas id="volume-chart"></canvas></div>
+          </div>
+
+          <!-- Net Cash Flow Chart -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-4">Net Cash Flow</h3>
+            <div class="h-40"><canvas id="cashflow-chart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label for="filter-date-from" class="block text-xs text-slate-500 mb-1">Date From</label>
+              <input type="date" id="filter-date-from" name="date_from" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+            </div>
+            <div>
+              <label for="filter-date-to" class="block text-xs text-slate-500 mb-1">Date To</label>
+              <input type="date" id="filter-date-to" name="date_to" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+            </div>
+            <div>
+              <label for="filter-type" class="block text-xs text-slate-500 mb-1">Type</label>
+              <select id="filter-type" name="type" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="">All Types</option>
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+                <option value="Deposit">Deposit</option>
+                <option value="HYS Deposit">HYS Deposit</option>
+              </select>
+            </div>
+            <div>
+              <label for="filter-asset" class="block text-xs text-slate-500 mb-1">Asset</label>
+              <select id="filter-asset" name="asset" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <option value="">All Assets</option>
+              </select>
+            </div>
+            <button type="button" id="apply-filters" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Apply Filters</button>
+            <button type="button" id="reset-filters" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Reset</button>
+          </div>
+        </div>
+
+        <!-- Transaction Ledger -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-navy">Transaction Ledger</h3>
+            <span class="text-xs text-slate-400" id="ledger-count">Showing latest activity</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th scope="col" class="text-left font-medium px-6 py-3">Date</th>
+                  <th scope="col" class="text-left font-medium px-6 py-3">Asset</th>
+                  <th scope="col" class="text-left font-medium px-6 py-3">Type</th>
+                  <th scope="col" class="text-right font-medium px-6 py-3">Quantity</th>
+                  <th scope="col" class="text-right font-medium px-6 py-3">Price</th>
+                  <th scope="col" class="text-right font-medium px-6 py-3">Total Value</th>
+                  <th scope="col" class="text-left font-medium px-6 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" id="ledger-body">
+                <tr id="ledger-empty-row" class="hidden">
+                  <td colspan="7" class="px-6 py-10 text-center text-slate-400" id="ledger-empty-text">No transactions match your filters.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Transaction Detail Modal -->
+  <div id="txn-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-navy-dark/60" id="txn-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h3 class="font-semibold text-navy text-lg" id="txn-modal-asset">—</h3>
+          <p class="text-sm text-slate-500" id="txn-modal-date">—</p>
+        </div>
+        <button type="button" id="txn-modal-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-2.5 text-sm">
+        <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="font-medium text-navy" id="txn-modal-type">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Status</span><span class="font-medium text-navy" id="txn-modal-status">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Quantity</span><span class="font-medium text-navy" id="txn-modal-qty">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Execution Price</span><span class="font-medium text-navy" id="txn-modal-price">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Market Price at Execution</span><span class="font-medium text-navy" id="txn-modal-market">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Associated Costs</span><span class="font-medium text-navy" id="txn-modal-costs">—</span></div>
+        <div class="flex justify-between hidden" id="txn-modal-realized-row"><span class="text-slate-500">Realized Return</span><span class="font-medium" id="txn-modal-realized">—</span></div>
+        <div class="flex justify-between border-t border-slate-100 pt-2.5"><span class="text-slate-500">Total Value</span><span class="font-semibold text-navy" id="txn-modal-total">—</span></div>
+      </div>
+      <p class="text-xs text-slate-500 mt-4 pt-4 border-t border-slate-100" id="txn-modal-note">—</p>
+    </div>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('transactions');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Wires this page to engine-core.js (Phase 4c) — summary cards, Recent Activity, both
+    // charts, the ledger table + filters, and the drill-down modal all now read live engine
+    // state instead of hardcoded demo numbers.
+    (function () {
+      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      settleAllProducts(); // catch prices up to today before reading any engine value
+
+      function formatUSD(n, decimals) {
+        var sign = n < 0 ? '-' : '';
+        var abs = Math.abs(n);
+        return sign + '$' + abs.toLocaleString('en-US', {
+          minimumFractionDigits: decimals || 0,
+          maximumFractionDigits: decimals || 0
+        });
+      }
+
+      // Newest first, master list every other section below reads from.
+      var allTransactions = getTransactionLedger().slice().reverse();
+
+      function txnProduct(txn) { return txn.productId ? getProduct(txn.productId) : null; }
+      // A DEPOSIT/HYS_DEPOSIT has no product — no buy/sell target, nothing to look up — so
+      // each gets its own label instead of falling through to a failed product lookup (which
+      // used to render the literal text "null" for DEPOSIT before that was fixed — HYS_DEPOSIT
+      // is handled here proactively from day one rather than repeating that bug).
+      function txnProductName(txn) {
+        if (txn.type === 'DEPOSIT') {
+          return 'Cash Deposit (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
+        }
+        if (txn.type === 'HYS_DEPOSIT') {
+          return 'HYS Pocket Funding (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
+        }
+        var p = txnProduct(txn);
+        return p ? p.name : txn.productId;
+      }
+      function txnTypeLabel(txn) {
+        if (txn.type === 'BUY') return 'Buy';
+        if (txn.type === 'SELL') return 'Sell';
+        if (txn.type === 'HYS_DEPOSIT') return 'HYS Deposit';
+        return 'Deposit';
+      }
+
+      // ---- Summary cards ----
+      var buys = allTransactions.filter(function (t) { return t.type === 'BUY'; });
+      var sells = allTransactions.filter(function (t) { return t.type === 'SELL'; });
+      var totalBuys = buys.reduce(function (s, t) { return s + t.totalValue; }, 0);
+      var totalSells = sells.reduce(function (s, t) { return s + t.totalValue; }, 0);
+      // Net Invested = cost basis of CURRENT holdings — principal still allocated and not
+      // yet sold. Deliberately NOT allocatedCapital, which reflects current market value
+      // including price movement (same cost-basis-vs-current-value distinction Phase 4b
+      // already applied to "Capital Allocated").
+      var netInvested = getHoldings().reduce(function (s, h) { return s + h.costBasis; }, 0);
+
+      function pluralize(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+      var totalBuysEl = document.getElementById('total-buys-amount');
+      var totalBuysCountEl = document.getElementById('total-buys-count');
+      if (totalBuysEl) totalBuysEl.textContent = formatUSD(Math.round(totalBuys));
+      if (totalBuysCountEl) totalBuysCountEl.textContent = pluralize(buys.length, 'transaction');
+
+      var totalSellsEl = document.getElementById('total-sells-amount');
+      var totalSellsCountEl = document.getElementById('total-sells-count');
+      if (totalSellsEl) totalSellsEl.textContent = formatUSD(Math.round(totalSells));
+      if (totalSellsCountEl) totalSellsCountEl.textContent = pluralize(sells.length, 'transaction');
+
+      var netInvestedEl = document.getElementById('net-invested-amount');
+      if (netInvestedEl) netInvestedEl.textContent = formatUSD(Math.round(netInvested));
+
+      // ---- Advisory fee card: live accrual estimate, read-only. Setting the rate is a
+      // Portfolio Manager / admin action, not something a client should be able to do from
+      // their own dashboard — setAdvisoryFeeRate() stays in engine-core.js for the
+      // upcoming admin tool, but nothing on this page calls it. ----
+      var advisoryFeeAmountEl = document.getElementById('advisory-fee-amount');
+      var advisoryFeeRateEl = document.getElementById('advisory-fee-rate-display');
+      if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = formatUSD(Math.round(getAdvisoryFeeAccrued(30)));
+      if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = getAccountState().advisoryFeeRate;
+
+      // ---- Recent Activity (this page's own instance) ----
+      var activityEl = document.getElementById('recent-activity-list');
+      if (activityEl) {
+        var recent = allTransactions.slice(0, 5);
+        if (recent.length === 0) {
+          // Matches the chart cards' empty-state pattern exactly (h-40 fixed height +
+          // flex items-center justify-center) — the populated list below is intentionally
+          // unconstrained/top-aligned (space-y-3, natural row stacking), so the empty state
+          // needs its own dedicated centered placeholder rather than reusing that same slot.
+          activityEl.innerHTML = '<div class="h-40 flex items-center justify-center"><p class="text-sm text-slate-400">No recent activity yet.</p></div>';
+        } else {
+          activityEl.innerHTML = recent.map(function (txn) {
+            var isSell = txn.type === 'SELL';
+            var isGain = isSell ? txn.realizedReturn >= 0 : true;
+            var dotColor = isGain ? 'bg-emerald-500' : 'bg-red-500';
+            var amountClass = isSell ? (isGain ? 'text-emerald-600' : 'text-red-600') : 'text-navy';
+            // min-w-0 on the left group + truncate on just the product name lets a long
+            // name ellipsize on one line at narrow widths instead of wrapping onto several —
+            // wrapping was what threw the dot/type-suffix/amount alignment off. The dot,
+            // type suffix, and amount all get flex-shrink-0 so they stay fully visible and
+            // never get squeezed as the name truncates around them.
+            return '<div class="flex items-center justify-between gap-3">' +
+              '<span class="flex items-center gap-2 text-sm text-slate-700 min-w-0">' +
+              '<span class="w-2 h-2 rounded-full flex-shrink-0 ' + dotColor + '"></span>' +
+              '<span class="truncate">' + txnProductName(txn) + '</span>' +
+              '<span class="text-slate-400 flex-shrink-0">· ' + txnTypeLabel(txn) + '</span>' +
+              '</span>' +
+              '<span class="text-sm font-medium flex-shrink-0 ' + amountClass + '">' + formatUSD(Math.round(txn.totalValue)) + '</span>' +
+              '</div>';
+          }).join('');
+        }
+      }
+
+      // ---- Charts: monthly buy/sell volume + net cash flow, grouped from real data.
+      // Only the months actually present in the ledger are shown (no invented trailing
+      // window), and if there's no transaction history at all, the canvas is replaced with
+      // plain text instead of rendering an empty/misleading chart. ----
+      function monthKey(dateStr) { return dateStr.slice(0, 7); }
+      function monthLabel(key) {
+        var MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var parts = key.split('-');
+        return MONTH_NAMES[parseInt(parts[1], 10) - 1] + ' ' + parts[0].slice(2);
+      }
+
+      var volumeCanvas = document.getElementById('volume-chart');
+      var cashflowCanvas = document.getElementById('cashflow-chart');
+
+      // The empty-state text doesn't depend on Chart.js being loaded at all — shown
+      // whenever there's no transaction history, regardless of whether the CDN chart
+      // library itself is available, so a slow/blocked CDN never leaves a blank canvas
+      // with no explanation.
+      if (allTransactions.length === 0) {
+        if (volumeCanvas) volumeCanvas.parentElement.innerHTML = '<p class="text-sm text-slate-400 h-full flex items-center justify-center">No transaction history yet.</p>';
+        if (cashflowCanvas) cashflowCanvas.parentElement.innerHTML = '<p class="text-sm text-slate-400 h-full flex items-center justify-center">No transaction history yet.</p>';
+      } else if (typeof Chart !== 'undefined') {
+        // Transaction Volume measures buy/sell TRADING activity, so DEPOSIT is deliberately
+        // excluded from buys/sells entirely — it's funding, not a trade. Net Cash Flow is
+        // genuinely about money entering/leaving the account, so DEPOSIT counts there as a
+        // positive inflow alongside sells.
+        var monthly = {};
+        allTransactions.forEach(function (txn) {
+          var key = monthKey(txn.date);
+          if (!monthly[key]) monthly[key] = { buys: 0, sells: 0, deposits: 0 };
+          if (txn.type === 'BUY') monthly[key].buys += txn.totalValue;
+          else if (txn.type === 'SELL') monthly[key].sells += txn.totalValue;
+          else if (txn.type === 'DEPOSIT') monthly[key].deposits += txn.totalValue;
+        });
+        var monthKeys = Object.keys(monthly).sort();
+        var labels = monthKeys.map(monthLabel);
+        var buysData = monthKeys.map(function (k) { return Math.round(monthly[k].buys); });
+        var sellsData = monthKeys.map(function (k) { return Math.round(monthly[k].sells); });
+        var netData = monthKeys.map(function (k) { return Math.round(monthly[k].sells + monthly[k].deposits - monthly[k].buys); });
+
+        if (volumeCanvas) {
+          new Chart(volumeCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [
+                { label: 'Buys', data: buysData, backgroundColor: '#1B3A4B' },
+                { label: 'Sells', data: sellsData, backgroundColor: '#C8A857' }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { x: { grid: { display: false } }, y: { display: false } },
+              plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+            }
+          });
+        }
+
+        if (cashflowCanvas) {
+          new Chart(cashflowCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Net Cash Flow',
+                data: netData,
+                borderColor: '#1B3A4B',
+                backgroundColor: 'rgba(27,58,75,0.08)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 3
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { x: { grid: { display: false } }, y: { display: false } },
+              plugins: { legend: { display: false } }
+            }
+          });
+        }
+      }
+
+      // ---- Asset filter: populated from the Product Catalog, Cash excluded (it can never
+      // appear in a transaction — no HOLDINGS entry, no buy/sell target). ----
+      var assetFilter = document.getElementById('filter-asset');
+      if (assetFilter) {
+        getAllProducts()
+          .filter(function (p) { return p.assetClass !== 'Unallocated / Cash'; })
+          .forEach(function (p) {
+            var opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = p.name;
+            assetFilter.appendChild(opt);
+          });
+      }
+
+      // ---- Ledger table: real rows + working filters ----
+      var tbody = document.getElementById('ledger-body');
+      var emptyRow = document.getElementById('ledger-empty-row');
+      var emptyText = document.getElementById('ledger-empty-text');
+      var countLabel = document.getElementById('ledger-count');
+
+      function renderLedger(filtered) {
+        Array.prototype.slice.call(tbody.querySelectorAll('tr[data-txn-id]')).forEach(function (r) { r.remove(); });
+
+        emptyText.textContent = allTransactions.length === 0 ? 'No transactions yet.' : 'No transactions match your filters.';
+
+        if (filtered.length === 0) {
+          emptyRow.classList.remove('hidden');
+        } else {
+          emptyRow.classList.add('hidden');
+          var rowsHtml = filtered.map(function (txn) {
+            var badgeClass = txn.type === 'BUY' ? 'bg-emerald-50 text-emerald-700'
+              : txn.type === 'SELL' ? 'bg-red-50 text-red-600'
+              : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
+              : 'bg-blue-50 text-blue-700';
+            var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
+            var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
+            return '<tr class="hover:bg-slate-50/50 cursor-pointer" data-txn-id="' + txn.id + '">' +
+              '<td class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
+              '<td class="px-6 py-4 font-medium text-navy">' + txnProductName(txn) + '</td>' +
+              '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + badgeClass + '">' + txnTypeLabel(txn) + '</span></td>' +
+              '<td class="px-6 py-4 text-right">' + unitsCell + '</td>' +
+              '<td class="px-6 py-4 text-right">' + priceCell + '</td>' +
+              '<td class="px-6 py-4 text-right font-medium">' + formatUSD(Math.round(txn.totalValue)) + '</td>' +
+              '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">' + txn.status + '</span></td>' +
+              '</tr>';
+          }).join('');
+          emptyRow.insertAdjacentHTML('beforebegin', rowsHtml);
+        }
+
+        countLabel.textContent = filtered.length === allTransactions.length
+          ? 'Showing latest activity'
+          : 'Showing ' + filtered.length + ' of ' + allTransactions.length + ' transactions';
+
+        Array.prototype.slice.call(tbody.querySelectorAll('tr[data-txn-id]')).forEach(function (row) {
+          row.addEventListener('click', function () {
+            var txn = allTransactions.find(function (t) { return t.id === row.dataset.txnId; });
+            if (txn) openTxnModal(txn);
+          });
+        });
+      }
+
+      function applyFilters() {
+        var dateFrom = document.getElementById('filter-date-from').value;
+        var dateTo = document.getElementById('filter-date-to').value;
+        var type = document.getElementById('filter-type').value;
+        var asset = document.getElementById('filter-asset').value;
+
+        var filtered = allTransactions.filter(function (txn) {
+          var matchesFrom = !dateFrom || txn.date >= dateFrom;
+          var matchesTo = !dateTo || txn.date <= dateTo;
+          var matchesType = !type || txnTypeLabel(txn) === type;
+          var matchesAsset = !asset || txnProductName(txn) === asset;
+          return matchesFrom && matchesTo && matchesType && matchesAsset;
+        });
+
+        renderLedger(filtered);
+      }
+
+      function resetFilters() {
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-asset').value = '';
+        applyFilters();
+      }
+
+      document.getElementById('apply-filters').addEventListener('click', applyFilters);
+      document.getElementById('reset-filters').addEventListener('click', resetFilters);
+
+      renderLedger(allTransactions);
+
+      // ---- Transaction drill-down modal: real per-transaction detail ----
+      var modal = document.getElementById('txn-modal');
+      var modalBackdrop = document.getElementById('txn-modal-backdrop');
+      var modalCloseBtn = document.getElementById('txn-modal-close');
+
+      function openTxnModal(txn) {
+        var isSell = txn.type === 'SELL';
+        var isDeposit = txn.type === 'DEPOSIT';
+        var isHysDeposit = txn.type === 'HYS_DEPOSIT';
+        document.getElementById('txn-modal-asset').textContent = txnProductName(txn);
+        document.getElementById('txn-modal-date').textContent = txn.date;
+        document.getElementById('txn-modal-type').textContent = txnTypeLabel(txn);
+        document.getElementById('txn-modal-status').textContent = txn.status;
+        // A DEPOSIT/HYS_DEPOSIT has no units or unit price — nothing was bought — so those
+        // fields show "—" instead of calling .toFixed() on null, which used to throw.
+        document.getElementById('txn-modal-qty').textContent = txn.units != null ? txn.units.toFixed(4) : '—';
+        document.getElementById('txn-modal-price').textContent = txn.price != null ? formatUSD(txn.price, 2) : '—';
+        // The engine executes exactly at the settled unit price — no separate slippage or
+        // per-trade fee concept exists, so Market Price mirrors Execution Price and
+        // Associated Costs is genuinely $0, not an invented number.
+        document.getElementById('txn-modal-market').textContent = txn.price != null ? formatUSD(txn.price, 2) : '—';
+        document.getElementById('txn-modal-costs').textContent = formatUSD(0);
+        document.getElementById('txn-modal-total').textContent = formatUSD(Math.round(txn.totalValue));
+
+        var realizedRow = document.getElementById('txn-modal-realized-row');
+        var realizedEl = document.getElementById('txn-modal-realized');
+        if (isSell && txn.realizedReturn !== null && txn.realizedReturn !== undefined) {
+          realizedRow.classList.remove('hidden');
+          realizedEl.textContent = (txn.realizedReturn >= 0 ? '+' : '') + formatUSD(Math.round(txn.realizedReturn));
+          realizedEl.className = 'font-medium ' + (txn.realizedReturn >= 0 ? 'text-emerald-600' : 'text-red-600');
+        } else {
+          realizedRow.classList.add('hidden');
+        }
+
+        // Every real transaction today is only ever created via executeBuy()/executeSell()/
+        // creditDepositRequest()/creditHYSDeposit(), each only ever called internally by an
+        // approved allocation/sell/deposit/HYS-deposit request — so this note is accurate
+        // given current wiring, not fabricated. Worth revisiting if a future phase calls any
+        // of these from anywhere else.
+        document.getElementById('txn-modal-note').textContent = isDeposit
+          ? 'Credited following Portfolio Manager confirmation of a deposit request.'
+          : isHysDeposit
+          ? 'Credited following Portfolio Manager confirmation of a High Yield Savings deposit request.'
+          : isSell
+          ? 'Executed following Portfolio Manager approval of a sell request.'
+          : 'Executed following Portfolio Manager approval of an allocation request.';
+
+        modal.classList.remove('hidden');
+      }
+
+      function closeTxnModal() {
+        modal.classList.add('hidden');
+      }
+
+      if (modalBackdrop) modalBackdrop.addEventListener('click', closeTxnModal);
+      if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeTxnModal);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeTxnModal();
+      });
+    })();
+  </script>
+</body>
+</html>

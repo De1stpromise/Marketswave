@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open an Account — Marketswave</title>
+  <meta name="description" content="Start your Marketswave onboarding process." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body.signup-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1B3A4B;
+    }
+
+    .signup-topbar {
+      position: relative;
+      z-index: 2;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .signup-topbar .logo {
+      color: white;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .back-link-panel {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .back-link-panel:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+    }
+
+    .signup-section {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 20px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .signup-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url('signup-bg.jpg') center center / cover no-repeat;
+      z-index: 0;
+    }
+
+    .signup-section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(18, 42, 56, 0.3);
+      z-index: 0;
+    }
+
+    .signup-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 720px;
+      min-height: 580px;
+      max-height: 78vh;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 16px;
+      padding: 28px 40px 26px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+
+      /* Hide scrollbar but keep scrolling */
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE/Edge */
+    }
+
+    .signup-card::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
+    }
+
+    /* Progress */
+    .progress-wrap {
+      margin-bottom: 32px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bar {
+      height: 6px;
+      background: #E5E2DC;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 10px;
+      transition: width 0.35s ease;
+      width: 11%;
+    }
+
+    .step-title {
+      font-size: 1.55rem;
+      color: var(--primary);
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .step-lead {
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      margin-bottom: 28px;
+      line-height: 1.55;
+    }
+
+    /* Account type cards */
+    .account-type-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .account-type-card {
+      border: 1.5px solid #D8D4CD;
+      border-radius: 12px;
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: #FCFBF9;
+      position: relative;
+      min-height: 92px; /* forces all cards to the same height */
+    }
+
+    .account-type-card:hover {
+      border-color: #C4BFB6;
+      background: #FFFFFF;
+    }
+
+    .account-type-card.is-selected {
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+    }
+
+    .account-type-card.is-selected::after {
+      content: "";
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 12px;
+    }
+
+    .account-type-card input {
+      display: none;
+    }
+
+    .account-type-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--primary);
+    }
+
+    .account-type-content h3 {
+      font-size: 1.08rem;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .account-type-content p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    /* Navigation buttons */
+    .step-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .step-actions .btn {
+      min-width: 140px;
+    }
+
+    .btn-back {
+      background: transparent;
+      border: 1.5px solid #D8D4CD;
+      color: var(--text);
+    }
+    .btn-back:hover {
+      background: #F5F3EF;
+      border-color: #C4BFB6;
+    }
+
+    /* Hide steps by default */
+    .signup-step {
+      display: none;
+    }
+    .signup-step.is-active {
+      display: block;
+    }
+
+    @media (max-width: 600px) {
+      .signup-card {
+        padding: 32px 22px 28px;
+      }
+      .step-actions {
+        flex-direction: column-reverse;
+      }
+      .step-actions .btn {
+        width: 100%;
+      }
+    }
+
+    /* Form elements inside signup */
+    .signup-card .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .signup-card .form-group {
+      margin-bottom: 18px;
+    }
+
+    .signup-card .form-group label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 7px;
+    }
+
+    .signup-card .form-group .required {
+      color: var(--primary);
+    }
+
+    .signup-card .form-group input,
+    .signup-card .form-group select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #D8D4CD;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #FCFBF9;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+
+    .signup-card .form-group input:focus,
+    .signup-card .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.1);
+    }
+
+    /* Password strength indicator */
+    .password-strength {
+      margin-top: 8px;
+    }
+    .strength-bar {
+      height: 5px;
+      background: #E5E2DC;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+    .strength-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.25s ease, background 0.25s ease;
+    }
+    .strength-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Inline validation errors */
+    .field-error {
+      color: #DC2626;
+      font-size: 0.82rem;
+      margin-top: 6px;
+      display: none;
+    }
+    .field-error.is-visible {
+      display: block;
+    }
+    .input-error {
+      border-color: #DC2626 !important;
+    }
+
+    @media (max-width: 600px) {
+      .signup-card .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Risk questionnaire styles */
+    .risk-question {
+      margin-bottom: 26px;
+    }
+
+    .risk-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .risk-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 18px;
+      border: 1.5px solid #D8D4CD;
+      border-radius: 12px;
+      background: #FCFBF9;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: var(--text);
+      transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+      min-height: 52px;
+    }
+
+    .risk-option:hover {
+      border-color: #C4BFB6;
+      background: #FFFFFF;
+    }
+
+    .risk-option:has(input:checked) {
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+      font-weight: 500;
+    }
+
+    .risk-option input {
+      accent-color: var(--primary);
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      order: -1; /* keeps the radio on the left */
+    }
+
+    /* Choice panels (Step 5 style) */
+    .choice-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .choice-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 14px 12px;
+      border: 1.5px solid #D8D4CD;
+      border-radius: 10px;
+      background: #FCFBF9;
+      cursor: pointer;
+      font-size: 0.92rem;
+      color: var(--text);
+      transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+      min-height: 52px;
+    }
+    .choice-card input {
+      display: none;
+    }
+    .choice-card:hover {
+      border-color: #C4BFB6;
+      background: #FFFFFF;
+    }
+    .choice-card:has(input:checked) {
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+      font-weight: 500;
+    }
+    @media (max-width: 600px) {
+      .choice-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Document Upload */
+    .upload-box {
+      border: 1.5px dashed #C4BFB6;
+      border-radius: 12px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: #FCFBF9;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-box:hover {
+      border-color: var(--primary);
+      background: #FFFFFF;
+    }
+    .upload-box.has-file {
+      border-style: solid;
+      border-color: var(--primary);
+      background: rgba(27, 58, 75, 0.04);
+    }
+    .upload-icon {
+      display: block;
+      font-size: 1.4rem;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .upload-text {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+    .upload-filename {
+      font-size: 0.92rem;
+      color: var(--primary);
+      font-weight: 500;
+      margin-top: 6px;
+    }
+
+    /* Review & Consent */
+    .review-box {
+      background: #F7F6F3;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin-bottom: 28px;
+    }
+    .review-box p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+    .consent-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+      font-size: 0.92rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .consent-check input {
+      margin-top: 3px;
+      accent-color: var(--primary);
+    }
+    .consent-check a {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="signup-page">
+
+  <div class="signup-topbar">
+    <a href="index.html" class="logo">MARKETSWAVE</a>
+    <a href="index.html" class="back-link-panel">← Back to site</a>
+  </div>
+
+  <section class="signup-section">
+    <div class="signup-card">
+
+      <!-- Progress -->
+      <div class="progress-wrap">
+        <div class="progress-meta">
+          <span id="step-label">Step 1 of 9</span>
+          <span id="step-name">Account Type</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- ========== STEP 1: Account Type ========== -->
+      <div class="signup-step is-active" data-step="1">
+        <h1 class="step-title">Choose your account type</h1>
+        <p class="step-lead">Select the structure that best matches your situation. You can only choose one.</p>
+
+        <div class="account-type-grid">
+          <label class="account-type-card" data-value="individual">
+            <input type="radio" name="account_type" value="individual">
+            <div class="account-type-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="account-type-content">
+              <h3>Individual</h3>
+              <p>Personal investment account in your own name.</p>
+            </div>
+          </label>
+
+          <label class="account-type-card" data-value="joint">
+            <input type="radio" name="account_type" value="joint">
+            <div class="account-type-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="account-type-content">
+              <h3>Joint</h3>
+              <p>Shared account between two people (e.g. partners or spouses).</p>
+            </div>
+          </label>
+
+          <label class="account-type-card" data-value="entity">
+            <input type="radio" name="account_type" value="entity">
+            <div class="account-type-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4 8 4v14"/><path d="M9 21v-4h6v4"/><path d="M10 9h4"/><path d="M10 13h4"/></svg>
+            </div>
+            <div class="account-type-content">
+              <h3>Entity / Business</h3>
+              <p>Corporate, partnership, or institutional account.</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="step-actions">
+          <div></div>
+          <button type="button" class="btn btn-primary" id="btn-continue-1" disabled>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 2: Personal Details ========== -->
+      <div class="signup-step" data-step="2">
+        <h1 class="step-title">Personal Details</h1>
+        <p class="step-lead">Tell us about yourself. This information is used for account setup and verification.</p>
+
+        <div class="form-group">
+          <label>Full Name <span class="required">*</span></label>
+          <input type="text" name="full_name" placeholder="Your full legal name" required>
+        </div>
+
+        <div class="form-group">
+          <label>Email Address <span class="required">*</span></label>
+          <input type="email" name="email" id="email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label>Phone Number <span class="required">*</span></label>
+          <input type="tel" name="phone" placeholder="+46 70 000 00 00" required>
+        </div>
+
+        <div class="form-group">
+          <label>Password <span class="required">*</span></label>
+          <input type="password" name="password" id="password" placeholder="Create a password" required minlength="8">
+          <div class="password-strength">
+            <div class="strength-bar">
+              <div class="strength-fill" id="strength-fill"></div>
+            </div>
+            <span class="strength-text" id="strength-text">Enter a password</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Confirm Password <span class="required">*</span></label>
+          <input type="password" name="password_confirm" id="password_confirm" placeholder="Confirm your password" required minlength="8">
+        </div>
+
+        <div class="form-group">
+          <label>Date of Birth <span class="required">*</span></label>
+          <input type="date" name="date_of_birth" required>
+        </div>
+
+        <div class="form-group">
+          <label>Country of Residence <span class="required">*</span></label>
+          <select name="country" required>
+            <option value="" disabled selected>Select country</option>
+            <option value="SE">Sweden</option>
+            <option value="NO">Norway</option>
+            <option value="DK">Denmark</option>
+            <option value="FI">Finland</option>
+            <option value="DE">Germany</option>
+            <option value="GB">United Kingdom</option>
+            <option value="US">United States</option>
+            <option value="CH">Switzerland</option>
+            <option value="NL">Netherlands</option>
+            <option value="FR">France</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 8: Document Upload ========== -->
+      <div class="signup-step" data-step="8">
+        <h1 class="step-title">Document Upload</h1>
+        <p class="step-lead">Please upload one government-issued photo ID and one proof of address. Accepted formats: PDF, JPG, PNG.</p>
+
+        <div class="form-group">
+          <label>Government-issued Photo ID <span class="required">*</span></label>
+          <div class="upload-box" data-upload="id">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+            <div class="upload-placeholder">
+              <span class="upload-icon">↑</span>
+              <span class="upload-text">Click to upload ID (Passport or National ID)</span>
+            </div>
+            <div class="upload-filename" hidden></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Proof of Address <span class="required">*</span></label>
+          <div class="upload-box" data-upload="address">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
+            <div class="upload-placeholder">
+              <span class="upload-icon">↑</span>
+              <span class="upload-text">Click to upload Proof of Address (last 3 months)</span>
+            </div>
+            <div class="upload-filename" hidden></div>
+          </div>
+        </div>
+
+        <p class="form-note" style="text-align:left; margin-top:8px;">
+          Documents are used only for verification purposes.
+        </p>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 3: Entity Details (conditional) ========== -->
+      <div class="signup-step" data-step="3">
+        <h1 class="step-title">Entity Details</h1>
+        <p class="step-lead">Provide the key information about the company or organisation.</p>
+
+        <div class="form-group">
+          <label>Company / Entity Name <span class="required">*</span></label>
+          <input type="text" name="entity_name" placeholder="Registered company name">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Registration Number</label>
+            <input type="text" name="registration_number" placeholder="Company registration number">
+          </div>
+          <div class="form-group">
+            <label>Country of Incorporation <span class="required">*</span></label>
+            <input type="text" name="incorporation_country" placeholder="e.g. Sweden">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Your Role in the Entity <span class="required">*</span></label>
+          <input type="text" name="entity_role" placeholder="e.g. Director, Beneficial Owner, Authorised Signatory">
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 9: Review & Submit ========== -->
+      <div class="signup-step" data-step="9">
+        <h1 class="step-title">Review & Submit</h1>
+        <p class="step-lead">Please review your information. You can go back to make changes before submitting.</p>
+
+        <div class="review-box">
+          <p>By submitting this application you confirm that the information provided is accurate and complete.</p>
+          
+          <label class="consent-check">
+            <input type="checkbox" id="consent-terms">
+            <span>I agree to the <a href="legal.html#terms" target="_blank">Terms of Use</a> and <a href="legal.html#privacy" target="_blank">Privacy Policy</a>.</span>
+          </label>
+
+          <label class="consent-check">
+            <input type="checkbox" id="consent-accuracy">
+            <span>I confirm that all information provided is true and accurate to the best of my knowledge.</span>
+          </label>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" id="btn-submit">Submit Application</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 7: Risk Questionnaire ========== -->
+      <div class="signup-step" data-step="7">
+        <h1 class="step-title">Risk Questionnaire</h1>
+        <p class="step-lead">A short set of questions to better understand your risk profile. There are no right or wrong answers.</p>
+
+        <div class="form-group">
+          <label>1. How would you describe your knowledge of financial markets? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_knowledge" value="beginner"><span>Beginner</span></label>
+            <label class="choice-card"><input type="radio" name="risk_knowledge" value="intermediate"><span>Intermediate</span></label>
+            <label class="choice-card"><input type="radio" name="risk_knowledge" value="advanced"><span>Advanced</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>2. If your portfolio dropped 15% in a short period, what would you most likely do? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_reaction" value="sell-all"><span>Sell everything</span></label>
+            <label class="choice-card"><input type="radio" name="risk_reaction" value="sell-some"><span>Sell some</span></label>
+            <label class="choice-card"><input type="radio" name="risk_reaction" value="hold"><span>Hold</span></label>
+            <label class="choice-card"><input type="radio" name="risk_reaction" value="buy-more"><span>Buy more</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>3. What is your primary investment objective? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_objective" value="preservation"><span>Capital preservation</span></label>
+            <label class="choice-card"><input type="radio" name="risk_objective" value="income"><span>Steady income</span></label>
+            <label class="choice-card"><input type="radio" name="risk_objective" value="balanced"><span>Balanced growth</span></label>
+            <label class="choice-card"><input type="radio" name="risk_objective" value="aggressive"><span>Aggressive growth</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>4. How long do you expect to keep this money invested? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_horizon" value="under-3"><span>Less than 3 years</span></label>
+            <label class="choice-card"><input type="radio" name="risk_horizon" value="3-7"><span>3–7 years</span></label>
+            <label class="choice-card"><input type="radio" name="risk_horizon" value="7-15"><span>7–15 years</span></label>
+            <label class="choice-card"><input type="radio" name="risk_horizon" value="15-plus"><span>More than 15 years</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>5. How important is it that you can access this money quickly if needed? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_liquidity" value="very"><span>Very important</span></label>
+            <label class="choice-card"><input type="radio" name="risk_liquidity" value="somewhat"><span>Somewhat important</span></label>
+            <label class="choice-card"><input type="radio" name="risk_liquidity" value="not"><span>Not important</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>6. Have you invested in stocks, bonds, or funds before? <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="risk_experience" value="never"><span>Never</span></label>
+            <label class="choice-card"><input type="radio" name="risk_experience" value="occasionally"><span>Occasionally</span></label>
+            <label class="choice-card"><input type="radio" name="risk_experience" value="regularly"><span>Regularly</span></label>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 4: Joint Holder (conditional) ========== -->
+      <div class="signup-step" data-step="4">
+        <h1 class="step-title">Joint Account Holder</h1>
+        <p class="step-lead">Enter the details of the second account holder.</p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name <span class="required">*</span></label>
+            <input type="text" name="joint_name" placeholder="Joint holder full name">
+          </div>
+          <div class="form-group">
+            <label>Email Address <span class="required">*</span></label>
+            <input type="email" name="joint_email" placeholder="joint@example.com">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" name="joint_phone" placeholder="+46 70 000 00 00">
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+            <!-- ========== STEP 5: Financial Profile ========== -->
+      <div class="signup-step" data-step="5">
+        <h1 class="step-title">Financial Profile</h1>
+        <p class="step-lead">This helps us understand your situation and provide suitable recommendations.</p>
+
+        <div class="form-group">
+          <label>Approximate Investable Assets <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="investable_assets" value="under-250k"><span>Under $250,000</span></label>
+            <label class="choice-card"><input type="radio" name="investable_assets" value="250k-1m"><span>$250,000 – $1M</span></label>
+            <label class="choice-card"><input type="radio" name="investable_assets" value="1m-5m"><span>$1M – $5M</span></label>
+            <label class="choice-card"><input type="radio" name="investable_assets" value="5m-plus"><span>$5M+</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Primary Source of Wealth <span class="required">*</span></label>
+          <div class="choice-grid">
+            <label class="choice-card"><input type="radio" name="source_of_wealth" value="employment"><span>Employment / Salary</span></label>
+            <label class="choice-card"><input type="radio" name="source_of_wealth" value="business"><span>Business Ownership</span></label>
+            <label class="choice-card"><input type="radio" name="source_of_wealth" value="inheritance"><span>Inheritance / Gift</span></label>
+            <label class="choice-card"><input type="radio" name="source_of_wealth" value="investments"><span>Investment Returns</span></label>
+            <label class="choice-card"><input type="radio" name="source_of_wealth" value="other"><span>Other</span></label>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Employment Status / Industry</label>
+          <input type="text" name="employment" placeholder="e.g. Technology, Finance, Retired, Self-employed">
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- ========== STEP 6: Goals & Preferences ========== -->
+      <div class="signup-step" data-step="6">
+        <h1 class="step-title">Goals & Preferences</h1>
+        <p class="step-lead">Help us understand what you want to achieve.</p>
+
+        <div class="form-group">
+          <label>Primary Investment Goal <span class="required">*</span></label>
+          <select name="investment_goal">
+            <option value="" disabled selected>Select a goal</option>
+            <option value="growth">Long-term Growth</option>
+            <option value="income">Steady Income</option>
+            <option value="preservation">Capital Preservation</option>
+            <option value="retirement">Retirement Planning</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Investment Time Horizon <span class="required">*</span></label>
+          <select name="time_horizon">
+            <option value="" disabled selected>Select a horizon</option>
+            <option value="under-3">Less than 3 years</option>
+            <option value="3-7">3 – 7 years</option>
+            <option value="7-15">7 – 15 years</option>
+            <option value="15-plus">More than 15 years</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Risk Comfort Level <span class="required">*</span></label>
+          <select name="risk_comfort">
+            <option value="" disabled selected>Select a level</option>
+            <option value="low">Low – Prefer stability</option>
+            <option value="moderate">Moderate – Balanced approach</option>
+            <option value="high">High – Comfortable with larger swings</option>
+          </select>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-back" data-back>Back</button>
+          <button type="button" class="btn btn-primary" data-next>Continue</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<script>
+  (function () {
+    // ---------- State ----------
+    let currentStep = 1;
+    let accountType = null;
+
+    const stepNames = {
+      1: "Account Type",
+      2: "Personal Details",
+      3: "Entity Details",
+      4: "Joint Holder",
+      5: "Financial Profile",
+      6: "Goals & Preferences",
+      7: "Risk Questionnaire",
+      8: "Document Upload",
+      9: "Review & Submit"
+    };
+
+    // ---------- Helpers ----------
+    function getVisibleSteps() {
+      let steps = [1, 2];
+      if (accountType === "entity") steps.push(3);
+      if (accountType === "joint") steps.push(4);
+      steps.push(5, 6, 7, 8, 9);
+      return steps;
+    }
+
+    function updateProgress() {
+      const visible = getVisibleSteps();
+      const index = visible.indexOf(currentStep);
+      const total = visible.length;
+      const percent = ((index + 1) / total) * 100;
+
+      document.getElementById("step-label").textContent = `Step ${index + 1} of ${total}`;
+      document.getElementById("step-name").textContent = stepNames[currentStep] || "";
+      document.getElementById("progress-fill").style.width = percent + "%";
+    }
+
+    function showStep(step) {
+      document.querySelectorAll(".signup-step").forEach(el => {
+        el.classList.toggle("is-active", Number(el.dataset.step) === step);
+      });
+      currentStep = step;
+      updateProgress();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function clearErrors(stepElement) {
+      if (!stepElement) return;
+      stepElement.querySelectorAll(".field-error").forEach(el => {
+        el.classList.remove("is-visible");
+        el.textContent = "";
+      });
+      stepElement.querySelectorAll(".input-error").forEach(el => {
+        el.classList.remove("input-error");
+      });
+    }
+
+    function showFieldError(field, message) {
+      if (!field) return;
+      field.classList.add("input-error");
+
+      let errorEl = field.parentElement.querySelector(".field-error");
+      if (!errorEl) {
+        errorEl = document.createElement("div");
+        errorEl.className = "field-error";
+        field.parentElement.appendChild(errorEl);
+      }
+      errorEl.textContent = message;
+      errorEl.classList.add("is-visible");
+    }
+
+    function showError(message) {
+      // Used only for general step-level messages
+      alert(message);
+    }
+
+    // ---------- Validation per step ----------
+    function validateStep(step) {
+      const active = document.querySelector(`.signup-step[data-step="${step}"]`);
+      if (!active) return false;
+
+      clearErrors(active);
+
+      function hasRadioSelected(name) {
+        return !!active.querySelector(`input[name="${name}"]:checked`);
+      }
+
+      // ---- Step 1 ----
+      if (step === 1) {
+        if (!accountType) {
+          showError("Please select an account type.");
+          return false;
+        }
+        return true;
+      }
+
+      // ---- Step 2 ----
+      if (step === 2) {
+        let valid = true;
+
+        active.querySelectorAll("input[required], select[required]").forEach(field => {
+          if (!field.value.trim()) {
+            showFieldError(field, "This field is required");
+            valid = false;
+          }
+        });
+
+        const password = active.querySelector("#password");
+        const confirm = active.querySelector("#password_confirm");
+        if (password && confirm && password.value && confirm.value && password.value !== confirm.value) {
+          showFieldError(confirm, "Passwords do not match");
+          valid = false;
+        }
+
+        const dob = active.querySelector('input[name="date_of_birth"]');
+        if (dob && dob.value) {
+          const birth = new Date(dob.value);
+          const today = new Date();
+          let age = today.getFullYear() - birth.getFullYear();
+          const m = today.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+          if (age < 18) {
+            showFieldError(dob, "You must be at least 18 years old");
+            valid = false;
+          }
+        }
+
+        if (!valid) {
+          const firstError = active.querySelector(".input-error");
+          if (firstError) firstError.focus();
+          return false;
+        }
+        return true;
+      }
+
+      // ---- Step 3 & 4 ----
+      if (step === 3 || step === 4) {
+        let valid = true;
+        active.querySelectorAll("input[required], select[required]").forEach(field => {
+          if (!field.value.trim()) {
+            showFieldError(field, "This field is required");
+            valid = false;
+          }
+        });
+        if (!valid) {
+          const firstError = active.querySelector(".input-error");
+          if (firstError) firstError.focus();
+          return false;
+        }
+        return true;
+      }
+
+      // ---- Step 5 ----
+      if (step === 5) {
+        let valid = true;
+        if (!hasRadioSelected("investable_assets")) {
+          showError("Please select your approximate investable assets.");
+          valid = false;
+        }
+        if (!hasRadioSelected("source_of_wealth")) {
+          showError("Please select your primary source of wealth.");
+          valid = false;
+        }
+        return valid;
+      }
+
+      // ---- Step 6 ----
+      if (step === 6) {
+        let valid = true;
+        active.querySelectorAll("select[required]").forEach(field => {
+          if (!field.value.trim()) {
+            showFieldError(field, "This field is required");
+            valid = false;
+          }
+        });
+        if (!valid) {
+          const firstError = active.querySelector(".input-error");
+          if (firstError) firstError.focus();
+          return false;
+        }
+        return true;
+      }
+
+      // ---- Step 7 ----
+      if (step === 7) {
+        const questions = [
+          "risk_knowledge", "risk_reaction", "risk_objective",
+          "risk_horizon", "risk_liquidity", "risk_experience"
+        ];
+        for (let q of questions) {
+          if (!hasRadioSelected(q)) {
+            showError("Please answer all risk questionnaire questions.");
+            return false;
+          }
+        }
+        return true;
+      }
+
+      // ---- Step 8 ----
+      if (step === 8) {
+        const idBox = active.querySelector('[data-upload="id"]');
+        const addressBox = active.querySelector('[data-upload="address"]');
+        let valid = true;
+
+        if (!idBox.classList.contains("has-file")) {
+          showError("Please upload a government-issued photo ID.");
+          valid = false;
+        }
+        if (!addressBox.classList.contains("has-file")) {
+          showError("Please upload a proof of address.");
+          valid = false;
+        }
+        return valid;
+      }
+
+      // ---- Step 9 ----
+      if (step === 9) {
+        const terms = document.getElementById("consent-terms");
+        const accuracy = document.getElementById("consent-accuracy");
+        if (!terms.checked || !accuracy.checked) {
+          showError("Please accept both declarations before submitting.");
+          return false;
+        }
+        return true;
+      }
+
+      return true;
+    }
+
+    // ---------- Navigation ----------
+    function goNext() {
+      if (!validateStep(currentStep)) return;
+
+      const visible = getVisibleSteps();
+      const idx = visible.indexOf(currentStep);
+      if (idx < visible.length - 1) {
+        showStep(visible[idx + 1]);
+      }
+    }
+
+    function goBack() {
+      const visible = getVisibleSteps();
+      const idx = visible.indexOf(currentStep);
+      if (idx > 0) {
+        showStep(visible[idx - 1]);
+      }
+    }
+
+    // ---------- Step 1: Account Type ----------
+    const cards = document.querySelectorAll(".account-type-card");
+    const continueBtn1 = document.getElementById("btn-continue-1");
+
+    cards.forEach(card => {
+      card.addEventListener("click", () => {
+        cards.forEach(c => c.classList.remove("is-selected"));
+        card.classList.add("is-selected");
+        card.querySelector("input").checked = true;
+        accountType = card.getAttribute("data-value");
+        continueBtn1.disabled = false;
+      });
+    });
+
+    continueBtn1.addEventListener("click", () => {
+      if (!accountType) return;
+      goNext();
+    });
+
+    // ---------- Generic Next / Back ----------
+    document.querySelectorAll("[data-next]").forEach(btn => {
+      btn.addEventListener("click", goNext);
+    });
+
+    document.querySelectorAll("[data-back]").forEach(btn => {
+      btn.addEventListener("click", goBack);
+    });
+
+    // ---------- Document Upload ----------
+    document.querySelectorAll(".upload-box").forEach(box => {
+      const input = box.querySelector("input[type=file]");
+      const placeholder = box.querySelector(".upload-placeholder");
+      const filename = box.querySelector(".upload-filename");
+
+      box.addEventListener("click", () => input.click());
+
+      input.addEventListener("change", () => {
+        if (input.files && input.files[0]) {
+          filename.textContent = input.files[0].name;
+          filename.hidden = false;
+          placeholder.hidden = true;
+          box.classList.add("has-file");
+        }
+      });
+    });
+
+    // ---------- Submit ----------
+    const submitBtn = document.getElementById("btn-submit");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", () => {
+        if (!validateStep(9)) return;
+        window.location.href = "thank-you.html";
+      });
+    }
+
+    // ---------- Password Strength ----------
+    const passwordInput = document.getElementById("password");
+    const strengthFill = document.getElementById("strength-fill");
+    const strengthText = document.getElementById("strength-text");
+
+    if (passwordInput && strengthFill && strengthText) {
+      passwordInput.addEventListener("input", () => {
+        const val = passwordInput.value;
+        let score = 0;
+
+        if (val.length >= 8) score++;
+        if (val.length >= 12) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        const levels = [
+          { width: "0%",   color: "#E5E2DC", text: "Enter a password" },
+          { width: "25%",  color: "#DC2626", text: "Weak" },
+          { width: "50%",  color: "#F59E0B", text: "Fair" },
+          { width: "75%",  color: "#10B981", text: "Good" },
+          { width: "100%", color: "#059669", text: "Strong" }
+        ];
+
+        const level = val.length === 0 ? levels[0] : levels[Math.min(score, 4)];
+        strengthFill.style.width = level.width;
+        strengthFill.style.background = level.color;
+        strengthText.textContent = level.text;
+        strengthText.style.color = level.color;
+      });
+    }
+
+    // ---------- Init ----------
+    updateProgress();
+  })();
+</script>
+
+</body>
+</html>

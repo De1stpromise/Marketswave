@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Profile Updates — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Client Profile Updates</h2>
+          <p class="text-slate-500 mt-1">Client-submitted profile change requests (Legal Name, Address, ID/Document) across every client.</p>
+        </div>
+
+        <!-- Pending -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Pending <span id="pending-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="pending-list"></div>
+        </div>
+
+        <!-- History -->
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">History</h3>
+          </div>
+          <div id="history-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Approve modal -->
+  <div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="approve-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Approve Change</p>
+        <button type="button" id="approve-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4">This applies the requested value directly to the client's profile.</p>
+      <div class="space-y-2 mb-2">
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide">Current</p>
+          <p class="text-sm text-slate-600" id="approve-current-label"></p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide">Requested</p>
+          <p class="text-sm font-medium text-slate-900" id="approve-requested-label"></p>
+        </div>
+      </div>
+      <p class="text-xs text-red-500 hidden mb-2" id="approve-error"></p>
+      <div class="flex gap-3 mt-4">
+        <button type="button" id="approve-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="approve-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Approve &amp; Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject modal -->
+  <div id="reject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="reject-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Reject Change</p>
+        <button type="button" id="reject-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+      <textarea id="reject-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this request being rejected?"></textarea>
+      <p class="text-xs text-red-500 hidden mb-2" id="reject-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="reject-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="reject-submit" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition">Reject Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('settings-changes');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getAllClientSettingsChangeRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      // dateOfBirth kept here deliberately (Aug 21, 2026), even though it was removed as a
+      // requestable field in settings.html/engine-core.js the same day: any dateOfBirth
+      // record already in marketswave_settings_change_requests test data was NOT deleted
+      // (per instruction — kept as an example of why the field's type mismatch mattered), so
+      // this queue must still be able to render and resolve it correctly rather than show
+      // "undefined" or crash. No new dateOfBirth request can ever reach this page again —
+      // requestSettingsChange('dateOfBirth', ...) throws at the source.
+      var FIELD_LABELS = { legalName: 'Legal Name', dateOfBirth: 'Date of Birth', address: 'Address', idDocument: 'ID / Document' };
+      var STATUS_STYLES = { pending: 'bg-amber-50 text-amber-700', approved: 'bg-emerald-50 text-emerald-700', rejected: 'bg-red-50 text-red-700' };
+
+      // Same field-specific formatting logic as settings.html's own (former) formatDateDisplay()/
+      // formatFieldDisplay() — reused here rather than inventing a separate generic diff view,
+      // per the task's own instruction. Duplicated, not shared, since this project has no
+      // module system for plain display-formatting helpers like dashboard-sidebar.js/
+      // engine-core.js provide for stateful logic; a low-risk, purely cosmetic duplication
+      // (unlike the flagged HYS rate duplication, nothing here is a money or security figure)
+      // — logged as minor structural debt in the handover doc. This copy now intentionally
+      // diverges from settings.html's: settings.html dropped its own dateOfBirth branch
+      // entirely (Aug 21, 2026) since it can no longer display or request that field at all,
+      // while this copy keeps it for the legacy-record reason above.
+      function formatDateDisplay(iso) {
+        var d = new Date(iso + 'T00:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      }
+      function formatFieldDisplay(field, value) {
+        if (!value) return '—';
+        if (field === 'legalName') return value.firstName + ' ' + value.lastName;
+        if (field === 'dateOfBirth') return formatDateDisplay(value);
+        if (field === 'address') return value.street + ', ' + value.city + ', ' + value.state + ' ' + value.zip + ', ' + value.country;
+        if (field === 'idDocument') return value.fileName ? value.documentType + ' — ' + value.fileName : value.documentType;
+        return '—';
+      }
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function renderPending() {
+        var requests = getAllClientSettingsChangeRequests()
+          .filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
+        var listEl = document.getElementById('pending-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No pending settings change requests.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
+          var currentDisplay = formatFieldDisplay(r.field, r.currentValue);
+          var requestedDisplay = formatFieldDisplay(r.field, r.requestedValue);
+          return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
+            '<div class="min-w-0">' +
+              '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">' + FIELD_LABELS[r.field] + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+              '</div>' +
+              '<p class="text-sm text-slate-500">Current: <span class="text-slate-700">' + currentDisplay + '</span></p>' +
+              '<p class="text-sm text-slate-900 font-medium">Requested: ' + requestedDisplay + '</p>' +
+              (r.reason ? '<p class="text-xs text-slate-500 mt-1">Reason: ' + r.reason + '</p>' : '') +
+            '</div>' +
+            '<div class="flex gap-2 shrink-0">' +
+              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
+              '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-current="' + currentDisplay.replace(/"/g, '&quot;') + '" data-requested="' + requestedDisplay.replace(/"/g, '&quot;') + '">Approve</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      function renderHistory() {
+        var requests = getAllClientSettingsChangeRequests()
+          .filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var listEl = document.getElementById('history-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No resolved requests yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
+          '<th class="text-left font-medium px-6 py-3">Field</th>' +
+          '<th class="text-left font-medium px-6 py-3">Current → Requested</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          requests.map(function (r) {
+            var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+            var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.resolutionNote ? ' — ' + r.resolutionNote : '');
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + FIELD_LABELS[r.field] + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + formatFieldDisplay(r.field, r.currentValue) + ' → ' + formatFieldDisplay(r.field, r.requestedValue) + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      function renderAll() {
+        renderPending();
+        renderHistory();
+      }
+
+      // ---- Approve modal ----
+      var approveModal = document.getElementById('approve-modal');
+      var approveError = document.getElementById('approve-error');
+      var approveCurrentLabel = document.getElementById('approve-current-label');
+      var approveRequestedLabel = document.getElementById('approve-requested-label');
+      var activeApproveClientId = null;
+      var activeApproveId = null;
+
+      function openApproveModal(clientId, id, current, requested) {
+        activeApproveClientId = clientId;
+        activeApproveId = id;
+        approveCurrentLabel.textContent = current;
+        approveRequestedLabel.textContent = requested;
+        approveError.classList.add('hidden');
+        approveModal.classList.remove('hidden');
+      }
+      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveClientId = null; activeApproveId = null; }
+
+      document.getElementById('approve-modal-close').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-submit').addEventListener('click', function () {
+        try {
+          var result = approveSettingsChangeRequest(activeApproveClientId, activeApproveId);
+          closeApproveModal();
+          showToast('Change Approved', result.id + ' (' + FIELD_LABELS[result.field] + ') applied to the client\'s profile.');
+          renderAll();
+        } catch (e) {
+          approveError.textContent = e.message;
+          approveError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Reject modal ----
+      var rejectModal = document.getElementById('reject-modal');
+      var rejectReasonInput = document.getElementById('reject-reason-input');
+      var rejectError = document.getElementById('reject-error');
+      var activeRejectClientId = null;
+      var activeRejectId = null;
+
+      function openRejectModal(clientId, id) {
+        activeRejectClientId = clientId;
+        activeRejectId = id;
+        rejectReasonInput.value = '';
+        rejectError.classList.add('hidden');
+        rejectModal.classList.remove('hidden');
+      }
+      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectClientId = null; activeRejectId = null; }
+
+      document.getElementById('reject-modal-close').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-submit').addEventListener('click', function () {
+        try {
+          var result = rejectSettingsChangeRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+          closeRejectModal();
+          showToast('Change Rejected', result.id + ' has been rejected. No change applied.', true);
+          renderAll();
+        } catch (e) {
+          rejectError.textContent = e.message;
+          rejectError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Delegated click handlers for row buttons ----
+      document.getElementById('pending-list').addEventListener('click', function (e) {
+        var approveBtn = e.target.closest('.approve-btn');
+        if (approveBtn) {
+          openApproveModal(approveBtn.dataset.client, approveBtn.dataset.id, approveBtn.dataset.current, approveBtn.dataset.requested);
+          return;
+        }
+        var rejectBtn = e.target.closest('.reject-btn');
+        if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
+      });
+
+      renderAll();
+    })();
+  </script>
+
+</body>
+</html>

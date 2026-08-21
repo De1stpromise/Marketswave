@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Marketswave</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              DEFAULT: '#1B3A4B',
+              dark: '#122A38',
+              light: '#2A4F63'
+            },
+            cream: {
+              DEFAULT: '#F7F6F3',
+              dark: '#EDE8E1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-cream text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="sidebar-mount"></div>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Top bar -->
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="notif-bell-mount"></div>
+          <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-navy transition">
+            Logout
+          </a>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <!-- Page content -->
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <!-- Welcome -->
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-navy">Welcome Back, John</h2>
+          <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
+        </div>
+
+        <!-- Top Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+
+          <!-- Total Portfolio Value - Prominent -->
+          <div class="md:col-span-2 bg-gradient-to-br from-navy to-navy-dark rounded-2xl p-6 text-white shadow-lg">
+            <p class="text-sm text-white/70 mb-1">Total Portfolio Value</p>
+            <p class="text-3xl font-bold tracking-tight" id="tpv-amount">$1,284,500</p>
+            <div class="flex items-center gap-2 mt-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300">
+                +4.2% this month
+              </span>
+              <span class="text-sm text-white/50">Updated just now</span>
+            </div>
+          </div>
+
+          <!-- Returns from Capital -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <p class="text-sm text-slate-500 mb-1">Asset Returns</p>
+            <p class="text-2xl font-semibold text-navy">$142,800</p>
+            <p class="text-sm text-emerald-600 mt-2">From initial capital</p>
+          </div>
+
+          <!-- Best Performing -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <p class="text-sm text-slate-500 mb-1">Best Performing Class</p>
+            <p class="text-2xl font-semibold text-navy">Private Equity</p>
+            <p class="text-sm text-emerald-600 mt-2">+18.4% YTD</p>
+          </div>
+        </div>
+
+        <!-- Second Row: Allocation + Risk + Activity -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+          <!-- Portfolio Allocation (5 classes) -->
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-5">Portfolio Allocation</h3>
+            <div class="flex flex-wrap items-center gap-6">
+              <div class="w-full max-w-[13rem] sm:max-w-[14rem] md:max-w-[15rem] lg:max-w-[18rem] xl:max-w-[20rem] 2xl:max-w-[22rem] aspect-square flex-shrink-0 mx-auto">
+                <canvas id="allocation-chart" role="img" aria-label="Portfolio allocation by asset class"></canvas>
+              </div>
+              <div class="flex-1 basis-[180px] space-y-3" id="allocation-legend"></div>
+            </div>
+          </div>
+
+          <!-- Risk Metrics + Recent Activity -->
+          <div class="space-y-6">
+            <!-- Risk Metrics -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6">
+              <h3 class="font-semibold text-navy mb-4">Risk Metrics</h3>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-sm text-slate-600">Cash Reserve</span>
+                  <span class="text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap" id="risk-cash-reserve">—</span>
+                </div>
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-sm text-slate-600">Set Risk Profile</span>
+                  <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap" id="risk-profile-badge">—</span>
+                </div>
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-sm text-slate-600">Allocation Utilization</span>
+                  <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-navy/10 text-navy whitespace-nowrap" id="risk-allocation-util">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-2xl border border-slate-200 p-6">
+              <h3 class="font-semibold text-navy mb-4">Recent Activity</h3>
+              <div class="space-y-4" id="recent-activity-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Third Row: Market Prices + Currency Converter -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Market Price Cards -->
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <p class="text-xs text-slate-500 mb-1">S&P 500</p>
+                <p class="text-lg font-semibold text-navy">5,248</p>
+                <p class="text-xs text-emerald-600 mt-1">+0.8%</p>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <p class="text-xs text-slate-500 mb-1">NASDAQ</p>
+                <p class="text-lg font-semibold text-navy">16,742</p>
+                <p class="text-xs text-emerald-600 mt-1">+1.2%</p>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <p class="text-xs text-slate-500 mb-1">BTC</p>
+                <p class="text-lg font-semibold text-navy">$67,420</p>
+                <p class="text-xs text-red-500 mt-1">-1.4%</p>
+              </div>
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <p class="text-xs text-slate-500 mb-1">ETH</p>
+                <p class="text-lg font-semibold text-navy">$3,418</p>
+                <p class="text-xs text-emerald-600 mt-1">+0.6%</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simple Currency Converter -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-semibold text-navy mb-4">Currency Converter</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="text-xs text-slate-500 mb-1 block">Amount</label>
+                <input type="number" value="1000" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy" id="convert-amount">
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-slate-500 mb-1 block">From</label>
+                  <select class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20" id="convert-from">
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="SEK">SEK</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-slate-500 mb-1 block">To</label>
+                  <select class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20" id="convert-to">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="SEK">SEK</option>
+                  </select>
+                </div>
+              </div>
+              <div class="pt-2">
+                <p class="text-xs text-slate-500">Result</p>
+                <p class="text-xl font-semibold text-navy" id="convert-result">€920.00</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="dashboard-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="dashboard-notifications.js"></script>
+  <script>
+    initDashboardSidebar('dashboard');
+    initDashboardNotifications();
+  </script>
+
+  <script>
+    // Wires this page to engine-core.js (Phase 4a) — Total Portfolio Value, the allocation
+    // pie chart + legend, Risk Metrics, and Recent Activity all now read live engine state
+    // instead of hardcoded demo numbers. Market Snapshot and Currency Converter are
+    // deliberately untouched this phase — both need real external market/FX data, tracked
+    // separately in the Backend Requirements Register.
+    (function () {
+      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      settleAllProducts(); // catch prices up to today before reading any engine value
+
+      var ASSET_CLASS_COLORS = {
+        'Private Equity': '#8B5A0F',
+        'Real Assets': '#1B3D2A',
+        'Stocks & ETFs': '#C8860A',
+        'Crypto': '#D4A843'
+      };
+      var UNALLOCATED_COLOR = '#E8D5A8';
+      var ASSET_CLASS_ORDER = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto'];
+
+      function formatUSD(n, decimals) {
+        var sign = n < 0 ? '-' : '';
+        var abs = Math.abs(n);
+        return sign + '$' + abs.toLocaleString('en-US', {
+          minimumFractionDigits: decimals || 0,
+          maximumFractionDigits: decimals || 0
+        });
+      }
+
+      var account = getAccountState();
+      var tpv = getTotalPortfolioValue();
+      var holdings = getHoldings();
+      var products = getAllProducts();
+
+      // ---- Total Portfolio Value ----
+      var tpvEl = document.getElementById('tpv-amount');
+      if (tpvEl) tpvEl.textContent = formatUSD(Math.round(tpv));
+
+      // ---- Portfolio Allocation: pie chart + legend, grouped from live holdings ----
+      var classTotals = {};
+      ASSET_CLASS_ORDER.forEach(function (c) { classTotals[c] = 0; });
+      holdings.forEach(function (h) {
+        var product = products.find(function (p) { return p.id === h.productId; });
+        if (!product || !classTotals.hasOwnProperty(product.assetClass)) return;
+        classTotals[product.assetClass] += h.units * product.unitPrice;
+      });
+
+      var labels = ASSET_CLASS_ORDER.concat(['Unallocated / Cash']);
+      var colors = ASSET_CLASS_ORDER.map(function (c) { return ASSET_CLASS_COLORS[c]; }).concat([UNALLOCATED_COLOR]);
+      var rawValues = ASSET_CLASS_ORDER.map(function (c) { return classTotals[c]; }).concat([account.unallocatedCapital]);
+      var percentages = rawValues.map(function (v) { return tpv > 0 ? (v / tpv) * 100 : 0; });
+
+      var canvas = document.getElementById('allocation-chart');
+      if (canvas && typeof Chart !== 'undefined') {
+        canvas.setAttribute('aria-label', 'Portfolio allocation by asset class: ' +
+          labels.map(function (l, i) { return l + ' ' + percentages[i].toFixed(1) + '%'; }).join(', '));
+
+        new Chart(canvas.getContext('2d'), {
+          type: 'pie',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: percentages.map(function (p) { return Math.round(p * 10) / 10; }),
+              backgroundColor: colors,
+              borderColor: '#ffffff',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) { return ctx.label + ': ' + ctx.parsed + '%'; }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      var legendEl = document.getElementById('allocation-legend');
+      if (legendEl) {
+        legendEl.innerHTML = labels.map(function (label, i) {
+          return '<div class="flex items-center justify-between text-sm">' +
+            '<span class="flex items-center gap-2 text-slate-700"><span class="w-2.5 h-2.5 rounded-full" style="background:' + colors[i] + '"></span>' + label + '</span>' +
+            '<span class="font-medium text-navy">' + percentages[i].toFixed(1) + '%</span>' +
+            '</div>';
+        }).join('');
+      }
+
+      // ---- Risk Metrics ----
+      var cashReservePct = tpv > 0 ? (account.unallocatedCapital / tpv) * 100 : 0;
+      var cashReserveEl = document.getElementById('risk-cash-reserve');
+      if (cashReserveEl) {
+        var isPoor = cashReservePct < 20;
+        cashReserveEl.textContent = (isPoor ? 'Poor' : 'Adequate') + ' (' + cashReservePct.toFixed(1) + '%)';
+        cashReserveEl.className = 'text-xs font-medium px-2.5 py-1 rounded-full ' +
+          (isPoor ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700');
+      }
+
+      // Same STORAGE_KEY, validation, and default as risk-management.html's own script.
+      var RISK_PROFILE_LEVELS = ['conservative', 'balanced', 'aggressive'];
+      var RISK_PROFILE_LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
+      var storedProfile = localStorage.getItem(clientScopedKey('marketswave_risk_profile'));
+      var profileLevel = RISK_PROFILE_LEVELS.indexOf(storedProfile) !== -1 ? storedProfile : 'balanced';
+      var profileEl = document.getElementById('risk-profile-badge');
+      if (profileEl) profileEl.textContent = RISK_PROFILE_LABELS[profileLevel];
+
+      var utilizationPct = tpv > 0 ? (account.allocatedCapital / tpv) * 100 : 0;
+      var utilEl = document.getElementById('risk-allocation-util');
+      if (utilEl) utilEl.textContent = utilizationPct.toFixed(1) + '%';
+
+      // ---- Recent Activity: most recent entries straight from the transaction ledger ----
+      var recent = getTransactionLedger().slice(-3).reverse();
+      var activityEl = document.getElementById('recent-activity-list');
+      if (activityEl) {
+        if (recent.length === 0) {
+          activityEl.innerHTML = '<p class="text-sm text-slate-400">No recent activity yet.</p>';
+        } else {
+          activityEl.innerHTML = recent.map(function (txn) {
+            var isSell = txn.type === 'SELL';
+            var isDeposit = txn.type === 'DEPOSIT';
+            var isHysDeposit = txn.type === 'HYS_DEPOSIT';
+            var title, detail, dotColor;
+            if (isDeposit) {
+              // No product — money coming in, not a trade against a holding — so this gets
+              // its own phrasing instead of the allocation copy with a null product name
+              // ("Capital allocated — null").
+              dotColor = 'bg-blue-500';
+              title = 'Deposit credited';
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
+                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
+            } else if (isHysDeposit) {
+              // Same reasoning as DEPOSIT above, applied proactively so HYS_DEPOSIT never
+              // falls through to the "Capital allocated — null" bug that DEPOSIT itself once
+              // hit before it was fixed (see the transactions.html/dashboard.html DEPOSIT
+              // rendering audit, Admin Tool Phase A).
+              dotColor = 'bg-purple-500';
+              title = 'HYS pocket funded';
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
+                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
+            } else {
+              var product = products.find(function (p) { return p.id === txn.productId; });
+              var productName = product ? product.name : txn.productId;
+              dotColor = !isSell ? 'bg-navy' : (txn.realizedReturn >= 0 ? 'bg-emerald-500' : 'bg-red-500');
+              title = (isSell ? 'Position sold' : 'Capital allocated') + ' — ' + productName;
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
+                (isSell ? ' · ' + (txn.realizedReturn >= 0 ? '+' : '') + formatUSD(Math.round(txn.realizedReturn)) + ' realized' : '');
+            }
+            return '<div class="flex items-start gap-3">' +
+              '<div class="w-2 h-2 mt-2 rounded-full ' + dotColor + '"></div>' +
+              '<div><p class="text-sm font-medium">' + title + '</p>' +
+              '<p class="text-xs text-slate-500">' + detail + '</p></div>' +
+              '</div>';
+          }).join('');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
