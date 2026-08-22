@@ -816,6 +816,262 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   confirmed via a fresh screenshot post-switch. Full 321-assertion suite unaffected (no
   engine changes); zero console errors. See `Marketswave_Project_Handover.md` §4.59 for the
   full writeup.
+- **Approval Gate unification** (`engine-core.js` + `admin-deposits.html` /
+  `admin-allocations.html` / `admin-sells.html` / `admin-hys.html` / `admin-sidebar.js`,
+  Aug 21, 2026, the highest-risk task of the session — done on top of a fresh `git init` +
+  initial commit made specifically for this task, since it rewrites the real money/unit-
+  moving primitives with no other rollback net): converts Deposits/Allocations/Sells/HYS
+  Deposits — previously the 4 "ambient" queues, each showing only the currently active
+  session client — to the same cross-client aggregation pattern Client Profile Updates
+  already used. **Full call-chain trace done and reported before any test was written, per
+  instruction**: unlike Client Profile Updates (always stateless — a fresh scoped
+  `localStorage` read/write per call, no cache), these 4 domains' resolve primitives
+  (`executeBuy`/`executeSell`/`creditDepositRequest`/`creditHYSDeposit`) read and wrote
+  `engine-core.js`'s module-level `accountState`/`holdings`/`transactions`/`*Requests`
+  variables, loaded once ambiently — a naive "just add a `clientId` parameter" pass would
+  have kept silently operating on the wrong client's in-memory data, the exact bug class
+  §4.45 already found once. All 10 primitive/wrapper functions
+  (`executeBuy(clientId,…)`/`executeSell(clientId,…)`/the 8 approve/reject/credit functions)
+  now route through 5 new shared helpers that do a direct scoped `localStorage` read/write
+  for an explicit `clientId` every time — no fallback to `getCurrentClientId()` anywhere in
+  any of these chains, at any layer. Four new cross-client aggregators
+  (`getAllClientDepositRequests()`/`getAllClientAllocationRequests()`/
+  `getAllClientSellRequests()`/`getAllClientHYSDepositRequests()`) mirror
+  `getAllClientSettingsChangeRequests()`'s exact shape; a narrow `getTransactionForClient(clientId,
+  txnId)` was added mid-task for `admin-sells.html`'s Realized Return column. The pre-existing
+  ambient no-arg getters and client-facing `request*()` functions are completely unchanged.
+  **A real architectural consequence surfaced, not silently absorbed**: since the rewritten
+  primitives bypass the module-level cache entirely, that cache can go stale relative to
+  `localStorage` if an explicit-`clientId` action targets the ambient active client and is
+  immediately followed (same page load, no reload) by an ambient read — never an issue on any
+  real shipped page (admin pages always re-render via the new aggregators; client pages
+  always get a fresh load), but real enough that 5 of the 12 prior Node regression test files
+  needed a `reload()` inserted to keep passing. Node-verified per-domain individually, not
+  assumed from one: for each of the 4 domains, resolved an action for client A by explicit id
+  while client B was NOT ambient, then diffed client B's raw scoped storage byte-for-byte
+  against a pre-action snapshot — 41 new assertions, 0 failures; full suite 346+ assertions,
+  0 failures after the reload fixes. All 4 admin pages now call the matching `getAllClient*()`
+  aggregator, show a client name/id pill per row (matching Client Profile Updates' visual
+  treatment), and pass each row's own `clientId` explicitly to every action. The subtle
+  "Viewing: …" sidebar indicator re-added in §4.59 was removed again — confirmed via grep
+  that nothing else depended on it — now genuinely redundant since every Approval Gate page
+  shows its own per-row client context. **Browser-verified live, the full flow**: seeded
+  CLIENT-0002 with one pending item per domain, resolved each through the real modal on each
+  of the 4 pages, confirmed correct per-row labels and a real raw-`localStorage` diff proving
+  CLIENT-0001 byte-identical before/after each action; separately confirmed
+  `admin-clients.html`'s "View as this Client" still switches the admin tool's own ambient
+  session correctly, and — as designed, not a bug — does NOT change what a client-facing page
+  shows, since `dashboard-sidebar.js` still unconditionally pins every client page to
+  `CLIENT-0001` at file-load time (the historical §4.44/§4.45 fix, re-confirmed intact). Zero
+  console errors throughout. See `Marketswave_Project_Handover.md` §4.60 for the full
+  writeup, including the complete call-chain trace.
+- **Password Reset + 2FA Rework** (`engine-core.js` + `admin-clients.html` /
+  `admin-security.html` (new) / `admin-sidebar.js` / `admin.html` / `settings.html`,
+  Aug 21, 2026): the first admin-triggered domain built cross-client from day one, using the
+  exact discipline Approval Gate unification (§4.60) proved out, rather than built
+  ambient-first and converted later. New global store `marketswave_security_actions_log`
+  (same category as `marketswave_clients` — an audit trail across every client) records every
+  reset via `{ id, clientId, clientName, type, reason, performedAt, performedBy }`.
+  `resetClientPassword(clientId, reason)`/`resetClient2FA(clientId, reason)` both require a
+  non-empty reason and do a direct scoped read/write for that explicit client only — no
+  module-level cache anywhere in this domain (mirrors the Settings Change Request queue's own
+  always-stateless discipline, not the module-cached pattern §4.60 had to convert away from);
+  the full prior regression suite needed zero `reload()` insertions as a direct result.
+  **"Force new password" approach, flagged per instruction, not silently decided**: since
+  there's no real login/session system, `resetClientPassword()` sets a per-client flag
+  `settings.html` checks on every load and uses to gate its own UI client-side, hiding
+  everything else behind a banner + forced "Set New Password" form (reusing the exact
+  strength/match validation the normal Change Password flow already uses) until
+  `clearForcePasswordReset()` is called on successful submission. This is a client-side UI
+  gate only, not real security enforcement, and does NOT need to wait on the login gate work
+  to exist in this stub form — buildable and built now. Doesn't invent a password store
+  either: the existing self-service Change Password form has never persisted an actual
+  password anywhere in this project, and the forced form doesn't either — it just clears the
+  flag. `resetClient2FA()` writes `'disabled'` directly to the exact same raw
+  `marketswave_settings_2fa` key/format `settings.html` already reads, so the reset is picked
+  up automatically with zero client-side code changes needed for that read path. **2FA setup
+  rebuilt from QR/authenticator to email-code**: enabling 2FA now generates a random 6-digit
+  code client-side, displays it directly on screen (no real email backend, same
+  simulated-delivery pattern used elsewhere in this project), and Confirm now checks the
+  client's input against that exact code rather than accepting any 6 digits — a small but real
+  verification behavior that didn't exist before. Admin UI: `admin-clients.html`'s expanded
+  row gained "Reset Password"/"Reset 2FA" buttons (a shared reason-required modal, no
+  silent/reason-less resets, each passing its row's own `clientId` explicitly); new
+  `admin-security.html` (grouped under User/Admin Relations in `admin-sidebar.js`, plus a
+  matching Overview card showing total actions logged rather than a pending count, since this
+  is a log, not a queue) shows one chronological table, newest first — no pending/approve
+  mechanic, per instruction. Node-verified first (49 assertions: validation, single-client
+  behavior, and — the actual point — per-action cross-client isolation tested individually
+  for both action types in both directions, diffing raw storage byte-for-byte) plus the full
+  346+-assertion prior suite, 395+ total, 0 failures. Browser-verified live end to end: both
+  actions triggered from `admin-clients.html` with real reasons (and the empty-reason
+  validation error confirmed surfacing verbatim first); both appear correctly in
+  `admin-security.html`; the forced-reset banner renders CLIENT-0001's actual reason, blocks
+  the page, validates the new password, and clearing it survives a reload; the new
+  email-code 2FA flow rejects a wrong code and accepts the exact displayed one; a raw
+  `localStorage` diff confirmed CLIENT-0002 completely untouched by every action taken
+  against CLIENT-0001. Zero real console errors (only a known Chrome-extension messaging
+  artifact unrelated to the app). See `Marketswave_Project_Handover.md` §4.61 for the full
+  writeup.
+- **Admin Login Gate** (`engine-core.js` + new `admin-login.html` / `admin-sidebar.js`,
+  Aug 21, 2026): a session-based passphrase gate in front of every admin page.
+  **Explicitly a UI-level stub, not real authentication — same honesty standard as the
+  forced password-reset gate (§4.61), stated on the gate page itself, not just here.** A
+  single shared `ADMIN_PASSPHRASE` constant in `engine-core.js` (not per-PM-account — no PM
+  roster/multi-admin-user concept exists) is checked via `checkAdminPassphrase(input)`, a
+  plain string comparison anyone with dev tools can read straight out of the source.
+  `setAdminAuthenticated()`/`isAdminAuthenticated()`/`clearAdminAuthenticated()` are
+  `sessionStorage`-backed, mirroring `getCurrentClientId()`/`setCurrentClientId()`'s own
+  pattern — resets per browser session, never written to `localStorage`. New
+  `admin-login.html`: slate/amber Tailwind styling matching the admin tool (not the public
+  site's `login.html`), a passphrase input, one deliberately generic error on failure (never
+  distinguishes *why* it failed, since there's no real backend check to differ from), and a
+  visible one-line disclaimer that this isn't real authentication. Does not load
+  `admin-sidebar.js` at all, so there's no redirect-loop risk against itself. **Gating**: a
+  raw `sessionStorage` key check runs at the very top of `admin-sidebar.js` — before
+  `engine-core.js` has even loaded — mirroring `dashboard-sidebar.js`'s own file-load-time
+  CLIENT-0001-reset precedent (§4.44/§4.45) exactly, since `isAdminAuthenticated()` isn't
+  defined yet at that point; redirects to `admin-login.html` immediately if unauthenticated.
+  A second guard using the real `isAdminAuthenticated()` sits as the first line inside
+  `initAdminSidebar()` itself, defense in depth. A new "Log Out" control in the sidebar's
+  existing footer (distinct from the separate client-facing logout `dashboard-sidebar.js`
+  already has — different session key, different mechanism entirely) calls
+  `clearAdminAuthenticated()` and redirects back to the gate. Node-verified first (15
+  assertions: exact-match passphrase checking including case/whitespace sensitivity and
+  malformed input, the full auth-state cycle, state surviving a same-session reload, state
+  NOT persisting to `localStorage`, a simulated fresh session correctly starting
+  unauthenticated) plus the full prior suite. **One pre-existing, unrelated test failure was
+  found and reported, not fixed or hidden**: `verify-step2.js` has one assertion hardcoding
+  an exact price figure that depends on a real-wall-clock-date-seeded price tick — confirmed
+  via `git show HEAD:engine-core.js` that this fails identically against the original,
+  untouched, already-committed baseline, predating every task this session; out of scope to
+  fix here, so it was flagged rather than silently absorbed. Browser-verified live end to
+  end: direct navigation to any admin page URL while unauthenticated redirects to the gate
+  with no flash of real content; wrong passphrase shows the generic error; correct
+  passphrase authenticates and persists across real page-to-page navigation; Log Out
+  actually locks it back down (confirmed via `sessionStorage.getItem()`, then re-confirmed
+  by trying to navigate to another admin page directly); a simulated fresh session
+  (`sessionStorage.clear()`) correctly requires re-entering the passphrase. Zero console
+  errors throughout. See `Marketswave_Project_Handover.md` §4.62 for the full writeup.
+- **Asset Collection extraction + full admin product management** (new `asset-collection.html`
+  / `admin-products.html` + `engine-core.js` + `asset-performance.html` / `admin-sidebar.js` /
+  `admin.html`, Aug 21, 2026): Product Catalog stays global/unscoped exactly as already
+  designed — this was a UI-scale + admin-UI task, no data-model change. **Client side**: the
+  product-browsing grid (cards, category tabs, allocation input, Request Allocation, the
+  `flex-col`/`mt-auto` height fix) moved out of `asset-performance.html` into new
+  `asset-collection.html`, unchanged behavior — same `requestAllocation()` calls. Return
+  Table and My Requests deliberately stayed put (Return Table shows current holdings; My
+  Requests covers sells too, which only make sense next to the Return Table's own Sell
+  button). Added search (by name) and a genuinely load-bearing category filter, plus a "Load
+  More" control (`PAGE_SIZE = 9`) chosen over numbered pagination as the simpler option given
+  the existing single `.map().join()` card render — reported per instruction.
+  `asset-performance.html` now shows a "Browse Asset Collection" link card in the grid's old
+  spot. No new locked-sidebar nav entry (checked CLAUDE.md's own locked menu order first) —
+  the new page highlights 'asset-performance' as active instead, the same treatment
+  `deploy-capital.html` already has. **Admin side**: new `admin-products.html`, grouped under
+  Portfolio Administration (the exact placement `admin-sidebar.js`'s own standing comment had
+  already named as the anticipated next addition). Reuses Client List's list pattern with TWO
+  independent filter dimensions (asset class AND risk tier, not Client List's one), each row
+  showing name/class/type/riskTier/minimumInvestment/currentUnitPrice, expand for full detail
+  + Edit. Add Product calls `addProduct()` for real (previously console-only, zero callers) —
+  4 allocatable asset classes only in the dropdown (`Unallocated / Cash` excluded — reserved
+  synthetic bucket, not something to multiply), explicit on-form copy that starting unit
+  price is PM-entered, not a live feed. **Edit Product judgment call, decided and reported
+  per instruction**: `unitPrice` edits are BLOCKED, enforced by `editProduct()` itself (throws
+  if attempted, not just hidden from the form) — price should only ever move via
+  `settleProduct()`'s own tick, never a manual overwrite that could silently corrupt every
+  client's unrealized-return math. Flagged gap: no way to fix a starting-price typo after
+  `addProduct()` runs today (no `removeProduct()` either) — if that's a real need, it should
+  be a separate, explicitly-labeled override, not folded into general edit. New Overview card
+  shows total product count (plain count, matching Advisory Fee Rate's own non-count
+  treatment). **A real pre-existing bug fixed as a direct consequence**: `getAllProducts()`/
+  `getProduct()` returned live catalog references, not defensive copies — the same bug class
+  Phase 3 already fixed once for `getHoldings()`/`getAllocationRequests()`. Harmless until
+  `editProduct()` started mutating catalog entries in place; confirmed via grep every real
+  caller only reads the result, so fixed now rather than left as a landmine. Node-verified
+  first (46 assertions: validation for both functions, `editProduct()`'s blocked-field
+  rejection, the new defensive copies, and — the actual "does this orphan anything" proof the
+  task asked for — renaming/reclassifying Nordic Growth Fund, which has a real seeded holding
+  AND transaction, leaves both completely intact, since holdings/transactions only ever
+  reference a product by its immutable PROD-id) plus the full 395+-assertion prior suite,
+  440+ total, 0 failures (the one known pre-existing `verify-step2.js` failure from §4.62 is
+  untouched). Browser-verified live end to end: added a real product from admin, confirmed it
+  on `asset-collection.html` with working search/filter, submitted a real allocation request
+  against it; edited Nordic Growth Fund's minimum investment from admin and confirmed the
+  client-side card picked it up immediately, then reverted the edit afterward since it was a
+  verification step against real seed data (the new product itself was left in place — no
+  removal mechanism exists, and it's a legitimate artifact of the shipped feature); confirmed
+  Return Table/My Requests on `asset-performance.html` are unaffected by the split, and that
+  a request submitted from the NEW page shows up correctly in the OLD page's My Requests —
+  proof both pages share one real engine, not two copies. Zero real console errors. See
+  `Marketswave_Project_Handover.md` §4.63 for the full writeup.
+- **Client Authentication, Phase 1 — credential storage + signup wiring** (`engine-core.js` +
+  `signup.html`, Aug 21, 2026): **reported before any code changes, per instruction** — read
+  `signup.html` directly and confirmed its "Submit Application" handler did nothing but
+  `window.location.href = "thank-you.html"`, no `addClient()` call, no `engine-core.js` load
+  at all, nothing persisted. New dedicated key `marketswave_client_credentials:<clientId>`
+  (not folded into the settings profile store — credentials are a distinct security-sensitive
+  concern, the same reasoning that already gave Account Security its own key), holding only
+  `{ passwordHash }`. `hashClientPassword(rawPassword)` — async (`crypto.subtle.digest()` is
+  async-only), SHA-256 — is the ONE place a raw password ever exists in this file, scoped
+  strictly to that function's own call, never stored in a variable that outlives it.
+  `setClientCredentials(clientId, passwordHash)`/`verifyClientCredentials(clientId,
+  passwordHash)` are straightforward, stateless set/compare, explicit `clientId`, no
+  module-level cache. **CLIENT-0001 seeded with a known demo password, `Marketswave2026!`**
+  (reported in full, since that's the credential future testing needs) — its SHA-256 hash was
+  precomputed once in Node and hardcoded (`DEMO_CLIENT0001_PASSWORD_HASH`), rather than
+  generated by calling `hashClientPassword()` at seed time, since seeding is synchronous and
+  Web Crypto's digest is not; verified byte-for-byte against an independent Node `crypto`
+  digest of the same string before being trusted. `signup.html` now loads `engine-core.js`
+  for the first time (data-layer boundary crossed, deliberately not the Tailwind/custom-CSS
+  styling boundary CLAUDE.md documents — vanilla JS only) and its submit handler is now
+  `async`: calls `addClient()` with the real collected name/email/phone and a mapped account
+  type, then `hashClientPassword()` + `setClientCredentials()`, then redirects exactly as
+  before — fails closed with the page's existing `showError()` if anything throws. **Did NOT
+  touch `login.html`'s actual check or `dashboard-sidebar.js`'s CLIENT-0001 pin — Phases 2/3,
+  deliberately deferred, per instruction.** Node-verified first (27 assertions: hash
+  determinism/distinctness cross-checked against an independent Node SHA-256 digest, full
+  set/compare validation, confirmation the raw password never appears in persisted storage,
+  the demo seed surviving a reload without re-clobbering a real change, and a full
+  signup-equivalent flow proving a REAL client with a REAL stored hash results — Registry
+  genuinely grows by one, credentials genuinely persist, verify correctly, and are isolated
+  from CLIENT-0001 in both directions) plus the full 440+-assertion prior suite, 467+ total, 0
+  failures. Browser-verified live end to end: clicked through the actual 7-step signup form
+  as a new applicant, submitted for real, confirmed via direct `localStorage` inspection that
+  a genuine `CLIENT-0003` was created with a real 64-char-hex-only credential record (no raw
+  password anywhere in it), and confirmed via the real engine functions that the new client
+  verifies correctly, rejects a wrong password, and doesn't cross-bleed with CLIENT-0001
+  (whose demo credential was reconfirmed still intact). Zero real console errors. See
+  `Marketswave_Project_Handover.md` §4.64 for the full writeup.
+- **Client Authentication, Phase 2 — real login check + session** (`engine-core.js` +
+  `login.html`, Aug 21, 2026): builds on Phase 1's credential store — still does not touch
+  `dashboard-sidebar.js`'s CLIENT-0001 pin (Phase 3). `getClientByEmail(email)` resolves an
+  entered email to a client (case-insensitive/trimmed, `null` — not a throw — on no match, so
+  `login.html` can fold "unknown email" and "wrong password" into one identical failure path).
+  `setClientAuthenticated(clientId)`/`getAuthenticatedClientId()`/`clearClientAuthentication()`
+  are `sessionStorage`-backed, mirroring `setAdminAuthenticated()`/`isAdminAuthenticated()`/
+  `clearAdminAuthenticated()` exactly — storing the authenticated client's own id (not just a
+  boolean), since a real client login has to record *which* client it was. `login.html`'s old
+  "any submit redirects" stub is now a real check: resolve email → `hashClientPassword()` →
+  `verifyClientCredentials()`; on success `setClientAuthenticated(clientId)` then the existing
+  loading-screen/redirect flow runs completely unchanged; on any failure, one identical
+  generic error banner (`#login-error`, styled with this page's own custom CSS, not
+  Tailwind), never distinguishing unknown-email from wrong-password — same
+  email-enumeration-avoidance principle as `admin-login.html`. `engine-core.js` now loads on
+  `login.html` for the first time. The forgot-password panel is untouched. Node-verified (25
+  assertions, including confirming the two failure paths produce
+  `JSON.stringify`-identical results, not just "both false") plus the full 17-file regression
+  suite, 0 failures. Browser-verified live: logged in as CLIENT-0001 with the demo password
+  (succeeded); wrong password and a wholly unknown email both produced the identical generic
+  banner; since CLIENT-0003 (Sarah Whitfield)'s real signup password was never recorded
+  anywhere by design, a fresh client (CLIENT-0004) was created live through the exact same
+  real call chain `signup.html` itself uses, then logged in successfully through the real
+  form — proving Phase 2 works for a genuine self-registered client, not only the seeded
+  demo. Confirmed, as expected and not a bug: the dashboard still showed CLIENT-0001's data
+  even while logged in as CLIENT-0004, since `marketswave_authenticated_client_id` and
+  `marketswave_current_client_id` are now two independently-observed session values that only
+  Phase 3 reconciles. Zero console errors. See `Marketswave_Project_Handover.md` §4.65 for the
+  full writeup.
 
 ## Locked — do not restructure without explicit sign-off
 
@@ -847,7 +1103,7 @@ deposits. Everything else (allocation math, PM approval, interest accrual, docum
 storage, notifications, risk profile persistence, auth, sessions) is in-house engineering.
 
 **Backend Requirements Register:** every frontend stub above is logged in
-`Marketswave_Project_Handover.md` section 3.1 (25 items as of Aug 20, 2026, split into
+`Marketswave_Project_Handover.md` section 3.1 (51 items as of Aug 21, 2026, split into
 in-house work vs. genuinely external data). Add a new row the same session you build a
 new stub — don't leave it for a later cleanup pass.
 
@@ -1044,14 +1300,145 @@ suite unaffected; browser-verified Dashboard's header is pixel-identical to the 
 groups, and the indicator updates correctly after a real switch. See the Tech Stack entry
 above and `Marketswave_Project_Handover.md` §4.59. Backend Requirements Register row 45.
 
-**Next**: further client-selector UX work at higher client counts, if ever needed — the
+**Approval Gate unification — COMPLETE** (Aug 21, 2026, the highest-risk task of the
+session — a `git init` + initial commit was made specifically as a rollback net before it
+began): Deposits, Allocations, Sells, and HYS Deposits — previously the 4 "ambient" queues
+each showing only the currently active client — now use the same cross-client pattern
+Client Profile Updates already had. The real risk wasn't the 4 admin pages, it was that the
+underlying primitives (`executeBuy`/`executeSell`/`creditDepositRequest`/
+`creditHYSDeposit`) read/wrote module-level cached state, not a fresh scoped read/write per
+call the way Client Profile Updates always did — a full call-chain trace confirmed this and
+was reported before any test was written, exactly as instructed. All 10 primitive/wrapper
+functions now take an explicit `clientId` and touch only that client's scoped storage, no
+fallback to the ambient session anywhere in the chain. Node-verified per-domain
+individually (41 new assertions: resolve an action for client A, diff client B's raw
+storage byte-for-byte against a pre-action snapshot) plus the full 346+-assertion suite
+after fixing 5 older test files that needed a `reload()` between an explicit-client action
+and a subsequent ambient read — a real, general architectural consequence of this change,
+documented rather than silently patched around. Browser-verified live end to end on all 4
+admin pages, including a real raw-`localStorage` isolation diff after each action, and
+confirmed Client List's "View as this Client" still works correctly for its real remaining
+purpose. The subtle "Viewing: ..." indicator re-added in §4.59 was removed again — genuinely
+redundant now that every Approval Gate page shows its own per-row client context. See the
+Tech Stack entry above and `Marketswave_Project_Handover.md` §4.60 for the full writeup,
+including the complete call-chain trace. Backend Requirements Register row 46.
+
+**Password Reset + 2FA Rework — COMPLETE** (Aug 21, 2026): the first admin-triggered domain
+built cross-client from the start, using the discipline Approval Gate unification proved
+out — no module-level cache anywhere in this domain, so the full regression suite needed
+zero `reload()` insertions this time, unlike §4.60's own 5. New global
+`marketswave_security_actions_log` audit trail; `resetClientPassword()`/`resetClient2FA()`
+both take an explicit `clientId` and a required reason. "Force new password" is a
+client-side UI gate only (no real login/session system exists to enforce it server-side) —
+flagged explicitly as buildable now, not blocked on the login gate work. 2FA setup rebuilt
+from QR/authenticator to a simulated email-code flow with real code verification. New
+`admin-clients.html` Reset Password/Reset 2FA buttons and new `admin-security.html` log
+page. Node-verified first (49 new assertions, per-action cross-client isolation for both
+action types in both directions) plus the full 346+-assertion suite, 395+ total, 0
+failures. Browser-verified live end to end, including the forced-reset banner, the new
+2FA flow, and a raw `localStorage` diff confirming CLIENT-0002 untouched. See the Tech
+Stack entry above and `Marketswave_Project_Handover.md` §4.61 for the full writeup.
+Backend Requirements Register row 47.
+
+**Admin Login Gate — COMPLETE** (Aug 21, 2026): a session-based shared passphrase now sits
+in front of every admin page — **explicitly a UI-level stub, not real authentication, same
+honesty standard as the forced password-reset gate**, stated on the gate page itself and in
+the register, not just here. `admin-sidebar.js` checks a raw `sessionStorage` key at
+file-load time (before `engine-core.js` even loads, mirroring `dashboard-sidebar.js`'s own
+CLIENT-0001-reset precedent) and redirects any unauthenticated visitor to new
+`admin-login.html` immediately; a "Log Out" control was added to the sidebar footer,
+distinct from the client-facing logout. Node-verified first (15 assertions) plus the full
+prior suite — one pre-existing, unrelated test failure was found and reported (a
+`verify-step2.js` assertion that hardcodes a price figure depending on real-wall-clock-date
+price ticking, confirmed to fail identically against the original untouched commit, nothing
+to do with this task). Browser-verified live end to end: direct navigation to any admin URL
+while unauthenticated redirects to the gate; correct passphrase authenticates and persists
+across real navigation; Log Out genuinely locks it back down; a simulated fresh session
+correctly requires re-entering the passphrase. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.62 for the full writeup. Backend Requirements Register
+row 48. **This closes the "completely wide open" gap only — a real authentication system
+(real PM accounts, real backend-verified credentials) remains a genuine, unresolved future
+requirement, not superseded by this stub.**
+
+**Asset Collection extraction + admin product management — COMPLETE** (Aug 21, 2026):
+the product-browsing grid moved from `asset-performance.html` into new
+`asset-collection.html` (search + load-bearing category filter + "Load More," unchanged
+`requestAllocation()` behavior); Return Table/My Requests stayed put on
+`asset-performance.html`, which now links out via a "Browse Asset Collection" card. New
+`admin-products.html` gives PMs a real Add/Edit Product UI for the first time (`addProduct()`
+had zero real callers before this) — two independent filter dimensions (asset class, risk
+tier), and a deliberate, reported decision to block `unitPrice` edits at the engine level
+(price should only ever move via the returns engine's own tick, never a manual overwrite).
+A real pre-existing bug (`getAllProducts()`/`getProduct()` returning live references, not
+defensive copies — the same class already fixed once for holdings/requests) was found and
+fixed as a direct consequence of adding `editProduct()`. Node-verified first (46 assertions,
+including a direct proof that renaming/reclassifying a product with a real seeded holding
+and transaction orphans nothing) plus the full prior suite, 440+ total, 0 failures.
+Browser-verified live end to end: added and edited real products from admin, confirmed both
+changes reflected correctly on the client side, and confirmed a request submitted from the
+new page shows up correctly back on `asset-performance.html`'s own My Requests — proof both
+pages share one real engine. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.63 for the full writeup. Backend Requirements Register
+row 49.
+
+**Client Authentication, Phase 1 — COMPLETE** (Aug 21, 2026): credentials now exist somewhere
+real. New `marketswave_client_credentials:<clientId>` store (`{ passwordHash }` only) and
+`hashClientPassword()`/`setClientCredentials()`/`verifyClientCredentials()` in
+`engine-core.js`; CLIENT-0001 seeded with a known demo password, `Marketswave2026!`
+(precomputed hash, since seeding is synchronous and Web Crypto's digest isn't).
+`signup.html`'s "Submit Application" — previously just a navigation to `thank-you.html` with
+nothing persisted at all, confirmed by reading the file before starting — now genuinely
+calls `addClient()` and stores a real hashed credential. Deliberately did NOT touch
+`login.html`'s actual check or `dashboard-sidebar.js`'s CLIENT-0001 pin (Phases 2/3).
+Node-verified first (27 assertions, including a full signup-equivalent flow proving a real
+client with a real stored hash results) plus the full prior suite, 467+ total, 0 failures.
+Browser-verified live: clicked through the actual 7-step signup form as a new applicant,
+submitted for real, confirmed a genuine `CLIENT-0003` was created with a real credential
+record (no raw password anywhere in it), and confirmed it verifies/rejects/isolates
+correctly against the real engine functions. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.64 for the full writeup. Backend Requirements Register
+row 50.
+
+**Client Authentication, Phase 2 — COMPLETE** (Aug 21, 2026): `login.html` now performs a
+real credential check. New `getClientByEmail(email)` (case-insensitive/trimmed, `null` on no
+match) and a `sessionStorage`-backed auth-session trio,
+`setClientAuthenticated(clientId)`/`getAuthenticatedClientId()`/`clearClientAuthentication()`,
+mirroring the admin gate's own session functions exactly. `login.html`'s old
+"any submit redirects" stub is replaced with a real
+`getClientByEmail()` → `hashClientPassword()` → `verifyClientCredentials()` check; wrong
+email and wrong password produce one identical generic error, never distinguishing which
+failed. Still does NOT touch `dashboard-sidebar.js`'s CLIENT-0001 pin (Phase 3).
+Node-verified first (25 assertions, including a structural proof — not just "both fail" —
+that the two failure paths produce byte-identical results) plus the full 17-file regression
+suite, 0 failures. Browser-verified live: CLIENT-0001 logs in successfully with the demo
+password; a wrong password and a wholly unknown email both produce the identical generic
+error; a fresh client created live through the real `signup.html` call chain (since
+CLIENT-0003's actual signup password was never recorded anywhere, by design) also logs in
+successfully, proving this works for a genuine self-registered client, not only the seeded
+demo. Confirmed, as expected: the dashboard still shows CLIENT-0001's data even while logged
+in as a different client, since reconciling `marketswave_authenticated_client_id` with
+`marketswave_current_client_id` is Phase 3's job. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.65 for the full writeup. Backend Requirements Register
+row 51.
+
+**Next**: Client Authentication Phase 3 — retire `dashboard-sidebar.js`'s hardcoded
+CLIENT-0001 pin so every dashboard page actually reflects `getAuthenticatedClientId()`
+instead of always showing CLIENT-0001 regardless of who logged in — deliberately not
+started, tracked in row 51. Also still exposed by Phase 1: a client created via self-signup
+today has no PM review queue and is immediately indistinguishable from an admin-created one
+(row 3). Further
+client-selector UX work at higher client counts, if ever needed — the
 earlier perf report found no slowdown at 50 clients, and this redesign already added
-search/filter, so this stays non-urgent. Longer-term: a real backend so admin actions and
-multi-client data persist beyond this browser's `localStorage`; a real login/auth system
-determining which client a given user actually is; a login gate for the admin tool. See the
+search/filter, so this stays non-urgent. A deliberate, explicitly-labeled "correct a
+starting-price typo" override for the Product Catalog, if that turns out to be a genuine
+operational need — flagged, not built, per the Edit Product judgment call in §4.63.
+Longer-term: a real backend so admin actions and multi-client data persist beyond this
+browser's `localStorage`; a real login/auth system with real PM accounts and real
+backend-verified credentials — the Admin Login Gate is explicitly a client-side stub, not a
+substitute for this. See the
 handover doc §5, §9 for the fuller forward-path discussion (note: §9's table predates both
 this phase and Admin Tool Phase B, and is stale in places — the Tech Stack log here and
-§4.41-§4.59 are the current source of truth).
+§4.41-§4.65 are the current source of truth).
 
 ## Known structural debt
 

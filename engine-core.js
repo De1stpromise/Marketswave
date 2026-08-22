@@ -74,6 +74,14 @@
 //             queues for an arbitrary client, reading each store's raw scoped key directly
 //             (same on-demand, no-session-switch discipline as getAccountState(clientId?)).
 //             Search/filter pills/row-expand are page-local UI, no further engine changes.
+//   Client Authentication, Phase 2 (Aug 21, 2026): real login check + session, on top of
+//             Phase 1's credential store. getClientByEmail(email) resolves an entered email to
+//             a clientId (null on no match, not an error — login.html folds "unknown email"
+//             and "wrong password" into one identical generic failure). setClientAuthenticated
+//             (clientId)/getAuthenticatedClientId()/clearClientAuthentication() are
+//             sessionStorage-backed, mirroring setAdminAuthenticated()/isAdminAuthenticated()/
+//             clearAdminAuthenticated() exactly. login.html now performs a real credential
+//             check; dashboard-sidebar.js's CLIENT-0001 pin is still untouched (Phase 3).
 //
 // This is the foundational data model every later engine phase (allocation requests, PM
 // approval, transaction feed, etc.) will build on. Both phases so far deliberately do NOT
@@ -86,36 +94,76 @@
 // CLAUDE.md / the handover doc for when a later phase wires it into the pages.
 //
 // Public globals (bare, no namespace object — matches dashboard-sidebar.js's convention):
-//   getProduct(id), getAllProducts(), addProduct(product)
+//   getProduct(id), getAllProducts() — defensive-copy reads (Aug 21, 2026 fix)
+//   addProduct(product) — validates all fields incl. a positive starting unitPrice
+//   editProduct(id, patch) — name/assetClass/investmentType/riskTier/minimumInvestment only;
+//   unitPrice/id/createdAt/lastTickDate/inceptionUnitPrice are blocked, throws if attempted
 //   getAccountState(clientId?), getHoldings(), getTotalPortfolioValue(clientId?)
 //   settleProduct(id), settleAllProducts()
 //   getAdvisoryFeeAccrued(periodDays), setAdvisoryFeeRate(newRate)
 //   getUnrealizedReturn(productId), getUnrealizedReturnPercent(productId),
 //   getTotalUnrealizedReturns()  — pure reads, nothing persisted
-//   requestAllocation(productId, dollarAmount), approveAllocationRequest(requestId),
-//   rejectAllocationRequest(requestId, reason), getAllocationRequests()
-//   executeBuy(productId, dollarAmount), executeSell(productId, unitsToSell)
-//   requestSell(productId, unitsToSell), approveSellRequest(requestId),
-//   rejectSellRequest(requestId, reason), getSellRequests()
-//   requestDeposit(method, amount, currency, details), creditDepositRequest(requestId, confirmedAmount),
-//   rejectDepositRequest(requestId, reason), getDepositRequests()
-//   requestHYSDeposit(pocketType, term, amount, method, details),
-//   creditHYSDeposit(requestId, confirmedAmount), rejectHYSDeposit(requestId, reason),
-//   getHYSDepositRequests()
+//   requestAllocation(productId, dollarAmount) — ambient (client-facing)
+//   approveAllocationRequest(clientId, requestId), rejectAllocationRequest(clientId, requestId, reason)
+//     — explicit clientId (Aug 21, 2026, Approval Gate unification — see below)
+//   getAllocationRequests() — ambient reader; getAllClientAllocationRequests() — cross-client
+//   executeBuy(clientId, productId, dollarAmount), executeSell(clientId, productId, unitsToSell)
+//     — explicit clientId, no fallback to getCurrentClientId() anywhere in this pair
+//   requestSell(productId, unitsToSell) — ambient (client-facing)
+//   approveSellRequest(clientId, requestId), rejectSellRequest(clientId, requestId, reason)
+//     — explicit clientId
+//   getSellRequests() — ambient reader; getAllClientSellRequests() — cross-client
+//   requestDeposit(method, amount, currency, details) — ambient (client-facing)
+//   creditDepositRequest(clientId, requestId, confirmedAmount),
+//   rejectDepositRequest(clientId, requestId, reason) — explicit clientId
+//   getDepositRequests() — ambient reader; getAllClientDepositRequests() — cross-client
+//   requestHYSDeposit(pocketType, term, amount, method, details) — ambient (client-facing)
+//   creditHYSDeposit(clientId, requestId, confirmedAmount),
+//   rejectHYSDeposit(clientId, requestId, reason) — explicit clientId
+//   getHYSDepositRequests() — ambient reader; getAllClientHYSDepositRequests() — cross-client
+//   ---- Approval Gate unification (Aug 21, 2026): Deposits/Allocations/Sells/HYS Deposits
+//   now match Documents/Support/Client Profile Updates' cross-client pattern. The approve/
+//   reject/credit functions above and executeBuy()/executeSell() take an explicit clientId
+//   and read/write ONLY that client's scoped storage directly (never the ambient module-
+//   level accountState/holdings/transactions/*Requests arrays, and never getCurrentClientId()
+//   at any layer) — see the CLAUDE.md Tech Stack entry for the full call-chain trace this
+//   fixed. The no-arg ambient getters (getAllocationRequests() etc.) and the client-facing
+//   request*() functions are UNCHANGED — asset-performance.html/high-yield-savings.html/
+//   admin.html's Overview cards still call them exactly as before.
 //   getSettingsProfile(clientId?), requestSettingsChange(field, requestedValue, reason),
 //   approveSettingsChangeRequest(clientId, requestId),
 //   rejectSettingsChangeRequest(clientId, requestId, resolutionNote),
 //   getSettingsChangeRequests()
-//   getTransactionLedger()
+//   getTransactionLedger() — ambient reader; getTransactionForClient(clientId, txnId) — explicit
 //   getDocuments(), getDocument(id), addDocument(doc), updateDocument(id, patch),
 //   updateDocumentStatus(id, newStatus), removeDocument(id), getDocumentNotificationCounts()
 //   getAllClientDocuments(), updateDocumentForClient(clientId, docId, patch),
 //   publishDocumentToClient(clientId, { filename, category, signatureRequired?, dueDate? })
 //   getAllClientSupportRequests(), updateSupportRequestForClient(clientId, requestId, patch)
 //   getAllClientSettingsChangeRequests()
+//   ---- Password Reset + 2FA Rework (Aug 21, 2026): built cross-client from the start,
+//   using the same explicit-clientId, no-module-cache discipline the Approval Gate
+//   unification proved out — see that section's own note above.
+//   resetClientPassword(clientId, reason), resetClient2FA(clientId, reason) — explicit
+//   clientId, admin-triggered, both require a non-empty reason
+//   getSecurityActionsLog() — global (not per-client) audit trail, every reset ever performed
+//   getClientSecurityState(clientId?) — ambient by default (client-facing settings.html);
+//   clearForcePasswordReset() — ambient only, called by the client's own forced-reset form
 //   getClientPendingApprovalCount(clientId)
-//   getAllClients(), getClient(id), addClient(client)
+//   getAllClients(), getClient(id), getClientByEmail(email), addClient(client)
+//   ---- Client Authentication, Phase 1 (Aug 21, 2026): credential storage — does NOT touch
+//   dashboard-sidebar.js's CLIENT-0001 pin (Phase 3).
+//   hashClientPassword(rawPassword) — async, the only place a raw password briefly exists
+//   setClientCredentials(clientId, passwordHash), verifyClientCredentials(clientId, passwordHash)
 //   getCurrentClientId(), setCurrentClientId(id), clientScopedKey(baseKey)
+//   ---- Client Authentication, Phase 2 (Aug 21, 2026): real login check + session — see the
+//   phase-log entry above. login.html's own submit handler now calls these for real.
+//   setClientAuthenticated(clientId), getAuthenticatedClientId(), clearClientAuthentication()
+//   ---- Admin Login Gate (Aug 21, 2026): UI-level stub, not real authentication — see the
+//   comment above ADMIN_PASSPHRASE for the full honesty callout.
+//   checkAdminPassphrase(input), setAdminAuthenticated(), isAdminAuthenticated(),
+//   clearAdminAuthenticated() — sessionStorage-backed, same pattern as
+//   getCurrentClientId()/setCurrentClientId()
 //   engineDebugDump()  — console-only, manual verification, no page should call this
 (function () {
   const CATALOG_KEY = 'marketswave_product_catalog';
@@ -138,6 +186,27 @@
   // something either persona should silently inherit.
   const CURRENT_CLIENT_SESSION_KEY = 'marketswave_current_client_id';
   const DEFAULT_CLIENT_ID = 'CLIENT-0001';
+  // Client Authentication, Phase 1 (Aug 21, 2026) — a dedicated, separate per-client store,
+  // not folded into marketswave_settings_profile: credentials are a distinct
+  // security-sensitive concern from profile data (name/address/etc.), and a dedicated key
+  // means credential-verification code never has to read through — or risk being near — an
+  // object that page-level UI code freely spreads/displays. Holds only { passwordHash } —
+  // the raw password itself is never written here or anywhere else; see hashClientPassword()
+  // below for the one place a raw password briefly exists at all, and why it can't outlive
+  // that single call.
+  const CLIENT_CREDENTIALS_KEY = 'marketswave_client_credentials';
+  // Precomputed SHA-256 hex digest of the demo password 'Marketswave2026!' — the actual
+  // plaintext credential for CLIENT-0001, reported here (and in the docs) exactly because
+  // this is a known, intentional demo/testing credential, not a real user's password; a real
+  // user's password is never written to a comment, a log, or any variable that outlives its
+  // one hashing call (see hashClientPassword()). This value is PRECOMPUTED, not generated by
+  // calling hashClientPassword() at seed time, because Web Crypto's crypto.subtle.digest() is
+  // async-only (returns a Promise) while every other store in this file seeds synchronously
+  // inside this IIFE — introducing an async seeding path for one store would be a much
+  // larger architectural change than "Phase 1: credential storage + signup wiring" asked for.
+  // Verified to match crypto.subtle.digest('SHA-256', ...) on that exact string byte-for-byte
+  // before being hardcoded here (see the Node verification harness for this phase).
+  const DEMO_CLIENT0001_PASSWORD_HASH = 'aa2490ec8670500ccd3838f2adff7cedf5425318e5e8c7d989acfa903a4704d6';
   // HYS Deposit Approval Queue (Aug 21, 2026). A PARALLEL store, not an extension of
   // marketswave_deposit_requests — a pocket-funding request carries pocketType/term/rate/
   // maturity fields a regular cash deposit into unallocatedCapital has no use for, and
@@ -175,6 +244,15 @@
   // untouched (not migrated, not deleted) and remain fully visible/resolvable in
   // admin-settings-changes.html, since approveSettingsChangeRequest()/
   // rejectSettingsChangeRequest() never re-validate a request's field against this list.
+  // Password Reset + 2FA Rework (Aug 21, 2026). SECURITY_LOG_KEY is GLOBAL — an audit trail
+  // spanning every client, same category as CLIENTS_KEY/CATALOG_KEY, never scoped to one
+  // client. SECURITY_STATE_KEY is per-client (mirrors SETTINGS_PROFILE_KEY's own
+  // key-per-client convention) and holds the "force new password" flag; the existing
+  // 'marketswave_settings_2fa' key (declared inline where it's used below, matching how
+  // HYS_POCKETS_KEY's sibling keys are handled) is reused as-is for 2FA state rather than
+  // introduced as a new constant, since its shape doesn't change.
+  const SECURITY_LOG_KEY = 'marketswave_security_actions_log';
+  const SECURITY_STATE_KEY = 'marketswave_settings_security';
   const REQUESTABLE_SETTINGS_FIELDS = ['legalName', 'address', 'idDocument'];
   // Matches exactly what every page in this project has always hardcoded for the demo
   // persona (dashboard-sidebar.js's footer, documents.html, etc.) — used only as a fallback
@@ -254,6 +332,37 @@
       throw new Error('setCurrentClientId requires a non-empty client id string.');
     }
     sessionStorage.setItem(CURRENT_CLIENT_SESSION_KEY, id);
+  }
+
+  // ---- Admin Login Gate (Aug 21, 2026) -----------------------------------------------------
+  // Explicitly a UI-level stub, not real authentication — same honesty standard as the forced
+  // password-reset gate (§4.61). There is no backend, no real PM account roster, no verified
+  // credential of any kind; ADMIN_PASSPHRASE is a single shared constant living in this
+  // client-side file, readable by anyone who opens dev tools. This closes the "any URL is
+  // wide open with zero friction" gap only — it does NOT close the "properly secured" gap,
+  // which needs a real backend, real PM accounts, and real credential verification (tracked
+  // in the Backend Requirements Register as a genuine future requirement, not superseded by
+  // this). sessionStorage-backed, same pattern as getCurrentClientId()/setCurrentClientId()
+  // (CURRENT_CLIENT_SESSION_KEY above) — resets per browser session rather than persisting
+  // forever, so a fresh session (or a cleared sessionStorage) always requires re-entering the
+  // passphrase.
+  const ADMIN_PASSPHRASE = 'marketswave-pm-2026';
+  const ADMIN_AUTH_SESSION_KEY = 'marketswave_admin_authenticated';
+
+  function checkAdminPassphrase(input) {
+    return input === ADMIN_PASSPHRASE;
+  }
+
+  function setAdminAuthenticated() {
+    sessionStorage.setItem(ADMIN_AUTH_SESSION_KEY, 'true');
+  }
+
+  function isAdminAuthenticated() {
+    return sessionStorage.getItem(ADMIN_AUTH_SESSION_KEY) === 'true';
+  }
+
+  function clearAdminAuthenticated() {
+    sessionStorage.removeItem(ADMIN_AUTH_SESSION_KEY);
   }
 
   // Every per-client store's actual localStorage key. Computed fresh on every call (not
@@ -525,6 +634,23 @@
   // store's own load-or-seed block below (so those blocks see the now-scoped keys) --------
   migrateLegacyUnscopedKeysToClient0001();
 
+  // ---- Seed CLIENT-0001's demo credentials, once, if missing (Client Authentication Phase
+  // 1, Aug 21, 2026) — keeps every existing demo/testing flow working once login actually
+  // checks credentials in Phase 2, without requiring every browser that already has
+  // CLIENT-0001 seeded (from before this phase existed) to manually set one. Never
+  // overwrites an existing credentials record — matches the "never clobber real data" rule
+  // every other seed-if-missing block in this file already follows. Runs after the Client
+  // Registry seed above (CLIENT-0001 must exist first) and after migration (credentials are
+  // a brand-new key, never part of the legacy unscoped set, so ordering relative to
+  // migration doesn't matter here — placed after it only to stay grouped with the other
+  // one-time startup steps).
+  if (!localStorage.getItem(scopedKeyForClient(CLIENT_CREDENTIALS_KEY, DEFAULT_CLIENT_ID))) {
+    localStorage.setItem(
+      scopedKeyForClient(CLIENT_CREDENTIALS_KEY, DEFAULT_CLIENT_ID),
+      JSON.stringify({ passwordHash: DEMO_CLIENT0001_PASSWORD_HASH })
+    );
+  }
+
   // ---- Load or seed (all three stores together, so a partial/missing key always
   // re-seeds everything as one consistent set rather than mixing old + fresh data) ------
   // Product Catalog stays on its raw, unscoped CATALOG_KEY — global by design, shared across
@@ -741,6 +867,67 @@
   // forward however many real calendar days have elapsed since the engine was last loaded.
   settleAllProducts();
 
+  // ---- Approval Gate unification: explicit-clientId storage helpers (Aug 21, 2026) --------
+  // Deposits/Allocations/Sells/HYS Deposits used to be the one domain where the resolve
+  // primitives (executeBuy/executeSell/creditDepositRequest/creditHYSDeposit) read and wrote
+  // the module-level accountState/holdings/transactions/*Requests variables above — loaded
+  // ONCE, ambiently, for whichever client was active when this IIFE ran. Unlike Documents/
+  // Support/Settings-Changes (which never had that caching problem — every function there
+  // already did a fresh localStorage read-modify-write per call), these four domains needed
+  // their execution chain converted, not just their top-level function signatures. These
+  // three helpers are the shared plumbing every rewritten primitive below uses instead of
+  // touching the module-level arrays: always a direct scoped read, direct scoped write, for
+  // an explicit clientId, every single call — no fallback to getCurrentClientId() anywhere
+  // in this chain, at any layer, regardless of whether clientId happens to equal the
+  // currently active client. (catalog/settleProduct()/getProduct() are NOT included here —
+  // the Product Catalog is genuinely global/unscoped, shared by every client, so pricing
+  // needs no per-client helper at all.)
+  function readAccountStateForClient(clientId) {
+    const key = scopedKeyForClient(ACCOUNT_KEY, clientId);
+    return safeParse(localStorage.getItem(key)) ||
+      { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0, advisoryFeeRate: 1.25 };
+  }
+
+  function writeAccountStateForClient(clientId, state) {
+    localStorage.setItem(scopedKeyForClient(ACCOUNT_KEY, clientId), JSON.stringify(state));
+  }
+
+  function readHoldingsForClient(clientId) {
+    return safeParse(localStorage.getItem(scopedKeyForClient(HOLDINGS_KEY, clientId))) || [];
+  }
+
+  function writeHoldingsForClient(clientId, holdingsArr) {
+    localStorage.setItem(scopedKeyForClient(HOLDINGS_KEY, clientId), JSON.stringify(holdingsArr));
+  }
+
+  // The one hop shared by all 4 domains' resolve paths (every credit/approve action logs a
+  // transaction) — a single helper so none of the 4 rewritten primitives below can
+  // accidentally fall back to the module-level, ambient `transactions` array. txn.id is
+  // assigned here from THIS client's own transaction array (transaction ids are per-client
+  // scoped, same as every other sequential id in this file — DOC-XXXX, SETTING-XXXX, etc. —
+  // not globally unique across clients).
+  function appendTransactionForClient(clientId, txn) {
+    const key = scopedKeyForClient(TRANSACTIONS_KEY, clientId);
+    const clientTransactions = safeParse(localStorage.getItem(key)) || [];
+    const txnId = nextSequentialId(clientTransactions, 'TXN');
+    clientTransactions.push(Object.assign({ id: txnId }, txn));
+    localStorage.setItem(key, JSON.stringify(clientTransactions));
+    return txnId;
+  }
+
+  // Same explicit-clientId discipline, for the 4 request queues themselves — the approve/
+  // reject wrappers below must find and mutate a request inside the CORRECT client's own
+  // queue, never the ambient module-level allocationRequests/sellRequests/depositRequests/
+  // hysDepositRequests arrays (which reflect whichever client happened to be active when
+  // this IIFE last ran, not necessarily the clientId the caller is naming here).
+  function readRequestsForClient(baseKey, clientId) {
+    return safeParse(localStorage.getItem(scopedKeyForClient(baseKey, clientId))) || [];
+  }
+
+  function writeRequestsForClient(baseKey, clientId, requestsArr) {
+    localStorage.setItem(scopedKeyForClient(baseKey, clientId), JSON.stringify(requestsArr));
+  }
+
   // ---- Transaction mechanics (Phase 3) ---------------------------------------------------
   // Models the locked rule: a client REQUEST must not move money by itself. Money only moves
   // once a PM (or, in this demo engine, a direct call to approveAllocationRequest) actually
@@ -792,30 +979,40 @@
   }
 
   // Settles the product's price first so the buy always executes at a current unit price,
-  // never a stale one left over from before today's tick.
-  function executeBuy(productId, dollarAmount) {
+  // never a stale one left over from before today's tick. Explicit clientId (Aug 21, 2026,
+  // Approval Gate unification) — every read/write below is a direct scoped access for that
+  // client, never the module-level holdings/accountState/transactions arrays (see the
+  // helpers above). settleProduct()/getProduct() stay untouched — the Product Catalog is
+  // global, not per-client.
+  function executeBuy(clientId, productId, dollarAmount) {
     const settled = settleProduct(productId);
     if (!settled) throw new Error('Unknown product: ' + productId);
     const unitPrice = settled.unitPrice;
     const units = dollarAmount / unitPrice;
 
-    let holding = holdings.find(function (h) { return h.productId === productId; });
+    const clientHoldings = readHoldingsForClient(clientId);
+    let holding = clientHoldings.find(function (h) { return h.productId === productId; });
     if (holding) {
       holding.units += units;
       holding.costBasis = round2(holding.costBasis + dollarAmount);
     } else {
       holding = { productId: productId, units: units, costBasis: round2(dollarAmount) };
-      holdings.push(holding);
+      clientHoldings.push(holding);
     }
-    persistHoldings();
+    writeHoldingsForClient(clientId, clientHoldings);
 
-    accountState.unallocatedCapital = round2(accountState.unallocatedCapital - dollarAmount);
-    persistAccountState();
-    recomputeAllocatedCapital();
+    const clientAccountState = readAccountStateForClient(clientId);
+    clientAccountState.unallocatedCapital = round2(clientAccountState.unallocatedCapital - dollarAmount);
+    // Inlined recomputeAllocatedCapital() logic, against THIS client's freshly-written
+    // holdings — the module-level recomputeAllocatedCapital() operates on the ambient
+    // holdings/accountState and must not be called from this explicit-clientId chain.
+    clientAccountState.allocatedCapital = round2(clientHoldings.reduce(function (sum, h) {
+      const product = getProduct(h.productId);
+      return sum + h.units * (product ? product.unitPrice : 0);
+    }, 0));
+    writeAccountStateForClient(clientId, clientAccountState);
 
-    const txnId = nextSequentialId(transactions, 'TXN');
-    transactions.push({
-      id: txnId,
+    return appendTransactionForClient(clientId, {
       date: todayStrUTC(),
       productId: productId,
       type: 'BUY',
@@ -825,14 +1022,16 @@
       realizedReturn: null,
       status: 'Completed'
     });
-    persistTransactions();
-    return txnId;
   }
 
   // Cost basis for the sold portion is proportional to the fraction of the holding being
   // sold — NOT FIFO/LIFO lot tracking, since holdings aren't tracked as discrete lots here.
-  function executeSell(productId, unitsToSell) {
-    const holding = holdings.find(function (h) { return h.productId === productId; });
+  // Explicit clientId (Aug 21, 2026, Approval Gate unification) — every read/write below is
+  // a direct scoped access for that client, never the module-level holdings/accountState/
+  // transactions arrays. See executeBuy() above for the same pattern.
+  function executeSell(clientId, productId, unitsToSell) {
+    const clientHoldings = readHoldingsForClient(clientId);
+    const holding = clientHoldings.find(function (h) { return h.productId === productId; });
     if (!holding) throw new Error('No holding exists for product ' + productId + '.');
     if (typeof unitsToSell !== 'number' || !isFinite(unitsToSell) || unitsToSell <= 0) {
       throw new Error('unitsToSell must be a positive number.');
@@ -848,23 +1047,31 @@
     const costBasisPortion = round2(holding.costBasis * (unitsToSell / holding.units));
     const realizedReturn = round2(saleValue - costBasisPortion);
 
-    accountState.unallocatedCapital = round2(accountState.unallocatedCapital + costBasisPortion);
-    accountState.assetReturns = round2(accountState.assetReturns + realizedReturn);
-    persistAccountState();
+    const clientAccountState = readAccountStateForClient(clientId);
+    clientAccountState.unallocatedCapital = round2(clientAccountState.unallocatedCapital + costBasisPortion);
+    clientAccountState.assetReturns = round2(clientAccountState.assetReturns + realizedReturn);
 
     const remainingUnits = holding.units - unitsToSell;
+    let updatedHoldings;
     if (remainingUnits < 1e-6) {
-      holdings = holdings.filter(function (h) { return h.productId !== productId; });
+      updatedHoldings = clientHoldings.filter(function (h) { return h.productId !== productId; });
     } else {
       holding.units = remainingUnits;
       holding.costBasis = round2(holding.costBasis - costBasisPortion);
+      updatedHoldings = clientHoldings;
     }
-    persistHoldings();
-    recomputeAllocatedCapital();
+    writeHoldingsForClient(clientId, updatedHoldings);
 
-    const txnId = nextSequentialId(transactions, 'TXN');
-    transactions.push({
-      id: txnId,
+    // Inlined recomputeAllocatedCapital() logic, against THIS client's freshly-written
+    // holdings — see executeBuy() for why the module-level recomputeAllocatedCapital()
+    // must not be called from this explicit-clientId chain.
+    clientAccountState.allocatedCapital = round2(updatedHoldings.reduce(function (sum, h) {
+      const product = getProduct(h.productId);
+      return sum + h.units * (product ? product.unitPrice : 0);
+    }, 0));
+    writeAccountStateForClient(clientId, clientAccountState);
+
+    return appendTransactionForClient(clientId, {
       date: todayStrUTC(),
       productId: productId,
       type: 'SELL',
@@ -874,32 +1081,34 @@
       realizedReturn: realizedReturn,
       status: 'Completed'
     });
-    persistTransactions();
-    return txnId;
   }
 
   // JUDGMENT CALL — flagged rather than silently decided: only the buy side (allocation
   // requests) goes through a pending/approval gate. executeSell() runs directly with no
   // equivalent request/approval step, since the spec only describes an approval gate for
   // allocation. Revisit if sells should also queue for PM approval in a later phase.
-  function approveAllocationRequest(requestId) {
-    const request = allocationRequests.find(function (r) { return r.id === requestId; });
+  // Explicit clientId (Aug 21, 2026, Approval Gate unification) — reads/writes ONLY that
+  // client's own scoped request queue, never the ambient module-level allocationRequests.
+  function approveAllocationRequest(clientId, requestId) {
+    const clientRequests = readRequestsForClient(REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown allocation request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Allocation request ' + requestId + ' is not pending (status: ' + request.status + ').');
     }
 
-    const txnId = executeBuy(request.productId, request.amount);
+    const txnId = executeBuy(clientId, request.productId, request.amount);
 
     request.status = 'approved';
     request.resolvedAt = todayStrUTC();
     request.transactionId = txnId;
-    persistAllocationRequests();
+    writeRequestsForClient(REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
-  function rejectAllocationRequest(requestId, reason) {
-    const request = allocationRequests.find(function (r) { return r.id === requestId; });
+  function rejectAllocationRequest(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown allocation request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Allocation request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -908,7 +1117,7 @@
     request.status = 'rejected';
     request.resolvedAt = todayStrUTC();
     request.reason = reason || null;
-    persistAllocationRequests();
+    writeRequestsForClient(REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
@@ -926,6 +1135,20 @@
 
   function getAllocationRequests() {
     return allocationRequests.map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation (Aug 21, 2026, Approval Gate unification) — mirrors
+  // getAllClientSettingsChangeRequests()/getAllClientDocuments() exactly: reads every
+  // client's own scoped request queue directly, tags each item with clientId/clientName.
+  function getAllClientAllocationRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
   }
 
   // ---- Sell request queue (Phase 3B) -----------------------------------------------------
@@ -963,31 +1186,36 @@
   // Re-validates against the CURRENT holding before executing — units could have shrunk
   // since the request was made if another sell request on the same holding was approved in
   // between. Throws rather than executing a partial/incorrect sell or failing silently.
-  function approveSellRequest(requestId) {
-    const request = sellRequests.find(function (r) { return r.id === requestId; });
+  // Explicit clientId (Aug 21, 2026, Approval Gate unification) — reads/writes ONLY that
+  // client's own scoped request queue and holdings, never the ambient module-level arrays.
+  function approveSellRequest(clientId, requestId) {
+    const clientRequests = readRequestsForClient(SELL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown sell request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Sell request ' + requestId + ' is not pending (status: ' + request.status + ').');
     }
 
-    const holding = holdings.find(function (h) { return h.productId === request.productId; });
+    const clientHoldings = readHoldingsForClient(clientId);
+    const holding = clientHoldings.find(function (h) { return h.productId === request.productId; });
     const currentUnits = holding ? holding.units : 0;
     if (request.unitsToSell > currentUnits + 1e-9) {
       throw new Error('Cannot approve sell request ' + requestId + ': only ' + currentUnits +
         ' units remain held, but ' + request.unitsToSell + ' were requested.');
     }
 
-    const txnId = executeSell(request.productId, request.unitsToSell);
+    const txnId = executeSell(clientId, request.productId, request.unitsToSell);
 
     request.status = 'approved';
     request.resolvedAt = todayStrUTC();
     request.transactionId = txnId;
-    persistSellRequests();
+    writeRequestsForClient(SELL_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
-  function rejectSellRequest(requestId, reason) {
-    const request = sellRequests.find(function (r) { return r.id === requestId; });
+  function rejectSellRequest(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(SELL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown sell request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Sell request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -996,13 +1224,26 @@
     request.status = 'rejected';
     request.resolvedAt = todayStrUTC();
     request.reason = reason || null;
-    persistSellRequests();
+    writeRequestsForClient(SELL_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
   // Same defensive-copy + requestedAtMs-backfill treatment as getAllocationRequests().
   function getSellRequests() {
     return sellRequests.map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation (Aug 21, 2026, Approval Gate unification) — see
+  // getAllClientAllocationRequests() above for the pattern this mirrors.
+  function getAllClientSellRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(SELL_REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
   }
 
   // ---- Deposit request queue (Admin tool Phase A) --------------------------------------
@@ -1048,8 +1289,11 @@
   // request.requestedAmount. A DEPOSIT transaction has no productId/units/price (nothing was
   // bought), just totalValue, date, and the deposit method, per the deposit-specific
   // transaction shape below.
-  function creditDepositRequest(requestId, confirmedAmount) {
-    const request = depositRequests.find(function (r) { return r.id === requestId; });
+  // Explicit clientId (Aug 21, 2026, Approval Gate unification) — reads/writes ONLY that
+  // client's own scoped request queue/account state/transaction ledger.
+  function creditDepositRequest(clientId, requestId, confirmedAmount) {
+    const clientRequests = readRequestsForClient(DEPOSIT_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown deposit request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Deposit request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -1058,12 +1302,11 @@
       throw new Error('confirmedAmount must be a positive number.');
     }
 
-    accountState.unallocatedCapital = round2(accountState.unallocatedCapital + confirmedAmount);
-    persistAccountState();
+    const clientAccountState = readAccountStateForClient(clientId);
+    clientAccountState.unallocatedCapital = round2(clientAccountState.unallocatedCapital + confirmedAmount);
+    writeAccountStateForClient(clientId, clientAccountState);
 
-    const txnId = nextSequentialId(transactions, 'TXN');
-    transactions.push({
-      id: txnId,
+    const txnId = appendTransactionForClient(clientId, {
       date: todayStrUTC(),
       productId: null,
       type: 'DEPOSIT',
@@ -1074,18 +1317,18 @@
       status: 'Completed',
       method: request.method
     });
-    persistTransactions();
 
     request.status = 'credited';
     request.resolvedAt = todayStrUTC();
     request.creditedAmount = round2(confirmedAmount);
     request.transactionId = txnId;
-    persistDepositRequests();
+    writeRequestsForClient(DEPOSIT_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
-  function rejectDepositRequest(requestId, reason) {
-    const request = depositRequests.find(function (r) { return r.id === requestId; });
+  function rejectDepositRequest(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(DEPOSIT_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown deposit request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('Deposit request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -1093,13 +1336,26 @@
     request.status = 'rejected';
     request.resolvedAt = todayStrUTC();
     request.reason = reason || null;
-    persistDepositRequests();
+    writeRequestsForClient(DEPOSIT_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
   // Same defensive-copy + requestedAtMs-backfill treatment as getAllocationRequests()/getSellRequests().
   function getDepositRequests() {
     return depositRequests.map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation (Aug 21, 2026, Approval Gate unification) — see
+  // getAllClientAllocationRequests() above for the pattern this mirrors.
+  function getAllClientDepositRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(DEPOSIT_REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
   }
 
   // ---- HYS Deposit Approval Queue -------------------------------------------------------
@@ -1208,8 +1464,15 @@
   // not the original request date — a term deposit's clock starts when funds actually land,
   // not when the client asked to open it, so a pending request sitting in the queue for a
   // few days doesn't silently eat into the client's own term.
-  function creditHYSDeposit(requestId, confirmedAmount) {
-    const request = hysDepositRequests.find(function (r) { return r.id === requestId; });
+  // Explicit clientId (Aug 21, 2026, Approval Gate unification) — reads/writes ONLY that
+  // client's own scoped request queue, pocket store, and transaction ledger. Previously this
+  // already read/wrote HYS_POCKETS_KEY via a direct scoped access (never module-cached) —
+  // that part only needed clientScopedKey() swapped for scopedKeyForClient(); the request
+  // queue and transaction ledger needed the same explicit-client conversion as the other 3
+  // domains.
+  function creditHYSDeposit(clientId, requestId, confirmedAmount) {
+    const clientRequests = readRequestsForClient(HYS_DEPOSIT_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown HYS deposit request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('HYS deposit request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -1232,7 +1495,7 @@
       projectedInterest = round2(confirmedAmount * (request.rate / 100) * request.termInYears);
     }
 
-    const pocketsKey = clientScopedKey(HYS_POCKETS_KEY);
+    const pocketsKey = scopedKeyForClient(HYS_POCKETS_KEY, clientId);
     const pockets = safeParse(localStorage.getItem(pocketsKey)) || [];
     // Same id format high-yield-savings.html's own createPocket() already uses — kept
     // identical rather than switching this one source to a different scheme, which would
@@ -1260,9 +1523,7 @@
     // creditDepositRequest(), this never calls persistAccountState(). Still lands in the
     // shared transaction ledger (type HYS_DEPOSIT, distinct from DEPOSIT) so the activity is
     // visible in one place, per instruction.
-    const txnId = nextSequentialId(transactions, 'TXN');
-    transactions.push({
-      id: txnId,
+    const txnId = appendTransactionForClient(clientId, {
       date: todayStrUTC(),
       productId: null,
       type: 'HYS_DEPOSIT',
@@ -1274,19 +1535,19 @@
       method: request.method,
       pocketId: pocketId
     });
-    persistTransactions();
 
     request.status = 'credited';
     request.resolvedAt = todayStrUTC();
     request.creditedAmount = round2(confirmedAmount);
     request.pocketId = pocketId;
     request.transactionId = txnId;
-    persistHYSDepositRequests();
+    writeRequestsForClient(HYS_DEPOSIT_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
-  function rejectHYSDeposit(requestId, reason) {
-    const request = hysDepositRequests.find(function (r) { return r.id === requestId; });
+  function rejectHYSDeposit(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(HYS_DEPOSIT_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
     if (!request) throw new Error('Unknown HYS deposit request: ' + requestId);
     if (request.status !== 'pending') {
       throw new Error('HYS deposit request ' + requestId + ' is not pending (status: ' + request.status + ').');
@@ -1294,12 +1555,25 @@
     request.status = 'rejected';
     request.resolvedAt = todayStrUTC();
     request.reason = reason || null;
-    persistHYSDepositRequests();
+    writeRequestsForClient(HYS_DEPOSIT_REQUESTS_KEY, clientId, clientRequests);
     return request;
   }
 
   function getHYSDepositRequests() {
     return hysDepositRequests.map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation (Aug 21, 2026, Approval Gate unification) — see
+  // getAllClientAllocationRequests() above for the pattern this mirrors.
+  function getAllClientHYSDepositRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(HYS_DEPOSIT_REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
   }
 
   // ---- Settings Change Request queue (Request Change redesign, Aug 21, 2026) -------------
@@ -1455,6 +1729,186 @@
     }, []);
   }
 
+  // ---- Client Authentication, Phase 1: credential storage (Aug 21, 2026) ------------------
+  // This phase only gets credentials to actually exist somewhere real — it deliberately does
+  // NOT touch login.html's actual check (Phase 2) or dashboard-sidebar.js's CLIENT-0001 pin
+  // (Phase 3). Stateless, direct-scoped-storage-access-per-call, same discipline as the
+  // Settings Change Request queue and the Account Security block below — no module-level
+  // cache, since this is per-client state an admin-side or client-side caller might need for
+  // an arbitrary/not-currently-active client.
+
+  // The ONE place a raw password exists at all in this file. Takes it only as a function
+  // parameter, uses it only within this function's own body, and returns before the caller
+  // can do anything with it except pass the resulting hash straight into
+  // setClientCredentials() — there is no module-level variable, no logging, no intermediate
+  // object it gets attached to. Async because Web Crypto's crypto.subtle.digest() is
+  // async-only; callers (signup.html) must await this.
+  async function hashClientPassword(rawPassword) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(rawPassword);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  // Straightforward set/compare, per instruction — both take an ALREADY-HASHED password
+  // (never a raw one), matching hashClientPassword()'s own contract that a raw password
+  // never leaves that one function's scope. Explicit clientId (not ambient) since this needs
+  // to work for a client being created right now (signup.html, before that client is
+  // necessarily the active session) as well as for an arbitrary existing client.
+  function setClientCredentials(clientId, passwordHash) {
+    if (!clientId) throw new Error('setClientCredentials requires a clientId.');
+    if (!passwordHash || typeof passwordHash !== 'string') {
+      throw new Error('setClientCredentials requires a passwordHash string.');
+    }
+    localStorage.setItem(scopedKeyForClient(CLIENT_CREDENTIALS_KEY, clientId), JSON.stringify({ passwordHash: passwordHash }));
+  }
+
+  function verifyClientCredentials(clientId, passwordHash) {
+    const stored = safeParse(localStorage.getItem(scopedKeyForClient(CLIENT_CREDENTIALS_KEY, clientId)));
+    if (!stored || !stored.passwordHash) return false;
+    return stored.passwordHash === passwordHash;
+  }
+
+  // ---- Client Authentication, Phase 2 (Aug 21, 2026): real login session -------------------
+  // sessionStorage-backed, mirroring setAdminAuthenticated()/isAdminAuthenticated()/
+  // clearAdminAuthenticated() exactly (ADMIN_AUTH_SESSION_KEY above) — resets per browser
+  // session, no fallback to getCurrentClientId() or any other ambient value anywhere in this
+  // trio. Stores the authenticated client's own id directly (not just a boolean the way the
+  // admin gate does) since, unlike the admin gate — one shared passphrase, no persona to
+  // distinguish — a real client login has to record WHICH client actually authenticated.
+  const CLIENT_AUTH_SESSION_KEY = 'marketswave_authenticated_client_id';
+
+  function setClientAuthenticated(clientId) {
+    if (!clientId) throw new Error('setClientAuthenticated requires a clientId.');
+    sessionStorage.setItem(CLIENT_AUTH_SESSION_KEY, clientId);
+  }
+
+  function getAuthenticatedClientId() {
+    return sessionStorage.getItem(CLIENT_AUTH_SESSION_KEY);
+  }
+
+  function clearClientAuthentication() {
+    sessionStorage.removeItem(CLIENT_AUTH_SESSION_KEY);
+  }
+
+  // ---- Account Security: Password Reset + 2FA Rework (Aug 21, 2026) -----------------------
+  // Built cross-client from the start, using the exact discipline the Approval Gate
+  // unification proved out (§4.60): every function below does a direct scoped read/write for
+  // an explicit clientId, on demand — nothing cached in a module-level variable, no fallback
+  // to getCurrentClientId() anywhere in the two admin-triggered actions. This mirrors the
+  // Settings Change Request queue's own stateless discipline immediately above (never
+  // module-cached to begin with) rather than the module-level-cached pattern the Approval
+  // Gate task had to convert AWAY from — chosen deliberately so this domain never needs that
+  // conversion later.
+  //
+  // SECURITY_LOG_KEY is genuinely global (like CLIENTS_KEY/CATALOG_KEY) — an audit trail
+  // across every client, not scoped to one. getSecurityActionsLog()/appendSecurityLogEntry()
+  // do a fresh localStorage read/write per call rather than a module-level cached array, for
+  // the same reason every other cross-client-facing store in this file does: admin-security.html
+  // must always see the latest log regardless of what page loaded last.
+
+  // Shared by both resetClientPassword()/resetClient2FA() — appends one entry to the global
+  // log and returns it. clientName is looked up from the (module-level, but genuinely global
+  // and always-in-sync) Client Registry — safe to read here since, unlike the per-client
+  // stores Approval Gate had to fix, there is only ever one Client Registry, not one per
+  // client, so there's no "wrong client's copy" to go stale.
+  function appendSecurityLogEntry(clientId, type, reason) {
+    const log = safeParse(localStorage.getItem(SECURITY_LOG_KEY)) || [];
+    const client = getClient(clientId);
+    const entry = {
+      id: nextSequentialId(log, 'SEC'),
+      clientId: clientId,
+      clientName: client ? client.name : clientId,
+      type: type,
+      reason: reason,
+      performedAt: todayStrUTC(),
+      performedBy: 'Portfolio Manager'
+    };
+    log.push(entry);
+    localStorage.setItem(SECURITY_LOG_KEY, JSON.stringify(log));
+    return entry;
+  }
+
+  // Deep-cloned per the established defensive-copy convention (getHoldings()/
+  // getAllClientDocuments() etc.) — a caller mutating one returned entry must never affect
+  // what's actually stored.
+  function getSecurityActionsLog() {
+    const log = safeParse(localStorage.getItem(SECURITY_LOG_KEY)) || [];
+    return log.map(function (e) { return Object.assign({}, e); });
+  }
+
+  // Explicit clientId, admin-triggered. "Force new password" approach, given there's no real
+  // login/session system yet (flagged per instruction, not silently decided): this sets a
+  // per-client flag (forcePasswordReset) under SECURITY_STATE_KEY that settings.html reads on
+  // every load and uses to gate its own UI client-side — there is no server session to
+  // actually invalidate, so "force" here means "the client's own settings.html will not let
+  // them past this screen until they submit a new password," not a real credential
+  // invalidation. This is consistent with the rest of the project: the EXISTING self-service
+  // Change Password form (settings.html) already doesn't persist an actual password anywhere
+  // either (there is no real credential store in this codebase at all) — this reset flow
+  // doesn't invent one, it just adds a flag that blocks the client's own page until they
+  // complete the same already-existing (unpersisted) password form. Real enforcement — an
+  // actual server rejecting stale credentials — needs the login gate + backend session work
+  // already tracked as deferred; this is buildable now only as a client-side UI gate, not as
+  // real security. See the Backend Requirements Register for the explicit callout.
+  function resetClientPassword(clientId, reason) {
+    if (!reason || !reason.trim()) {
+      throw new Error('A reason is required to reset a client\'s password.');
+    }
+    const key = scopedKeyForClient(SECURITY_STATE_KEY, clientId);
+    const state = safeParse(localStorage.getItem(key)) || {};
+    state.forcePasswordReset = true;
+    state.forcePasswordReason = reason.trim();
+    state.forcePasswordFlaggedAt = todayStrUTC();
+    localStorage.setItem(key, JSON.stringify(state));
+    return appendSecurityLogEntry(clientId, 'PASSWORD_RESET', reason.trim());
+  }
+
+  // Explicit clientId, admin-triggered. Writes 'disabled' directly to the SAME raw key/format
+  // settings.html's own 2FA code already reads (a bare 'enabled'/'disabled' string, not an
+  // object) — chosen deliberately so settings.html's existing
+  // `localStorage.getItem(STORAGE_KEY) === 'enabled'` read needs no changes at all to pick
+  // this up on its next load; the reset just writes the same state that page would write to
+  // itself if the client disabled 2FA on their own.
+  function resetClient2FA(clientId, reason) {
+    if (!reason || !reason.trim()) {
+      throw new Error('A reason is required to reset a client\'s two-factor authentication.');
+    }
+    localStorage.setItem(scopedKeyForClient('marketswave_settings_2fa', clientId), 'disabled');
+    return appendSecurityLogEntry(clientId, '2FA_RESET', reason.trim());
+  }
+
+  // ---- Client-facing reads (ambient — settings.html checking its OWN state) ---------------
+  // Optional clientId mirrors getSettingsProfile(clientId?)'s own pattern: no argument reads
+  // the currently active client (settings.html's normal usage); an explicit id is available
+  // for any future admin surface that might want to check a specific client's flag without
+  // switching the active session (not currently used by any page, but kept consistent with
+  // every other client-state reader in this file rather than omitted).
+  function getClientSecurityState(clientId) {
+    const key = clientId ? scopedKeyForClient(SECURITY_STATE_KEY, clientId) : clientScopedKey(SECURITY_STATE_KEY);
+    const stored = safeParse(localStorage.getItem(key)) || {};
+    return {
+      forcePasswordReset: stored.forcePasswordReset === true,
+      forcePasswordReason: stored.forcePasswordReason || null,
+      forcePasswordFlaggedAt: stored.forcePasswordFlaggedAt || null
+    };
+  }
+
+  // Ambient, client-facing — called by settings.html once the client successfully submits the
+  // forced "Set New Password" form. Clears the flag entirely rather than just flipping it to
+  // false, since forcePasswordReason/forcePasswordFlaggedAt describe a NOW-RESOLVED reset, not
+  // useful state to keep around (the permanent record of the action already lives in the
+  // global security log via resetClientPassword()'s own appendSecurityLogEntry() call — this
+  // per-client flag is purely "is a reset currently pending," nothing more).
+  function clearForcePasswordReset() {
+    const key = clientScopedKey(SECURITY_STATE_KEY);
+    const state = safeParse(localStorage.getItem(key)) || {};
+    state.forcePasswordReset = false;
+    state.forcePasswordReason = null;
+    state.forcePasswordFlaggedAt = null;
+    localStorage.setItem(key, JSON.stringify(state));
+  }
+
   // ---- Client Management page — per-client Approval Gate pending count (Aug 21, 2026) -----
   // Sums pending items across exactly the 5 "Approval Gate" queues (Deposits, Allocations,
   // Sells, HYS Deposits, Client Profile Updates — the same 5 queues admin-sidebar.js's own
@@ -1482,26 +1936,157 @@
     return transactions.slice();
   }
 
+  // Explicit-clientId transaction lookup (Aug 21, 2026, Approval Gate unification) — reads
+  // that client's own scoped ledger directly, for admin pages (e.g. admin-sells.html's
+  // Realized Return column) that need one specific client's transaction without switching
+  // the active session to them. Not a full getAllClientTransactions() aggregator since no
+  // page needs every client's full ledger at once yet — just this narrower by-id lookup.
+  function getTransactionForClient(clientId, txnId) {
+    const key = scopedKeyForClient(TRANSACTIONS_KEY, clientId);
+    const clientTransactions = safeParse(localStorage.getItem(key)) || [];
+    const txn = clientTransactions.find(function (t) { return t.id === txnId; });
+    return txn ? Object.assign({}, txn) : null;
+  }
+
   // ---- Product Catalog API -------------------------------------------------
+  // Defensive-copy reads (Aug 21, 2026 fix): getAllProducts()/getProduct() previously
+  // returned live references into the module-level `catalog` array/its entries — the exact
+  // same bug class Phase 3 already found and fixed once for getHoldings()/
+  // getAllocationRequests() ("returning live object references, not clones... fixed to match
+  // getAccountState()'s existing defensive-copy pattern"). Harmless while nothing ever wrote
+  // back to the catalog outside buildSeedData()/settleProduct(), but this phase adds
+  // editProduct(), which mutates a catalog entry in place — a caller holding an old
+  // getProduct() reference across an edit would otherwise see it silently change underneath
+  // them. Confirmed via grep that every existing caller (admin-allocations.html/
+  // admin-sells.html/asset-performance.html/dashboard.html/transactions.html) only ever
+  // reads from the result, never mutates it expecting persistence, so this is safe to fix now
+  // rather than leave as a landmine for later.
   function getAllProducts() {
-    return catalog.slice();
+    return catalog.map(function (p) { return Object.assign({}, p); });
   }
 
   function getProduct(id) {
-    return catalog.find(function (p) { return p.id === id; }) || null;
+    const product = catalog.find(function (p) { return p.id === id; });
+    return product ? Object.assign({}, product) : null;
   }
 
+  // Asset Collection extraction + admin product management (Aug 21, 2026). The 5 locked
+  // asset classes from CLAUDE.md, minus a 6th "value" that was never meant to be one:
+  // 'Unallocated / Cash' is the catalog's synthetic representation of the Unallocated
+  // bucket (exactly one instance, seeded once in buildSeedData(), never meant to be
+  // multiplied) — PRODUCT_ASSET_CLASSES still lists it so validation accepts it on the ONE
+  // existing Cash row if it's ever round-tripped through editProduct(), but
+  // admin-products.html's own Add Product dropdown deliberately excludes it, so the admin
+  // UI itself can't create a second one.
+  const PRODUCT_ASSET_CLASSES = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto', 'Unallocated / Cash'];
+  const PRODUCT_RISK_TIERS = ['conservative', 'balanced', 'aggressive'];
+  // unitPrice is deliberately NOT here — see editProduct()'s own comment for why it's
+  // blocked from this general field-patch path entirely, not just omitted from the admin
+  // form. id/createdAt/lastTickDate/inceptionUnitPrice are immutable for the same reason
+  // most identity/bookkeeping fields are immutable elsewhere in this file (transaction ids,
+  // request timestamps, etc.) — they describe what already happened, not something to edit.
+  const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment'];
+
+  // Shared by addProduct() (validates the full new-product object, unitPrice checked
+  // separately since it's the one field addProduct() needs but editProduct() forbids) and
+  // editProduct() (validates the MERGED existing+patch object, so a partial patch — e.g.
+  // only minimumInvestment changing — still gets full-object validation against a real,
+  // already-valid product rather than false-failing on fields the caller didn't touch).
+  function validateProductFields(fields) {
+    if (!fields.name || !String(fields.name).trim()) {
+      throw new Error('Product name is required.');
+    }
+    if (PRODUCT_ASSET_CLASSES.indexOf(fields.assetClass) === -1) {
+      throw new Error('assetClass must be one of: ' + PRODUCT_ASSET_CLASSES.join(', ') + '.');
+    }
+    if (!fields.investmentType || !String(fields.investmentType).trim()) {
+      throw new Error('Investment type is required.');
+    }
+    if (PRODUCT_RISK_TIERS.indexOf(fields.riskTier) === -1) {
+      throw new Error('riskTier must be one of: ' + PRODUCT_RISK_TIERS.join(', ') + '.');
+    }
+    if (typeof fields.minimumInvestment !== 'number' || !isFinite(fields.minimumInvestment) || fields.minimumInvestment < 0) {
+      throw new Error('minimumInvestment must be a non-negative number.');
+    }
+  }
+
+  // Starting unit price is PM-entered here (this form), not a live feed — consistent with
+  // the standing scoping decision that real-world market data stays deferred (Backend
+  // Requirements Register). Becomes BOTH unitPrice and inceptionUnitPrice for the new
+  // product, with lastTickDate seeded to today — the identical "nothing visually jumps until
+  // a real day passes" pattern buildSeedData() already established for the original 5
+  // products, applied here for the first time to a product created after initial seed.
   function addProduct(product) {
+    if (typeof product.unitPrice !== 'number' || !isFinite(product.unitPrice) || product.unitPrice <= 0) {
+      throw new Error('Starting unit price must be a positive number.');
+    }
+    validateProductFields(product);
+
     let maxNum = 0;
     catalog.forEach(function (p) {
       const match = /^PROD-(\d+)$/.exec(p.id);
       if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
     });
     const id = 'PROD-' + String(maxNum + 1).padStart(4, '0');
-    const newProduct = Object.assign({}, product, { id: id });
+    const today = todayStrUTC();
+    const newProduct = {
+      id: id,
+      name: String(product.name).trim(),
+      assetClass: product.assetClass,
+      investmentType: String(product.investmentType).trim(),
+      riskTier: product.riskTier,
+      minimumInvestment: product.minimumInvestment,
+      unitPrice: round2(product.unitPrice),
+      inceptionUnitPrice: round2(product.unitPrice),
+      createdAt: today,
+      lastTickDate: today
+    };
     catalog.push(newProduct);
     persistCatalog();
-    return newProduct;
+    return Object.assign({}, newProduct);
+  }
+
+  // Renames/reclassifies an EXISTING product in place. Never changes `id` — holdings and
+  // transactions only ever reference a product by its PROD-id string, never embed its name/
+  // class/anything else, and always join to live catalog data via getProduct(id) at render
+  // time (confirmed by reading every caller — admin-allocations.html/admin-sells.html/
+  // asset-performance.html/dashboard.html/transactions.html — none of them cache a product's
+  // name/class anywhere persistent). This means a rename or reclassification here is
+  // automatically reflected everywhere a holding/transaction/request displays that product,
+  // with nothing to migrate and no possibility of orphaning existing client data, BY
+  // CONSTRUCTION — not something this function has to separately guarantee.
+  //
+  // JUDGMENT CALL, flagged rather than silently decided: unitPrice edits are blocked here
+  // entirely (see PRODUCT_EDITABLE_FIELDS) — the returns engine's own deterministic tick
+  // mechanic (settleProduct()) is the only thing that should ever move a product's price, so
+  // a manual admin overwrite from a general "edit product" form could silently corrupt every
+  // client's unrealized-return math for that product. The one real gap this leaves: there is
+  // currently no way to correct a data-entry typo in a product's STARTING price after
+  // addProduct() has already run (no removeProduct() exists either, so a mis-priced product
+  // also can't be deleted and re-added clean). If that turns out to be a real operational
+  // need, it should be a separate, deliberate, clearly-labeled "override" capability — not
+  // silently folded into this general edit path.
+  function editProduct(id, patch) {
+    const product = catalog.find(function (p) { return p.id === id; });
+    if (!product) throw new Error('Unknown product: ' + id + '.');
+
+    const patchKeys = Object.keys(patch || {});
+    const disallowed = patchKeys.filter(function (k) { return PRODUCT_EDITABLE_FIELDS.indexOf(k) === -1; });
+    if (disallowed.length > 0) {
+      throw new Error('editProduct() cannot change: ' + disallowed.join(', ') + '. unitPrice moves only via the returns engine\'s own tick mechanic, never a manual override from this form; id/createdAt/lastTickDate/inceptionUnitPrice are immutable once a product exists.');
+    }
+
+    const merged = Object.assign({}, product, patch);
+    validateProductFields(merged);
+
+    PRODUCT_EDITABLE_FIELDS.forEach(function (key) {
+      if (key in patch) product[key] = patch[key];
+    });
+    if (typeof product.name === 'string') product.name = product.name.trim();
+    if (typeof product.investmentType === 'string') product.investmentType = product.investmentType.trim();
+
+    persistCatalog();
+    return Object.assign({}, product);
   }
 
   // ---- Client Registry API (Multi-Client Data Model Phase, Step 1) ------------------------
@@ -1515,6 +2100,18 @@
 
   function getClient(id) {
     const client = clients.find(function (c) { return c.id === id; });
+    return client ? Object.assign({}, client) : null;
+  }
+
+  // Client Authentication, Phase 2 (Aug 21, 2026): login.html needs to resolve an entered
+  // email to a clientId before it can check anything. Case-insensitive / trimmed, matching
+  // how email addresses are conventionally compared everywhere else in practice; returns
+  // null (not an error) for no match, so login.html can fold "unknown email" and "wrong
+  // password" into the same generic failure without a special case here.
+  function getClientByEmail(email) {
+    if (!email) return null;
+    const normalized = email.trim().toLowerCase();
+    const client = clients.find(function (c) { return (c.email || '').trim().toLowerCase() === normalized; });
     return client ? Object.assign({}, client) : null;
   }
 
@@ -1838,12 +2435,24 @@
   window.getProduct = getProduct;
   window.getAllProducts = getAllProducts;
   window.addProduct = addProduct;
+  window.editProduct = editProduct;
   window.getAllClients = getAllClients;
   window.getClient = getClient;
+  window.getClientByEmail = getClientByEmail;
   window.addClient = addClient;
+  window.hashClientPassword = hashClientPassword;
+  window.setClientCredentials = setClientCredentials;
+  window.verifyClientCredentials = verifyClientCredentials;
+  window.setClientAuthenticated = setClientAuthenticated;
+  window.getAuthenticatedClientId = getAuthenticatedClientId;
+  window.clearClientAuthentication = clearClientAuthentication;
   window.setCurrentClientId = setCurrentClientId;
   window.getCurrentClientId = getCurrentClientId;
   window.clientScopedKey = clientScopedKey;
+  window.checkAdminPassphrase = checkAdminPassphrase;
+  window.setAdminAuthenticated = setAdminAuthenticated;
+  window.isAdminAuthenticated = isAdminAuthenticated;
+  window.clearAdminAuthenticated = clearAdminAuthenticated;
   window.getAccountState = getAccountState;
   window.getHoldings = getHoldings;
   window.getTotalPortfolioValue = getTotalPortfolioValue;
@@ -1858,28 +2467,38 @@
   window.approveAllocationRequest = approveAllocationRequest;
   window.rejectAllocationRequest = rejectAllocationRequest;
   window.getAllocationRequests = getAllocationRequests;
+  window.getAllClientAllocationRequests = getAllClientAllocationRequests;
   window.executeBuy = executeBuy;
   window.executeSell = executeSell;
   window.requestSell = requestSell;
   window.approveSellRequest = approveSellRequest;
   window.rejectSellRequest = rejectSellRequest;
   window.getSellRequests = getSellRequests;
+  window.getAllClientSellRequests = getAllClientSellRequests;
   window.requestDeposit = requestDeposit;
   window.creditDepositRequest = creditDepositRequest;
   window.rejectDepositRequest = rejectDepositRequest;
   window.getDepositRequests = getDepositRequests;
+  window.getAllClientDepositRequests = getAllClientDepositRequests;
   window.requestHYSDeposit = requestHYSDeposit;
   window.creditHYSDeposit = creditHYSDeposit;
   window.rejectHYSDeposit = rejectHYSDeposit;
   window.getHYSDepositRequests = getHYSDepositRequests;
+  window.getAllClientHYSDepositRequests = getAllClientHYSDepositRequests;
   window.getSettingsProfile = getSettingsProfile;
   window.requestSettingsChange = requestSettingsChange;
   window.approveSettingsChangeRequest = approveSettingsChangeRequest;
   window.rejectSettingsChangeRequest = rejectSettingsChangeRequest;
   window.getSettingsChangeRequests = getSettingsChangeRequests;
   window.getAllClientSettingsChangeRequests = getAllClientSettingsChangeRequests;
+  window.resetClientPassword = resetClientPassword;
+  window.resetClient2FA = resetClient2FA;
+  window.getSecurityActionsLog = getSecurityActionsLog;
+  window.getClientSecurityState = getClientSecurityState;
+  window.clearForcePasswordReset = clearForcePasswordReset;
   window.getClientPendingApprovalCount = getClientPendingApprovalCount;
   window.getTransactionLedger = getTransactionLedger;
+  window.getTransactionForClient = getTransactionForClient;
   window.getDocuments = getDocuments;
   window.getDocument = getDocument;
   window.addDocument = addDocument;

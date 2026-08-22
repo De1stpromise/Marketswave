@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Catalog — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Product Catalog</h2>
+          <p class="text-slate-500 mt-1">Every product available for client allocation — global across all clients, not scoped to one.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200">
+
+          <!-- Search + Add Product -->
+          <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[220px] max-w-sm">
+              <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" id="product-search" placeholder="Search by product name..." class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+            </div>
+            <button type="button" id="open-add-modal" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition shrink-0">+ Add Product</button>
+          </div>
+
+          <!-- Asset class filter pills -->
+          <div class="px-6 pt-3 border-b border-slate-100">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Asset Class</p>
+            <div class="flex flex-wrap gap-2 pb-3" id="class-filter-pills">
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="All">All</button>
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Private Equity">Private Equity</button>
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Real Assets">Real Assets</button>
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Stocks & ETFs">Stocks & ETFs</button>
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Crypto">Crypto</button>
+              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Unallocated / Cash">Unallocated / Cash</button>
+            </div>
+          </div>
+
+          <!-- Risk tier filter pills -->
+          <div class="px-6 pt-3 border-b border-slate-100">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Risk Tier</p>
+            <div class="flex flex-wrap gap-2 pb-3" id="tier-filter-pills">
+              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="All">All</button>
+              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="conservative">Conservative</button>
+              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="balanced">Balanced</button>
+              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="aggressive">Aggressive</button>
+            </div>
+          </div>
+
+          <div id="products-list"></div>
+
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add Product modal -->
+  <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="add-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Add Product</p>
+        <button type="button" id="add-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4">Adds a new product to the global catalog, immediately available for allocation on every client's Asset Collection page.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input type="text" id="add-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Atlas Infrastructure Fund" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
+            <select id="add-asset-class" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+              <option value="Private Equity">Private Equity</option>
+              <option value="Real Assets">Real Assets</option>
+              <option value="Stocks & ETFs">Stocks & ETFs</option>
+              <option value="Crypto">Crypto</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
+            <select id="add-risk-tier" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+              <option value="conservative">Conservative</option>
+              <option value="balanced">Balanced</option>
+              <option value="aggressive">Aggressive</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
+          <input type="text" id="add-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Growth Fund" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
+            <input type="number" id="add-minimum-investment" step="1" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="1000" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Starting Unit Price (USD)</label>
+            <input type="number" id="add-unit-price" step="0.01" min="0.01" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="100.00" />
+          </div>
+        </div>
+        <p class="text-xs text-slate-400">Starting unit price is PM-entered, not a live market feed — this project has no real-time pricing data source (see the Backend Requirements Register). After creation, price moves only via the returns engine's own daily tick.</p>
+      </div>
+      <p class="text-xs text-red-500 hidden mt-3" id="add-error"></p>
+      <div class="flex gap-3 mt-5">
+        <button type="button" id="add-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="add-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Add Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Product modal -->
+  <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="edit-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Edit Product</p>
+        <button type="button" id="edit-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4" id="edit-modal-id"></p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input type="text" id="edit-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
+            <select id="edit-asset-class" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+              <option value="Private Equity">Private Equity</option>
+              <option value="Real Assets">Real Assets</option>
+              <option value="Stocks & ETFs">Stocks & ETFs</option>
+              <option value="Crypto">Crypto</option>
+              <option value="Unallocated / Cash">Unallocated / Cash</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
+            <select id="edit-risk-tier" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+              <option value="conservative">Conservative</option>
+              <option value="balanced">Balanced</option>
+              <option value="aggressive">Aggressive</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
+          <input type="text" id="edit-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
+          <input type="number" id="edit-minimum-investment" step="1" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        </div>
+        <div class="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3">
+          <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Current Unit Price</p>
+          <p class="text-sm font-medium text-slate-700" id="edit-unit-price-display">—</p>
+          <p class="text-xs text-slate-400 mt-1">Not editable here — price moves only via the returns engine's own daily tick, never a manual override from this form.</p>
+        </div>
+      </div>
+      <p class="text-xs text-red-500 hidden mt-3" id="edit-error"></p>
+      <div class="flex gap-3 mt-5">
+        <button type="button" id="edit-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="edit-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('products');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var CLASS_BADGE = {
+        'Private Equity': 'bg-amber-50 text-amber-700',
+        'Real Assets': 'bg-emerald-50 text-emerald-700',
+        'Stocks & ETFs': 'bg-blue-50 text-blue-700',
+        'Crypto': 'bg-purple-50 text-purple-700',
+        'Unallocated / Cash': 'bg-slate-100 text-slate-600'
+      };
+      var TIER_BADGE = {
+        conservative: { label: 'Conservative', cls: 'bg-blue-50 text-blue-700' },
+        balanced: { label: 'Balanced', cls: 'bg-amber-50 text-amber-700' },
+        aggressive: { label: 'Aggressive', cls: 'bg-red-50 text-red-700' }
+      };
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function formatUSD(n) {
+        return '$' + Math.round(n).toLocaleString();
+      }
+      function formatUSD2(n) {
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      function formatDisplayDate(isoDate) {
+        var d = new Date(isoDate + 'T00:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      // ---- Search + filter — same pure-function shape as admin-clients.html's own
+      // matchesSearch()/matchesTypeFilter()/applyFilters() precedent, extended to two
+      // independent filter dimensions (asset class AND risk tier) instead of one. ----
+      function matchesSearch(product, query) {
+        if (!query) return true;
+        return product.name.toLowerCase().indexOf(query.trim().toLowerCase()) !== -1;
+      }
+      function matchesClassFilter(product, filter) {
+        if (filter === 'All') return true;
+        return product.assetClass === filter;
+      }
+      function matchesTierFilter(product, filter) {
+        if (filter === 'All') return true;
+        return product.riskTier === filter;
+      }
+      function applyFilters(productsArr, query, classFilter, tierFilter) {
+        return productsArr.filter(function (p) {
+          return matchesSearch(p, query) && matchesClassFilter(p, classFilter) && matchesTierFilter(p, tierFilter);
+        });
+      }
+
+      var searchQuery = '';
+      var classFilter = 'All';
+      var tierFilter = 'All';
+      var expandedIds = {};
+
+      function renderPills(selector, activeValue) {
+        var pillClass = selector === '.class-filter-pill' ? 'class-filter-pill' : 'tier-filter-pill';
+        document.querySelectorAll(selector).forEach(function (btn) {
+          var active = btn.dataset.filter === activeValue;
+          btn.className = pillClass + ' px-3 py-1 rounded-full text-xs font-medium transition ' +
+            (active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
+        });
+      }
+
+      function expandedRowHTML(p) {
+        return '<tr class="expand-row">' +
+          '<td colspan="6" class="px-6 pb-5 pt-0 bg-slate-50/60">' +
+            '<div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">' +
+              '<div>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Created</p>' +
+                '<p class="text-slate-700">' + formatDisplayDate(p.createdAt) + '</p>' +
+              '</div>' +
+              '<div>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Inception Unit Price</p>' +
+                '<p class="text-slate-700">' + formatUSD2(p.inceptionUnitPrice) + '</p>' +
+              '</div>' +
+              '<div>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Last Price Tick</p>' +
+                '<p class="text-slate-700">' + formatDisplayDate(p.lastTickDate) + '</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="mt-4">' +
+              '<button type="button" class="edit-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + p.id + '">Edit</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+      }
+
+      function renderProducts() {
+        var all = getAllProducts();
+        var filtered = applyFilters(all, searchQuery, classFilter, tierFilter);
+        var listEl = document.getElementById('products-list');
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No products match this search/filter.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Product</th>' +
+          '<th class="text-left font-medium px-6 py-3">Asset Class</th>' +
+          '<th class="text-left font-medium px-6 py-3">Risk Tier</th>' +
+          '<th class="text-right font-medium px-6 py-3">Minimum Investment</th>' +
+          '<th class="text-right font-medium px-6 py-3">Current Unit Price</th>' +
+          '<th class="w-10"></th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          filtered.map(function (p) {
+            var isExpanded = !!expandedIds[p.id];
+            var classCls = CLASS_BADGE[p.assetClass] || 'bg-slate-100 text-slate-600';
+            var tier = TIER_BADGE[p.riskTier] || { label: p.riskTier || '—', cls: 'bg-slate-100 text-slate-600' };
+            var summaryRow = '<tr class="product-row cursor-pointer hover:bg-slate-50/50" data-id="' + p.id + '">' +
+              '<td class="px-6 py-4">' +
+                '<p class="font-medium text-slate-900">' + p.name + '</p>' +
+                '<p class="text-xs text-slate-400">' + p.id + ' · ' + p.investmentType + '</p>' +
+              '</td>' +
+              '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + classCls + '">' + p.assetClass + '</span></td>' +
+              '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + tier.cls + '">' + tier.label + '</span></td>' +
+              '<td class="px-6 py-4 text-right text-slate-700">' + formatUSD(p.minimumInvestment) + '</td>' +
+              '<td class="px-6 py-4 text-right font-medium text-slate-900">' + formatUSD2(p.unitPrice) + '</td>' +
+              '<td class="px-6 py-4 text-right">' +
+                '<svg class="w-4 h-4 text-slate-400 transition-transform inline-block' + (isExpanded ? ' rotate-180' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+              '</td>' +
+            '</tr>';
+            return summaryRow + (isExpanded ? expandedRowHTML(p) : '');
+          }).join('') + '</tbody></table>';
+      }
+
+      document.getElementById('product-search').addEventListener('input', function (e) {
+        searchQuery = e.target.value;
+        renderProducts();
+      });
+
+      document.getElementById('class-filter-pills').addEventListener('click', function (e) {
+        var btn = e.target.closest('.class-filter-pill');
+        if (!btn) return;
+        classFilter = btn.dataset.filter;
+        renderPills('.class-filter-pill', classFilter);
+        renderProducts();
+      });
+
+      document.getElementById('tier-filter-pills').addEventListener('click', function (e) {
+        var btn = e.target.closest('.tier-filter-pill');
+        if (!btn) return;
+        tierFilter = btn.dataset.filter;
+        renderPills('.tier-filter-pill', tierFilter);
+        renderProducts();
+      });
+
+      // Delegated: row click toggles expand; the Edit button only exists inside the
+      // expanded detail area, so its own click is caught here too, stopping it from also
+      // toggling collapse — same pattern as admin-clients.html's own row/action handling.
+      document.getElementById('products-list').addEventListener('click', function (e) {
+        var editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+          openEditModal(editBtn.dataset.id);
+          return;
+        }
+        var row = e.target.closest('.product-row');
+        if (!row) return;
+        var id = row.dataset.id;
+        expandedIds[id] = !expandedIds[id];
+        renderProducts();
+      });
+
+      // ---- Add Product modal ----
+      var addModal = document.getElementById('add-modal');
+      var addError = document.getElementById('add-error');
+      function openAddModal() {
+        document.getElementById('add-name').value = '';
+        document.getElementById('add-asset-class').value = 'Private Equity';
+        document.getElementById('add-risk-tier').value = 'balanced';
+        document.getElementById('add-investment-type').value = '';
+        document.getElementById('add-minimum-investment').value = '';
+        document.getElementById('add-unit-price').value = '';
+        addError.classList.add('hidden');
+        addModal.classList.remove('hidden');
+      }
+      function closeAddModal() { addModal.classList.add('hidden'); }
+
+      document.getElementById('open-add-modal').addEventListener('click', openAddModal);
+      document.getElementById('add-modal-close').addEventListener('click', closeAddModal);
+      document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
+      document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+
+      document.getElementById('add-submit').addEventListener('click', function () {
+        addError.classList.add('hidden');
+        var name = document.getElementById('add-name').value.trim();
+        var assetClass = document.getElementById('add-asset-class').value;
+        var riskTier = document.getElementById('add-risk-tier').value;
+        var investmentType = document.getElementById('add-investment-type').value.trim();
+        var minimumInvestment = parseFloat(document.getElementById('add-minimum-investment').value);
+        var unitPrice = parseFloat(document.getElementById('add-unit-price').value);
+
+        try {
+          var result = addProduct({
+            name: name,
+            assetClass: assetClass,
+            investmentType: investmentType,
+            riskTier: riskTier,
+            minimumInvestment: minimumInvestment,
+            unitPrice: unitPrice
+          });
+          closeAddModal();
+          showToast('Product Added', result.name + ' (' + result.id + ') is now available for allocation.');
+          renderProducts();
+        } catch (e) {
+          addError.textContent = e.message;
+          addError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Edit Product modal ----
+      var editModal = document.getElementById('edit-modal');
+      var editError = document.getElementById('edit-error');
+      var activeEditId = null;
+
+      function openEditModal(id) {
+        var p = getProduct(id);
+        if (!p) return;
+        activeEditId = id;
+        document.getElementById('edit-modal-id').textContent = p.id;
+        document.getElementById('edit-name').value = p.name;
+        document.getElementById('edit-asset-class').value = p.assetClass;
+        document.getElementById('edit-risk-tier').value = p.riskTier;
+        document.getElementById('edit-investment-type').value = p.investmentType;
+        document.getElementById('edit-minimum-investment').value = p.minimumInvestment;
+        document.getElementById('edit-unit-price-display').textContent = formatUSD2(p.unitPrice);
+        editError.classList.add('hidden');
+        editModal.classList.remove('hidden');
+      }
+      function closeEditModal() { editModal.classList.add('hidden'); activeEditId = null; }
+
+      document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
+      document.getElementById('edit-modal-backdrop').addEventListener('click', closeEditModal);
+      document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+
+      document.getElementById('edit-submit').addEventListener('click', function () {
+        editError.classList.add('hidden');
+        var name = document.getElementById('edit-name').value.trim();
+        var assetClass = document.getElementById('edit-asset-class').value;
+        var riskTier = document.getElementById('edit-risk-tier').value;
+        var investmentType = document.getElementById('edit-investment-type').value.trim();
+        var minimumInvestment = parseFloat(document.getElementById('edit-minimum-investment').value);
+
+        try {
+          var result = editProduct(activeEditId, {
+            name: name,
+            assetClass: assetClass,
+            investmentType: investmentType,
+            riskTier: riskTier,
+            minimumInvestment: minimumInvestment
+          });
+          closeEditModal();
+          showToast('Product Updated', result.name + ' (' + result.id + ') saved.');
+          renderProducts();
+        } catch (e) {
+          editError.textContent = e.message;
+          editError.classList.remove('hidden');
+        }
+      });
+
+      renderPills('.class-filter-pill', classFilter);
+      renderPills('.tier-filter-pill', tierFilter);
+      renderProducts();
+    })();
+  </script>
+
+</body>
+</html>

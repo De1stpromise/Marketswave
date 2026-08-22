@@ -126,6 +126,18 @@
               <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
             </a>
 
+            <!-- Account Security is a log, not a queue (Password Reset + 2FA Rework, Aug 21,
+                 2026) — no pending-count concept, same non-count treatment as the Advisory
+                 Fee Rate card below, so it shows the total actions logged instead. -->
+            <a href="admin-security.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Security Actions Logged</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="security-actions-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">View log →</p>
+            </a>
+
           </div>
         </div>
 
@@ -140,6 +152,18 @@
               </div>
               <p class="text-3xl font-bold text-slate-900" id="advisory-fee-rate">—</p>
               <p class="text-sm text-slate-400 mt-2">Manage rate →</p>
+            </a>
+
+            <!-- Product Catalog is a count, not a pending-count concept, matching the
+                 Advisory Fee Rate card's own non-count treatment (Asset Collection
+                 extraction + admin product management, Aug 21, 2026). -->
+            <a href="admin-products.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Products in Catalog</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="product-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">Manage catalog →</p>
             </a>
 
           </div>
@@ -174,6 +198,11 @@
       var documentsCount = getAllClientDocuments().filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }).length;
       var supportCount = getAllClientSupportRequests().filter(function (r) { return r.status !== 'Resolved'; }).length;
       var settingsChangesCount = getAllClientSettingsChangeRequests().filter(function (r) { return r.status === 'pending'; }).length;
+      // Not a pending count — Account Security is a log, not a queue — so it's deliberately
+      // excluded from the all-clear check below, same treatment as the Advisory Fee Rate card.
+      if (typeof getSecurityActionsLog === 'function') {
+        document.getElementById('security-actions-count').textContent = getSecurityActionsLog().length;
+      }
 
       document.getElementById('pending-deposits-count').textContent = depositCount;
       document.getElementById('pending-hys-count').textContent = hysCount;
@@ -189,6 +218,13 @@
       // admin-settings.html itself reads it.
       if (typeof getAccountState === 'function') {
         document.getElementById('advisory-fee-rate').textContent = getAccountState().advisoryFeeRate + '%';
+      }
+
+      // Product Catalog is global, not per-client — a plain total count, same non-count
+      // treatment as the Advisory Fee Rate card above, deliberately excluded from the
+      // all-clear check below (it's not a pending queue either).
+      if (typeof getAllProducts === 'function') {
+        document.getElementById('product-count').textContent = getAllProducts().length;
       }
 
       if (depositCount === 0 && hysCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {

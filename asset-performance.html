@@ -105,27 +105,21 @@
           </div>
         </div>
 
-        <!-- Asset Collection -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <div class="flex items-center justify-between mb-6">
+        <!-- Browse Asset Collection (Aug 21, 2026): the product-browsing grid that used to
+             live here moved to its own page, asset-collection.html, so it can scale to
+             hundreds of products with real search/filter/pagination instead of an unbounded
+             grid on this page. Return Table and My Requests below are UNCHANGED — this page
+             still owns current-holdings performance and the full allocation+sell request
+             history, neither of which belongs on a pure browse-and-request catalog page. -->
+        <a href="asset-collection.html" class="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-navy/30 transition group">
+          <div class="flex items-center justify-between">
             <div>
-              <h3 class="font-semibold text-navy">Asset Collection</h3>
-              <p class="text-sm text-slate-500 mt-0.5">Browse available assets. Requests are sent for Portfolio Manager approval.</p>
+              <h3 class="font-semibold text-navy">Browse Asset Collection</h3>
+              <p class="text-sm text-slate-500 mt-0.5">Search and request allocation into any available asset. Requests are sent for Portfolio Manager approval.</p>
             </div>
+            <svg class="w-5 h-5 text-slate-400 group-hover:text-navy group-hover:translate-x-1 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </div>
-
-          <!-- Category tabs -->
-          <div class="flex flex-wrap gap-2 mb-6" id="category-tabs">
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-navy text-white" data-category="">All</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Private Equity">Private Equity</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Real Assets">Real Assets</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Stocks & ETFs">Stocks & ETFs</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Crypto">Crypto</button>
-          </div>
-
-          <!-- Asset cards grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="asset-cards-grid"></div>
-        </div>
+        </a>
 
         <!-- My Requests -->
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-8">
@@ -199,8 +193,6 @@
       if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
 
       settleAllProducts(); // catch prices up to today before reading any engine value
-
-      var UNALLOCATABLE_CLASS = 'Unallocated / Cash';
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -311,66 +303,6 @@
       }
       renderReturnTable();
 
-      // ---- Asset Collection: cards from the Product Catalog. Cash is excluded — it
-      // represents the Unallocated bucket itself and requestAllocation() rejects it as a
-      // target (same reasoning as engine-core.js's own guard).
-      var cardsGrid = document.getElementById('asset-cards-grid');
-      var allocatableProducts = products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
-      if (cardsGrid) {
-        cardsGrid.innerHTML = allocatableProducts.map(function (product) {
-          var holding = holdingByProductId(product.id);
-          var badgeHtml;
-          if (holding) {
-            var pct = getUnrealizedReturnPercent(product.id);
-            var pctColor = pct > 0 ? 'bg-emerald-50 text-emerald-700' : (pct < 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600');
-            badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full ' + pctColor + '">' + (pct > 0 ? '+' : '') + pct.toFixed(1) + '%</span>';
-          } else {
-            badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-500">No position</span>';
-          }
-          var allocatedLine = holding ? 'Allocated: ' + formatUSD(Math.round(holding.costBasis)) : 'Not yet allocated';
-
-          // flex flex-col + mt-auto on the CTA block anchors the input/button to the
-          // bottom of the card regardless of how many lines the content above it takes —
-          // the grid's default align-items:stretch equalizes each card's outer height
-          // within a row, but without this, variable-length content above the button
-          // (a long name, a wrapped return %, or the "No position" fallback) would push
-          // the button to a different vertical position per card even at equal card height.
-          return '<div class="border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition flex flex-col" data-product-id="' + product.id + '" data-class="' + product.assetClass + '">' +
-            '<div class="flex items-start justify-between mb-3">' +
-            '<div><p class="font-medium text-navy">' + product.name + '</p>' +
-            '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
-            badgeHtml +
-            '</div>' +
-            '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
-            '<p class="text-xs text-slate-400 mb-4">Minimum investment: ' + formatUSD(product.minimumInvestment) + '</p>' +
-            '<div class="mt-auto">' +
-            '<label class="block text-xs font-medium text-slate-500 mb-1.5">Requested Allocation Amount</label>' +
-            '<input type="number" min="0" step="100" placeholder="$0.00" class="allocation-amount-input w-full px-3 py-2 mb-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">' +
-            '<button type="button" class="request-allocation-btn w-full py-2 rounded-lg text-sm font-medium border border-navy text-navy hover:bg-navy hover:text-white transition">Request Allocation</button>' +
-            '</div>' +
-            '</div>';
-        }).join('');
-      }
-
-      // ---- Category tab filtering (cards already rendered above by the time this binds) ----
-      var tabs = document.querySelectorAll('.category-tab');
-      tabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-          tabs.forEach(function (t) {
-            t.classList.remove('bg-navy', 'text-white');
-            t.classList.add('bg-slate-100', 'text-slate-600');
-          });
-          tab.classList.remove('bg-slate-100', 'text-slate-600');
-          tab.classList.add('bg-navy', 'text-white');
-
-          var category = tab.dataset.category;
-          document.querySelectorAll('#asset-cards-grid > div').forEach(function (card) {
-            var matches = !category || card.dataset.class === category;
-            card.classList.toggle('hidden', !matches);
-          });
-        });
-      });
-
       // ---- My Requests: allocation + sell requests merged, full history, every status,
       // newest first — sorted by requestedAtMs (Phase 4c addition), a real millisecond
       // timestamp set at request time, so same-day ordering between an allocation request
@@ -437,7 +369,8 @@
 
       renderMyRequests();
 
-      // ---- Request Allocation: real engine wiring, not just a toast ----
+      // ---- Toast — shared by Sell Request below (Request Allocation, and its own use of
+      // this same #allocation-toast element, moved to asset-collection.html, Aug 21, 2026) ----
       var toast = document.getElementById('allocation-toast');
       var toastTitle = document.getElementById('allocation-toast-title');
       var toastBody = document.getElementById('allocation-toast-body');
@@ -451,34 +384,6 @@
         toast.classList.remove('hidden');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
-      }
-
-      if (cardsGrid) {
-        cardsGrid.addEventListener('click', function (e) {
-          var btn = e.target.closest('.request-allocation-btn');
-          if (!btn) return;
-          var card = btn.closest('[data-product-id]');
-          var productId = card.dataset.productId;
-          var product = productById(productId);
-          var input = card.querySelector('.allocation-amount-input');
-          var amount = parseFloat(input.value);
-
-          if (!amount || amount <= 0) {
-            input.focus();
-            input.classList.add('border-red-400');
-            setTimeout(function () { input.classList.remove('border-red-400'); }, 1500);
-            return;
-          }
-
-          try {
-            requestAllocation(productId, amount);
-            showToast('Allocation Request Sent', '$' + amount.toLocaleString() + ' requested for ' + product.name + '. Pending Portfolio Manager approval.', false);
-            input.value = '';
-            renderMyRequests();
-          } catch (err) {
-            showToast('Request Not Sent', err.message, true);
-          }
-        });
       }
 
       // ---- Sell Request: opens a preview modal, submits requestSell() — does not execute

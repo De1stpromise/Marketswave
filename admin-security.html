@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account Security — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Account Security</h2>
+          <p class="text-slate-500 mt-1">A chronological audit log of every password reset and 2FA reset performed against any client account — not a queue, nothing here is pending or needs approval.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Security Actions Log <span id="log-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="log-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('security');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getSecurityActionsLog !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var TYPE_STYLES = {
+        PASSWORD_RESET: { label: 'Password Reset', cls: 'bg-amber-50 text-amber-700' },
+        '2FA_RESET': { label: '2FA Reset', cls: 'bg-purple-50 text-purple-700' }
+      };
+
+      function renderLog() {
+        var log = getSecurityActionsLog().sort(function (a, b) {
+          return new Date(b.performedAt) - new Date(a.performedAt) || (b.id > a.id ? 1 : -1);
+        });
+        document.getElementById('log-count').textContent = log.length ? '(' + log.length + ')' : '';
+        var listEl = document.getElementById('log-list');
+
+        if (log.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No security actions have been taken yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
+          '<th class="text-left font-medium px-6 py-3">Action</th>' +
+          '<th class="text-left font-medium px-6 py-3">Reason</th>' +
+          '<th class="text-left font-medium px-6 py-3">Performed By</th>' +
+          '<th class="text-left font-medium px-6 py-3">When</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          log.map(function (e) {
+            var typeInfo = TYPE_STYLES[e.type] || { label: e.type, cls: 'bg-slate-100 text-slate-600' };
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-900 font-medium">' + e.clientName + ' <span class="text-slate-400 font-normal">(' + e.clientId + ')</span></td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeInfo.cls + '">' + typeInfo.label + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-600 max-w-md">' + e.reason + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + e.performedBy + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + e.performedAt + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      renderLog();
+    })();
+  </script>
+
+</body>
+</html>

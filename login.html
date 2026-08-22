@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="engine-core.js"></script>
   <style>
     /* Login page specific */
     body.login-page {
@@ -149,6 +150,21 @@
       text-decoration: underline;
     }
 
+    .login-error {
+      display: none;
+      background: rgba(200, 40, 40, 0.08);
+      border: 1px solid rgba(200, 40, 40, 0.25);
+      color: #A32424;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 18px;
+    }
+    .login-error.is-visible {
+      display: block;
+    }
+
     /* ========== LOADING SCREEN ========== */
     .loading-screen {
       position: fixed;
@@ -277,6 +293,7 @@
       <p class="login-lead">Sign in to your client portal</p>
 
       <form class="login-form" id="login-form" action="#" method="POST">
+        <p class="login-error" id="login-error">Incorrect email or password. Please try again.</p>
         <div class="form-group">
           <label for="email">Email Address</label>
           <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
@@ -380,17 +397,65 @@
 
   <script>
     (function () {
-      // ---------- Login form (existing) ----------
+      // ---------- Login form ----------
+      // Client Authentication, Phase 2 (Aug 21, 2026): real credential check, replacing the
+      // old "any submit redirects" stub. Resolves the entered email to a client, hashes the
+      // entered password, and compares via verifyClientCredentials() against that client's
+      // stored hash — exactly the engine functions Phase 1 introduced for exactly this
+      // purpose. Wrong email and wrong password deliberately produce the SAME generic error
+      // (#login-error) — same "don't leak which part failed" principle as admin-login.html's
+      // passphrase gate, more important here since email enumeration is a real concern on a
+      // client-facing page. Does NOT touch dashboard-sidebar.js's CLIENT-0001 pin — every
+      // dashboard page still shows CLIENT-0001 regardless of who logged in, until Phase 3.
       const form = document.getElementById('login-form');
       const loadingScreen = document.getElementById('loading-screen');
+      const loginError = document.getElementById('login-error');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
 
       if (form) {
         form.addEventListener('submit', function (e) {
           e.preventDefault();
-          loadingScreen.classList.add('is-active');
-          setTimeout(function () {
-            window.location.href = 'dashboard.html';
-          }, 2200);
+          loginError.classList.remove('is-visible');
+
+          if (typeof getClientByEmail !== 'function' || typeof hashClientPassword !== 'function' || typeof verifyClientCredentials !== 'function' || typeof setClientAuthenticated !== 'function') {
+            loginError.textContent = 'Something went wrong signing you in. Please try again.';
+            loginError.classList.add('is-visible');
+            return;
+          }
+
+          const submitBtn = form.querySelector('button[type="submit"]');
+          if (submitBtn) submitBtn.disabled = true;
+
+          const email = emailInput.value.trim();
+          const rawPassword = passwordInput.value;
+
+          Promise.resolve()
+            .then(function () {
+              const client = getClientByEmail(email);
+              if (!client) return null;
+              return hashClientPassword(rawPassword).then(function (hash) {
+                return verifyClientCredentials(client.id, hash) ? client : null;
+              });
+            })
+            .then(function (authenticatedClient) {
+              if (!authenticatedClient) {
+                loginError.textContent = 'Incorrect email or password. Please try again.';
+                loginError.classList.add('is-visible');
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
+              setClientAuthenticated(authenticatedClient.id);
+              loadingScreen.classList.add('is-active');
+              setTimeout(function () {
+                window.location.href = 'dashboard.html';
+              }, 2200);
+            })
+            .catch(function () {
+              loginError.textContent = 'Something went wrong signing you in. Please try again.';
+              loginError.classList.add('is-visible');
+              if (submitBtn) submitBtn.disabled = false;
+            });
         });
       }
 

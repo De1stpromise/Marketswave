@@ -110,7 +110,7 @@
 
   <script>
     (function () {
-      if (typeof getAllocationRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof getAllClientAllocationRequests !== 'function') return; // engine-core.js failed to load — bail defensively
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -142,7 +142,7 @@
       }
 
       function renderPending() {
-        var requests = getAllocationRequests().filter(function (r) { return r.status === 'pending'; })
+        var requests = getAllClientAllocationRequests().filter(function (r) { return r.status === 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
@@ -155,20 +155,23 @@
         listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
           return '<div class="px-6 py-5 flex flex-wrap items-center justify-between gap-4">' +
             '<div class="min-w-0">' +
-              '<p class="text-xs text-slate-400 mb-1">' + r.id + ' · Requested ' + r.requestedAt + '</p>' +
+              '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+              '</div>' +
               '<p class="text-lg font-semibold text-slate-900">' + productName(r.productId) + '</p>' +
               '<p class="text-sm text-slate-500 mt-0.5">' + formatUSD(r.amount) + '</p>' +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
-              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-id="' + r.id + '" data-summary="' + formatUSD(r.amount) + ' into ' + productName(r.productId) + '">Approve</button>' +
+              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
+              '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-summary="' + formatUSD(r.amount) + ' into ' + productName(r.productId) + '">Approve</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
       }
 
       function renderHistory() {
-        var requests = getAllocationRequests().filter(function (r) { return r.status !== 'pending'; })
+        var requests = getAllClientAllocationRequests().filter(function (r) { return r.status !== 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         var listEl = document.getElementById('history-list');
 
@@ -178,6 +181,7 @@
         }
 
         listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
           '<th class="text-left font-medium px-6 py-3">Request</th>' +
           '<th class="text-left font-medium px-6 py-3">Product</th>' +
           '<th class="text-right font-medium px-6 py-3">Amount</th>' +
@@ -189,6 +193,7 @@
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + productName(r.productId) + '</td>' +
               '<td class="px-6 py-4 text-right text-slate-900">' + formatUSD(r.amount) + '</td>' +
@@ -207,22 +212,24 @@
       var approveModal = document.getElementById('approve-modal');
       var approveError = document.getElementById('approve-error');
       var approveSummaryLabel = document.getElementById('approve-summary-label');
+      var activeApproveClientId = null;
       var activeApproveId = null;
 
-      function openApproveModal(id, summary) {
+      function openApproveModal(clientId, id, summary) {
+        activeApproveClientId = clientId;
         activeApproveId = id;
         approveSummaryLabel.textContent = summary;
         approveError.classList.add('hidden');
         approveModal.classList.remove('hidden');
       }
-      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveId = null; }
+      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveClientId = null; activeApproveId = null; }
 
       document.getElementById('approve-modal-close').addEventListener('click', closeApproveModal);
       document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
       document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
       document.getElementById('approve-submit').addEventListener('click', function () {
         try {
-          var result = approveAllocationRequest(activeApproveId);
+          var result = approveAllocationRequest(activeApproveClientId, activeApproveId);
           closeApproveModal();
           showToast('Allocation Approved', result.id + ' executed as transaction ' + result.transactionId + '.');
           renderAll();
@@ -236,22 +243,24 @@
       var rejectModal = document.getElementById('reject-modal');
       var rejectReasonInput = document.getElementById('reject-reason-input');
       var rejectError = document.getElementById('reject-error');
+      var activeRejectClientId = null;
       var activeRejectId = null;
 
-      function openRejectModal(id) {
+      function openRejectModal(clientId, id) {
+        activeRejectClientId = clientId;
         activeRejectId = id;
         rejectReasonInput.value = '';
         rejectError.classList.add('hidden');
         rejectModal.classList.remove('hidden');
       }
-      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectId = null; }
+      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectClientId = null; activeRejectId = null; }
 
       document.getElementById('reject-modal-close').addEventListener('click', closeRejectModal);
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
         try {
-          var result = rejectAllocationRequest(activeRejectId, rejectReasonInput.value.trim());
+          var result = rejectAllocationRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
           closeRejectModal();
           showToast('Allocation Rejected', result.id + ' has been rejected.', true);
           renderAll();
@@ -265,11 +274,11 @@
       document.getElementById('pending-list').addEventListener('click', function (e) {
         var approveBtn = e.target.closest('.approve-btn');
         if (approveBtn) {
-          openApproveModal(approveBtn.dataset.id, approveBtn.dataset.summary);
+          openApproveModal(approveBtn.dataset.client, approveBtn.dataset.id, approveBtn.dataset.summary);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');
-        if (rejectBtn) openRejectModal(rejectBtn.dataset.id);
+        if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
       renderAll();

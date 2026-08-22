@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Internal-tool marker — same as every other admin page, deliberately shown even here so
+       an unauthenticated visitor immediately understands this isn't the client-facing site. -->
+  <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+    Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+  </div>
+
+  <div class="flex-1 flex items-center justify-center p-4">
+    <div class="w-full max-w-sm">
+      <div class="text-center mb-6">
+        <span class="text-2xl font-bold tracking-tight text-slate-900">MARKETSWAVE <span class="text-amber-500">PM</span></span>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <p class="text-lg font-semibold text-slate-900 mb-1">Portfolio Manager Access</p>
+        <p class="text-sm text-slate-500 mb-5">Enter the shared passphrase to continue.</p>
+
+        <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-passphrase-input">Passphrase</label>
+        <input type="password" id="admin-passphrase-input" autocomplete="off" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        <p class="text-xs text-red-500 hidden mt-2" id="admin-passphrase-error">Incorrect passphrase.</p>
+
+        <button type="button" id="admin-passphrase-submit" class="mt-4 w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Continue</button>
+      </div>
+
+      <!-- Honesty callout (Aug 21, 2026): this gate is explicitly not real authentication —
+           a single shared client-side passphrase, no backend, no real PM accounts. Shown
+           plainly rather than dressed up as something stronger than it is. -->
+      <p class="text-xs text-slate-400 text-center mt-4">This is a UI-level access gate for this preview build, not a real authentication system.</p>
+    </div>
+  </div>
+
+  <script src="engine-core.js"></script>
+  <script>
+    (function () {
+      var input = document.getElementById('admin-passphrase-input');
+      var error = document.getElementById('admin-passphrase-error');
+      var submitBtn = document.getElementById('admin-passphrase-submit');
+
+      function attemptLogin() {
+        if (typeof checkAdminPassphrase !== 'function') return; // engine-core.js failed to load — bail defensively
+
+        // Deliberately generic — never distinguishes "wrong passphrase" from any other
+        // failure mode, since there's no real backend check to differ from in the first
+        // place; a single, uninformative error is the honest response here.
+        if (checkAdminPassphrase(input.value)) {
+          error.classList.add('hidden');
+          setAdminAuthenticated();
+          location.replace('admin.html');
+        } else {
+          error.classList.remove('hidden');
+          input.value = '';
+          input.focus();
+        }
+      }
+
+      submitBtn.addEventListener('click', attemptLogin);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') attemptLogin();
+      });
+
+      input.focus();
+    })();
+  </script>
+
+</body>
+</html>

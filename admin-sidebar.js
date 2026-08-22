@@ -3,6 +3,26 @@
 // <div id="admin-sidebar-mount"></div>) but is a DELIBERATELY separate file and persona:
 // the internal Portfolio Manager tool, not the client dashboard. Do not merge this into
 // dashboard-sidebar.js or its NAV_ITEMS — client and admin navigation must never mix.
+
+// ---- Admin Login Gate (Aug 21, 2026) — the very first thing that runs on every admin page,
+// before anything else, including before engine-core.js has even loaded (this file is always
+// the first <script> tag on every admin page — confirmed by checking every admin page's
+// script tag order). Raw sessionStorage key used directly, not via isAdminAuthenticated() —
+// engine-core.js, which defines that function, hasn't loaded yet at this point. Mirrors
+// dashboard-sidebar.js's own file-load-time CLIENT-0001 reset precedent exactly, including
+// the reason: the literal key string ('marketswave_admin_authenticated') must stay in sync
+// with engine-core.js's own ADMIN_AUTH_SESSION_KEY constant. admin-login.html itself does
+// NOT load this file at all (it has no sidebar/nav until authenticated), so there is no
+// redirect loop to guard against here. This is explicitly a UI-level stub, not real
+// authentication — see the ADMIN_PASSPHRASE comment in engine-core.js for the full honesty
+// callout; a determined visitor can bypass this via dev tools, same as the forced
+// password-reset gate on settings.html.
+var __adminAuthenticated = false;
+try { __adminAuthenticated = sessionStorage.getItem('marketswave_admin_authenticated') === 'true'; } catch (e) { /* sessionStorage unavailable — non-fatal, fails closed (redirects) */ }
+if (!__adminAuthenticated) {
+  location.replace('admin-login.html');
+}
+
 (function () {
   // Nav groups (Aug 21, 2026) — the fixed categorization every admin tool's nav item is
   // assigned into via its own `group` field below, in the exact order groups render. This is
@@ -98,6 +118,26 @@
       group: 'user-admin-relations'
     },
     {
+      // Lock icon — a chronological log, not a queue (no pending/approve mechanic), so it
+      // gets a plain read-only-looking icon rather than reusing a document/checkmark shape
+      // already associated with a queue elsewhere in this nav.
+      key: 'security',
+      href: 'admin-security.html',
+      label: 'Account Security',
+      icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+      group: 'user-admin-relations'
+    },
+    {
+      // Product Catalog management — exactly the item this nav's own top-of-file comment
+      // already named as the example of what lands under 'portfolio-administration' next
+      // (Aug 21, 2026 grouping, §4.53).
+      key: 'products',
+      href: 'admin-products.html',
+      label: 'Product Catalog',
+      icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+      group: 'portfolio-administration'
+    },
+    {
       key: 'settings',
       href: 'admin-settings.html',
       label: 'Settings',
@@ -151,24 +191,16 @@
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
-  // Re-added (Aug 21, 2026), deliberately much lighter than the original block it replaces:
-  // that version had its own "VIEWING CLIENT" uppercase heading, a bold name line, padding,
-  // and a border — enough visual weight that it was later removed outright as redundant with
-  // Client List. This is a single small muted text line, no heading, no card/box background,
-  // no border — a passive "here's the context" hint, not a control. Client List
-  // (admin-clients.html) remains the only place a PM actually sees the full client list or
-  // changes the selection; setCurrentClientId()/getCurrentClientId() in engine-core.js are
-  // untouched either way. "Live" here means what it means everywhere else in this reload-to-
-  // switch architecture (§4.43): recomputed fresh on every page load from the real current
-  // session state, not a value cached across navigations.
-  function clientIndicatorHTML() {
-    if (typeof getClient !== 'function' || typeof getCurrentClientId !== 'function') return '';
-    var current = getClient(getCurrentClientId());
-    var label = current ? current.name + ' · ' + current.id : getCurrentClientId();
-    return '<p class="px-4 pt-3 pb-1 text-xs text-white/40 truncate">Viewing: ' + label + '</p>';
-  }
-
   function initAdminSidebar(activePage) {
+    // Defense in depth on top of the file-load-time redirect above: if that check somehow
+    // didn't fire in time (or this function is ever called in a context that skipped it),
+    // don't render real nav/data regardless. Uses the real engine-core.js function here
+    // (already loaded by the time initAdminSidebar() runs, unlike the top-of-file check).
+    if (typeof isAdminAuthenticated === 'function' && !isAdminAuthenticated()) {
+      location.replace('admin-login.html');
+      return;
+    }
+
     var mount = document.getElementById('admin-sidebar-mount');
     if (!mount) return;
 
@@ -191,7 +223,6 @@
             '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
           '</button>' +
         '</div>' +
-        clientIndicatorHTML() +
         '<nav class="flex-1 px-4 pb-6 pt-2 overflow-y-auto">' +
           navSectionsHTML +
         '</nav>' +
@@ -202,6 +233,11 @@
               '<p class="text-sm font-medium truncate">Portfolio Manager</p>' +
               '<p class="text-xs text-white/50 truncate">Internal access</p>' +
             '</div>' +
+            // Admin-tool logout (Aug 21, 2026) — distinct from any client-facing logout
+            // (dashboard-sidebar.js's own, which navigates to login.html): this one clears
+            // ONLY the admin session flag and returns to admin-login.html, never touching
+            // getCurrentClientId()/the client-scoped session state client pages depend on.
+            '<button type="button" id="admin-logout-btn" class="text-xs font-medium text-white/50 hover:text-white transition shrink-0" title="Log Out">Log Out</button>' +
           '</div>' +
         '</div>' +
       '</aside>';
@@ -213,6 +249,10 @@
     document.getElementById('admin-sidebar-backdrop').addEventListener('click', function () { toggleSidebar(false); });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') toggleSidebar(false);
+    });
+    document.getElementById('admin-logout-btn').addEventListener('click', function () {
+      if (typeof clearAdminAuthenticated === 'function') clearAdminAuthenticated();
+      location.replace('admin-login.html');
     });
   }
 

@@ -916,6 +916,13 @@
     </div>
   </section>
 
+<!-- Client Authentication Phase 1 (Aug 21, 2026) — the first time signup.html loads the
+     shared engine at all. Vanilla JS only, no Tailwind dependency, so this doesn't blur the
+     documented styling boundary (custom CSS vs. Tailwind) between the public site and the
+     dashboard family — only the data layer, which onboarding genuinely needs now that
+     completing signup creates a real client record instead of just navigating to
+     thank-you.html. -->
+<script src="engine-core.js"></script>
 <script>
   (function () {
     // ---------- State ----------
@@ -1212,11 +1219,54 @@
     });
 
     // ---------- Submit ----------
+    // Client Authentication Phase 1 (Aug 21, 2026): completing onboarding now creates a
+    // real client record via addClient() and stores a real hashed credential via
+    // hashClientPassword()/setClientCredentials() — previously this just navigated to
+    // thank-you.html with nothing persisted at all (confirmed by reading this file before
+    // starting this phase). Deliberately does NOT touch login.html's own check or
+    // dashboard-sidebar.js's CLIENT-0001 pin — those are Phases 2/3; a client created here
+    // exists for real in the Client Registry, but nothing yet lets them actually log in AS
+    // that client instead of the pinned demo client.
+    const ACCOUNT_TYPE_LABELS = {
+      individual: 'Individual Account',
+      joint: 'Joint Account',
+      entity: 'Business Account'
+    };
+
     const submitBtn = document.getElementById("btn-submit");
     if (submitBtn) {
-      submitBtn.addEventListener("click", () => {
+      submitBtn.addEventListener("click", async () => {
         if (!validateStep(9)) return;
-        window.location.href = "thank-you.html";
+
+        if (typeof addClient !== 'function' || typeof hashClientPassword !== 'function' || typeof setClientCredentials !== 'function') {
+          // engine-core.js failed to load — fail closed rather than silently pretending
+          // an account was created when nothing was actually persisted.
+          showError("Something went wrong creating your account. Please try again.");
+          return;
+        }
+
+        const fullName = document.querySelector('input[name="full_name"]').value.trim();
+        const email = document.getElementById("email").value.trim();
+        const phone = document.querySelector('input[name="phone"]').value.trim();
+        const rawPassword = document.getElementById("password").value;
+
+        submitBtn.disabled = true;
+        try {
+          const newClient = addClient({
+            name: fullName,
+            email: email,
+            phone: phone,
+            accountType: ACCOUNT_TYPE_LABELS[accountType] || 'Individual Account'
+          });
+
+          const passwordHash = await hashClientPassword(rawPassword);
+          setClientCredentials(newClient.id, passwordHash);
+
+          window.location.href = "thank-you.html";
+        } catch (err) {
+          submitBtn.disabled = false;
+          showError("Something went wrong creating your account: " + err.message);
+        }
       });
     }
 

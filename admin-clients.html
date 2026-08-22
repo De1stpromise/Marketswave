@@ -112,6 +112,28 @@
     </div>
   </div>
 
+  <!-- Security Action modal (Password Reset + 2FA Rework, Aug 21, 2026) — shared by both
+       Reset Password and Reset 2FA, distinguished by the stored action type. Reason is
+       required (not optional, unlike some other reject modals elsewhere) — no silent/
+       reason-less resets, per instruction. -->
+  <div id="security-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="security-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900" id="security-modal-title">Reset Password</p>
+        <button type="button" id="security-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4" id="security-modal-desc"></p>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Reason (required)</label>
+      <textarea id="security-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this reset being performed?"></textarea>
+      <p class="text-xs text-red-500 hidden mb-2" id="security-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="security-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="security-submit" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition">Confirm Reset</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
     <p class="font-medium text-sm" id="admin-toast-title">Done</p>
@@ -204,9 +226,13 @@
                 '<p class="text-slate-700 font-medium">' + pendingCount + '</p>' +
               '</div>' +
             '</div>' +
-            (c.id === getCurrentClientId()
-              ? '<p class="text-xs text-slate-400 mt-4">Currently viewing this client.</p>'
-              : '<button type="button" class="view-btn mt-4 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + c.id + '">View as this Client</button>') +
+            '<div class="flex flex-wrap items-center gap-2 mt-4">' +
+              (c.id === getCurrentClientId()
+                ? '<p class="text-xs text-slate-400">Currently viewing this client.</p>'
+                : '<button type="button" class="view-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + c.id + '">View as this Client</button>') +
+              '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="PASSWORD_RESET">Reset Password</button>' +
+              '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="2FA_RESET">Reset 2FA</button>' +
+            '</div>' +
           '</td>' +
         '</tr>';
       }
@@ -261,9 +287,9 @@
         renderClients();
       });
 
-      // Delegated: row click toggles expand; the "View as this Client" button only exists
-      // inside the expanded detail area now (not a separate always-visible per-row button),
-      // so its own click is caught here too, stopping it from also toggling collapse.
+      // Delegated: row click toggles expand; the "View as this Client"/security-action
+      // buttons only exist inside the expanded detail area now, so their own clicks are
+      // caught here too, stopping them from also toggling collapse.
       document.getElementById('clients-list').addEventListener('click', function (e) {
         var viewBtn = e.target.closest('.view-btn');
         if (viewBtn) {
@@ -275,11 +301,73 @@
           location.reload();
           return;
         }
+        var securityBtn = e.target.closest('.security-btn');
+        if (securityBtn) {
+          openSecurityModal(securityBtn.dataset.id, securityBtn.dataset.name, securityBtn.dataset.action);
+          return;
+        }
         var row = e.target.closest('.client-row');
         if (!row) return;
         var id = row.dataset.id;
         expandedIds[id] = !expandedIds[id];
         renderClients();
+      });
+
+      // ---- Security Action modal (Reset Password / Reset 2FA) — shared modal, distinguished
+      // by activeSecurityAction; both engine calls take an explicit clientId, mirroring the
+      // Approval Gate unification's own discipline (no ambient/current-client fallback). ----
+      var securityModal = document.getElementById('security-modal');
+      var securityModalTitle = document.getElementById('security-modal-title');
+      var securityModalDesc = document.getElementById('security-modal-desc');
+      var securityReasonInput = document.getElementById('security-reason-input');
+      var securityError = document.getElementById('security-error');
+      var activeSecurityClientId = null;
+      var activeSecurityAction = null;
+
+      var SECURITY_ACTION_COPY = {
+        PASSWORD_RESET: {
+          title: 'Reset Password',
+          desc: function (name) { return 'This forces ' + name + ' to set a new password the next time they open Settings, before anything else on that page. A reason is required.'; }
+        },
+        '2FA_RESET': {
+          title: 'Reset 2FA',
+          desc: function (name) { return 'This immediately disables Two-Factor Authentication for ' + name + '. A reason is required.'; }
+        }
+      };
+
+      function openSecurityModal(clientId, name, action) {
+        activeSecurityClientId = clientId;
+        activeSecurityAction = action;
+        var copy = SECURITY_ACTION_COPY[action];
+        securityModalTitle.textContent = copy.title;
+        securityModalDesc.textContent = copy.desc(name);
+        securityReasonInput.value = '';
+        securityError.classList.add('hidden');
+        securityModal.classList.remove('hidden');
+      }
+      function closeSecurityModal() {
+        securityModal.classList.add('hidden');
+        activeSecurityClientId = null;
+        activeSecurityAction = null;
+      }
+
+      document.getElementById('security-modal-close').addEventListener('click', closeSecurityModal);
+      document.getElementById('security-modal-backdrop').addEventListener('click', closeSecurityModal);
+      document.getElementById('security-cancel').addEventListener('click', closeSecurityModal);
+      document.getElementById('security-submit').addEventListener('click', function () {
+        var reason = securityReasonInput.value.trim();
+        try {
+          var result = activeSecurityAction === 'PASSWORD_RESET'
+            ? resetClientPassword(activeSecurityClientId, reason)
+            : resetClient2FA(activeSecurityClientId, reason);
+          var actionLabel = activeSecurityAction === 'PASSWORD_RESET' ? 'Password reset' : '2FA reset';
+          closeSecurityModal();
+          showToast(actionLabel + ' logged', result.clientName + ' (' + result.clientId + ') — ' + actionLabel.toLowerCase() + ' recorded in the Account Security log.');
+          renderClients();
+        } catch (e) {
+          securityError.textContent = e.message;
+          securityError.classList.remove('hidden');
+        }
       });
 
       // ---- Add Client modal ----

@@ -112,7 +112,7 @@
 
   <script>
     (function () {
-      if (typeof getDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof getAllClientDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -159,7 +159,7 @@
       }
 
       function renderPending() {
-        var requests = getDepositRequests().filter(function (r) { return r.status === 'pending'; })
+        var requests = getAllClientDepositRequests().filter(function (r) { return r.status === 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
@@ -175,6 +175,7 @@
           return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
             '<div class="min-w-0">' +
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
                 '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
               '</div>' +
@@ -182,15 +183,15 @@
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
-              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="credit-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Credit</button>' +
+              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
+              '<button type="button" class="credit-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Credit</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
       }
 
       function renderHistory() {
-        var requests = getDepositRequests().filter(function (r) { return r.status !== 'pending'; })
+        var requests = getAllClientDepositRequests().filter(function (r) { return r.status !== 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         var listEl = document.getElementById('history-list');
 
@@ -200,6 +201,7 @@
         }
 
         listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
           '<th class="text-left font-medium px-6 py-3">Request</th>' +
           '<th class="text-left font-medium px-6 py-3">Method</th>' +
           '<th class="text-right font-medium px-6 py-3">Requested</th>' +
@@ -216,6 +218,7 @@
               : '—';
             var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + methodLabel + '</td>' +
               '<td class="px-6 py-4 text-right text-slate-500">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</td>' +
@@ -236,16 +239,18 @@
       var creditAmountInput = document.getElementById('credit-amount-input');
       var creditError = document.getElementById('credit-error');
       var creditRequestedLabel = document.getElementById('credit-requested-label');
+      var activeCreditClientId = null;
       var activeCreditId = null;
 
-      function openCreditModal(id, requested, currency) {
+      function openCreditModal(clientId, id, requested, currency) {
+        activeCreditClientId = clientId;
         activeCreditId = id;
         creditRequestedLabel.textContent = Number(requested).toLocaleString() + ' ' + currency;
         creditAmountInput.value = requested;
         creditError.classList.add('hidden');
         creditModal.classList.remove('hidden');
       }
-      function closeCreditModal() { creditModal.classList.add('hidden'); activeCreditId = null; }
+      function closeCreditModal() { creditModal.classList.add('hidden'); activeCreditClientId = null; activeCreditId = null; }
 
       document.getElementById('credit-modal-close').addEventListener('click', closeCreditModal);
       document.getElementById('credit-modal-backdrop').addEventListener('click', closeCreditModal);
@@ -253,7 +258,7 @@
       document.getElementById('credit-submit').addEventListener('click', function () {
         var amount = parseFloat(creditAmountInput.value);
         try {
-          var result = creditDepositRequest(activeCreditId, amount);
+          var result = creditDepositRequest(activeCreditClientId, activeCreditId, amount);
           closeCreditModal();
           showToast('Deposit Credited', result.id + ' — $' + result.creditedAmount.toLocaleString() + ' added to unallocated capital.');
           renderAll();
@@ -267,22 +272,24 @@
       var rejectModal = document.getElementById('reject-modal');
       var rejectReasonInput = document.getElementById('reject-reason-input');
       var rejectError = document.getElementById('reject-error');
+      var activeRejectClientId = null;
       var activeRejectId = null;
 
-      function openRejectModal(id) {
+      function openRejectModal(clientId, id) {
+        activeRejectClientId = clientId;
         activeRejectId = id;
         rejectReasonInput.value = '';
         rejectError.classList.add('hidden');
         rejectModal.classList.remove('hidden');
       }
-      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectId = null; }
+      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectClientId = null; activeRejectId = null; }
 
       document.getElementById('reject-modal-close').addEventListener('click', closeRejectModal);
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
         try {
-          var result = rejectDepositRequest(activeRejectId, rejectReasonInput.value.trim());
+          var result = rejectDepositRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
           closeRejectModal();
           showToast('Deposit Rejected', result.id + ' has been rejected.', true);
           renderAll();
@@ -296,11 +303,11 @@
       document.getElementById('pending-list').addEventListener('click', function (e) {
         var creditBtn = e.target.closest('.credit-btn');
         if (creditBtn) {
-          openCreditModal(creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.currency);
+          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.currency);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');
-        if (rejectBtn) openRejectModal(rejectBtn.dataset.id);
+        if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
       renderAll();

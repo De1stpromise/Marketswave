@@ -44,6 +44,43 @@
 
       <main class="flex-1 overflow-y-auto p-8">
 
+        <!-- ========== FORCED PASSWORD RESET GATE (Password Reset + 2FA Rework, Aug 21, 2026) ==========
+             There is no real login/session system in this project, so this is a client-side
+             UI gate only, not real security enforcement — a PM-triggered resetClientPassword()
+             flags this client's own scoped state, and settings.html checks that flag on every
+             load. Everything else on this page is hidden (#settings-normal-content) until the
+             client completes this form, which clears the flag via clearForcePasswordReset().
+             Real enforcement (actually invalidating a session/credential) needs the login gate
+             + backend session work already tracked as deferred in the Backend Requirements
+             Register — this gate is buildable now only as a client-facing UI convenience. -->
+        <div id="force-password-banner" class="hidden bg-white rounded-2xl border-2 border-red-200 p-6 mb-8">
+          <div class="flex items-start gap-3 mb-4">
+            <svg class="w-6 h-6 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            <div>
+              <p class="text-sm font-semibold text-navy">Password Reset Required</p>
+              <p class="text-sm text-slate-600 mt-1" id="force-password-reason">Your Portfolio Manager has required you to set a new password before continuing.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+              <input type="password" id="force-new-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
+                <div id="force-strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
+              </div>
+              <p class="text-xs mt-1" id="force-strength-text" style="color: #6B7178;">Enter a password</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
+              <input type="password" id="force-confirm-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+          </div>
+          <p class="text-xs text-red-500 hidden mt-3" id="force-password-error"></p>
+          <button type="button" id="force-password-submit" class="mt-4 px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Set New Password</button>
+        </div>
+
+        <div id="settings-normal-content">
+
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">Settings</h2>
           <p class="text-slate-500 mt-1">Manage your profile, security, and notification preferences.</p>
@@ -183,20 +220,28 @@
               </div>
             </div>
 
+            <!-- Email-code flow (Password Reset + 2FA Rework, Aug 21, 2026) — replaces the
+                 previous QR code + authenticator app setup entirely. No real email backend
+                 exists in this project, so the "sent" code is generated client-side and
+                 shown directly on screen, same simulated-delivery pattern as every other
+                 stub in this project that can't actually deliver anything (deposit
+                 confirmations, dispute ids, etc.) — the client must type back the exact
+                 code shown, not just any 6 digits, so this isn't just accept-anything either. -->
             <div class="hidden bg-slate-50 rounded-xl border border-slate-100 p-5 mt-4" id="twofa-setup-panel">
               <p class="text-sm font-medium text-navy mb-3">Set Up Two-Factor Authentication</p>
               <div class="flex flex-col sm:flex-row items-center gap-5">
                 <div class="w-28 h-28 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-white shrink-0">
-                  <svg class="w-14 h-14 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 4.5h4.5v4.5h-4.5v-4.5zM15.75 4.5h4.5v4.5h-4.5v-4.5zM3.75 15h4.5v4.5h-4.5v-4.5zM13.5 13.5h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25h-2.25v-2.25zm-4.5 4.5h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25h-2.25v-2.25z"/></svg>
+                  <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
                 </div>
                 <div class="flex-1 w-full">
-                  <p class="text-xs text-slate-500 mb-3">Scan this QR code with your authenticator app, then enter the 6-digit code it generates.</p>
+                  <p class="text-xs text-slate-500 mb-1">A 6-digit code has been "sent" to your email. This project has no real email backend, so it's shown here instead:</p>
+                  <p class="text-lg font-semibold tracking-widest text-navy mb-3" id="twofa-demo-code">000000</p>
                   <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmation Code</label>
                   <div class="flex flex-wrap gap-2">
                     <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="w-32 px-4 py-2.5 rounded-lg border border-slate-200 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
                     <button type="button" id="twofa-confirm" class="px-4 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm</button>
                   </div>
-                  <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code from your app.</p>
+                  <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code shown above.</p>
                 </div>
               </div>
             </div>
@@ -307,6 +352,9 @@
           </div>
           <p class="text-xs text-slate-400 mt-3">These preferences control delivery for notifications already surfaced elsewhere in your dashboard — e.g. the Documents & Reporting badge alerts and allocation approval requests on Asset & Performance.</p>
         </div>
+
+        </div>
+        <!-- /#settings-normal-content -->
 
       </main>
     </div>
@@ -432,6 +480,84 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
     }
+
+    // ---- Forced Password Reset gate (Password Reset + 2FA Rework, Aug 21, 2026) -------------
+    // Purely a client-side UI gate — there is no real login/session system in this project to
+    // actually enforce this server-side (see the HTML comment above #force-password-banner,
+    // and the Backend Requirements Register, for the full explanation). getClientSecurityState()
+    // is ambient (ok here — settings.html always operates on whichever client is currently
+    // active, and dashboard-sidebar.js already pins that to CLIENT-0001 at file-load time on
+    // every client-facing page). Reuses the exact same strength/match validation the normal
+    // Change Password flow below already uses (itself reusing signup.html's own step-2 rules).
+    (function () {
+      const banner = document.getElementById('force-password-banner');
+      const normalContent = document.getElementById('settings-normal-content');
+
+      const state = getClientSecurityState();
+      if (!state.forcePasswordReset) return; // nothing to gate — normal content stays visible
+
+      banner.classList.remove('hidden');
+      normalContent.classList.add('hidden');
+
+      const reasonEl = document.getElementById('force-password-reason');
+      reasonEl.textContent = 'Your Portfolio Manager has required you to set a new password' +
+        (state.forcePasswordReason ? (' — reason given: "' + state.forcePasswordReason + '"') : '') +
+        '. You must set a new password before continuing to the rest of Settings.';
+
+      const newPasswordInput = document.getElementById('force-new-password');
+      const strengthFill = document.getElementById('force-strength-fill');
+      const strengthText = document.getElementById('force-strength-text');
+      const errorEl = document.getElementById('force-password-error');
+
+      const levels = [
+        { width: '0%', color: '#E5E2DC', text: 'Enter a password' },
+        { width: '25%', color: '#DC2626', text: 'Weak' },
+        { width: '50%', color: '#F59E0B', text: 'Fair' },
+        { width: '75%', color: '#10B981', text: 'Good' },
+        { width: '100%', color: '#059669', text: 'Strong' }
+      ];
+      function applyLevel(level) {
+        strengthFill.style.width = level.width;
+        strengthFill.style.background = level.color;
+        strengthText.textContent = level.text;
+        strengthText.style.color = level.color;
+      }
+      newPasswordInput.addEventListener('input', () => {
+        const val = newPasswordInput.value;
+        let score = 0;
+        if (val.length >= 8) score++;
+        if (val.length >= 12) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        applyLevel(val.length === 0 ? levels[0] : levels[Math.min(score, 4)]);
+      });
+
+      document.getElementById('force-password-submit').addEventListener('click', () => {
+        const next = newPasswordInput.value;
+        const confirm = document.getElementById('force-confirm-password').value;
+
+        if (!next || next.length < 8) {
+          errorEl.textContent = 'New password must be at least 8 characters.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        if (next !== confirm) {
+          errorEl.textContent = 'Passwords do not match.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        errorEl.classList.add('hidden');
+
+        // Same as the normal Change Password flow below: nothing is actually persisted as a
+        // "password" anywhere (there is no real credential store in this project at all) —
+        // completing this form clears the forced-reset flag and unlocks the rest of the page.
+        clearForcePasswordReset();
+        banner.classList.add('hidden');
+        normalContent.classList.remove('hidden');
+        showToast('Password Updated', 'Your password has been changed successfully.');
+      });
+    })();
 
     // ---- Editable profile fields (Email, Phone) ----
     (function () {
@@ -692,14 +818,24 @@
       });
     })();
 
-    // ---- Two-Factor Authentication — stub setup flow, no real TOTP backend ----
+    // ---- Two-Factor Authentication — email-code setup flow (Password Reset + 2FA Rework,
+    // Aug 21, 2026), replacing the previous QR/authenticator-app version entirely. Still no
+    // real backend: "sending" the code just generates a random 6-digit number client-side and
+    // displays it directly (same simulated-delivery pattern used elsewhere in this project),
+    // but confirmation now checks the client's input against that EXACT generated code rather
+    // than accepting any 6 digits — a real, if trivial, verification step. The storage key/
+    // format (a bare 'enabled'/'disabled' string) is UNCHANGED from before, which is also
+    // exactly what resetClient2FA() writes to when a PM resets this client's 2FA — this read
+    // picks that up automatically on the next load, no extra code needed for that case. ----
     (function () {
       const STORAGE_KEY = clientScopedKey('marketswave_settings_2fa');
       const toggle = document.getElementById('twofa-toggle');
       const setupPanel = document.getElementById('twofa-setup-panel');
       const statusBadge = document.getElementById('twofa-status-badge');
+      const demoCodeEl = document.getElementById('twofa-demo-code');
       const codeInput = document.getElementById('twofa-code');
       const codeError = document.getElementById('twofa-error');
+      let currentDemoCode = null;
 
       function setState(enabled) {
         toggle.checked = enabled;
@@ -707,8 +843,16 @@
         localStorage.setItem(STORAGE_KEY, enabled ? 'enabled' : 'disabled');
       }
 
+      function generateAndShowCode() {
+        currentDemoCode = String(Math.floor(100000 + Math.random() * 900000));
+        demoCodeEl.textContent = currentDemoCode;
+        codeInput.value = '';
+        codeError.classList.add('hidden');
+      }
+
       toggle.addEventListener('change', () => {
         if (toggle.checked) {
+          generateAndShowCode();
           setupPanel.classList.remove('hidden');
         } else {
           setupPanel.classList.add('hidden');
@@ -719,12 +863,14 @@
 
       document.getElementById('twofa-confirm').addEventListener('click', () => {
         const code = codeInput.value.trim();
-        if (!/^\d{6}$/.test(code)) {
+        if (code !== currentDemoCode) {
+          codeError.textContent = 'That code doesn\'t match. Enter the 6-digit code shown above.';
           codeError.classList.remove('hidden');
           return;
         }
         codeError.classList.add('hidden');
         codeInput.value = '';
+        currentDemoCode = null;
         setupPanel.classList.add('hidden');
         setState(true);
         showToast('Two-Factor Authentication Enabled', 'Your account is now protected with an extra verification step.');
