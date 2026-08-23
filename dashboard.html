@@ -63,7 +63,7 @@
 
         <!-- Welcome -->
         <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-navy">Welcome Back, John</h2>
+          <h2 class="text-2xl font-semibold text-navy" id="welcome-heading">Welcome Back, John</h2>
           <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
         </div>
 
@@ -230,6 +230,19 @@
 
       settleAllProducts(); // catch prices up to today before reading any engine value
 
+      // Identity display fix (Aug 22, 2026): "Welcome Back, John" was hardcoded regardless of
+      // who Phase 3 actually authenticated. getAuthenticatedClientId() is guaranteed non-null
+      // here — dashboard-sidebar.js's own guard already redirected to login.html otherwise,
+      // and that guard runs (and, on failure, navigates away) before this script even starts.
+      (function () {
+        var heading = document.getElementById('welcome-heading');
+        if (!heading || typeof getClient !== 'function' || typeof getAuthenticatedClientId !== 'function') return;
+        var client = getClient(getAuthenticatedClientId());
+        if (!client) return;
+        var firstName = client.name.trim().split(/\s+/)[0];
+        heading.textContent = 'Welcome Back, ' + firstName;
+      })();
+
       var ASSET_CLASS_COLORS = {
         'Private Equity': '#8B5A0F',
         'Real Assets': '#1B3D2A',
@@ -345,6 +358,7 @@
             var isSell = txn.type === 'SELL';
             var isDeposit = txn.type === 'DEPOSIT';
             var isHysDeposit = txn.type === 'HYS_DEPOSIT';
+            var isWithdrawal = txn.type === 'WITHDRAWAL';
             var title, detail, dotColor;
             if (isDeposit) {
               // No product — money coming in, not a trade against a holding — so this gets
@@ -361,6 +375,15 @@
               // rendering audit, Admin Tool Phase A).
               dotColor = 'bg-purple-500';
               title = 'HYS pocket funded';
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
+                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
+            } else if (isWithdrawal) {
+              // Same reasoning as DEPOSIT/HYS_DEPOSIT above, handled from day one (Client
+              // Withdrawal, Aug 22, 2026) rather than repeating the "Capital allocated —
+              // null" bug class a third time. A distinct orange dot (not blue/purple, which
+              // both mean money coming IN) since this is money leaving the account.
+              dotColor = 'bg-orange-500';
+              title = 'Withdrawal processed';
               detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
                 (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
             } else {

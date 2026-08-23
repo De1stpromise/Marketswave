@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Applications — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <div class="mb-8">
+          <h2 class="text-2xl font-semibold text-slate-900">Client Applications</h2>
+          <p class="text-slate-500 mt-1">New self-signup applications, awaiting review before the applicant can log in.</p>
+        </div>
+
+        <!-- Pending -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Pending <span id="pending-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="pending-list"></div>
+        </div>
+
+        <!-- History -->
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">History</h3>
+          </div>
+          <div id="history-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Approve modal -->
+  <div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="approve-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Approve Client Application</p>
+        <button type="button" id="approve-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4">Approve <span class="font-medium text-slate-900" id="approve-summary-label"></span>? They will be able to log in immediately once approved.</p>
+      <p class="text-xs text-red-500 hidden mb-2" id="approve-error"></p>
+      <div class="flex gap-3">
+        <button type="button" id="approve-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="approve-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject modal -->
+  <div id="reject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="reject-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Reject Client Application</p>
+        <button type="button" id="reject-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+      <textarea id="reject-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this application being rejected?"></textarea>
+      <p class="text-xs text-red-500 hidden mb-2" id="reject-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="reject-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="reject-submit" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition">Reject Application</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script>
+    initAdminSidebar('client-applications');
+  </script>
+
+  <script>
+    (function () {
+      if (typeof getPendingClientApplications !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      var TYPE_BADGE = {
+        'Individual Account': 'bg-slate-100 text-slate-600',
+        'Joint Account': 'bg-blue-50 text-blue-700',
+        'Business Account': 'bg-purple-50 text-purple-700'
+      };
+      var STATUS_STYLES = {
+        active: 'bg-emerald-50 text-emerald-700',
+        rejected: 'bg-red-50 text-red-700'
+      };
+
+      // Onboarding Data Capture (Aug 22, 2026): human-readable labels matching signup.html's
+      // own display text exactly (copied from that file's markup, not re-derived) — no shared
+      // module system exists in this project for plain display-formatting helpers (only
+      // stateful logic is shared, via engine-core.js), the same category of duplication
+      // already documented for admin-settings-changes.html's own copy of settings.html's
+      // formatFieldDisplay(). Low-risk (display-only, not a money or security figure) — if
+      // signup.html's own option labels ever change, this map needs updating by hand.
+      var INVESTABLE_ASSETS_LABELS = {
+        'under-250k': 'Under $250,000', '250k-1m': '$250,000 – $1M',
+        '1m-5m': '$1M – $5M', '5m-plus': '$5M+'
+      };
+      var SOURCE_OF_WEALTH_LABELS = {
+        employment: 'Employment / Salary', business: 'Business Ownership',
+        inheritance: 'Inheritance / Gift', investments: 'Investment Returns', other: 'Other'
+      };
+      var INVESTMENT_GOAL_LABELS = {
+        growth: 'Long-term Growth', income: 'Steady Income',
+        preservation: 'Capital Preservation', retirement: 'Retirement Planning'
+      };
+      var TIME_HORIZON_LABELS = {
+        'under-3': 'Less than 3 years', '3-7': '3 – 7 years',
+        '7-15': '7 – 15 years', '15-plus': 'More than 15 years'
+      };
+      var RISK_COMFORT_LABELS = {
+        low: 'Low – Prefer stability', moderate: 'Moderate – Balanced approach',
+        high: 'High – Comfortable with larger swings'
+      };
+      var RISK_KNOWLEDGE_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
+      var RISK_REACTION_LABELS = {
+        'sell-all': 'Sell everything', 'sell-some': 'Sell some', hold: 'Hold', 'buy-more': 'Buy more'
+      };
+      var RISK_OBJECTIVE_LABELS = {
+        preservation: 'Capital preservation', income: 'Steady income',
+        balanced: 'Balanced growth', aggressive: 'Aggressive growth'
+      };
+      var RISK_HORIZON_LABELS = {
+        'under-3': 'Less than 3 years', '3-7': '3–7 years',
+        '7-15': '7–15 years', '15-plus': 'More than 15 years'
+      };
+      var RISK_LIQUIDITY_LABELS = { very: 'Very important', somewhat: 'Somewhat important', not: 'Not important' };
+      var RISK_EXPERIENCE_LABELS = { never: 'Never', occasionally: 'Occasionally', regularly: 'Regularly' };
+
+      var expandedIds = {};
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      // signup.html only ever passes name/email/phone/accountType to addClient() — confirmed
+      // by reading its submit handler directly, not assumed. Everything ELSE signup.html's
+      // steps 3-8 collect (entity/joint details, financial profile, goals & preferences, the
+      // risk questionnaire, document filenames) is now genuinely persisted via
+      // saveClientOnboardingData()/getClientOnboardingData() (Onboarding Data Capture, Aug
+      // 22, 2026) and rendered below in each row's expandable detail panel — the actual point
+      // of this fix: give a PM something substantive to review, not just a rubber stamp. An
+      // application submitted before this feature shipped has no onboarding record at all;
+      // applicationDetailHTML() below handles that as a distinct, honest empty state rather
+      // than showing blank/undefined fields.
+      function sectionBlock(title, rowsHtml) {
+        return '<div class="mb-4 last:mb-0">' +
+          '<p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 pb-1 border-b border-slate-200">' + title + '</p>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">' + rowsHtml.join('') + '</div>' +
+        '</div>';
+      }
+
+      function detailRow(label, value) {
+        return '<div><p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">' + label + '</p><p class="text-slate-700">' + (value || '—') + '</p></div>';
+      }
+
+      function applicationDetailHTML(c) {
+        var data = getClientOnboardingData(c.id);
+        if (!data) {
+          return '<div class="px-6 pb-5 -mt-1"><div class="bg-slate-50/60 rounded-xl px-5 py-4 text-sm text-slate-400">No onboarding data was recorded for this application (submitted before Onboarding Data Capture shipped, Aug 22, 2026).</div></div>';
+        }
+
+        var sections = '';
+
+        if (data.entityDetails) {
+          sections += sectionBlock('Entity Details', [
+            detailRow('Company / Entity Name', data.entityDetails.name),
+            detailRow('Registration Number', data.entityDetails.registrationNumber),
+            detailRow('Country of Incorporation', data.entityDetails.incorporationCountry),
+            detailRow('Role in the Entity', data.entityDetails.role)
+          ]);
+        }
+
+        if (data.jointHolder) {
+          sections += sectionBlock('Joint Account Holder', [
+            detailRow('Full Name', data.jointHolder.name),
+            detailRow('Email Address', data.jointHolder.email),
+            detailRow('Phone Number', data.jointHolder.phone)
+          ]);
+        }
+
+        sections += sectionBlock('Financial Profile', [
+          detailRow('Approximate Investable Assets', INVESTABLE_ASSETS_LABELS[data.financialProfile.investableAssets]),
+          detailRow('Primary Source of Wealth', SOURCE_OF_WEALTH_LABELS[data.financialProfile.sourceOfWealth]),
+          detailRow('Employment Status / Industry', data.financialProfile.employment)
+        ]);
+
+        sections += sectionBlock('Goals & Preferences', [
+          detailRow('Primary Investment Goal', INVESTMENT_GOAL_LABELS[data.goalsPreferences.investmentGoal]),
+          detailRow('Investment Time Horizon', TIME_HORIZON_LABELS[data.goalsPreferences.timeHorizon]),
+          detailRow('Risk Comfort Level', RISK_COMFORT_LABELS[data.goalsPreferences.riskComfort])
+        ]);
+
+        sections += sectionBlock('Risk Questionnaire', [
+          detailRow('1. Market Knowledge', RISK_KNOWLEDGE_LABELS[data.riskQuestionnaire.knowledge]),
+          detailRow('2. Reaction to a 15% Drop', RISK_REACTION_LABELS[data.riskQuestionnaire.reaction]),
+          detailRow('3. Primary Investment Objective', RISK_OBJECTIVE_LABELS[data.riskQuestionnaire.objective]),
+          detailRow('4. Expected Time Horizon', RISK_HORIZON_LABELS[data.riskQuestionnaire.horizon]),
+          detailRow('5. Liquidity Importance', RISK_LIQUIDITY_LABELS[data.riskQuestionnaire.liquidity]),
+          detailRow('6. Prior Investment Experience', RISK_EXPERIENCE_LABELS[data.riskQuestionnaire.experience])
+        ]);
+
+        sections += sectionBlock('Uploaded Documents', [
+          detailRow('Government-issued Photo ID', data.documents.idDocument && data.documents.idDocument.fileName),
+          detailRow('Proof of Address', data.documents.proofOfAddress && data.documents.proofOfAddress.fileName)
+        ]);
+
+        return '<div class="px-6 pb-5 -mt-1"><div class="bg-slate-50/60 rounded-xl px-5 py-4">' + sections + '</div></div>';
+      }
+
+      function renderPending() {
+        var applications = getPendingClientApplications()
+          .sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+        document.getElementById('pending-count').textContent = applications.length ? '(' + applications.length + ')' : '';
+        var listEl = document.getElementById('pending-list');
+
+        if (applications.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No pending client applications.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + applications.map(function (c) {
+          var typeClass = TYPE_BADGE[c.accountType] || 'bg-slate-100 text-slate-600';
+          var summary = (c.name || c.id).replace(/"/g, '&quot;');
+          var isExpanded = !!expandedIds[c.id];
+          return '<div class="application-row" data-id="' + c.id + '">' +
+            '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
+              '<div class="min-w-0">' +
+                '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                  '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeClass + '">' + (c.accountType || 'Individual Account') + '</span>' +
+                  '<span class="text-xs text-slate-400">' + c.id + ' · Submitted ' + c.createdAt + '</span>' +
+                '</div>' +
+                '<p class="text-lg font-semibold text-slate-900 mb-1">' + c.name + '</p>' +
+                '<p class="text-sm text-slate-600">' + c.email + '</p>' +
+                (c.phone ? '<p class="text-sm text-slate-600">' + c.phone + '</p>' : '') +
+              '</div>' +
+              '<div class="flex gap-2 shrink-0">' +
+                '<button type="button" class="expand-btn px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition inline-flex items-center gap-1.5" data-id="' + c.id + '">' +
+                  (isExpanded ? 'Hide Details' : 'View Details') +
+                  '<svg class="w-3.5 h-3.5 transition-transform' + (isExpanded ? ' rotate-180' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                '</button>' +
+                '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '">Reject</button>' +
+                '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-id="' + c.id + '" data-summary="' + summary + '">Approve</button>' +
+              '</div>' +
+            '</div>' +
+            (isExpanded ? applicationDetailHTML(c) : '') +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      function renderHistory() {
+        // History = every client that has actually gone through approve/reject at least
+        // once (applicationResolvedAt set) — deliberately NOT every 'active' client, since
+        // an admin-created client (addClient() from Client List) never has this field set
+        // at all and was never a reviewed application in the first place.
+        var applications = getAllClients()
+          .filter(function (c) { return c.applicationResolvedAt; })
+          .sort(function (a, b) { return (b.applicationResolvedAt || '').localeCompare(a.applicationResolvedAt || ''); });
+        var listEl = document.getElementById('history-list');
+
+        if (applications.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No resolved applications yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Applicant</th>' +
+          '<th class="text-left font-medium px-6 py-3">Email</th>' +
+          '<th class="text-left font-medium px-6 py-3">Account Type</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Submitted</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          applications.map(function (c) {
+            var statusClass = STATUS_STYLES[c.status] || 'bg-slate-100 text-slate-600';
+            var statusLabel = c.status === 'active' ? 'Approved' : (c.status.charAt(0).toUpperCase() + c.status.slice(1));
+            var resolvedText = c.applicationResolvedAt + (c.status === 'rejected' && c.applicationReason ? ' — ' + c.applicationReason : '');
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + c.name + ' <span class="text-slate-400 font-normal">(' + c.id + ')</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + c.email + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + (c.accountType || '—') + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + c.createdAt + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
+      function renderAll() {
+        renderPending();
+        renderHistory();
+      }
+
+      // ---- Approve modal ----
+      var approveModal = document.getElementById('approve-modal');
+      var approveError = document.getElementById('approve-error');
+      var approveSummaryLabel = document.getElementById('approve-summary-label');
+      var activeApproveId = null;
+
+      function openApproveModal(id, summary) {
+        activeApproveId = id;
+        approveSummaryLabel.textContent = summary;
+        approveError.classList.add('hidden');
+        approveModal.classList.remove('hidden');
+      }
+      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveId = null; }
+
+      document.getElementById('approve-modal-close').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-submit').addEventListener('click', function () {
+        try {
+          var result = approveClientApplication(activeApproveId);
+          closeApproveModal();
+          showToast('Application Approved', result.name + ' (' + result.id + ') can now log in.');
+          renderAll();
+        } catch (e) {
+          approveError.textContent = e.message;
+          approveError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Reject modal ----
+      var rejectModal = document.getElementById('reject-modal');
+      var rejectReasonInput = document.getElementById('reject-reason-input');
+      var rejectError = document.getElementById('reject-error');
+      var activeRejectId = null;
+
+      function openRejectModal(id) {
+        activeRejectId = id;
+        rejectReasonInput.value = '';
+        rejectError.classList.add('hidden');
+        rejectModal.classList.remove('hidden');
+      }
+      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectId = null; }
+
+      document.getElementById('reject-modal-close').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
+      document.getElementById('reject-submit').addEventListener('click', function () {
+        try {
+          var result = rejectClientApplication(activeRejectId, rejectReasonInput.value.trim());
+          closeRejectModal();
+          showToast('Application Rejected', result.name + ' (' + result.id + ') has been rejected.', true);
+          renderAll();
+        } catch (e) {
+          rejectError.textContent = e.message;
+          rejectError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Delegated click handlers for row buttons ----
+      document.getElementById('pending-list').addEventListener('click', function (e) {
+        var approveBtn = e.target.closest('.approve-btn');
+        if (approveBtn) {
+          openApproveModal(approveBtn.dataset.id, approveBtn.dataset.summary);
+          return;
+        }
+        var rejectBtn = e.target.closest('.reject-btn');
+        if (rejectBtn) {
+          openRejectModal(rejectBtn.dataset.id);
+          return;
+        }
+        var expandBtn = e.target.closest('.expand-btn');
+        if (expandBtn) {
+          var id = expandBtn.dataset.id;
+          expandedIds[id] = !expandedIds[id];
+          renderPending();
+        }
+      });
+
+      renderAll();
+    })();
+  </script>
+
+</body>
+</html>

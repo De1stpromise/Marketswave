@@ -56,12 +56,30 @@
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Approval Gate</p>
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
 
+            <a href="admin-client-applications.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Pending Client Applications</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="pending-client-applications-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
+            </a>
+
             <a href="admin-deposits.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
               <div class="flex items-center justify-between mb-3">
                 <p class="text-sm font-medium text-slate-500">Pending Deposits</p>
                 <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
               </div>
               <p class="text-3xl font-bold text-slate-900" id="pending-deposits-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
+            </a>
+
+            <a href="admin-withdrawals.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Pending Withdrawals</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="pending-withdrawals-count">—</p>
               <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
             </a>
 
@@ -188,10 +206,21 @@
     (function () {
       if (typeof getDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
 
+      // Client Registry is already global/unscoped (one array, not per-client-scoped
+      // stores), so getPendingClientApplications() already sees every applicant in one
+      // read — no ambient-vs-cross-client distinction to worry about here, unlike the
+      // deposit/withdrawal/etc. counts right below.
+      var clientApplicationsCount = typeof getPendingClientApplications === 'function' ? getPendingClientApplications().length : 0;
       var depositCount = getDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var hysCount = getHYSDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var allocationCount = getAllocationRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var sellCount = getSellRequests().filter(function (r) { return r.status === 'pending'; }).length;
+      // Ambient getter, matching Deposits/Allocations/Sells/HYS above (all 4 count only the
+      // currently-active client's own pending items, a real pre-existing inconsistency with
+      // Documents/Support/Client Profile Updates below, which DO cross-client aggregate —
+      // not introduced or fixed by this addition, flagged and left as-is for consistency
+      // with this card's own direct siblings).
+      var withdrawalCount = getWithdrawalRequests().filter(function (r) { return r.status === 'pending'; }).length;
       // Documents/Support are cross-client aggregated (unlike the four queues above, which
       // only ever count the currently-selected client's own pending items) — matching how
       // admin-documents.html/admin-support.html themselves aggregate across every client.
@@ -204,7 +233,9 @@
         document.getElementById('security-actions-count').textContent = getSecurityActionsLog().length;
       }
 
+      document.getElementById('pending-client-applications-count').textContent = clientApplicationsCount;
       document.getElementById('pending-deposits-count').textContent = depositCount;
+      document.getElementById('pending-withdrawals-count').textContent = withdrawalCount;
       document.getElementById('pending-hys-count').textContent = hysCount;
       document.getElementById('pending-allocations-count').textContent = allocationCount;
       document.getElementById('pending-sells-count').textContent = sellCount;
@@ -227,7 +258,7 @@
         document.getElementById('product-count').textContent = getAllProducts().length;
       }
 
-      if (depositCount === 0 && hysCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {
+      if (clientApplicationsCount === 0 && depositCount === 0 && withdrawalCount === 0 && hysCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {
         document.getElementById('all-clear-banner').style.display = '';
       }
     })();

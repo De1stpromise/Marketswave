@@ -1072,6 +1072,242 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   `marketswave_current_client_id` are now two independently-observed session values that only
   Phase 3 reconciles. Zero console errors. See `Marketswave_Project_Handover.md` §4.65 for the
   full writeup.
+- **Client Authentication, Phase 3 — retiring the CLIENT-0001 pin** (`dashboard-sidebar.js` +
+  `settings.html`, Aug 21, 2026, the highest-risk step of the whole build — done on top of a
+  safety-net `git commit`, `df041c6`, capturing everything through Phase 2, since this changes
+  what every client-facing page resolves as "the current user" all at once). **Call chain
+  traced before writing any test** (mirroring §4.45/§4.60's own discipline): a project-wide
+  grep confirmed exactly three places needed changing — `dashboard-sidebar.js`'s file-load-time
+  pin (the actual target), `wireLogoutLinks()` (its own comment documented Logout as a no-op
+  since Phase 2 didn't exist yet when it was written — left unfixed, it would have silently
+  defeated this phase's own "logout then reload doesn't restore access" requirement, so fixing
+  it was required by the phase, not scope creep), and one stale comment in `settings.html` —
+  and confirmed `admin-clients.html`'s "View as this Client" and `admin-sidebar.js`'s own Admin
+  Login Gate were already fully independent, needing no changes. `dashboard-sidebar.js`'s
+  file-load-time block now reads the real `marketswave_authenticated_client_id` (raw key,
+  `engine-core.js` isn't loaded yet) and pins `marketswave_current_client_id` to that real
+  client, or redirects to `login.html` via `location.replace()` if nobody is authenticated —
+  mirroring the admin gate's own redirect pattern exactly. A second, defense-in-depth guard
+  was added inside `initDashboardSidebar()` using the real `getAuthenticatedClientId()`,
+  mirroring `initAdminSidebar()`'s own second check. `wireLogoutLinks()` now genuinely calls
+  `clearClientAuthentication()` plus removes the ambient pin — no longer a documented no-op.
+  No `engine-core.js` changes were needed. **A real, deliberately out-of-scope cosmetic gap,
+  flagged not fixed**: the sidebar footer ("John Doe"/"JD") and `dashboard.html`'s "Welcome
+  Back, John" greeting stay hardcoded regardless of who really logged in — confirmed live as
+  CLIENT-0004 that the greeting/avatar stay wrong even though every real portfolio figure
+  correctly resolves to that client's own genuinely empty data; out of this phase's explicit
+  identity-resolution scope, not a data leak. Node-verified first (`verify-client-auth-phase3.js`,
+  16 assertions, loading the REAL `engine-core.js` and REAL `dashboard-sidebar.js` source
+  against a minimal fake DOM built for this file's own narrow DOM usage: unauthenticated
+  redirects with no fallback pin; CLIENT-0001 pins correctly; a genuinely different real
+  client, CLIENT-0002, pins to THAT id proving this isn't hardcoded; the defense-in-depth
+  guard fires and never renders when unauthenticated; a real simulated Logout click proves
+  `getAuthenticatedClientId()` genuinely returns null afterward and a simulated post-logout
+  reload correctly redirects; and the admin mechanism has zero dependency on the client-auth
+  session key) plus the full 18-file, 0-failure regression suite. Browser-verified live, the
+  complete chain: all 9 locked-sidebar pages plus `asset-collection.html` (10 total) each
+  independently redirect to `login.html` from a cleared session; CLIENT-0001 logs in and both
+  session keys/the dashboard/other pages resolve correctly; real Logout clears both keys and a
+  subsequent direct navigation redirects rather than restoring access; CLIENT-0004 (real,
+  genuinely empty $0 portfolio confirmed BEFORE logging in) logs in and shows $0/0.0%
+  everywhere with zero leakage from CLIENT-0001; the admin tool's "View as this Client" is
+  confirmed genuinely independent (switches `marketswave_current_client_id` while
+  `marketswave_authenticated_client_id` stays null); and, as a positive side effect, navigating
+  directly to `dashboard.html` in the same admin tab correctly redirects rather than leaking
+  the admin's ambient client — permanently closing the same-tab admin-to-client leak class
+  §4.44/§4.45 had to fix once already, this time by construction. Zero console errors
+  throughout. See `Marketswave_Project_Handover.md` §4.66 for the full writeup.
+- **Identity display fix — real client name/initials/account type everywhere**
+  (`engine-core.js` + `dashboard-sidebar.js` + `dashboard.html` + `settings.html` +
+  `support.html`, Aug 22, 2026): closes the cosmetic gap flagged at the end of Phase 3.
+  **Grepped the whole project first** and found two genuine hardcodes beyond the two the task
+  named: `settings.html`'s Profile/KYC card header (avatar/name/account-type badge — missing
+  `id`s entirely, unlike `email-view`/`phone-view` right below it) and `support.html`'s
+  `DEMO_USER_NAME` constant (pre-fills the Request-a-Callback modal, drives the live-chat
+  greeting's first name) — both fixed alongside the two named ones (`dashboard-sidebar.js`'s
+  footer, `dashboard.html`'s greeting). New `getClientInitials(name)`: pure, name-based,
+  strips legal-entity suffixes (LLC/INC/CORP/LTD/LLP/LP/PLC/PC) BEFORE splitting into words —
+  `"Riverstone Holdings LLC"` → `"RH"` (Riverstone + Holdings, the business's own meaningful
+  words), not `"RL"` (the bare suffix contributing nothing). A single remaining word (one-word
+  name, or a legal name reduced to one word after stripping its suffix) falls back to its own
+  first two characters. All four call sites read `getClient(getAuthenticatedClientId())`,
+  guaranteed non-null since `dashboard-sidebar.js`'s Phase 3 guard already redirected
+  otherwise. `support.html`'s `DEMO_USER_NAME` renamed to `CURRENT_CLIENT_NAME` for accuracy.
+  Client names inserted as plain unescaped text-node concatenation — the existing convention
+  `admin-clients.html`'s own client list already uses, not a new risk. Node-verified first (16
+  assertions, including the task's exact `"Riverstone Holdings LLC"` → `"RH"` example and
+  integration proof against the real Client Registry) plus the full 19-file, 0-failure
+  regression suite. Browser-verified live: CLIENT-0001 still correctly shows "John Doe"/"JD"
+  everywhere (cross-checked against real data, not just visually); a brand-new client created
+  through the real signup flow (all 7 steps, real file uploads), "Marcus Chen" (CLIENT-0005),
+  shows "Marcus Chen"/"MC" everywhere after logging in — not John Doe, not blank, not an
+  error — with Total Portfolio Value correctly showing a genuinely separate $0. Zero console
+  errors. See `Marketswave_Project_Handover.md` §4.67 for the full writeup.
+- **Client Withdrawal — a 6th Approval Gate queue** (`engine-core.js` + `deploy-capital.html`
+  + `transactions.html` + `dashboard.html` + `admin-sidebar.js` + `admin.html` + new
+  `admin-withdrawals.html`, Aug 22, 2026): mirrors the deposit request/approve pattern for
+  money leaving the account, built cross-client/stateless from the start — no module-level
+  cache anywhere in this domain, including `requestWithdrawal(clientId, ...)` itself, which
+  deliberately takes an explicit `clientId` unlike its ambient siblings
+  `requestAllocation()`/`requestSell()`/`requestDeposit()`. **A real, pre-existing gap found
+  and reported before building the client UI**: read `deploy-capital.html` directly and
+  confirmed its two Deposit forms have never called `requestDeposit()` at all — Withdraw was
+  still built genuinely wired to the engine, and a new withdrawal-only "My Withdrawal
+  Requests" section was added (not merged with anything, since no real deposit-request
+  history exists to merge into) — flagged in the Backend Requirements Register (row 31) as a
+  separate, unscoped gap, not fixed here. New `marketswave_withdrawal_requests` store;
+  `approveWithdrawal(clientId, requestId, approvedAmount)` re-validates `unallocatedCapital`
+  at approval time, same oversell-protection discipline as `approveSellRequest()`. **Judgment
+  call, decided and reported**: `approvedAmount` stays PM-editable for interaction
+  consistency with every other Credit/Approve modal, even though — unlike a deposit — there's
+  no genuine external settlement uncertainty on this side; the counter-argument (force it to
+  exactly match the requested amount) was stated explicitly, not dismissed.
+  `transactions.html`/`dashboard.html`'s rendering consumers (ledger table, drill-down modal,
+  both charts, Recent Activity, the Type filter) were all extended for `WITHDRAWAL` from the
+  start, not retrofitted after a rendering bug the way `DEPOSIT` originally was. Client side:
+  a 3rd "Withdraw Funds" option card on `deploy-capital.html` with an in-form Crypto/Bank
+  toggle (mirroring the existing term-mode-tab pattern) and an "Available to withdraw" guard
+  rail mirroring the Sell modal's own precedented one. Admin side: new
+  `admin-withdrawals.html`, structurally identical to `admin-deposits.html`, wired into the
+  Approval Gate nav group and a new Overview card. Node-verified first (49 assertions,
+  including the exact re-validation-at-approval-time edge case the task specified and
+  per-domain cross-client isolation in both directions) plus the full 20-file, 0-failure
+  regression suite, needing zero `reload()` insertions anywhere. Browser-verified live end to
+  end: real crypto and bank withdrawal requests submitted (including the real thrown
+  over-limit error via toast), both approved from the real admin UI (one at a PM-edited
+  amount, correctly flagged "differs" in History), both real transactions confirmed rendering
+  correctly everywhere, and a final live cross-client isolation spot-check confirmed zero
+  leakage. Zero console errors. See `Marketswave_Project_Handover.md` §4.68 for the full
+  writeup.
+- **Deposit Wiring fix — `deploy-capital.html`'s two Deposit forms genuinely call
+  `requestDeposit()`** (`deploy-capital.html` + `admin-deposits.html`, Aug 22, 2026): closes
+  the real gap found and reported at the end of Client Withdrawal (row 31) — the Crypto and
+  Bank Deposit forms had never called `requestDeposit()` at all, confirmed still accurate by
+  reading the current handlers before touching anything. **A real signature mismatch caught
+  before writing code**: the task described `requestDeposit(clientId, ...)`, but the actual
+  function is `requestDeposit(method, amount, currency, details)` — AMBIENT, no `clientId`
+  parameter, exactly like `requestAllocation()`/`requestSell()` (unlike `requestWithdrawal()`,
+  deliberately built explicit-clientId one task earlier). Changing the signature would be an
+  unrequested breaking change to an already-shipped function — resolved by calling it exactly
+  as it exists; identity resolution is already correct post-Client-Authentication via
+  `getCurrentClientId()`, which `dashboard-sidebar.js`'s Phase 3 guard already pins to the
+  real authenticated client. `getAuthenticatedClientId()` WAS applied where it genuinely fits:
+  corrected the pre-existing Withdraw handler's `requestWithdrawal(getCurrentClientId(), ...)`
+  to `requestWithdrawal(getAuthenticatedClientId(), ...)`, since that function does take an
+  explicit clientId. Wired using the just-built Withdraw handler as the direct reference —
+  same file, same submit-handler shape, same try/catch-into-toast error handling. "My
+  Withdrawal Requests" renamed to "My Funding Requests" (chosen over "My Deposit & Withdrawal
+  Requests" for brevity) and merged with real Deposit history in one shared render. **Audit
+  requested, one real finding reported**: `admin-deposits.html`'s `humanizeKey()`/
+  `detailsHTML()` comment referenced the pre-fix gap as its reason for schema-agnostic
+  rendering — updated (comment only; the code needed no change, already generic by
+  construction). `engine-core.js` was not touched — `requestDeposit()` already worked, it
+  just had no real caller; full 20-file, 0-failure regression suite re-run to confirm.
+  Browser-verified live, the complete flow — not Crypto as a stand-in for both: a real Crypto
+  deposit confirmed via direct `getAllClientDepositRequests()`/`getDepositRequests()`
+  inspection (not just the UI toast) as a genuine pending request; an independently-submitted
+  real Bank deposit confirmed with all destination fields persisted; both credited from the
+  real `admin-deposits.html` UI (one at a PM-edited amount), both transactions landing
+  correctly on `dashboard.html` alongside the pre-existing withdrawal entries. Zero real
+  console errors. See `Marketswave_Project_Handover.md` §4.69 for the full writeup.
+- **New Client Application Review — a 7th Approval Gate queue** (`engine-core.js` +
+  `login.html` + new `admin-client-applications.html` + `admin-sidebar.js` + `admin.html` +
+  `signup.html`, Aug 22, 2026): closes the gap where a client created via `signup.html` was
+  immediately indistinguishable from an admin-created one, with nothing marking them as
+  pending PM review (row 3). Confirmed before building that `signup.html` calls the exact
+  same `addClient()` function `admin-clients.html`'s own Add Client form uses, and confirmed
+  exactly which fields it persists (`name`/`email`/`phone`/`accountType` only — the rest of
+  the signup form's own data is collected but never stored, a separate pre-existing gap
+  flagged, not fixed, here). Client Registry gains a `status` field (`'pending_review'` /
+  `'active'` / `'rejected'`) plus `applicationResolvedAt`/`applicationReason`; `addClient()`
+  defaults `status` to `'active'` — a PM creating a client directly via Client List's own form
+  IS the review, per the decision made; `signup.html` is the one caller that explicitly
+  overrides this to `'pending_review'`, which wins since `clientFields` is spread after the
+  default. `approveClientApplication(clientId)` / `rejectClientApplication(clientId, reason)`
+  resolve it — **judgment call, decided and reported per the task's own stated instinct**: a
+  rejected application is kept, never deleted, same "show everything, never silently delete"
+  principle already used for rejected allocation/sell/deposit/withdrawal requests throughout
+  this project. `getPendingClientApplications()` lists what's awaiting review.
+  **Architecturally distinct from every other Approval Gate queue**: the Client Registry is
+  already global/unscoped (one array, not a per-client-scoped store), so unlike deposits/
+  withdrawals/sells/allocations/HYS-deposits there is no separate ambient-vs-cross-client-
+  aggregator split needed here — `getPendingClientApplications()` already sees every
+  applicant in one read. **Backward compatibility, explicitly designed and verified**: every
+  client created before this feature shipped has no `status` field at all; the login-gate
+  check tests for an exact match on `'pending_review'`/`'rejected'` to block, rather than
+  requiring `'active'` to allow, so a missing/undefined status passes through unaffected —
+  confirmed against a real precondition (CLIENT-0001's actual `status === undefined`), not
+  assumed. `login.html`'s real credential check (Client Authentication Phase 2) now checks
+  status after `verifyClientCredentials()` succeeds but before `setClientAuthenticated()` —
+  `'pending_review'` shows "Your application is under review. We'll notify you once it's
+  approved."; `'rejected'` shows "We were unable to approve your application. Please contact
+  support for more information." (both reuse the existing `#login-error` element). New
+  `admin-client-applications.html` (Pending list with real submitted signup data,
+  Approve-confirm-modal mirroring `admin-allocations.html`'s own pattern, Reject-with-reason,
+  History filtered by `applicationResolvedAt` being set — deliberately excluding
+  admin-created clients, which never have that field set), positioned first in the Approval
+  Gate nav group (ahead of Deposits) and a new Overview card. Node-verified first (40
+  assertions, including the core security property verified directly rather than assumed —
+  a signup-path client genuinely blocked from authenticating even with fully correct
+  credentials, confirmed via a direct session-state check, not just the return value looking
+  right — and cross-client isolation via byte-for-byte comparison) plus the full 21-file,
+  0-failure regression suite. Browser-verified live, the complete flow: signed up as a brand
+  new applicant through the real 7-step form (including real document uploads), confirmed a
+  genuine new client was created `pending_review`; immediately attempted login with those
+  exact credentials, confirmed blocked with the correct message and no session set; approved
+  from the real admin UI; logged in again with the identical credentials, confirmed success
+  this time, correctly showing the newly-approved client's own real (empty) portfolio —
+  proving Client Authentication Phase 3's identity pin also works for a freshly-approved
+  client, not just the seeded demo. Zero console errors. See
+  `Marketswave_Project_Handover.md` §4.70 for the full writeup.
+- **Onboarding Data Capture** (`engine-core.js` + `signup.html` +
+  `admin-client-applications.html`, Aug 22, 2026): closes the remaining data-loss gap New
+  Client Application Review's own build surfaced — `signup.html`'s steps 3-8 (entity/
+  joint-holder details, financial profile, goals & preferences, the 6-question risk
+  questionnaire, two document uploads) were collected by the form and thrown away, never
+  persisted; only `name`/`email`/`phone`/`accountType` survived into `addClient()`. New
+  client-scoped store, `marketswave_client_onboarding:<clientId>`, deliberately separate
+  from the Client Registry record and from `SETTINGS_PROFILE_KEY` — same reasoning as every
+  other domain-specific profile store in this file staying separate rather than bloating one
+  record with unrelated fields. `saveClientOnboardingData(clientId, data)`/
+  `getClientOnboardingData(clientId)` are explicit-clientId-only, stateless set/get — no
+  ambient fallback, mirroring `resetClientPassword()`'s own pattern rather than
+  `getSettingsProfile()`'s optional-clientId one, since `signup.html`'s new client isn't the
+  active session yet (not authenticated at signup time) and admin review always needs one
+  specific applicant, never "whichever client happens to be active." `getClientOnboardingData()`
+  returns `null` (not an empty object) for a client with nothing saved, letting the admin page
+  distinguish "no data exists" (an application predating this feature) from "data exists but
+  empty." Document uploads are stored as filename + a fixed documentType label only, never
+  real file bytes — same scoped-stub approach Documents & Reporting already uses. A new
+  `collectOnboardingData()` helper in `signup.html` reads every field directly from the
+  actual form markup (confirmed by reading the file before writing any code, not assumed) —
+  entity/joint sections conditional on the same `accountType` variable that already decides
+  which of steps 3/4 renders; the submit handler calls `saveClientOnboardingData()` alongside
+  the existing `addClient()` call, gated behind the same fail-closed `typeof` check pattern.
+  `admin-client-applications.html`'s Pending list gained a "View Details"/"Hide Details"
+  expand toggle per row (mirroring `admin-clients.html`'s own expand-in-place pattern)
+  rendering Entity Details or Joint Account Holder (whichever applies), Financial Profile,
+  Goals & Preferences, all 6 Risk Questionnaire answers, and both uploaded document
+  filenames — human-readable labels copied verbatim from `signup.html`'s own option text,
+  **a documented duplication, the same low-risk category already flagged for
+  `admin-settings-changes.html`'s own copy of `settings.html`'s formatting logic**, since no
+  shared display-formatting module exists in this project. An application with no onboarding
+  record (submitted before this feature shipped) shows a distinct, honest empty state rather
+  than blank/undefined fields. Node-verified first (34 assertions: round-trip correctness
+  across individual/entity/joint applicant shapes, `null` for a client with no saved data,
+  defensive copies confirmed in both directions — mutating the caller's input after saving
+  and mutating the read's return value both leave the real stored record untouched,
+  cross-client isolation via byte-for-byte comparison, required-clientId enforcement on both
+  functions, a clean overwrite on resubmission) plus the full 22-file, 0-failure regression
+  suite. Browser-verified live, the complete flow: signed up as a new Entity/Business
+  applicant ("Cascade Ventures LLC") through the real 7-step form with real, distinct answers
+  at every step (Entity Details, Financial Profile, Goals & Preferences, all 6 Risk
+  Questionnaire questions, two real uploaded files); confirmed via a direct
+  `getClientOnboardingData()` console call (not UI inspection) that every field
+  round-tripped byte-for-byte correctly; confirmed the same data renders correctly, section
+  by section with the correct human-readable labels, in the admin review page's new
+  expandable detail panel. Zero console errors. See `Marketswave_Project_Handover.md` §4.71
+  for the full writeup.
 
 ## Locked — do not restructure without explicit sign-off
 
@@ -1103,7 +1339,7 @@ deposits. Everything else (allocation math, PM approval, interest accrual, docum
 storage, notifications, risk profile persistence, auth, sessions) is in-house engineering.
 
 **Backend Requirements Register:** every frontend stub above is logged in
-`Marketswave_Project_Handover.md` section 3.1 (51 items as of Aug 21, 2026, split into
+`Marketswave_Project_Handover.md` section 3.1 (55 items as of Aug 22, 2026, split into
 in-house work vs. genuinely external data). Add a new row the same session you build a
 new stub — don't leave it for a later cleanup pass.
 
@@ -1421,24 +1657,156 @@ in as a different client, since reconciling `marketswave_authenticated_client_id
 `Marketswave_Project_Handover.md` §4.65 for the full writeup. Backend Requirements Register
 row 51.
 
-**Next**: Client Authentication Phase 3 — retire `dashboard-sidebar.js`'s hardcoded
-CLIENT-0001 pin so every dashboard page actually reflects `getAuthenticatedClientId()`
-instead of always showing CLIENT-0001 regardless of who logged in — deliberately not
-started, tracked in row 51. Also still exposed by Phase 1: a client created via self-signup
-today has no PM review queue and is immediately indistinguishable from an admin-created one
-(row 3). Further
-client-selector UX work at higher client counts, if ever needed — the
-earlier perf report found no slowdown at 50 clients, and this redesign already added
-search/filter, so this stays non-urgent. A deliberate, explicitly-labeled "correct a
-starting-price typo" override for the Product Catalog, if that turns out to be a genuine
-operational need — flagged, not built, per the Edit Product judgment call in §4.63.
-Longer-term: a real backend so admin actions and multi-client data persist beyond this
-browser's `localStorage`; a real login/auth system with real PM accounts and real
-backend-verified credentials — the Admin Login Gate is explicitly a client-side stub, not a
-substitute for this. See the
-handover doc §5, §9 for the fuller forward-path discussion (note: §9's table predates both
-this phase and Admin Tool Phase B, and is stale in places — the Tech Stack log here and
-§4.41-§4.65 are the current source of truth).
+**Client Authentication, Phase 3 — COMPLETE** (Aug 21, 2026, the highest-risk step of the
+whole build): `dashboard-sidebar.js`'s file-load-time pin no longer unconditionally sets
+CLIENT-0001 — it reads the real `getAuthenticatedClientId()` session (raw key) and pins
+`marketswave_current_client_id` to whichever real client authenticated, redirecting to
+`login.html` immediately if nobody did, on all 9 locked-sidebar pages plus
+`asset-collection.html`. A defense-in-depth guard was added inside `initDashboardSidebar()`
+itself, mirroring `initAdminSidebar()`'s own second check. `wireLogoutLinks()`'s previously
+documented no-op now genuinely clears the real session (`clearClientAuthentication()` plus
+the ambient pin) — required by this phase's own "logout then reload doesn't restore access"
+verification, not scope creep. No `engine-core.js` changes were needed. A real, deliberately
+out-of-scope cosmetic gap was flagged, not fixed: the sidebar footer ("John Doe"/"JD") and
+`dashboard.html`'s greeting stay hardcoded regardless of who really logged in — confirmed live
+that this is cosmetic only, not a data leak, since every real portfolio figure already
+resolves correctly. Node-verified first (16 assertions, loading the REAL `engine-core.js` and
+REAL `dashboard-sidebar.js` source against a minimal fake DOM) plus the full 18-file,
+0-failure regression suite. Browser-verified live, the complete chain: all 10 client-facing
+pages redirect correctly when unauthenticated; CLIENT-0001 and a second real client
+(CLIENT-0004, genuinely empty portfolio) both resolve correctly with zero cross-leakage; real
+Logout clears the session and a post-logout reload doesn't restore access; and the admin
+tool's "View as this Client" is confirmed genuinely independent, with a bonus proof that
+navigating to a client page from an admin tab now correctly redirects instead of leaking the
+admin's ambient client — permanently closing the same-tab admin-to-client leak class
+§4.44/§4.45 had to fix once already. Zero console errors. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.66 for the full writeup. Backend Requirements Register
+row 52. **Client Authentication is now fully complete end to end** (signup → credential
+storage → real login → real per-client dashboard resolution → real logout).
+
+**Identity display fix — COMPLETE** (Aug 22, 2026): the sidebar footer, `dashboard.html`'s
+greeting, `settings.html`'s profile card, and `support.html`'s callback modal/live chat all
+now read the real authenticated client's own name/initials/account type via the new
+`getClientInitials(name)` (business-name-aware — legal suffixes stripped before splitting, so
+`"Riverstone Holdings LLC"` → `"RH"`). Grepping the whole project first surfaced two more
+genuine hardcodes beyond the two originally flagged (`settings.html`'s profile header,
+`support.html`'s `DEMO_USER_NAME`), both fixed too. Browser-verified live with a brand-new
+client created through the real signup flow ("Marcus Chen") showing their own name/initials
+everywhere, not "John Doe." See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.67 for the full writeup. Backend Requirements Register
+row 53.
+
+**Client Withdrawal — COMPLETE** (Aug 22, 2026): a 6th Approval Gate queue,
+`marketswave_withdrawal_requests`, mirroring the deposit request/approve pattern for money
+leaving the account, built cross-client/stateless from day one. New `admin-withdrawals.html`
+and a real "Withdraw Funds" flow on `deploy-capital.html` (in-form Crypto/Bank toggle, an
+"Available to withdraw" guard rail, a new "My Withdrawal Requests" section).
+`approveWithdrawal()` re-validates `unallocatedCapital` at approval time, same
+oversell-protection discipline as `approveSellRequest()`; `approvedAmount` stays PM-editable,
+a judgment call decided and reported. **A real, pre-existing gap found and reported before
+building the client UI**: `deploy-capital.html`'s two Deposit forms have never actually
+called `requestDeposit()` — confirmed by reading the file directly — left untouched as a
+separate, unscoped item (Backend Requirements Register row 31, updated). `transactions.html`/
+`dashboard.html`'s rendering consumers were all extended for `WITHDRAWAL` from the start, not
+retrofitted after a bug the way `DEPOSIT` originally was. Node-verified first (49 assertions,
+including the exact re-validation-at-approval-time edge case specified and per-domain
+cross-client isolation in both directions) plus the full 20-file, 0-failure regression suite.
+Browser-verified live end to end, including the real thrown over-limit error, a PM-edited
+approval amount, correct rendering across every transaction consumer, and a final live
+cross-client isolation spot-check. Zero console errors. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.68 for the full writeup. Backend Requirements Register
+row 54.
+
+**Deposit Wiring fix — COMPLETE** (Aug 22, 2026): `deploy-capital.html`'s two Deposit forms
+now genuinely call `requestDeposit()`, closing the gap Client Withdrawal found and reported
+(row 31). A real signature mismatch was caught before writing code — `requestDeposit()` is
+ambient (no `clientId` parameter), unlike `requestWithdrawal()` — resolved by calling it as
+it actually exists rather than changing its signature; `getAuthenticatedClientId()` was
+applied to the Withdraw handler's own explicit-clientId call instead, correcting it from
+`getCurrentClientId()`. "My Withdrawal Requests" renamed to "My Funding Requests" and merged
+with real Deposit history. Audit requested and reported: `admin-deposits.html`'s
+`humanizeKey()`/`detailsHTML()` comment referencing the pre-fix gap was updated (code needed
+no change, already schema-agnostic). Browser-verified live: independent real Crypto and Bank
+deposits confirmed via direct engine inspection (not just UI toasts) as genuine pending
+records, both credited from the real admin UI, both transactions landing correctly on
+`dashboard.html`. Zero console errors. See the Tech Stack entry above and
+`Marketswave_Project_Handover.md` §4.69 for the full writeup. Backend Requirements Register
+row 55.
+
+**New Client Application Review — COMPLETE** (Aug 22, 2026): a 7th Approval Gate queue,
+closing the row-3 gap — a client created via `signup.html` was immediately indistinguishable
+from an admin-created one, with nothing marking them as pending PM review. Client Registry
+gains a `status` field (`'pending_review'` / `'active'` / `'rejected'`) — `addClient()`
+defaults to `'active'` (a PM creating a client directly IS the review); `signup.html` is the
+one caller that overrides this to `'pending_review'`. `approveClientApplication(clientId)`/
+`rejectClientApplication(clientId, reason)` resolve it (rejected applications are kept, never
+deleted, same "show everything" principle as every other rejected request in this project);
+`getPendingClientApplications()` lists what's awaiting review — no separate ambient-vs-
+cross-client-aggregator split needed here, since the Client Registry is already
+global/unscoped. `login.html`'s real credential check now blocks authentication entirely for
+`'pending_review'`/`'rejected'` status, checked after credentials verify but before
+`setClientAuthenticated()` — correct credentials alone are not enough. A missing/undefined
+status (every client created before this feature shipped) is deliberately treated the same
+as `'active'`, not migrated, so no pre-existing client is retroactively locked out — verified
+against a real precondition (CLIENT-0001), not assumed. New `admin-client-applications.html`
+(Pending/Approve-confirm-modal/Reject-with-reason/History), positioned first in the Approval
+Gate nav group. Node-verified first (40 assertions, including the core security property —
+a signup-path client genuinely blocked from authenticating even with fully correct
+credentials — verified directly via a session-state check, not assumed from the code looking
+right) plus the full 21-file, 0-failure regression suite. Browser-verified live, the complete
+flow: signed up as a brand new applicant through the real 7-step form, confirmed blocked
+login with the correct message and no session set, approved from the real admin UI, and
+confirmed a second login with the identical credentials succeeded, correctly showing the
+newly-approved client's own real portfolio. Zero console errors. See
+`Marketswave_Project_Handover.md` §4.70 for the full writeup. Backend Requirements Register
+row 56.
+
+**Onboarding Data Capture — COMPLETE** (Aug 22, 2026): closes the remaining data-loss gap
+New Client Application Review's own build surfaced — `signup.html`'s steps 3-8 (entity/
+joint-holder details, financial profile, goals & preferences, the 6-question risk
+questionnaire, two document uploads) were collected by the form and thrown away, never
+persisted. New client-scoped store, `marketswave_client_onboarding:<clientId>`, separate
+from the Client Registry record and from `SETTINGS_PROFILE_KEY`, same reasoning as every
+other domain-specific profile store in this file. `saveClientOnboardingData(clientId,
+data)`/`getClientOnboardingData(clientId)` are explicit-clientId-only, stateless set/get (no
+ambient fallback — `signup.html`'s new client isn't the active session yet, and admin review
+always needs one specific applicant). Document uploads are stored as filename + a fixed
+documentType label only, never real file bytes — same scoped-stub approach Documents &
+Reporting already uses. `signup.html`'s submit handler now calls this alongside
+`addClient()`, reading every field from the actual form markup (confirmed by reading the
+file directly). `admin-client-applications.html`'s Pending list gained a "View Details"
+expand toggle (mirroring `admin-clients.html`'s own expand-in-place pattern) rendering
+Financial Profile, Goals & Preferences, all 6 Risk Questionnaire answers, Entity Details or
+Joint Account Holder (whichever applies), and both uploaded document filenames, with
+human-readable labels matching `signup.html`'s own option text — a documented duplication,
+same low-risk category as `admin-settings-changes.html`'s existing copy of `settings.html`'s
+formatting logic. Node-verified first (34 assertions: round-trip correctness across
+individual/entity/joint applicant shapes, `null` for a client with no saved data, defensive
+copies confirmed in both directions, cross-client isolation, required-clientId enforcement,
+clean overwrite on resubmission) plus the full 22-file, 0-failure regression suite.
+Browser-verified live, the complete flow: signed up as a new Entity/Business applicant
+through the real 7-step form with real, distinct answers at every step; confirmed via a
+direct `getClientOnboardingData()` call (not UI inspection) that every field round-tripped
+byte-for-byte correctly; confirmed the same data renders correctly, section by section, in
+the admin review page's new expandable detail panel. Zero console errors. See
+`Marketswave_Project_Handover.md` §4.71 for the full writeup. Backend Requirements Register
+row 57.
+
+**Next**: row 3 (Onboarding) is now fully closed — no outstanding gap remains for onboarding
+data capture or PM review. Real file storage (the uploaded documents' actual bytes, not just
+filename metadata) remains a genuinely backend-dependent need, already tracked separately in
+the Documents & Reporting register rows. Further client-selector UX work at higher client
+counts, if ever needed — the earlier perf report found no slowdown at 50 clients, and this
+redesign already added search/filter, so this stays non-urgent. A deliberate,
+explicitly-labeled "correct a starting-price typo" override for the Product Catalog, if that
+turns out to be a genuine operational need — flagged, not built, per the Edit Product
+judgment call in §4.63. Longer-term: a real backend so admin actions and multi-client data
+persist beyond this browser's `localStorage`; a real login/auth system with real PM accounts
+and real backend-verified credentials for BOTH the admin tool and the client site — both are
+explicitly client-side stubs, not substitutes for this. See the handover doc §5, §9 for the
+fuller forward-path discussion (note: §9's table predates both this phase and Admin Tool
+Phase B, and is stale in places — the Tech Stack log here and §4.41-§4.71 are the current
+source of truth).
 
 ## Known structural debt
 

@@ -217,7 +217,17 @@
       toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
     }
 
-    const DEMO_USER_NAME = 'John Doe';
+    // Identity display fix (Aug 22, 2026): this used to be a hardcoded constant regardless of
+    // who Phase 3 actually authenticated. getAuthenticatedClientId() is guaranteed non-null
+    // here — the shared dashboard-sidebar.js guard already redirected to login.html otherwise,
+    // and this page's own script only runs after that. Falls back to 'Client' only if
+    // something is genuinely wrong (e.g. engine-core.js failed to load), never silently to
+    // "John Doe".
+    const CURRENT_CLIENT_NAME = (function () {
+      if (typeof getClient !== 'function' || typeof getAuthenticatedClientId !== 'function') return 'Client';
+      const client = getClient(getAuthenticatedClientId());
+      return client ? client.name : 'Client';
+    })();
 
     // ---- Request a Callback ----
     (function () {
@@ -236,7 +246,7 @@
       }
 
       function openModal() {
-        nameInput.value = DEMO_USER_NAME;
+        nameInput.value = CURRENT_CLIENT_NAME;
         phoneInput.value = defaultPhone();
         timeInput.value = 'Morning';
         errorEl.classList.add('hidden');
@@ -331,7 +341,7 @@
         addMessage('Connecting you to an agent...', 'system');
         setTimeout(() => {
           statusEl.textContent = 'Online';
-          const firstName = DEMO_USER_NAME.split(' ')[0];
+          const firstName = CURRENT_CLIENT_NAME.split(' ')[0];
           addMessage(`Hi ${firstName}, this is Sarah from Marketswave Support. How can I help you today?`, 'agent');
         }, 1500);
       }

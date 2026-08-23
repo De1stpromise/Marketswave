@@ -114,6 +114,7 @@
                 <option value="Sell">Sell</option>
                 <option value="Deposit">Deposit</option>
                 <option value="HYS Deposit">HYS Deposit</option>
+                <option value="Withdrawal">Withdrawal</option>
               </select>
             </div>
             <div>
@@ -215,16 +216,20 @@
       var allTransactions = getTransactionLedger().slice().reverse();
 
       function txnProduct(txn) { return txn.productId ? getProduct(txn.productId) : null; }
-      // A DEPOSIT/HYS_DEPOSIT has no product — no buy/sell target, nothing to look up — so
-      // each gets its own label instead of falling through to a failed product lookup (which
-      // used to render the literal text "null" for DEPOSIT before that was fixed — HYS_DEPOSIT
-      // is handled here proactively from day one rather than repeating that bug).
+      // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL has no product — no buy/sell target, nothing to
+      // look up — so each gets its own label instead of falling through to a failed product
+      // lookup (which used to render the literal text "null" for DEPOSIT before that was
+      // fixed — HYS_DEPOSIT and WITHDRAWAL are both handled here proactively from day one
+      // rather than repeating that bug).
       function txnProductName(txn) {
         if (txn.type === 'DEPOSIT') {
           return 'Cash Deposit (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
         }
         if (txn.type === 'HYS_DEPOSIT') {
           return 'HYS Pocket Funding (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
+        }
+        if (txn.type === 'WITHDRAWAL') {
+          return 'Cash Withdrawal (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
         }
         var p = txnProduct(txn);
         return p ? p.name : txn.productId;
@@ -233,6 +238,7 @@
         if (txn.type === 'BUY') return 'Buy';
         if (txn.type === 'SELL') return 'Sell';
         if (txn.type === 'HYS_DEPOSIT') return 'HYS Deposit';
+        if (txn.type === 'WITHDRAWAL') return 'Withdrawal';
         return 'Deposit';
       }
 
@@ -326,23 +332,25 @@
         if (volumeCanvas) volumeCanvas.parentElement.innerHTML = '<p class="text-sm text-slate-400 h-full flex items-center justify-center">No transaction history yet.</p>';
         if (cashflowCanvas) cashflowCanvas.parentElement.innerHTML = '<p class="text-sm text-slate-400 h-full flex items-center justify-center">No transaction history yet.</p>';
       } else if (typeof Chart !== 'undefined') {
-        // Transaction Volume measures buy/sell TRADING activity, so DEPOSIT is deliberately
-        // excluded from buys/sells entirely — it's funding, not a trade. Net Cash Flow is
-        // genuinely about money entering/leaving the account, so DEPOSIT counts there as a
-        // positive inflow alongside sells.
+        // Transaction Volume measures buy/sell TRADING activity, so DEPOSIT/WITHDRAWAL are
+        // deliberately excluded from buys/sells entirely — they're funding movements, not
+        // trades. Net Cash Flow is genuinely about money entering/leaving the account, so
+        // DEPOSIT counts as a positive inflow (alongside sells) and WITHDRAWAL counts as a
+        // negative outflow (alongside buys) — the exact mirror-image treatment of DEPOSIT.
         var monthly = {};
         allTransactions.forEach(function (txn) {
           var key = monthKey(txn.date);
-          if (!monthly[key]) monthly[key] = { buys: 0, sells: 0, deposits: 0 };
+          if (!monthly[key]) monthly[key] = { buys: 0, sells: 0, deposits: 0, withdrawals: 0 };
           if (txn.type === 'BUY') monthly[key].buys += txn.totalValue;
           else if (txn.type === 'SELL') monthly[key].sells += txn.totalValue;
           else if (txn.type === 'DEPOSIT') monthly[key].deposits += txn.totalValue;
+          else if (txn.type === 'WITHDRAWAL') monthly[key].withdrawals += txn.totalValue;
         });
         var monthKeys = Object.keys(monthly).sort();
         var labels = monthKeys.map(monthLabel);
         var buysData = monthKeys.map(function (k) { return Math.round(monthly[k].buys); });
         var sellsData = monthKeys.map(function (k) { return Math.round(monthly[k].sells); });
-        var netData = monthKeys.map(function (k) { return Math.round(monthly[k].sells + monthly[k].deposits - monthly[k].buys); });
+        var netData = monthKeys.map(function (k) { return Math.round(monthly[k].sells + monthly[k].deposits - monthly[k].buys - monthly[k].withdrawals); });
 
         if (volumeCanvas) {
           new Chart(volumeCanvas.getContext('2d'), {
@@ -421,6 +429,7 @@
             var badgeClass = txn.type === 'BUY' ? 'bg-emerald-50 text-emerald-700'
               : txn.type === 'SELL' ? 'bg-red-50 text-red-600'
               : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
+              : txn.type === 'WITHDRAWAL' ? 'bg-orange-50 text-orange-700'
               : 'bg-blue-50 text-blue-700';
             var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
             var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
@@ -488,12 +497,14 @@
         var isSell = txn.type === 'SELL';
         var isDeposit = txn.type === 'DEPOSIT';
         var isHysDeposit = txn.type === 'HYS_DEPOSIT';
+        var isWithdrawal = txn.type === 'WITHDRAWAL';
         document.getElementById('txn-modal-asset').textContent = txnProductName(txn);
         document.getElementById('txn-modal-date').textContent = txn.date;
         document.getElementById('txn-modal-type').textContent = txnTypeLabel(txn);
         document.getElementById('txn-modal-status').textContent = txn.status;
-        // A DEPOSIT/HYS_DEPOSIT has no units or unit price — nothing was bought — so those
-        // fields show "—" instead of calling .toFixed() on null, which used to throw.
+        // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL has no units or unit price — nothing was bought
+        // or sold — so those fields show "—" instead of calling .toFixed() on null, which
+        // used to throw.
         document.getElementById('txn-modal-qty').textContent = txn.units != null ? txn.units.toFixed(4) : '—';
         document.getElementById('txn-modal-price').textContent = txn.price != null ? formatUSD(txn.price, 2) : '—';
         // The engine executes exactly at the settled unit price — no separate slippage or
@@ -514,14 +525,16 @@
         }
 
         // Every real transaction today is only ever created via executeBuy()/executeSell()/
-        // creditDepositRequest()/creditHYSDeposit(), each only ever called internally by an
-        // approved allocation/sell/deposit/HYS-deposit request — so this note is accurate
-        // given current wiring, not fabricated. Worth revisiting if a future phase calls any
-        // of these from anywhere else.
+        // creditDepositRequest()/creditHYSDeposit()/approveWithdrawal(), each only ever
+        // called internally by an approved allocation/sell/deposit/HYS-deposit/withdrawal
+        // request — so this note is accurate given current wiring, not fabricated. Worth
+        // revisiting if a future phase calls any of these from anywhere else.
         document.getElementById('txn-modal-note').textContent = isDeposit
           ? 'Credited following Portfolio Manager confirmation of a deposit request.'
           : isHysDeposit
           ? 'Credited following Portfolio Manager confirmation of a High Yield Savings deposit request.'
+          : isWithdrawal
+          ? 'Processed following Portfolio Manager approval of a withdrawal request.'
           : isSell
           ? 'Executed following Portfolio Manager approval of a sell request.'
           : 'Executed following Portfolio Manager approval of an allocation request.';

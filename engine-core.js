@@ -81,7 +81,66 @@
 //             (clientId)/getAuthenticatedClientId()/clearClientAuthentication() are
 //             sessionStorage-backed, mirroring setAdminAuthenticated()/isAdminAuthenticated()/
 //             clearAdminAuthenticated() exactly. login.html now performs a real credential
-//             check; dashboard-sidebar.js's CLIENT-0001 pin is still untouched (Phase 3).
+//             check; dashboard-sidebar.js's CLIENT-0001 pin was still untouched at this point
+//             (retired next, Phase 3, immediately below).
+//   Client Authentication, Phase 3 (Aug 21, 2026): dashboard-sidebar.js's file-load-time
+//             pin no longer unconditionally sets CLIENT-0001 — it now reads
+//             getAuthenticatedClientId() (via a raw sessionStorage key, same reasoning as
+//             every other file-load-time check in this project) and pins to THAT client, or
+//             redirects to login.html if nobody is authenticated. No engine-core.js changes
+//             were needed for this phase; Phase 2 already exposed everything it consumes.
+//   Identity display fix (Aug 22, 2026): Phase 3 wired real per-client session resolution,
+//             but 4 places (dashboard-sidebar.js's footer, dashboard.html's greeting,
+//             settings.html's profile card, support.html's callback modal + live chat) still
+//             showed hardcoded "John Doe"/"JD" regardless of who really authenticated. New
+//             getClientInitials(name) generates real avatar initials for both a person
+//             ("John Doe" -> "JD") and a business-style name (legal suffixes like LLC/INC/CORP
+//             are stripped before splitting, so "Riverstone Holdings LLC" -> "RH", not "RL").
+//   Client Withdrawal (Aug 22, 2026): a 6th Approval Gate queue, mirroring the deposit
+//             request/approve pattern for money leaving the account. Built stateless from
+//             the start (no module-level cache anywhere in this domain, including the
+//             client-facing requestWithdrawal() itself, which takes an explicit clientId
+//             rather than being ambient like requestAllocation()/requestSell()/
+//             requestDeposit() are). approveWithdrawal() re-validates unallocatedCapital at
+//             approval time, same oversell-protection discipline as approveSellRequest().
+//             Extends the transaction type set with WITHDRAWAL — transactions.html/
+//             dashboard.html's rendering consumers (ledger table, drill-down modal, both
+//             charts, Recent Activity on both pages) were updated for it from the start,
+//             not retrofitted after the fact the way DEPOSIT's own rendering bug was.
+//   New Client Application Review (Aug 22, 2026): closes the gap where a client created via
+//             signup.html was immediately indistinguishable from an admin-created one, with
+//             nothing marking them as pending PM review. addClient() gains a status field —
+//             defaults to 'active' (a PM calling it directly IS the review); signup.html is
+//             the one caller that explicitly overrides this to 'pending_review'.
+//             approveClientApplication(clientId)/rejectClientApplication(clientId, reason)
+//             resolve it (rejected applications are kept, status 'rejected', never deleted —
+//             same "show everything" principle as every other rejected request in this
+//             project); getPendingClientApplications() lists what's awaiting review. Unlike
+//             every other Approval Gate queue, the Client Registry is already global/
+//             unscoped, so there is no separate ambient-vs-cross-client-aggregator split
+//             needed here. login.html's real credential check (Client Auth Phase 2) now
+//             blocks authentication entirely for 'pending_review'/'rejected' status, checked
+//             AFTER credentials verify but BEFORE setClientAuthenticated() — a client can
+//             have the exactly correct password and still not be let in. A missing/undefined
+//             status (every client created before this feature shipped) is deliberately
+//             treated the same as 'active', not migrated, so no pre-existing client is
+//             retroactively locked out.
+//   Onboarding Data Capture (Aug 22, 2026): closes the signup-data-loss gap New Client
+//             Application Review's own build surfaced and reported — signup.html's steps
+//             3-8 (entity/joint-holder details, financial profile, goals & preferences, the
+//             6-question risk questionnaire, two document uploads) were collected by the
+//             form and then thrown away, never persisted. New client-scoped store,
+//             marketswave_client_onboarding:<clientId>, separate from the Client Registry
+//             record and from SETTINGS_PROFILE_KEY, same reasoning as every other
+//             domain-specific profile store in this file. saveClientOnboardingData(clientId,
+//             data)/getClientOnboardingData(clientId) are explicit-clientId, stateless
+//             set/get (no ambient fallback — signup.html's new client isn't the active
+//             session yet, and admin review always needs one specific applicant). Document
+//             uploads are stored as filename + document-type metadata only, never real file
+//             bytes — same scoped-stub approach Documents & Reporting already uses.
+//             signup.html's submit handler now calls this alongside addClient();
+//             admin-client-applications.html's Pending list renders it so a PM has real
+//             financial-profile/risk-questionnaire/document data to review, not just a name.
 //
 // This is the foundational data model every later engine phase (allocation requests, PM
 // approval, transaction feed, etc.) will build on. Both phases so far deliberately do NOT
@@ -117,6 +176,12 @@
 //   creditDepositRequest(clientId, requestId, confirmedAmount),
 //   rejectDepositRequest(clientId, requestId, reason) — explicit clientId
 //   getDepositRequests() — ambient reader; getAllClientDepositRequests() — cross-client
+//   requestWithdrawal(clientId, method, amount, currency, destinationDetails) — explicit
+//     clientId (Aug 22, 2026) — NOT ambient, unlike requestAllocation()/requestSell()/
+//     requestDeposit() above
+//   approveWithdrawal(clientId, requestId, approvedAmount),
+//   rejectWithdrawal(clientId, requestId, reason) — explicit clientId
+//   getWithdrawalRequests() — ambient reader; getAllClientWithdrawalRequests() — cross-client
 //   requestHYSDeposit(pocketType, term, amount, method, details) — ambient (client-facing)
 //   creditHYSDeposit(clientId, requestId, confirmedAmount),
 //   rejectHYSDeposit(clientId, requestId, reason) — explicit clientId
@@ -150,7 +215,9 @@
 //   getClientSecurityState(clientId?) — ambient by default (client-facing settings.html);
 //   clearForcePasswordReset() — ambient only, called by the client's own forced-reset form
 //   getClientPendingApprovalCount(clientId)
-//   getAllClients(), getClient(id), getClientByEmail(email), addClient(client)
+//   getAllClients(), getClient(id), getClientByEmail(email), getClientInitials(name),
+//   addClient(client) — client.status defaults to 'active'; pass status: 'pending_review'
+//   explicitly to opt into the New Client Application Review flow below (signup.html does)
 //   ---- Client Authentication, Phase 1 (Aug 21, 2026): credential storage — does NOT touch
 //   dashboard-sidebar.js's CLIENT-0001 pin (Phase 3).
 //   hashClientPassword(rawPassword) — async, the only place a raw password briefly exists
@@ -159,11 +226,29 @@
 //   ---- Client Authentication, Phase 2 (Aug 21, 2026): real login check + session — see the
 //   phase-log entry above. login.html's own submit handler now calls these for real.
 //   setClientAuthenticated(clientId), getAuthenticatedClientId(), clearClientAuthentication()
+//   ---- Client Authentication, Phase 3 (Aug 21, 2026): no new engine-core.js functions — see
+//   the phase-log entry above. dashboard-sidebar.js and its Logout handler are the only
+//   callers of the Phase 2 trio above that changed.
+//   ---- Identity display fix (Aug 22, 2026): dashboard-sidebar.js's footer, dashboard.html's
+//   greeting, settings.html's profile card, and support.html's callback modal/live-chat
+//   greeting all previously hardcoded "John Doe"/"JD" regardless of who Phase 3 actually
+//   authenticated — now all four read the real client via getClient(getAuthenticatedClientId()).
+//   getClientInitials(name) — pure, name-based (no accountType needed); strips legal-entity
+//   suffixes (LLC/INC/CORP/etc.) before splitting so a business name's own words drive the
+//   initials, not a bare "LLC".
 //   ---- Admin Login Gate (Aug 21, 2026): UI-level stub, not real authentication — see the
 //   comment above ADMIN_PASSPHRASE for the full honesty callout.
 //   checkAdminPassphrase(input), setAdminAuthenticated(), isAdminAuthenticated(),
 //   clearAdminAuthenticated() — sessionStorage-backed, same pattern as
 //   getCurrentClientId()/setCurrentClientId()
+//   ---- New Client Application Review (Aug 22, 2026): see the phase-log entry above.
+//   approveClientApplication(clientId), rejectClientApplication(clientId, reason),
+//   getPendingClientApplications() — no ambient/cross-client split needed, the Client
+//   Registry is already global. login.html's own submit handler checks client.status before
+//   calling setClientAuthenticated().
+//   ---- Onboarding Data Capture (Aug 22, 2026): see the phase-log entry above.
+//   saveClientOnboardingData(clientId, data), getClientOnboardingData(clientId) — explicit
+//   clientId only, stateless, document uploads stored as filename/type metadata only.
 //   engineDebugDump()  — console-only, manual verification, no page should call this
 (function () {
   const CATALOG_KEY = 'marketswave_product_catalog';
@@ -173,6 +258,13 @@
   const TRANSACTIONS_KEY = 'marketswave_transactions';
   const SELL_REQUESTS_KEY = 'marketswave_sell_requests';
   const DEPOSIT_REQUESTS_KEY = 'marketswave_deposit_requests';
+  // Client Withdrawal (Aug 22, 2026) — a 6th Approval Gate queue, mirroring the deposit
+  // request/approve pattern for money leaving the account instead of entering it. Built
+  // stateless-per-call from the very start (no module-level cache anywhere in this domain,
+  // not even for the client-facing request functions) — the exact discipline Security
+  // Actions/Client Authentication already proved out, so this domain never needs the
+  // Approval Gate unification's own retrofit conversion later. See requestWithdrawal() below.
+  const WITHDRAWAL_REQUESTS_KEY = 'marketswave_withdrawal_requests';
   // Moved up from its old position further down the file (Multi-Client Data Model Phase,
   // Step 2, Aug 21, 2026) — needs to be visible to the migration sweep below, which runs
   // before the Documents store's own load-or-seed block does.
@@ -263,6 +355,14 @@
     address: { street: '482 Harborview Lane', city: 'Boston', state: 'MA', zip: '02110', country: 'United States' },
     idDocument: { documentType: 'Passport', fileName: null }
   };
+  // Onboarding Data Capture (Aug 22, 2026): everything signup.html's steps 3-8 collect
+  // beyond the four Client Registry fields (name/email/phone/accountType) — previously
+  // gathered by the form and thrown away at submit time (the gap flagged in Backend
+  // Requirements Register row 3). Deliberately its own client-scoped store, not folded into
+  // the Client Registry record or SETTINGS_PROFILE_KEY, same reasoning as every other
+  // domain-specific profile store in this file (risk profile, settings profile) staying
+  // separate rather than bloating one record with unrelated fields.
+  const ONBOARDING_KEY = 'marketswave_client_onboarding';
 
   // Total Portfolio Value currently hardcoded on dashboard.html. Used only at first-seed
   // time to derive unallocatedCapital = this minus the seeded holdings' value, so
@@ -1358,6 +1458,159 @@
     }, []);
   }
 
+  // ---- Client Withdrawal request queue (Aug 22, 2026) -----------------------------------
+  // Mirrors the deposit request/approve pattern exactly (a client's requestWithdrawal() must
+  // not move money by itself, only approveWithdrawal() does), but for money LEAVING the
+  // account. Built stateless from day one: EVERY function here, including the client-facing
+  // requestWithdrawal(), takes an explicit clientId and does a direct scoped
+  // read/modify/write via readRequestsForClient()/writeRequestsForClient() — there is no
+  // module-level withdrawalRequests array, unlike depositRequests/sellRequests/
+  // allocationRequests above (which the Approval Gate unification had to retrofit-fix once
+  // already for exactly this reason). getWithdrawalRequests() below is the one
+  // "ambient-shaped" exception — a convenience for the client-facing page, which still
+  // resolves getCurrentClientId() fresh on every call rather than caching anything.
+  //
+  // JUDGMENT CALL on approveWithdrawal()'s PM-editable amount, decided and reported per
+  // instruction: kept PM-editable (approvedAmount, not request.requestedAmount, is
+  // authoritative), for two reasons — (1) interaction consistency: every other "resolve an
+  // amount-based request" action in this tool (creditDepositRequest, creditHYSDeposit)
+  // already uses a PM-editable confirmed amount, and the Credit/Approve modal UI pattern
+  // both admin pages already share assumes an editable field; making withdrawal the one
+  // exception would need a different modal shape for no strong reason. (2) A PM might
+  // legitimately need to approve LESS than requested for a real business reason (a
+  // compliance/liquidity hold releasing only part of a request, or correcting a client's own
+  // data-entry mistake) even though, unlike a deposit, there's no EXTERNAL settlement
+  // uncertainty on this side — the debit from unallocatedCapital is fully within this
+  // engine's own control, not subject to incoming wire fees/FX/partial-transfer ambiguity.
+  // That's the real counter-argument for making request.requestedAmount authoritative
+  // instead (reject any approveWithdrawal() call that doesn't exactly match it) — flagged
+  // here as a legitimate alternative design, not dismissed, but the interaction-consistency
+  // argument won out for this pass.
+  function requestWithdrawal(clientId, method, amount, currency, destinationDetails) {
+    if (!clientId) throw new Error('requestWithdrawal requires a clientId.');
+    if (method !== 'crypto' && method !== 'bank') {
+      throw new Error('method must be either "crypto" or "bank".');
+    }
+    if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+      throw new Error('Withdrawal amount must be a positive number.');
+    }
+    if (!currency) {
+      throw new Error('currency is required.');
+    }
+
+    // Can't withdraw money that isn't sitting liquid — if it's allocated into a holding, it
+    // needs to be sold first (a separate, already-existing flow). Checked against THIS
+    // client's CURRENT unallocatedCapital, read fresh — never the ambient module-level
+    // accountState, even when clientId happens to be the currently active client.
+    const clientAccountState = readAccountStateForClient(clientId);
+    if (amount > clientAccountState.unallocatedCapital + 1e-9) {
+      throw new Error('Withdrawal amount exceeds current unallocated capital.');
+    }
+
+    const clientRequests = readRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId);
+    const request = {
+      id: nextSequentialId(clientRequests, 'WITHDRAW'),
+      clientId: clientId,
+      method: method,
+      requestedAmount: round2(amount),
+      currency: currency,
+      destinationDetails: destinationDetails || null,
+      status: 'pending',
+      requestedAt: todayStrUTC(),
+      requestedAtMs: Date.now(), // for stable cross-type sort ordering, same as every other request queue
+      resolvedAt: null,
+      approvedAmount: null,
+      transactionId: null,
+      reason: null
+    };
+    clientRequests.push(request);
+    writeRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  // Re-validates against the client's CURRENT unallocatedCapital at approval time, not just
+  // what was true at request time — same re-validation discipline as approveSellRequest()'s
+  // oversell protection. Two pending withdrawal requests that each individually looked valid
+  // when requested (requestWithdrawal() only ever checks against unallocatedCapital as it
+  // stood at THAT moment, never against other still-pending withdrawal requests — the same
+  // "stricter but simple" choice requestAllocation() already made) can still combine into an
+  // over-withdrawal if approved back-to-back; this throws rather than driving the balance
+  // negative. A WITHDRAWAL transaction has no productId/units/price, just totalValue/date/
+  // method — same shape as DEPOSIT.
+  function approveWithdrawal(clientId, requestId, approvedAmount) {
+    const clientRequests = readRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
+    if (!request) throw new Error('Unknown withdrawal request: ' + requestId);
+    if (request.status !== 'pending') {
+      throw new Error('Withdrawal request ' + requestId + ' is not pending (status: ' + request.status + ').');
+    }
+    if (typeof approvedAmount !== 'number' || !isFinite(approvedAmount) || approvedAmount <= 0) {
+      throw new Error('approvedAmount must be a positive number.');
+    }
+
+    const clientAccountState = readAccountStateForClient(clientId);
+    if (approvedAmount > clientAccountState.unallocatedCapital + 1e-9) {
+      throw new Error('Cannot approve withdrawal ' + requestId + ': only ' +
+        clientAccountState.unallocatedCapital + ' unallocated capital remains, but ' +
+        approvedAmount + ' was requested to approve.');
+    }
+
+    clientAccountState.unallocatedCapital = round2(clientAccountState.unallocatedCapital - approvedAmount);
+    writeAccountStateForClient(clientId, clientAccountState);
+
+    const txnId = appendTransactionForClient(clientId, {
+      date: todayStrUTC(),
+      productId: null,
+      type: 'WITHDRAWAL',
+      units: null,
+      price: null,
+      totalValue: round2(approvedAmount),
+      realizedReturn: null,
+      status: 'Completed',
+      method: request.method
+    });
+
+    request.status = 'approved';
+    request.resolvedAt = todayStrUTC();
+    request.approvedAmount = round2(approvedAmount);
+    request.transactionId = txnId;
+    writeRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  function rejectWithdrawal(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
+    if (!request) throw new Error('Unknown withdrawal request: ' + requestId);
+    if (request.status !== 'pending') {
+      throw new Error('Withdrawal request ' + requestId + ' is not pending (status: ' + request.status + ').');
+    }
+    request.status = 'rejected';
+    request.resolvedAt = todayStrUTC();
+    request.reason = reason || null;
+    writeRequestsForClient(WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  // Client-facing ambient convenience — reads getCurrentClientId() fresh on every call
+  // (never cached), same defensive-copy + requestedAtMs-backfill treatment as
+  // getDepositRequests()/getSellRequests().
+  function getWithdrawalRequests() {
+    return readRequestsForClient(WITHDRAWAL_REQUESTS_KEY, getCurrentClientId()).map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation, admin-facing — mirrors getAllClientDepositRequests() exactly.
+  function getAllClientWithdrawalRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(WITHDRAWAL_REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
+  }
+
   // ---- HYS Deposit Approval Queue -------------------------------------------------------
   // Mirrors requestDeposit()/creditDepositRequest()/rejectDepositRequest()/getDepositRequests()
   // exactly in discipline (request now, execute later; PM-confirmed amount is authoritative,
@@ -1910,17 +2163,17 @@
   }
 
   // ---- Client Management page — per-client Approval Gate pending count (Aug 21, 2026) -----
-  // Sums pending items across exactly the 5 "Approval Gate" queues (Deposits, Allocations,
-  // Sells, HYS Deposits, Client Profile Updates — the same 5 queues admin-sidebar.js's own
-  // 'approval-gate' nav group lists, §4.53), for one arbitrary client, on demand, without
-  // switching the active session — same discipline as getAccountState(clientId?) above.
-  // Deposits/Allocations/Sells/HYS are normally read via their own ambient-scoped getters
-  // (getDepositRequests() etc., which only ever return the CURRENTLY ACTIVE client's own
-  // requests) — this function bypasses that entirely and reads each store's raw scoped key
-  // directly, the same way getAllClientDocuments()/getAllClientSupportRequests() already do
-  // for their own domains, so a client that isn't currently active still gets an accurate
-  // count. Documents/Support are deliberately excluded — they belong to the
-  // 'user-admin-relations' nav group, not 'approval-gate'.
+  // Sums pending items across the 6 "Approval Gate" queues (Deposits, Allocations, Sells,
+  // HYS Deposits, Client Profile Updates, Withdrawals — the same 6 queues admin-sidebar.js's
+  // own 'approval-gate' nav group lists, §4.53/Client Withdrawal Aug 22, 2026), for one
+  // arbitrary client, on demand, without switching the active session — same discipline as
+  // getAccountState(clientId?) above. Deposits/Allocations/Sells/HYS are normally read via
+  // their own ambient-scoped getters (getDepositRequests() etc., which only ever return the
+  // CURRENTLY ACTIVE client's own requests) — this function bypasses that entirely and reads
+  // each store's raw scoped key directly, the same way getAllClientDocuments()/
+  // getAllClientSupportRequests() already do for their own domains, so a client that isn't
+  // currently active still gets an accurate count. Documents/Support are deliberately
+  // excluded — they belong to the 'user-admin-relations' nav group, not 'approval-gate'.
   function getClientPendingApprovalCount(clientId) {
     function countPending(baseKey) {
       const key = scopedKeyForClient(baseKey, clientId);
@@ -1929,7 +2182,7 @@
     }
     return countPending(REQUESTS_KEY) + countPending(SELL_REQUESTS_KEY) +
       countPending(DEPOSIT_REQUESTS_KEY) + countPending(HYS_DEPOSIT_REQUESTS_KEY) +
-      countPending(SETTINGS_CHANGE_REQUESTS_KEY);
+      countPending(SETTINGS_CHANGE_REQUESTS_KEY) + countPending(WITHDRAWAL_REQUESTS_KEY);
   }
 
   function getTransactionLedger() {
@@ -2115,6 +2368,28 @@
     return client ? Object.assign({}, client) : null;
   }
 
+  // Identity display fix (Aug 22, 2026) — a real client's name has to become a real 2-letter
+  // avatar initial, for both a person ("John Doe" -> "JD") and a business-style name that
+  // won't split into first/last the same way. LEGAL_ENTITY_SUFFIXES are stripped BEFORE
+  // splitting, not after, so "Riverstone Holdings LLC" produces "RH" (Riverstone + Holdings)
+  // rather than "RL" (Riverstone + the bare word "LLC") — the suffix carries no identifying
+  // information, unlike "Holdings", which is a real, meaningful part of the business's own
+  // name and is deliberately left in place. A single remaining word (either a one-word name,
+  // or a multi-word legal name reduced to one word after stripping a suffix) falls back to
+  // its own first two characters, the same fallback a single-name person (e.g. "Madonna")
+  // would need. Pure name-based — does not need accountType passed in, so any caller with
+  // just a name string can use it.
+  const LEGAL_ENTITY_SUFFIXES = ['LLC', 'INC', 'CORP', 'LTD', 'LLP', 'LP', 'PLC', 'PC'];
+  function getClientInitials(name) {
+    if (!name || typeof name !== 'string') return '';
+    const words = name.trim().split(/\s+/).filter(function (w) {
+      return LEGAL_ENTITY_SUFFIXES.indexOf(w.replace(/[.,]/g, '').toUpperCase()) === -1;
+    });
+    if (words.length === 0) return '';
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+
   // Multi-Client Data Model Phase, Step 5 (Aug 21, 2026): writes a fresh, minimal set of
   // per-client stores directly to the NEW client's scoped keys — deliberately bypassing
   // clientScopedKey()/getCurrentClientId() (which still resolve to whichever client is
@@ -2144,19 +2419,117 @@
 
   // startingUnallocatedCapital is accepted as an input field purely to seed the new client's
   // account state — it is NOT part of the Client Registry's own record shape (name, email,
-  // phone, accountType, id, createdAt), so it's destructured out here rather than spread
-  // into newClient, keeping every persisted client record's fields consistent regardless of
-  // whether a caller passed it.
+  // phone, accountType, id, createdAt, status, applicationResolvedAt, applicationReason), so
+  // it's destructured out here rather than spread into newClient, keeping every persisted
+  // client record's fields consistent regardless of whether a caller passed it.
+  //
+  // New Client Application Review (Aug 22, 2026): status defaults to 'active' — a PM calling
+  // addClient() directly (Client List's own Add Client form, and every pre-existing Node
+  // test caller) IS itself the review, per the decision made; no separate approval step for
+  // an admin-created client. signup.html is the one caller that explicitly overrides this by
+  // passing status: 'pending_review' in its own client object — since clientFields is spread
+  // AFTER this default, an explicit status in the caller's input always wins. Existing
+  // clients created before this feature shipped have no status field at all (not migrated —
+  // see the login-gate check below, which deliberately treats a missing/undefined status the
+  // same as 'active' rather than requiring an exact match, so no pre-existing client is
+  // retroactively locked out). applicationResolvedAt/applicationReason start null and are
+  // only ever set by approveClientApplication()/rejectClientApplication() below.
   function addClient(client) {
     const startingUnallocatedCapital = client.startingUnallocatedCapital || 0;
     const clientFields = Object.assign({}, client);
     delete clientFields.startingUnallocatedCapital;
 
-    const newClient = Object.assign({ createdAt: todayStrUTC() }, clientFields, { id: nextSequentialId(clients, 'CLIENT') });
+    const newClient = Object.assign(
+      { createdAt: todayStrUTC(), status: 'active', applicationResolvedAt: null, applicationReason: null },
+      clientFields,
+      { id: nextSequentialId(clients, 'CLIENT') }
+    );
     clients.push(newClient);
     persistClients();
     seedMinimalClientStores(newClient.id, startingUnallocatedCapital);
     return newClient;
+  }
+
+  // ---- New Client Application Review (Aug 22, 2026) -------------------------------------
+  // Closes the gap where a client created via signup.html was immediately indistinguishable
+  // from an admin-created one, with nothing marking them as "pending PM review" (Backend
+  // Requirements Register row 3). The Client Registry is already global/unscoped (one array,
+  // not a per-client-scoped store), so unlike every other Approval Gate queue there is no
+  // "ambient vs. cross-client aggregator" distinction needed here — getPendingClientApplications()
+  // below already sees every client's application in one read, the same way getAllClients()
+  // always has. Stateless by construction (the whole Client Registry is read/written as one
+  // unit, same as every other function in this section), consistent with the discipline every
+  // domain since the Approval Gate unification has followed.
+  //
+  // JUDGMENT CALL, decided and reported per instruction: a rejected application is kept, not
+  // deleted — status becomes 'rejected', same "show everything, never silently delete"
+  // principle already used for rejected allocation/sell/deposit/withdrawal requests
+  // throughout this project. No disagreement with the instinct stated in the task.
+  function approveClientApplication(clientId) {
+    const client = clients.find(function (c) { return c.id === clientId; });
+    if (!client) throw new Error('Unknown client: ' + clientId);
+    if (client.status !== 'pending_review') {
+      throw new Error('Client ' + clientId + ' is not pending review (status: ' + client.status + ').');
+    }
+    client.status = 'active';
+    client.applicationResolvedAt = todayStrUTC();
+    persistClients();
+    return Object.assign({}, client);
+  }
+
+  function rejectClientApplication(clientId, reason) {
+    const client = clients.find(function (c) { return c.id === clientId; });
+    if (!client) throw new Error('Unknown client: ' + clientId);
+    if (client.status !== 'pending_review') {
+      throw new Error('Client ' + clientId + ' is not pending review (status: ' + client.status + ').');
+    }
+    client.status = 'rejected';
+    client.applicationResolvedAt = todayStrUTC();
+    client.applicationReason = reason || null;
+    persistClients();
+    return Object.assign({}, client);
+  }
+
+  function getPendingClientApplications() {
+    return clients.filter(function (c) { return c.status === 'pending_review'; })
+      .map(function (c) { return Object.assign({}, c); });
+  }
+
+  // ---- Onboarding Data Capture (Aug 22, 2026) --------------------------------------------
+  // Closes the signup-data-loss gap flagged when New Client Application Review shipped (row
+  // 3, updated note): signup.html's steps 3-8 collect entity/joint-holder details, financial
+  // profile, goals & preferences, a 6-question risk questionnaire, and two document uploads
+  // — none of it was ever persisted, only name/email/phone/accountType survived into
+  // addClient(). Explicit clientId only (no ambient fallback, mirroring
+  // resetClientPassword()'s own pattern) — signup.html calls this for a client that was
+  // never made the active session (they aren't authenticated yet at signup time), and the
+  // admin review page always needs an arbitrary specific applicant's data, never "whichever
+  // client happens to be active." Stateless — a direct scoped read/write per call, no
+  // module-level cache, same discipline as every domain since the Approval Gate unification.
+  //
+  // Document uploads are stored as metadata only (fileName + a documentType label) — never
+  // actual file bytes. Same scoped-stub approach Documents & Reporting already uses
+  // elsewhere in this project (real file storage is a genuinely backend-dependent need,
+  // already tracked in the Backend Requirements Register); attempting to serialize real file
+  // content into localStorage would also risk blowing its size quota on anything but a
+  // trivially small test file.
+  function saveClientOnboardingData(clientId, data) {
+    if (!clientId) throw new Error('clientId is required.');
+    const key = scopedKeyForClient(ONBOARDING_KEY, clientId);
+    const record = Object.assign({}, data, { savedAt: todayStrUTC() });
+    localStorage.setItem(key, JSON.stringify(record));
+    return Object.assign({}, record);
+  }
+
+  // Returns null (not an empty object) when nothing was ever saved for this client — lets a
+  // caller (e.g. admin-client-applications.html, reviewing an application submitted before
+  // this feature shipped) distinguish "no onboarding data exists" from "onboarding data
+  // exists but every field happens to be empty."
+  function getClientOnboardingData(clientId) {
+    if (!clientId) throw new Error('clientId is required.');
+    const key = scopedKeyForClient(ONBOARDING_KEY, clientId);
+    const stored = safeParse(localStorage.getItem(key));
+    return stored ? Object.assign({}, stored) : null;
   }
 
   // ---- Account State + Holdings API ----------------------------------------
@@ -2439,7 +2812,13 @@
   window.getAllClients = getAllClients;
   window.getClient = getClient;
   window.getClientByEmail = getClientByEmail;
+  window.getClientInitials = getClientInitials;
   window.addClient = addClient;
+  window.approveClientApplication = approveClientApplication;
+  window.rejectClientApplication = rejectClientApplication;
+  window.getPendingClientApplications = getPendingClientApplications;
+  window.saveClientOnboardingData = saveClientOnboardingData;
+  window.getClientOnboardingData = getClientOnboardingData;
   window.hashClientPassword = hashClientPassword;
   window.setClientCredentials = setClientCredentials;
   window.verifyClientCredentials = verifyClientCredentials;
@@ -2480,6 +2859,11 @@
   window.rejectDepositRequest = rejectDepositRequest;
   window.getDepositRequests = getDepositRequests;
   window.getAllClientDepositRequests = getAllClientDepositRequests;
+  window.requestWithdrawal = requestWithdrawal;
+  window.approveWithdrawal = approveWithdrawal;
+  window.rejectWithdrawal = rejectWithdrawal;
+  window.getWithdrawalRequests = getWithdrawalRequests;
+  window.getAllClientWithdrawalRequests = getAllClientWithdrawalRequests;
   window.requestHYSDeposit = requestHYSDeposit;
   window.creditHYSDeposit = creditHYSDeposit;
   window.rejectHYSDeposit = rejectHYSDeposit;

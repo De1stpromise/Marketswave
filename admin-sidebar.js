@@ -69,10 +69,29 @@ if (!__adminAuthenticated) {
       group: 'dashboard'
     },
     {
+      // New Client Application Review (Aug 22, 2026) — positioned first in the group,
+      // ahead of Deposits: whether a client should exist at all comes before anything they
+      // might request.
+      key: 'client-applications',
+      href: 'admin-client-applications.html',
+      label: 'Client Applications',
+      icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+      group: 'approval-gate'
+    },
+    {
       key: 'deposits',
       href: 'admin-deposits.html',
       label: 'Deposits',
       icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+      group: 'approval-gate'
+    },
+    {
+      // Client Withdrawal (Aug 22, 2026) — positioned directly after Deposits, its natural
+      // pair (money in / money out), rather than at the end of the group.
+      key: 'withdrawals',
+      href: 'admin-withdrawals.html',
+      label: 'Withdrawals',
+      icon: 'M17 8l4 4m0 0l-4 4m4-4H3',
       group: 'approval-gate'
     },
     {

@@ -445,6 +445,28 @@
                 if (submitBtn) submitBtn.disabled = false;
                 return;
               }
+              // New Client Application Review (Aug 22, 2026): checked AFTER credentials
+              // verify but BEFORE setClientAuthenticated() — correct credentials alone are
+              // not enough to reach the dashboard while an application is still pending or
+              // was rejected. A missing/undefined status (every client created before this
+              // feature shipped, including the CLIENT-0001 demo account) is deliberately
+              // treated the same as 'active' — only an explicit 'pending_review' or
+              // 'rejected' value blocks login, so no pre-existing client is retroactively
+              // locked out. Reuses the same #login-error element/styling as the generic
+              // credential-failure case rather than introducing new UI for this message
+              // class.
+              if (authenticatedClient.status === 'pending_review') {
+                loginError.textContent = 'Your application is under review. We’ll notify you once it’s approved.';
+                loginError.classList.add('is-visible');
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
+              if (authenticatedClient.status === 'rejected') {
+                loginError.textContent = 'We were unable to approve your application. Please contact support for more information.';
+                loginError.classList.add('is-visible');
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
               setClientAuthenticated(authenticatedClient.id);
               loadingScreen.classList.add('is-active');
               setTimeout(function () {

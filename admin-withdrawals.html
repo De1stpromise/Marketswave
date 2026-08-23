@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deposits — Marketswave PM Tool</title>
+  <title>Withdrawals — Marketswave PM Tool</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -36,8 +36,8 @@
       <main class="flex-1 overflow-y-auto p-8">
 
         <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Deposits</h2>
-          <p class="text-slate-500 mt-1">Client-submitted deposit requests, awaiting credit confirmation.</p>
+          <h2 class="text-2xl font-semibold text-slate-900">Withdrawals</h2>
+          <p class="text-slate-500 mt-1">Client-submitted withdrawal requests, awaiting approval.</p>
         </div>
 
         <!-- Pending -->
@@ -60,21 +60,21 @@
     </div>
   </div>
 
-  <!-- Credit modal -->
-  <div id="credit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/60" id="credit-modal-backdrop"></div>
+  <!-- Approve modal -->
+  <div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="approve-modal-backdrop"></div>
     <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
       <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Credit Deposit</p>
-        <button type="button" id="credit-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+        <p class="text-lg font-semibold text-slate-900">Approve Withdrawal</p>
+        <button type="button" id="approve-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Client requested <span class="font-medium text-slate-900" id="credit-requested-label"></span>. Enter the actual confirmed amount landing in the account — this may differ due to fees, FX, or a partial transfer.</p>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Confirmed Amount (USD)</label>
-      <input type="number" id="credit-amount-input" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-1" />
-      <p class="text-xs text-red-500 hidden mb-2" id="credit-error"></p>
+      <p class="text-sm text-slate-500 mb-4">Client requested <span class="font-medium text-slate-900" id="approve-requested-label"></span>. Enter the amount to actually approve — editable in case a compliance hold or correction means less than the full requested amount should be released.</p>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Approved Amount (USD)</label>
+      <input type="number" id="approve-amount-input" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-1" />
+      <p class="text-xs text-red-500 hidden mb-2" id="approve-error"></p>
       <div class="flex gap-3 mt-4">
-        <button type="button" id="credit-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="credit-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Credit Deposit</button>
+        <button type="button" id="approve-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="approve-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Approve Withdrawal</button>
       </div>
     </div>
   </div>
@@ -84,7 +84,7 @@
     <div class="absolute inset-0 bg-black/60" id="reject-modal-backdrop"></div>
     <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
       <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Reject Deposit</p>
+        <p class="text-lg font-semibold text-slate-900">Reject Withdrawal</p>
         <button type="button" id="reject-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
@@ -107,16 +107,16 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script>
-    initAdminSidebar('deposits');
+    initAdminSidebar('withdrawals');
   </script>
 
   <script>
     (function () {
-      if (typeof getAllClientDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof getAllClientWithdrawalRequests !== 'function') return; // engine-core.js failed to load — bail defensively
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
-        credited: 'bg-emerald-50 text-emerald-700',
+        approved: 'bg-emerald-50 text-emerald-700',
         rejected: 'bg-red-50 text-red-700'
       };
       var METHOD_STYLES = {
@@ -142,14 +142,10 @@
         return '$' + Math.round(n).toLocaleString();
       }
 
-      // Renders an opaque `details` object as label: value lines without assuming a fixed
-      // shape. `deploy-capital.html`'s two Deposit forms now genuinely call requestDeposit()
-      // (Deposit Wiring fix, Aug 22, 2026) — this stayed schema-agnostic rather than being
-      // hardcoded to that real shape once it existed, since destinationDetails-style opaque
-      // objects are this project's established pattern for admin-side rendering of
-      // client-submitted request data (see admin-withdrawals.html's own identical
-      // humanizeKey()/detailsHTML() pair). Humanizes camelCase keys (e.g. "walletAddress" ->
-      // "Wallet Address").
+      // Renders destinationDetails (crypto address/network, or bank account info) as label:
+      // value lines without assuming a fixed shape — mirrors admin-deposits.html's own
+      // detailsHTML()/humanizeKey() exactly, since destinationDetails is the same kind of
+      // opaque, client-provided object requestDeposit()'s details always was.
       function humanizeKey(key) {
         return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); });
       }
@@ -163,13 +159,13 @@
       }
 
       function renderPending() {
-        var requests = getAllClientDepositRequests().filter(function (r) { return r.status === 'pending'; })
+        var requests = getAllClientWithdrawalRequests().filter(function (r) { return r.status === 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
         if (requests.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No pending deposit requests.</p>';
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No pending withdrawal requests.</p>';
           return;
         }
 
@@ -184,18 +180,18 @@
                 '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</p>' +
-              '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
+              '<div class="mt-1 space-y-0.5">' + detailsHTML(r.destinationDetails) + '</div>' +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
               '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="credit-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Credit</button>' +
+              '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Approve</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
       }
 
       function renderHistory() {
-        var requests = getAllClientDepositRequests().filter(function (r) { return r.status !== 'pending'; })
+        var requests = getAllClientWithdrawalRequests().filter(function (r) { return r.status !== 'pending'; })
           .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
         var listEl = document.getElementById('history-list');
 
@@ -209,7 +205,7 @@
           '<th class="text-left font-medium px-6 py-3">Request</th>' +
           '<th class="text-left font-medium px-6 py-3">Method</th>' +
           '<th class="text-right font-medium px-6 py-3">Requested</th>' +
-          '<th class="text-right font-medium px-6 py-3">Credited</th>' +
+          '<th class="text-right font-medium px-6 py-3">Approved</th>' +
           '<th class="text-left font-medium px-6 py-3">Status</th>' +
           '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
           '</tr></thead><tbody class="divide-y divide-slate-100">' +
@@ -217,8 +213,8 @@
             var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
-            var creditedCell = r.status === 'credited'
-              ? formatUSD(r.creditedAmount) + (Math.round(r.creditedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
+            var approvedCell = r.status === 'approved'
+              ? formatUSD(r.approvedAmount) + (Math.round(r.approvedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
               : '—';
             var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
@@ -226,7 +222,7 @@
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + methodLabel + '</td>' +
               '<td class="px-6 py-4 text-right text-slate-500">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</td>' +
-              '<td class="px-6 py-4 text-right text-slate-900">' + creditedCell + '</td>' +
+              '<td class="px-6 py-4 text-right text-slate-900">' + approvedCell + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
               '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
             '</tr>';
@@ -238,37 +234,37 @@
         renderHistory();
       }
 
-      // ---- Credit modal ----
-      var creditModal = document.getElementById('credit-modal');
-      var creditAmountInput = document.getElementById('credit-amount-input');
-      var creditError = document.getElementById('credit-error');
-      var creditRequestedLabel = document.getElementById('credit-requested-label');
-      var activeCreditClientId = null;
-      var activeCreditId = null;
+      // ---- Approve modal ----
+      var approveModal = document.getElementById('approve-modal');
+      var approveAmountInput = document.getElementById('approve-amount-input');
+      var approveError = document.getElementById('approve-error');
+      var approveRequestedLabel = document.getElementById('approve-requested-label');
+      var activeApproveClientId = null;
+      var activeApproveId = null;
 
-      function openCreditModal(clientId, id, requested, currency) {
-        activeCreditClientId = clientId;
-        activeCreditId = id;
-        creditRequestedLabel.textContent = Number(requested).toLocaleString() + ' ' + currency;
-        creditAmountInput.value = requested;
-        creditError.classList.add('hidden');
-        creditModal.classList.remove('hidden');
+      function openApproveModal(clientId, id, requested, currency) {
+        activeApproveClientId = clientId;
+        activeApproveId = id;
+        approveRequestedLabel.textContent = Number(requested).toLocaleString() + ' ' + currency;
+        approveAmountInput.value = requested;
+        approveError.classList.add('hidden');
+        approveModal.classList.remove('hidden');
       }
-      function closeCreditModal() { creditModal.classList.add('hidden'); activeCreditClientId = null; activeCreditId = null; }
+      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveClientId = null; activeApproveId = null; }
 
-      document.getElementById('credit-modal-close').addEventListener('click', closeCreditModal);
-      document.getElementById('credit-modal-backdrop').addEventListener('click', closeCreditModal);
-      document.getElementById('credit-cancel').addEventListener('click', closeCreditModal);
-      document.getElementById('credit-submit').addEventListener('click', function () {
-        var amount = parseFloat(creditAmountInput.value);
+      document.getElementById('approve-modal-close').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
+      document.getElementById('approve-submit').addEventListener('click', function () {
+        var amount = parseFloat(approveAmountInput.value);
         try {
-          var result = creditDepositRequest(activeCreditClientId, activeCreditId, amount);
-          closeCreditModal();
-          showToast('Deposit Credited', result.id + ' — $' + result.creditedAmount.toLocaleString() + ' added to unallocated capital.');
+          var result = approveWithdrawal(activeApproveClientId, activeApproveId, amount);
+          closeApproveModal();
+          showToast('Withdrawal Approved', result.id + ' — $' + result.approvedAmount.toLocaleString() + ' debited from unallocated capital.');
           renderAll();
         } catch (e) {
-          creditError.textContent = e.message;
-          creditError.classList.remove('hidden');
+          approveError.textContent = e.message;
+          approveError.classList.remove('hidden');
         }
       });
 
@@ -293,9 +289,9 @@
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
         try {
-          var result = rejectDepositRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+          var result = rejectWithdrawal(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
           closeRejectModal();
-          showToast('Deposit Rejected', result.id + ' has been rejected.', true);
+          showToast('Withdrawal Rejected', result.id + ' has been rejected.', true);
           renderAll();
         } catch (e) {
           rejectError.textContent = e.message;
@@ -305,9 +301,9 @@
 
       // ---- Delegated click handlers for row buttons ----
       document.getElementById('pending-list').addEventListener('click', function (e) {
-        var creditBtn = e.target.closest('.credit-btn');
-        if (creditBtn) {
-          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.currency);
+        var approveBtn = e.target.closest('.approve-btn');
+        if (approveBtn) {
+          openApproveModal(approveBtn.dataset.client, approveBtn.dataset.id, approveBtn.dataset.requested, approveBtn.dataset.currency);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');

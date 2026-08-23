@@ -1223,22 +1223,87 @@
     // real client record via addClient() and stores a real hashed credential via
     // hashClientPassword()/setClientCredentials() — previously this just navigated to
     // thank-you.html with nothing persisted at all (confirmed by reading this file before
-    // starting this phase). Deliberately does NOT touch login.html's own check or
-    // dashboard-sidebar.js's CLIENT-0001 pin — those are Phases 2/3; a client created here
-    // exists for real in the Client Registry, but nothing yet lets them actually log in AS
-    // that client instead of the pinned demo client.
+    // starting this phase). login.html's own check and the real per-client dashboard
+    // pin arrived in later phases (2/3), both now complete — see engine-core.js's own
+    // phase-log for the full history. New Client Application Review (Aug 22, 2026): the
+    // client created here now starts status: 'pending_review', not immediately able to log
+    // in — see the addClient() call below and login.html's own status check. Onboarding Data
+    // Capture (Aug 22, 2026): steps 3-8's own form data (entity/joint details, financial
+    // profile, goals & preferences, risk questionnaire, document filenames) is now genuinely
+    // saved via saveClientOnboardingData(), not just collected and discarded — see
+    // collectOnboardingData() below.
     const ACCOUNT_TYPE_LABELS = {
       individual: 'Individual Account',
       joint: 'Joint Account',
       entity: 'Business Account'
     };
 
+    // Onboarding Data Capture (Aug 22, 2026): reads whatever steps 3-8 actually collected —
+    // conditional entity/joint sections included, since accountType decides which of those
+    // two ever rendered — and hands it to saveClientOnboardingData() alongside the existing
+    // addClient() call. Field-name-to-selector mapping here matches this file's own <input
+    // name="..."> attributes exactly (read directly from the markup above, not assumed).
+    // Document uploads store filename + a fixed documentType label only — this file never
+    // had access to real file bytes beyond what the browser's file input exposes, and the
+    // engine doesn't persist them either (see the ONBOARDING_KEY comment in engine-core.js).
+    function collectOnboardingData() {
+      function val(selector) {
+        const el = document.querySelector(selector);
+        return el ? el.value.trim() : '';
+      }
+      function radioVal(name) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : '';
+      }
+      function uploadedFileName(uploadKey) {
+        const box = document.querySelector(`.upload-box[data-upload="${uploadKey}"]`);
+        const filenameEl = box ? box.querySelector('.upload-filename') : null;
+        return filenameEl && !filenameEl.hidden ? filenameEl.textContent.trim() : null;
+      }
+
+      return {
+        entityDetails: accountType === 'entity' ? {
+          name: val('input[name="entity_name"]'),
+          registrationNumber: val('input[name="registration_number"]'),
+          incorporationCountry: val('input[name="incorporation_country"]'),
+          role: val('input[name="entity_role"]')
+        } : null,
+        jointHolder: accountType === 'joint' ? {
+          name: val('input[name="joint_name"]'),
+          email: val('input[name="joint_email"]'),
+          phone: val('input[name="joint_phone"]')
+        } : null,
+        financialProfile: {
+          investableAssets: radioVal('investable_assets'),
+          sourceOfWealth: radioVal('source_of_wealth'),
+          employment: val('input[name="employment"]')
+        },
+        goalsPreferences: {
+          investmentGoal: val('select[name="investment_goal"]'),
+          timeHorizon: val('select[name="time_horizon"]'),
+          riskComfort: val('select[name="risk_comfort"]')
+        },
+        riskQuestionnaire: {
+          knowledge: radioVal('risk_knowledge'),
+          reaction: radioVal('risk_reaction'),
+          objective: radioVal('risk_objective'),
+          horizon: radioVal('risk_horizon'),
+          liquidity: radioVal('risk_liquidity'),
+          experience: radioVal('risk_experience')
+        },
+        documents: {
+          idDocument: { fileName: uploadedFileName('id'), documentType: 'Government-issued Photo ID' },
+          proofOfAddress: { fileName: uploadedFileName('address'), documentType: 'Proof of Address' }
+        }
+      };
+    }
+
     const submitBtn = document.getElementById("btn-submit");
     if (submitBtn) {
       submitBtn.addEventListener("click", async () => {
         if (!validateStep(9)) return;
 
-        if (typeof addClient !== 'function' || typeof hashClientPassword !== 'function' || typeof setClientCredentials !== 'function') {
+        if (typeof addClient !== 'function' || typeof hashClientPassword !== 'function' || typeof setClientCredentials !== 'function' || typeof saveClientOnboardingData !== 'function') {
           // engine-core.js failed to load — fail closed rather than silently pretending
           // an account was created when nothing was actually persisted.
           showError("Something went wrong creating your account. Please try again.");
@@ -1252,15 +1317,26 @@
 
         submitBtn.disabled = true;
         try {
+          // New Client Application Review (Aug 22, 2026): status: 'pending_review' overrides
+          // addClient()'s own 'active' default — a client created here needs PM approval
+          // before they can log in (see login.html's own status check), unlike a client
+          // created directly from admin-clients.html's Add Client form, where the PM
+          // creating them IS the review.
           const newClient = addClient({
             name: fullName,
             email: email,
             phone: phone,
-            accountType: ACCOUNT_TYPE_LABELS[accountType] || 'Individual Account'
+            accountType: ACCOUNT_TYPE_LABELS[accountType] || 'Individual Account',
+            status: 'pending_review'
           });
 
           const passwordHash = await hashClientPassword(rawPassword);
           setClientCredentials(newClient.id, passwordHash);
+
+          // Onboarding Data Capture (Aug 22, 2026): everything steps 3-8 collected, now
+          // genuinely persisted so a PM has real substance to review on
+          // admin-client-applications.html instead of just name/email/account type.
+          saveClientOnboardingData(newClient.id, collectOnboardingData());
 
           window.location.href = "thank-you.html";
         } catch (err) {

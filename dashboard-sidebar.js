@@ -3,23 +3,32 @@
 // script has loaded, from a page that has an empty <div id="sidebar-mount"></div> in place
 // of the old <aside>. The matching nav item is highlighted based on the page key passed in.
 (function () {
-  // Multi-Client Data Model Phase, Step 4 (Aug 21, 2026) — corrected same-day after a real
-  // bug was caught live-testing Step 5's isolation proof. MUST run here, at file-load time,
-  // not inside initDashboardSidebar() (that was the original, broken placement): this file
+  // Client Authentication, Phase 3 (Aug 21, 2026) — retires the unconditional CLIENT-0001
+  // pin that Multi-Client Data Model Step 4 (see the git history of this comment) put here.
+  // MUST still run here, at file-load time, not inside initDashboardSidebar(): this file
   // always loads BEFORE engine-core.js on every client-facing page (confirmed by script-tag
-  // order), so setting the session client id here runs before engine-core.js's own IIFE
-  // reads it to populate its module-level account state/holdings/etc. Setting it later
+  // order), so resolving/setting the session client id here runs before engine-core.js's own
+  // IIFE reads it to populate its module-level account state/holdings/etc. — setting it later
   // (inside initDashboardSidebar(), invoked by a script tag AFTER engine-core.js has already
-  // loaded) is too late — it doesn't retroactively reload data engine-core.js already read
-  // for THIS page load, it only affects the NEXT reload/navigation. This was invisible in
-  // ordinary same-client browsing but broke the instant an admin session in the SAME TAB had
-  // switched to a different client and then navigated to a client-facing page: the client
-  // page would silently render that OTHER client's financial data. Raw sessionStorage key
-  // used directly, not via setCurrentClientId() — engine-core.js, which defines that
-  // function, hasn't loaded yet at this point. The literal key string
-  // ('marketswave_current_client_id') must stay in sync with engine-core.js's own
-  // CURRENT_CLIENT_SESSION_KEY constant.
-  try { sessionStorage.setItem('marketswave_current_client_id', 'CLIENT-0001'); } catch (e) { /* sessionStorage unavailable — non-fatal */ }
+  // loaded) is too late, exactly the bug §4.44/§4.45 already found and fixed once for the old
+  // hardcoded-pin version of this same code. Raw sessionStorage keys used directly, not via
+  // getAuthenticatedClientId()/setCurrentClientId() — engine-core.js, which defines those
+  // functions, hasn't loaded yet at this point. Mirrors admin-sidebar.js's own file-load-time
+  // Admin Login Gate check exactly, including the reason: the literal key strings
+  // ('marketswave_authenticated_client_id', 'marketswave_current_client_id') must stay in
+  // sync with engine-core.js's own CLIENT_AUTH_SESSION_KEY/CURRENT_CLIENT_SESSION_KEY
+  // constants. No fallback to DEFAULT_CLIENT_ID here, and no re-validation against the real
+  // Client Registry (engine-core.js isn't loaded yet to check it against) — the same "trust
+  // the session flag, don't re-derive it" discipline isAdminAuthenticated() already uses; the
+  // value only ever gets here via a real setClientAuthenticated() call after a real
+  // verifyClientCredentials() success (Phase 2, login.html).
+  var __authenticatedClientId = null;
+  try { __authenticatedClientId = sessionStorage.getItem('marketswave_authenticated_client_id'); } catch (e) { /* sessionStorage unavailable — non-fatal, fails closed (redirects) */ }
+  if (!__authenticatedClientId) {
+    location.replace('login.html');
+  } else {
+    try { sessionStorage.setItem('marketswave_current_client_id', __authenticatedClientId); } catch (e) { /* non-fatal */ }
+  }
 
   var NAV_ITEMS = [
     {
@@ -118,8 +127,33 @@
   }
 
   function initDashboardSidebar(activePage) {
+    // Defense in depth on top of the file-load-time redirect above: if that check somehow
+    // didn't fire in time (or this function is ever called in a context that skipped it),
+    // don't render real nav/data regardless. Uses the real engine-core.js function here
+    // (already loaded by the time initDashboardSidebar() runs, unlike the top-of-file check)
+    // — mirrors admin-sidebar.js's own initAdminSidebar() guard exactly.
+    if (typeof getAuthenticatedClientId === 'function' && !getAuthenticatedClientId()) {
+      location.replace('login.html');
+      return;
+    }
+
     var mount = document.getElementById('sidebar-mount');
     if (!mount) return;
+
+    // Identity display fix (Aug 22, 2026): the footer used to hardcode "JD"/"John Doe"/
+    // "Individual Account" regardless of who Phase 3 actually authenticated.
+    // getAuthenticatedClientId() is guaranteed non-null here (the guard above already
+    // returned otherwise), and getClient()/getClientInitials() are real engine-core.js
+    // functions, already loaded by the time this function runs (only ever called from a
+    // page's own script, after engine-core.js's <script> tag). Falls back to a generic
+    // label only if something is genuinely wrong (e.g. a corrupted/unknown client id) —
+    // never silently back to CLIENT-0001 or "John Doe".
+    var footerClient = (typeof getClient === 'function' && typeof getAuthenticatedClientId === 'function')
+      ? getClient(getAuthenticatedClientId())
+      : null;
+    var footerName = footerClient ? footerClient.name : 'Unknown Client';
+    var footerAccountType = footerClient ? footerClient.accountType : '';
+    var footerInitials = (footerClient && typeof getClientInitials === 'function') ? getClientInitials(footerClient.name) : '';
 
     var navHTML = NAV_ITEMS.map(function (item) { return navLinkHTML(item, activePage); }).join('');
 
@@ -155,10 +189,10 @@
           footerLinkHTML('settings.html', 'settings', 'Settings', SETTINGS_ICON, activePage) +
           footerLinkHTML('support.html', 'support', 'Support', SUPPORT_ICON, activePage) +
           '<div class="flex items-center gap-3 px-3 pt-3 mt-2 border-t border-white/10">' +
-            '<div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold">JD</div>' +
+            '<div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold">' + footerInitials + '</div>' +
             '<div class="flex-1 min-w-0">' +
-              '<p class="text-sm font-medium truncate">John Doe</p>' +
-              '<p class="text-xs text-white/60 truncate">Individual Account</p>' +
+              '<p class="text-sm font-medium truncate">' + footerName + '</p>' +
+              '<p class="text-xs text-white/60 truncate">' + footerAccountType + '</p>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -181,20 +215,23 @@
   // a notification bell, some don't), so it can't be found via a shared id the way the
   // sidebar itself is. Wired here via content-based lookup instead, so every page gets a
   // working Logout at once without editing 9 files individually — matching how the sidebar
-  // and clock were centralized. No "logged in" session-state flag exists anywhere in this
-  // project today (checked every marketswave_* localStorage key used across every page and
-  // engine-core.js — all are data-model keys, none track a session) — per instruction, one
-  // wasn't invented just to clear it. This handler still does real, verified work: it
-  // corrects the destination (was index.html, the public marketing site — now login.html,
-  // per the locked login/session boundary) and is the one place a real session clear will
-  // go once that concept exists, so it won't need rediscovering across 9 pages later.
+  // and clock were centralized. Client Authentication Phase 3 (Aug 21, 2026): a real session
+  // now exists (Phase 2's marketswave_authenticated_client_id), so this is no longer a
+  // documented no-op — genuinely clears it via clearClientAuthentication(), the real
+  // engine-core.js function (already loaded by the time a click can happen), plus the
+  // ambient marketswave_current_client_id pin directly (no dedicated "unset" function exists
+  // for that key, same raw-key exception already used at file-load time above). Without this,
+  // the file-load-time guard above would happily re-pin and let a "logged out" browser straight
+  // back onto a dashboard page on the next navigation, since the auth key would still be set.
   function wireLogoutLinks() {
     Array.prototype.forEach.call(document.querySelectorAll('a'), function (link) {
       if (link.textContent.trim() !== 'Logout') return;
       link.setAttribute('href', 'login.html');
       link.addEventListener('click', function () {
-        // Clear real session state here once this project tracks one. Deliberately a
-        // no-op today — nothing exists yet to clear.
+        try {
+          if (typeof clearClientAuthentication === 'function') clearClientAuthentication();
+          sessionStorage.removeItem('marketswave_current_client_id');
+        } catch (e) { /* sessionStorage unavailable — non-fatal */ }
       });
     });
   }

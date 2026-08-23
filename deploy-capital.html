@@ -39,6 +39,8 @@
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .withdraw-method-tab { border-color: #E2E8F0; color: #64748B; }
+    .withdraw-method-tab.is-active { border-color: #1B3A4B; color: #1B3A4B; background: rgba(27, 58, 75, 0.06); }
   </style>
 </head>
 <body class="bg-cream text-slate-800 antialiased">
@@ -68,7 +70,7 @@
         </div>
 
         <!-- Option Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" id="option-cards">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="option-cards">
           <!-- Crypto -->
           <button type="button" class="option-card text-left bg-white rounded-2xl border-2 border-slate-200 p-6 hover:border-navy/40" data-method="crypto">
             <div class="w-12 h-12 rounded-xl bg-navy/10 flex items-center justify-center mb-4">
@@ -85,6 +87,21 @@
             </div>
             <h3 class="text-lg font-semibold text-navy mb-1">Bank Transfer</h3>
             <p class="text-sm text-slate-500">Send funds via bank transfer. We’ll provide recipient details after you submit.</p>
+          </button>
+
+          <!-- Withdraw (Client Withdrawal, Aug 22, 2026) — a 3rd option alongside the two
+               Deposit methods, making this page the single hub for capital movement in
+               BOTH directions rather than adding a separate page. As of the Deposit Wiring
+               fix (Aug 22, 2026, same day), all three cards below are genuinely wired to the
+               engine — the two Deposit cards previously only showed the static success panel
+               with nothing behind it (a real, pre-existing gap confirmed by reading this file
+               before starting that fix), now closed. -->
+          <button type="button" class="option-card text-left bg-white rounded-2xl border-2 border-slate-200 p-6 hover:border-navy/40" data-method="withdraw">
+            <div class="w-12 h-12 rounded-xl bg-navy/10 flex items-center justify-center mb-4">
+              <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-navy mb-1">Withdraw Funds</h3>
+            <p class="text-sm text-slate-500">Request a withdrawal of your available unallocated capital via crypto or bank transfer.</p>
           </button>
         </div>
 
@@ -205,20 +222,142 @@
           </div>
         </div>
 
+        <!-- Withdraw Form (Client Withdrawal, Aug 22, 2026) — one form, not two top-level
+             cards, with an in-form Crypto/Bank toggle (mirrors the term-mode-tab interaction
+             pattern already used on high-yield-savings.html/asset-performance.html's Sell
+             modal) so the option-cards grid above stays at 3 cards instead of 4. Genuinely
+             wired to requestWithdrawal() — this is a real request, not a UI stub. -->
+        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-6 max-w-xl" id="form-withdraw">
+          <h3 class="font-semibold text-navy mb-1">Withdraw Funds</h3>
+          <p class="text-sm text-slate-500 mb-4">Request a withdrawal from your available unallocated capital. A Portfolio Manager will review and approve before funds are sent.</p>
+          <p class="text-sm text-navy bg-navy/5 rounded-lg px-4 py-2.5 mb-6" id="withdraw-available-line">Available to withdraw: —</p>
+
+          <div class="flex gap-2 mb-6" id="withdraw-method-toggle">
+            <button type="button" class="withdraw-method-tab flex-1 py-2 rounded-lg border-2 text-sm font-medium transition" data-withdraw-method="crypto">Crypto</button>
+            <button type="button" class="withdraw-method-tab flex-1 py-2 rounded-lg border-2 text-sm font-medium transition" data-withdraw-method="bank">Bank Transfer</button>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount (USD)</label>
+              <input type="number" id="withdraw-amount" placeholder="0.00" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            </div>
+
+            <!-- Crypto destination fields -->
+            <div id="withdraw-crypto-fields">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
+                <select id="withdraw-crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <option value="">Select asset</option>
+                  <option value="BTC">Bitcoin (BTC)</option>
+                  <option value="ETH">Ethereum (ETH)</option>
+                  <option value="USDT">Tether (USDT)</option>
+                  <option value="USDC">USD Coin (USDC)</option>
+                </select>
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Network (if applicable)</label>
+                <select id="withdraw-crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <option value="">Select network</option>
+                  <option value="ERC20">ERC-20</option>
+                  <option value="TRC20">TRC-20</option>
+                  <option value="BEP20">BEP-20</option>
+                  <option value="Native">Native</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Destination Wallet Address</label>
+                <input type="text" id="withdraw-crypto-address" placeholder="Where should we send your funds?" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              </div>
+            </div>
+
+            <!-- Bank destination fields -->
+            <div id="withdraw-bank-fields" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Holder Name</label>
+                  <input type="text" id="withdraw-bank-holder" placeholder="As it should appear on the receiving account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
+                  <select id="withdraw-bank-currency" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="SEK">SEK</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
+                  <input type="text" id="withdraw-bank-name" placeholder="Destination bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
+                  <input type="text" id="withdraw-bank-account-number" placeholder="Destination account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Branch Address</label>
+                  <input type="text" id="withdraw-bank-branch-address" placeholder="Branch street, city, postal code, country" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
+                  <input type="text" id="withdraw-bank-routing" placeholder="Domestic routing number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC Code</label>
+                  <input type="text" id="withdraw-bank-swift" placeholder="For international transfers" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 mt-2">Provide either a routing number or a SWIFT / BIC code, whichever applies to the destination bank.</p>
+            </div>
+
+            <p class="text-xs text-red-500 hidden" id="withdraw-error"></p>
+
+            <div class="flex gap-3 pt-2">
+              <button type="button" class="btn-back flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Back</button>
+              <button type="button" id="submit-withdraw" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Request</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Success State -->
         <div class="form-panel bg-white rounded-2xl border border-slate-200 p-8 max-w-xl text-center" id="form-success">
           <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
           </div>
           <h3 class="text-xl font-semibold text-navy mb-2">Request Submitted</h3>
-          <p class="text-slate-500 mb-6">Your deposit request has been received. You will receive further instructions (wallet address or bank details) by email shortly.</p>
+          <p class="text-slate-500 mb-6" id="form-success-message">Your deposit request has been received. You will receive further instructions (wallet address or bank details) by email shortly.</p>
           <a href="dashboard.html" class="inline-flex items-center justify-center px-6 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">
             Return to Dashboard
           </a>
         </div>
 
+        <!-- My Funding Requests (Deposit Wiring fix, Aug 22, 2026) — "show everything"
+             principle, same as every other queue's own My Requests section. Merged
+             Deposit + Withdrawal into one list now that real deposit-request history
+             genuinely exists (previously withdrawal-only, since deposits weren't wired to
+             a real request flow yet). Named "Funding Requests" rather than "Deposit &
+             Withdrawal Requests" — shorter, and matches this page's own "capital movement,
+             both directions" framing already used in the option-card comment above. -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-navy">My Funding Requests</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Full history of your deposit and withdrawal requests — every status, not just pending.</p>
+          </div>
+          <div class="overflow-x-auto" id="my-funding-requests-list"></div>
+        </div>
+
       </main>
     </div>
+  </div>
+
+  <!-- Funding Toast (Deposit Wiring fix, Aug 22, 2026: renamed from "Withdrawal Toast" —
+       now shared by both real thrown validation errors, requestDeposit() and
+       requestWithdrawal() alike) — same red-styled toast convention already used on
+       asset-performance.html/high-yield-savings.html -->
+  <div id="funding-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="funding-toast-title">Done</p>
+    <p class="text-xs text-white/70 mt-1" id="funding-toast-body"></p>
   </div>
 
   <script src="dashboard-sidebar.js"></script>
@@ -235,11 +374,14 @@
     const optionCards = document.getElementById('option-cards');
     const formCrypto = document.getElementById('form-crypto');
     const formBank = document.getElementById('form-bank');
+    const formWithdraw = document.getElementById('form-withdraw');
     const formSuccess = document.getElementById('form-success');
+    const formSuccessMessage = document.getElementById('form-success-message');
 
     function hideAllForms() {
       formCrypto.classList.remove('is-active');
       formBank.classList.remove('is-active');
+      formWithdraw.classList.remove('is-active');
       formSuccess.classList.remove('is-active');
       document.querySelectorAll('.option-card').forEach(c => c.classList.remove('is-selected'));
     }
@@ -252,8 +394,11 @@
 
         if (card.dataset.method === 'crypto') {
           formCrypto.classList.add('is-active');
-        } else {
+        } else if (card.dataset.method === 'bank') {
           formBank.classList.add('is-active');
+        } else {
+          formWithdraw.classList.add('is-active');
+          if (typeof refreshWithdrawAvailable === 'function') refreshWithdrawAvailable();
         }
       });
     });
@@ -265,40 +410,305 @@
       });
     });
 
-    document.getElementById('submit-crypto').addEventListener('click', () => {
-      const asset = document.getElementById('crypto-asset').value;
-      const amount = document.getElementById('crypto-amount').value;
-      if (!asset || !amount) {
-        alert('Please select an asset and enter an amount.');
-        return;
-      }
-      hideAllForms();
-      formSuccess.classList.add('is-active');
-    });
+    // ---- Funding (Deposit + Withdraw) — Deposit Wiring fix, Aug 22, 2026: the two Deposit
+    // handlers below now genuinely call requestDeposit(), using the Withdraw handler further
+    // down (built one task earlier) as the direct reference for pattern — same file, same
+    // submit-handler shape, same try/catch-into-toast error handling, same
+    // render-the-shared-list-again-on-success flow. requestDeposit(method, amount, currency,
+    // details) is AMBIENT (no clientId parameter) — unlike requestWithdrawal(), which was
+    // deliberately built to take an explicit clientId — so there is nothing to pass
+    // getAuthenticatedClientId() INTO here; it resolves identity via getCurrentClientId()
+    // internally, which dashboard-sidebar.js's own Client Authentication Phase 3 guard has
+    // already pinned to the real authenticated client before this page's script ever runs.
+    // getAuthenticatedClientId() IS used below, for requestWithdrawal()'s own explicit
+    // clientId parameter — corrected from getCurrentClientId() as part of this same fix, for
+    // consistency with how every other explicit-clientId action now resolves identity.
+    (function () {
+      if (typeof requestDeposit !== 'function') return; // engine-core.js failed to load — bail defensively
 
-    document.getElementById('submit-bank').addEventListener('click', () => {
-      const name = document.getElementById('bank-name').value.trim();
-      const address = document.getElementById('bank-address').value.trim();
-      const phone = document.getElementById('bank-phone').value.trim();
-      const email = document.getElementById('bank-email').value.trim();
-      const amount = document.getElementById('bank-amount').value;
-      const institution = document.getElementById('bank-institution').value.trim();
-      const accountNumber = document.getElementById('bank-account-number').value.trim();
-      const branchAddress = document.getElementById('bank-branch-address').value.trim();
-      const routing = document.getElementById('bank-routing').value.trim();
-      const swift = document.getElementById('bank-swift').value.trim();
+      function formatUSD(n) {
+        return '$' + Math.round(n).toLocaleString();
+      }
 
-      if (!name || !address || (!phone && !email) || !amount || !institution || !accountNumber || !branchAddress) {
-        alert('Please fill in all required fields, including a phone number or email.');
-        return;
+      // ---- Toast for real thrown validation errors — shared by both Deposit and Withdraw ----
+      const fundingToast = document.getElementById('funding-toast');
+      const fundingToastTitle = document.getElementById('funding-toast-title');
+      const fundingToastBody = document.getElementById('funding-toast-body');
+      let fundingToastTimer;
+      function showFundingToast(title, body, isError) {
+        fundingToastTitle.textContent = title;
+        fundingToastBody.textContent = body;
+        fundingToast.classList.toggle('bg-red-700', !!isError);
+        fundingToast.classList.toggle('bg-navy', !isError);
+        fundingToast.classList.remove('hidden');
+        clearTimeout(fundingToastTimer);
+        fundingToastTimer = setTimeout(() => fundingToast.classList.add('hidden'), 4000);
       }
-      if (!routing && !swift) {
-        alert('Please provide either a routing number or a SWIFT / BIC code.');
-        return;
+
+      // ---- My Funding Requests — Deposit + Withdrawal merged into one list, "show
+      // everything" principle. Deposit's terminal success status is 'credited' (PM-entered
+      // confirmedAmount); Withdrawal's is 'approved' (PM-entered approvedAmount) — both
+      // covered in STATUS_STYLES and the resolved-amount cell below. ----
+      const STATUS_STYLES = {
+        pending: 'bg-amber-50 text-amber-700',
+        credited: 'bg-emerald-50 text-emerald-700',
+        approved: 'bg-emerald-50 text-emerald-700',
+        rejected: 'bg-red-50 text-red-700'
+      };
+      const KIND_STYLES = {
+        Deposit: 'bg-blue-50 text-blue-700',
+        Withdrawal: 'bg-orange-50 text-orange-700'
+      };
+
+      function renderMyFundingRequests() {
+        const listEl = document.getElementById('my-funding-requests-list');
+        if (!listEl) return;
+
+        const deposits = getDepositRequests().map(r => ({
+          kind: 'Deposit', id: r.id, method: r.method, requestedAmount: r.requestedAmount,
+          resolvedAmount: r.creditedAmount, status: r.status, requestedAt: r.requestedAt,
+          requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason
+        }));
+        const withdrawals = (typeof getWithdrawalRequests === 'function' ? getWithdrawalRequests() : []).map(r => ({
+          kind: 'Withdrawal', id: r.id, method: r.method, requestedAmount: r.requestedAmount,
+          resolvedAmount: r.approvedAmount, status: r.status, requestedAt: r.requestedAt,
+          requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason
+        }));
+        const requests = deposits.concat(withdrawals).sort((a, b) => b.requestedAtMs - a.requestedAtMs);
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-6 text-center">No funding requests yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Request</th>' +
+          '<th class="text-left font-medium px-6 py-3">Type</th>' +
+          '<th class="text-left font-medium px-6 py-3">Method</th>' +
+          '<th class="text-right font-medium px-6 py-3">Amount</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Requested</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          requests.map(r => {
+            const statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+            const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+            const kindClass = KIND_STYLES[r.kind] || 'bg-slate-100 text-slate-600';
+            const isResolved = r.status === 'credited' || r.status === 'approved';
+            const amountCell = isResolved && r.resolvedAmount !== r.requestedAmount
+              ? formatUSD(r.resolvedAmount) + ' <span class="text-amber-600 text-xs">(requested ' + formatUSD(r.requestedAmount) + ')</span>'
+              : formatUSD(r.requestedAmount);
+            const resolvedText = r.resolvedAt
+              ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
+              : '—';
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 font-medium text-navy">' + r.id + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + kindClass + '">' + r.kind + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + (r.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + '</td>' +
+              '<td class="px-6 py-4 text-right">' + amountCell + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + r.requestedAt + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
+              '</tr>';
+          }).join('') + '</tbody></table>';
       }
-      hideAllForms();
-      formSuccess.classList.add('is-active');
-    });
+      window.renderMyFundingRequests = renderMyFundingRequests;
+      renderMyFundingRequests();
+
+      // ---- Deposit submit handlers — genuinely wired, same try/catch-into-toast shape as
+      // Withdraw below. Client-side presence checks stay (fast feedback before even calling
+      // the engine); the real validation (positive amount, valid method/currency) lives in
+      // requestDeposit() itself and surfaces via the toast on failure, same as Withdraw. ----
+      document.getElementById('submit-crypto').addEventListener('click', () => {
+        const asset = document.getElementById('crypto-asset').value;
+        const amount = parseFloat(document.getElementById('crypto-amount').value);
+        const network = document.getElementById('crypto-network').value;
+        if (!asset || !amount) {
+          alert('Please select an asset and enter an amount.');
+          return;
+        }
+        try {
+          // currency = asset for a crypto request, same convention Withdraw already
+          // established below — the asset IS the unit the amount is denominated in.
+          const result = requestDeposit('crypto', amount, asset, { asset: asset, network: network || null });
+          formSuccessMessage.textContent = 'Your deposit request (' + result.id + ') has been received. You will receive further instructions (wallet address or bank details) by email shortly.';
+          hideAllForms();
+          formSuccess.classList.add('is-active');
+          renderMyFundingRequests();
+        } catch (e) {
+          showFundingToast('Deposit Request Failed', e.message, true);
+        }
+      });
+
+      document.getElementById('submit-bank').addEventListener('click', () => {
+        const name = document.getElementById('bank-name').value.trim();
+        const address = document.getElementById('bank-address').value.trim();
+        const phone = document.getElementById('bank-phone').value.trim();
+        const email = document.getElementById('bank-email').value.trim();
+        const amount = parseFloat(document.getElementById('bank-amount').value);
+        const currency = document.getElementById('bank-currency').value;
+        const institution = document.getElementById('bank-institution').value.trim();
+        const accountNumber = document.getElementById('bank-account-number').value.trim();
+        const branchAddress = document.getElementById('bank-branch-address').value.trim();
+        const routing = document.getElementById('bank-routing').value.trim();
+        const swift = document.getElementById('bank-swift').value.trim();
+        const notes = document.getElementById('bank-notes').value.trim();
+
+        if (!name || !address || (!phone && !email) || !amount || !institution || !accountNumber || !branchAddress) {
+          alert('Please fill in all required fields, including a phone number or email.');
+          return;
+        }
+        if (!routing && !swift) {
+          alert('Please provide either a routing number or a SWIFT / BIC code.');
+          return;
+        }
+        try {
+          const result = requestDeposit('bank', amount, currency, {
+            accountHolderName: name, senderAddress: address, phone: phone || null, email: email || null,
+            bankName: institution, accountNumber: accountNumber, branchAddress: branchAddress,
+            routingNumber: routing || null, swift: swift || null, notes: notes || null
+          });
+          formSuccessMessage.textContent = 'Your deposit request (' + result.id + ') has been received. You will receive further instructions (wallet address or bank details) by email shortly.';
+          hideAllForms();
+          formSuccess.classList.add('is-active');
+          renderMyFundingRequests();
+        } catch (e) {
+          showFundingToast('Deposit Request Failed', e.message, true);
+        }
+      });
+    })();
+
+    // ---- Withdraw Funds (Client Withdrawal, Aug 22, 2026) — genuinely wired to
+    // requestWithdrawal(). ----
+    (function () {
+      if (typeof requestWithdrawal !== 'function') return; // engine-core.js failed to load — bail defensively
+
+      function formatUSD(n) {
+        return '$' + Math.round(n).toLocaleString();
+      }
+
+      // "Available to withdraw" = current unallocatedCapital minus this client's own
+      // PENDING withdrawal requests — the same UI-layer guard rail already established on
+      // asset-performance.html's Sell modal (available-to-sell = holding.units minus
+      // pending sell requests on that product), confirmed necessary there via direct
+      // testing since requestWithdrawal() itself, like requestSell(), only ever validates
+      // against the CURRENT balance at request time, not against other still-pending
+      // requests — without this guard a client could submit a second request already
+      // doomed to fail at approval-time re-validation.
+      function availableToWithdraw() {
+        const account = getAccountState();
+        const pendingTotal = getWithdrawalRequests()
+          .filter(r => r.status === 'pending')
+          .reduce((sum, r) => sum + r.requestedAmount, 0);
+        return Math.max(0, account.unallocatedCapital - pendingTotal);
+      }
+
+      function refreshWithdrawAvailable() {
+        const line = document.getElementById('withdraw-available-line');
+        if (line) line.textContent = 'Available to withdraw: ' + formatUSD(availableToWithdraw());
+      }
+      window.refreshWithdrawAvailable = refreshWithdrawAvailable;
+
+      // ---- Method toggle (Crypto / Bank) ----
+      let withdrawMethod = 'crypto';
+      const cryptoFields = document.getElementById('withdraw-crypto-fields');
+      const bankFields = document.getElementById('withdraw-bank-fields');
+      const methodTabs = document.querySelectorAll('.withdraw-method-tab');
+
+      function setWithdrawMethod(method) {
+        withdrawMethod = method;
+        methodTabs.forEach(tab => tab.classList.toggle('is-active', tab.dataset.withdrawMethod === method));
+        cryptoFields.classList.toggle('hidden', method !== 'crypto');
+        bankFields.classList.toggle('hidden', method !== 'bank');
+      }
+      methodTabs.forEach(tab => {
+        tab.addEventListener('click', () => setWithdrawMethod(tab.dataset.withdrawMethod));
+      });
+      setWithdrawMethod('crypto');
+
+      // ---- Toast for real thrown validation errors (shared #funding-toast element) ----
+      function showWithdrawToast(title, body, isError) {
+        const fundingToast = document.getElementById('funding-toast');
+        const fundingToastTitle = document.getElementById('funding-toast-title');
+        const fundingToastBody = document.getElementById('funding-toast-body');
+        fundingToastTitle.textContent = title;
+        fundingToastBody.textContent = body;
+        fundingToast.classList.toggle('bg-red-700', !!isError);
+        fundingToast.classList.toggle('bg-navy', !isError);
+        fundingToast.classList.remove('hidden');
+        clearTimeout(showWithdrawToast._timer);
+        showWithdrawToast._timer = setTimeout(() => fundingToast.classList.add('hidden'), 4000);
+      }
+
+      // ---- Submit ----
+      document.getElementById('submit-withdraw').addEventListener('click', () => {
+        const errorEl = document.getElementById('withdraw-error');
+        errorEl.classList.add('hidden');
+
+        const amount = parseFloat(document.getElementById('withdraw-amount').value);
+        if (!amount || amount <= 0) {
+          errorEl.textContent = 'Please enter a valid amount.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        let currency, destinationDetails;
+        if (withdrawMethod === 'crypto') {
+          const asset = document.getElementById('withdraw-crypto-asset').value;
+          const network = document.getElementById('withdraw-crypto-network').value;
+          const address = document.getElementById('withdraw-crypto-address').value.trim();
+          if (!asset || !address) {
+            errorEl.textContent = 'Please select an asset and enter a destination wallet address.';
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          currency = asset;
+          destinationDetails = { asset: asset, network: network || null, walletAddress: address };
+        } else {
+          const holder = document.getElementById('withdraw-bank-holder').value.trim();
+          const currencySelect = document.getElementById('withdraw-bank-currency').value;
+          const bankName = document.getElementById('withdraw-bank-name').value.trim();
+          const accountNumber = document.getElementById('withdraw-bank-account-number').value.trim();
+          const branchAddress = document.getElementById('withdraw-bank-branch-address').value.trim();
+          const routing = document.getElementById('withdraw-bank-routing').value.trim();
+          const swift = document.getElementById('withdraw-bank-swift').value.trim();
+
+          if (!holder || !bankName || !accountNumber || !branchAddress) {
+            errorEl.textContent = 'Please fill in all required destination bank fields.';
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          if (!routing && !swift) {
+            errorEl.textContent = 'Please provide either a routing number or a SWIFT / BIC code.';
+            errorEl.classList.remove('hidden');
+            return;
+          }
+          currency = currencySelect;
+          destinationDetails = {
+            accountHolderName: holder, bankName: bankName, accountNumber: accountNumber,
+            branchAddress: branchAddress, routingNumber: routing || null, swift: swift || null
+          };
+        }
+
+        try {
+          // getAuthenticatedClientId() (Deposit Wiring fix, Aug 22, 2026) — corrected from
+          // getCurrentClientId(); requestWithdrawal() takes an explicit clientId, and the
+          // real authenticated identity is the one to pass, consistent with every other
+          // explicit-clientId action post-Client-Authentication. Both currently resolve to
+          // the same value on this page (dashboard-sidebar.js's Phase 3 guard already pins
+          // marketswave_current_client_id to match), but this is the semantically correct
+          // source, not the ambient pin that also serves the admin tool's own "View as this
+          // Client" switching purpose.
+          const result = requestWithdrawal(getAuthenticatedClientId(), withdrawMethod, amount, currency, destinationDetails);
+          formSuccessMessage.textContent = 'Your withdrawal request (' + result.id + ') has been submitted for Portfolio Manager review. You will be notified once it is approved.';
+          hideAllForms();
+          formSuccess.classList.add('is-active');
+          if (typeof renderMyFundingRequests === 'function') renderMyFundingRequests();
+        } catch (e) {
+          showWithdrawToast('Withdrawal Request Failed', e.message, true);
+        }
+      });
+    })();
   </script>
 </body>
 </html>

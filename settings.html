@@ -90,11 +90,11 @@
         <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
           <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div class="flex items-center gap-4">
-              <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0">JD</div>
+              <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0" id="profile-avatar-initials">JD</div>
               <div>
-                <p class="text-lg font-semibold text-navy">John Doe</p>
+                <p class="text-lg font-semibold text-navy" id="profile-name">John Doe</p>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
-                  <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-navy/10 text-navy">Individual Account</span>
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-navy/10 text-navy" id="profile-account-type">Individual Account</span>
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>KYC Verified</span>
                 </div>
               </div>
@@ -482,13 +482,16 @@
     }
 
     // ---- Forced Password Reset gate (Password Reset + 2FA Rework, Aug 21, 2026) -------------
-    // Purely a client-side UI gate — there is no real login/session system in this project to
-    // actually enforce this server-side (see the HTML comment above #force-password-banner,
-    // and the Backend Requirements Register, for the full explanation). getClientSecurityState()
-    // is ambient (ok here — settings.html always operates on whichever client is currently
-    // active, and dashboard-sidebar.js already pins that to CLIENT-0001 at file-load time on
-    // every client-facing page). Reuses the exact same strength/match validation the normal
-    // Change Password flow below already uses (itself reusing signup.html's own step-2 rules).
+    // Purely a client-side UI gate — even with a real client-side session now in place
+    // (Client Authentication Phases 2-3), there is still no real backend to enforce this
+    // server-side (see the HTML comment above #force-password-banner, and the Backend
+    // Requirements Register, for the full explanation). getClientSecurityState() is ambient
+    // (ok here — settings.html always operates on whichever client is currently active, and
+    // dashboard-sidebar.js now pins that to whichever real client actually authenticated via
+    // login.html, redirecting to login.html at file-load time on every client-facing page if
+    // nobody did — Phase 3, replacing the old unconditional CLIENT-0001 pin). Reuses the exact
+    // same strength/match validation the normal Change Password flow below already uses
+    // (itself reusing signup.html's own step-2 rules).
     (function () {
       const banner = document.getElementById('force-password-banner');
       const normalContent = document.getElementById('settings-normal-content');
@@ -573,6 +576,20 @@
 
       document.getElementById('email-view').textContent = profile.email;
       document.getElementById('phone-view').textContent = profile.phone;
+
+      // Identity display fix (Aug 22, 2026): the avatar/name/account-type badge above used to
+      // hardcode "JD"/"John Doe"/"Individual Account" regardless of who Phase 3 actually
+      // authenticated. getAuthenticatedClientId() is guaranteed non-null here — the shared
+      // dashboard-sidebar.js guard already redirected to login.html otherwise, and this page's
+      // own script only runs after that.
+      (function () {
+        if (typeof getClient !== 'function' || typeof getAuthenticatedClientId !== 'function') return;
+        const client = getClient(getAuthenticatedClientId());
+        if (!client) return;
+        document.getElementById('profile-name').textContent = client.name;
+        document.getElementById('profile-account-type').textContent = client.accountType;
+        document.getElementById('profile-avatar-initials').textContent = typeof getClientInitials === 'function' ? getClientInitials(client.name) : '';
+      })();
 
       function enterEdit(field) {
         document.getElementById(`${field}-view`).classList.add('hidden');
