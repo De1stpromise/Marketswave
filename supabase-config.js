@@ -12,37 +12,23 @@
 //
 //   (no params)                        -> Firebase, emulator            (unchanged default)
 //   ?env=staging                       -> Firebase, real staging        (unchanged)
-//   ?backend=supabase                  -> Supabase, LOCAL Docker stack  (Stage 2, THIS file)
-//   ?backend=supabase&env=staging      -> Supabase, real cloud staging  (Stage 3 — NOT BUILT
-//                                          YET; falls back to the local stack below with a
-//                                          console.warn, the same "default to the safe/local
-//                                          option on anything unrecognized" philosophy
-//                                          firebase-config.js's own IS_STAGING already uses,
-//                                          rather than silently reaching a real cloud project
-//                                          before Stage 3 actually configures one)
+//   ?backend=supabase                  -> Supabase, LOCAL Docker stack  (Stage 2)
+//   ?backend=supabase&env=staging      -> Supabase, REAL cloud staging  (Stage 3, Aug 30,
+//                                          2026 — now live, "Marketswave Staging",
+//                                          project ref ujnmlwbpginplfnofhhv)
 //
 // `env` means "which tier of whichever backend family was selected"; `backend` means "which
-// backend family at all." This reads cleanly today and extends to Stage 3 without redesigning
-// the scheme — Stage 3 only needs to add a real SUPABASE_STAGING_CONFIG below and change the
-// one `console.warn` branch into a real branch, nothing about the param scheme itself changes.
-// A query param (not a persisted flag or a hardcoded constant) was chosen for the exact same
-// reasons firebase-config.js's own header already gives for `?env=staging`: it can't
-// "accidentally stick" across sessions, and typing it is about as unambiguous an opt-in as
-// this project's URL bar can offer. signup.html/login.html check `IS_SUPABASE_BACKEND` FIRST,
-// before ever looking at Firebase's own `IS_STAGING` — the two files' existing Firebase code
-// paths are completely unaffected when this param is absent, which is every existing habit
-// and everything golden-path-regression.js (the Firebase one) does today.
+// backend family at all." A query param (not a persisted flag or a hardcoded constant) was
+// chosen for the exact same reasons firebase-config.js's own header already gives for
+// `?env=staging`: it can't "accidentally stick" across sessions, and typing it is about as
+// unambiguous an opt-in as this project's URL bar can offer. signup.html/login.html check
+// `IS_SUPABASE_BACKEND` FIRST, before ever looking at Firebase's own `IS_STAGING` — the two
+// files' existing Firebase code paths are completely unaffected when this param is absent,
+// which is every existing habit and everything golden-path-regression.js (the Firebase one)
+// does today.
 const params = new URLSearchParams(window.location.search);
 const IS_SUPABASE_BACKEND = params.get('backend') === 'supabase';
 const WANTS_SUPABASE_STAGING = IS_SUPABASE_BACKEND && params.get('env') === 'staging';
-if (WANTS_SUPABASE_STAGING) {
-  // eslint-disable-next-line no-console
-  console.warn(
-    '[supabase-config] ?backend=supabase&env=staging requested, but Supabase Stage 3 (real ' +
-    'cloud staging) is not built yet — falling back to the LOCAL Supabase Docker stack. ' +
-    'This never reaches a real cloud project by accident.'
-  );
-}
 
 // Pinned to the exact version scripts/package.json's package-lock.json resolved and Stage 1's
 // own verify-supabase-schema.js ran against (2.112.4) — same "pin exact SDK version, don't
@@ -63,6 +49,28 @@ const LOCAL_CONFIG = {
   url: 'http://127.0.0.1:54321',
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 };
+
+// REAL staging project config (Stage 3, Aug 30, 2026) — "Marketswave Staging"
+// (ujnmlwbpginplfnofhhv), the same real, separate, persistent Supabase project Phase A1's
+// Firebase-side staging work is named alongside in CLAUDE.md's own project table, NOT the
+// same thing as a future real-production Supabase project (a decision not yet made — see
+// the Backend Migration roadmap). `url` follows Supabase's own standard, deterministic
+// per-project URL convention (`https://<project-ref>.supabase.co`), not guessed. `anonKey`
+// was read directly from `supabase projects api-keys --project-ref ujnmlwbpginplfnofhhv
+// --reveal` — a real project anon key, but per Supabase's own documented security model
+// this is NOT a secret (identifies the project to client libraries; actual access control
+// is enforced by real Auth + the real RLS policies deployed via Stage 1's migration and
+// Stage 3's own `supabase db push`/`config push`), so it's safe to commit — mirroring
+// firebase-config.js's own STAGING_CONFIG.apiKey precedent exactly. The service_role key
+// (genuinely sensitive — bypasses RLS entirely) is never referenced here or anywhere else
+// in browser-loaded code; it lives only in scripts/ tooling, read from a file kept OUTSIDE
+// this repository (see scripts/supabase-staging-bootstrap-admin.js's own header).
+const STAGING_CONFIG = {
+  url: 'https://ujnmlwbpginplfnofhhv.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbm1sd2JwZ2lucGxmbm9maGh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MTE5MDcsImV4cCI6MjEwMzQ4NzkwN30.nJ9hTEwyfJDK-pVDtDMto6xLgwVOe9SqJm-LJNiIINg'
+};
+
+const ACTIVE_CONFIG = WANTS_SUPABASE_STAGING ? STAGING_CONFIG : LOCAL_CONFIG;
 
 // ---- Session persistence, deliberately decided and configured, not left at the library
 // default — per instruction, given the exact real bug this project already hit once on the
@@ -100,7 +108,7 @@ const LOCAL_CONFIG = {
 // not implemented as dead code with no caller — see README.md's Supabase runbook for the
 // verification that proves both configurations behave as described, run directly against the
 // real local stack in a real browser, not assumed from reading the source alone.
-const supabase = createClient(LOCAL_CONFIG.url, LOCAL_CONFIG.anonKey, {
+const supabase = createClient(ACTIVE_CONFIG.url, ACTIVE_CONFIG.anonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -108,4 +116,4 @@ const supabase = createClient(LOCAL_CONFIG.url, LOCAL_CONFIG.anonKey, {
   }
 });
 
-export { supabase, IS_SUPABASE_BACKEND };
+export { supabase, IS_SUPABASE_BACKEND, WANTS_SUPABASE_STAGING };

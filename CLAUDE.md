@@ -1525,23 +1525,29 @@ backend is migrating from Firebase to Supabase (reason: Firebase Cloud Functions
 on a Blaze plan upgrade for staging; Supabase's free tier includes real Edge Functions with
 no card required, at the cost of free-tier auto-pause after 7 days idle). **Supabase
 Migration Stage 1** (local Docker stack, schema, RLS, admin-role custom-claim hook, local
-bootstrap) and **Stage 2** (client-facing `signup.html`/`login.html` support against the
-LOCAL Supabase stack only, selected via a NEW, separate `?backend=supabase` query param —
-its absence leaves both pages running on Firebase exactly as before, confirmed via `git diff`
-to be byte-for-byte unchanged) are both complete — see the Tech Stack entries below and
-`README.md`'s "Supabase Local Development Runbook" for the full detail. **Still additive,
-still real backends kept side by side, not a replacement**: `signup.html`/`login.html` now
-support BOTH backends behind one query param, but the default (no param) is still 100%
-Firebase, and the real cloud "Marketswave Staging" project has not been touched by either
-Supabase stage — everything Supabase-related so far is the LOCAL Docker stack only. Every
-other page (all 9 dashboard pages, the entire admin tool) has zero Supabase-awareness either
-way — the hybrid bridge (`mirrorAuthenticatedClientLocally()`/`setClientAuthenticated()`,
-unmodified, already backend-agnostic) is what makes that possible, mirroring the exact same
-role the Firebase-only bridge already played. Logout now genuinely signs out of a real
+bootstrap), **Stage 2** (client-facing `signup.html`/`login.html` support against the LOCAL
+Supabase stack, selected via a NEW, separate `?backend=supabase` query param), and **Stage 3**
+(the real cloud "Marketswave Staging" project — schema pushed for real, real Edge Functions
+deployed and wired to a real admin UI) are all complete — see the Tech Stack entries below
+and `README.md`'s Supabase runbook for the full detail. **★ Stage 3 is the headline result:
+the real admin approve/reject flow is fully live for the first time in this project's entire
+migration history** — Firebase's own Cloud Functions equivalent never got past being blocked
+on a Blaze plan upgrade; Supabase's now genuinely resolves a real application end to end,
+approved through a real admin UI button, no card required. **Still additive, still real
+backends kept side by side, not a replacement**: `signup.html`/`login.html` support BOTH
+backends behind query params (`?backend=supabase`, plus `&env=staging` for the real cloud
+project), but the default (no param) is still 100% Firebase — confirmed via `git diff` that
+the entire Firebase integration remains byte-for-byte unchanged through all three Supabase
+stages. Every one of the 9 dashboard pages has zero Supabase-awareness either way — the
+hybrid bridge (`mirrorAuthenticatedClientLocally()`/`setClientAuthenticated()`, unmodified,
+already backend-agnostic) is what makes that possible, mirroring the exact same role the
+Firebase-only bridge already played. Logout now genuinely signs out of a real
 Supabase session too (closed same-day, row 111 below) — `dashboard-sidebar.js`'s Logout
 handler runs a real Supabase `signOut()` alongside the existing Firebase one and the local
-session clear. Do not assume Supabase has replaced anything beyond
-signup/login-against-the-local-stack until a later Stage's own Tech Stack entry says so.
+session clear. Do not assume Supabase has replaced anything beyond signup/login (local stack
+or real cloud staging) plus the real admin approve/reject flow until a later Stage's own
+Tech Stack entry says so — every OTHER admin action (deposits, allocations, sells, HYS,
+withdrawals, profile updates, advisory fee, security log) is still 100% local/`localStorage`.
 
 **Build it in-house, not via external APIs.** Explicit user direction (Aug 19, 2026): "we
 are building an engine locally for our operation, we would not be needing a lot of
@@ -3541,6 +3547,94 @@ row 74.
   after logout correctly redirects to `login.html` (the local session guard, unaffected by
   this fix, still works). Test accounts deleted afterward. See the Backend Requirements
   Register row 111 below.
+- **Supabase Migration — Stage 3: real cloud staging + Edge Functions** (Aug 30, 2026, row
+  112). **★ THE REAL ADMIN APPROVE/REJECT FLOW IS FULLY LIVE FOR THE FIRST TIME IN THIS
+  PROJECT'S ENTIRE MIGRATION HISTORY.** Firebase's own Cloud Functions equivalent stayed
+  permanently blocked on a Blaze plan upgrade for `marketswave-staging` — the entire reason
+  this project pivoted to Supabase (row 109). Supabase's free tier deploys real Edge
+  Functions with no card required, and this phase proves that payoff for real: a real
+  applicant can now sign up, be genuinely blocked while pending, be approved through a real
+  admin UI button (not a script), and log in successfully — end to end against real cloud
+  infrastructure, closing the exact gap that stayed permanently open on the Firebase side.
+  A safety-net commit (the Logout fix above) was made first, per the standing high-risk-
+  change convention, since this is the first stage to touch the real "Marketswave Staging"
+  project at all. **Schema pushed for real**: `supabase link --project-ref
+  ujnmlwbpginplfnofhhv` (confirmed via `supabase projects list` first — exactly one real
+  project exists, no ambiguity about which to target), `supabase db push --dry-run` (preview
+  confirmed only Stage 1's own migration would apply) then for real, and `supabase config
+  push` — a genuinely separate, necessary step from the migration itself: a migration only
+  creates the hook FUNCTION in Postgres, the project's real Auth service still needs to be
+  told to actually call it, which `config push`'s real diff output confirmed
+  (`[hook.custom_access_token] enabled = false → true`), alongside several unrelated,
+  low-risk config fields (`site_url`, OTP/MFA settings) that have zero functional effect on
+  this app (confirmed: no OAuth/redirect/OTP/MFA flow is used anywhere in this codebase) —
+  disclosed rather than blocking on a `config push` dry-run that doesn't exist in this CLI.
+  **`?backend=supabase&env=staging` now genuinely targets the real cloud project** —
+  `supabase-config.js`'s `STAGING_CONFIG` (real URL + real, non-secret anon key, obtained via
+  `supabase projects api-keys --reveal`) replaces Stage 2's own `console.warn`-and-fall-back
+  placeholder. **Real Edge Functions**: new `supabase/functions/approve-client-application/`
+  and `reject-client-application/`, mirroring `functions/index.js`'s business rules
+  field-for-field, each independently service-role-privileged and re-verifying the caller's
+  own JWT server-side. **A real authorization bug caught and fixed during local testing,
+  before any deployment** — the first draft checked `userClient.auth.getUser().app_metadata`
+  for the admin claim, confirmed via a real local sign-in test to return `undefined` even
+  for a genuine admin: `getUser()` fetches the live `auth.users` DATABASE record (a
+  completely different thing from the JWT's own hook-injected claims — the custom access
+  token hook only ever modifies the TOKEN at issuance, never writes back to that row); the
+  installed SDK's own source explicitly warns exactly this ("the user object returned by
+  getUser() must not be trusted [for authorization] — always verify the JWT using
+  getClaims()"). Fixed by using `getClaims(jwt)` — a real server-verified read of the actual
+  injected claims, the same source RLS policies themselves read via `auth.jwt()`. Both
+  functions tested locally first (`supabase functions serve`, against the local stack) —
+  approve/reject both correct, plus three negative cases individually verified working
+  (double-approve on an already-resolved row → 409; a genuine non-admin caller, confirmed
+  via a real second sign-in, → 403 "This action requires Portfolio Manager access."; no
+  Authorization header at all → 401) — before `supabase functions deploy` to the real
+  project, then re-verified working against the real deployed instance directly (a real
+  pending applicant created, approved via a real HTTP call to the live endpoint, confirmed
+  via a direct Postgres query). **`verify_jwt = false` in `config.toml`'s `[functions.*]`
+  blocks, reviewed not ignored**: the CLI's own function scaffold sets this (a
+  platform-level gateway setting, unrelated to the in-function `getClaims(jwt)` check) —
+  confirmed directly it does NOT weaken the real security boundary: a genuinely anonymous
+  call (no real session at all) still gets a real 401 straight from the function's own code.
+  Left as scaffolded rather than flipped to `true`, since the function's own check is
+  already the real, tested boundary. **Real staging admin bootstrap**: new
+  `scripts/supabase-staging-bootstrap-admin.js`, mirroring
+  `scripts/staging-bootstrap-admin.js`'s exact credential discipline (the `service_role`
+  key read from a JSON file via `SUPABASE_STAGING_CREDENTIALS_FILE`, never hardcoded or
+  committed; the account's own password generated and printed once, never stored) — created
+  `pm@marketswave-staging.internal` with a real `is_admin` `user_roles` row, confirmed live
+  by decoding a real issued JWT. **Admin UI wired to call it**: new
+  `admin-supabase-config.js` (mirrors `admin-firebase-config.js`'s password-prompt-modal
+  pattern almost verbatim, `persistSession: false` — Stage 2's own recorded admin-flow
+  decision, now actually implemented for the first time, not dead code);
+  `admin-client-applications.html` extended to merge in a real third source (mirroring its
+  own established local+Firebase merge pattern exactly) with a distinct teal "Supabase"
+  badge, routing Approve/Reject through `supabase.functions.invoke()` (which automatically
+  forwards the signed-in admin's own Authorization Bearer token). **Verified live, the
+  complete real chain, exactly as asked, with the same rigor as Firebase's own Phase A1**:
+  a real applicant signed up through the actual 9-step form against
+  `?backend=supabase&env=staging`; confirmed **visually in the real Supabase dashboard's
+  Table Editor** (not a script) — `status: pending_review`; confirmed login genuinely
+  blocked with the real pending message; clicked **Approve in the real admin UI** — the
+  browser's own network-request capture missed the underlying `functions.invoke()` call (an
+  environment/tooling limitation, disclosed rather than treated as a negative result), so
+  confirmation instead came from two independent, unambiguous real sources: the dashboard's
+  own Edge Function Logs tab showing a real `booted`/`shutdown` cycle at the exact
+  click timestamp, and a direct Table Editor re-check showing `status: active` with a fresh
+  `application_resolved_at` — the only possible proof, since RLS blocks every other caller
+  from writing that row (confirmed by construction in Stage 1's own migration); logged in
+  again, succeeded, landed on a genuinely clean `dashboard.html` render (correct name/
+  initials, $0 portfolio) with zero code changes to that page. All real test data removed
+  from the cloud project afterward, confirmed via a direct query showing zero remaining
+  rows. **Confirmed no regression on the local-stack path**: `supabase-golden-path-
+  regression.js` re-run after all Stage 3 changes, still `GOLDEN PATH: PASS (16/16 steps)`.
+  **Confirmed the entire Firebase integration remains untouched**: `git diff --stat` against
+  `firebase-config.js`/`admin-firebase-config.js`/`functions/`/both `firestore.rules` files/
+  `signup.html`/`login.html`/`engine-core.js` shows zero changes from this stage. New
+  README.md "Stage 3" section documents the full runbook; the Logout fix's own section
+  updated from "known limitation" to "Fixed." See the Backend Requirements Register row 112
+  below.
 
 **Next**: Phase A2 (real Cloud Functions on staging) is blocked on a Blaze plan upgrade for
 `marketswave-staging` — not attempted, not forgotten; once unblocked, deploy

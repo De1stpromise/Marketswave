@@ -121,6 +121,15 @@
     import { ensureAdminSignedIn, db, functions } from './admin-firebase-config.js';
     import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
     import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
+    // Supabase Migration Stage 3 (Aug 30, 2026): a real third source, alongside local and
+    // Firebase — mirrors this page's own established merge pattern (see refreshAndRenderAll()
+    // below) rather than inventing a new one. ensureSupabaseAdminSignedIn() transparently
+    // signs into the real staging PM account; the deployed Edge Functions
+    // (approve-client-application/reject-client-application) are called directly via
+    // supabase.functions.invoke(), which automatically forwards the signed-in admin's own
+    // Authorization Bearer token — the exact token the functions' own getClaims(jwt) check
+    // (see supabase/functions/approve-client-application/index.ts) re-verifies server-side.
+    import { supabase, ensureSupabaseAdminSignedIn } from './admin-supabase-config.js';
 
     // Same 'YYYY-MM-DD' conversion login.html's own copy uses — see that file's comment for
     // why this stays a small, disclosed duplication rather than a shared utility module.
@@ -171,6 +180,38 @@
       var q = query(collection(db, 'clients'), where('status', 'in', ['active', 'rejected']));
       var snap = await getDocs(q);
       return snap.docs.filter(function (d) { return !!d.data().applicationResolvedAt; }).map(firestoreDocToClientRecord);
+    }
+
+    // Normalizes a real Postgres `clients` row (Stage 1's schema, snake_case columns) into
+    // the exact same local shape as firestoreDocToClientRecord() above — timestamptz strings
+    // sliced to 'YYYY-MM-DD', same as login.html's own pgTimestampToDateString() convention.
+    function supabaseRowToClientRecord(row) {
+      return {
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        accountType: row.account_type,
+        status: row.status,
+        createdAt: row.created_at ? row.created_at.slice(0, 10) : null,
+        applicationResolvedAt: row.application_resolved_at ? row.application_resolved_at.slice(0, 10) : null,
+        applicationReason: row.application_reason || null,
+        _source: 'supabase'
+      };
+    }
+
+    async function fetchSupabasePendingApplications() {
+      await ensureSupabaseAdminSignedIn();
+      var res = await supabase.from('clients').select('*').eq('status', 'pending_review');
+      if (res.error) throw res.error;
+      return res.data.map(supabaseRowToClientRecord);
+    }
+
+    async function fetchSupabaseResolvedApplications() {
+      await ensureSupabaseAdminSignedIn();
+      var res = await supabase.from('clients').select('*').in('status', ['active', 'rejected']);
+      if (res.error) throw res.error;
+      return res.data.filter(function (r) { return !!r.application_resolved_at; }).map(supabaseRowToClientRecord);
     }
 
     (function () {
@@ -350,6 +391,16 @@
       var cachedPending = [];
       var cachedHistory = [];
       var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Firebase</span>';
+      // Supabase Migration Stage 3 (Aug 30, 2026): a distinct color (teal) from both
+      // Firebase's amber badge and the emerald used for Approve/active status — a PM must be
+      // able to tell all three apart at a glance, since each routes Approve/Reject through a
+      // genuinely different system.
+      var SUPABASE_SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">Supabase</span>';
+      function sourceBadgeHTML(source) {
+        if (source === 'firebase') return SOURCE_BADGE_HTML;
+        if (source === 'supabase') return SUPABASE_SOURCE_BADGE_HTML;
+        return '';
+      }
 
       function renderPending() {
         var applications = cachedPending.slice()
@@ -371,7 +422,7 @@
               '<div class="min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                   '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeClass + '">' + (c.accountType || 'Individual Account') + '</span>' +
-                  (c._source === 'firebase' ? SOURCE_BADGE_HTML : '') +
+                  sourceBadgeHTML(c._source) +
                   '<span class="text-xs text-slate-400">' + c.id + ' · Submitted ' + c.createdAt + '</span>' +
                 '</div>' +
                 '<p class="text-lg font-semibold text-slate-900 mb-1">' + c.name + '</p>' +
@@ -415,7 +466,7 @@
             var statusLabel = c.status === 'active' ? 'Approved' : (c.status.charAt(0).toUpperCase() + c.status.slice(1));
             var resolvedText = c.applicationResolvedAt + (c.status === 'rejected' && c.applicationReason ? ' — ' + c.applicationReason : '');
             return '<tr class="hover:bg-slate-50/50">' +
-              '<td class="px-6 py-4 font-medium text-slate-900">' + c.name + ' <span class="text-slate-400 font-normal">(' + c.id + ')</span>' + (c._source === 'firebase' ? ' ' + SOURCE_BADGE_HTML : '') + '</td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + c.name + ' <span class="text-slate-400 font-normal">(' + c.id + ')</span>' + (c._source !== 'local' ? ' ' + sourceBadgeHTML(c._source) : '') + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + c.email + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + (c.accountType || '—') + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
@@ -453,14 +504,29 @@
           showToast('Could Not Load Firebase Applications', e.message || String(e), true, true);
         }
 
-        cachedPending = localPending.concat(firestorePending);
+        // Supabase Migration Stage 3 (Aug 30, 2026): a real third source, fetched and merged
+        // the same way as Firestore above — a failure here (e.g. the PM cancels the password
+        // prompt, or a network hiccup) is caught and surfaced via its own toast rather than
+        // blocking local/Firebase data from still rendering.
+        var supabasePending = [];
+        var supabaseHistory = [];
+        try {
+          supabasePending = await fetchSupabasePendingApplications();
+          supabaseHistory = await fetchSupabaseResolvedApplications();
+        } catch (e) {
+          showToast('Could Not Load Supabase Applications', e.message || String(e), true, true);
+        }
 
-        // De-duplicate History by id: a Firebase-approved client who has since logged in
-        // once (mirrorAuthenticatedClientLocally()) exists in BOTH the local array and the
-        // real Firestore result — keep one row, not two.
+        cachedPending = localPending.concat(firestorePending).concat(supabasePending);
+
+        // De-duplicate History by id: a Firebase- or Supabase-approved client who has since
+        // logged in once (mirrorAuthenticatedClientLocally()) exists in BOTH the local array
+        // and the real remote result — keep one row, not two. Real collisions between a
+        // Firebase uid and a Supabase uid are not possible (each backend generates its own
+        // uuids independently), so this de-dup is purely local-vs-remote, same as before.
         var seen = {};
         cachedHistory = [];
-        localHistory.concat(firestoreHistory).forEach(function (c) {
+        localHistory.concat(firestoreHistory).concat(supabaseHistory).forEach(function (c) {
           if (seen[c.id]) return;
           seen[c.id] = true;
           cachedHistory.push(c);
@@ -506,6 +572,22 @@
             await approveFn({ clientId: activeApproveId });
             closeApproveModal();
             showToast('Application Approved', activeApproveId + ' can now log in.');
+          } else if (activeApproveSource === 'supabase') {
+            // Supabase Migration Stage 3 (Aug 30, 2026): the first time in this migration's
+            // history the real admin approve flow works end to end against real cloud
+            // infrastructure with no card requirement — Firebase's own equivalent stayed
+            // permanently blocked on a Blaze plan upgrade (see README.md's "What's blocked:
+            // Phase A2"). ensureSupabaseAdminSignedIn() is awaited first so
+            // supabase.functions.invoke() forwards the real admin's own Authorization
+            // Bearer token — the deployed Edge Function re-verifies that token's own
+            // app_metadata.is_admin claim server-side (getClaims(jwt), never trusted from
+            // the request body); if that claim were ever missing, the function itself
+            // rejects with a real 403, surfaced here exactly like any other thrown error.
+            await ensureSupabaseAdminSignedIn();
+            var supabaseApproveRes = await supabase.functions.invoke('approve-client-application', { body: { clientId: activeApproveId } });
+            if (supabaseApproveRes.error) throw supabaseApproveRes.error;
+            closeApproveModal();
+            showToast('Application Approved', activeApproveId + ' can now log in.');
           } else {
             var result = approveClientApplication(activeApproveId);
             closeApproveModal();
@@ -547,6 +629,12 @@
             await ensureAdminSignedIn();
             var rejectFn = httpsCallable(functions, 'rejectClientApplication');
             await rejectFn({ clientId: activeRejectId, reason: rejectReasonInput.value.trim() });
+            closeRejectModal();
+            showToast('Application Rejected', activeRejectId + ' has been rejected.', true);
+          } else if (activeRejectSource === 'supabase') {
+            await ensureSupabaseAdminSignedIn();
+            var supabaseRejectRes = await supabase.functions.invoke('reject-client-application', { body: { clientId: activeRejectId, reason: rejectReasonInput.value.trim() } });
+            if (supabaseRejectRes.error) throw supabaseRejectRes.error;
             closeRejectModal();
             showToast('Application Rejected', activeRejectId + ' has been rejected.', true);
           } else {
