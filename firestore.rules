@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// Backend Migration Phase 1 (Aug 22, 2026) — Client Registry + Auth.
+//
+// Deliberately restrictive by default, matching the task's own instruction to "start
+// restrictive." The `clients` collection is keyed by the Firebase Auth UID directly
+// (clients/{clientId} where clientId === the owning user's request.auth.uid) — the
+// document's real identifier, not a locally-generated CLIENT-XXXX sequential id (that
+// scheme stays local-only, unmigrated, for every other domain this phase doesn't touch).
+//
+// Admin-level writes (approveClientApplication/rejectClientApplication) do NOT go through
+// these rules at all — they run inside Cloud Functions using the Admin SDK, which bypasses
+// Firestore security rules entirely by design. The actual authorization for those functions
+// happens INSIDE the function itself, via a custom claim (`request.auth.token.admin`) set on
+// a single shared PM Firebase Auth account — see functions/index.js's own comments and the
+// handover doc's Backend Migration section for the full "why" (mirrors the existing
+// single-shared-admin decision already made for the client-side passphrase stub, now given
+// real server-side enforcement instead of a bypassable client-side check).
+//
+// What these rules ARE responsible for: making sure NO client-side code — not even a
+// compromised or malicious one running as a signed-in client — can create, modify, or delete
+// a clients/ document directly. Every write to this collection must go through a vetted
+// Cloud Function. A client may only read their OWN document; an admin-claimed caller may
+// read (get or list) any document, since that's exactly what a real admin review UI needs.
+//
+// Admin Client Applications UI (Aug 22, 2026, same-session follow-up): closes the gap where
+// admin-client-applications.html could only ever show LOCALLY-created pending applications —
+// a Firebase-created application was invisible to the admin page, since Firestore `list` was
+// denied to every caller including admin-claimed ones. `get`/`list` are now both allowed for
+// `request.auth.token.admin == true`, mirroring the exact same custom-claim check
+// functions/index.js's own callables already perform server-side — the two authorization
+// paths (self, or admin) are the ONLY ways to read this collection; everyone else is denied.
+// Writes are completely unchanged: still 100% Cloud-Function-gated, no exception carved out
+// here for admin reads to also imply admin writes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /clients/{clientId} {
+      // A signed-in client may read their own document; an admin-claimed caller may read
+      // any document — the document id IS the owning client's Firebase Auth uid, so the
+      // self-read check is a direct, cheap comparison, no extra lookup needed.
+      allow get: if request.auth != null &&
+        (request.auth.uid == clientId || request.auth.token.admin == true);
+
+      // Listing the whole collection would leak every other client's name/email/status/
+      // application data to an ordinary client — denied to everyone except an admin-claimed
+      // caller, who genuinely needs to enumerate pending applications for real review.
+      allow list: if request.auth != null && request.auth.token.admin == true;
+
+      // All writes (create/update/delete) are denied to every client-side caller, with no
+      // exceptions carved out here — creating a client record (signup) and resolving an
+      // application (approve/reject) both go exclusively through Cloud Functions using the
+      // Admin SDK, which is not subject to these rules. This is intentional, not a gap: it
+      // means the ONLY way to get a clients/ document into existence or change its status is
+      // through code that has already been through the createClientApplication/
+      // approveClientApplication/rejectClientApplication business-rule checks below.
+      allow create, update, delete: if false;
+    }
+
+    // Default-deny everything else — no other collection exists yet in this migration phase,
+    // and nothing should be reachable by accident just because a path exists.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

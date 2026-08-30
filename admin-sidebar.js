@@ -17,10 +17,49 @@
 // authentication — see the ADMIN_PASSPHRASE comment in engine-core.js for the full honesty
 // callout; a determined visitor can bypass this via dev tools, same as the forced
 // password-reset gate on settings.html.
+// Bug fix (Aug 27, 2026): preserves the real-vs-emulator `?env=staging` URL param across
+// every internal admin-tool navigation, not just the one login->landing redirect the report
+// named. Same class of bug as the CLIENT-0001 identity pin and the emulator-credential gap
+// two fixes ago — a mechanism (IS_STAGING, read fresh from window.location.search on every
+// page load, per firebase-config.js's own design) that works correctly wherever the param is
+// actually present, but nothing had ever propagated it forward through this file's own
+// redirects or the sidebar's own rendered <a href> links, so it silently reverted to the
+// emulator (and reproduced the exact auth/invalid-credential/network-request-failed error
+// already diagnosed twice) the moment a PM clicked anywhere. Deliberately reads the RAW query
+// string directly (not IS_STAGING itself, which lives in firebase-config.js — a module this
+// plain, non-module script can't import, and which admin-login.html/most admin pages never
+// even load) — keeps this fix self-contained and needing nothing from the Firebase layer.
+function currentEnvQuery() {
+  try {
+    return new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+  } catch (e) { return ''; }
+}
+
+// Rewrites every same-page, local .html link (the sidebar's own freshly-rendered nav —
+// covered without needing to touch navLinkHTML() itself, since this runs AFTER
+// mount.innerHTML is set — AND each admin page's own hardcoded links, e.g. admin.html's 13
+// Overview cards, admin-hys.html's cross-links, etc.) to carry the same env param, in ONE
+// place rather than requiring every current and future internal link to be hand-threaded
+// individually — the exact kind of single point of failure that let this bug happen in the
+// first place. Skips anything that already has a query string (so re-running this, or a link
+// this function already rewrote, is a safe no-op) and anything that isn't a plain local
+// "somepage.html" href (external URLs, mailto:, #anchors).
+function preserveEnvParamInPageLinks() {
+  var suffix = currentEnvQuery();
+  if (!suffix) return;
+  var links = document.querySelectorAll('a[href]');
+  for (var i = 0; i < links.length; i++) {
+    var href = links[i].getAttribute('href');
+    if (!href || href.indexOf(':') !== -1 || href.indexOf('#') === 0 || href.indexOf('?') !== -1) continue;
+    if (!/\.html$/.test(href)) continue;
+    links[i].setAttribute('href', href + suffix);
+  }
+}
+
 var __adminAuthenticated = false;
 try { __adminAuthenticated = sessionStorage.getItem('marketswave_admin_authenticated') === 'true'; } catch (e) { /* sessionStorage unavailable — non-fatal, fails closed (redirects) */ }
 if (!__adminAuthenticated) {
-  location.replace('admin-login.html');
+  location.replace('admin-login.html' + currentEnvQuery());
 }
 
 (function () {
@@ -28,18 +67,24 @@ if (!__adminAuthenticated) {
   // assigned into via its own `group` field below, in the exact order groups render. This is
   // the one place group membership/order/labels are defined; adding a future tool means
   // adding one NAV_ITEMS entry with an existing `group` id (or a new GROUPS entry first, if
-  // it genuinely needs a fourth category) — never re-arranging section boundaries by hand.
-  // Per instruction: Product Catalog management would land under 'portfolio-administration';
-  // a future login gate is infrastructure, not a nav item, and gets no group/entry here at all.
+  // it genuinely needs another category) — never re-arranging section boundaries by hand.
   // 'dashboard' added (Aug 21, 2026) as the first group, holding Overview and Client List —
   // previously these two were "ungrouped" (group: null), rendered above the labeled groups
   // with no header of their own. That distinction is gone now: they're a real group like any
   // other, just positioned first, so they get the identical group-header treatment.
+  //
+  // Aug 23, 2026, second regroup same day: the 'portfolio-administration' group (briefly
+  // relabeled "Settings" earlier the same day) is removed entirely — Products moved out to
+  // the new 'catalog' group below, and Advisory Fee + Account Security (now labeled "Security
+  // Log") moved into 'user-admin-relations' instead of getting their own group. 'catalog' was
+  // originally positioned last; moved up (third edit, same day) ahead of 'user-admin-relations'
+  // so it doesn't sit at the bottom of the nav — Approval Gate stays first after Dashboard as
+  // the highest-frequency/most time-sensitive daily-use group.
   var GROUPS = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'approval-gate', label: 'Approval Gate' },
-    { id: 'user-admin-relations', label: 'User/Admin Relations' },
-    { id: 'portfolio-administration', label: 'Portfolio Administration' }
+    { id: 'catalog', label: 'Catalog' },
+    { id: 'user-admin-relations', label: 'User/Admin Relations' }
   ];
 
   var NAV_ITEMS = [
@@ -111,14 +156,19 @@ if (!__adminAuthenticated) {
     {
       key: 'hys',
       href: 'admin-hys.html',
-      label: 'HYS Deposits',
+      label: 'HYS Deposits & Withdrawals', // renamed Aug 27, 2026 — admin-hys.html now
+      // covers both request kinds, not just deposits (the HYS withdrawal approval-gate fix)
       icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
       group: 'approval-gate'
     },
     {
+      // Label shortened Aug 23, 2026: "Client Profile Updates" → "Profile Updates" — none of
+      // its sibling queues in this group (Deposits, Withdrawals, Allocations, Sells, HYS
+      // Deposits) spell out "Requests" either; the "Approval Gate" group header itself already
+      // carries that meaning, so "Client" was redundant with being inside this nav at all.
       key: 'settings-changes',
-      href: 'admin-settings-changes.html',
-      label: 'Client Profile Updates',
+      href: 'admin-profile-updates.html',
+      label: 'Profile Updates',
       icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
       group: 'approval-gate'
     },
@@ -137,31 +187,39 @@ if (!__adminAuthenticated) {
       group: 'user-admin-relations'
     },
     {
+      // Label changed Aug 23, 2026: "Settings" → "Advisory Fee" — this page only ever managed
+      // the advisory fee rate. Group changed same day (second regroup): briefly its own
+      // "Settings" group, now folded into 'user-admin-relations' — the "Settings" group was
+      // removed entirely rather than kept as a two-item category. Positioned before Security
+      // Log (below) to match the specified final order.
+      key: 'settings',
+      href: 'admin-advisory-fee.html',
+      label: 'Advisory Fee',
+      icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
+      group: 'user-admin-relations'
+    },
+    {
       // Lock icon — a chronological log, not a queue (no pending/approve mechanic), so it
       // gets a plain read-only-looking icon rather than reusing a document/checkmark shape
-      // already associated with a queue elsewhere in this nav.
+      // already associated with a queue elsewhere in this nav. Aug 23, 2026, second regroup
+      // same day: briefly moved to a now-removed 'portfolio-administration' group, moved back
+      // to 'user-admin-relations' here; label shortened "Account Security" → "Security Log"
+      // (the page's own <title>/<h2> stay "Account Security" — only the nav label changed).
       key: 'security',
       href: 'admin-security.html',
-      label: 'Account Security',
+      label: 'Security Log',
       icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
       group: 'user-admin-relations'
     },
     {
-      // Product Catalog management — exactly the item this nav's own top-of-file comment
-      // already named as the example of what lands under 'portfolio-administration' next
-      // (Aug 21, 2026 grouping, §4.53).
+      // Product Catalog management. Group changed Aug 23, 2026: 'portfolio-administration' →
+      // the new 'catalog' group — its own dedicated category now, rather than sharing space
+      // with the fee-rate/security configuration pages.
       key: 'products',
       href: 'admin-products.html',
       label: 'Product Catalog',
       icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
-      group: 'portfolio-administration'
-    },
-    {
-      key: 'settings',
-      href: 'admin-settings.html',
-      label: 'Settings',
-      icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
-      group: 'portfolio-administration'
+      group: 'catalog'
     }
   ];
 
@@ -216,7 +274,7 @@ if (!__adminAuthenticated) {
     // don't render real nav/data regardless. Uses the real engine-core.js function here
     // (already loaded by the time initAdminSidebar() runs, unlike the top-of-file check).
     if (typeof isAdminAuthenticated === 'function' && !isAdminAuthenticated()) {
-      location.replace('admin-login.html');
+      location.replace('admin-login.html' + currentEnvQuery());
       return;
     }
 
@@ -271,8 +329,13 @@ if (!__adminAuthenticated) {
     });
     document.getElementById('admin-logout-btn').addEventListener('click', function () {
       if (typeof clearAdminAuthenticated === 'function') clearAdminAuthenticated();
-      location.replace('admin-login.html');
+      // Preserves env across logout too — a PM deliberately testing staging shouldn't have
+      // that context silently dropped the moment they log back out, only to have their next
+      // login attempt quietly land back on the emulator with no indication why.
+      location.replace('admin-login.html' + currentEnvQuery());
     });
+
+    preserveEnvParamInPageLinks();
   }
 
   window.initAdminSidebar = initAdminSidebar;

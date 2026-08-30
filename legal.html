@@ -26,7 +26,7 @@
       </nav>
 
       <div class="header-actions">
-        <button type="button" class="btn btn-outline btn-sm" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
+        <button type="button" class="btn btn-outline btn-sm get-access-trigger" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
         <a href="contact.html" class="btn btn-primary btn-sm">Contact</a>
       </div>
 
@@ -165,6 +165,7 @@
             <li><a href="services.html#retirement">Retirement Planning</a></li>
             <li><a href="services.html#supply-chain">Supply Chain</a></li>
             <li><a href="services.html#savings">High-Yield Savings</a></li>
+            <li><a href="services.html#business-consulting">Business Consulting</a></li>
           </ul>
         </div>
 
@@ -185,7 +186,7 @@
             <li><a href="about.html#team">Leadership</a></li>
             <li><a href="legal.html">Legal</a></li>
             <li><a href="contact.html">Contact</a></li>
-            <li><a href="#">Get Access</a></li>
+            <li><a href="#" class="get-access-trigger">Get Access</a></li>
           </ul>
         </div>
       </div>
@@ -235,8 +236,8 @@
   <script>
     (function () {
       const modal = document.getElementById('access-modal');
-      const openBtn = document.getElementById('get-access-btn');
-      if (!modal || !openBtn) return;
+      const openBtns = document.querySelectorAll('.get-access-trigger');
+      if (!modal || openBtns.length === 0) return;
 
       function openModal() {
         modal.hidden = false;
@@ -250,7 +251,12 @@
         setTimeout(() => { modal.hidden = true; }, 220);
       }
 
-      openBtn.addEventListener('click', openModal);
+      openBtns.forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          openModal();
+        });
+      });
 
       modal.querySelectorAll('[data-close-modal]').forEach(el => {
         el.addEventListener('click', closeModal);

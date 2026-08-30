@@ -1,0 +1,14 @@
+{
+  "name": "marketswave-dev-scripts",
+  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself — dev-only, run against the local Firebase Emulator Suite. See ../README.md for the full runbook.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "bootstrap-admin": "node bootstrap-admin.js",
+    "golden-path": "node golden-path-regression.js"
+  },
+  "dependencies": {
+    "firebase": "^11.0.2",
+    "firebase-admin": "^12.7.0"
+  }
+}

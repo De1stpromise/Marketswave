@@ -59,7 +59,16 @@
         if (checkAdminPassphrase(input.value)) {
           error.classList.add('hidden');
           setAdminAuthenticated();
-          location.replace('admin.html');
+          // Bug fix (Aug 27, 2026): preserves ?env=staging across this redirect — previously
+          // dropped it unconditionally, so a real login attempt at
+          // admin-login.html?env=staging landed on plain admin.html (silently back on the
+          // emulator), reproducing the exact auth/network-request-failed error already
+          // diagnosed twice. This file doesn't load admin-sidebar.js (no sidebar until
+          // authenticated), so it can't reuse that file's shared currentEnvQuery() helper —
+          // duplicated here as the same small, self-contained one-liner rather than adding a
+          // new shared module for a single call site.
+          var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+          location.replace('admin.html' + envQuery);
         } else {
           error.classList.remove('hidden');
           input.value = '';

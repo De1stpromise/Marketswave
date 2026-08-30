@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// Backend Migration — Phase A1 (Aug 26, 2026) — Firestore rules for the REAL staging project
+// (marketswave-staging), deployed via `firebase deploy --only firestore:rules
+// --project marketswave-staging --config firebase.staging.json`. Deliberately a SEPARATE file
+// from firestore.rules (the emulator's own ruleset) — do not confuse the two:
+//
+//   firestore.rules          -> emulator (demo-marketswave). Denies ALL client writes,
+//                                including create — every write goes through a Cloud
+//                                Function using the Admin SDK, which bypasses these rules
+//                                entirely by design. See that file's own header comment.
+//   firestore.staging.rules  -> staging (marketswave-staging), THIS file. There is no
+//                                deployed Cloud Function yet (Phase A2 is blocked on a Blaze
+//                                plan upgrade) — signup.html writes its own Firestore
+//                                document DIRECTLY via the client SDK when pointed at staging
+//                                (see firebase-config.js's IS_STAGING switch and signup.html's
+//                                own branch). These rules are what makes that safe: a client
+//                                may create exactly one document under their own uid, with
+//                                its status forced to 'pending_review', and can never update
+//                                (or delete) it afterward — status changes are reserved for
+//                                privileged Admin SDK access only (scripts/staging-approve-
+//                                client.js today; a real approveClientApplication/
+//                                rejectClientApplication Cloud Function once Phase A2 ships).
+//
+// "Exactly one document" falls directly out of Firestore's own request-type classification,
+// not an explicit existence check: a write to a path with NO existing document is classified
+// as `create`; a write to a path that already has one is classified as `update` — so the
+// `allow create` rule below can only ever fire once per uid, and `allow update: if false`
+// closes the door on every write after that, permanently.
+//
+// Two checks below go beyond what Phase A1's own task literally asked for ("status forced to
+// pending_review on creation"), added deliberately and flagged here rather than silently
+// smuggled in: `email` must match the caller's own verified Auth token email, and
+// `accountType` must be one of the three valid values. Both mirror validation the removed
+// createClientApplication Cloud Function used to perform server-side (see functions/index.js)
+// — without a Function in this path at all, nothing else would ever check either of those
+// again, and email spoofing (a client claiming a different email than their real Auth
+// account) is exactly the kind of gap that validation existed to close in the first place.
+// name/phone are NOT similarly validated here (no security property depends on them being
+// well-formed — only data quality, already covered by signup.html's own client-side form
+// validation before submission).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /clients/{clientId} {
+      // Same self-or-admin read pattern as the emulator ruleset — a signed-in client may read
+      // their own document; a caller carrying the real { admin: true } custom claim (set by
+      // scripts/staging-bootstrap-admin.js) may read any document, for whatever future
+      // real admin UI eventually points at staging.
+      allow get: if request.auth != null &&
+        (request.auth.uid == clientId || request.auth.token.admin == true);
+      allow list: if request.auth != null && request.auth.token.admin == true;
+
+      // A signed-in client may create EXACTLY their own document (uid must match the path),
+      // with status forced to literally 'pending_review' — never accepted as whatever the
+      // client happened to send. email must match their own verified Auth token email
+      // (spoofing prevention, see the file header); accountType must be a real, valid value.
+      allow create: if request.auth != null &&
+        request.auth.uid == clientId &&
+        request.resource.data.status == 'pending_review' &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.accountType in
+          ['Individual Account', 'Joint Account', 'Business Account'];
+
+      // No client, of any kind, may ever update or delete a clients/ document — not even
+      // their own, not even to change an unrelated field. Resolving an application
+      // (pending_review -> active/rejected) is reserved for privileged Admin SDK access:
+      // today, scripts/staging-approve-client.js (an explicitly temporary stand-in, see its
+      // own header); once Phase A2 ships, a real approveClientApplication/
+      // rejectClientApplication Cloud Function, mirroring functions/index.js's existing
+      // emulator-side implementation. Both paths use the Admin SDK, which bypasses these
+      // rules entirely by design — this line is what guarantees there is no OTHER way in.
+      allow update, delete: if false;
+    }
+
+    // Default-deny everything else — no other collection exists yet in this phase, and
+    // nothing should be reachable by accident just because a path exists.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

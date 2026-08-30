@@ -395,18 +395,56 @@
     <div class="loading-sub">Preparing your portal…</div>
   </div>
 
-  <script>
+  <!-- Backend Migration Phase 1 (Aug 22, 2026): type="module" specifically so this script
+       can `import` the Firebase Auth/Firestore SDK and firebase-config.js's shared,
+       emulator-connected app instance — the only change of its kind on this page. The IIFE
+       below is otherwise unchanged in shape; nothing outside this script reaches into its
+       scope. See firebase-config.js's own header comment for the emulator-only scoping, and
+       engine-core.js's Backend Migration phase-log entry for the full picture. -->
+  <script type="module">
+    import { auth, db } from './firebase-config.js';
+    import { signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
+    import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+
+    // Converts a Firestore Timestamp (returned for any serverTimestamp()-written field, e.g.
+    // createdAt/applicationResolvedAt) into the SAME 'YYYY-MM-DD' UTC string shape
+    // todayStrUTC() produces locally — so a mirrored record (see mirrorAuthenticatedClientLocally
+    // below) looks exactly like a locally-created one to every page that reads it. Returns
+    // null unchanged (a client that's never been resolved has applicationResolvedAt: null in
+    // Firestore too, same as locally).
+    function firestoreTimestampToDateString(ts) {
+      if (!ts || typeof ts.toDate !== 'function') return null;
+      return ts.toDate().toISOString().slice(0, 10);
+    }
+
+    // Bug fix (Aug 27, 2026): propagates ?env=staging to the "Create an account" link too, so
+    // a PM/tester bouncing from a staging login attempt to signup doesn't silently land back
+    // on the emulator. Same class of fix as the redirect below, just for a static <a> link
+    // rather than a JS-driven navigation.
+    (function () {
+      var signupLink = document.querySelector('a[href="signup.html"]');
+      var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+      if (signupLink && envQuery) signupLink.setAttribute('href', 'signup.html' + envQuery);
+    })();
+
     (function () {
       // ---------- Login form ----------
-      // Client Authentication, Phase 2 (Aug 21, 2026): real credential check, replacing the
-      // old "any submit redirects" stub. Resolves the entered email to a client, hashes the
-      // entered password, and compares via verifyClientCredentials() against that client's
-      // stored hash — exactly the engine functions Phase 1 introduced for exactly this
-      // purpose. Wrong email and wrong password deliberately produce the SAME generic error
-      // (#login-error) — same "don't leak which part failed" principle as admin-login.html's
-      // passphrase gate, more important here since email enumeration is a real concern on a
-      // client-facing page. Does NOT touch dashboard-sidebar.js's CLIENT-0001 pin — every
-      // dashboard page still shows CLIENT-0001 regardless of who logged in, until Phase 3.
+      // Backend Migration Phase 1 (Aug 22, 2026): real Firebase Auth sign-in + a real
+      // Firestore status check, replacing Client Authentication Phase 2's local
+      // getClientByEmail()/hashClientPassword()/verifyClientCredentials() calls — the local
+      // Client Registry/credential store are no longer read for the credential check itself
+      // (see engine-core.js's own Backend Migration comment for why every OTHER page stays
+      // on the local system for now). The three user-facing messages — generic credential
+      // failure, pending_review, rejected — are byte-for-byte identical to before; only what
+      // decides which one fires changed from a local hash comparison to a real Firebase
+      // Auth sign-in + a real Firestore document read. THE BRIDGE (the actual point of this
+      // phase): on success, mirrorAuthenticatedClientLocally() upserts a local shadow copy of
+      // the real Firestore record, then setClientAuthenticated(uid) — the exact same
+      // pre-existing engine-core.js function every other page already calls
+      // getAuthenticatedClientId() to read — is called with the client's real Firebase Auth
+      // uid as the id. Every already-built page keeps working with zero changes, having no
+      // idea the identity behind that id is now real Firebase Auth instead of a local
+      // password-hash comparison.
       const form = document.getElementById('login-form');
       const loadingScreen = document.getElementById('loading-screen');
       const loginError = document.getElementById('login-error');
@@ -414,11 +452,11 @@
       const passwordInput = document.getElementById('password');
 
       if (form) {
-        form.addEventListener('submit', function (e) {
+        form.addEventListener('submit', async function (e) {
           e.preventDefault();
           loginError.classList.remove('is-visible');
 
-          if (typeof getClientByEmail !== 'function' || typeof hashClientPassword !== 'function' || typeof verifyClientCredentials !== 'function' || typeof setClientAuthenticated !== 'function') {
+          if (typeof setClientAuthenticated !== 'function' || typeof mirrorAuthenticatedClientLocally !== 'function') {
             loginError.textContent = 'Something went wrong signing you in. Please try again.';
             loginError.classList.add('is-visible');
             return;
@@ -430,54 +468,91 @@
           const email = emailInput.value.trim();
           const rawPassword = passwordInput.value;
 
-          Promise.resolve()
-            .then(function () {
-              const client = getClientByEmail(email);
-              if (!client) return null;
-              return hashClientPassword(rawPassword).then(function (hash) {
-                return verifyClientCredentials(client.id, hash) ? client : null;
-              });
-            })
-            .then(function (authenticatedClient) {
-              if (!authenticatedClient) {
-                loginError.textContent = 'Incorrect email or password. Please try again.';
-                loginError.classList.add('is-visible');
-                if (submitBtn) submitBtn.disabled = false;
-                return;
-              }
-              // New Client Application Review (Aug 22, 2026): checked AFTER credentials
-              // verify but BEFORE setClientAuthenticated() — correct credentials alone are
-              // not enough to reach the dashboard while an application is still pending or
-              // was rejected. A missing/undefined status (every client created before this
-              // feature shipped, including the CLIENT-0001 demo account) is deliberately
-              // treated the same as 'active' — only an explicit 'pending_review' or
-              // 'rejected' value blocks login, so no pre-existing client is retroactively
-              // locked out. Reuses the same #login-error element/styling as the generic
-              // credential-failure case rather than introducing new UI for this message
-              // class.
-              if (authenticatedClient.status === 'pending_review') {
-                loginError.textContent = 'Your application is under review. We’ll notify you once it’s approved.';
-                loginError.classList.add('is-visible');
-                if (submitBtn) submitBtn.disabled = false;
-                return;
-              }
-              if (authenticatedClient.status === 'rejected') {
-                loginError.textContent = 'We were unable to approve your application. Please contact support for more information.';
-                loginError.classList.add('is-visible');
-                if (submitBtn) submitBtn.disabled = false;
-                return;
-              }
-              setClientAuthenticated(authenticatedClient.id);
-              loadingScreen.classList.add('is-active');
-              setTimeout(function () {
-                window.location.href = 'dashboard.html';
-              }, 2200);
-            })
-            .catch(function () {
-              loginError.textContent = 'Something went wrong signing you in. Please try again.';
+          try {
+            const credential = await signInWithEmailAndPassword(auth, email, rawPassword);
+            const uid = credential.user.uid;
+
+            const snap = await getDoc(doc(db, 'clients', uid));
+            if (!snap.exists()) {
+              // Defensive only — not expected for any account created through the real
+              // signup flow, since createClientApplication always writes the companion
+              // Firestore document synchronously before signup.html ever redirects away.
+              await signOut(auth);
+              throw new Error('no-client-record');
+            }
+            const clientData = snap.data();
+
+            // New Client Application Review (Aug 22, 2026)'s exact same business rule and
+            // message copy, now checked against a real Firestore document instead of a
+            // local one — checked AFTER credentials verify but BEFORE
+            // setClientAuthenticated()/mirrorAuthenticatedClientLocally(), so correct
+            // credentials alone are still not enough to reach the dashboard while an
+            // application is pending or was rejected. A missing/undefined status is still
+            // deliberately treated the same as 'active' (falls through to the success path
+            // below) — no Firebase-migrated client can actually have a missing status
+            // (createClientApplication always sets one), but the check stays structurally
+            // identical to the local version for exact parity. Both messages sign the
+            // client back out first — Firebase Auth would otherwise leave them in a
+            // technically-signed-in state with no corresponding local session, which
+            // nothing in this app expects.
+            if (clientData.status === 'pending_review') {
+              await signOut(auth);
+              loginError.textContent = 'Your application is under review. We’ll notify you once it’s approved.';
               loginError.classList.add('is-visible');
               if (submitBtn) submitBtn.disabled = false;
+              return;
+            }
+            if (clientData.status === 'rejected') {
+              await signOut(auth);
+              loginError.textContent = 'We were unable to approve your application. Please contact support for more information.';
+              loginError.classList.add('is-visible');
+              if (submitBtn) submitBtn.disabled = false;
+              return;
+            }
+
+            // THE BRIDGE. mirrorAuthenticatedClientLocally() upserts a local shadow copy of
+            // the real Firestore record (Firestore Timestamps converted to the local
+            // 'YYYY-MM-DD' string convention) so getClient()/getClientByEmail() — and every
+            // page downstream of them — keep working unchanged. setClientAuthenticated(uid)
+            // is the EXACT pre-existing engine-core.js function every other page already
+            // depends on via getAuthenticatedClientId() — completely unmodified, just called
+            // with a real Firebase Auth uid instead of a locally-generated CLIENT-XXXX id.
+            mirrorAuthenticatedClientLocally({
+              id: uid,
+              name: clientData.name,
+              email: clientData.email,
+              phone: clientData.phone,
+              accountType: clientData.accountType,
+              status: clientData.status,
+              createdAt: firestoreTimestampToDateString(clientData.createdAt),
+              applicationResolvedAt: firestoreTimestampToDateString(clientData.applicationResolvedAt),
+              applicationReason: clientData.applicationReason || null
             });
+            setClientAuthenticated(uid);
+
+            loadingScreen.classList.add('is-active');
+            // Bug fix (Aug 27, 2026): preserves ?env=staging across this redirect — previously
+            // dropped it unconditionally, so a real staging login landed on plain
+            // dashboard.html, silently back on the emulator target for every page/action
+            // downstream (most concretely, dashboard-sidebar.js's own real signOut(auth) on
+            // Logout would then incorrectly target the wrong Firebase project). Self-contained
+            // read of the URL directly rather than importing IS_STAGING, matching
+            // admin-login.html's own identical fix.
+            var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+            setTimeout(function () {
+              window.location.href = 'dashboard.html' + envQuery;
+            }, 2200);
+          } catch (err) {
+            // Every Firebase Auth failure code (wrong password, unknown email, invalid
+            // credential, etc.) — and the defensive no-client-record throw above — all fold
+            // into this SAME generic message, preserving the exact email-enumeration-
+            // avoidance principle Client Authentication Phase 2 established: never reveal
+            // which half of the credential pair was wrong.
+            await signOut(auth).catch(function () {});
+            loginError.textContent = 'Incorrect email or password. Please try again.';
+            loginError.classList.add('is-visible');
+            if (submitBtn) submitBtn.disabled = false;
+          }
         });
       }
 

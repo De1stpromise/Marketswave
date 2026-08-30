@@ -23,13 +23,10 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -124,6 +121,16 @@
         <button type="button" id="security-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
       <p class="text-sm text-slate-500 mb-4" id="security-modal-desc"></p>
+      <!-- Backend Migration Phase 0, item 3 (Aug 26, 2026): shown only for a Firebase-sourced
+           client's Reset Password action — see openSecurityModal() for exactly when. Reset 2FA
+           gets no equivalent warning here because it genuinely isn't a no-op for these clients
+           (see the comment above expandedRowHTML() for the full "why" of that distinction). -->
+      <div id="security-firebase-warning" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+        <strong class="font-semibold">This client signs in with a real Firebase Auth password.</strong>
+        This action will not change or invalidate it — it only forces a one-time, non-persisting
+        "set new password" screen on their end (see the code comment for why nothing is actually
+        stored). Real credential revocation for Firebase-sourced clients isn't available yet.
+      </div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Reason (required)</label>
       <textarea id="security-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this reset being performed?"></textarea>
       <p class="text-xs text-red-500 hidden mb-2" id="security-error"></p>
@@ -136,8 +143,13 @@
 
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
-    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
-    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+        <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+      </div>
+      <button type="button" id="admin-toast-close" class="hidden text-white/60 hover:text-white transition text-lg leading-none shrink-0">&times;</button>
+    </div>
   </div>
 
   <script src="admin-sidebar.js"></script>
@@ -147,7 +159,60 @@
     initAdminSidebar('clients');
   </script>
 
-  <script>
+  <!-- Admin follow-up to the admin-client-applications.html Firebase merge (Aug 22, 2026):
+       type="module" specifically so this script can `import` the Firebase Firestore/
+       Functions SDK and admin-firebase-config.js's shared, admin-authorized session
+       bootstrap — mirrors admin-client-applications.html's own script-type change exactly,
+       same reasoning. The IIFE below is otherwise the same shape as before; nothing outside
+       this script reaches into its scope. Deferred module execution (this always runs after
+       every classic script tag above, including initAdminSidebar()) means engine-core.js's
+       globals are already defined by the time this runs. -->
+  <script type="module">
+    import { ensureAdminSignedIn, db } from './admin-firebase-config.js';
+    import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+
+    // Same 'YYYY-MM-DD' conversion login.html's and admin-client-applications.html's own
+    // copies use — see those files' comments for why this stays a small, disclosed
+    // duplication rather than a shared utility module.
+    function firestoreTimestampToDateString(ts) {
+      if (!ts || typeof ts.toDate !== 'function') return null;
+      return ts.toDate().toISOString().slice(0, 10);
+    }
+
+    // Same normalization shape admin-client-applications.html's own
+    // firestoreDocToClientRecord() produces — id/name/email/phone/accountType/status/
+    // createdAt/applicationResolvedAt/applicationReason, plus _source: 'firebase'. Client
+    // List doesn't need the status-specific fields for anything today, but keeping the same
+    // shape (rather than a narrower one) means this row can be handed to any function that
+    // already expects a full client record — matchesSearch()/matchesTypeFilter()/
+    // formatDisplayDate() all just work on it unchanged.
+    function firestoreDocToClientRecord(docSnap) {
+      var data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        accountType: data.accountType,
+        status: data.status,
+        createdAt: firestoreTimestampToDateString(data.createdAt),
+        applicationResolvedAt: firestoreTimestampToDateString(data.applicationResolvedAt),
+        applicationReason: data.applicationReason || null,
+        _source: 'firebase'
+      };
+    }
+
+    // Unlike admin-client-applications.html's two STATUS-filtered queries, Client List shows
+    // every client regardless of status (pending_review/active/rejected) — this page's own
+    // job is "every client account," not "applications awaiting a decision." A bare
+    // collection() read with no `where` still requires the same admin custom claim per
+    // firestore.rules' `allow list` rule — confirmed via Node before writing this UI code.
+    async function fetchFirestoreClients() {
+      await ensureAdminSignedIn();
+      var snap = await getDocs(collection(db, 'clients'));
+      return snap.docs.map(firestoreDocToClientRecord);
+    }
+
     (function () {
       if (typeof getAllClients !== 'function') return; // engine-core.js failed to load — bail defensively
 
@@ -160,16 +225,33 @@
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
       var toastBody = document.getElementById('admin-toast-body');
+      var toastClose = document.getElementById('admin-toast-close');
       var toastTimer;
-      function showToast(title, body, isError) {
+      // Bug fix (Aug 27, 2026): closes the same gap found and fixed in
+      // admin-client-applications.html — this file shares the identical showToast()
+      // pattern and the identical ensureAdminSignedIn() call ("Could Not Load Firebase
+      // Clients" is this file's own version of the exact toast that faded before it could be
+      // read). New 4th param `sticky`, deliberately separate from `isError` (kept exactly as
+      // it already was, pure styling), requires manual dismissal via the new close button
+      // instead of auto-hiding — only the real Firebase-load-failure call site below passes
+      // it; every other call site (none currently pass `isError` at all in this file) is
+      // completely unchanged.
+      function showToast(title, body, isError, sticky) {
         toastTitle.textContent = title;
         toastBody.textContent = body;
         toast.classList.toggle('bg-red-700', !!isError);
         toast.classList.toggle('bg-slate-900', !isError);
+        toastClose.classList.toggle('hidden', !sticky);
         toast.classList.remove('hidden');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+        if (!sticky) {
+          toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+        }
       }
+      toastClose.addEventListener('click', function () {
+        clearTimeout(toastTimer);
+        toast.classList.add('hidden');
+      });
 
       function formatUSD(n) {
         return '$' + Math.round(n).toLocaleString();
@@ -198,6 +280,42 @@
       var searchQuery = '';
       var typeFilter = 'All';
       var expandedIds = {};
+
+      // Same merge pattern proven on admin-client-applications.html this session, mirrored
+      // exactly rather than reinvented: cachedClients holds the MERGED result of local
+      // (getAllClients()) and real Firestore reads, refreshed by refreshAndRenderClients()
+      // below; renderClients() just renders/filters whatever's currently cached, tagging
+      // each row with the same small "Firebase" badge when _source === 'firebase'.
+      // De-duplicated by id — a Firebase client who has since logged in once
+      // (mirrorAuthenticatedClientLocally()) exists in BOTH the local array and the real
+      // Firestore result, same reasoning as admin-client-applications.html's own History
+      // dedup.
+      var cachedClients = [];
+      var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Firebase</span>';
+
+      // Backend Migration Phase 0, item 3 (Aug 26, 2026): labels the one of these two actions
+      // that's genuinely misleading for a Firebase-sourced client, rather than fixing it (real
+      // credential revocation for Firebase-backed clients needs Firebase Auth's own admin APIs
+      // — e.g. revoking refresh tokens, disabling the account — a separate, unscoped future
+      // task, not silently pretended to work here). Re-investigated before labeling anything,
+      // rather than trusting the prior blanket note this replaces: "Reset Password"/"Reset 2FA"
+      // both call local-only resetClientPassword()/resetClient2FA() engine functions, but they
+      // are NOT equally affected —
+      //   - Reset Password sets a LOCAL forcePasswordReset flag that gates settings.html until
+      //     the client submits a "new password." Traced that form's own submit handler
+      //     (settings.html): it never persists a password anywhere for ANY client (there is no
+      //     real credential store backing the self-service Change Password flow either) — it
+      //     only clears the flag. For a Firebase-sourced client specifically, this means the
+      //     reset has NO effect on their real sign-in credential at all: they keep using their
+      //     existing real Firebase Auth password, unaware anything was supposed to change. This
+      //     IS the genuinely misleading case, and the one labeled below.
+      //   - Reset 2FA writes directly to the same marketswave_settings_2fa:<clientId> key
+      //     settings.html's own 2FA section reads — and 2FA has ALWAYS been a fully local,
+      //     simulated feature independent of Firebase Auth for every client, Firebase-sourced
+      //     or not (Firebase Auth has its own real MFA support; this project never adopted it).
+      //     So Reset 2FA achieves its real, complete, intended effect for a Firebase-sourced
+      //     client exactly as designed — there is no discrepancy to warn about, and doing so
+      //     would be inaccurate, not just unnecessary caution.
 
       function renderFilterPills() {
         var buttons = document.querySelectorAll('.filter-pill');
@@ -233,13 +351,15 @@
               '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="PASSWORD_RESET">Reset Password</button>' +
               '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="2FA_RESET">Reset 2FA</button>' +
             '</div>' +
+            (c._source === 'firebase'
+              ? '<p class="text-xs text-amber-600 mt-2">Firebase-authenticated client: Reset Password will not change their real sign-in password. Reset 2FA works normally.</p>'
+              : '') +
           '</td>' +
         '</tr>';
       }
 
       function renderClients() {
-        var all = getAllClients();
-        var filtered = applyFilters(all, searchQuery, typeFilter);
+        var filtered = applyFilters(cachedClients, searchQuery, typeFilter);
         var currentId = getCurrentClientId();
         var listEl = document.getElementById('clients-list');
 
@@ -261,7 +381,7 @@
             var total = getTotalPortfolioValue(c.id);
             var summaryRow = '<tr class="client-row cursor-pointer hover:bg-slate-50/50' + (isCurrent ? ' bg-amber-50/40' : '') + '" data-id="' + c.id + '">' +
               '<td class="px-6 py-4">' +
-                '<p class="font-medium text-slate-900">' + c.name + '</p>' +
+                '<p class="font-medium text-slate-900">' + c.name + (c._source === 'firebase' ? ' ' + SOURCE_BADGE_HTML : '') + '</p>' +
                 '<p class="text-xs text-slate-400">' + c.id + '</p>' +
               '</td>' +
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + badge.cls + '">' + badge.label + '</span></td>' +
@@ -272,6 +392,34 @@
             '</tr>';
             return summaryRow + (isExpanded ? expandedRowHTML(c) : '');
           }).join('') + '</tbody></table>';
+      }
+
+      // Refetches both local (synchronous) and real Firestore (async) clients, merges
+      // (de-duplicated by id), then re-renders — same shape as admin-client-applications.
+      // html's own refreshAndRenderAll(). A Firestore read failure (e.g. the emulator isn't
+      // running) is caught and surfaced via the existing toast rather than left as a silent
+      // gap — local data still renders regardless.
+      async function refreshAndRenderClients() {
+        document.getElementById('clients-list').innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">Loading…</p>';
+
+        var localClients = getAllClients().map(function (c) { return Object.assign({ _source: 'local' }, c); });
+
+        var firestoreClients = [];
+        try {
+          firestoreClients = await fetchFirestoreClients();
+        } catch (e) {
+          showToast('Could Not Load Firebase Clients', e.message || String(e), true, true);
+        }
+
+        var seen = {};
+        cachedClients = [];
+        localClients.concat(firestoreClients).forEach(function (c) {
+          if (seen[c.id]) return;
+          seen[c.id] = true;
+          cachedClients.push(c);
+        });
+
+        renderClients();
       }
 
       document.getElementById('client-search').addEventListener('input', function (e) {
@@ -343,6 +491,14 @@
         securityModalDesc.textContent = copy.desc(name);
         securityReasonInput.value = '';
         securityError.classList.add('hidden');
+
+        // Backend Migration Phase 0, item 3 (Aug 26, 2026): only PASSWORD_RESET on a
+        // Firebase-sourced client gets the warning — see the comment above expandedRowHTML()
+        // for why Reset 2FA is deliberately excluded (it's not actually a no-op for them).
+        var client = cachedClients.find(function (c) { return c.id === clientId; });
+        var showWarning = action === 'PASSWORD_RESET' && client && client._source === 'firebase';
+        document.getElementById('security-firebase-warning').classList.toggle('hidden', !showWarning);
+
         securityModal.classList.remove('hidden');
       }
       function closeSecurityModal() {
@@ -363,7 +519,7 @@
           var actionLabel = activeSecurityAction === 'PASSWORD_RESET' ? 'Password reset' : '2FA reset';
           closeSecurityModal();
           showToast(actionLabel + ' logged', result.clientName + ' (' + result.clientId + ') — ' + actionLabel.toLowerCase() + ' recorded in the Account Security log.');
-          renderClients();
+          refreshAndRenderClients();
         } catch (e) {
           securityError.textContent = e.message;
           securityError.classList.remove('hidden');
@@ -413,7 +569,7 @@
           });
           closeAddModal();
           showToast('Client Added', result.name + ' (' + result.id + ') created with ' + formatUSD(startingCapital) + ' starting capital.');
-          renderClients();
+          refreshAndRenderClients();
         } catch (e) {
           addError.textContent = e.message;
           addError.classList.remove('hidden');
@@ -421,7 +577,7 @@
       });
 
       renderFilterPills();
-      renderClients();
+      refreshAndRenderClients();
     })();
   </script>
 

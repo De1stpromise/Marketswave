@@ -23,13 +23,10 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -120,6 +117,21 @@
           <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
           <input type="text" id="add-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Growth Fund" />
         </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+          <textarea id="add-description" rows="2" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+        </div>
+        <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
+             see updateAddConditionalFields(), wired to add-asset-class's change event. -->
+        <div id="add-logo-url-field" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
+          <input type="text" id="add-logo-url" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="https://example.com/logo.png" />
+          <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
+        </div>
+        <div id="add-extended-description-field" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
+          <textarea id="add-extended-description" rows="4" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
@@ -177,6 +189,21 @@
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
           <input type="text" id="edit-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+          <textarea id="edit-description" rows="2" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+        </div>
+        <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
+             see updateEditConditionalFields(), wired to edit-asset-class's change event. -->
+        <div id="edit-logo-url-field" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
+          <input type="text" id="edit-logo-url" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="https://example.com/logo.png" />
+          <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
+        </div>
+        <div id="edit-extended-description-field" class="hidden">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
+          <textarea id="edit-extended-description" rows="4" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
@@ -386,6 +413,18 @@
         renderProducts();
       });
 
+      // ---- Conditional Logo URL / Extended Description fields (Aug 23, 2026) — shared
+      // between Add and Edit since both react to the same Asset Class categories: Logo URL
+      // for Stocks & ETFs/Crypto (client cards show a small logo/initials box), Extended
+      // Description for Private Equity/Real Assets (client cards get a "More info" popup).
+      // Live-reactive to each modal's own Asset Class <select> change event — this is a UI
+      // display convention, not a data-layer restriction (engine-core.js's own comment on
+      // PRODUCT_EDITABLE_FIELDS explains why nothing there enforces this pairing).
+      function updateConditionalFields(assetClass, logoFieldId, extendedFieldId) {
+        document.getElementById(logoFieldId).classList.toggle('hidden', assetClass !== 'Stocks & ETFs' && assetClass !== 'Crypto');
+        document.getElementById(extendedFieldId).classList.toggle('hidden', assetClass !== 'Private Equity' && assetClass !== 'Real Assets');
+      }
+
       // ---- Add Product modal ----
       var addModal = document.getElementById('add-modal');
       var addError = document.getElementById('add-error');
@@ -394,8 +433,12 @@
         document.getElementById('add-asset-class').value = 'Private Equity';
         document.getElementById('add-risk-tier').value = 'balanced';
         document.getElementById('add-investment-type').value = '';
+        document.getElementById('add-description').value = '';
+        document.getElementById('add-logo-url').value = '';
+        document.getElementById('add-extended-description').value = '';
         document.getElementById('add-minimum-investment').value = '';
         document.getElementById('add-unit-price').value = '';
+        updateConditionalFields('Private Equity', 'add-logo-url-field', 'add-extended-description-field');
         addError.classList.add('hidden');
         addModal.classList.remove('hidden');
       }
@@ -405,6 +448,9 @@
       document.getElementById('add-modal-close').addEventListener('click', closeAddModal);
       document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
       document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+      document.getElementById('add-asset-class').addEventListener('change', function (e) {
+        updateConditionalFields(e.target.value, 'add-logo-url-field', 'add-extended-description-field');
+      });
 
       document.getElementById('add-submit').addEventListener('click', function () {
         addError.classList.add('hidden');
@@ -412,6 +458,9 @@
         var assetClass = document.getElementById('add-asset-class').value;
         var riskTier = document.getElementById('add-risk-tier').value;
         var investmentType = document.getElementById('add-investment-type').value.trim();
+        var description = document.getElementById('add-description').value.trim();
+        var logoUrl = document.getElementById('add-logo-url').value.trim();
+        var extendedDescription = document.getElementById('add-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('add-minimum-investment').value);
         var unitPrice = parseFloat(document.getElementById('add-unit-price').value);
 
@@ -422,7 +471,10 @@
             investmentType: investmentType,
             riskTier: riskTier,
             minimumInvestment: minimumInvestment,
-            unitPrice: unitPrice
+            unitPrice: unitPrice,
+            description: description,
+            logoUrl: logoUrl,
+            extendedDescription: extendedDescription
           });
           closeAddModal();
           showToast('Product Added', result.name + ' (' + result.id + ') is now available for allocation.');
@@ -447,8 +499,12 @@
         document.getElementById('edit-asset-class').value = p.assetClass;
         document.getElementById('edit-risk-tier').value = p.riskTier;
         document.getElementById('edit-investment-type').value = p.investmentType;
+        document.getElementById('edit-description').value = p.description || '';
+        document.getElementById('edit-logo-url').value = p.logoUrl || '';
+        document.getElementById('edit-extended-description').value = p.extendedDescription || '';
         document.getElementById('edit-minimum-investment').value = p.minimumInvestment;
         document.getElementById('edit-unit-price-display').textContent = formatUSD2(p.unitPrice);
+        updateConditionalFields(p.assetClass, 'edit-logo-url-field', 'edit-extended-description-field');
         editError.classList.add('hidden');
         editModal.classList.remove('hidden');
       }
@@ -457,6 +513,9 @@
       document.getElementById('edit-modal-close').addEventListener('click', closeEditModal);
       document.getElementById('edit-modal-backdrop').addEventListener('click', closeEditModal);
       document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+      document.getElementById('edit-asset-class').addEventListener('change', function (e) {
+        updateConditionalFields(e.target.value, 'edit-logo-url-field', 'edit-extended-description-field');
+      });
 
       document.getElementById('edit-submit').addEventListener('click', function () {
         editError.classList.add('hidden');
@@ -464,6 +523,9 @@
         var assetClass = document.getElementById('edit-asset-class').value;
         var riskTier = document.getElementById('edit-risk-tier').value;
         var investmentType = document.getElementById('edit-investment-type').value.trim();
+        var description = document.getElementById('edit-description').value.trim();
+        var logoUrl = document.getElementById('edit-logo-url').value.trim();
+        var extendedDescription = document.getElementById('edit-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('edit-minimum-investment').value);
 
         try {
@@ -472,7 +534,10 @@
             assetClass: assetClass,
             investmentType: investmentType,
             riskTier: riskTier,
-            minimumInvestment: minimumInvestment
+            minimumInvestment: minimumInvestment,
+            description: description,
+            logoUrl: logoUrl,
+            extendedDescription: extendedDescription
           });
           closeEditModal();
           showToast('Product Updated', result.name + ' (' + result.id + ') saved.');

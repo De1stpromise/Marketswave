@@ -32,7 +32,7 @@
 
     <!-- ========== MAIN ========== -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -115,6 +115,7 @@
                 <option value="Deposit">Deposit</option>
                 <option value="HYS Deposit">HYS Deposit</option>
                 <option value="Withdrawal">Withdrawal</option>
+                <option value="HYS Withdrawal">HYS Withdrawal</option>
               </select>
             </div>
             <div>
@@ -216,11 +217,11 @@
       var allTransactions = getTransactionLedger().slice().reverse();
 
       function txnProduct(txn) { return txn.productId ? getProduct(txn.productId) : null; }
-      // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL has no product — no buy/sell target, nothing to
-      // look up — so each gets its own label instead of falling through to a failed product
-      // lookup (which used to render the literal text "null" for DEPOSIT before that was
-      // fixed — HYS_DEPOSIT and WITHDRAWAL are both handled here proactively from day one
-      // rather than repeating that bug).
+      // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL/HYS_WITHDRAWAL has no product — no buy/sell target,
+      // nothing to look up — so each gets its own label instead of falling through to a
+      // failed product lookup (which used to render the literal text "null" for DEPOSIT
+      // before that was fixed — every type since has been handled here proactively from day
+      // one rather than repeating that bug, HYS_WITHDRAWAL included, Aug 27, 2026).
       function txnProductName(txn) {
         if (txn.type === 'DEPOSIT') {
           return 'Cash Deposit (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
@@ -231,6 +232,9 @@
         if (txn.type === 'WITHDRAWAL') {
           return 'Cash Withdrawal (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
         }
+        if (txn.type === 'HYS_WITHDRAWAL') {
+          return 'HYS Pocket Withdrawal (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
+        }
         var p = txnProduct(txn);
         return p ? p.name : txn.productId;
       }
@@ -239,6 +243,7 @@
         if (txn.type === 'SELL') return 'Sell';
         if (txn.type === 'HYS_DEPOSIT') return 'HYS Deposit';
         if (txn.type === 'WITHDRAWAL') return 'Withdrawal';
+        if (txn.type === 'HYS_WITHDRAWAL') return 'HYS Withdrawal';
         return 'Deposit';
       }
 
@@ -270,12 +275,16 @@
 
       // ---- Advisory fee card: live accrual estimate, read-only. Setting the rate is a
       // Portfolio Manager / admin action, not something a client should be able to do from
-      // their own dashboard — setAdvisoryFeeRate() stays in engine-core.js for the
-      // upcoming admin tool, but nothing on this page calls it. ----
+      // their own dashboard — setAdvisoryFeeRate() is only ever called from
+      // admin-advisory-fee.html, nothing on this page calls it. The rate itself is
+      // genuinely global as of Aug 27, 2026 (getAdvisoryFeeRate()) — this client sees the
+      // real platform-wide rate, not whatever happened to be ambient in some past admin
+      // session; only the accrued DOLLAR amount below is this client's own (their own
+      // allocatedCapital × the shared rate). ----
       var advisoryFeeAmountEl = document.getElementById('advisory-fee-amount');
       var advisoryFeeRateEl = document.getElementById('advisory-fee-rate-display');
       if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = formatUSD(Math.round(getAdvisoryFeeAccrued(30)));
-      if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = getAccountState().advisoryFeeRate;
+      if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = getAdvisoryFeeRate();
 
       // ---- Recent Activity (this page's own instance) ----
       var activityEl = document.getElementById('recent-activity-list');
@@ -430,6 +439,7 @@
               : txn.type === 'SELL' ? 'bg-red-50 text-red-600'
               : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
               : txn.type === 'WITHDRAWAL' ? 'bg-orange-50 text-orange-700'
+              : txn.type === 'HYS_WITHDRAWAL' ? 'bg-amber-50 text-amber-700'
               : 'bg-blue-50 text-blue-700';
             var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
             var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
@@ -498,6 +508,7 @@
         var isDeposit = txn.type === 'DEPOSIT';
         var isHysDeposit = txn.type === 'HYS_DEPOSIT';
         var isWithdrawal = txn.type === 'WITHDRAWAL';
+        var isHysWithdrawal = txn.type === 'HYS_WITHDRAWAL';
         document.getElementById('txn-modal-asset').textContent = txnProductName(txn);
         document.getElementById('txn-modal-date').textContent = txn.date;
         document.getElementById('txn-modal-type').textContent = txnTypeLabel(txn);
@@ -525,16 +536,19 @@
         }
 
         // Every real transaction today is only ever created via executeBuy()/executeSell()/
-        // creditDepositRequest()/creditHYSDeposit()/approveWithdrawal(), each only ever
-        // called internally by an approved allocation/sell/deposit/HYS-deposit/withdrawal
-        // request — so this note is accurate given current wiring, not fabricated. Worth
-        // revisiting if a future phase calls any of these from anywhere else.
+        // creditDepositRequest()/creditHYSDeposit()/approveWithdrawal()/approveHYSWithdrawal(),
+        // each only ever called internally by an approved allocation/sell/deposit/HYS-deposit/
+        // withdrawal/HYS-withdrawal request — so this note is accurate given current wiring,
+        // not fabricated. Worth revisiting if a future phase calls any of these from anywhere
+        // else.
         document.getElementById('txn-modal-note').textContent = isDeposit
           ? 'Credited following Portfolio Manager confirmation of a deposit request.'
           : isHysDeposit
           ? 'Credited following Portfolio Manager confirmation of a High Yield Savings deposit request.'
           : isWithdrawal
           ? 'Processed following Portfolio Manager approval of a withdrawal request.'
+          : isHysWithdrawal
+          ? 'Processed following Portfolio Manager approval of a High Yield Savings pocket withdrawal request.'
           : isSell
           ? 'Executed following Portfolio Manager approval of a sell request.'
           : 'Executed following Portfolio Manager approval of an allocation request.';

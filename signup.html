@@ -237,6 +237,23 @@
       min-width: 140px;
     }
 
+    .btn.is-loading {
+      gap: 10px;
+      opacity: 0.85;
+      cursor: default;
+    }
+    .btn-spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: btn-spin 0.7s linear infinite;
+    }
+    @keyframes btn-spin {
+      to { transform: rotate(360deg); }
+    }
+
     .btn-back {
       background: transparent;
       border: 1.5px solid #D8D4CD;
@@ -923,7 +940,20 @@
      completing signup creates a real client record instead of just navigating to
      thank-you.html. -->
 <script src="engine-core.js"></script>
-<script>
+<!-- Backend Migration Phase 1 (Aug 22, 2026): this script is now type="module" specifically
+     so it can `import` the Firebase Auth/Functions SDK and firebase-config.js's shared,
+     emulator-connected app instance — the ONLY change of its kind on this page. The IIFE
+     below is otherwise identical in shape to before; nothing outside this script reaches
+     into its scope (it was already fully self-contained), so switching script types changes
+     nothing observable except making `import` legal at the top level. See
+     firebase-config.js's own header comment for why this stays emulator-only, and
+     engine-core.js's Backend Migration phase-log entry for the full picture. -->
+<script type="module">
+  import { auth, db, functions, IS_STAGING } from './firebase-config.js';
+  import { createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
+  import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
+  import { doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+
   (function () {
     // ---------- State ----------
     let currentStep = 1;
@@ -1303,7 +1333,7 @@
       submitBtn.addEventListener("click", async () => {
         if (!validateStep(9)) return;
 
-        if (typeof addClient !== 'function' || typeof hashClientPassword !== 'function' || typeof setClientCredentials !== 'function' || typeof saveClientOnboardingData !== 'function') {
+        if (typeof saveClientOnboardingData !== 'function' || typeof seedMinimalClientStores !== 'function') {
           // engine-core.js failed to load — fail closed rather than silently pretending
           // an account was created when nothing was actually persisted.
           showError("Something went wrong creating your account. Please try again.");
@@ -1314,34 +1344,93 @@
         const email = document.getElementById("email").value.trim();
         const phone = document.querySelector('input[name="phone"]').value.trim();
         const rawPassword = document.getElementById("password").value;
+        const accountTypeLabel = ACCOUNT_TYPE_LABELS[accountType] || 'Individual Account';
 
+        const originalBtnHTML = submitBtn.innerHTML;
         submitBtn.disabled = true;
+        submitBtn.classList.add("is-loading");
+        submitBtn.innerHTML = '<span class="btn-spinner"></span>Submitting...';
         try {
-          // New Client Application Review (Aug 22, 2026): status: 'pending_review' overrides
-          // addClient()'s own 'active' default — a client created here needs PM approval
-          // before they can log in (see login.html's own status check), unlike a client
-          // created directly from admin-clients.html's Add Client form, where the PM
-          // creating them IS the review.
-          const newClient = addClient({
-            name: fullName,
-            email: email,
-            phone: phone,
-            accountType: ACCOUNT_TYPE_LABELS[accountType] || 'Individual Account',
-            status: 'pending_review'
-          });
+          // Backend Migration Phase 1 (Aug 22, 2026): completing onboarding now creates a
+          // REAL Firebase Auth account and a REAL Firestore client document — replacing the
+          // local addClient()/hashClientPassword()/setClientCredentials() calls this page
+          // used before this phase (engine-core.js's local Client Registry/credential store
+          // are no longer touched by signup.html at all; see engine-core.js's own Backend
+          // Migration comment for why every OTHER page stays on the local system for now).
+          const credential = await createUserWithEmailAndPassword(auth, email, rawPassword);
+          const uid = credential.user.uid;
 
-          const passwordHash = await hashClientPassword(rawPassword);
-          setClientCredentials(newClient.id, passwordHash);
+          if (IS_STAGING) {
+            // Phase A1 (Aug 26, 2026): staging has no deployed Cloud Function yet (Phase A2 —
+            // blocked on a Blaze plan upgrade, see README.md), so this writes the client's
+            // Firestore document DIRECTLY via the client SDK instead of calling
+            // createClientApplication. This is only safe because the deployed staging
+            // firestore.staging.rules forces status to literally equal 'pending_review' on
+            // create and denies every subsequent update outright — a malicious client could
+            // submit whatever else it wants in this call, but can never grant itself
+            // 'active'/'rejected', and can never revise the document after this one write. The
+            // rules, not this code, are what actually enforce that — see
+            // firestore.staging.rules' own comments for the full "why". email is taken from
+            // credential.user.email (the just-created real Auth account's own verified email)
+            // rather than the raw form field, mirroring the ONE thing
+            // createClientApplication() itself refused to trust from the client — everything
+            // else here is exactly what that callable would have written.
+            await setDoc(doc(db, 'clients', uid), {
+              name: fullName,
+              email: credential.user.email,
+              phone: phone,
+              accountType: accountTypeLabel,
+              status: 'pending_review',
+              createdAt: serverTimestamp(),
+              applicationResolvedAt: null,
+              applicationReason: null
+            });
+          } else {
+            // createClientApplication (functions/index.js) reads email from the caller's own
+            // verified Auth token, mirrors addClient()'s field validation, and hardcodes
+            // status: 'pending_review' server-side — never trusted as client input the way the
+            // local addClient() call used to accept it.
+            const createClientApplication = httpsCallable(functions, 'createClientApplication');
+            await createClientApplication({ name: fullName, phone: phone, accountType: accountTypeLabel });
+          }
 
-          // Onboarding Data Capture (Aug 22, 2026): everything steps 3-8 collected, now
-          // genuinely persisted so a PM has real substance to review on
-          // admin-client-applications.html instead of just name/email/account type.
-          saveClientOnboardingData(newClient.id, collectOnboardingData());
+          // createUserWithEmailAndPassword() auto-signs the new user in client-side —
+          // explicitly signed back out immediately after, since signup has never
+          // authenticated a client straight into the dashboard in this project. That still
+          // only happens through a real login.html submission, after PM approval (see
+          // login.html's own status-gate logic, unchanged in spirit, now backed by real
+          // Firebase Auth + Firestore instead of a local hash comparison).
+          await signOut(auth);
 
-          window.location.href = "thank-you.html";
+          // Onboarding Data Capture (Aug 22, 2026) stays entirely local/unmigrated this
+          // phase — same saveClientOnboardingData() call as before, just keyed by the real
+          // Firebase uid now instead of a local CLIENT-XXXX id.
+          saveClientOnboardingData(uid, collectOnboardingData());
+
+          // Per-client local financial stores (holdings/transactions/every request queue/
+          // documents) still live only in localStorage this phase. A Firebase-created
+          // client bypasses addClient() entirely, so seedMinimalClientStores() — now
+          // exported specifically for this — has to be called directly here instead of
+          // happening implicitly inside addClient(). Deliberately NOT mirrored into the
+          // local Client Registry (`clients` array) at signup time — that mirror only ever
+          // happens on a successful LOGIN (see login.html), reading the Firestore record's
+          // OWN current fields as the single source of truth, so there's never a
+          // hand-reconstructed local copy that could silently drift from what a PM actually
+          // approved/rejected in Firestore.
+          seedMinimalClientStores(uid, 0);
+
+          // Bug fix (Aug 27, 2026): preserves ?env=staging across this redirect too, for
+          // consistency with every other fixed redirect in this chain — thank-you.html itself
+          // has no further Firebase-relevant navigation today, but this keeps the discipline
+          // uniform rather than leaving one silent gap for a future thank-you.html link to
+          // fall into.
+          var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+          window.location.href = "thank-you.html" + envQuery;
         } catch (err) {
           submitBtn.disabled = false;
-          showError("Something went wrong creating your account: " + err.message);
+          submitBtn.classList.remove("is-loading");
+          submitBtn.innerHTML = originalBtnHTML;
+          showError("Something went wrong creating your account: " + (err.message || err));
         }
       });
     }

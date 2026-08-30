@@ -44,7 +44,7 @@
     <div class="flex-1 flex flex-col overflow-hidden">
 
       <!-- Top bar -->
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -107,7 +107,7 @@
               <div class="w-full max-w-[13rem] sm:max-w-[14rem] md:max-w-[15rem] lg:max-w-[18rem] xl:max-w-[20rem] 2xl:max-w-[22rem] aspect-square flex-shrink-0 mx-auto">
                 <canvas id="allocation-chart" role="img" aria-label="Portfolio allocation by asset class"></canvas>
               </div>
-              <div class="flex-1 basis-[180px] space-y-3" id="allocation-legend"></div>
+              <div class="flex-1 basis-[220px] space-y-3" id="allocation-legend"></div>
             </div>
           </div>
 
@@ -318,9 +318,9 @@
       var legendEl = document.getElementById('allocation-legend');
       if (legendEl) {
         legendEl.innerHTML = labels.map(function (label, i) {
-          return '<div class="flex items-center justify-between text-sm">' +
-            '<span class="flex items-center gap-2 text-slate-700"><span class="w-2.5 h-2.5 rounded-full" style="background:' + colors[i] + '"></span>' + label + '</span>' +
-            '<span class="font-medium text-navy">' + percentages[i].toFixed(1) + '%</span>' +
+          return '<div class="flex items-center justify-between gap-2 text-sm">' +
+            '<span class="flex items-center gap-2 text-slate-700 whitespace-nowrap"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:' + colors[i] + '"></span>' + label + '</span>' +
+            '<span class="font-medium text-navy whitespace-nowrap">' + percentages[i].toFixed(1) + '%</span>' +
             '</div>';
         }).join('');
       }
@@ -359,6 +359,7 @@
             var isDeposit = txn.type === 'DEPOSIT';
             var isHysDeposit = txn.type === 'HYS_DEPOSIT';
             var isWithdrawal = txn.type === 'WITHDRAWAL';
+            var isHysWithdrawal = txn.type === 'HYS_WITHDRAWAL';
             var title, detail, dotColor;
             if (isDeposit) {
               // No product — money coming in, not a trade against a holding — so this gets
@@ -384,6 +385,15 @@
               // both mean money coming IN) since this is money leaving the account.
               dotColor = 'bg-orange-500';
               title = 'Withdrawal processed';
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
+                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
+            } else if (isHysWithdrawal) {
+              // Same reasoning as WITHDRAWAL above, handled from day one (Aug 27, 2026)
+              // rather than repeating the "Capital allocated — null" bug class a fourth time.
+              // A distinct amber dot — related to HYS_DEPOSIT's purple (same domain) but
+              // still visually its own color, since this is money leaving, not entering.
+              dotColor = 'bg-amber-500';
+              title = 'HYS pocket withdrawal processed';
               detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + txn.date +
                 (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
             } else {

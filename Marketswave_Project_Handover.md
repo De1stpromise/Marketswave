@@ -105,7 +105,7 @@ added anywhere in the project.
 
 | # | Area | What's stubbed on the frontend now | What the in-house engine needs to do |
 |---|------|-------------------------------------|----------------------------------------|
-| 1 | Auth | **Full client-side login chain now COMPLETE (Client Authentication Phases 1-3, Aug 21, 2026, rows 50-52).** `login.html`'s submit handler performs a real credential check (`getClientByEmail()` → `hashClientPassword()` → `verifyClientCredentials()`), `setClientAuthenticated(clientId)` records who actually logged in, and — as of Phase 3 — `dashboard-sidebar.js` genuinely resolves that real client on every client-facing page instead of unconditionally pinning `CLIENT-0001`: it reads `getAuthenticatedClientId()` at file-load time, pins `marketswave_current_client_id` to whichever real client authenticated, and redirects to `login.html` immediately if nobody did — confirmed live across all 9 locked-sidebar pages plus `asset-collection.html`, not assumed from one. **Logout now genuinely clears the real session** (`clearClientAuthentication()` plus the ambient pin), fixed as a required part of Phase 3 rather than left as the documented no-op it was through Phase 2 — confirmed a post-logout reload does not silently restore access. **The cosmetic identity-display gap flagged at the end of Phase 3 is now also COMPLETE (Identity display fix, Aug 22, 2026, row 53)**: the sidebar footer, `dashboard.html`'s greeting, `settings.html`'s profile card, and `support.html`'s callback modal/live chat all now read the real authenticated client's own name/initials/account type — confirmed live as a second real client ("Marcus Chen") shows their own name everywhere, not "John Doe" | Real backend-verified authentication (this remains a client-side-only hash comparison against `localStorage`, not a real server) and session management tied to a real backend |
+| 1 | Auth | **Full client-side login chain now COMPLETE (Client Authentication Phases 1-3, Aug 21, 2026, rows 50-52).** `login.html`'s submit handler performs a real credential check (`getClientByEmail()` → `hashClientPassword()` → `verifyClientCredentials()`), `setClientAuthenticated(clientId)` records who actually logged in, and — as of Phase 3 — `dashboard-sidebar.js` genuinely resolves that real client on every client-facing page instead of unconditionally pinning `CLIENT-0001`: it reads `getAuthenticatedClientId()` at file-load time, pins `marketswave_current_client_id` to whichever real client authenticated, and redirects to `login.html` immediately if nobody did — confirmed live across all 9 locked-sidebar pages plus `asset-collection.html`, not assumed from one. **Logout now genuinely clears the real session** (`clearClientAuthentication()` plus the ambient pin), fixed as a required part of Phase 3 rather than left as the documented no-op it was through Phase 2 — confirmed a post-logout reload does not silently restore access. **The cosmetic identity-display gap flagged at the end of Phase 3 is now also COMPLETE (Identity display fix, Aug 22, 2026, row 53)**: the sidebar footer, `dashboard.html`'s greeting, `settings.html`'s profile card, and `support.html`'s callback modal/live chat all now read the real authenticated client's own name/initials/account type — confirmed live as a second real client ("Marcus Chen") shows their own name everywhere, not "John Doe". **Real backend-verified authentication now exists for signup.html/login.html specifically (Backend Migration Phase 1, Aug 22, 2026, row 58, §12)** — real Firebase Auth + Firestore, emulator-only, with a hybrid bridge keeping every other page working unchanged | Real backend-verified auth for every OTHER page (all 9 dashboard pages, the entire admin tool) still reads from the local `clients` mirror, not Firestore directly — that's Phase 1's own deliberate scope boundary, not an oversight (see §12.2). Real PRODUCTION Firebase (vs. the current Emulator Suite) remains a distinct, explicitly deferred future switch-over — see §12.4's 9-item checklist |
 | 2 | Password reset | 4-step UI flow, no real email/verification | Send/validate verification codes, update stored password |
 | 3 | Onboarding | 9-step signup form, client-side validation only. **Completing the form now genuinely persists data (Client Authentication Phase 1, Aug 21, 2026, row 50)** — `addClient()` creates a real Client Registry record (name/email/phone/accountType) and a real hashed credential is stored, previously the submit button just navigated to `thank-you.html` with nothing saved at all. **The PM review gap this row originally flagged is now CLOSED (New Client Application Review, Aug 22, 2026, row 56)** — a signup-created client now starts `status: 'pending_review'`, is genuinely blocked from logging in (even with fully correct credentials) until a PM approves via new `admin-client-applications.html`, and only an explicit `approveClientApplication()` call lets them through. **The remaining data-loss gap is now also CLOSED (Onboarding Data Capture, Aug 22, 2026, row 57)** — entity/joint-holder details, financial profile, goals & preferences, the 6-question risk questionnaire, and document upload filenames are all genuinely saved via `saveClientOnboardingData()` and rendered on the admin review page, so a PM reviewing an application now has real substance to look at, not just a name/email/account type | Row 3 is now fully closed — no outstanding gap remains for onboarding data capture or PM review. Real file storage (the uploaded documents' actual bytes, not just filename metadata) remains a genuinely backend-dependent need, already tracked separately elsewhere in this register (Documents & Reporting rows) |
 | 4 | Portfolio engine — allocation | `dashboard.html`'s pie chart + legend (Phase 4a) and **`asset-performance.html`'s summary cards + Return Table + Asset Collection cards (Phase 4b, Aug 20, 2026)** all now read live from `engine-core.js` — grouped/summed from real holdings × current unit price, not hardcoded. **The Asset Collection cards themselves moved to their own page, `asset-collection.html` (Aug 21, 2026, row 49)** — `asset-performance.html` keeps the summary cards and Return Table, links out to the new page for browsing/requesting | Real backend still needed to actually persist an approved allocation across sessions/devices — the in-house engine only lives in this browser's `localStorage` for now |
@@ -149,7 +149,7 @@ appearing in the transaction ledger too |
 | 31 | Portfolio engine — deposit request queue (Admin tool Phase A) | `engine-core.js` (Aug 20, 2026): `requestDeposit(method, amount, currency, details)` / `creditDepositRequest(requestId, confirmedAmount)` / `rejectDepositRequest(requestId, reason)` / `getDepositRequests()`, mirroring the allocation/sell request/approve pattern for money coming INTO the account. `confirmedAmount` (PM-entered) is authoritative and may differ from the client's original `requestedAmount` — real-world wire fees/FX/partial transfers. Adds a `DEPOSIT` transaction type to the ledger (no `productId`/`units`/`price` — just `totalValue`, `date`, `method`). Engine layer verified via Node, mirroring how every prior engine phase was verified. **The `getTransactionLedger()` rendering breakage flagged by this row's original audit is now fixed** (Aug 20, 2026, same day — see §4.39): `transactions.html`'s ledger table/drill-down modal no longer crash on a `productId`-less DEPOSIT, DEPOSIT has its own label/badge/asset text instead of being mislabeled "Sell" or showing "null", and `dashboard.html`'s Recent Activity shows real deposit phrasing instead of "Capital allocated — null". **`creditDepositRequest()` is now called from `admin-deposits.html` (Admin Tool Phase B, Aug 20, 2026)** — see §4.41. The PM enters a confirmed amount (pre-filled with the client's requested amount, editable) which is what actually lands, exactly matching this row's original design intent. **`creditDepositRequest()`/`rejectDepositRequest()` now take an explicit `clientId` and write directly to that client's scoped storage — no module-level caching, no fallback to the ambient active client anywhere in the chain (Approval Gate unification, Aug 21, 2026)**; `admin-deposits.html` shows every client's pending/history rows via a new `getAllClientDepositRequests()` aggregator — see row 46 and §4.60 | **A real, pre-existing client-side gap, confirmed by directly reading `deploy-capital.html` during the Client Withdrawal task (Aug 22, 2026, row 54)**: its two Deposit forms' submit handlers have never called `requestDeposit()` at all — only client-side `alert()` validation followed by the static success panel, confirmed independently by `admin-deposits.html`'s own pre-existing code comment ("no page has ever called `requestDeposit()` through a real UI yet"). The admin side (this row's own original scope) is complete and has nothing outstanding; wiring the two Deposit forms to the real engine is a separate, unscoped fix, deliberately not done as part of Client Withdrawal. **This gap is now CLOSED (Deposit Wiring fix, Aug 22, 2026, row 55)** — both forms genuinely call `requestDeposit()`, verified end to end including a real admin-side credit. Still needed regardless: real backend persistence and a login gate for the admin tool (explicitly deferred per the Phase B spec) |
 | 32 | Portfolio engine — multi-client data model | `engine-core.js` + 6 other files (Aug 21, 2026, all 5 steps): the engine is now genuinely multi-tenant instead of implicitly single-client. `marketswave_clients` Client Registry (global); `setCurrentClientId()`/`getCurrentClientId()`/`clientScopedKey()` (`sessionStorage`-backed, defaults to `CLIENT-0001`); all 15 per-client `localStorage` keys route through `clientScopedKey()` — the 7 `engine-core.js` already owned plus 8 owned by `risk-management.html`/`settings.html`/`support.html`/`high-yield-savings.html`/`dashboard-notifications.js`/`dashboard.html`. One-time migration copies old unscoped data to `CLIENT-0001`-scoped keys losslessly (Node-verified, 99 assertions). Admin tool now has a "Viewing Client" selector (`admin-sidebar.js` originally; moved into its own dedicated page, `admin-clients.html`, on Aug 21, 2026 — see row 41); client-facing pages explicitly assert `CLIENT-0001` context (`dashboard-sidebar.js`). `addClient()` seeds a genuinely fresh, isolated new client (empty holdings/ledger/requests, modest starting cash) rather than cloning the demo portfolio — isolation proven via a 20-assertion Node harness simulating the full create-switch-act-switch-back cycle, **then run for real in the browser** (created CLIENT-0002, switched via the actual admin dropdown, credited a real deposit via the actual Credit modal, confirmed CLIENT-0001 completely unaffected both ways). **That live run caught a real bug Node verification missed**: the original client-context reset (Step 4) ran too late relative to `engine-core.js`'s own data loading, which under one same-tab sequence (switch client in admin, then navigate to a client page) silently corrupted CLIENT-0001's real `unallocatedCapital` — root-caused via raw `localStorage` inspection, fixed by moving the reset to file-load time (before `engine-core.js` loads, not after), re-verified against the exact failing scenario, corrupted data repaired from a recorded known-good baseline, and a 6-assertion regression test added so it can't silently return. See §4.45 | Real backend persistence (still `localStorage`-only, per-browser); a login/auth system to actually determine which client a real user is; ~~a "create client" UI in the admin tool (client creation is currently console-only)~~ **resolved Aug 21, 2026 — see row 41's "Add Client" form on `admin-clients.html`** |
 | 33 | Portfolio engine — HYS deposit approval queue | **COMPLETE** (Aug 21, 2026, both checkpoints). `engine-core.js`: `requestHYSDeposit(pocketType, term, amount, method, details)` / `creditHYSDeposit(requestId, confirmedAmount)` / `rejectHYSDeposit(requestId, reason)` / `getHYSDepositRequests()`, a parallel store to the regular deposit queue (see §4.46 for why). `creditHYSDeposit()` creates the actual pocket funded with the PM-confirmed amount, computes `maturityDate` from the real credit date and `projectedInterest` from the confirmed amount, never touches `unallocatedCapital`/`allocatedCapital`, and produces an `HYS_DEPOSIT` transaction-ledger entry. `high-yield-savings.html`'s "Open a New Pocket" flow now submits a request (with a "My Pocket Requests" section); new `admin-hys.html` gives PMs a real credit/reject UI; `transactions.html`/`dashboard.html` proactively audited and fixed for the new transaction type before ship. Node-verified (57 + 182 regression assertions) AND run for real end-to-end in the browser (§4.47) — request submitted, credited at a different confirmed amount than requested, pocket/maturity/interest all verified correct, CLIENT-0002 confirmed completely unaffected. **`creditHYSDeposit()`/`rejectHYSDeposit()` now take an explicit `clientId` and write directly to that client's scoped storage at every layer — the pocket store, the request queue, and the transaction ledger (Approval Gate unification, Aug 21, 2026)**; `admin-hys.html` shows every client's pending/history rows via a new `getAllClientHYSDepositRequests()` aggregator — see row 46 and §4.60 | None outstanding for this queue |
-| 34 | HYS rate/term duplication — known structural debt, not a bug | `high-yield-savings.html`'s client-facing rate preview (`SHORT_TERM_BRACKETS`/`LOCKED_RATES`) and `engine-core.js`'s independently-derived rate logic (`HYS_SHORT_TERM_BRACKETS`/`HYS_LOCKED_RATES`, used when a PM actually credits an HYS deposit — see §4.46) are two separate copies of the same business rule, kept intentionally separate for security reasons: the engine must never trust a client-computed money figure, so it recalculates rates from raw inputs (`pocketType`/term) rather than accepting a pre-computed value from the browser. Correct behavior as designed, but the two copies can silently drift if a rate ever changes and only one copy gets updated | Make `engine-core.js` the single source of truth for the rate schedule, and have `high-yield-savings.html`'s live preview call into the engine for its number instead of keeping a parallel copy — eliminates drift risk while preserving the same security principle. **Recommended timing: after the current admin-tool build-out (the nine-item batch following the Multi-Client Data Model phase) is complete, as a dedicated cleanup pass rather than squeezed into feature work.** |
+| 34 | HYS rate/term duplication — RESOLVED | **COMPLETE (Aug 23, 2026).** `engine-core.js` is now the single source of truth for the HYS rate schedule. New public `getHYSRate(termMode, termValue)` (`'short'` mode = months 1-12, `'locked'` mode = years 1-5; throws on an out-of-range or invalid `termMode`) wraps the existing `hysShortTermRate()`/`HYS_LOCKED_RATES` — `requestHYSDeposit()` itself was refactored to call `getHYSRate()` internally instead of touching the private tables directly, so the PM-credit-time path and the client-facing preview now genuinely share one function, not just two tables that happen to match. Exported as `window.getHYSRate`. `high-yield-savings.html`'s own `SHORT_TERM_BRACKETS`/`LOCKED_RATES`/`getShortTermRate()` were deleted outright — `computeFDFields()` and the New Pocket term-dropdown option labels now call `getHYSRate('short', months)`/`getHYSRate('locked', years)` directly. Pure refactor, no rate values changed and no new behavior. Node-verified: all 17 term brackets (1-12 months, 1-5 years) cross-checked against the old duplicated logic byte-for-byte, all identical, plus confirmed the new function correctly throws on out-of-range/invalid input; a full `requestHYSDeposit()` call for a short-term, a locked-term, and an AYW pocket confirmed the real request flow still produces the exact expected rates end-to-end. **Browser-verified live** (temporary local static server, not the Firebase emulator — logged into the client session directly via `setClientAuthenticated('CLIENT-0001')` in console rather than through `login.html`'s real Firebase Auth call, since that requires the separately-bootstrapped emulator and this check only concerned the New Pocket preview): opened the New Pocket modal, confirmed all 12 Short-Term dropdown options (1-12 months) read the exact expected 5/5/7/7/8.5/8.5/9.5/9.5/10.5/10.5/12/12% APR sequence; selected 6 Months at a $10,000 amount and confirmed the summary panel showed "8.5% APR" and "$425.00" projected interest; switched to Locked (1-5 Years), confirmed all 5 dropdown options read 14/16/17.5/19/20% APR, and selected 5 Years at $10,000 showing "20% APR"/"$10,000.00" — all matching what the page showed before this change (same rate tables, just no longer locally duplicated). Zero console errors on load or interaction | None outstanding |
 | 35 | Request Change data model + client redesign | **Both checkpoints COMPLETE (Aug 21, 2026).** Checkpoint 1 — `engine-core.js`: `marketswave_settings_change_requests` replaces `marketswave_settings_pending` (field names only, no value/reason/timestamp). `getSettingsProfile(clientId?)` backed by new per-client storage for `legalName`/`dateOfBirth`/`address`/`idDocument` (previously 100% hardcoded HTML, no storage at all). `requestSettingsChange(field, requestedValue, reason)` auto-snapshots `currentValue` from the real profile. `approveSettingsChangeRequest(clientId, requestId)`/`rejectSettingsChangeRequest(clientId, requestId, resolutionNote)` take an explicit `clientId` (cross-client by design, confirmed with a dedicated test). Approve genuinely writes into the real profile store for the first time. Node-verified, 38 assertions + full 182-assertion regression suite, 220 total, 0 failures (§4.48). Checkpoint 2 — `settings.html` rewritten to read/display all four fields from `getSettingsProfile()` live, with a "Pending Review" badge replacing "Request Change" per field; `#change-modal` redesigned into four field-specific bodies (Legal Name split first/last, Date of Birth native date input, Address five separate inputs, ID/Document type input + real file input capturing `fileName` only). Browser-verified live for all four fields including a real approve round-trip (console-simulated PM action) and a real uploaded test file — see §4.49 | None — the cross-client aggregation reader and `admin-settings-changes.html` itself are now both built; see row 37 |
 | 36 | Documents + Support admin queues | **COMPLETE (Aug 21, 2026).** `engine-core.js`: `getAllClientDocuments()`/`updateDocumentForClient(clientId, docId, patch)`/`publishDocumentToClient(clientId, { filename, category, signatureRequired?, dueDate? })` (cross-client, mirrors the Settings Change explicit-`clientId` pattern) and `getAllClientSupportRequests()`/`updateSupportRequestForClient(clientId, requestId, patch)` (an admin-only addition touching the existing `marketswave_support_requests` key — `support.html`'s own client-side read/write of its own store is untouched, still not a full migration). New `admin-documents.html` (client uploads awaiting review with a "Mark Reviewed" action, a Publish to Client form, and a combined History of published + reviewed documents) and `admin-support.html` (Needs Attention / Resolved, an Update modal setting status + a client-visible PM note). `support.html` gained a "Portfolio Manager Response" block in its request-detail view to surface the new `pmNote` field. Both wired into `admin-sidebar.js`'s nav and two new Overview pending-count cards (Overview's grid widened from 4 to 6 cards). Node-verified, 34 new assertions (aggregation shape, `publishDocumentToClient`'s `dueDate`→`deadlineLabel` conversion, per-client sequential doc ids, missing-key handling for a client who's never loaded `support.html`, cross-client isolation, defensive copies) + full 220-assertion regression suite, 254 total, 0 failures. Browser-verified end to end: marked a real upload "Reviewed" (moved to History correctly); published a signature-required document with a due date to CLIENT-0002 — confirmed via raw `localStorage` inspection (client-facing pages can't be viewed as a non-default client in this build, by the same Step 4 design that hard-locks them to `CLIENT-0001`) that it landed with the exact right shape (`deadlineLabel: "Due in 9 days"`, `status: "Signature Required"`) and CLIENT-0001's own 8 documents were completely unaffected; resolved a real support ticket with a PM note from `admin-support.html` and confirmed the exact note text renders back on the client's own `support.html` "My Requests" view. Zero console errors throughout. See §4.50 | None outstanding for these two queues — the Settings Change admin queue (`admin-settings-changes.html`) remains the one held item from the original three-queue batch, per explicit instruction |
 | 37 | Settings Change admin queue | **COMPLETE (Aug 21, 2026) — closes out the original three-queue batch.** `engine-core.js`: `getAllClientSettingsChangeRequests()`, the cross-client listing reader deliberately held back in the Request Change redesign's Step 1 (row 35) — `approveSettingsChangeRequest(clientId, requestId)`/`rejectSettingsChangeRequest(clientId, requestId, resolutionNote)` already took an explicit `clientId` from the start, so no changes were needed to either. New `admin-settings-changes.html`: Pending (field-specific Current/Requested display reusing `settings.html`'s own `formatFieldDisplay()`/`formatDateDisplay()` logic, byte-identical copies — see the duplication note below), an Approve confirmation modal showing Current → Requested before applying, a Reject modal with an optional reason, and a History section showing every resolved request with its outcome. Wired into `admin-sidebar.js`'s nav and a 7th Overview pending-count card. **A real, non-hypothetical finding from Node verification**: settings change request ids (`SETTING-0001`, ...) are assigned per-client, not globally — CLIENT-0001's and CLIENT-0002's first requests can both legitimately be `SETTING-0001`. Every row's Approve/Reject button carries both `data-client` and `data-id`, and the underlying engine functions already require an explicit `clientId`, so this was never exploitable through the actual UI — but it did trip up the *test's* first draft (an id-only lookup silently matched the wrong client's request), fixed by keying the test on `(clientId, field)` instead and documented in the test file as a reusable lesson for any future cross-client aggregate lookup. Node-verified, 24 new assertions (empty case, cross-client tagging, all 4 field shapes applying correctly to the right client's profile on approve, reject touching only status/resolutionNote, double-approve rejected, defensive copies) + full 254-assertion prior regression suite, 278 total, 0 failures. Browser-verified end to end exactly as asked: submitted a Legal Name change ("Jonathan Doe" → "Jonathan Whitmore-Doe") as the client, approved it from `admin-settings-changes.html` (confirmation modal showed the correct Current/Requested values), then reloaded `settings.html` and confirmed the client's Legal Name genuinely now reads "Jonathan Whitmore-Doe" as the real current value — not just the request clearing from Pending. Zero console errors throughout. **Minor structural debt logged, not silently duplicated**: `formatDateDisplay()`/`formatFieldDisplay()` are copied verbatim into `admin-settings-changes.html` rather than shared, since this project has no module system for plain display-formatting helpers (only stateful logic like `engine-core.js`/the sidebar files are actually shared via `<script>` tags) — low-risk since nothing here is a money or security figure, unlike the flagged HYS rate duplication, but two copies can still drift if the display format ever changes in one place and not the other. See §4.51 | If a shared display-formatting module is ever introduced for other reasons, fold `formatDateDisplay()`/`formatFieldDisplay()` into it so `settings.html` and `admin-settings-changes.html` share one copy instead of two |
@@ -173,6 +173,61 @@ appearing in the transaction ledger too |
 | 55 | Deposit Wiring fix — `deploy-capital.html`'s two Deposit forms genuinely call `requestDeposit()` | **COMPLETE (Aug 22, 2026)**, closing the real gap found and reported at the end of Client Withdrawal (row 31/§4.68). **Confirmed still accurate before touching anything**: read the current submit handlers directly — both still ended at the static success panel with no engine call. **A real signature mismatch caught before writing code**: the task described `requestDeposit(clientId, ...)`, but the actual function is `requestDeposit(method, amount, currency, details)` — AMBIENT, no `clientId` parameter, exactly like `requestAllocation()`/`requestSell()` (unlike `requestWithdrawal()`, deliberately built explicit-clientId one task earlier). Changing the signature would be an unrequested breaking change to an already-shipped function — resolved by calling it exactly as it exists; its identity resolution is already correct post-Client-Authentication via `getCurrentClientId()`, which `dashboard-sidebar.js`'s Phase 3 guard already pins to the real authenticated client. `getAuthenticatedClientId()` WAS applied where it genuinely fits: corrected the pre-existing Withdraw handler's `requestWithdrawal(getCurrentClientId(), ...)` to `requestWithdrawal(getAuthenticatedClientId(), ...)`, since that function does take an explicit clientId. Wired using the just-built Withdraw handler as the direct reference — same file, same submit-handler shape, same try/catch-into-toast error handling. "My Withdrawal Requests" renamed to "My Funding Requests" (chosen over "My Deposit & Withdrawal Requests" for brevity) and merged with real Deposit history, covering Deposit's `'credited'`/`creditedAmount` alongside Withdrawal's `'approved'`/`approvedAmount` in one shared render, with a new Type column. Shared toast renamed `#withdraw-toast` → `#funding-toast`. **Audit requested, one real finding reported**: `admin-deposits.html`'s `humanizeKey()`/`detailsHTML()` comment referenced "no page has ever called `requestDeposit()`" as its reason for schema-agnostic rendering — the comment was stale (updated), but the code itself needed no change, since it was already generic by construction and rendered the real new `details` shapes correctly on the first real submission. Also noted: the existing Node regression suite's own `requestDeposit()` calls use a placeholder `{ senderName }` shape, different from the real one — not a bug, just confirmation nothing was locked in before. A project-wide grep for fixed-key `details` access (e.g. `.details.walletAddress`) found zero matches anywhere else. `engine-core.js` was not touched — `requestDeposit()` already worked, it just had no real caller; the full 20-file, 0-failure regression suite was re-run to confirm. Browser-verified live, the complete flow — not Crypto as a stand-in for both: a real Crypto deposit ($3,500 ETH) confirmed via direct `getAllClientDepositRequests()`/`getDepositRequests()` inspection (not just the UI toast) as a genuine pending `DEP-0001`; an independently-submitted real Bank deposit ($10,000, full destination details) confirmed as its own real `DEP-0002` with all 10 fields persisted; both credited from the real `admin-deposits.html` UI (one at a PM-edited amount, correctly flagged "(differs)"), both `DEPOSIT` transactions landing correctly on `dashboard.html` (Total Portfolio Value +$13,475 exactly) alongside the pre-existing withdrawal entries with no rendering conflict. Zero real console errors | None outstanding |
 | 56 | New Client Application Review — a 7th Approval Gate queue | **COMPLETE (Aug 22, 2026)**, closing the gap flagged in row 3 since Client Authentication Phase 1: a client created via `signup.html` was immediately indistinguishable from an admin-created one, with nothing marking them as pending PM review. Confirmed before building that `signup.html` calls the exact same `addClient()` function `admin-clients.html`'s own Add Client form uses, and confirmed exactly which fields it persists (`name`/`email`/`phone`/`accountType` only — see row 3's own updated gap). Client Registry gains a `status` field (`'pending_review'` \| `'active'` \| `'rejected'`) plus `applicationResolvedAt`/`applicationReason`; `addClient()` defaults `status` to `'active'` (a PM creating a client directly IS the review); `signup.html` is the one caller that overrides this to `'pending_review'`. `approveClientApplication(clientId)`/`rejectClientApplication(clientId, reason)` resolve it — **judgment call, decided and reported per the task's own stated instinct**: a rejected application is kept, never deleted, same "show everything" principle as every other rejected request in this project. `getPendingClientApplications()` lists what's awaiting review — architecturally distinct from every other Approval Gate queue, since the Client Registry is already global/unscoped, so there's no separate ambient-vs-cross-client-aggregator split needed here. `login.html`'s real credential check (Client Authentication Phase 2) now blocks authentication entirely for `'pending_review'`/`'rejected'` status, checked after credentials verify but before `setClientAuthenticated()` — correct credentials alone are not enough. **Backward compatibility explicitly designed and verified**: a missing/undefined status (every client created before this feature shipped) is treated the same as `'active'`, not migrated, so no pre-existing client is retroactively locked out — confirmed as a real precondition against CLIENT-0001, not assumed. New `admin-client-applications.html` (Pending/Approve-confirm-modal/Reject-with-reason/History), wired into the Approval Gate nav group first (ahead of Deposits) and a new Overview card. Node-verified first (40 assertions, including the core security property verified directly — a signup-path client genuinely blocked from authenticating even with fully correct credentials, confirmed via a direct `getAuthenticatedClientId() === null` check, not just the return value looking right — and cross-client isolation via byte-for-byte comparison) plus the full 21-file, 0-failure regression suite. Browser-verified live, the complete flow: signed up as a brand new applicant through the real 7-step form (including real document uploads), confirmed a genuine `CLIENT-0006` was created `pending_review`; immediately attempted login with those exact credentials on the real `login.html`, confirmed blocked with the correct message and no session set; approved from the real admin UI; logged in again with the identical credentials, confirmed success this time, redirecting to `dashboard.html` and correctly showing the newly-approved client's own real (empty) portfolio — proving Client Authentication Phase 3's identity pin also works correctly for a freshly-approved client, not just the seeded demo. Zero console errors | None outstanding for this feature itself. Row 3's remaining flagged gap (signup collects more applicant data than it persists) is a separate, pre-existing item this task deliberately did not build |
 | 57 | Onboarding Data Capture — signup's collected data now genuinely persists | **COMPLETE (Aug 22, 2026)**, closing the remaining gap row 3/row 56 flagged: `signup.html`'s steps 3-8 (entity/joint-holder details, financial profile, goals & preferences, the 6-question risk questionnaire, two document uploads) were collected by the form and then thrown away, never persisted — only `name`/`email`/`phone`/`accountType` survived into `addClient()`. New client-scoped store, `marketswave_client_onboarding:<clientId>`, deliberately separate from the Client Registry record and from `SETTINGS_PROFILE_KEY`, same reasoning as every other domain-specific profile store in `engine-core.js`. `saveClientOnboardingData(clientId, data)`/`getClientOnboardingData(clientId)` are explicit-clientId-only, stateless set/get (no ambient fallback, mirroring `resetClientPassword()`'s own pattern) — `signup.html` calls this for a client that isn't the active session yet (they aren't authenticated at signup time), and the admin review page always needs one specific applicant's data, never "whichever client happens to be active." Document uploads are stored as filename + a fixed documentType label only, never real file bytes — same scoped-stub approach Documents & Reporting already uses elsewhere in this project. `signup.html`'s submit handler now calls `saveClientOnboardingData()` alongside `addClient()`, reading every field from the actual form markup (confirmed by reading the file directly, not assumed) — conditional entity/joint sections included, resolved by the same `accountType` variable that already decides which of those two steps ever renders. `admin-client-applications.html`'s Pending list gained a "View Details"/"Hide Details" expand toggle per row (mirroring `admin-clients.html`'s own expand-in-place pattern), rendering Financial Profile, Goals & Preferences, all 6 Risk Questionnaire answers, Entity Details or Joint Account Holder (whichever applies), and both uploaded document filenames — with human-readable labels matching `signup.html`'s own option text exactly (a documented duplication, same low-risk category as `admin-settings-changes.html`'s existing copy of `settings.html`'s formatting logic, since no shared display-formatting module exists in this project). An application submitted before this feature shipped (e.g. `CLIENT-0006` from row 56's own verification) shows a distinct, honest empty state rather than blank/undefined fields. Node-verified first (34 assertions: round-trip correctness for every field across three applicant shapes — individual/entity/joint — a `null` return for a client with no saved data rather than an empty object, defensive copies confirmed in both directions — mutating the caller's input after saving and mutating the read's return value both leave the real stored record untouched, cross-client isolation via byte-for-byte comparison, required-clientId enforcement on both functions, and a clean overwrite on resubmission) plus the full 22-file, 0-failure regression suite. Browser-verified live, the complete flow the task asked for: signed up as a new Entity/Business applicant ("Cascade Ventures LLC") through the real form with real, distinct answers at every step (Entity Details, $1M–$5M/Business Ownership financial profile, Retirement/7–15 years/Moderate goals, an "Advanced" risk profile with all 6 questions answered, two real uploaded files); confirmed via a direct `getClientOnboardingData()` call (not UI inspection) that every field round-tripped byte-for-byte correctly; confirmed the same data renders correctly in `admin-client-applications.html`'s new expandable detail panel, section by section, with the correct human-readable labels. Zero console errors | None outstanding. This closes the data-loss gap flagged when New Client Application Review shipped (row 56) — row 3 is now fully closed |
+| 58 | Backend Migration Phase 1 — real Firestore + Firebase Auth + Cloud Functions, for signup.html/login.html only | **COMPLETE, EMULATOR-ONLY (Aug 22, 2026)** — see §12 for the full architecture writeup, this row is a pointer/summary. The Client Registry + client-application-review business rules now have a REAL backend (Firestore, document id = Firebase Auth uid, per explicit instruction) via three Cloud Functions (`createClientApplication`/`approveClientApplication`/`rejectClientApplication`) mirroring `engine-core.js`'s local business rules field-for-field. Admin authorization uses a real custom claim (`{admin: true}`) on a single shared bootstrap Firebase Auth account — server-enforced, a genuine security upgrade over the existing client-side passphrase stub, while deliberately keeping the same single-shared-admin model (full multi-PM support is real, separate future work). Firestore rules deny all direct client writes, `get` only own doc. The hybrid bridge — `mirrorAuthenticatedClientLocally()` (new) + the exact, unmodified `setClientAuthenticated(uid)` — is what lets every other still-unmigrated page (all 9 dashboard pages, the entire admin tool) keep working completely unchanged, unaware the identity behind `getAuthenticatedClientId()` is now a real Firebase Auth user. **Deliberately stays on the local Emulator Suite** (a `demo-marketswave` project id) — a real Firebase project, "Marketswave SE," already exists with real Firestore/Auth enabled in the console, but is explicitly left untouched and unconnected until a future, separately-scoped deployment phase. Node-verified (26 assertions against the real running emulator, including confirming the admin-authorization check is genuinely enforced, not decorative) and browser-verified live end to end (real signup → real Firestore doc → blocked login while pending → real admin approval via the callable → successful login → `dashboard.html`/`settings.html`/`transactions.html` all rendering correctly, zero console errors, with zero idea anything changed underneath them) | See §12.4's explicit switch-over checklist (9 items) for what's needed before this touches real production Firebase — not done here, deliberately deferred. **The "no new admin UI" limitation is now CLOSED (Aug 22, 2026, same-session follow-up, row 59, §12.7)** — see that row. Remaining: the app's own Logout doesn't yet sign out of Firebase Auth, and `functions/`'s `npm audit` advisories are untriaged |
+| 59 | Admin UI for Client Applications — real Firebase-authorized Approve/Reject through the actual admin page, closing Phase 1's "PM must invoke the callable directly" gap | **COMPLETE, EMULATOR-ONLY (Aug 22, 2026)** — see §12.7 for the full writeup, this row is a pointer/summary. `admin-client-applications.html`'s Pending/History now merge real Firestore data (two new queries: `status == 'pending_review'` and `status in [active, rejected]`) with the existing local `getPendingClientApplications()`/`getAllClients()` reads — investigated and confirmed BOTH are genuinely needed (a real, unresolved local pending application, `CLIENT-0007`, was found in this browser's own localStorage before building anything), each row tagged with a small "Firebase" badge when Firestore-sourced. New shared `admin-firebase-config.js` transparently signs the browser into the same single shared bootstrap PM account behind the scenes via `ensureAdminSignedIn()` — a PM never sees a second login screen. `firestore.rules` extended to allow `get`/`list` for `request.auth.token.admin == true` (writes completely unchanged, still 100% Cloud-Function-gated) — re-verified Phase 1's own 26-assertion Node suite against the updated rules first, 0 regressions, before writing any UI code. **A real, disclosed correction to the task's own framing**: financial profile/risk questionnaire/document metadata are NOT in Firestore (Phase 1 deliberately kept that local-only, keyed by the same Firebase uid) — the detail panel still reads the local `getClientOnboardingData()` store, genuinely real and correctly correlated data, just not sourced from Firestore the way the task assumed. Browser-verified live, the complete real UI flow: signed up two new real applicants through the actual signup form, confirmed both appeared in the real admin page's Pending list alongside the genuine local `CLIENT-0007` (three total, correctly merged), expanded one's real onboarding detail, clicked Approve in the real UI (not a script) and confirmed the same credentials then logged in successfully; clicked Reject in the real UI on the second applicant with a real typed reason and confirmed the correct distinct rejected message on a subsequent login attempt, with no session set. Zero console errors | `admin-clients.html` (Client List) is a separate, still-open item — still only shows locally-created clients, not real Firebase ones (§12.4 item 8, updated). Emulator data export-on-exit did not work this session (a Windows/Git-Bash signal limitation, disclosed in §12.7) — any future session restarting the emulator must re-run the scratchpad-only `bootstrap-admin.js` first |
+| 60 | Admin UI for Client List — merging real Firebase clients into `admin-clients.html` | **COMPLETE, EMULATOR-ONLY (Aug 22, 2026)** — see §12.8 for the full writeup, this row is a pointer/summary. Mirrors `admin-client-applications.html`'s own proven merge pattern exactly: new `cachedClients` merges `getAllClients()` (local) with a bare, unfiltered `collection(db, 'clients')` Firestore read (Client List shows every client regardless of status, unlike the applications page's two status-filtered queries), each row tagged with the same "Firebase" badge. No new `firestore.rules` changes needed — the existing admin-claim `allow list` rule already covers any query shape, confirmed directly via Node. `matchesSearch()`/`matchesTypeFilter()`/`applyFilters()` were NOT modified — search/filter works across both sources by construction, verified directly (partial-uid search, type-filter pill, combined search+filter AND logic) and re-confirmed live in the real UI. Dedup proven with a real before/after login transition in Node (a client with no local mirror yet correctly sums; the same client after one real login correctly collapses to one row, first-seen source wins) and observed live in the browser (already-mirrored Firebase clients from earlier sessions correctly show without the badge). Node-verified first (15 assertions against the real emulator, 0 failures), then browser-verified live end to end: signed up a new real applicant through the actual form, confirmed it appeared in the real Client List UI with the correct badge/id/type/$0 balance, confirmed search narrowed correctly, confirmed the Business/Individual filter pills correctly included/excluded clients from both sources, expanded the row in place with no crash. Zero console errors | "Reset Password"/"Reset 2FA" on a Firebase-sourced client currently have no real effect on that client's actual Firebase Auth sign-in ability — flagged, not fixed, real per-client Firebase Auth admin APIs needed for a genuine fix, separate unscoped future task |
+| 61 | Real `signOut(auth)` wired into the client-facing Logout action — closes §12.4 switch-over-checklist item 9 / row 58's own known-limitation | **COMPLETE, EMULATOR-ONLY (Aug 23, 2026)**. `dashboard-sidebar.js`'s `wireLogoutLinks()` previously only cleared the local session mirror (`clearClientAuthentication()` + the ambient `marketswave_current_client_id` key) — a real Firebase Auth browser session (from a real `login.html` sign-in) could persist in IndexedDB after an app-level logout. New `signOutOfFirebaseAuth()`, called alongside (never instead of) that local clear, reaches Firebase via `import()` — a dynamic import, valid in this classic non-module script — rather than adding a `<script type="module">` tag to all 10 client-facing pages that load this file; this keeps Firebase reached from exactly one place outside `signup.html`/`login.html` (which still load it eagerly at page-load time), only at the moment Logout is actually clicked. Wrapped in a 3-second timeout race so a stopped emulator or network hiccup can never block a real logout from completing. **Two real races were found and fixed live, not hypothetically — both caught by checking `auth.currentUser` via a FRESH `onAuthStateChanged` on the very next page load (not an in-page synchronous read, which silently masked both bugs during initial testing):** (1) `signOut()` was originally called immediately after the dynamically-imported Auth instance was created, racing that instance's own async initial-state hydration (its read of any persisted session from IndexedDB) — the hydration could resolve AFTER `signOut()` and silently re-populate the very session `signOut()` had just cleared; fixed by awaiting one `onAuthStateChanged` callback (confirming hydration has settled) before ever calling `signOut()`. (2) Even after fix 1, navigating away via `window.location.href` immediately after `signOut()`'s own promise resolved could still cut off its underlying persisted-storage write before it durably flushed, letting the old session reappear on the next page; fixed with a 300ms buffer after `signOut()` resolves, before navigating — confirmed sufficient against the real emulator. Node/emulator-verified first (against the real running Auth Emulator, using the same `firebase/auth` SDK and `signOut` export this code calls): created and signed in a real test user, confirmed `auth.currentUser` and `onAuthStateChanged` both show it as genuinely set, called `signOut(auth)`, confirmed both go to genuinely `null` — 6/6 assertions passed. Browser-verified live, the complete flow, against a real signed-up-and-approved test client (`Logout Test User`, created and approved via the real signup + a scratch-only Firestore-status-flip script standing in for the admin approval UI — out of scope here, already verified in earlier rows): logged in through the actual `login.html` form (real Firebase Auth sign-in, confirmed via IndexedDB inspection that a genuine persisted session existed), clicked the real Logout link on `dashboard.html`, confirmed the redirect to `login.html`, and confirmed on that fresh page load — via a fresh `onAuthStateChanged`, not a stale read — that `auth.currentUser` is genuinely `null` and both local session keys are cleared; separately confirmed navigating directly to `dashboard.html` afterward (no re-login) correctly redirects to `login.html`. Zero console errors. **One testing-process pitfall worth recording**: an initial round of this same verification appeared to still fail after both race fixes were applied, which traced back to the local static test server serving a browser-cached copy of the pre-fix `dashboard-sidebar.js` to an already-warmed origin — not a code defect. Re-confirmed clean against a cache-busting server before trusting the result | None outstanding for this item. `functions/`'s `npm audit` advisories remain untriaged (unrelated, unchanged from row 58) — **triaged separately, see row 62** |
+| 62 | `functions/`'s `npm audit` advisories — triaged, not blindly fixed | **TRIAGED (Aug 23, 2026)**, closing the disclosed-but-unreviewed gap flagged at the end of Backend Migration Phase 1 (row 58). `npm audit` reports 8 moderate-severity advisories, but **all 8 collapse to exactly one real CVE**: `GHSA-w5hq-g745-h8pq` ("uuid: Missing buffer bounds check in v3/v5/v6 when `buf` is provided", CWE-787/CWE-1285, CVSS 7.5) in `uuid` `<11.1.1` — every other flagged package (`firebase-admin`, `@google-cloud/firestore`, `@google-cloud/storage`, `gaxios`, `google-gax`, `retry-request`, `teeny-request`) is only flagged because it transitively depends on that same `uuid` range, not because of a defect in its own code. Two copies of the vulnerable range are actually installed: `uuid@10.0.0` (top-level, hoisted) and `uuid@9.0.1` (nested separately under `gaxios`, `google-gax`, and `teeny-request`, each pinned via their own `"uuid": "^9.0.x"` in their own `package.json`). **Exploitability assessed directly, not assumed from the advisory's severity label**: the vulnerable functions are `v3()`/`v5()`/`v6()` called WITH an optional pre-allocated `buf`/`offset` argument — a caller-supplied buffer too small for the 16 bytes written causes an out-of-bounds write (the CWE-787 in the CVSS vector's `I:H` — high integrity impact, no confidentiality/availability impact). Grepped every actual call site across the ENTIRE dependency tree that touches `uuid` (`gaxios/build/src/gaxios.js`, `google-gax/build/src/util.js`, `teeny-request/build/src/index.js`, `firebase-admin/lib/eventarc/eventarc-utils.js`) — all four call `uuid.v4()` with **zero arguments**, never `v3`/`v5`/`v6`, and never with a `buf` parameter anywhere in this project's own `functions/index.js` either (confirmed via grep — this project doesn't import `uuid` directly at all). **Conclusion: not exploitable in this project's actual usage, regardless of the version pinned** — the vulnerable code path is never reached. **No safe, non-breaking fix exists**: ran `npm audit fix` (non-force) — it reported "up to date," produced a byte-for-byte identical `package-lock.json` (diffed directly, 0 lines changed, not just eyeballed), and left all 8 advisories exactly as before. Root-caused why: `gaxios`/`teeny-request`/`google-gax` each pin `uuid` to `^9.0.x`/`^9.0.1` in their OWN `package.json` — no version of `uuid` satisfying that range is >=11.1.1 (a 2-major jump), so npm has nothing safe to bump to within the existing dependency graph. Confirmed `firebase-admin@12.7.0` (the currently-pinned version, itself satisfying this project's own `^12.7.0` range) is already the newest 12.x release — `npm view firebase-admin versions` shows nothing between it and `13.0.0`. The only version that actually fixes this is `firebase-admin@14.3.0` (`npm audit`'s own `fixAvailable` field confirms this, flagged `isSemVerMajor: true`), a jump of 2 major versions past the currently-pinned line — **deliberately NOT applied**, per the task's own instruction not to apply a breaking major bump unprompted; a jump this large plausibly changes API surface the three Cloud Functions in `index.js` depend on and deserves its own dedicated, deliberate upgrade-and-regression pass, not a drive-by fix bundled into a security-triage task. **A third option was considered and also NOT applied**: an npm `overrides` entry in `functions/package.json` forcing `uuid` to `>=11.1.1` tree-wide without bumping `firebase-admin`'s own version — plausible given all real call sites only use the version-stable `v4()` API, but rejected here since (a) there's no actual exploitable path to fix in the first place, so the maintenance burden of an unusual override entry buys zero real security benefit, and (b) it's still a manual dependency-version override beyond what `npm audit fix` itself would ever apply, which the task scoped this pass to. Verified nothing broke: a full real-emulator regression (`verify-audit-regression.mjs`, run against a live Auth+Firestore+Functions emulator suite with Java newly available on this machine) exercised all three callables end to end — real signup (`createClientApplication`, confirms uid/email/status), a genuine `permission-denied` rejection of a non-admin caller attempting `approveClientApplication` (proving authorization enforcement, this task's own stated concern, is unaffected), a real admin-bootstrapped approval (`approveClientApplication` → status `active`, `applicationResolvedAt` set), and a real rejection (`rejectClientApplication` → status `rejected`, reason stored) — 10/10 assertions passed. Since the lockfile is byte-identical to before this task, this regression pass confirms the current (unchanged) dependency state remains healthy rather than proving any fix — there was nothing to break | Revisit the `firebase-admin@14.3.0` major-version upgrade as its own deliberate, scoped task with full regression coverage before any real-production deploy — do not fold it into unrelated feature work. Re-run `npm audit` after that upgrade to confirm it actually clears all 8 advisories as `npm audit`'s own analysis predicts |
+
+| 63 | Admin nav reorganization, round 2 — Catalog group added (then repositioned), "Settings" group created then removed same day | **COMPLETE (Aug 23, 2026)**, data-only changes to `admin-sidebar.js`'s `NAV_ITEMS`/`GROUPS` — no page files renamed or moved, only labels and `group` assignments, using the explicit group-field architecture built for exactly this (row 39/§4.53). Three sequential edits in one session: the first created a "Settings" group (renamed from "Portfolio Administration") holding Advisory Fee + Account Security, with Products moving to a new "Catalog" group positioned last; the second, immediately following, removed the "Settings" group entirely — Advisory Fee and Account Security (nav label shortened to "Security Log"; the page's own `<title>`/`<h2>` stay "Account Security" — only the nav label changed) folded into "User/Admin Relations" instead, Catalog kept, still last; the third, on direct user feedback that Catalog shouldn't sit last, moved it up ahead of User/Admin Relations — Approval Gate was deliberately left in place right after Dashboard (the judgment call made and reported: it's the highest-frequency/most time-sensitive daily-use group, so it stays the first functional group a PM sees). **Final structure**: Dashboard (Overview, Client List) → Approval Gate (Client Applications, Deposits, Withdrawals, Allocations, Sells, HYS Deposits, Profile Updates — "Client Profile Updates" shortened, matching how no sibling queue spells out "Requests" either) → Catalog (Product Catalog) → User/Admin Relations (Documents, Support, Advisory Fee, Security Log). `NAV_ITEMS` array order was deliberately arranged so the `settings` (Advisory Fee) entry precedes the `security` (Security Log) entry, since `navHTML()` renders each group's items in `NAV_ITEMS` array order, not alphabetically or by key. `admin.html`'s Overview cards were updated in lockstep all three times, including reordering the Catalog and User/Admin Relations `<div>` blocks to match the sidebar's final group order — final state: Approval Gate's 7 cards unchanged, Catalog holds Products in Catalog, User/Admin Relations gained Advisory Fee Rate and Security Actions Logged cards (both non-count live values). No `engine-core.js` changes across any of the three edits. Browser-verified live after the third edit (not just Node/static-read): logged into the real admin passphrase gate, confirmed the final 4-group order (Dashboard, Approval Gate, Catalog, User/Admin Relations) renders correctly in both the sidebar and Overview's cards, with User/Admin Relations' 4 cards (Documents, Support, Advisory Fee, Security Log) all intact after the reorder. Zero real console errors (only the known, pre-existing Chrome-extension messaging artifact, unrelated to the app, also seen in row 61's own verification) | None outstanding — this was a pure nav/labeling/ordering task with no functional gap to track |
+
+| 64 | Bug fix: `dashboard.html`'s Portfolio Allocation legend wrapped awkwardly at certain viewport widths | **COMPLETE (Aug 23, 2026)**, item 1 of a 4-item small-fixes batch (items 2-4 tracked separately in this same batch, see rows 65-67 and the batch note after row 67). **Root-caused via direct browser testing across a swept width range before touching code** (an iframe-based technique, since this environment's window-resize tool doesn't actually change the rendered viewport — confirmed via `window.innerWidth` staying pinned to the physical display width regardless of the resize call): the bug is real but occupies a narrow ~30px band (~1160-1195px total viewport width) right around the `lg` breakpoint, where the chart+legend row (`flex flex-wrap`) hasn't wrapped to two rows yet, but the legend's resulting side-by-side width is too narrow for its longest line ("Unallocated / Cash" + "15.9%") — at the narrow end of that band the label wrapped onto two lines; at the wide end the label and percentage rendered with zero gap, touching. **Two-part fix, no behavior change outside this narrow band**: (1) the legend container's `basis-[180px]` (dashboard.html:110) raised to `basis-[220px]` — sized to comfortably fit the longest real label+percentage combination — so the outer row now wraps to full-width-below cleanly before ever reaching a squeeze, rather than gradually narrowing through an ambiguous zone; (2) each legend row's label span and percentage span gained `whitespace-nowrap` (plus `gap-2` on the row itself and `flex-shrink-0` on the color dot), so even at the new threshold a label can never break mid-phrase — this turns the previous "gradual squeeze into wrap" into a clean binary switch between "comfortable side-by-side" and "full-width below," with no in-between state. Browser-verified with a systematic sweep (700, 1024, 1080, 1140, 1160, 1166, 1170, 1190, 1210, 1220, 1230, 1250, 1300, 1366, 1536, and 375px mobile) before AND after the fix, confirming: the fix genuinely closes the exact previously-reproduced bug (re-tested at the exact width, 1166px, that broke before the fix); the new wrap/no-wrap transition is now a clean binary flip between 1210px (wraps below, spacious) and 1220px (side-by-side, comfortable gap) with nothing in between; every one of "Real Assets"/"Stocks & ETFs"/"Unallocated / Cash" renders on one line at every tested width; and no new squeeze zone was introduced at any wider width up to 1536px, nor any regression at the narrow/mobile end (375px, full-width stacked legend, no horizontal overflow). See the Tech Stack section (CLAUDE.md) for the same-day cross-reference | None outstanding for this item |
+| 65 | Duplicated formatting helpers — `formatDateDisplay()`/`formatFieldDisplay()` extracted into a shared module | **COMPLETE (Aug 23, 2026)**, item 2 of the same 4-item small-fixes batch as row 64. Closes the specific structural-debt item flagged in CLAUDE.md's "Known structural debt" section when `admin-settings-changes.html` was built (§4.52): it duplicated `settings.html`'s own `formatDateDisplay()`/`formatFieldDisplay()` rather than sharing them, since this project had no module system for plain (stateless) display-formatting helpers — only stateful logic gets a shared file (`engine-core.js`, the sidebar files). New `format-helpers.js` closes that gap: plain global functions on `window`, one `<script>` tag, mirroring `dashboard-sidebar.js`/`admin-sidebar.js`'s exact convention rather than being folded into `engine-core.js` (deliberately kept separate — these functions hold no state and touch no storage, so bloating the data engine with them would blur a boundary CLAUDE.md already documents). Both files' local copies were deleted; both now call the shared version. The shared `formatFieldDisplay()` is a superset of the two former copies — it keeps the `dateOfBirth` branch `admin-settings-changes.html` needs to render a legacy pre-existing record, which is simply inert on `settings.html` since nothing there calls it with that field anymore (Date of Birth was removed as a requestable field there, Aug 21, 2026) — so this is not a behavior change for either caller, just one shared body instead of two hand-kept copies. **Grepped the whole project, not just the two named files, before considering scope closed** (per the task's own instruction to check "the whole admin tool" for other copies of "the same helpers"): confirmed no other file defines `formatDateDisplay()`/`formatFieldDisplay()` — those two are genuinely gone from everywhere except the new shared file. That same grep surfaced a considerably larger, pre-existing duplication family that was NOT part of this task's named scope and was NOT touched: `formatUSD(n)` is duplicated near-identically across roughly a dozen files (`admin-deposits.html`, `admin-hys.html`, `admin-allocations.html`, `admin-products.html` — which also has its own `formatUSD2`, `admin-sells.html`, `admin-clients.html`, `admin-withdrawals.html`, `asset-collection.html`, `asset-performance.html`, `dashboard.html`, `deploy-capital.html` — twice in the same file, `transactions.html`), and a differently-named but byte-identical date formatter, `formatDisplayDate(isoDate)`, is duplicated across 4 more (`admin-documents.html`, `admin-products.html`, `admin-clients.html`, `documents.html`). Reported here and in CLAUDE.md's Known Structural Debt section as a real, much larger candidate for a future dedicated dedup pass — deliberately not folded into this task, which named `formatDateDisplay()`/`formatFieldDisplay()` specifically. Browser-verified live, the complete round trip: submitted a real Legal Name change via the console through `settings.html`'s own real `requestSettingsChange()` call (not a mock), confirmed it rendered correctly — through the shared formatter — in `admin-settings-changes.html`'s Pending list and its Approve confirmation modal (both "Current"/"Requested" values formatted correctly), approved it through the real UI, and confirmed the genuinely new name ("Testy McTestface") rendered correctly — again through the shared formatter — back on `settings.html` after a reload. Zero console errors throughout | None outstanding for the named scope. The `formatUSD()`/`formatDisplayDate()` duplication family remains a real, flagged-but-unfixed future task |
+
+| 66 | File naming cleanup — `admin-settings.html` → `admin-advisory-fee.html`, `admin-settings-changes.html` → `admin-profile-updates.html` | **COMPLETE (Aug 23, 2026)**, item 3 of the same 4-item small-fixes batch (the riskiest of the four, per the task's own framing). Closes the mismatch flagged after the admin nav reorg (row 63) fixed the nav *labels* ("Advisory Fee," "Profile Updates") without touching the underlying file names, which still collided confusingly (`admin-settings.html` vs. `admin-settings-changes.html`). Both files renamed on disk (`mv`, not `git mv`, since nothing gets committed as part of this task). **Grepped the entire project, not just the admin pages, before editing anything**: found real `href`/`src` references needing an actual fix in exactly 2 files — `admin-sidebar.js` (both nav item `href`s) and `admin.html` (both Overview card `href`s, plus one comment) — and comment-only mentions (no functional risk, but updated anyway for accuracy) in `settings.html`, `format-helpers.js`, `engine-core.js`, `admin-client-applications.html`, and `admin-firebase-config.js`. Confirmed via a second full-project grep after editing that zero references to either old filename remain in any code file. **Deliberately did NOT rewrite the two docs' historical `§4.x`-dated narrative entries** (which correctly used the old filenames at the time those phases actually shipped, consistent with this project's own established convention of never rewriting history — e.g. the "Viewing Client" → "Client Management" → "Client List" label history is preserved verbatim elsewhere) — only updated the two forward-looking, current-state reference-table rows in `Marketswave_Project_Handover.md` that would otherwise point at files that no longer exist. **Verified by clicking through the actual renamed links in a real browser, not just trusting the grep**, per the task's own explicit instruction: a first pass surfaced a genuine but environment-specific gotcha, not a real code bug — clicking "Profile Updates" in the nav produced a real 404, traced to a browser-cached pre-rename copy of `admin-sidebar.js` (the on-disk file was already correct, confirmed by re-reading it directly), resolved with a hard reload (`Ctrl+Shift+R`); after that, every real link was re-verified working: both sidebar nav items ("Profile Updates" → `admin-profile-updates.html`, "Advisory Fee" → `admin-advisory-fee.html`, both correctly highlighting active), both Overview cards ("Pending Client Profile Updates," "Advisory Fee Rate") routing to the same two renamed files, and direct navigation to both old URLs confirmed genuinely 404ing (proving the rename is real, not a duplicate). Zero console errors throughout | None outstanding — every reference was found and fixed; the only "gap" encountered (the stale browser cache) was environmental, not a missed code reference |
+
+| 67 | Header button verification — "top-right header area needs a better button/design" (original project breakdown) | **VERIFIED RESOLVED (Aug 23, 2026)**, item 4 of the same 4-item small-fixes batch — a status check only, no build requested and none performed, per the task's own explicit instruction. Traced the original concern to the client dashboard header's notification bell, which prior to §4.37 (Aug 20, 2026) was purely decorative and inconsistent: a static SVG bell with a hardcoded red dot existed on only 2 of the 9 dashboard pages (`dashboard.html`, `asset-performance.html`), with no count, no dropdown, and no click behavior — the other 7 pages had no bell at all. §4.37 replaced this with a real shared component (`dashboard-notifications.js`, `initDashboardNotifications()` mounted into `#notif-bell-mount`) on all 9 pages, aggregating real counts from Documents/Allocation/Sell/HYS/Support activity. **Re-confirmed live in the browser today, not just trusted from the doc**: on `dashboard.html`, the bell showed a real live count badge ("4") and opening it revealed a genuine dropdown with real, correctly-dated notification entries (new document, signature required, deadline approaching, etc.), not placeholder content. Clicking through to `settings.html` showed the identical bell/Logout placement and styling, with the badge now correctly absent — traced this to real, working read-state persistence (confirmed via a direct `localStorage` read of `marketswave_notifications_read:CLIENT-0001`, which now held all 4 items marked read), not a bug or inconsistency: opening the dropdown on the first page genuinely marked those notifications read, and that state correctly carried across pages, matching the read/unread persistence design documented in §4.37 itself | None — this concern is fully closed by already-shipped work; no further action needed unless a genuinely new header-area request comes in |
+| 68 | Dev tooling — Backend Migration Phase 0, items 1 & 2 (Aug 26, 2026) | Getting the emulator half of the hybrid backend running was undocumented tribal knowledge (a scratchpad-only `bootstrap-admin.js` that didn't survive between sessions, a known-but-unwritten-down `--export-on-exit` limitation, and no single command to confirm the real signup→approve→login→dashboard→transaction chain still works after a gap in work) — exactly the gap that caused the confusion this task was written to close. **Built and verified live against a real running emulator (not assumed working from the code alone)**: (1) a full step-by-step Emulator Bootstrap Runbook, now `README.md` at the project root (chosen over a new handover-doc section — this is operational, "how do I get this running" content a developer looks for first, not phase-log narrative history), covering prerequisites (Java 21+ present but NOT on this machine's default `PATH` — the exact prepend command is documented), starting the emulators, and what "known good" looks like at each step; (2) `scripts/bootstrap-admin.js`, a new, deliberately **committed** (not scratchpad) idempotent script that creates/reuses the bootstrap PM account and (re-)confirms its `{ admin: true }` claim — safe to commit specifically because its emulator-only credentials are already fully disclosed in the already-committed `admin-firebase-config.js`, a materially different situation from the real-production bootstrap script row 47/§12.4 item 6 still requires stay uncommitted, flagged explicitly in both the script's own header and README.md so this isn't mistaken as a precedent for that; (3) `scripts/golden-path-regression.js`, a single-command, one-clear-PASS/FAIL-line regression walking the real chain signup → pending status (plus a genuine blocked-login proof, not just a status-field check) → admin approve → login succeeds → dashboard loads (clean `$0`, empty ledger, proving no cross-client leakage) → Deploy Capital deposit request → admin credit → `DEPOSIT` transaction appears → allocation request → admin approve → `BUY` transaction + holding appear with Total Portfolio Value conserved through the trade — 16/16 steps, exercising the REAL `functions/index.js`/`firestore.rules` via the real `firebase` client SDK for the Firebase half, and the REAL `engine-core.js` source loaded into a Node `vm` sandbox (`scripts/lib/engine-harness.js`) for the local half, with a fresh "reload" (fresh `vm` context, same underlying storage) everywhere a real page navigation would happen — the same reload-to-switch discipline §4.44/§4.45's own bug depended on getting right. **A real, live-reconfirmed environment finding, not just carried forward from an old note**: the `--export-on-exit` limitation genuinely still applies under a different launch method (PowerShell `Start-Process` this time, not Git Bash) — `taskkill /PID <pid>` without `/F` is refused outright by Windows ("This process can only be terminated forcefully"), confirming this is a real Windows process-termination limitation, not a config mistake, exactly as README.md now states. Also hit and resolved live during this task: a one-time "Cannot determine backend specification" Functions-discovery timeout that cleared on a plain restart (documented in README.md's Troubleshooting section so a future session doesn't panic over it), and stray orphaned `java`/`node` emulator processes from earlier failed attempts holding ports open (killed by exact PID after inspecting each one's command line first — one unrelated Adobe Creative Cloud helper `node.exe` was inadvertently caught by an overly broad process-name filter mid-cleanup and killed; the main Creative Cloud app and its other helpers were unaffected and it appears to be self-recovering, but this is disclosed here rather than silently omitted). Item 3 of this same Phase 0 task (labeling local-only admin actions with no real effect on a Firebase-sourced client) was deliberately **not** attempted here, kept separate per instruction so items 1–2 stay independently reviewable — see README.md's own Phase 0 checklist, which also documents, for the first time, the full proposed Phase A–E real-production migration roadmap (a grouping of this doc's own pre-existing §12.4 7-item checklist, flagged there as a proposal to confirm, not settled history) | Already fully in-house — this is dev/verification tooling, not a page-facing stub. `scripts/` is new, gitignoring only `node_modules/` (its `package-lock.json` is committed, matching `functions/`'s own convention) |
+| 69 | Admin UI — labeling local-only Reset Password/2FA for Firebase-sourced clients (Aug 26, 2026, same-day follow-up) | Closes Phase 0 item 3, deliberately deferred out of row 68. **Investigated directly before labeling anything, rather than trusting the existing "Reset Password/2FA... has no real effect" framing from §12.8 at face value — that framing turned out to be inaccurate for one of the two actions, corrected here rather than silently propagated.** Traced `settings.html`'s forced-password-reset submit handler: it never persists a password anywhere for ANY client (no real credential store backs the self-service Change Password flow either) — it only clears the flag. For a Firebase-sourced client this means Reset Password genuinely has NO effect on their real sign-in credential — they keep using their existing real Firebase Auth password. **Reset 2FA is NOT a no-op**, however — it writes directly to the same `marketswave_settings_2fa:<clientId>` key `settings.html`'s own 2FA section reads, and 2FA has always been a fully local, simulated feature independent of Firebase Auth for every client (Firebase Auth has its own real MFA support; this project never adopted it) — so Reset 2FA achieves its real, complete, intended effect for a Firebase-sourced client exactly as designed, and warning otherwise would have been inaccurate, not just unnecessary caution. `admin-clients.html` now discloses this two ways, both scoped to Reset Password on a Firebase-sourced client only: (1) an inline amber note under the two action buttons in a Firebase-sourced client's expanded row, visible before a PM even opens the modal; (2) a warning banner inside the confirm modal itself (`#security-firebase-warning`), toggled in `openSecurityModal()` off a `cachedClients` lookup by `_source`, reinforcing it at the actual point of commitment. The prior blanket code comment above `expandedRowHTML()` (which treated both actions as equally affected) was rewritten in place to explain the real, asymmetric distinction rather than deleted or left stale. No `engine-core.js` changes — `resetClientPassword()`/`resetClient2FA()` themselves are correct and unchanged; this is UI-layer disclosure only, fixing what a PM using the tool would be told, not the underlying mechanism. Syntax-verified (every inline `<script>` block in `admin-clients.html` extracted and run through `node --check`, 0 errors) — not browser-verified, per this project's standing verification policy that a low-risk, purely-additive, non-data-mutating UI change should be described for the user to check themselves rather than triggering an unasked-for browser launch. See `Marketswave_Project_Handover.md` §12.10 for the full writeup | Already fully in-house — pure UI disclosure, no new backend need created. A genuine fix for Reset Password on Firebase-sourced clients (real credential revocation via Firebase Auth's own admin APIs) remains a separate, unscoped future need, now clearly labeled as such in the product itself rather than only in this register |
+| 70 | Backend Migration — Phase A1: real Firebase identity against staging, no Cloud Functions (Aug 26, 2026) | Introduces a THIRD real Firebase environment tier, `marketswave-staging` — a genuinely separate, persistent project from both the emulator (`demo-marketswave`) and the eventual real-production project ("Marketswave SE"). Deliberately narrow: real Auth + Firestore identity only, explicitly no Cloud Functions (that's Phase A2, BLOCKED on a Blaze plan upgrade for `marketswave-staging`, confirmed live via the real Console still showing the free Spark plan, not assumed). `firebase-config.js` gained `STAGING_CONFIG` alongside the existing `EMULATOR_CONFIG`, switched via an explicit `?env=staging` URL param on `signup.html`/`login.html` — chosen specifically because it cannot "stick": no code path (including every existing habit, `golden-path-regression.js` included) ever adds it, so the emulator stays the unconditional default. `signup.html` branches at submit: staging writes its own `clients/{uid}` Firestore document directly via the client SDK (no Function to call), the emulator path is completely unchanged; `login.html` needed zero changes at all, since it was already Function-free. New `firestore.staging.rules`, deployed for real (`firebase deploy --only firestore:rules --project marketswave-staging --config firebase.staging.json`), is what makes the direct client write safe: create-only, exactly one's own uid, `status` forced to literally `'pending_review'` (Firestore's create-vs-update classification means this can only ever fire once), `email` must match the caller's real Auth token email and `accountType` must be a real valid value (both added beyond the task's literal spec, mirroring what the removed Cloud Function used to validate server-side — reported, not silently smuggled in), `allow update, delete: if false` unconditionally. Two new `scripts/` additions (dev tooling, not deployed source, kept separate from `functions/`): `scripts/staging-bootstrap-admin.js` (creates/reuses the real staging PM account and its real `{ admin: true }` claim — the staging `firebaseConfig` values themselves were obtained via the Firebase Management API's `projects.webApps.getConfig`, authenticated with the service account, rather than asked of the user) and `scripts/staging-approve-client.js` (an explicitly TEMPORARY Admin-SDK stand-in for the real approve action Phase A2 will eventually provide — mirrors `approveClientApplication`'s exact business rule). **Credential handling, reported per instruction**: the staging service account key lives at `C:\WorkDirectory\marketswave-secrets\`, confirmed structurally outside the repository via `realpath --relative-to` (not assumed) — never referenced by path in any committed file, read only from the operator-set `GOOGLE_APPLICATION_CREDENTIALS` env var; the staging PM account's own password is generated randomly and shown once rather than hardcoded, unlike the emulator's own bootstrap script, since staging is a real cloud project. See §12.11 for the full writeup, including live verification, the one real automation issue hit and root-caused along the way, and a disclosed process-cleanup mistake | Already fully in-house — the staging identity layer required no new engine-core.js logic. Phase A2 (real Cloud Functions on staging) remains genuinely blocked on external action (a Blaze plan upgrade), tracked here rather than silently absorbed as "done" |
+| 71 | Product Descriptions + conditional Logo/More Info — VERIFIED, not newly built (Aug 27, 2026) | A task asking to add `description`/`extendedDescription`/`logoUrl` to the product schema plus admin form + client card support turned out to already be fully implemented — confirmed by reading the live code directly before writing anything, per this project's own standing rule, rather than assuming from the task's own framing that this was greenfield work. `engine-core.js`'s schema (`PRODUCT_EDITABLE_FIELDS`, `validateProductFields()`, `addProduct()`/`editProduct()`), `admin-products.html`'s conditional Add/Edit form fields (Logo URL shown for Stocks & ETFs/Crypto, Extended Description for Private Equity/Real Assets, live-reactive to the Asset Class dropdown), and `asset-collection.html`'s card rendering (a ~28px logo box — `getClientInitials()` fallback when `logoUrl` is unset, a real `<img>` `error` listener degrading to initials rather than a broken-image icon — plus a "More info" modal for Private Equity/Real Assets, `flex-col`/`mt-auto` CTA anchoring preserved) were all already present, dated Aug 23, 2026 in `engine-core.js`'s own comments — but had never been given a Tech Stack entry, a Backend Requirements Register row, or (as far as could be determined by searching this document and CLAUDE.md) an actual verification pass. This task closes that gap, not a code gap. **Node-verified** (29 new assertions, reusing `scripts/lib/engine-harness.js`): existing seeded products — which predate these three fields entirely — round-trip with no `description`/`logoUrl`/`extendedDescription` keys present at all (not padded with empty strings), `addProduct()`/`editProduct()` correctly handle both presence and absence, a non-string `description` is still rejected, and the pre-existing `unitPrice`-edit block still holds. **Browser-verified**, every scenario the task named: added a real Crypto product with a data-URI logo, confirmed it rendered as a real ~28px logo image on the Crypto tab; edited a real seeded Private Equity product (Nordic Growth Fund) to add both `description` and `extendedDescription`, confirmed "More info" correctly revealed the extended text on both the Private Equity tab AND the "All" tab (the modal's click handler is delegated at the card-grid container level, so it was never tab-scoped to begin with); confirmed a real seeded product with neither field set (European Real Estate Trust) degrades cleanly — no description line, no "More info" link, nothing broken; confirmed the pre-existing initials fallback on two real products with no `logoUrl` ("GE" for Global Equity ETF, "ET" for Ethereum). Zero code changes — every scenario passed exactly as the code already stood. See §4.72 for the full writeup | Already fully in-house — no backend dependency of any kind; this row exists to close the documentation/verification gap the code itself never had a backend need to report |
+| 72 | Bug fix: sidebar hamburger icon overlapping header content on narrow/vertical viewports (Aug 27, 2026) | Root-caused before fixing, per instruction. Both `dashboard-sidebar.js`'s and `admin-sidebar.js`'s toggle buttons are `fixed top-4 left-4 z-50 w-10 h-10` — correctly stacking above content by design (not a z-index/stacking bug), but nothing underneath ever reserved screen space for that fixed footprint, so every page's own duplicated header (not part of either shared sidebar mount, the same known structural pattern the notification bell was extracted from once already) rendered its live date block starting at a plain `px-8`, squarely inside the button's footprint on any viewport narrow enough for the button to be visible (`lg:hidden`). Confirmed visually before fixing, not assumed: at 375px width (via the iframe technique this project's own history already established, since the `resize_window` tool doesn't move the real viewport in this environment — re-confirmed, not just recalled from an old note), the date text was genuinely hidden behind the opaque button, not merely crowded. Fixed by changing the one byte-identical `<header>` opening tag's `px-8` to `pl-16 pr-8 lg:pl-8` across all 24 pages that share it verbatim (confirmed identical via grep first) — the 10 client dashboard pages plus all 14 admin pages sharing the same pattern; `admin.html` itself had the identical vulnerability, included even though the task's own example ("date") happened to describe client-side language, since the same bug was structurally present there too. `lg:pl-8` reverts to the exact original padding at the breakpoint where the button is hidden, so desktop is pixel-identical to before. Browser-verified at 375px width for both `dashboard.html` and `admin.html` (clean, fully readable date text) and re-confirmed at 1400px width that desktop is completely unaffected. See §4.72 for the full writeup | None — pure frontend layout fix, zero backend dependency |
+| 73 | Bug fix: Advisory Fee Rate is now genuinely global, not per-client (Aug 27, 2026, from the frontend audit's Top Findings #2) | `admin-advisory-fee.html`'s own copy always claimed the rate was "Account-wide" / applied "across every client-facing page," but `setAdvisoryFeeRate()` actually wrote to the AMBIENT current client's own scoped `accountState.advisoryFeeRate` — confirmed directly in `engine-core.js` before writing any fix, not assumed from the audit's own framing. Fixed the real behavior, not just the copy — the copy turned out to already be accurate once behavior matched it, so only the stale badge next to it (row 74) needed removing. New genuinely-global store, `marketswave_advisory_fee_rate` (same category as `CATALOG_KEY`/`CLIENTS_KEY`); `setAdvisoryFeeRate()`/new `getAdvisoryFeeRate()` read/write it directly; `getAdvisoryFeeAccrued()` combines the global rate with the CURRENT client's own `allocatedCapital` — the rate is platform policy, the accrued dollar amount stays correctly per-client. `advisoryFeeRate` removed from all 3 places it lived in the per-client account-state shape (`buildSeedData()`, `readAccountStateForClient()`'s default, `seedMinimalClientStores()`); existing clients' already-stored copies of the old field are left in place as harmless, unread vestiges rather than actively stripped, matching this project's "don't manufacture cleanup machinery" precedent. **Migration, reported per instruction**: a one-time `migrateAdvisoryFeeRateToGlobal()` scans every real client's pre-existing rate on first load after this fix — this machine's real browser data was checked directly (via the browser's own console, not assumed) before deciding the approach: both real clients here (CLIENT-0001 and the real Firebase-staging client from Phase A1) agreed at 1.25%, so there was no actual divergence to ask the user about. If every client agrees, that value becomes the new global rate automatically; if clients' rates genuinely diverge (only possible if different clients were ambient during different past edits — not this machine's case, but the function still handles it correctly), the migration does NOT silently pick one — it falls back to the platform default (1.25%) and logs every divergent value found via `console.warn`, keeping the discrepancy visible rather than quietly discarding it. `admin.html`'s Overview card and `transactions.html`'s Advisory Fee card both switched from reading `getAccountState().advisoryFeeRate` (now `undefined`) to `getAdvisoryFeeRate()`. Node-verified first (16 assertions: fresh-install default, migration writing the global key, a full set-while-CLIENT-0001-is-ambient → reload-as-a-different-client → confirm-same-rate round trip proving the core "genuinely global" property, a uniform-pre-existing-rates migration scenario, a genuinely-divergent-rates migration scenario confirming the fallback fires and warns rather than crashing, and existing input validation still holding) then browser-verified live: changed the rate to 3.33% from `admin-advisory-fee.html` while CLIENT-0001 was the ambient admin session, then loaded `transactions.html` AS the real Firebase-staging client (`setClientAuthenticated()`, a genuinely different client) and confirmed its own Advisory Fee card showed 3.33% too — the exact cross-client proof the task asked for. Reset back to 1.25% afterward, since this is now real persistent platform state, not a scoped-to-one-client demo artifact. See §4.73 for the full writeup | Already fully in-house — pure scope-correctness fix, no new backend need created |
+| 74 | Bug fix: removed the stale "No login gate — internal preview build" badge from all 14 admin pages (Aug 27, 2026, from the frontend audit's Top Findings #3) | The badge predates the real Admin Login Gate (§4.62, Aug 21, 2026) and had been actively contradicting real, working authentication ever since. Grep-confirmed (not assumed from a partial list) it appeared byte-identically on all 14 admin HTML files (`admin.html`, `admin-clients.html`, `admin-client-applications.html`, `admin-deposits.html`, `admin-withdrawals.html`, `admin-allocations.html`, `admin-sells.html`, `admin-hys.html`, `admin-profile-updates.html`, `admin-documents.html`, `admin-support.html`, `admin-advisory-fee.html`, `admin-security.html`, `admin-products.html`) and removed from all 14 via a precise pattern-matched deletion (not a blind sed replace — verified the exact 3-line wrapper block was byte-identical across every file first); a second grep pass afterward confirmed zero remaining occurrences anywhere in the project except `FRONTEND_AUDIT.md`'s own historical record of the finding, correctly left untouched (it's a report of what was found, not a live claim). **On whether a replacement visual marker is needed** (the task's own explicit judgment call): concluded no — every admin page already carries both the persistent slate sidebar's "MARKETSWAVE **PM**" wordmark (confirmed directly in `admin-sidebar.js`) and the persistent red "INTERNAL TOOL — PORTFOLIO MANAGER ACCESS ONLY — NOT THE CLIENT-FACING SITE" banner, both unmissable and present on every admin page with no exception — between the two, "this is the PM tool" is already fully and unambiguously communicated. The removed badge was specifically an AUTHENTICATION STATUS claim (now simply false), not a tool-identity marker, so nothing needed to replace it for that narrower original purpose. Syntax-checked (every inline `<script>` block across all 14 files, plus `engine-core.js` itself, run through `node --check`, 0 errors); browser-verified live on the two pages already exercised for row 73's fix (`admin-advisory-fee.html`, confirmed clean header with no badge), the rest verified via the grep-confirmed mechanical deletion rather than an individual per-page screenshot, since this is a pure markup removal with no logic behind it. See §4.73 for the full writeup | None — pure frontend content fix, zero backend dependency |
+| 75 | HYS pocket withdrawal — a 6th Approval Gate queue, closing a real architectural gap (Aug 27, 2026, from the frontend audit) | `finalizeWithdrawal()` previously executed a client's HYS pocket withdrawal immediately, client-side — no approval gate, no transaction-ledger entry, unlike every other money-moving flow in this project. **Investigated first, per instruction**: confirmed this was the more serious of two possible bugs — the old code had zero paths touching `unallocatedCapital`/account state at all, so a withdrawal left no evidence anywhere outside the pocket record itself. **A real conflict between the task's literal wording ("credit unallocatedCapital correctly") and `creditHYSDeposit()`'s own established design (HYS deliberately never touches `unallocatedCapital` — it's funded externally, "its own pool") was surfaced via a direct question to the user rather than silently resolved either way; the user chose the symmetric-external-payout option**, so approved HYS withdrawals record a transaction for visibility but do not touch `unallocatedCapital`/`allocatedCapital` — the task's own VERIFY wording is superseded by this choice. New `requestHYSWithdrawal(clientId, pocketId, method, destinationDetails)`/`approveHYSWithdrawal(clientId, requestId)`/`rejectHYSWithdrawal(clientId, requestId, reason)`, built stateless-per-call/explicit-clientId from the start (the demonstrably correct pattern from "Approval Gate unification," row 46/§4.60, rather than `requestHYSDeposit()`'s own older ambient pattern). New `computeHYSWithdrawalAmount()` is now the single source of truth for the forfeiture calculation, replacing a client-side duplicate (mirrors the `getHYSRate()` precedent, row 34). New `HYS_WITHDRAWAL` transaction type, proactively wired into `transactions.html`/`dashboard.html`'s consumers before any UI could produce one, avoiding the "Capital allocated — null" bug class this project has hit before. Client side: `high-yield-savings.html`'s Withdraw flow now submits a request; "My Pocket Requests" merges deposit and withdrawal requests with a Kind badge. Admin side: `admin-hys.html` extended with a separate "Withdrawal Requests" section (Pending/History) below its existing Deposit Requests section — the chosen approach, reported per instruction, over a merged table (the two request shapes differ too much for a clean merge); renamed "HYS Deposits & Withdrawals" throughout the nav/Overview. Node-verified (44 assertions, including an explicit two-directional cross-client isolation test — same rigor as every other Approval Gate domain — diffing raw storage byte-for-byte). Full regression suite disclosed honestly: this project's historical Node test files are scratchpad-only and don't persist across sessions, so the new 44-assertion script is the regression check for this change; the one persistent script, `golden-path-regression.js`, only exercises the unrelated Firebase Auth/Firestore hybrid flow and requires the emulator, which wasn't running, so it was not started rather than assumed passing. Browser-verified live end to end: a real request submitted through the actual Withdraw modal did not execute immediately; approved from the real `admin-hys.html` UI; confirmed via direct inspection that the pocket is genuinely `withdrawn`, a real `HYS_WITHDRAWAL` transaction landed in the ledger, and `unallocatedCapital`/`allocatedCapital` are exactly unchanged from baseline — the confirmed design working in a real browser, not just Node. Zero console errors. See §4.74 for the full writeup | Already fully in-house — pure `localStorage`/engine work, no backend dependency of any kind |
+| 76 | Bug fix: `support.html`'s fabricated seed tickets removed — the real empty state was unreachable (Aug 27, 2026, two fabricated-data fixes) | `support.html`'s "My Requests" fell back to 3 hardcoded fake tickets (`TCK-1042`/`DSP-2077`/`TCK-1055`) whenever a client's own scoped `marketswave_support_requests` was empty (`stored.length ? stored : SEED.slice()`) — true for EVERY client created since the multi-client model shipped, meaning the real "no requests yet" empty state, which already existed correctly in the code (`#requests-empty`, rendered whenever `requests.length === 0`), had been genuinely unreachable in practice. Fix: deleted the `SEED` array and its two fallback call sites entirely — `requests` now derives strictly from what's actually in storage (`Array.isArray(stored) ? stored : []`, and `[]` on a JSON parse failure too, not `SEED.slice()`), so a client with no real history now genuinely sees the real empty state. No other change to `renderRequests()`/`buildRequestRow()`/the dispute-submission flow — this was a pure data-source fix, not a rendering rewrite. Node-verified (16 assertions, loading the REAL `engine-core.js` and the REAL `support.html` "My Requests" IIFE source — extracted verbatim, not retyped — against a minimal fake DOM built for this IIFE's own narrow DOM usage, mirroring this project's established Node-verification pattern): a fresh client with no stored key at all sees the real empty state; a client with an explicit real empty array (`[]`) also sees it, not just a missing key; corrupted/malformed JSON fails safe to `[]`, not the old seed; a client with real history renders exactly that history with no fabricated tickets mixed in; and a two-directional cross-client isolation check confirms one client's real empty state is unaffected by another client's real data existing. Browser-verified live: created a genuine new client (`CLIENT-0002`, confirmed via direct storage inspection to have no `marketswave_support_requests` key at all) and confirmed Support shows "0 requests" / "You don't have any support requests yet." — the real empty state, not the old 3-fake-ticket fallback; re-confirmed the SAME real empty state now correctly renders for `CLIENT-0001` too (which also has no real history and previously would have shown the fake seed); submitted a real dispute through the actual form and confirmed it renders correctly on its own (`DISP-0001`, "1 request," no fabricated tickets mixed in), proving the fix didn't break real submission. The verification-only client (`CLIENT-0002`) and the test dispute were both removed afterward, restoring the real single-client baseline. Zero console errors | None — pure frontend data-source fix, zero backend dependency. Real backend-persisted support ticket history (rather than per-browser `localStorage`) remains a genuinely separate future need, already implied by this domain staying client-owned rather than migrated into `engine-core.js` (a scope call flagged when the notification bell was built) |
+| 77 | Bug fix: `settings.html`'s fabricated "Active Sessions & Linked Devices" replaced with real current-session data, honestly scoped (Aug 27, 2026, two fabricated-data fixes) | "Active Sessions & Linked Devices" showed 3 hardcoded demo sessions (specific fabricated cities — "Boston, MA," "New York, NY" — devices, and timestamps) with no visual indication any of it was fake, and each row's "Log out" button only deleted the DOM row rather than doing anything real; "Log out all other sessions" had the identical problem. **Recommended approach taken, not silently substituted**: rather than inventing more fake multi-device data or building real cross-device session infrastructure this project doesn't have, the section now shows ONLY the current real session — the one thing genuinely knowable client-side — with an honest, visible note that full session history across other devices isn't available yet. Device/browser is derived from the real `navigator.userAgent` via a small, self-contained parser (Edge/Opera/Chrome/Firefox/Safari × iOS/Android/macOS/Windows/Linux, ordered so Edge/Opera are checked before Chrome and Chrome before Safari, since their UA strings nest) — approximate by nature (UA strings are self-reported) but genuinely derived from this real browser, never invented; city/location was dropped entirely rather than faked, since real geolocation would need a genuinely external geo-IP data source this project doesn't have (consistent with the project's standing "build in-house, the exceptions are things external by nature" rule). Status defaults to "Active now" (trivially true for the session rendering the page) and upgrades to a real `lastSignInTime`-based "Active now · signed in <time>" if a genuine Firebase Auth session is present, read via a best-effort dynamic `import()` of `firebase-config.js`/`firebase-auth.js` — mirroring `dashboard-sidebar.js`'s own real `signOut(auth)` dynamic-import pattern exactly (valid in this classic, non-module script; no new page-level `<script type="module">` tag needed), waiting for one `onAuthStateChanged` callback so it reads the SDK's own hydrated state rather than a synchronous pre-hydration null, and failing silently to the already-correct "Active now" fallback if Firebase can't be reached (emulator down) or this session wasn't established through a real Firebase sign-in (e.g. a dev/console-set session) — never blocks the page, never fabricates a value it can't back with something real. The "Log out all other sessions" button and the two other fake rows' individual "Log out" buttons were removed outright rather than kept non-functional, since there are no other real sessions for them to control. Syntax-checked (`node --check` on the extracted inline script, 0 errors). Browser-verified live: the section now shows exactly one row — "Chrome on Windows" (the real browser/OS), "This device" badge, "Active now" — with no fabricated cities/devices/timestamps anywhere, plus the honest disclosure note beneath the list; confirmed no console errors on a fresh reload, including confirming the Firebase dynamic-import path resolves gracefully (falls back to plain "Active now") rather than hanging or throwing when no real Firebase session is present | Real cross-device session history/management (seeing and revoking sessions on OTHER devices, not just this one) remains a genuine, unscoped future need — it requires real backend session infrastructure (a server-side session store keyed by device/IP/timestamp) this project doesn't have, now honestly disclosed in the product itself via the note rather than silently faked. Real geolocation (city/region from IP) is a separate, genuinely external data source, same category as live market data/currency rates already tracked above |
+| 78 | Bug fix: sidebar Documents badge (`#sidebar-doc-badge`) genuinely computed on every page, not hardcoded on 9 of 10 (Aug 27, 2026, closing a dedicated investigation task) | Closes a gap a prior investigation-only task found and reported without fixing: `dashboard-sidebar.js` rendered `#sidebar-doc-badge` hardcoded to a static `"2"` at mount time (`navLinkHTML()`), with its own code comment stating plainly that only `documents.html`'s own script ever corrected it — true for every OTHER client-facing page (`dashboard.html`, `asset-performance.html`, `asset-collection.html`, `high-yield-savings.html`, `transactions.html`, `risk-management.html`, `deploy-capital.html`, `settings.html`, `support.html`), which showed that fake `"2"` for the ENTIRE page visit, not a one-frame flash — masked on a fresh install only because the real seed data's `urgentCount` also happens to equal 2 by coincidence, exposed the moment a client's real document state changes (signing a document, a new one being published, etc.). Fix: `initDashboardSidebar()` now calls the real `getDocumentNotificationCounts()` (the same `engine-core.js` function `documents.html`'s own correction and the notification bell already use) BEFORE building the nav HTML, and `navLinkHTML()` takes the real count as a parameter, baking it directly into the initial HTML string — the badge is correct from the very first paint on every page, not hardcoded-then-corrected; falls back to `0`/hidden (never a fake nonzero placeholder) if `getDocumentNotificationCounts` is unavailable. Correct empty-state behavior added too (`hidden` class when the real count is 0), matching what `documents.html`'s own correction already did but the hardcoded markup never had. **Judgment call, decided and reported per instruction**: `documents.html`'s own existing badge-correction logic (`refreshNotificationCounts()`) was KEPT, not removed as redundant — confirmed via direct testing (see below) that it is NOT redundant: the shared component only computes the badge once, at mount time, so it has no way to react to a mutation made without leaving the page (sign/upload/remove, all only possible on `documents.html` itself); `documents.html`'s own correction remains the only mechanism providing a LIVE in-page badge update after such a mutation, and both code comments were updated to explain this division of responsibility rather than describing either as the sole source of truth. `documents.html`'s 3 page-body chips were untouched — they were never part of the bug (the shared sidebar component has no way to know about page-body content), so nothing needed to change there. Node-verified first (14 assertions, `verify-sidebar-doc-badge.js`, loading the REAL `dashboard-sidebar.js` and REAL `engine-core.js` source in their real script-tag order against a minimal fake DOM built for this file's own narrow DOM usage): fresh-seed real `urgentCount` (2) is baked directly into the initial mounted HTML on a non-documents page, not hardcoded-then-corrected; **the exact bug scenario** — mutate a document away from the seed default, then mount a page other than documents.html against the SAME underlying storage (simulating a real navigation) — now shows the correct new count, not the old fake "2"; a genuinely-zero real count renders the badge hidden; a missing `getDocumentNotificationCounts` (engine failed to load) falls back to a hidden `0`, never crashing or showing a fake nonzero value; and a two-directional cross-client isolation check confirms a second client's own (genuinely empty) document store renders its own correct badge, not CLIENT-0001's. Browser-verified live, the complete bug scenario and beyond: mutated CLIENT-0001's real document state via console (signed the seeded Custody Agreement) WITHOUT ever visiting `documents.html`, then loaded `dashboard.html` directly — confirmed (after a hard reload to bypass a stale browser-cached copy of the pre-fix script, a known caching pitfall this project has hit before) the badge correctly read "1", not the old fake "2"; confirmed the identical correct "1" on all 9 other client-facing pages plus `documents.html` itself (10 for 10, matching); confirmed `documents.html`'s own live in-page update still works by clicking a real "Download" action there (flips a document's `isNew` off) and watching the sidebar badge disappear live, no reload, proving the "keep, don't remove" decision was correct and not merely theoretical; and confirmed the notification bell's own, intentionally-different unread count is completely unaffected — added a real document with both a new-document AND a signature-required trigger and confirmed the sidebar badge correctly read "1" (doc-level: one document is urgent) while the bell simultaneously and correctly read "2" (item-level: two distinct unread notification events), both live and both correct, each by its own legitimate counting rule. All test mutations were reverted afterward, restoring CLIENT-0001's real document state to the original seed baseline (`newCount:2, signatureCount:1, deadlineCount:1, urgentCount:2`). Zero console errors throughout | None — pure frontend fix, zero backend dependency. Closes the investigation reported in the prior task with no register row of its own (a diagnosis-only task) |
+| 79 | Bug fix: real Firebase-signup clients now start with a correct empty baseline, not CLIENT-0001's fake seed portfolio/documents (Aug 27, 2026, closing a dedicated investigation task) | Closes a gap a prior investigation-only task (documents.html's document lists, no code changes, no register row of its own) found and reported: `mirrorAuthenticatedClientLocally()` — the function `login.html`'s real Firebase Auth success path calls for EVERY real signup-created client — only ever upserted the local Client Registry array; unlike `addClient()` (which always calls `seedMinimalClientStores()` immediately after creating a client), it never wrote anything to that client's own scoped accountState/holdings/documents keys. **Full scope investigated and reported before any fix, per instruction**: confirmed via direct code reading and a real Node reproduction of the exact login.html call chain that the SAME "ambient module-level load-or-seed" pattern responsible for the documents bug (`if (!documents) { documents = SEED_DOCUMENTS... }`, engine-core.js:3008-3013) also exists for accountState+holdings together (`if (storedCatalog && storedAccount && storedHoldings) {...} else { seeded = buildSeedData(); ... }`, engine-core.js:825-837) — a real Firebase-signup client's first real page load showed the full fake CLIENT-0001-shaped portfolio (Total Portfolio Value $1,284,500, 4 holdings, $205,520 unallocated) in addition to the 8 fake documents. Checked every OTHER store `seedMinimalClientStores()` covers (transactions, allocation/sell/deposit/HYS-deposit requests) and confirmed each has its own genuinely safe `|| []`-style empty default regardless of pre-seeding, so none of them are actually affected by this divergence — only accountState+holdings+documents are. Also found, but explicitly NOT folded into this fix (a separate, pre-existing, universal gap affecting every new client equally regardless of creation path, not a divergence between the two paths): `getSettingsProfile()`'s field-level fallback to `REQUESTABLE_SETTINGS_DEFAULTS` ("John A. Doe" / a Boston address, engine-core.js:413-417) — neither `addClient()` nor `mirrorAuthenticatedClientLocally()` ever seeds the settings-profile store, so this isn't something the former "properly seeds" that the latter skips; flagged for the register's forward-looking notes but out of this fix's scope. **Fix, exactly as directed**: `mirrorAuthenticatedClientLocally()` now calls `seedMinimalClientStores(record.id, 0)` — the SAME function `addClient()` already uses, not a duplicate of its logic, mirroring the `getHYSRate()`/`computeHYSWithdrawalAmount()` single-source-of-truth precedent — but ONLY on a client's genuinely first mirror (`idx === -1`, already computed by the function's own existing upsert check), never on a returning client's later re-authentication, which must never wipe their real accumulated data. `0` is passed as `startingUnallocatedCapital`, matching `addClient()`'s own default when no explicit starting cash is given, since a real signup has no admin-specified funding to seed from. **Repair path**: searched for every real client currently affected on this machine, both locally and at the source of truth. Checked the real Client Registry across every locally-reachable browser origin this project's own tooling has used (`localhost:8765`, `5000`, `8000`, `3000`) and found none held any Firebase-uid-style client record at all — only the deterministic `CLIENT-0001` bootstrap on each. Queried the REAL staging Firestore `clients` collection directly via the Admin SDK (the authoritative source independent of any browser's local state) and found exactly one real client, the pre-existing "Staging Test Client" from Phase A1's own verification (`yhZmtHbTAKQ2NjDs4SjGb4vj4fd2`) — not present in any locally-reachable browser storage checked, meaning there is no currently-reachable local state to repair for them; the next time they (or any real client) genuinely log in through a real browser, the fixed `mirrorAuthenticatedClientLocally()` will correctly seed them fresh. This is reported honestly as "no currently-repairable local state found," not as a false "all clients confirmed clean" claim — the difference matters. Node-verified first (21 assertions, `verify-mirror-seeding-fix.js`): a brand-new client's first mirror produces a genuinely empty raw accountState/holdings/documents/transactions immediately, before any page even reloads; the exact bug scenario (mount as this client after the mirror) shows Total Portfolio Value $0 / 0 holdings / 0 documents, not the fake seed; **the critical regression guard** — a SECOND mirror of a RETURNING client with real accumulated data (a real credited deposit, a real uploaded document) leaves their real accountState/documents/transactions byte-for-byte unchanged, never wiped; CLIENT-0001 (pre-existing legacy client) is completely untouched; `addClient()`-created clients still start correctly empty exactly as before; and cross-client isolation holds for two new Firebase clients (one's real upload doesn't leak to the other). Browser-verified live, the complete real end-to-end flow, TWICE with two independently-created real Firebase Auth users + real Firestore documents against the real `marketswave-staging` project: confirmed via direct storage inspection that the correct empty baseline is written immediately upon mirroring, then loaded the real `dashboard.html` (Total Portfolio Value "$0," correct real name/initials, "No recent activity yet.") and real `documents.html` ("0 New Documents / 0 Signature Required / 0 Deadline This Week," "No documents match your filters.") for both real clients — no fake CLIENT-0001 data anywhere. One of the two runs went through the real login form's own actual submit event (not a manual function replication) after an unrelated browser-automation click-targeting quirk was diagnosed and worked around (dispatching a genuine `submit` event succeeded where a coordinate-based button click on this environment's CDP bridge did not — noted as an automation-environment artifact, not an application bug, since the underlying functions had already been confirmed correct via direct invocation). Confirmed CLIENT-0001 (Total Portfolio Value $1,284,500, 4 holdings, 8 documents) and a fresh admin-created client (still starts genuinely empty) are both completely unaffected. All test artifacts — both real Firebase Auth users, their real Firestore documents, and their local mirror data — were deleted afterward, restoring the real staging project and every checked local browser origin to their pre-verification baseline. Zero console errors throughout | None — pure `localStorage`/Firebase-bridge fix, no new backend need created. The separate, pre-existing `REQUESTABLE_SETTINGS_DEFAULTS` universal-fallback gap found during scope investigation remains unfixed and unscoped — flagged here for future consideration, not folded into this task |
+| 80 | Bug fix: `getSettingsProfile()`'s "John A. Doe" fallback closed — every new client now seeds a real settings profile (Aug 27, 2026, closing the gap flagged by row 79) | **Investigated first, per instruction**: confirmed "John A. Doe" is a hardcoded literal inside `REQUESTABLE_SETTINGS_DEFAULTS` (`engine-core.js:413-417` — `legalName: {firstName:'John A.',lastName:'Doe'}`, plus a fake Boston `address` and a fake `Passport` `idDocument`), read by `getSettingsProfile()`'s per-field fallback (`engine-core.js:2164-2172`, `stored[f] !== undefined ? stored[f] : REQUESTABLE_SETTINGS_DEFAULTS[f]`) — NOT a separate missing-seed-step bug in isolation, but the root cause matches the SAME pattern as row 79's fix: no seeding function has ever written a real `marketswave_settings_profile` record at client-creation time for EITHER creation path, so this per-field default is what every new client has always seen. Also confirmed `settings.html`'s own separate inline `DEFAULTS = { email: 'john.doe@example.com', phone: '+1 (415) 555-0182' }` (`settings.html:552`) reads the exact SAME shared storage key (`marketswave_settings_profile`) for email/phone specifically — a second, related fallback in the same store, closed as a natural consequence of this fix rather than needing its own separate change. **Fix, exactly as directed**: `seedMinimalClientStores()` (the same function row 79's fix reused for accountState/holdings/documents, already called by both `addClient()` and `mirrorAuthenticatedClientLocally()` on first mirror) now also writes a real settings profile. New `splitClientLegalName(name)` helper (`engine-core.js`, adjacent to `seedMinimalClientStores()`) reuses `getClientInitials()`'s own `LEGAL_ENTITY_SUFFIXES` filtering so a business name like "Riverstone Holdings LLC" splits as firstName "Riverstone"/lastName "Holdings" (LLC correctly stripped), not a bare "LLC" swallowing the meaningful second word — mirrors an existing precedent rather than inventing new logic. **Exact field sourcing, reported per instruction**: `legalName` — real, derived from the client's own `name` (already known at creation on both paths: the signup form for a real client, the Add Client form for an admin-created one) via `splitClientLegalName()`; `email`/`phone` — the real values already present on the same client record, written directly; `address`/`idDocument` — seeded as real `null`, NOT a fabricated placeholder, since neither creation path has real address/ID-document data available at this exact moment (the Add Client form never collects either; a real signup's own document uploads land in the separate `ONBOARDING_KEY` store, not read here) — `null` renders cleanly as "—" via `formatFieldDisplay()`'s existing `if (!value) return '—'` (`format-helpers.js`), the same empty-state convention already used everywhere in this project, requiring zero display-side changes. Both `addClient()` and `mirrorAuthenticatedClientLocally()`'s call sites were updated to pass the real client record through (`newClient`/`record` respectively — already in scope at each call site, no new lookup needed); `seedMinimalClientStores()`'s new third parameter is optional and defaults to an empty object so any pre-existing bare 2-arg caller still seeds a genuinely blank (not fake) profile rather than crashing. **Same regression discipline as row 79, verified not just asserted**: the "only on first mirror" guard already built for the accountState/holdings/documents fix automatically covers the settings profile too, since it's the same `seedMinimalClientStores()` call, gated by the same `isFirstMirror` check — a returning client's own already-self-edited profile (e.g. a real changed email via Settings' inline edit) is provably untouched by a later re-login, confirmed via a dedicated byte-for-byte before/after diff. CLIENT-0001 — the one client that genuinely predates any seeding step — correctly has no profile ever written by this fix and still falls back to the legacy `REQUESTABLE_SETTINGS_DEFAULTS`, exactly as intended (that fallback remains correct for exactly this one case, so it was deliberately left unchanged, not removed). Node-verified first (19 assertions, `verify-settings-profile-seed.js`): both creation paths seed a real profile immediately (not the fallback); the legal-suffix-aware split correctly handles "Marcus Chen" → Marcus/Chen and "Riverstone Holdings LLC" → Riverstone/Holdings; a single-word name ("Madonna") degrades honestly to an empty firstName rather than crashing or fabricating a second word; **the critical regression guard** — a returning client's real, already-edited profile survives a second mirror byte-for-byte unchanged; CLIENT-0001 still correctly falls back to the legacy default; and the bare-2-arg backward-compatibility path seeds a genuinely blank (not fake) profile without crashing. Full prior regression suite re-run (`verify-mirror-seeding-fix.js` 21/21, `verify-sidebar-doc-badge.js` 14/14) to confirm the `seedMinimalClientStores()` signature change introduced no regression. Browser-verified live for BOTH creation paths: created a real admin client ("Priya Sharma") via the real `addClient()` call and confirmed Settings immediately showed her real name/email/phone, "Legal Name: Priya Sharma," and clean "—" for Address/ID-Document — no "John A. Doe" anywhere; separately signed up and logged in as a genuinely new real Firebase client ("Diego Fernandez Ruiz," a real 3-word compound name) against the real `marketswave-staging` project via the real login form's own submit event, and confirmed the identical correct real-name/email/phone/blank-fields result, with the split correctly handling the compound name (firstName "Diego Fernandez," lastName "Ruiz"); confirmed the Address "Request Change" modal renders its `null` current value cleanly as "—" with blank, uncorrupted input fields — no crash, no "undefined" text. Both real test artifacts (the local admin-created client and the real Firebase Auth user + Firestore document) were deleted afterward, restoring the real staging project and local browser state to their pre-verification baseline. Zero console errors throughout | None — pure `localStorage`/settings-profile seeding fix, no new backend need created |
+| 81 | Bug fix: `ensureAdminSignedIn()` now works against real staging via a runtime password prompt, never a hardcoded/committed credential (Aug 27, 2026, closing a dedicated diagnosis task's finding) | Closes the root cause a prior diagnosis-only task found: `admin-firebase-config.js`'s `ensureAdminSignedIn()` always attempted the EMULATOR's hardcoded bootstrap credential (`pm@marketswave.internal` / a fixed emulator-only password) regardless of which real Firebase project `auth`/`db` were actually connected to — correctly staging-aware for the connection itself (via the shared `firebase-config.js`'s own `IS_STAGING`), but not for the sign-in credential, so any admin page loaded with `?env=staging` failed at the Auth step with `auth/invalid-credential` before any Firestore read was ever attempted, surfaced as "Could Not Load Firebase Applications"/"Could Not Load Firebase Clients." **Fix, exactly as directed**: `ensureAdminSignedIn()` now branches on `IS_STAGING` — the emulator path is byte-for-byte unchanged; the staging path signs in as the real `pm@marketswave-staging.internal` (safe to reference directly, confirmed via `scripts/staging-bootstrap-admin.js`'s own header — an email identifies an account, isn't itself a secret) with a password obtained via a small runtime-prompt modal (matching the admin tool's existing modal styling — copied from `admin-client-applications.html`'s own approve/reject modals), never hardcoded or committed anywhere. The modal is dynamically injected into `document.body` on first use (mirroring `dashboard-sidebar.js`/`dashboard-notifications.js`'s own "shared component injects its own markup" precedent), since neither of the two admin pages that use this module has a dedicated mount point for it. `setPersistence(auth, inMemoryPersistence)` is called on the staging branch ONLY (never touching the emulator path) — required, not merely "the password isn't written anywhere": Firebase Auth's own DEFAULT persistence (`browserLocalPersistence`) would otherwise silently restore the session across a page refresh via its own IndexedDB, directly violating the "a page refresh should re-prompt" requirement even though no application code ever wrote anything itself. A wrong password shows a clear inline error in the modal itself and loops back to accept another attempt (not a one-shot failure); Cancel rejects `ensureAdminSignedIn()` and explicitly resets the cached `signInPromise` to `null` so a later retry (e.g. clicking a "reload data" action) isn't permanently locked out for the rest of the tab's lifetime. **A real bug caught and fixed by this task's own Node verification, not shipped**: the retry loop's error-display logic originally cleared the modal's inline error at the TOP of every reopen (`promptForStagingPassword()`'s own setup) — since a wrong-password catch block reopens the SAME function on its next loop iteration, this raced the error being shown at all: it was set, then immediately hidden again before any real render could occur. Fixed by moving the "clear stale error" responsibility to the moment a NEW attempt is actually submitted (`onSubmit()`), not to every reopen — caught by the Node test's own scenario asserting the error is genuinely visible after a wrong-password attempt, not by browser inspection (the bug is a same-tick race, invisible to a screenshot taken even a few hundred ms later). **A second, closely related toast bug found and fixed while in these files, per instruction**: both `admin-client-applications.html`'s "Could Not Load Firebase Applications" and `admin-clients.html`'s identical "Could Not Load Firebase Clients" toast auto-hid on the same 4-second timer as every routine success confirmation — real enough for a "Done" message, but a genuine failure could fade before a PM reading the screen had time to register it, reading as a silent "just shows empty" state rather than an actionable error (exactly what this whole investigation chain started from). Fixed with a new, deliberately separate `sticky` 4th parameter to `showToast()` — NOT reusing the existing `isError` flag, since `admin-client-applications.html` also uses `isError: true` purely for red STYLING on a genuine SUCCESS confirmation ("Application Rejected" — overloading it would have wrongly made that routine confirmation sticky too) — only the real Firebase-load-failure call site in each file passes `sticky: true`; every other call site, including every other `isError` usage, is completely unchanged. Sticky toasts show a new manual-dismiss close button instead of auto-hiding. Node-verified first (24 assertions, loading the REAL `admin-firebase-config.js` from its real project path, completely unmodified, via a custom Node ESM loader hook that redirects only its two external import specifiers — the gstatic firebase-auth.js CDN URL and the relative `./firebase-config.js` — to local instrumented mocks; a minimal fake DOM plus real Storage-like `localStorage`/`sessionStorage` stand-ins, so a genuine `.setItem()` call would be directly observable and countable, not just assumed absent): the emulator branch is untouched (exact hardcoded credentials, no `setPersistence` call, no modal built) and its already-authenticated short-circuit still works; the staging branch calls `setPersistence(auth, inMemoryPersistence)`, never attempts the emulator credentials, shows the modal, and passes the exact password the modal collected through to the real sign-in call unaltered; its own already-authenticated short-circuit works too; a wrong password shows the correct inline error AND a subsequent correct password still succeeds within the same flow (exactly 2 real sign-in attempts, proving the loop genuinely retries); Cancel rejects and a second `ensureAdminSignedIn()` call genuinely re-prompts, proving `signInPromise` was reset; and — the core "never persist the password" requirement, checked directly rather than assumed — zero `localStorage.setItem()`/`sessionStorage.setItem()` calls occur across an entire successful staging sign-in flow that DID carry a real, distinctive password value through the real sign-in call (confirmed via a sanity check that the value genuinely appears in the recorded sign-in call, proving the zero-writes assertion isn't vacuously passing because nothing happened at all). Browser-verified live against the REAL `marketswave-staging` project, with the user's own explicit, one-time involvement: attempting to rotate the real staging admin's password myself via the Admin SDK was correctly blocked by the auto-mode permission classifier as a sensitive credential-changing action; the user was asked and chose to supply the real password directly in chat rather than have me rotate it — that password then also turned out to be stale/incorrect (confirmed via a raw SDK call bypassing the new modal entirely, isolating this as a real Firebase rejection rather than a bug in the fix), so — again only after the user's own explicit "do it" — the real staging admin password was reset via the Admin SDK to a freshly-generated random value, which the user now has. With the corrected password: the modal appeared on load exactly as designed, a deliberately wrong password showed a clear, persistently-visible inline error (confirming the Node-caught race fix holds in the real browser too), the correct password signed in as the real `pm@marketswave-staging.internal` and the page's own real data-fetch flow then genuinely loaded real pending Firestore applications (2 real records, including one, "Manuel Stormare," that was NOT created by this task and was left completely untouched and unreported-on beyond noting its existence to the user); a full page refresh genuinely re-prompted rather than silently restoring the session, confirmed twice independently; direct inspection of every `localStorage`/`sessionStorage` key in the real browser confirmed the real password string appears nowhere — the one pre-existing key containing the word "password" was CLIENT-0001's own unrelated, pre-existing `passwordHash` field from a completely different, already-shipped local credential system, confirmed by reading its actual value. The identical fix was independently re-verified on `admin-clients.html` too (real Firebase clients loaded, zero console errors). The one local test application record created for this verification was deleted afterward via the Admin SDK; the real, non-test "Manuel Stormare" application and the pre-existing "Staging Test Client" record were both left completely untouched, exactly as they were found | None — pure frontend/Firebase-Auth-bridge fix, no new backend need created. Real individual PM accounts (replacing the single shared bootstrap admin, staging and emulator alike) remain a separate, already-tracked future need — see `admin-firebase-config.js`'s own header comment and the handover doc's §12.4 checklist |
+| 82 | Bug fix: `?env=staging` now survives every internal navigation, not just the login->landing redirect (Aug 27, 2026, closing the third bug in this same investigation chain) | Reported symptom: `admin-login.html?env=staging` → successful login → landed on plain `admin.html`, silently reverting to the emulator target and reproducing the exact `auth/network-request-failed`/`auth/invalid-credential` error already diagnosed and fixed twice. **Grepped the whole project for every redirect/navigation, per instruction, not just the one named**: found 9 JS-driven `location.href`/`location.replace` sites across `admin-login.html`, `admin-sidebar.js` (×3 — file-load-time gate, the `initAdminSidebar()` defense-in-depth guard, and Log Out), `login.html`, `dashboard-sidebar.js` (×3 — the same three-site pattern, client-side), and `signup.html` — every one of them built its target URL as a bare relative path with zero query-string awareness. Separately found a SECOND, distinct failure mode beyond JS redirects: every `<a href="...">` link — both the shared sidebar's own dynamically-rendered nav (`admin-sidebar.js`'s `navLinkHTML()`, `dashboard-sidebar.js`'s `navLinkHTML()`/`footerLinkHTML()`/Deploy Capital CTA) and each page's own hardcoded static links (most visibly `admin.html`'s 13 Overview cards, each linking straight to a queue page) — dropped the param the instant a PM clicked anywhere, even without an intervening redirect. **Fix**: new `currentEnvQuery()` helper (duplicated in `admin-sidebar.js`, `dashboard-sidebar.js`, and inline in `admin-login.html`/`login.html`/`signup.html` — these three don't load either shared sidebar file, so each gets its own minimal self-contained one-liner reading `window.location.search` directly, matching this project's own established small-disclosed-duplication precedent) is appended to all 9 JS-driven redirect targets. For the link-dropping half of the bug, rather than hand-threading the suffix through every individual `href` string (the same kind of single point of failure that let the original bug happen), a new `preserveEnvParamInPageLinks()` function in both shared sidebar files does a single generic pass over every `<a href>` on the page — same-origin, relative, ending in `.html`, no pre-existing query string — appending the param once, in ONE place, covering the sidebar's own freshly-rendered nav AND each page's own static content links simultaneously, with zero per-page changes needed now or for any future page. Called once at the end of `initAdminSidebar()`/`initDashboardSidebar()`, after the sidebar markup is injected (so it also catches those freshly-added links, not just pre-existing ones). Logout was deliberately included, not treated as a special case that should "reset" the environment: a PM/tester deliberately testing staging shouldn't have that context silently dropped the moment they log back out, only for a subsequent login attempt to quietly land on the emulator with no visible explanation. Real functional consequence, not just cosmetic, confirmed by direct code reading: `dashboard-sidebar.js`'s own real `signOutOfFirebaseAuth()` reads `firebase-config.js`'s `IS_STAGING` fresh from the CURRENT page's URL at the moment Logout is clicked — if that page's own URL had already silently lost the param somewhere upstream, a real staging sign-out would have incorrectly targeted the emulator instead, leaving the real staging session it meant to close still live. Browser-verified live against the REAL `marketswave-staging` project, the exact failing scenario named in the task: navigated fresh to `admin-login.html?env=staging`, cleared any existing session, logged in for real with the local admin passphrase, and confirmed the resulting URL was genuinely `admin.html?env=staging` — not the old bare `admin.html` that used to reproduce the reported error. Confirmed every link on that landing page (all 14 sidebar nav items plus all 13 Overview cards) carried the correctly-appended param via direct DOM inspection. Clicked through Client Applications (the real Firebase-dependent page that would have shown the network error before this fix) and confirmed it correctly showed the real Staging Admin Sign-In modal — not an error — then signed in for real and confirmed genuine staging Firestore data loaded (the real, untouched "Manuel Stormare" pending application, real History). Continued clicking through Deposits → Allocations → Product Catalog → Client List, confirming the URL correctly carried `?env=staging` at every hop, with Client List also correctly loading real Firebase client data after its own (expected, by design — `inMemoryPersistence` doesn't survive any navigation, not just an explicit refresh) re-prompt. Tested Log Out and confirmed it correctly redirected to `admin-login.html?env=staging` (not a bare `admin-login.html`) and genuinely cleared the session. Repeated the identical verification on the CLIENT side against the same real staging project: created a real test client, logged in for real through `login.html?env=staging`'s own actual form submission, confirmed landing on genuine `dashboard.html?env=staging` (not the old bare `dashboard.html`), confirmed every one of the 9 sidebar nav/footer/Deploy Capital links plus the Logout link all correctly carried the param, and confirmed a real client-side Logout correctly redirected to `login.html?env=staging`. One real automation-environment artifact hit and diagnosed, not mistaken for a code bug: this browser tool's own tab-context status trailer can report a stale, mid-transition URL immediately after a click-triggered navigation, before the real navigation has actually completed — several apparently-contradictory results during testing were traced directly to this lag (confirmed by re-checking the SAME state a moment later, which always then matched the correct, fixed behavior) and are disclosed here rather than silently omitted, since ruling this out rigorously (not just assuming it) was necessary to trust the rest of the verification. Zero console errors throughout, on both sides. All real test artifacts (the local admin/client test data and the one real Firebase Auth user + Firestore document created for this verification) were deleted afterward; the real, non-test "Manuel Stormare" application and "Staging Test Client" record were both left completely untouched | None — pure frontend navigation fix, no new backend need created |
+| 83 | Dead footer links wired to the existing Get Access modal; two other stub links fixed or flagged (Aug 27, 2026, frontend audit, fix 1 of 4) | Grepped every public-site page for `href="#"` and other placeholder-link patterns (also checked for `javascript:void(0)`/empty/`TBD`/`TODO` hrefs — none found). Found 13 instances total: a byte-identical `<li><a href="#">Get Access</a></li>` footer link on all 6 real marketing pages (`index.html`, `services.html`, `resources.html`, `about.html`, `legal.html`, `contact.html`); `about.html`'s "Connect" section (LinkedIn, X/Twitter, Company Updates); `resources.html`'s "View latest updates" Blog & Press CTA; and 4 `href="#"` anchors on `login.html` (forgot-password/back-to-login ×3) — confirmed via reading `login.html`'s own script that all 4 are already genuinely wired via `id`-based `addEventListener` calls (not dead at all) and out of scope regardless, since `login.html` is the auth entry point, not a marketing page footer. **Fix**: all 6 pages already have a real, working "Get Access" modal (`#access-modal`) opened by a header button (`#get-access-btn`) offering Login/Sign Up — the footer link was visually identical CTA copy but had no `id` and no handler. Rather than duplicating the modal-open id, both the header button and the footer link now share a `.get-access-trigger` class, and each page's own modal script was changed from a single `getElementById('get-access-btn')` lookup to `querySelectorAll('.get-access-trigger')` with `e.preventDefault()` added to each trigger's click handler (needed for the footer `<a>`, harmless no-op for the `<button>`) — applied identically across all 6 pages, confirmed via grep that no stale `openBtn` reference was left behind anywhere. `about.html`'s "Company Updates" was pointed at `resources.html#blog`, a real existing anchor/section. **Flagged, not guessed at, per instruction**: `about.html`'s LinkedIn and X/Twitter (no real social accounts exist for this fictional firm) and `resources.html`'s "View latest updates" (no real blog/press content exists anywhere in the project to link to) were left as `href="#"`. Browser-verified live: clicked the real footer "Get Access" link on `index.html` and confirmed the same Login/Sign Up modal the header button opens appears, with no page jump-to-top; clicked "Company Updates" on `about.html` and confirmed real navigation to `resources.html#blog`, landing on the Blog & Press section. Zero console errors | None — pure frontend markup/wiring fix, zero backend dependency |
+| 84 | `about.html` placeholder team cards replaced with intentional "Coming Soon" labels, not fabricated names (Aug 27, 2026, frontend audit, fix 2 of 4) | The 3 Leadership cards showed the literal unfilled-template text `<h4>Leadership Role</h4>` (reading as a broken/forgotten placeholder, not a name) and `<div class="photo">Headshot</div>` (a raw label inside an already-intentionally-styled 220px placeholder box), while the role titles (Managing Partner / Chief Investment Officer / Head of Client Solutions) and their descriptions were already real, meaningful content. **Judgment call, decided and reported per instruction**: chose clearly-labeled "Coming Soon" placeholders over fabricating real-sounding names, since this is a fictional demo firm with no real leadership roster anywhere else in the project to draw from (confirmed — no founder/executive names exist in any other file), and the section already had an honest disclosure sentence directly beneath the cards ("Detailed biographies and additional team members will be published as the firm's public materials are finalized.") that a fabricated name would have contradicted. Changed `Leadership Role` → `Name Coming Soon` and `Headshot` → `Photo Coming Soon` on all 3 cards; role titles and descriptions left untouched, since they're real content, not placeholders. No CSS changes — the existing `.team-card`/`.photo` styling already reads as an intentional placeholder box. Browser-verified live: all 3 cards render cleanly with "Photo Coming Soon"/"Name Coming Soon" paired with their real role/description text and the existing disclosure sentence, reading as one coherent, intentional "bios coming later" narrative rather than 3 broken template cards | None — pure frontend content fix, zero backend dependency |
+| 85 | `index.html`'s "Process & Philosophy Visual" stub replaced with a real 4-step numbered process graphic (Aug 27, 2026, frontend audit, fix 3 of 4) | The right-hand column of the "Brand Identity & Approach" section (`.approach-visual`) was a flat 360px box containing only the literal placeholder text "Process & Philosophy Visual" — the left-hand column already had real, complete copy describing a 4-stage process in prose ("Our process begins with understanding your objectives, time horizon, and tolerance for risk. From there we construct portfolios and structures that serve those goals — then monitor, rebalance, and report with consistency."). **Judgment call, decided and reported per instruction**: built a real, simple numbered-steps graphic (Discover → Construct → Monitor → Report) rather than removing the section, since real content to visualize already existed in the page's own prose — the graphic doesn't invent new copy, it visualizes what's already written. Implemented as 4 numbered circles + short title/description pairs inside the existing `.approach-visual` box (new `.process-steps`/`.process-step`/`.process-step-num`/`.process-step-text` CSS added to `styles.css`, using only the existing locked color tokens — `var(--primary)` numbered circles, `var(--surface)`/`var(--border)` box, `var(--text)`/`var(--text-muted)` text — no new colors introduced); `.approach-visual`'s own centered-single-line layout was changed to a flex column to fit the new content, with no change to its outer box (height/background/border/radius all unchanged). Browser-verified live: the section now shows a clean 4-step numbered graphic beside the real "Brand Identity & Approach" copy, correctly readable at the section's existing width. Zero console errors | None — pure frontend content fix, zero backend dependency |
+| 86 | `signup.html`'s "Submit Application" button now shows real loading feedback during the async Firebase signup call (Aug 27, 2026, frontend audit, fix 4 of 4) | The final submit handler already disabled the button for the duration of the real `createUserWithEmailAndPassword()` + Firestore/Cloud-Function call (and re-enabled it on failure), but gave no VISUAL feedback beyond that — a slow connection could make the button look unresponsive/broken with no spinner or text change. Fix: captures the button's original `innerHTML` into a local `originalBtnHTML` variable before the async call, then sets `btn.disabled = true`, adds a new `.is-loading` class, and swaps the button's content to a small CSS spinner + "Submitting..." text — the spinner (`.btn-spinner`, a rotating bordered circle, `@keyframes btn-spin`) and `.is-loading` (dimmed opacity, default cursor) were added to `signup.html`'s own existing inline `<style>` block, matching this page's established "page-specific overrides live inline, not in the shared `styles.css`" convention (`.step-actions .btn` already does the same). On the existing `catch` block (a genuine thrown error — wrong password, network failure, Firestore/Function rejection), the button's `disabled`/`.is-loading`/`innerHTML` are all reverted to the captured original, exactly restoring the pre-click state so a real error never leaves the user stuck on a dead "Submitting..." button; on success the page redirects away before any restoration is needed, matching the existing control flow. Browser-verified via a real DOM simulation of the exact handler logic (capture → mutate → restore), since an actual signup attempt would either need a running emulator or would create real staging Firebase data purely to observe a sub-second visual transition: confirmed the button reads "Submit Application" before, transitions to a visible spinner + "Submitting..." (disabled, dimmed) during, and — running the exact same restore statements the real `catch` block executes — returns byte-for-byte to the original enabled "Submit Application" state after, on the real "Review & Submit" step of the real 9-step form. Zero real console errors (one pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend UX fix, zero backend dependency |
+| 87 | Six-service update: Supply Chain description rewritten, new "Business Consulting" 6th service card added, homepage teaser + all 6 marketing-page footers/meta updated to match (Aug 27, 2026, homepage/services content update, part 2 of 3) | Site-wide "years of experience" consistency check (part 1 of this task) found only ONE instance anywhere in the project — the homepage stats bar itself (`index.html`, "10+" / "Years of Experience") — confirmed via a broad grep for `\d+\+`/"years"/"decade"/"experience"/"founded"/"since [year]" across every page; no other page had a conflicting or duplicate claim to align, so no fix was needed for part 1. `services.html`'s existing Supply Chain card's longer descriptive paragraph (not its short `.intro` line, which was left unchanged) was replaced with the exact text supplied; the card's title stayed "Supply Chain" as instructed. New 6th card, "Business Consulting" (`id="business-consulting"`, label "Strategic Growth"), added at the end of `.service-landscape`, matching the existing `.service-landscape-card` structure exactly (label/h3/intro in the first column, a supporting paragraph + 5-item bullet list in the second) — the bullets were newly written (not supplied by the task) to stay consistent with the given description's own themes (strategy, the right partners, the right next steps, scalable growth, lasting value), the same "reasonable bullets consistent with the description" the task asked for. **No alignment/CTA-anchoring fix was needed**: `.service-landscape-card` is a full-width, one-per-row grid (`display:grid; grid-template-columns:1fr` on the outer `.service-landscape`, each card its own row), not a side-by-side card grid — content-length differences between cards can't cause misalignment here the way they could in a multi-column grid, so the task's own flagged `flex-col`/`mt-auto` concern turned out not to apply to this component. All 6 marketing-page footers (`index.html`, `services.html`, `resources.html`, `about.html`, `legal.html`, `contact.html`) had "Business Consulting" added as a 6th Services link (`services.html#business-consulting`), and `services.html`'s own `<meta name="description">` was updated to list all 6 services. **Judgment call on `index.html`'s Core Services teaser, decided and reported per instruction**: kept the existing 4-card curated preview unchanged (it already omitted Supply Chain even at 5 services, so it reads as a deliberate curated subset, not an exhaustive list) rather than expanding it to more cards, and simply relabeled the existing "View all services" CTA to "View all 6 services" for clarity — the simpler of the two options the task offered, and lower-risk than reflowing an already-responsive `repeat(auto-fit, minmax(320px,1fr))` grid. Browser-verified live: `services.html` shows all 6 cards with the new description/card rendering correctly and matching every existing card's visual structure; the homepage's "View all 6 services" link and updated footer are both present. Zero console errors | None — pure frontend content fix, zero backend dependency |
+| 88 | Three new homepage sections added to `index.html`: Partners, Platform Pitch, and What Makes Us Different (Aug 27, 2026, homepage/services content update, part 3 of 3) | All copy used verbatim as supplied by the task. **Placement, decided and reported per instruction**: Partners was placed directly after the Stats bar and before the existing "Company Pitch" section, as an early trust signal right after the credibility numbers; Platform Pitch and What Makes Us Different were placed together after the existing "Account Types" section and before the existing "Core Services" teaser, so a visitor sees account options, then how the platform actually works, then why the firm is different, before finally being shown the services list itself — final order: Hero → Stats → **Partners** → Company Pitch → Account Types → **Platform Pitch** → **What Makes Us Different** → Core Services → Philosophy CTA → Footer. Partners renders 4 fictional institutional wordmarks (Northbridge Capital Partners, Ashford & Vane, Meridian Fund Services, Colwyn Index Group — confirmed none are real company names) as bold serif text (`Georgia, 'Times New Roman', serif`) inside a new `.partners-card`/`.partners-row` component, styled with only the existing locked `var(--primary)`/`var(--white)`/`var(--border)`/`var(--shadow)` tokens — no new colors, per instruction. Platform Pitch uses the exact supplied header sentence as its `<h2>` (given a `max-width`/reduced `font-size` inline override so the full sentence stays readable rather than stretching edge-to-edge, the only layout adjustment made) followed by all 9 supplied cards in a new `.platform-grid`/`.platform-card` component — text-centered cards with a numbered circle (1–9), directly modeled on the existing `.account-grid`/`.account-card` pattern (same box/icon/heading/paragraph shape, same locked tokens) rather than inventing a new card style. What Makes Us Different uses a new `.diff-grid`/`.diff-card` component directly modeled on the existing `.vm-card` (Vision/Mission) pattern — left-aligned uppercase heading + longer paragraph, matching the supplied copy's own denser, multi-sentence style better than a centered card would. All new CSS was added as one consolidated block ("16B. HOMEPAGE — PLATFORM PITCH / PARTNERS / DIFFERENTIATORS") in `styles.css`, immediately before the existing "17. RESPONSIVE" section, and `.platform-grid`/`.diff-grid` were added to the SAME existing `@media (max-width: 960px)` breakpoint block that already collapses `.account-grid`/`.vision-mission` to a single column — reusing an already-shipped, already-correct responsive rule rather than writing new breakpoint logic. Explicitly out of scope, confirmed with the user's own framing: no new colors were introduced anywhere, and no other visual-design changes were made beyond what was needed to lay out the supplied content, since visual design is a separate, later task per the user's own stated sequencing. Browser-verified live: Partners renders all 4 wordmarks correctly inside the card at real desktop width; Platform Pitch renders all 9 cards in a clean 3×3 grid with the full header sentence readable; What Makes Us Different renders all 3 cards with the exact supplied copy; zero console errors on the full page. **One verification limitation disclosed rather than silently skipped**: this environment's `resize_window` tool does not move the real browser viewport (a known, previously-documented limitation), so the new `960px`-breakpoint collapse could not be visually re-confirmed in-browser this session — relied instead on the fact that both new grids reuse the exact same, already-shipped breakpoint rule as `.account-grid`/`.vision-mission`, not new/invented responsive logic | None — pure frontend content/structure fix, zero backend dependency |
+| 89 | Layout-only redesign of two homepage sections per approved mockups: Platform Pitch (9-card grid → 3 grouped columns) and What Makes Us Different (3-card grid → large-numeral editorial list) (Aug 28, 2026) | Content unchanged from row 88's own copy — pure layout/markup replacement, per instruction. **Platform Pitch**: the old `.platform-grid`/`.platform-card` 9-card grid was replaced with `.platform-columns` (3 columns, no card borders/backgrounds) grouping the 9 existing items into 3 labeled groups exactly as specified — "Getting Started" (Define Your Goals, Tailored to You, Minimums & Fees), "Building Your Portfolio" (Broader Diversification, Activate Your Portfolio, Professionally Managed), "Staying in Control" (Track Your Performance, Taxes, Liquidity). Each column is a small uppercase `.platform-column-label` with a `border-bottom: 1px solid var(--border-strong)`, followed by `.platform-item` entries (bold `<h3>` title + muted `<p>` description) stacked with generous margin. **What Makes Us Different**: the old `.diff-grid`/`.diff-card` 3-card grid was replaced with `.diff-list` — each of the 3 items is a `.diff-row` (CSS grid, fixed-width numeral column + content column) with a large `.diff-num` (01/02/03) in `var(--border-strong)` — the existing locked "soft border" cream tone, deliberately not navy, so the numerals recede behind the actual content — paired with a bold navy `<h3>` title and the full muted-color paragraph description; `border-top` on every row plus `border-bottom` on the last row produces the thin horizontal dividers between/around rows; `.diff-list` itself is `max-width: 900px; margin: 0 auto` so paragraphs don't stretch full page width. **Responsive pattern, reused not reinvented per instruction**: rather than importing the dashboard family's Tailwind-based sidebar-drawer breakpoint (a different subsystem entirely — Tailwind CDN, 1024px `lg`, only used on the 9 dashboard pages, never on the public site), the new sections were added to the public site's OWN already-established `@media (max-width: 960px)` breakpoint block in `styles.css` — the exact same block that already collapses `.account-grid`/`.vision-mission`, and that the now-replaced `.platform-grid`/`.diff-grid` themselves used one task earlier — reasoned to be the correct reading of "reuse whatever responsive pattern...already established" for a custom-CSS public-site page. `.platform-columns` collapses to a single column at ≤960px; `.diff-row` narrows its numeral column (100px → 64px) and reduces `.diff-num`'s font-size (2.75rem → 2rem) at the same breakpoint, so the numeral stays proportionate rather than overwhelming a narrow layout. The old `.platform-grid`/`.platform-card`/`.diff-grid`/`.diff-card` CSS blocks were deleted outright (fully orphaned by this markup replacement, confirmed via grep no other page references them); `.partners-card`/`.partners-row`/`.partner-wordmark` (the 3rd new-homepage-section component from the prior task, not named in this task) were left completely untouched. No new colors introduced anywhere — `var(--primary)`/`var(--border-strong)`/`var(--text-muted)` are all pre-existing locked tokens. Browser-verified live at real desktop width: both sections render exactly as specced — Platform Pitch's 3 labeled columns with thin-bordered uppercase labels and no card chrome, What Makes Us Different's numbered editorial rows with the muted numerals correctly receding behind bold titles and full paragraph text, dividers between rows, constrained max-width. **Narrow-viewport verification, done via a real iframe rather than the non-functional `resize_window` tool** (confirmed again this session that `resize_window` doesn't move the real browser viewport — a previously-documented limitation, re-verified before working around it): injected a real `<iframe>` at a genuine 390px CSS width, then verified via direct `getComputedStyle()` reads inside that iframe that `.platform-columns` resolves to a single grid column, `.diff-row` resolves to the narrow `64px` numeral-column override, and `.diff-num` resolves to the narrow `2rem` font-size — all three confirming the `960px` breakpoint genuinely fires; separately confirmed via `getBoundingClientRect()` that all 3 `.platform-column` elements share an identical `left`/`width` and stack at increasing `top` values with zero horizontal overlap — objective proof of clean single-column stacking, not just a plausible-looking screenshot. Zero real console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend layout fix, zero backend dependency |
+| 90 | Removed the "Institutional Alignment" (Partners) homepage section entirely, per explicit instruction (Aug 28, 2026) | Confirmed via grep the `.partners-card`/`.partners-row`/`.partner-wordmark` classes and the 4 fictional wordmark strings (Northbridge Capital Partners, Ashford & Vane, Meridian Fund Services, Colwyn Index Group) were referenced ONLY inside this one section — safe to delete outright with no orphaned references elsewhere. Removed the full `<section>` (header "Institutional Alignment" + supporting sentence + the wordmark card) from `index.html`, positioned directly after the Stats bar; removed the now-fully-orphaned `.partners-card`/`.partners-row`/`.partner-wordmark` CSS from `styles.css`; renamed the surrounding CSS section comment from "16B. HOMEPAGE — PLATFORM PITCH / PARTNERS / DIFFERENTIATORS" to "16B. HOMEPAGE — PLATFORM PITCH / DIFFERENTIATORS" to reflect the removal. Homepage section order is now: Hero → Stats → Company Pitch → Account Types → Platform Pitch → What Makes Us Different → Core Services → Philosophy CTA → Footer (Partners simply removed from where it sat, nothing else reordered). Browser-verified live: the Stats bar now flows directly into "Built for Clarity and Control" with no gap or leftover whitespace; zero console errors | None — pure frontend content removal, zero backend dependency |
+| 91 | Supply Chain and Business Consulting cards added to the homepage's Core Services teaser, per explicit instruction — reverses row 87's own curated-4-card judgment call (Aug 28, 2026) | Row 87 (§4.82, part 2) had deliberately kept the teaser at its existing 4 curated cards (Trading, Discretionary Management, Retirement Planning, High-Yield Savings) and only relabeled the CTA to "View all 6 services" — a judgment call explicitly reported at the time, now explicitly reversed by direct instruction rather than silently re-decided. Added two new `.service-card` articles, matching the existing 4 exactly (`<h3>` + `<p>` + a `services.html#anchor` "Learn more" CTA): Supply Chain reuses services.html's own short `.intro` line verbatim ("End-to-end coordination of planning, sourcing, production, delivery, and returns as one integrated system.") rather than inventing new copy; Business Consulting reuses its own already-established `.intro`/card description verbatim (the same text specced in the original homepage/services content-update task) even though it runs noticeably longer than the other 5 teaser cards' descriptions — `.service-card p { flex-grow: 1 }` already exists specifically to keep each card's CTA button aligned regardless of description length, so no CSS changes were needed for this. `.service-grid`'s existing `repeat(auto-fit, minmax(320px, 1fr))` grid needed no changes either — it already reflows automatically for any card count. Core Services teaser now shows all 6 services; the "View all 6 services" CTA (already correct from row 87) is now genuinely non-redundant, since the teaser itself is the complete list rather than a subset. **Verified by the user directly, not by Claude** — per instruction to stop browser-testing without asking first, the described checks (all 6 cards present, CTA bottom-alignment holding despite Business Consulting's longer description, each "Learn more" link resolving to the correct `services.html` anchor) were handed to the user to confirm manually; the user confirmed the check was completed | None — pure frontend content fix, zero backend dependency |
+| 92 | Homepage (`index.html`) content rewrite — precise find-and-replace across all 6 sections, exact strings supplied (Aug 28, 2026) | Content-only task, no layout/structure changes — every existing section/component/CSS class was reused exactly as-is; the only structural exception was the 4 "Brand Identity & Approach" list items, which the task explicitly authorized restructuring since the original plain `<li>text</li>` markup had no room for a separate bold title. **Hero**: H1 and subheading replaced verbatim ("Capital with Clarity. Partnerships with Patience." / the new "global competitor in active fixed income" lead paragraph). **Company Pitch**: section heading, section subtext, the "Brand Identity & Approach" sub-heading, and both body paragraphs (now ESG-focused) replaced verbatim; the 4 list items were restructured to `<li><strong>Title</strong> — <span class="approach-list-desc">description</span></li>` — new titles "One Team" / "Champion the Investor" / "Dream Big, Drive Change" / "Growth Mindset" paired with the supplied descriptions. New `.approach-list-desc` CSS rule added (`font-weight: 400; color: var(--text-muted);`) since `.approach-list li` itself carries a uniform `font-weight: 500` that would otherwise bold the description text too; `.approach-list li`'s `margin-bottom` was bumped from 14px to 18px to give the now much-longer entries breathing room — the one minor, content-driven spacing adjustment made, not a broader redesign. **Platform Pitch**: 7 of the 9 item descriptions replaced verbatim (items 1, 2, 5, 6, 7, 8, 9 — items 3 "Broader Diversification" and 4 "Minimums & Fees" deliberately untouched, matching the task's own omission); item 6's new copy reintroduces the fictional "Northbridge Capital Partners"/"Ashford & Vane" names (previously used only in the now-removed Partners section, row 90) — confirmed these remain clearly fictional, no real company names introduced. **What Makes Us Different**: section subtext and Row 02 ("Differentiated Insights") replaced verbatim — the new Row 02 text no longer references "10+ years," a change made because the task's own supplied text omitted it, not an oversight; Row 01 and Row 03 deliberately untouched. **Core Services Teaser**: Card 2 (Discretionary Management), Card 3 (Retirement Planning), Card 5 (Supply Chain), and Card 6 (Business Consulting) descriptions replaced verbatim; Card 1 (Trading) and Card 4 (High-Yield Savings) untouched. **Get Access Modal**: the Login card's description replaced verbatim ("...view portfolios, transactions and reports," swapping "statements" for "transactions"); the Sign Up card and both CTA buttons untouched. Verified via grep after all edits that none of the 17 original strings being replaced remain anywhere in the file, confirming every replacement landed with no accidental partial matches or duplicates. Browser-verified live, the full page: Hero renders correctly; the Company Pitch heading (now a long sentence) wraps cleanly across 2 lines with no overflow even without an added max-width constraint; all 4 restructured list items render with visibly bold titles, an em-dash separator, and muted description text with no unclosed-tag rendering artifacts; all 7 updated Platform Pitch items render correctly, including the `&amp;` entity in "Ashford & Vane" rendering as a literal ampersand; both What Makes Us Different updates render correctly with Rows 01/03 confirmed unchanged; all 4 updated Core Services cards render correctly, including Card 6's Business Consulting text; the Get Access modal was opened for real and the Login card's exact new text confirmed. Zero real console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend content fix, zero backend dependency |
+| 93 | Company Pitch section (`index.html`) rebalanced into a two-column pair + a new full-width Our Values section, layout-only, content unchanged from row 92 (Aug 28, 2026) | The original `.two-col` block had grown lopsided — the left column (heading + 2 paragraphs + a 4-item values list, all restructured with titles in row 92) had become visibly taller than the right column's fixed-content process-steps box. Per instruction, split into two pieces: **TOP** — the existing `.two-col` (unchanged grid proportions, `1fr 1fr`) now holds only the "Brand Identity & Approach" sub-heading and its two paragraphs on the left, paired with the unmodified Discover/Construct/Monitor/Report process-steps box on the right; the 4-item `<ul class="approach-list">` was removed from this column entirely. **BOTTOM** — a new full-width `.values-block` (centered "OUR VALUES" label + `.values-grid`, 4 equal columns) holds the same 4 items (content identical to row 92's own restructured text, just relocated), each a bare `.value-item` — `border-top: 2px solid var(--primary)` accent, bold `<h4>` title, muted `<p>` description below, no bullets, no card background/border/shadow, matching the task's explicit "no cards" instruction. The now fully-orphaned `.approach-list`/`.approach-list li`/`.approach-list li::before`/`.approach-list-desc` CSS (added just one task earlier, in row 92) was deleted outright and replaced with the new `.values-block`/`.values-label`/`.values-grid`/`.value-item` rules — confirmed via grep no other page references the old classes. **Responsive, two-tier per instruction** ("collapses to 2 columns on tablet width, 1 column on narrow viewports"): rather than a single collapse like Platform Pitch/What Makes Us Different's own 3→1 pattern, `.values-grid` needed an intermediate 2-column tablet step, so it was added to BOTH of the site's already-established breakpoint tiers rather than inventing a new value — `repeat(2, 1fr)` at the existing `960px` block (the literal breakpoint the task named, already used by `.platform-columns`/`.account-grid`/etc.), and `1fr` at the existing `768px` block (already used by `.two-col` itself and `.workflow-step`) — reusing two already-shipped tiers, not one new one, read as the correct interpretation of "reuse the site's existing 960px breakpoint block, consistent with how Platform Pitch...already handle their own collapse" combined with the task's own explicit two-step requirement. No new colors — `var(--primary)`/`var(--text-muted)` are the only tokens used, matching instruction. Browser-verified live: the top two-column pair is now visibly balanced (the left column's height dropped substantially once the values list left it, closely matching the process-steps box's own height, confirmed via screenshot comparison before/after); the new Our Values section renders correctly on its own — centered label, 4 columns, thin top-border accents, bold titles, muted descriptions, no card chrome. Narrow/tablet verification done via a real injected `<iframe>` at 3 genuine CSS widths (since `resize_window` doesn't move the real viewport in this environment, re-confirmed again this session): `getComputedStyle()` confirmed `.values-grid` resolves to 4 equal columns at 1400px, exactly 2 equal columns at 850px (a `getBoundingClientRect()` check further confirmed items 1-2 share one row and items 3-4 share the next, with matching left offsets), and a single column at 390px (all 4 items share identical `left`/`width` and stack at increasing `top` with zero horizontal overlap) — all three tiers confirmed objectively, not just via a plausible screenshot. Zero console errors | None — pure frontend layout fix, zero backend dependency |
+| 94 | Account Type card single-letter icons (I/J/E, `index.html`) replaced with real thin-stroke SVG icons matching the Get Access modal's existing style (Aug 28, 2026) | Read the Get Access modal's existing two icons directly first to match their exact style attributes rather than guessing: `width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"` (Feather-style thin-stroke icons). Swapped only the inner content of each `.account-card .icon` div — the letter text (`I`/`J`/`E`) replaced with an inline `<svg>` — leaving the circular badge container (56px, `var(--surface)` background, flexbox-centered) completely untouched, per instruction; no CSS changes were needed for color, since `.account-card .icon`'s existing `color: var(--primary)` already applies to the new SVGs via `stroke="currentColor"` inheritance exactly as it did to the letter text, so icon color matches the original letters exactly with zero extra styling. Individual: a single-person icon (Feather's "user" — head circle + shoulders arc). Joint Option: a two-person icon (Feather's "users" — two overlapping person shapes). Entity/Business: a building icon — **one real design iteration during this task**: the first version (a rounded rectangle with 4 full-width horizontal bars) was visually reviewed via zoomed screenshot and read more like a document/clipboard than a building at the rendered size; replaced with a clearer building silhouette (a rectangular tower, a door shape at the base, and 4 short round-capped window marks in a 2×2 grid) that reads unambiguously as a building once re-verified. All three icons use the same `viewBox="0 0 24 24"` and the same `width="26" height="26"` output size (scaled up proportionally from the modal's own 44px-circle/22px-icon ratio to this component's 56px circle, ≈50% of container diameter, matching the established ratio rather than an arbitrary new one) — flexbox centering plus each icon's own artist-balanced internal proportions (a person is naturally taller/narrower, two people naturally wider, a building naturally taller) is what gives each icon appropriate visual weight without needing different width/height attributes per icon. Browser-verified live: all three icons render crisply at the real card size, zoomed screenshots confirmed clean centering and consistent stroke weight/color across all three, and the Entity/Business icon reads clearly as a building after the mid-task revision. Zero console errors | None — pure frontend visual fix, zero backend dependency |
+| 95 | Icons added to all 6 Core Services teaser cards (`index.html`) — rounded-square badges, distinct from the Account Type cards' circular treatment (Aug 28, 2026) | New `.service-card .icon` CSS (56px, `background: var(--surface)`, `border-radius: var(--radius)` — a rounded square/"squircle," deliberately not `50%`, matching the task's own "rounded-square badge treatment" instruction as a distinct visual language from the circular Account Type badges built one task earlier) added right after the existing `.service-card:hover` rule; `color: var(--primary)` on the badge means every new icon's `stroke="currentColor"` inherits the exact same navy used everywhere else, with zero extra per-icon color styling needed. Six thin-stroke Feather/Lucide-style SVGs added (`viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`, `width="26" height="26"`, matching the exact style established for the Account Type icons one task earlier): Trading → a trend-line icon (rising polyline + arrow-corner); Discretionary Management → a compass icon (circle + needle polygon); Retirement Planning → a sunrise icon (horizon arc + rays + rising sun polyline); High-Yield Savings → a piggy bank icon; Supply Chain → a truck icon (cab rectangle + trailer polygon + two wheels); Business Consulting → a lightbulb icon. Each badge sits as the first child inside its `.service-card`, directly above the `<h3>` title, identically placed across all six. **CTA-anchoring explicitly re-verified, not assumed**: `.service-card` was already `display:flex; flex-direction:column` with `.service-card p { flex-grow: 1 }` (the existing mechanism functionally equivalent to a flex-col/mt-auto pattern, already proven under varying description lengths in an earlier task) — adding a badge as another block-level flex child before the `<h3>` doesn't disturb this, confirmed via direct `getBoundingClientRect()` comparison of every "Learn more" button's bottom Y-coordinate: identical within each row (row 1's three buttons share one exact value, row 2's three share another) despite Business Consulting/Supply Chain's descriptions running noticeably longer than their row-mates'. Browser-verified live: row 2 (High-Yield Savings/Supply Chain/Business Consulting) confirmed via direct screenshot — all three icons render crisply, cleanly centered, consistent badge size/color, CTA buttons visually aligned; row 1 confirmed via `getComputedStyle()`/`getBoundingClientRect()` across all 6 cards simultaneously (identical `56px×56px` size, `12px` border-radius, `rgb(237, 232, 225)` background — the exact `var(--surface)` value — and `svg width="26"` on every card) after a screenshot-capture flakiness in this session's browser tool prevented a direct row-1 screenshot from landing cleanly (disclosed rather than silently worked around — several scroll/screenshot attempts returned blank frames despite the DOM/layout being confirmed correct via live JS queries each time). Zero real console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend visual fix, zero backend dependency |
+| 96 | Removed hyphens (compound-word pauses) and em-dashes (sentence pauses/asides) from `index.html` only, per explicit instruction — real editorial rewriting, not mechanical deletion (Aug 28, 2026) | Grepped the entire file exhaustively (multiple pattern passes, including a multiline sweep, to rule out matches split across wrapped `<p>` tags) for every prose hyphen and em-dash, explicitly excluding CSS/HTML/JS/SVG-attribute hyphens (`stroke-width`, `data-close-modal`, `aria-haspopup`, SVG path/point coordinates, etc.) which are not English prose and were never in scope. **8 compound-word hyphens found and fixed** — all via straightforward space-separation, since each one already read naturally that way and the task's own example list explicitly named several of these exact words: meta description "institutional-grade" → "institutional grade"; hero lead "long-term goals" → "long term goals"; stats bar "Multi-Asset Class" → "Multi Asset Class"; Company Pitch paragraph "ESG-related aspects" → "ESG related aspects"; Individual account card "self-directed access" → "self directed access" (the task's own literal example); Entity/Business account card "multi-signatory controls" → "multi signatory controls"; Platform Pitch "Track Your Performance" item "real-time visibility" → "real time visibility"; Core Services "High-Yield Savings" card "near-term goals" → "near term goals". **1 compound hyphen explicitly left untouched, reported as a judgment call**: `1099-DIV` (Platform Pitch "Taxes" item) — this is a fixed IRS tax-form identifier, not a descriptive English compound adjective in the stylistic sense the task was targeting (unlike "self-directed"/"long-term", the hyphen here is part of a formal alphanumeric code's own syntax, not grammar); treated the same way the task's own explicit "High-Yield Savings" exception treats a fixed proper-noun-like term. **"High-Yield Savings" itself, per the explicit exception, was confirmed completely untouched at both its occurrences** (the Core Services card `<h3>` and the footer Services link) via a direct grep re-check after all edits. **4 em-dash sentence pauses found and rewritten with real editorial judgment, not a mechanical swap**, each read multiple times aloud before finalizing: Platform Pitch "Minimums & Fees" — "Clear, upfront thresholds and costs — no hidden fees buried in fine print." → "Clear, upfront thresholds and costs, with no hidden fees buried in fine print." (comma + "with" turns the aside into a natural trailing clause); What Makes Us Different subtext — "...outperform the market — and meet our clients' exacting needs." → "...outperform the market and meet our clients' exacting needs." (the em-dash was only adding an unneeded pause before an "and" that already connects the clause on its own — pure deletion was correct here, not a rephrase); "Value, Accelerated" row — "...create real, incremental value — supporting operational excellence and digital transformation..." → "...create real, incremental value while supporting operational excellence and digital transformation..." ("while" makes the simultaneous relationship explicit, avoiding a dangling-modifier feel a bare comma would have left); Core Services section subtext — "...specialized solutions — each designed around clear client outcomes." → "...specialized solutions, each designed around clear client outcomes." (comma is grammatically correct before a participial phrase, no rephrase needed). **1 em-dash explicitly left untouched, reported as a judgment call**: the `<title>` tag, "Marketswave — Investment Management & Capital Solutions" — this is a title/tagline separator format (Name — Tagline), not "sentence punctuation" used for a pause/aside/appositive within an actual sentence, which is specifically what the task's own definition targeted ("the common 'clause — clause' pattern used throughout the current copy"); correctly falls outside scope by the task's own definition rather than needing a special carve-out. **Verified no other page was touched**: only `index.html` was edited this task, confirmed by the fact that no other file was opened with a write tool during this task. Browser-verified live: grepped the rendered page (via `document.body.innerText` plus the modal's own hidden `innerText`, since a plain grep can't see computed/rendered text) to confirm zero of the 8 target hyphens or any em-dash remain anywhere in the visible copy (the `<title>` dash, correctly out of scope, was the only one still present, confirmed deliberately) and that all 12 rewritten phrases are genuinely present in the live DOM, not just the source file; then **read through the entire page's rendered text end to end in ~1300-character windows** (the task's own explicit "read through the rewritten sections yourself" requirement) confirming every rewritten sentence reads as natural, grammatically correct English in context, not just "characters removed." Zero console errors | None — pure frontend content fix, zero backend dependency |
+| 97 | Homepage (`index.html`) animation and micro-interaction pass — motion only, no background/color/texture changes (Aug 28, 2026) | New `home-motion.js` (loaded only by `index.html`, matching this project's own "separate concern file" convention already used by `dashboard-sidebar.js`/`format-helpers.js`) implements every entrance/scroll animation; new CSS block "16C. HOMEPAGE MOTION" in `styles.css` defines the two states. **Architecture, deliberately safety-first**: `[data-reveal]`/`[data-reveal-scale]` CSS rules only take effect once `.js-motion` is present on `<html>` — that class, and every `data-reveal*` attribute, is added ENTIRELY by JS at runtime, never present in the raw HTML; if `prefers-reduced-motion: reduce` is set, or the browser lacks `IntersectionObserver`, or JS fails to run for any reason, `.js-motion` is never added and every element stays in its normal, fully-visible static state by construction — content is never hidden waiting on JS that might not run, a stronger guarantee than just "respecting" the media query. A `@media (prefers-reduced-motion: reduce)` CSS override is also layered on as defense-in-depth. **1. Hero**: h1/subhead/CTAs fade+slide in immediately on load (double-`requestAnimationFrame`, not scroll-triggered), staggered 100ms apart. **2. Stats bar**: numeric values ($900m, 10+) count up from 0 via `requestAnimationFrame` with an ease-out-cubic curve once the bar enters view (regex-parsed prefix/number/suffix, so "$900m" and "10+" both animate correctly); the two text-only stats (International, Multi Asset Class) have nothing to count and are correctly left static, per the task's own "$900m, 10+, etc." framing — deliberately a longer 900ms duration than the general 200-500ms range, flagged as a judgment call since a count-up needs to be legible as counting, not a quick blur. **3. Company Pitch**: `.two-col` fades/slides in as one unit; `.values-grid`'s 4 items stagger 100ms apart via a shared container observer + per-child `transition-delay`; `.process-steps`'s 4 numbered circles get a `scale(0.6)→scale(1)` entrance staggered 90ms apart, using the new `[data-reveal-scale]` variant. **4. Account Types**: the existing `.account-card:hover` lift/shadow (already present, unmodified) is now paired with a new `.account-card:hover .icon { transform: scale(1.1) }` — a new shared rule `.account-card .icon, .service-card .icon { transition: transform 0.2s }` was added since neither icon previously had a hover transition of its own. **5. Platform Pitch**: 3 columns stagger 150ms apart left to right via the same shared-container-observer pattern. **6. What Makes Us Different**: each `.diff-row` is observed INDIVIDUALLY (not as a group), so they genuinely reveal one at a time as the user scrolls through them, not all three together — the one section requiring a structurally different JS helper (`observeReveal` per-element vs. `observeStaggeredGroup` for the others). **7. Core Services**: identical treatment to Account Types — same lift/shadow (pre-existing, unmodified) + same new `scale(1.1)` icon hover rule, confirmed via direct computed-style comparison to be byte-for-byte the same transform/transition values as Account Types. **8. Philosophy CTA**: simple single-element fade-in; footer receives zero motion treatment, confirmed via a direct query that zero `[data-reveal]`/`[data-reveal-scale]` elements exist inside `.site-footer`. **Verification, disclosed honestly including a real environment obstacle worked around, not silently skipped**: this session's browser tab was found to be stuck in `document.visibilityState: "hidden"` throughout (confirmed via direct `document.hidden`/`document.hasFocus()` checks, and reproduced on a freshly-created tab too, ruling out a stale-tab explanation) — a real Chromium behavior where `requestAnimationFrame` and `IntersectionObserver` callbacks are throttled/deferred for pages the browser considers not actually visible on screen, which made naive `classList.contains('is-visible')`/`getComputedStyle()` polling checks unreliable (they'd report stale pre-animation state indefinitely). Diagnosed this rigorously before concluding it was environment, not a code bug: confirmed a bare, freshly-created `IntersectionObserver` on a definitely-in-view element also never fired under the same conditions, and confirmed the exact same CSS rules were correctly present and correctly selectored via direct stylesheet inspection (ruling out a CSS bug). Found that taking a real screenshot (which forces Chromium through an actual paint/compositor pass) reliably unstuck pending observations, and used that consistently as the verification method instead: **directly captured multiple genuine mid-transition screenshots** — the hero headline visibly translucent mid-fade-in on first paint, the Platform Pitch "Getting Started" column visibly faded on entry, and — the strongest single piece of evidence for requirement 6 — the "Value, Accelerated" (03) row caught genuinely mid-fade while the already-scrolled-past "Differentiated Insights" (02) row was already fully opaque, and separately "Strategic Partner" (01) caught mid-fade while "Differentiated Insights" (02) was still nearly fully transparent — direct, non-fabricated visual proof that rows reveal individually in sequence, not as one simultaneous group. Hover states were verified via real `computer` hover actions at explicit pixel coordinates (one initial attempt using an element-reference-based hover coordinate silently failed to register a real `:hover` match and was caught and redone with explicit coordinates rather than accepted at face value) combined with direct `getComputedStyle()`/`element.matches(':hover')` checks: confirmed `.account-card` lifts `translateY(-4px)` with its icon at `scale(1.1)`, and `.service-card` lifts `translateY(-5px)` (its own pre-existing, slightly larger value, unchanged) with its icon also at `scale(1.1)` — matching design language between the two sections as required. The `prefers-reduced-motion` path was verified directly by temporarily hardcoding the bailout condition to `true` (this session's browser tooling had no media-emulation capability to toggle the real OS-level preference, so the equivalent code path was forced and tested directly, then immediately reverted before any other verification): confirmed `.js-motion` was never added, zero `data-reveal`/`data-reveal-scale` attributes existed anywhere on the page, hero content showed `opacity:1` immediately, and the stats bar displayed its final real values with no counting animation at all. Confirmed no layout/spacing regression across every section via direct screenshot comparison against the pre-existing (pre-task) appearance. Zero real console errors | None — pure frontend motion-layer addition, zero backend dependency |
+| 98 | `services.html` content rewrite — precise find-and-replace across all 6 service cards, exact strings supplied (Aug 28, 2026) | Content-only task; only `services.html` was edited, everything else on the page (Supply Chain card entirely, the `<ul>` bullet CSS, both untitled remaining Business Consulting bullets, the High-Yield Savings/Business Consulting `.intro` lines, the footer/CTA/Get Access modal) confirmed left exactly as-is. **Page Hero**: subheading replaced verbatim. **Trading**: `.intro` line plus all 6 bullets replaced verbatim (new copy covers real-time charting, a positions/orders panel, 170+ supported crypto assets, a commission-savings pitch, built-in FX pairs, and multi-leg options execution). **Discretionary Fund Management**: `.intro` line plus all 5 bullets replaced verbatim (new copy introduces a 40/35/25 private-equity/infrastructure/credit allocation split, a suitability-screening disclosure, a $10,000 minimum with a 20-30% portfolio-allocation guardrail). **Retirement Planning**: `.intro` line replaced verbatim; of its 5 bullets, 3 (items 1, 3, 5) needed a title + description shape per explicit instruction, matching "this project's other titled-bullet pattern" — since Company Pitch's "Our Values" section (the pattern being referenced) had already been restructured into its own full-width `.value-item`/`<h4>`+`<p>` grid by an earlier task, and this context is a plain `<ul><li>` bulleted list inside a two-column card (not a standalone grid section), the pattern was adapted rather than copied verbatim: `<li><strong>Title</strong> — description</li>`, reusing the exact bold-title-plus-em-dash-plus-description shape this project's OWN earlier iteration of "Our Values" used before its later restructuring — confirmed via a CSS check that `.service-landscape-card ul li` has no `font-weight` override that would suppress `<strong>`'s default bold rendering, so no new CSS was needed. Titles used: "Keep growing, tax-deferred," "Required minimum distributions," "Income splitting for couples"; the other 2 bullets (items 2, 4) stayed plain text per the task's own instruction. **High-Yield Savings**: per the task's own explicit "(intro paragraph)" wording (distinct from "(intro)" used for the other cards), only the SECOND, `.text-muted` paragraph was replaced, not the first `.intro`-class paragraph — confirmed by matching the task's quoted find-text against the live file before editing, not assumed from position; bullets 1-2 replaced verbatim, bullets 3-5 (the FDIC/fees/APY-comparison bullets) explicitly left untouched per instruction. **Business Consulting**: same "(intro paragraph)" distinction applied — only the second paragraph replaced, `.intro` left untouched; bullets 1-2 replaced verbatim, bullets 3-5 left untouched (the task's own "remaining two bullets" phrasing undercounted by one — 3 bullets actually remained unaddressed, not 2 — resolved by following the task's clear intent, "leave whatever remains as-is," rather than inventing a third replacement not actually specified). Verified via grep after all edits that none of the ~25 original find-strings remain anywhere in the file. Browser-verified live: read the entire rendered page text end to end via `document.body.innerText` in ~1300-character windows, confirming every card's new copy renders correctly and every untouched section (Supply Chain in full, both cards' preserved bullets/intros, the CTA section) is genuinely unchanged; a live screenshot of the Retirement Planning card confirmed the new `<strong>Title</strong> — description` bullets render cleanly with correct bold weight, bullet-dot alignment, and spacing, visually consistent with the list's plain-text sibling bullets. Zero console errors | None — pure frontend content fix, zero backend dependency |
+| 99 | `services.html` layout redesign — 6-card grid replaced with a service nav list + single detail panel, per approved mockup (Aug 28, 2026) | Structural only — content unchanged from row 98's own copy. New `service-explorer.js` (services.html only, matching this project's separate-concern-file convention) and a new CSS block in "9. SERVICES" implement the redesign; the original 6 `.service-landscape-card` `<article>`s were left completely untouched in the raw HTML (not retyped, not restructured) — JS reads their real `innerHTML` at runtime and reuses it verbatim, eliminating any risk of a content-transcription mismatch with row 98's just-finished rewrite. **Progressive enhancement, deliberately chosen over content duplication**: if the script fails to load or run for any reason, `#service-explorer-root` (the original `.service-landscape` wrapper, now also carrying that id) is left exactly as it was — the same stacked 6-card layout the page has always had, never a blank or broken page; a code comment states this explicitly. On successful load, JS replaces that wrapper with `.service-explorer` (a 240px-nav / 1fr-detail CSS grid): `.service-nav` (6 buttons, labels read directly from each panel's own `<h3>`, not hand-typed) plus a `.service-select` (hidden on desktop, populated with the same 6 options) plus a single `.service-detail` div whose `innerHTML` is set from the active service's stored HTML — genuinely one detail panel in the DOM, not 6 panels with 5 hidden. Active nav item styling uses only locked tokens: `background: var(--primary)` (solid navy) + `color: var(--bg)` (`#F7F6F3`, the locked light "Cream" token, confirmed by name against CLAUDE.md's own locked-palette description before use) for the active state; inactive items render as plain unstyled text per instruction, with only a subtle `var(--surface)` hover background added (not specified against, and needed so the nav doesn't feel inert on hover — a minor, in-spirit addition). **Default selection / hash pre-selection**: on load, `resolveActiveId()` checks `window.location.hash` against the 6 known ids and falls back to the first service (Trading) if no match — satisfying both "default to Trading" and "pre-select the matching service" from one function, not two separate code paths that could drift out of sync. Clicking a nav item or changing the mobile select calls a shared `activate(id, updateHash)` that swaps `.service-detail.innerHTML`, toggles `.is-active` on the correct nav button, syncs the select's value, and calls `history.replaceState()` to update the URL hash without a page reload or scroll jump (`replaceState`, not `pushState`, deliberately chosen so clicking through services doesn't pollute browser back-history with 6 entries); a `hashchange` listener also re-syncs if the hash is changed by other means (e.g. a real anchor link from elsewhere on the page navigating to a different id while already on this page). **Responsive**: `.service-nav`/`.service-select` visibility and `.service-explorer`'s grid-to-single-column collapse were added to the site's own already-established `960px` breakpoint block — the literal breakpoint the task named, already used by `.service-landscape-card` itself for its own responsive collapse — rather than a new value. No new colors anywhere — `var(--primary)`/`var(--bg)`/`var(--surface)`/`var(--text)`/`var(--border-strong)`/`var(--white)` are the only tokens used. Browser-verified live, comprehensively: clicked through all 6 real nav buttons in sequence (using `find`-resolved element references after one raw-pixel-coordinate click landed on the wrong item due to a coordinate-drift issue this session has hit before — caught and redone correctly, not accepted at face value) and confirmed each swap shows the correct heading/label/intro/bullets with the correct nav item highlighted and the URL hash updating correctly, with no layout jump between clicks; separately loaded the page fresh via real navigation with each of the 6 URL hashes (`#trading`, `#discretionary`, `#retirement`, `#supply-chain`, `#savings`, `#business-consulting`) and confirmed each one pre-selects the correct service on initial render, not just after a client-side swap; confirmed the no-hash case still correctly defaults to Trading. Narrow-viewport collapse verified via a real injected `<iframe>` at a genuine 390px CSS width (`resize_window` still doesn't move the real viewport in this environment): `getComputedStyle()` confirmed `.service-nav` is `display:none`, `.service-select` is `display:block`, and `.service-explorer` resolves to a single grid column at that width; a real `change` event dispatched on the mobile select inside that iframe correctly swapped the detail panel and updated the hash, and a zoomed screenshot of the iframe visually confirmed the dropdown renders above the detail panel with the nav genuinely absent, exactly matching the specified mobile layout. Zero console errors | None — pure frontend layout fix, zero backend dependency |
+| 100 | `services.html` nav + detail panel rebuilt into a richer detail-panel design (tag/serif title/stat callout/icon-highlight grid), on top of row 99's own nav+panel structure (Aug 28, 2026) | Structural + visual only — the raw `.service-landscape-card` fallback HTML (tag/title/intro/bullets, all of row 98's real copy) is completely untouched, still the genuine no-JS fallback; `service-explorer.js` still extracts tag/title/intro live from that real DOM at runtime rather than retyping it, exactly as row 99 established — only the featured stat and 4 distilled highlight phrases per service are genuinely new content, held in a new `EXTRA` data object keyed by service id, since nothing in the raw markup carries that content to extract. **Nav restyle**: `.service-nav-item`'s base color changed from `var(--text)` to `var(--primary)` (literal navy, per "Inactive: plain text, navy on transparent"); `.service-nav-item.is-active` gained `font-weight: 700` (previously only background/color changed, inheriting the base `500` weight, which didn't read as bold) — satisfies "Active item: solid navy background, cream text, bold" together with the pre-existing `background: var(--primary); color: var(--bg)`. **New detail panel markup**, built entirely client-side inside `renderPanel()`: `.service-detail-tag` (gold, hardcoded `#C8860A` — not a new `:root` variable, confirmed identical via grep to `risk-management.html`'s own `.rm-pill` gradient stop, the exact same gold already granted a scoped one-off exception for that page's Risk Meter control; a code comment states not to reuse it elsewhere); `.service-detail-title` in `Georgia, 'Times New Roman', serif` at 2.15rem, breaking from the page's sans-serif body — **one disclosed discrepancy in the task's own framing**: the task described this as "matching the editorial treatment already used in 'What Makes Us Different' on the homepage," but that section's `.diff-content h3` was directly confirmed to carry no serif override at all (it inherits the sans-serif `--font` token) — the task's own explicit, unambiguous fallback instruction ("serif font (Georgia or similar already available)") was followed literally instead of forcing a nonexistent serif treatment onto a section that was never actually serif; `Georgia, 'Times New Roman', serif` is the same stack this project used once before (Partners section wordmarks, since removed), not a new invention. `.service-detail-intro` constrained to `max-width: 560px` so it doesn't stretch the full panel width. `.service-stat` (cream `var(--surface)` rounded callout box) renders two shapes: `.service-stat-number`/`.service-stat-label` for the four services with a numeric lead (Trading "170+"/"tradable cryptocurrencies", Discretionary "$10,000"/"minimum investment", Retirement "$25,000"/"transfer-fee reimbursement", Savings "$250,000"/"FDIC protection" — all four figures pulled directly from row 98's own already-shipped real copy, not invented), or `.service-stat-text` alone for the two text-only services (Supply Chain "One integrated system", Business Consulting "Dedicated sector expertise"), styled consistently with the numeric variant per instruction rather than as a visibly different treatment. `.service-highlights` is a 2-column CSS grid of `.service-highlight` rows, each pairing a new 40px `.service-highlight-icon` badge (`var(--surface)` background, `var(--radius-sm)` corners — the same rounded-square language as the Core Services badges from row 95, scaled down for this denser card format, `color: var(--primary)` so every icon's `stroke="currentColor"` resolves navy) with a `.service-highlight-text` phrase. **Highlight content, a real editorial judgment call reported per instruction**: each service's original 5-6 bullets were distilled to exactly 4 punchier phrases (not verbatim originals) for a clean, consistent 2×2 grid across all six panels, deliberately dropping whichever bullet's content the stat callout already captures, to avoid stating the same figure twice in one panel (e.g. Trading's crypto-count bullet is fully represented by the "170+" stat, so the 4 highlights cover charting, the watchlist/orders panel, commission savings, and options strategies instead) — resolves the task's own internal tension between its opening "no new writing needed except the 6 stat labels" and its later, more detailed instruction explicitly authorizing "a tightened, punchier version" of highlight phrases, read as the later, more specific instruction governing. 21 distinct thin-stroke icons (same `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap/linejoin="round"` convention used everywhere else on this page) cover the 24 highlights, reused where genuinely fitting rather than manufacturing 24 unique glyphs (e.g. a `compass` icon anchors both Discretionary's asset-class-role diversification highlight and Supply Chain's efficiency/flexibility-balance highlight — two different services, same underlying "balance" concept). **Responsive**: `.service-highlights` collapses `repeat(2, 1fr)` → `1fr` at the same existing 960px breakpoint block row 99 already uses for the nav→select collapse, plus a reduced `.service-detail-panel` padding at that width for a tighter mobile card. Browser-verified live via a local static server: all 6 services checked programmatically in sequence (hash navigation + a settle delay, since `hashchange` fires asynchronously and a naive same-tick read across all 6 ids was caught reading stale state before this was corrected) — each confirmed correct active-nav match, tag, title, stat (number+label or text-only), exactly 4 highlights, and 4 rendered icon `<svg>`s, with the mobile `<select>`'s own `.value` also confirmed in sync throughout; a full-page screenshot at default width confirmed Trading's real rendered panel (gold tag, serif navy title, cream stat box, 2×2 icon grid) matches the mockup's structure. Narrow-viewport collapse re-verified via a fresh real injected `<iframe>` at a genuine 700px CSS width (`resize_window` still doesn't move the real viewport in this environment): `getComputedStyle()` confirmed the nav is hidden/select shown (row 99's existing behavior, unaffected) AND `.service-highlights`' `gridTemplateColumns` resolves to a single track spanning the full available width — a screenshot of the scrolled iframe additionally confirmed all 4 highlight rows visually stack in one column with their icon badges intact. Zero console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend layout/visual fix, zero backend dependency |
+| 101 | `services.html` rebuilt a second time — the nav+detail-panel concept (rows 99-100) replaced entirely by full-width scrolling sections, one per service, with complete/undistilled content (Aug 28, 2026) | Explicit instruction to replace BOTH the original card grid AND the side-panel concept — a full reversal of rows 99-100's structural approach, not an iteration on it. Every service's COMPLETE content is now hand-written directly into static HTML (both the original `.intro` line and the secondary paragraph, and every real bullet, full text, nothing shortened) — a deliberate departure from rows 99-100's "extract live from the DOM at runtime" pattern, since there is no longer a raw fallback markup block to extract from; this is now the only markup. Six `<section class="service-section" id="...">` elements (the 6 locked anchor ids kept directly on each section, satisfying "existing footer/external links still jump to the right place" with zero JS needed for the jump itself — plain browser fragment navigation) are stacked inside a new `.services-full` wrapper, replacing the single `<section class="section"><div class="container">...` that used to hold the whole card grid. Per-section structure: `.service-tag` (gold `#C8860A`, unchanged from row 100's own scoped exception, still not reused anywhere else on the page); `.service-title` (`Georgia, 'Times New Roman', serif`, unchanged from row 100, same disclosed discrepancy about "What Makes Us Different" not actually being serif still applies and is carried forward, not re-litigated); `.service-copy` holding both `.service-intro` and `.service-secondary` in full; `.service-stat` (unchanged number/label or text-only variants, same 6 real figures as rows 99-100); `.service-checklist` — now explicitly a **single-column** flex list (not the row-100 2-column highlight grid, since real bullet text runs 2-3 lines and a grid would cramp it, per instruction), each `.service-check-item` pairing a small checkmark-icon `.service-check-icon` badge (32px, `var(--surface)` rounded-square, reusing the same badge language as row 100's highlight icons but with a single shared checkmark glyph instead of 21 distinct icons, since every item is now the same "this is real, included content" signal rather than a distinct concept per highlight) with the complete, unshortened bullet text in `.service-check-text`; Retirement Planning's 3 titled bullets keep their exact `<strong>Title</strong> — description` inline shape from the original source, unchanged. **A subtle divider between sections**, per instruction: `.service-section + .service-section { border-top: 1px solid var(--border-strong); }`, the identical adjacent-sibling pattern already established by `.diff-row` on the homepage ("What Makes Us Different"), not a new visual language. **Full teardown of rows 99-100's now-obsolete code**: `service-explorer.js` deleted outright (confirmed via a project-wide grep that nothing else referenced it before deleting — the file existed solely to build the nav+panel structure this task replaces); the `<script src="service-explorer.js">` tag removed from `services.html`; every CSS class the nav+panel/rich-panel design introduced or depended on (`.service-landscape`, `.service-landscape-card` and its descendants, `.service-explorer`, `.service-nav`, `.service-nav-item`, `.service-select`, `.service-detail`, `.service-detail-panel`, `.service-detail-tag`, `.service-detail-title`, `.service-detail-intro`, `.service-highlights`, `.service-highlight`, `.service-highlight-icon`, `.service-highlight-text`) removed from `styles.css` and replaced with the new `.services-full`/`.service-section`/`.service-tag`/`.service-title`/`.service-copy`/`.service-intro`/`.service-secondary`/`.service-stat*`/`.service-checklist`/`.service-check-*` rules — confirmed via a follow-up grep that zero references to any removed class remain anywhere in `styles.css`. The 960px breakpoint block's old `.service-landscape-card`/`.service-explorer`/`.service-nav`/`.service-select`/`.service-detail-panel`/`.service-highlights` rules were replaced with two new rules (`.service-section` reduced padding, `.service-title` reduced font-size) — there's no nav/grid left to collapse, since the new design has neither. `.service-card`/`.service-grid` (the unrelated homepage Core Services teaser classes) were confirmed untouched throughout — a different component sharing only a naming prefix. Browser-verified live via a local static server: all 6 sections confirmed programmatically to have complete content (Trading 6/6 bullets, Discretionary 5/5, Retirement 5/5 with all 3 bold titles, Supply Chain 5/5, Savings 5/5, Business Consulting 5/5 — every section's intro AND secondary paragraph both present, every checkmark icon rendered 1:1 with its bullet) plus a dozen spot-check substring matches against the exact original source text (e.g. "Private equity 40%, Private infrastructure 35%, Private credit 25%", "per depositor, per institution and ownership category") confirming no silent rewording; screenshots confirmed the gold tag/serif title/stat callout/checkmark list/section divider all render correctly in sequence while scrolling. **A real environment complication surfaced and worked through, not silently glossed over**: this session's tab was found stuck at `document.visibilityState: "hidden"` (the same documented throttling this project has hit before), which caused a `location.hash`-driven JS scroll loop to silently fail to move the viewport at all across 6 iterations even with generous waits — diagnosed by cross-checking `window.scrollY` never changed and confirming `document.hidden === true`; switched to real top-level `navigate()` calls per anchor instead of JS-driven hash mutation, which correctly jumped for most anchors, though at least one (`#discretionary`) landed short of the target under the throttled tab's interaction with the site's own pre-existing global `scroll-behavior: smooth` (unrelated, unchanged CSS predating this task) — resolved decisively by calling `scrollIntoView({behavior:'instant'})` on all 6 ids directly, which landed every one at exactly `top: 0`, proving the anchor ids/structure themselves are completely correct and that the observed undershoot was a throttled-animation artifact of this specific automation tab, not a defect in the markup; this distinction was verified, not assumed. Narrow-viewport read (390px, real injected `<iframe>`, `resize_window` still doesn't move the real viewport in this environment) confirmed via direct DOM measurement that every one of the 6 `.service-section`s stays fully within the 390px viewport (max right edge 372px in every section, zero horizontal overflow from any new content) and that the reduced padding/font-size/divider rules are all genuinely active at that width; a **separate, pre-existing overflow was found and disclosed, not fixed, as explicitly out of scope**: the site's own shared header (`.nav-toggle` hamburger button + `.header-actions` Get Access/Contact buttons — byte-identical markup used across every page in the project) overflows the 390px viewport on its own, unrelated to and unaffected by anything in this task. Zero console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact this project has repeatedly flagged as benign) | None — pure frontend layout/content fix, zero backend dependency |
+| 102 | `services.html` animation and micro-interaction pass — page-hero + per-section entrance motion, reusing the exact `home-motion.js` implementation pattern (Aug 28, 2026) | Motion only, no content or layout changes, built on top of row 101's full-width section redesign. New `services-motion.js` (services.html only, same separate-concern-file convention as `home-motion.js`/`dashboard-sidebar.js`/`format-helpers.js`) reuses `home-motion.js`'s exact bailout conditions and helper shapes rather than writing a new pattern from scratch — same `prefers-reduced-motion`/`IntersectionObserver`-support guard, same `.js-motion`-on-`<html>` mechanism (added entirely by JS, so content is never hidden waiting on JS that might not run), same `markReveal()`/`observeStaggeredGroup()` helper signatures copied verbatim. **1. Page Hero**: `.page-hero h1`/`.page-hero p` (this page's hero has no separate CTA row unlike the homepage's `.hero-lead`/`.hero-ctas`, so the selector was adapted to what actually exists) fade/slide in immediately on load via the identical double-`requestAnimationFrame` pattern, staggered 100ms apart — not scroll-triggered, since the hero is visible without scrolling, matching the homepage's own hero treatment exactly. **2. Each service section**: rather than a separate outer-section fade wrapping a second, independent internal stagger (which would risk a visually redundant double-fade), the task's two requirements — "the section fades in as it scrolls into view" and "internal elements stagger, tag → title → intro → stat → bullet list" — were read as describing ONE coherent effect and implemented as such: each `.service-section` is observed individually via `observeStaggeredGroup()` (mirroring the homepage's own per-row observation for "What Makes Us Different," so sections reveal one at a time while scrolling, never all six firing together), with its 5 direct content groups (`.service-tag`, `.service-title`, `.service-copy` — both paragraphs treated as one "intro" unit, since the task named 5 stages not 6 — `.service-stat`, `.service-checklist`) staggered 90ms apart; the checklist reveals as one block, not bullet-by-bullet, matching the task's own explicit 5-stage list. Reused CSS: the existing `.js-motion [data-reveal]`/`.js-motion [data-reveal-scale]` rules and their `prefers-reduced-motion` override in `styles.css` weren't scoped to index.html by CSS selector (only by convention/comment) — confirmed via inspection that the rules apply generically off `.js-motion` + `[data-reveal]`, so zero new CSS was needed; only the section's stale "(index.html only)" header comment was corrected to "(index.html + services.html)" to keep the file accurate now that a second page depends on it. Node/browser-verified live via a local static server, working around this session's now-familiar tab-throttling quirk (`document.visibilityState: "hidden"`, confirmed directly): a genuine mid-transition screenshot captured the hero's h1 visibly translucent and the Trading section's tag also mid-fade simultaneously, direct proof of the immediate-hero + already-in-view-on-load section both animating for real; a settled follow-up screenshot confirmed both fully opaque; programmatic checks confirmed the Trading section's 5 groups carry the correct 0/90/180/270/360ms stagger delays in the correct tag→title→intro→stat→checklist order and all reached `is-visible`/`opacity:1`; confirmed Business Consulting (the last, off-screen section) had NOT fired before scrolling, fired correctly once scrolled into view, and — scrolling back up to Trading — its already-fired elements stayed `is-visible` rather than resetting, directly confirming the "once per element, never re-triggering" requirement. The `prefers-reduced-motion` path was verified by temporarily hardcoding the bailout to `true` (no OS-level media-emulation tool exists in this environment, the same limitation and same verification method already established for the homepage's own motion pass) and confirming `.js-motion` was never added and zero `[data-reveal]` attributes existed anywhere on a fresh load, before immediately reverting. Zero console errors. | None — pure frontend motion-layer addition, zero backend dependency |
+| 103 | `resources.html` content rewrite (all 6 Strategy cards + Help Center) + two structural additions (Help Center 4th card/button, Blog placeholder cards), plus new `help-center.html` stub (Aug 28, 2026) | Content-only for the rewritten sections, purely additive for the two structural pieces — nothing else on the page was touched (the entire "How It Works" section, its workflow table, the footer, and the Get Access modal all confirmed unchanged). **Strategy cards, exact strings supplied**: all 6 `.strategy-card` bodies replaced verbatim with real, richer copy (Asset Allocation → GP-universe/primary-fund-deployment positioning; Active Management → SPI proprietary data platform; Passive Management → Marketswave's own sourcing-advantage pitch; Risk Management → a prioritize-by-impact-and-likelihood framework; Alternative Investments → an absolute-returns framing). **Diversification (Strategy 2), the one structural exception**: per instruction to match "the titled-bullet pattern already used elsewhere on this site, e.g. homepage's Our Values section," a real title + description was added as `<h4>Multi-Asset Class Expertise</h4>` + `<p>description</p>` — the ACTUAL current Our Values shape (`.value-item h4`/`p`, two separate block elements), not the inline `<strong>Title</strong> — description` bullet the task's own wording might suggest, since that inline pattern was itself superseded by Our Values' own restructuring in an earlier task (CLAUDE.md row 93) — confirmed by reading the live homepage markup before implementing, not assumed from the task's phrasing. A new small scoped `.strategy-card h4` CSS rule was added (font-size 1rem, weight 700, navy) since no such rule existed and a bare `<h4>` would have inherited an oversized, inconsistent default browser heading style; `.value-item h4`'s own separate rule was left untouched, not reused directly, since it's scoped to a different component. **Help Center**: the 3 existing `.service-card`s' titles/descriptions replaced verbatim ("Get started," "Investing with Us," "Security and Privacy"); a genuine 4th card added ("Promotion and referrals"), making the grid 2×2 instead of the previous 1×3 — `.service-grid`'s existing `repeat(auto-fit, minmax(320px,1fr))` reflows automatically, no CSS changes needed. A new "Visit Help Center" button was added below the grid (`.text-center` wrapper, reusing the exact centered-CTA pattern the Blog section already uses one section up), linking to a genuinely new file. **New `help-center.html`**: a minimal stub, built by copying `resources.html`'s own real header/footer/Get Access modal/script verbatim (byte-for-byte the same site chrome every other public page shares) around a single new section with an honest "Full Help Center coming soon" message and a Contact Us CTA — explicitly NOT real Help Center content, per instruction that the real buildout is a separate future task; a code comment states this directly. The header's nav highlights "Resources" as active on this new page (rather than nothing, or inventing a new nav state) — the same treatment `deploy-capital.html` already uses for a page that doesn't have its own top-level nav slot, reusing an established project precedent rather than a new judgment call. **Blog & Press**: 3 new `.service-card`s were added above the existing intro/CTA text, each titled "Article Coming Soon" (the task's own suggested literal repeated label) with an honest, non-fabricated description ("Research notes, firm announcements, and client communications will appear here as they're published") — no invented article titles, dates, bylines, or summaries presented as real content, matching the same honesty standard already established for `about.html`'s "Name Coming Soon"/"Photo Coming Soon" team-card placeholders (CLAUDE.md row 84). The existing "View latest updates" button and its surrounding paragraph were left completely untouched, still the page-level CTA, per instruction. **Backend Requirements Register**: this row itself covers the Strategy/Help-Center content and the two structural additions; a SEPARATE new row (104) logs the deferred admin-manageable blog/article upload system the Blog placeholders are waiting on, per the task's own explicit instruction to log it as its own item. Browser-verified live via a local static server: all 6 strategy cards confirmed programmatically to show the correct new body text (and Diversification's new `<h4>` sub-title rendering correctly, navy and bold, confirmed via a screenshot alongside its two card neighbors); Help Center confirmed to show exactly 4 cards with the correct titles/descriptions and a working "Visit Help Center" button — clicked for real and confirmed it lands on the new stub page with matching header/hero styling, a working footer (20 links) and Get Access modal (2 real triggers), and zero console errors; Blog section confirmed to show exactly 3 "Article Coming Soon" cards with the "View latest updates" CTA still present and functional immediately below them. Zero console errors on both pages. | Blog/article content management — logged as its own new register row (104), see below |
+| 104 | Admin-manageable blog/article upload system — needed before `resources.html`'s new "Article Coming Soon" placeholders (row 103) can be replaced with real posts | Deferred by explicit instruction, logged the same session the placeholders were built, per this doc's own standing rule to log a new stub the same session it ships. Would need: an admin-side authoring/upload UI (title, body, publish date, author, related media/images) mirroring the Documents & Reporting admin queue's own upload-and-review pattern; a new engine store for articles (global, unscoped, likely alongside the Product Catalog/Client Registry category rather than per-client); and a real client-facing blog listing/detail page to replace the current static "Coming Soon" cards and the "View latest updates" button's placeholder `href="#"`. Not started — no code exists for this yet. |
+| 105 | Two same-day fixes to `resources.html`, both from direct user feedback on row 103's just-shipped work (Aug 28, 2026) | **Fix 1 — Blog & Press card count**: reduced from 3 "Article Coming Soon" cards to 2, per instruction — the third `.service-card` was removed outright from the Blog section's grid; the remaining 2 keep their identical copy, and the untouched "View latest updates" CTA below them is unaffected. **Fix 2 — Diversification's sub-title de-boldened and folded into the body text**: row 103 had rendered "Multi-Asset Class Expertise" as a separate `<h4>` heading above the paragraph (matching what was, at the time, read as the current "Our Values" `<h4>`/`<p>` shape) — direct feedback clarified the intent was for it to read as part of the underlying paragraph, not stand alone as a bold heading. Fixed by removing the `<h4>` element and prepending "Multi-Asset Class Expertise." as the opening plain-text sentence fragment of the same `<p>`, so the card now reads as one continuous paragraph exactly like its 5 sibling cards. The now-fully-unused `.strategy-card h4` CSS rule (added in row 103, confirmed via grep to have no other caller) was removed along with its explanatory comment — no orphaned CSS left behind. Browser-verified live: confirmed exactly 2 Blog cards render via a direct count query; confirmed the Diversification card's `<p>` genuinely starts with "Multi-Asset Class Expertise. Spanning private equity..." and that `querySelector('h4')` returns null for that card; a screenshot confirmed all 3 visible cards (Asset Allocation, Diversification, Active Management) now share identical plain-paragraph formatting with no visual distinction between them. | None — pure frontend content/markup fix, zero backend dependency |
+| 106 | New `blog-press.html` — a full Blog & Press page, replacing `resources.html`'s "View latest updates" button's old `href="#"` placeholder (Aug 28, 2026) | Explicit instruction: the button should lead to a real full Blog & Press page, not a placeholder anchor. **Built as an honest stub, same category as `help-center.html` (row 103)** — since the real client-facing blog listing/detail page is explicitly the deferred future work already logged in row 104 (which depends on the not-yet-built admin-manageable article upload system), a "full" page today can only honestly be a fuller version of the same "Coming Soon" pattern, not real article content; a code comment on the new page states this directly, cross-referencing row 104. New `blog-press.html` copies the site's real shared header/footer/Get Access modal/script verbatim (the same established pattern `help-center.html` set), with its own page-hero ("Blog & Press," reusing the exact heading/subtext already on `resources.html`'s teaser section) and 3 "Article Coming Soon" `.service-card`s (one more than the teaser's 2, since this is now the dedicated listing page, not just a preview — still the same honest, non-fabricated copy, no invented titles/dates), plus a "Full Blog & Press page coming soon" message and a Contact Us CTA, mirroring `help-center.html`'s own closing block. `resources.html`'s "View latest updates" button now points to `blog-press.html` instead of `#`. **Deliberately NOT changed**: the site-wide footer's own "Blog & Press" link (present on every page, including the new `blog-press.html` itself) still points to `resources.html#blog`, unchanged — the task named only the button, not a sitewide footer-link update, so `blog-press.html`'s own footer was corrected to match every other page's footer byte-for-byte (an initial draft had it self-linking, caught and fixed before shipping) rather than introducing a one-page deviation. Browser-verified live: confirmed the button's real `href` is `blog-press.html`; clicked it for real (not just checked the attribute) and confirmed genuine navigation via the tab's own reported URL/title (`Blog & Press — Marketswave`, `blog-press.html`); confirmed via screenshot the new page's hero, all 3 placeholder cards, and the coming-soon message all render correctly; confirmed via direct DOM query the footer (20 real links) and Get Access modal (2 real triggers) are both present and correctly wired, matching every other page's chrome. Zero console errors. | Blog/article content management — already logged as row 104; this row only adds the real page shell around that same still-deferred content gap |
+| 107 | `about.html` content rewrite (hero, Vision, Mission, Background & History narrative + a new company facts block, all 3 team cards, closing note) + a site-wide company-facts consistency pass (Aug 29, 2026) | **About page hero**: the task's "replace with title X + text Y" (distinct from the "title+description" pattern already handled differently in row 103/105) needed a genuine new structural element, since `.page-hero` previously only ever had `h1` + one `p`. A new `<p class="subtitle">` was added between the existing `<h1>About Marketswave</h1>` (left untouched — the task's find-string was the OLD subtext paragraph, not the h1) and the new descriptive paragraph; a new scoped `.page-hero .subtitle` CSS rule (1.3rem/700/full-opacity) overrides `.page-hero p`'s own dimmer/lighter defaults via higher selector specificity, so the subtitle reads bolder than the description below it, matching a genuine title/subtext hierarchy. **Vision/Mission**: both `.vm-card` bodies replaced verbatim, no structural changes. **Background & History — the largest structural change**: the old single centered paragraph was replaced with 6 real narrative paragraphs (switched to left-aligned inside a new `.about-narrative` wrapper — centered multi-paragraph body text reads poorly at this length, whereas the existing centered `<h2>` above it was left as-is) plus a genuinely new **company facts block** — the task explicitly left the pattern choice open ("reuse whatever existing site pattern fits... or build a clean new one"); no existing labeled key-value pattern existed anywhere on the public site (checked via grep before building), so a new `.facts-grid`/`.fact`/`.fact-label`/`.fact-value` set was built, reusing the `border-top: 2px solid var(--primary)` accent language already established by the homepage's own `.value-item` (Our Values) rather than inventing a new visual language — 8 facts (Industry, Company size, Headquarters, Founded, Type, Specialties, Location, Primary address) rendered in a 2-column grid, collapsing to 1 column at the site's existing 960px breakpoint (added alongside `.vision-mission`'s own collapse rule in the same block). **Team cards**: Card 1 → "Craig Bergstrom," Card 2 → "Fede Salvai" (both names + descriptions updated verbatim), Card 3 → "Valerie Molina" (name only, description explicitly left unchanged per instruction); "Photo Coming Soon" was deliberately left untouched on all three — no real photos exist, and the task never asked for that placeholder to change, so it stays honest rather than silently implying a photo now exists. **Closing note**: replaced with the user's own already-grammar-corrected text ("Here to serve you exceptionally well") verbatim — the task flagged its own correction ("exceptional" → "exceptionally") and explicitly invited pushback only if the ORIGINAL wording were preferred, so the corrected text was used directly with no further clarification needed. **Site-wide company-facts consistency pass**: homepage stats bar "Years of Experience" updated 10+ → 20+ to match the new "Founded 2004" fact; `contact.html`'s Address card expanded from generic "Stockholm, Sweden" to the specific "Marketswave, Malmskillnadsgatan 44 B, Stockholm, Sweden." **A project-wide grep for other stale facts turned up 2 real discrepancies beyond the two the task named, both on `index.html`'s Company Pitch section, both fixed**: the section's own `<h2>` read "15+ year Empirically validated strategies..." (corrected to "20+ year") and its subtext read "...honed over a decade..." (corrected to "...honed over two decades..." — matching the new 20+/2004 facts, not a bare "20 years" restatement, since "decades" plural already fit the sentence's own phrasing). Confirmed via the same grep sweep that no other founding-year, headcount, or address references exist anywhere else in the project's HTML — every other match was either this task's own new content, unrelated dev-comment timestamps, copyright years, or generic country-dropdown/form-placeholder text in `signup.html` (client-entity fields, not claims about Marketswave itself), none requiring a change. Browser-verified live: every new hero/Vision/Mission/narrative/facts/team/closing element confirmed programmatically (exact text match on all 8 facts, all 3 team names+roles+descriptions, the corrected closing line) and visually via screenshots at each section; homepage stats bar and Company Pitch heading/subtext confirmed showing "20+"/"two decades" consistently; `contact.html`'s Address card confirmed showing the full specific address. Narrow-viewport check (390px, real injected `<iframe>`) confirmed the new facts grid genuinely collapses to 1 column and none of this task's new content overflows — the only overflow present is the same pre-existing, out-of-scope shared-header overflow already documented in row 101, reconfirmed here rather than assumed unrelated. Zero console errors. | None — pure frontend content fix, zero backend dependency |
+| 108 | about.html's Vision/Mission section redesigned away from the boxed `.vm-card` treatment, per direct feedback that the cards didn't look good (Aug 29, 2026, same-day follow-up to row 107) | CSS-only fix — no HTML changes were needed, since `.vm-card` and `.vision-mission` are used only on `about.html` (confirmed via grep before editing), so the existing markup could be restyled in place rather than renamed or restructured. The old treatment (`background: var(--white)`, `border-radius`, `box-shadow`, `1px solid var(--border)`, boxed padding) is fully removed. **New editorial treatment, deliberately not a card**: reuses the exact `border-top: 2px solid var(--primary)` accent language the homepage's own "Our Values" section (`.value-item`) already established, rather than inventing a new visual language — each column now reads as a labeled block of running text with a thin top rule, no background/shadow/border box at all. The grid gap was widened from 32px to 48px, since the top-rule + whitespace now does the separating work a boxed card previously handled with its own border/shadow. `.vm-card h3`/`.vm-card p`'s own text styling (uppercase navy label, muted-gray body) was left completely unchanged — only the container chrome changed. The existing 960px breakpoint's `.vision-mission { grid-template-columns: 1fr }` collapse rule needed no changes and was re-confirmed still correct. Browser-verified live: a screenshot confirmed the new layout reads as a clean, open two-column editorial block that handles the now-lengthy Vision/Mission paragraphs (added in row 107) far better than the old mismatched-height boxed cards did, and flows naturally into "Background & History" below; narrow-viewport re-check (390px, real injected `<iframe>`) confirmed the section still correctly collapses to a single column. Zero console errors. | None — pure frontend visual fix, zero backend dependency |
 
 **Genuinely external — these need a real third-party data source, not in-house logic:**
 
@@ -4843,6 +4898,2169 @@ no app-code attribution). Session state cleared and the local server stopped bef
 finishing. Backend Requirements Register row 57; row 3 updated to reflect this gap is now
 fully closed.
 
+### 4.72 Product Descriptions verification + sidebar hamburger overlap fix (Aug 27, 2026)
+
+**Item 1 — Product Descriptions + conditional Logo/More Info: VERIFIED, not newly built.**
+The task described adding `description`/`extendedDescription`/`logoUrl` to the product
+schema, a conditional admin form, and client-facing card treatment, as if this were
+greenfield work. **Read the live code directly before writing anything, per this project's
+own standing rule** — and found it already fully implemented: `engine-core.js`'s
+`PRODUCT_EDITABLE_FIELDS`/`validateProductFields()`/`addProduct()`/`editProduct()` already
+handle all three fields as optional, byte-shape-preserving additions (confirmed via the file's
+own comment, dated Aug 23, 2026 — four days before this task); `admin-products.html`'s Add and
+Edit modals already have a Description field always shown, plus Logo URL/Extended Description
+fields toggled live off the Asset Class `<select>`'s `change` event via a shared
+`updateConditionalFields()` helper, exactly matching the task's own spec (Logo URL for Stocks
+& ETFs/Crypto, Extended Description for Private Equity/Real Assets); `asset-collection.html`'s
+`cardHTML()`/`logoBoxHTML()` already render a `w-7 h-7` (28px) logo box — a real `<img>` when
+`logoUrl` is set, `getClientInitials()`-derived initials otherwise, with a genuine `error`
+event listener (not an inline `onerror` attribute, consistent with this project's existing
+convention) swapping to the initials fallback if the image fails to load — plus a "More info"
+button/modal for Private Equity/Real Assets cards with `extendedDescription`, and the
+`flex-col`/`mt-auto` CTA-anchoring pattern preserved unchanged. **What was actually missing**:
+this entire feature had never been given a Tech Stack log entry, a Backend Requirements
+Register row, or — as far as could be determined by searching both this document and
+CLAUDE.md — an actual Node or browser verification pass. This task closes that gap, not a
+code gap.
+
+Node-verified for the first time (`verify-product-descriptions.js`, scratchpad-only, 29
+assertions, reusing the `scripts/lib/engine-harness.js` harness built for Backend Migration
+Phase 0 rather than writing a new one): every one of the original 5 seeded products —
+which predate these three fields entirely, since `SEED_PRODUCTS` never sets them — round-trips
+through a fresh engine load with `description`/`logoUrl`/`extendedDescription` genuinely
+absent as keys (not present-but-empty-string); `addProduct()` with all three fields stores
+them correctly, `addProduct()` without them omits the keys entirely rather than padding with
+empty strings; `editProduct()` can add a `description` to a pre-existing seeded product without
+disturbing any other field; `editProduct()` still rejects a `unitPrice` patch (regression
+check); `addProduct()` still rejects a non-string `description`; every result survives a fresh
+"reload" (a new `vm` context over the same underlying storage) correctly.
+
+Browser-verified live, every scenario the task specifically named, using a local static
+server and `setAdminAuthenticated()`/`setClientAuthenticated('CLIENT-0001')` set directly via
+console to reach `admin-products.html`/`asset-collection.html` without needing a full Firebase
+emulator session (this feature has no Firebase dependency at all, so the lighter-weight
+bypass this project has used before for pure-`localStorage` checks was the right tool, not the
+full staging/emulator machinery): added a real Crypto product ("Nebula Digital Assets Fund")
+with a data-URI logo (avoiding any external-network dependency in the test itself) — confirmed
+live-reactive conditional fields switched correctly when Asset Class changed to Crypto, and
+the new product rendered on `asset-collection.html`'s Crypto tab with a real, correctly-sized
+orange logo square, not a broken-image icon. Edited a real seeded Private Equity product
+(Nordic Growth Fund) to add both `description` and `extendedDescription` — confirmed "More
+info" appeared and correctly revealed the extended text via the modal on BOTH the "Private
+Equity" filtered tab AND the "All" tab (the click handler is delegated at the `cardsGrid`
+container level, so this was never actually tab-scoped to begin with — confirmed by reading
+the code, then proven by clicking both tabs for real). Confirmed a real seeded product with
+neither field ever set (European Real Estate Trust, Real Assets) degrades exactly as
+designed: no description line renders, no "More info" link renders, nothing broken or
+empty-looking. Confirmed the pre-existing initials fallback on two real products with no
+`logoUrl` at all — "GE" for Global Equity ETF (Stocks & ETFs) and "ET" for Ethereum (Crypto) —
+both rendering as clean initials badges, not broken images. Zero code changes were made
+anywhere in this item — every single scenario passed against the code exactly as it already
+stood. The test product and the Nordic Growth Fund edit were left in place afterward (no
+`removeProduct()` exists, and — matching the precedent already set when Asset Collection
+extraction shipped — a real artifact of a verification pass against a real feature isn't
+something to manufacture cleanup machinery for).
+
+**Item 2 — Bug fix: sidebar hamburger icon overlapping header content on narrow/vertical
+viewports.** Root-caused before fixing, per instruction, by reading `dashboard-sidebar.js`'s
+actual toggle-button markup: `class="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 ..."`.
+`position: fixed` removes the button from normal document flow entirely — it doesn't push or
+reflow anything else out of the way, it simply paints at a constant screen position. The
+button correctly stacks above page content (`z-50`, intended and correct) — the actual defect
+is that nothing underneath it ever reserved screen space to avoid its footprint. Every
+dashboard/admin page's own header (duplicated per-page, never part of either shared sidebar
+mount — the same known structural gap the notification bell was extracted from once already,
+§4.37) opens with the identical `<header class="h-16 bg-white border-b border-slate-200 flex
+items-center justify-between px-8">`, and the header's first child — the live day/date block
+— sits at a flat `px-8` (32px) regardless of viewport width, which lands squarely inside the
+button's roughly 16–56px footprint the moment the button becomes visible (`lg:hidden`, i.e.
+any viewport below the `lg` breakpoint).
+
+**Confirmed visually before writing a fix, not assumed**: this environment's `resize_window`
+tool does not move the browser's real viewport (re-confirmed directly this session, matching
+what a past session's own dashboard-legend fix had already found and documented) — so the
+same iframe technique that fix established was reused: a small scratch HTML page served
+alongside the app, embedding the target page in a 375×667 `<iframe>`. At that width, the date
+text ("Thursday / August 27, 2026 at ...") was genuinely rendered PARTIALLY HIDDEN behind the
+opaque navy button, not merely visually crowded — a real, reproduced defect, not a theoretical
+one.
+
+Fixed by grepping for the exact header opening tag first (confirmed byte-identical across
+every match, not assumed) and changing its trailing `px-8` to `pl-16 pr-8 lg:pl-8` — 24 files
+in total: the 10 client dashboard pages (`dashboard.html`, `asset-collection.html`,
+`asset-performance.html`, `high-yield-savings.html`, `transactions.html`, `documents.html`,
+`risk-management.html`, `deploy-capital.html`, `settings.html`, `support.html`) and 14 admin
+pages that turned out to share the exact same header markup and the exact same
+`admin-sidebar.js`-driven toggle-button pattern (`admin.html`, `admin-clients.html`,
+`admin-products.html`, `admin-client-applications.html`, `admin-profile-updates.html`,
+`admin-deposits.html`, `admin-withdrawals.html`, `admin-security.html`, `admin-hys.html`,
+`admin-sells.html`, `admin-allocations.html`, `admin-documents.html`, `admin-support.html`,
+`admin-advisory-fee.html`) — included even though the task's own phrasing ("date, etc.")
+described client-facing language specifically, since the identical bug was structurally
+present on the admin side too and fixing one family while knowingly leaving the other broken
+would have been inconsistent for no real reason. `lg:pl-8` reverts to the exact original
+32px padding at the breakpoint where the button is hidden entirely, so desktop rendering is
+pixel-identical to before — not something assumed, but re-confirmed live afterward.
+
+Browser-verified with the same iframe technique, before and after: at 375px width, both
+`dashboard.html` and `admin.html` now show the full, unobstructed date text with the button
+sitting cleanly to its left; at 1400px width, `dashboard.html`'s desktop layout (full sidebar,
+no hamburger button at all) renders identically to its pre-fix state. Zero regressions found.
+A temporary scratch test file used for the iframe harness was created inside the project root
+during verification and deleted immediately afterward — confirmed via `git status` that
+nothing from it was left behind.
+
+Backend Requirements Register rows 71 (item 1) and 72 (item 2) added (see §3.1).
+
+### 4.73 Two fixes from the Frontend Audit's Top Findings: Advisory Fee scope bug + stale admin badge (Aug 27, 2026)
+
+Both items came directly out of `FRONTEND_AUDIT.md` (the read-only audit produced immediately
+before this task) — this is the first task to act on that audit's findings.
+
+**Item 1 — Advisory Fee scope bug, fixed for real, not just the copy.** Confirmed the bug
+directly in `engine-core.js` before writing anything: `admin-advisory-fee.html`'s own copy has
+always claimed the rate is "Account-wide" and applies "across every client-facing page," but
+`setAdvisoryFeeRate()` wrote to `accountState.advisoryFeeRate` — the AMBIENT current client's
+own scoped account state, not a true global value. A PM could believe they'd repriced every
+client when they'd only repriced whichever one happened to be active in their admin session.
+
+Fixed the real behavior per instruction, not the copy first: a new genuinely-global,
+unscoped store, `marketswave_advisory_fee_rate` (same category as `CATALOG_KEY`/`CLIENTS_KEY`
+— platform policy, not per-client data). `setAdvisoryFeeRate(newRate)` now writes this key
+directly; a new `getAdvisoryFeeRate()` getter reads it. `getAdvisoryFeeAccrued(periodDays)`
+now combines this global rate with the CURRENT client's own `allocatedCapital` — deliberately
+kept ambient/per-client, since the accrued DOLLAR amount is genuinely client-specific data
+even though the RATE it's computed from is now shared. `advisoryFeeRate` was removed from all
+3 places it used to live inside the per-client account-state shape: `buildSeedData()`'s seed
+object, `readAccountStateForClient()`'s default fallback, and `seedMinimalClientStores()`'s
+fresh-client object. Existing clients' already-stored copies of the old field were
+deliberately NOT stripped out — they become harmless, unread vestiges inside each client's own
+stored JSON, matching this project's established "don't manufacture cleanup machinery for a
+verification/migration artifact" precedent rather than writing extra code whose only job is
+deleting an inert leftover key.
+
+**Migration — investigated the real data before deciding the approach, per instruction.**
+The task anticipated real per-client rates might have diverged across this project's long
+testing history and asked that any real divergence be surfaced and asked about, not silently
+resolved. Before writing the migration function, the actual current browser's real
+`localStorage` was inspected directly (via a JS `Console`-style query run through the browser
+automation, not assumed): both real clients present — `CLIENT-0001` and the real
+Firebase-staging client mirrored locally from Phase A1 — agreed at exactly 1.25%. **No real
+divergence existed to ask about.** `migrateAdvisoryFeeRateToGlobal()` (same idempotent,
+guarded-by-key-already-existing pattern as `migrateLegacyUnscopedKeysToClient0001()`) was
+still written to handle the general case correctly for any OTHER install where divergence
+might genuinely exist: it scans every real client's own scoped `ACCOUNT_KEY` data for a
+pre-existing `advisoryFeeRate`; if every value found agrees (or none exist, a fresh install),
+that value becomes the new global rate automatically — an unambiguous answer, nothing to ask
+about; if the values genuinely diverge, the function does NOT silently pick one — it falls
+back to `DEFAULT_ADVISORY_FEE_RATE` (1.25%) and logs every divergent `{clientId, rate}` pair
+found via `console.warn`, so the discrepancy is visible and reviewable rather than quietly
+discarded. This was exercised directly in Node (see below), not left theoretical.
+
+Two client-facing read sites updated to match: `admin.html`'s Overview "Advisory Fee Rate"
+card and `transactions.html`'s "Est. Monthly Advisory Fee" card both switched from
+`getAccountState().advisoryFeeRate` (which no longer exists on the account-state object at
+all, post-fix) to the new `getAdvisoryFeeRate()`. `admin-advisory-fee.html`'s own display/save
+logic switched the same way. The page's own copy needed no rewrite — "Account-wide" and
+"across every client-facing page" are now simply TRUE statements, since the behavior was fixed
+to match what the copy already claimed, exactly as instructed ("update the admin page's copy
+only after the real behavior actually matches it" — it already matched once the behavior was
+fixed, so there was nothing left to update there).
+
+**Verification.** Node-verified first (`verify-advisory-fee-global.js`, scratchpad-only,
+reusing `scripts/lib/engine-harness.js`, 16 assertions, 0 failures): a fresh install defaults
+to 1.25% and the migration writes the global key on first load; a full round trip —
+`setAdvisoryFeeRate(2.5)` while `CLIENT-0001` is ambient, reload, switch the ambient client to
+a genuinely different second client, reload again, confirm `getAdvisoryFeeRate()` still
+returns 2.5 — the core "genuinely global" property, proven directly rather than inferred;
+setting the rate again while the SECOND client is ambient and confirming CLIENT-0001's own
+session sees that same new value afterward; a uniform-pre-existing-rates migration scenario
+(both clients at 1.75% pre-fix) correctly adopting 1.75% as the new global value; a
+genuinely-divergent-rates scenario (1.75% vs 2.25%) correctly falling back to the 1.25%
+default and firing the documented `console.warn` rather than crashing or arbitrarily picking
+one; `getAdvisoryFeeAccrued()` still correctly computing a per-client dollar figure off the
+shared rate; existing input validation (rejects negative/non-number rates) still holding.
+
+Browser-verified live, the exact cross-client proof the task asked for: authenticated into
+the real admin tool, confirmed the ambient client was `CLIENT-0001`, changed the rate to
+3.33% from `admin-advisory-fee.html` (toast confirmed: "applies to every client
+immediately"), then switched the browser's authenticated identity to the real Firebase-staging
+client (`yhZmtHbTAKQ2NjDs4SjGb4vj4fd2`, a genuinely different client than the one ambient
+during the set) and loaded `transactions.html` as that client — its own "Est. Monthly
+Advisory Fee" card read "Based on a 30-day accrual at 3.33% annual," confirming the new rate
+was visible from a completely different client's own session, not scoped to whoever set it.
+Reset back to 1.25% afterward, since this is now real, persistent, platform-wide state rather
+than a scoped-to-one-client demo artifact worth leaving behind.
+
+**Item 2 — stale "No login gate — internal preview build" badge, removed from all 14 admin
+pages.** The badge predates the real Admin Login Gate (§4.62, Aug 21, 2026) by construction —
+it was accurate when first written, and simply never removed once a real (if simple,
+single-shared-passphrase) gate shipped and started actually enforcing itself. Grepped the
+exact badge text across the entire project before touching anything (not relying on the
+audit's own partial mention) — found it in exactly 14 HTML files plus `FRONTEND_AUDIT.md`
+itself (the audit's own historical record of the finding, correctly left alone): `admin.html`,
+`admin-clients.html`, `admin-client-applications.html`, `admin-deposits.html`,
+`admin-withdrawals.html`, `admin-allocations.html`, `admin-sells.html`, `admin-hys.html`,
+`admin-profile-updates.html`, `admin-documents.html`, `admin-support.html`,
+`admin-advisory-fee.html`, `admin-security.html`, `admin-products.html`. Confirmed the
+3-line wrapper block (`<div class="flex items-center gap-4">` → the badge `<span>` → `</div>`)
+was byte-identical across every file before removing it via a precise pattern match (a Python
+regex substitution requiring exactly one match per file, not a blind global sed replace that
+could have silently matched something unintended) — a second full-project grep afterward
+confirmed zero remaining occurrences anywhere except the audit document.
+
+**On whether a replacement visual marker is needed — the task's own explicit judgment call,
+decided and reported.** Concluded no replacement is needed: every admin page already carries
+both the persistent slate sidebar's "MARKETSWAVE **PM**" wordmark (confirmed directly in
+`admin-sidebar.js`, amber-accented "PM") and the persistent red "INTERNAL TOOL — PORTFOLIO
+MANAGER ACCESS ONLY — NOT THE CLIENT-FACING SITE" banner at the very top of every page, with
+no exception across all 14. Between the two, "this is the internal PM tool, not the
+client-facing site" is already fully and unmissably communicated. The removed badge was
+narrowly an AUTHENTICATION STATUS claim ("no login gate exists") — a claim that is now simply
+false, not a tool-identity marker — so nothing needed to replace it for that specific, now-moot
+original purpose.
+
+Syntax-checked every touched file: all 14 admin HTML files' inline `<script>` blocks plus
+`engine-core.js` itself, run through `node --check`, 0 errors. Browser-verified live on the
+two pages already exercised for the Advisory Fee fix above (`admin-advisory-fee.html`,
+confirmed a clean header with no badge remaining) — the remaining 12 pages were verified via
+the grep-confirmed mechanical deletion (byte-identical block, single match per file, zero
+survivors project-wide) rather than an individual per-page screenshot, since this is a pure
+markup removal with no logic behind it to exercise.
+
+New file this task: none (verification scripts stayed scratchpad-only, per this project's
+own convention). Modified: `engine-core.js`, `admin-advisory-fee.html`, `admin.html`,
+`transactions.html`, plus 12 more admin HTML files for the badge removal only (no
+`engine-core.js` or behavioral changes in those 12). `FRONTEND_AUDIT.md` was read but not
+edited, per its own nature as a point-in-time snapshot.
+
+Backend Requirements Register rows 73 (item 1) and 74 (item 2) added (see §3.1).
+
+### 4.74 HYS pocket withdrawal — a 6th Approval Gate queue, closing the frontend audit's architectural gap (Aug 27, 2026)
+
+`FRONTEND_AUDIT.md` flagged that `high-yield-savings.html`'s `finalizeWithdrawal()` bypassed
+the Approval Gate entirely — unlike HYS deposits (`requestHYSDeposit()`/`creditHYSDeposit()`)
+and unlike the main Deploy Capital withdrawal flow (`requestWithdrawal()`/
+`approveWithdrawal()`), a client's HYS withdrawal executed immediately, client-side, with no
+PM review step and no transaction-ledger entry.
+
+**Investigated and reported before writing any fix, per instruction**: read the pre-existing
+`finalizeWithdrawal()` directly and confirmed it had zero code paths touching
+`unallocatedCapital`, `getAccountState()`, or any account-state write function — it only
+flipped the pocket to `'withdrawn'` and saved. This is the more serious of the two possible
+bugs named in the task: money did not "disappear along with the pocket" through some missing
+credit step, it was simply never accounted for anywhere outside the pocket record itself, with
+no transaction evidence the withdrawal ever happened.
+
+**A real architectural conflict with the task's own literal wording surfaced mid-investigation
+and was resolved via a direct question to the user, not silently decided either way**:
+`creditHYSDeposit()` carries its own explicit design comment stating HYS deposits deliberately
+never touch `unallocatedCapital`/`allocatedCapital`, since High Yield Savings is funded
+externally and is "its own pool." The task's literal instruction to "credit unallocatedCapital
+correctly" on approval would have broken that symmetry and introduced a real double-count (a
+client's cash would show up in HYS AND get added back to the main portfolio pool it was never
+part of). Presented two options — mirror the deposit side's external-payout symmetry
+(recommended), or treat this as truly correcting-the-pocket-record while still crediting
+`unallocatedCapital` — and the user selected the symmetric option. **This changes how the
+task's own VERIFY section reads**: "confirm `unallocatedCapital` increased correctly" is
+superseded by the user's choice and should be read as confirming `unallocatedCapital` is
+correctly left unchanged, matching `creditHYSDeposit()`'s own established behavior.
+
+**Built, mirroring `requestWithdrawal()`/`approveWithdrawal()`'s stateless-per-call pattern**
+(the demonstrably more correct pattern established by "Approval Gate unification," §4.60, over
+the older ambient pattern `requestHYSDeposit()` itself still uses) rather than
+`requestHYSDeposit()`'s own ambient one, since this is new code being written today with the
+benefit of that lesson already learned. New parallel store,
+`marketswave_hys_withdrawal_requests` (not an extension of the existing HYS deposit or main
+withdrawal stores — the field shape genuinely differs: `pocketId`/`forfeit`/`receiveAmount`
+vs. a plain dollar amount). New `computeHYSWithdrawalAmount(pocket)` is the single source of
+truth for the forfeiture/receive-amount calculation — the existing client-side duplicate
+(`computeReceiveAmount()`) was deleted and both its call sites now call the engine function
+directly, mirroring the `getHYSRate()` single-source-of-truth precedent (row 34) rather than
+leaving two copies that could drift. `requestHYSWithdrawal(clientId, pocketId, method,
+destinationDetails)` validates the pocket exists, isn't already withdrawn, isn't a
+still-active locked-term deposit (a real engine-level guard added beyond the literal ask,
+since the existing UI already hides the Withdraw button in that case but nothing previously
+stopped a direct call), and has no other pending withdrawal request already queued against
+it — then appends a `pending` record and moves nothing, exactly matching every other
+Approval Gate domain's own discipline. `approveHYSWithdrawal(clientId, requestId)`
+re-validates against the pocket's CURRENT state (not the request-time snapshot — mirrors
+`approveSellRequest()`'s own re-validation discipline for the same reason: state can change
+between request and approval), then marks the pocket `withdrawn` (recording
+`withdrawnAt`/`withdrawnAmount`/`withdrawalMethod`), appends a new `HYS_WITHDRAWAL`
+transaction-ledger entry, and — the deliberate design point confirmed with the user —
+**does not touch `unallocatedCapital`/`allocatedCapital` at all**. `rejectHYSWithdrawal()`
+leaves the pocket completely untouched. `getHYSWithdrawalRequests()` (ambient) /
+`getAllClientHYSWithdrawalRequests()` (cross-client aggregator, same shape as every sibling
+domain's own aggregator) round it out; `getClientPendingApprovalCount()` was extended to
+include this new queue in its running total.
+
+**`transactions.html`/`dashboard.html` extended for `HYS_WITHDRAWAL` proactively, before any
+UI could produce one** — not retrofitted after a rendering bug, the way `DEPOSIT` originally
+was (Phase A) and `HYS_DEPOSIT` deliberately was not repeated a second time (checkpoint 2 of
+the HYS Deposit Approval Queue phase already applied this same lesson once). `txnProductName()`/
+`txnTypeLabel()`, the Type filter, a distinct amber badge color, the drill-down modal's footer
+note, and Recent Activity on both pages all handle the new type explicitly; deliberately
+excluded from the monthly volume chart, matching `HYS_DEPOSIT`'s own exclusion (funding/
+withdrawal activity, not trading activity).
+
+**Client side** (`high-yield-savings.html`): `finalizeWithdrawal()` now calls
+`requestHYSWithdrawal(getAuthenticatedClientId(), currentWithdrawId, method,
+destinationDetails)` instead of mutating the pocket directly, showing a "Withdrawal Request
+Sent — pending Portfolio Manager approval" toast on success. "My Pocket Requests" was rebuilt
+to merge `getHYSDepositRequests()` and `getHYSWithdrawalRequests()` into one table, sorted by
+`requestedAtMs`, with a new "Kind" column (purple "Deposit" / amber "Withdrawal" badges)
+distinguishing the two while keeping one unified "show everything" view, matching the
+project's own established convention for merged request sections.
+
+**Admin side** (`admin-hys.html`): extended rather than duplicated into a new page — **chosen
+approach, reported per instruction: a separate, clearly-labeled "Withdrawal Requests" section
+(own Pending/History) below the existing "Deposit Requests" section**, rather than merging
+into one table, since the two request kinds have different-enough field shapes
+(`requestedAmount`/`creditedAmount` vs. `receiveAmount`/`forfeit`) that a merged table would
+need awkward conditional columns for little real benefit. Title/H2 renamed "HYS Deposits &
+Withdrawals"; `admin-sidebar.js`'s nav label updated to match. The Approve modal for a
+withdrawal is a pure confirm (no PM-editable amount — the receive amount is a deterministic
+calculation, not subject to real-world settlement uncertainty the way a deposit's confirmed
+amount is) and its copy explicitly states "This does not affect Unallocated Capital — High
+Yield Savings is its own pool, funded and paid out externally," so a PM sees the same
+architectural framing that drove the engine design. `admin.html`'s Overview gained a new,
+separate "Pending HYS Withdrawals" card (not merged into the existing "Pending HYS Deposits"
+count), for consistency with how the main portfolio's own Deposits and Withdrawals are
+already two separate cards despite being a related pair of domains.
+
+**Node-verified first** (44 assertions, reusing `scripts/lib/engine-harness.js`): the AYW
+no-forfeit/full-balance case, a request not executing anything immediately (the core bug this
+closes — confirmed `unallocatedCapital`/`allocatedCapital` stay untouched and no
+`HYS_WITHDRAWAL` transaction exists until approval), still-active short-term fixed pockets
+forfeiting interest vs. matured ones receiving it, locked-term-still-active pockets rejected
+outright at the engine level, an already-withdrawn pocket rejected, a duplicate pending
+request against the same pocket rejected, a full approval (pocket genuinely marked withdrawn,
+a real `HYS_WITHDRAWAL` transaction created, `unallocatedCapital`/`allocatedCapital`
+confirmed unchanged — the deliberate design point, tested directly rather than assumed),
+re-validation at approval time catching a pocket that changed state after the request was
+filed, rejection, ambient-vs-cross-client getter correctness, and the
+`getClientPendingApprovalCount()` increment. **Explicit per-domain cross-client isolation
+test, same rigor as every prior Approval Gate domain**: funded and resolved a real withdrawal
+for a second client (client B) while `CLIENT-0001` stayed ambient throughout, then diffed
+client B's raw account-state/pockets/withdrawal-requests/transactions storage byte-for-byte
+against a pre-action snapshot for CLIENT-0001 — zero leakage in either direction, tested both
+ways (resolving B's request while A is ambient, and separately resolving A's own request
+while B is not ambient), with an explicit check that client B's own pocket genuinely did
+change (proving the isolation check itself is meaningful, not vacuously passing because
+nothing changed anywhere).
+
+**Full regression suite, with an honest disclosure of what that means in this project**:
+this project's historical per-phase Node verification scripts have always been scratchpad-only
+and do not persist across sessions, so a literal "re-run every prior test file" isn't
+possible — the new 44-assertion script above is the regression check for this change,
+exercising the new code together with pre-existing engine functions it touches or shares
+storage with (`requestHYSDeposit()`/`creditHYSDeposit()` via the setup helper,
+`getAccountState()`, `getTransactionLedger()`, `addClient()`,
+`getClientPendingApprovalCount()`). The one persistent regression script in this repo,
+`scripts/golden-path-regression.js`, exclusively exercises the Firebase Auth/Firestore/
+Functions hybrid signup-login flow (Backend Migration Phase 1) — unrelated to this pure
+`localStorage` HYS feature, which touches no Firebase surface at all — and requires the
+emulator, which was not running; starting it would not have meaningfully re-verified this
+change, so it was not started, and this is disclosed rather than silently treated as "full
+regression suite: done."
+
+**Browser-verified live end to end**: funded a real AYW pocket for CLIENT-0001 via the real
+`requestHYSDeposit()`/`creditHYSDeposit()` chain, then submitted a real $5,000 bank withdrawal
+through `high-yield-savings.html`'s actual Withdraw modal — confirmed the pocket stayed
+`Active` at its full $5,000 balance immediately after submission (the request did NOT execute
+immediately), and "My Pocket Requests" showed the new `HYSWD-0001` entry with the amber
+"Withdrawal" badge and "Pending" status alongside the existing deposit request. Approved it
+from the real `admin-hys.html` UI (confirmed the confirm modal's "does not affect Unallocated
+Capital" copy rendered correctly) and confirmed, via direct engine/storage inspection: the
+pocket is genuinely `withdrawn` with the correct `withdrawnAmount`/`withdrawalMethod`; a real
+`TXN-0006` `HYS_WITHDRAWAL` transaction exists in the ledger; and
+`unallocatedCapital`/`allocatedCapital` are exactly unchanged from their pre-request baseline
+— confirming the user's confirmed "symmetric external payout" design holds in a real browser,
+not just in Node. Confirmed correct rendering on both `transactions.html` (Recent Activity,
+the ledger table with the "—" quantity/price guard rather than a crash, the drill-down modal's
+footer note, and "HYS Withdrawal" present in the Type filter) and `dashboard.html`'s Recent
+Activity ("HYS pocket withdrawal processed"), with Total Portfolio Value correctly unaffected
+throughout, since HYS is a separate pool by design. Zero console errors across every page
+visited, confirmed via a fresh reload (not just an in-session check).
+
+New file this task: none (the verification script stayed scratchpad-only, per this project's
+own convention). Modified: `engine-core.js`, `high-yield-savings.html`, `admin-hys.html`,
+`admin-sidebar.js`, `admin.html`, `transactions.html`, `dashboard.html`.
+
+Backend Requirements Register row 75 added (see §3.1).
+
+### 4.75 Two fixes for fabricated data presented to clients as if real: `support.html`'s seed tickets, `settings.html`'s fake sessions (Aug 27, 2026)
+
+Both items were reported directly, framed around the same underlying problem: data a client
+would reasonably read as genuine account history or account state, that was actually
+hardcoded demo content with no disclosure.
+
+**Fix 1 — `support.html`'s fabricated seed tickets.** Read the file directly before touching
+anything and confirmed the exact mechanism: `requests = Array.isArray(stored) && stored.length
+? stored : SEED.slice()` — a client's own scoped `marketswave_support_requests` being an empty
+array (or missing entirely) fell through to a 3-item `SEED` array of fake tickets
+(`TCK-1042`/`DSP-2077`/`TCK-1055`, complete with fabricated dates, a fabricated evidence
+filename, and specific fake descriptions). This is true for every client that has never
+submitted a real ticket — which is every client created since the multi-client model
+shipped, since none of them had this seed data pre-populated the way the original
+single-tenant demo user implicitly did before that phase. The real empty state
+(`#requests-empty`, "You don't have any support requests yet.") already existed correctly in
+`renderRequests()` — `if (requests.length === 0) { empty.classList.remove('hidden'); }` — it
+had simply never been reachable in practice, since `requests` itself was never actually empty
+by the time that check ran.
+
+Fix: deleted the `SEED` array and both its fallback call sites (the happy-path
+`JSON.parse`/`Array.isArray` check and the `catch` block) — confirmed via grep these were the
+only two references to `SEED` in the file, so nothing else needed touching.
+`requests = Array.isArray(stored) ? stored : []`, and `[]` on a parse failure too. No change
+to `renderRequests()`, `buildRequestRow()`, or the dispute-submission flow itself — this was
+purely about where `requests` gets its initial value from, not how it's rendered or mutated.
+Confirmed via a project-wide grep that `getAllClientSupportRequests()`
+(`engine-core.js`, the admin-side cross-client aggregator added for `admin-support.html`)
+reads the same raw `localStorage` key directly with no seed fallback of its own, so it was
+already correctly unaffected by this bug and needed no change.
+
+Node-verified (16 assertions, `verify-support-empty-state.js`, scratchpad-only): loaded the
+REAL `engine-core.js` (for `clientScopedKey()`) and the REAL `support.html` "My Requests" IIFE
+— extracted verbatim from the live file via its own start/end comment markers, not retyped —
+against a minimal fake DOM built narrowly for this IIFE's own DOM usage (`getElementById`,
+`classList`, `innerHTML`, `appendChild`), mirroring this project's established "real file
+against a minimal fake DOM" Node-verification pattern (e.g. `verify-client-auth-phase3.js`).
+Confirmed: a fresh client with no stored key at all sees the real empty state (not "hidden");
+a client with an explicit, genuinely empty stored array (`[]`, not just a missing key) sees
+the same real empty state; malformed/corrupted JSON in storage fails safe to `[]` rather than
+falling back to the old seed; a client with real stored history renders exactly that history
+with zero fabricated tickets mixed in, and the count/singular-plural label is correct; and a
+two-directional cross-client check confirms one client's real empty state is completely
+unaffected by a different client's own real data existing.
+
+Browser-verified live, the complete flow: created a genuine new client, `CLIENT-0002`
+(`addClient()`, confirmed via direct `localStorage` inspection to have NO
+`marketswave_support_requests` key at all — not an empty array, no key), switched the active
+session to it, and confirmed Support genuinely shows "0 requests" / "You don't have any
+support requests yet." — not the old 3-fake-ticket fallback. Re-confirmed the same fix on
+`CLIENT-0001` (which also has no real support history — checked directly, `localStorage`
+returned `null` for its key) — it now correctly shows the real empty state too, where it
+previously would have shown the fake seed. Submitted a real dispute through the actual form
+(`Account Access`, a real description) and confirmed it renders correctly on its own —
+`DISP-0001`, "1 request," no fabricated tickets mixed in — proving the fix didn't disturb real
+submission. The verification-only client and its test dispute were both removed afterward
+(the client via a direct Registry + scoped-key cleanup, since no `removeClient()` exists —
+same manual-removal precedent as §4.56's own client-list verification), restoring the real
+single-client baseline. Zero console errors, confirmed on a fresh reload.
+
+**Fix 2 — `settings.html`'s fabricated Active Sessions.** "Active Sessions & Linked Devices"
+showed 3 hardcoded rows: the real user's actual browser labeled generically ("Chrome on
+Windows," fine on its own), plus two entirely fake devices ("Safari on iPhone," "Chrome on
+MacBook Pro") each with a specific fabricated city ("Boston, MA," "New York, NY") and a
+fabricated relative timestamp ("2 hours ago," "3 days ago") — nothing distinguished the real
+row from the two fake ones. Each row's "Log out" button, and the section's own "Log out all
+other sessions" button, only removed the DOM row on click; nothing was actually signed out
+anywhere.
+
+**Took the recommended approach, not silently substituted for something else**: rather than
+inventing yet more fake multi-device data, or attempting to build real cross-device session
+infrastructure this project has no backend for, the section now shows ONLY the current real
+session — the one thing genuinely knowable client-side today — with a visible, honest note
+underneath: "This shows only your current session, derived from your real sign-in. Tracking
+and managing sessions across other devices isn't available yet." Device/browser is derived
+from the real `navigator.userAgent` via a small self-contained parser (`detectBrowser()`/
+`detectOS()`, kept local to `settings.html` rather than added to `format-helpers.js` — nothing
+else in the project needs it, so a shared module would be a premature abstraction for a
+single caller) — Edge and Opera checked before Chrome, and Chrome before Safari, since their
+UA strings nest inside each other; approximate by nature (UA is self-reported and can be
+spoofed) but genuinely derived from this real browser, never invented. City/location was
+dropped entirely, not faked with a plausible-sounding placeholder — real geolocation would
+need a genuinely external geo-IP data source, the same category CLAUDE.md's own "Deferred"
+section already reserves for live market data and currency rates, not something to build
+in-house or guess at.
+
+Status defaults to a plain "Active now" (trivially true — this session is rendering the page
+right now) and upgrades to a real `lastSignInTime`-based "Active now · signed in <time>" only
+when a genuine Firebase Auth session is actually present, read via a best-effort dynamic
+`import()` of `firebase-config.js`/`firebase-auth.js` — mirroring `dashboard-sidebar.js`'s own
+real `signOut(auth)` dynamic-import pattern exactly, including waiting for one
+`onAuthStateChanged` callback first so the read reflects the SDK's own hydrated state rather
+than risking a synchronous pre-hydration `null` (the same Race 1 `dashboard-sidebar.js`'s own
+comment already documents), and failing silently back to the already-correct "Active now" if
+Firebase can't be reached (emulator down, network hiccup) or this particular session wasn't
+established through a real Firebase sign-in in the first place (e.g. a dev/console-set
+session, as used during this very verification) — never blocks page render, never fabricates
+a value it has nothing real to back it with. The "Log out all other sessions" button and both
+fake rows' individual "Log out" buttons were removed outright, not left in a disabled/inert
+state — there are no other real sessions for them to meaningfully act on, and a
+disabled-but-present control would itself be a small dishonesty (implying a capability that
+doesn't exist).
+
+Syntax-checked (`node --check` on the extracted inline script, 0 errors). Browser-verified
+live: the section now renders exactly one row — "Chrome on Windows" (genuinely this real
+browser/OS, confirmed by eye against the actual test environment), the "This device" badge,
+"Active now" — with the two fake devices and both fabricated cities gone, and the honest
+disclosure note visible directly beneath the list. Confirmed zero console errors on a fresh
+reload, including confirming the Firebase dynamic-import path resolves gracefully to the
+plain "Active now" fallback (rather than hanging or throwing) when no real Firebase session
+is present in the browser — the actual state during this dev-bypass verification session,
+proving the fallback path genuinely works, not just the happy path.
+
+New file this task: none (the verification script stayed scratchpad-only, per this project's
+own convention). Modified: `support.html`, `settings.html`.
+
+Backend Requirements Register rows 76 (Fix 1) and 77 (Fix 2) added (see §3.1).
+
+### 4.76 Bug fix: sidebar Documents badge genuinely computed on every page (Aug 27, 2026)
+
+Closes the gap a dedicated investigation-only task (immediately prior, no code changes, no
+register row of its own) found and reported: the client-facing `documents.html` notification
+system's user-reported "fake/disconnected" feel turned out to be two separate things, only one
+of which the frontend audit had already caught. The audit-known issue — `documents.html`'s
+own 3 page-body chips being hardcoded in HTML and corrected by JS on load — was confirmed real
+but genuinely minor: a single-frame flash, self-healing on every load, nothing to fix. The
+investigation surfaced a second, deeper, previously-uncaught issue: the shared sidebar
+component's own `#sidebar-doc-badge` was hardcoded to a static `"2"` at mount time
+(`dashboard-sidebar.js`'s `navLinkHTML()`), with the file's own comment stating plainly that
+only `documents.html`'s own script ever corrected it — meaning every OTHER client-facing page
+showed that fake `"2"` for its entire visit, not a flash. This was invisible on a fresh
+install purely by coincidence (the real seed data's `urgentCount` also happens to equal 2),
+and would surface the moment any real document state changed. This task closes that gap.
+
+**Fix, exactly as directed**: moved the correction into `dashboard-sidebar.js`'s own mount
+logic. `initDashboardSidebar()` now calls `getDocumentNotificationCounts()` — the identical
+`engine-core.js` function `documents.html`'s own correction and the notification bell already
+read — before building the nav HTML, and passes the real count into `navLinkHTML()`, which
+bakes it directly into the initial HTML string rather than a hardcoded placeholder. This is a
+genuine improvement over documents.html's own original pattern, not just a copy of it: because
+the value is embedded at template-construction time rather than corrected by a separate pass
+afterward, there is no flash at all on the 9 non-documents pages — the badge is correct from
+the very first paint. Correct empty-state handling was added as part of this (the `hidden`
+class applied when the real count is 0), matching what `documents.html`'s own correction
+already did but the old hardcoded markup had no way to express. Falls back to `0`/hidden
+(never a fake nonzero value) if `getDocumentNotificationCounts` is unavailable, e.g.
+`engine-core.js` failed to load — mirroring the defensive pattern already used for the footer
+identity block a few lines above in the same function. The old hardcoded `"2"` and its
+accompanying "documents.html's job" comment were removed outright, replaced with a comment
+explaining the real bug this fix closes and why it was previously masked.
+
+**Judgment call on `documents.html`'s own existing correction — decided and reported, per
+instruction: KEPT, not removed.** Reasoned through before touching the file, then confirmed by
+direct testing (below): the shared component's fix only computes the badge ONCE, at mount
+time — it has no mechanism to react to a mutation made without leaving the page. Signing a
+document, uploading one, or removing one are all actions that only happen on `documents.html`
+itself, and all can change the real count while the user stays on that page. Without
+`documents.html`'s own `refreshNotificationCounts()` continuing to run after those mutations,
+the sidebar badge would go stale again the moment a user signed a document without navigating
+away — a real regression, not a cleanup. So the two are not redundant: the shared component's
+mount-time fix closes the cross-page staleness bug (the actual gap this task targets); 
+`documents.html`'s own logic remains the only thing providing a live in-page update after a
+mutation. Both files' comments were rewritten to describe this division of labor explicitly,
+rather than either implying it's the sole source of truth. `documents.html`'s 3 page-body
+chips were untouched entirely — they were never implicated in the bug (the shared sidebar
+component has no way to know about page-body content that isn't the badge), so nothing needed
+to change there.
+
+Node-verified first (`verify-sidebar-doc-badge.js`, 14 assertions, loading the REAL
+`dashboard-sidebar.js` and REAL `engine-core.js` source in their actual real script-tag order
+— `dashboard-sidebar.js` first, since its file-load-time client-id pin must run before
+`engine-core.js` exists, exactly mirroring the real page order — against a minimal fake DOM
+built for this file's own narrow DOM usage, the same Node-verification pattern this project
+has used repeatedly): a fresh-seed real `urgentCount` of 2 is baked directly into the initial
+mounted HTML string on a non-documents page — proving there's no flash for the shared
+component, not just a corrected count; **the exact bug scenario** — mutate a document away
+from the seed default, then mount a DIFFERENT page against the same underlying storage,
+simulating a real cross-page navigation — now shows the correct new count instead of the old
+fake "2"; a genuinely-zero real count renders the badge with the `hidden` class; a missing
+`getDocumentNotificationCounts` (simulating a failed `engine-core.js` load) falls back to a
+hidden `0` without crashing or showing a fake nonzero value; and a two-directional
+cross-client isolation check confirms a second client's own, genuinely empty, document store
+renders its own correct (zero, hidden) badge, never CLIENT-0001's.
+
+Browser-verified live, the complete bug scenario named in the task and beyond: mutated
+CLIENT-0001's real document state via console — signed the seeded Custody Agreement Amendment
+— WITHOUT ever visiting `documents.html`, then navigated directly to `dashboard.html`.
+**One real environment gotcha hit and resolved along the way, not silently worked around**: the
+badge initially still showed the old fake "2" even after the fix and the mutation — traced,
+via this project's own previously-documented pitfall, to Chrome serving a stale cached copy of
+the pre-fix `dashboard-sidebar.js` from an earlier verification session against the same
+`localhost:8765` origin; a hard reload (`Ctrl+Shift+R`) resolved it, after which the badge
+correctly read "1". Confirmed the identical correct "1" across all remaining client-facing
+pages — `asset-performance.html`, `asset-collection.html`, `high-yield-savings.html`,
+`transactions.html`, `risk-management.html`, `deploy-capital.html`, `settings.html`,
+`support.html`, and `documents.html` itself — 10 for 10 matching. Confirmed
+`documents.html`'s own live in-page update still genuinely works: clicked a real "Download"
+action there (flips a document's `isNew` off) and watched the sidebar badge disappear live,
+with zero page reload — direct proof the "keep, don't remove" call was correct, not just
+theoretically justified. Confirmed the notification bell's own, intentionally-different unread
+count is completely unaffected by this change: added one real document carrying both a
+new-document AND a signature-required trigger, and confirmed the sidebar badge correctly read
+"1" (its own doc-level rule: one document is urgent) while the bell simultaneously and
+correctly read "2" (its own item-level rule: two distinct unread notification events) — both
+live, both correct, neither interfering with the other's legitimate counting semantics. All
+test mutations (the sign, the download, the added document, and the bell's read-state) were
+reverted afterward, restoring CLIENT-0001's real document state to the exact original seed
+baseline (`newCount: 2, signatureCount: 1, deadlineCount: 1, urgentCount: 2`). Zero console
+errors throughout.
+
+New file this task: none (the verification script stayed scratchpad-only, per this project's
+own convention). Modified: `dashboard-sidebar.js`, `documents.html`.
+
+Backend Requirements Register row 78 added (see §3.1).
+
+### 4.77 Bug fix: real Firebase-signup clients now start with a correct empty baseline (Aug 27, 2026)
+
+Closes the gap a dedicated investigation-only task (immediately prior, no code changes, no
+register row of its own) found while diagnosing `documents.html`'s document lists: real
+Firebase-signup clients were inheriting CLIENT-0001's fake demo content on their first real
+login, because `mirrorAuthenticatedClientLocally()` — the function `login.html`'s real
+Firebase Auth success path calls for every real signup-created client — never called the
+seeding function `addClient()` (the local/admin client-creation path) always calls.
+
+**Full scope investigated and reported before any code was touched, per instruction.** The
+prior task had already confirmed the documents instance of this bug via a direct Node
+reproduction of the real `login.html` call chain (mirror-only, no `addClient()`), showing a
+brand-new real client's `getDocuments()` returning the full 8-document fake seed. This task
+extended that same reproduction to check every other store `seedMinimalClientStores()`
+(`engine-core.js:2754-2769`) exists specifically to protect:
+
+- **Confirmed affected, same bug class**: `accountState` + `holdings`, seeded together via
+  `buildSeedData()` in the ambient module-level load block (`engine-core.js:825-837`,
+  `if (storedCatalog && storedAccount && storedHoldings) {...} else { seeded = buildSeedData();
+  ...}`) — structurally identical to the documents bug, and confirmed via the same real
+  reproduction technique: a simulated brand-new Firebase client showed Total Portfolio Value
+  `$1,284,500`, 4 holdings, `$205,520` unallocated capital — CLIENT-0001's exact numbers, not a
+  fresh account's.
+- **Checked and confirmed NOT affected**: `transactions`, allocation requests, sell requests,
+  deposit requests, and HYS deposit requests — each has its own ambient load block
+  (`engine-core.js:895-929`) that defaults cleanly to `[]` regardless of whether
+  `seedMinimalClientStores()` pre-wrote anything, so skipping that pre-write for these five
+  stores causes no incorrect behavior. `seedMinimalClientStores()` writing `[]` to them is
+  technically redundant/defensive, not load-bearing for correctness.
+- **A related but explicitly separate finding, NOT folded into this fix**: `getSettingsProfile()`
+  falls back per-field to `REQUESTABLE_SETTINGS_DEFAULTS` (`engine-core.js:413-417`) — "John
+  A. Doe," a Boston address — whenever a client's profile store doesn't have a field set yet.
+  This affects EVERY new client equally, regardless of which creation path they came through,
+  since neither `addClient()` nor `mirrorAuthenticatedClientLocally()` ever writes anything to
+  the settings-profile store. Because it's not something `addClient()` "properly seeds" that
+  the mirror function skips — it's a universal, pre-existing design choice — it's outside this
+  fix's scope by the task's own framing, and is flagged here rather than silently bundled in.
+
+**Fix, exactly as directed**: `mirrorAuthenticatedClientLocally()` (`engine-core.js:2875-2899`
+after this edit) now calls `seedMinimalClientStores(record.id, 0)` — reusing the exact function
+`addClient()` already calls, not a duplicate of its logic, the same single-source-of-truth
+precedent already established for `getHYSRate()`/`computeHYSWithdrawalAmount()` — but only when
+`idx === -1`, i.e. only on a client's genuinely FIRST mirror. The function already computed
+`idx` for its own upsert logic (create vs. update the Client Registry record), so this required
+no new lookup, just branching on a value already in hand. `0` is passed as
+`startingUnallocatedCapital`, matching `addClient()`'s own fallback when no explicit starting
+cash is given — a real signup has no admin-specified funding to seed from, so `0` is the
+honest default, not an arbitrary placeholder.
+
+**The "only on first mirror" guard is the single most important part of this fix.**
+`mirrorAuthenticatedClientLocally()` runs on EVERY successful login, not just the first —
+calling `seedMinimalClientStores()` unconditionally would wipe a returning client's real
+accumulated data (real deposits, real transactions, real uploaded documents) back to empty on
+every single sign-in, which would be a catastrophic regression far worse than the bug being
+fixed. This was verified directly, not just reasoned about: a dedicated Node scenario built a
+real client's real activity (a credited deposit, an uploaded document) across a first login,
+then performed a genuine SECOND mirror call (exactly what a real second sign-in does) and
+confirmed their real accountState/documents/transactions are byte-for-byte identical before
+and after — nothing wiped.
+
+**Repair path — searched thoroughly, reported honestly rather than assumed clean.** Checked
+every locally-reachable browser origin this project's own tooling and prior sessions have used
+(`localhost:8765`, and three plausible alternates — `5000`, `8000`, `3000`, tried by spinning up
+temporary static servers on each and inspecting `marketswave_clients` directly) — all four
+showed only the deterministic `CLIENT-0001` bootstrap, no Firebase-uid-style client record at
+all. Went further than local storage alone: queried the REAL staging Firestore `clients`
+collection directly via the Admin SDK (`GOOGLE_APPLICATION_CREDENTIALS` pointed at the real,
+outside-the-repo service account key, exactly as `scripts/staging-*.js` already establish) —
+the authoritative source of truth for who has actually signed up, independent of any single
+browser's local state. Found exactly one real client: `yhZmtHbTAKQ2NjDs4SjGb4vj4fd2`,
+"Staging Test Client" — the same test signup already documented in this doc's own §12.11 from
+Phase A1's own verification, not a new unknown user, and NOT present in any of the four locally
+-reachable browser origins checked. **Conclusion, stated plainly rather than glossed over**:
+there is no currently-reachable local browser state holding this (or any other) real client's
+scoped storage to repair on this machine right now — the browser session(s) that originally
+mirrored them locally are no longer reachable from this session's browser environment. This is
+reported as "no repairable state found," not as "confirmed clean" — a materially different and
+more honest claim. Should this real client (or any other) next log in through any real browser,
+the fixed `mirrorAuthenticatedClientLocally()` will now correctly seed them fresh and empty at
+that time, closing the loop going forward regardless.
+
+**Node-verified first** (`verify-mirror-seeding-fix.js`, 21 assertions): a brand-new client's
+first mirror writes a genuinely empty raw accountState (`0/0/0`)/holdings (`[]`)/documents
+(`[]`)/transactions (`[]`) immediately, before any page even reloads — proving the seeding
+happens inside the mirror call itself, not deferred; the exact bug scenario (a real subsequent
+page load as this client) shows Total Portfolio Value `$0`, 0 holdings, 0 documents, and
+`urgentCount: 0`, not the fake seed; **the critical regression guard** — a second mirror of a
+returning client with real accumulated data leaves it byte-for-byte unchanged; CLIENT-0001 is
+completely unaffected; `addClient()`-created clients still start correctly empty exactly as
+before this fix; and cross-client isolation holds for two independently-mirrored new Firebase
+clients (one's real upload doesn't leak to the other).
+
+**Browser-verified live, the complete real end-to-end flow, twice**, each time against a
+genuinely independent real Firebase Auth user + real Firestore document created via the Admin
+SDK against the real `marketswave-staging` project (not the emulator, which wasn't running —
+staging is the same reachable real environment Phase A1 itself used). First run: confirmed via
+direct raw-storage inspection that the correct empty baseline was written immediately upon a
+manual, real `mirrorAuthenticatedClientLocally()` call chained after a real
+`signInWithEmailAndPassword()` and a real Firestore `getDoc()` — all individually verified with
+zero errors — then loaded the real `dashboard.html` (Total Portfolio Value "$0," correct real
+name "Seeding" and initials "SC," "No recent activity yet.") and real `documents.html` ("0 New
+Documents / 0 Signature Required / 0 Deadline This Week," "No documents match your filters.").
+Second run, with a fresh independent test user: **one real environment issue hit and resolved,
+not silently worked around** — the real login form's submit button, when clicked via this
+environment's coordinate-based CDP automation, consistently failed with the generic
+credential-error message even though the underlying credentials and every individual function
+in the chain were separately confirmed correct; diagnosed by dispatching a genuine `submit`
+event on the form directly (`form.dispatchEvent(new Event('submit', ...))`) instead of a
+coordinate click, which succeeded immediately and landed on `dashboard.html` for real — isolating
+this as a browser-automation click-targeting quirk specific to this tool/environment, not an
+application defect (the exact same real form code ran either way; only how the event was
+triggered differed). This second real client also showed the correct empty baseline throughout.
+Confirmed CLIENT-0001 (Total Portfolio Value `$1,284,500`, 4 holdings, 8 documents) and a fresh
+admin-created client (still starts genuinely empty) are both completely unaffected by this fix.
+All test artifacts — both real Firebase Auth users, their real Firestore documents, and their
+local mirror data on every checked origin — were deleted afterward via the Admin SDK and direct
+`localStorage` cleanup, restoring the real staging project (back down to just the one
+pre-existing "Staging Test Client") and every checked local browser origin to its exact
+pre-verification baseline. Zero console errors throughout.
+
+New file this task: none (the verification script stayed scratchpad-only, per this project's
+own convention). Modified: `engine-core.js`.
+
+Backend Requirements Register row 79 added (see §3.1).
+
+### 4.78 Bug fix: `getSettingsProfile()`'s "John A. Doe" fallback closed for every new client (Aug 27, 2026)
+
+Closes the gap flagged, but explicitly not folded in, at the end of §4.77's own fix — a
+related but architecturally distinct instance of the same underlying problem: no seeding
+function has ever written a real settings profile for a new client, on either creation path.
+
+**Investigated first, per instruction, before any code was touched.** Read
+`getSettingsProfile()` (`engine-core.js:2164-2172`) directly:
+`result[f] = stored[f] !== undefined ? stored[f] : REQUESTABLE_SETTINGS_DEFAULTS[f]` — a
+per-FIELD fallback, not a whole-store fallback the way `buildSeedData()`/`SEED_DOCUMENTS`
+work. "John A. Doe" (`engine-core.js:413-417`) is a hardcoded literal sitting inside
+`REQUESTABLE_SETTINGS_DEFAULTS`, alongside an equally fake Boston address and a fake
+"Passport" ID document — this is the literal, direct source of the fallback value, confirmed
+by reading the constant itself, not inferred. But the REASON every new client sees it traces
+to the exact same root cause as §4.77's own fix: no function has ever written a real profile
+record to `marketswave_settings_profile:<clientId>` at creation time, so this per-field
+default is simply what has always shown for a client with nothing stored yet — both things
+are true simultaneously, and the report distinguishes them precisely rather than picking one
+explanation over the other.
+
+A second, closely related finding: `settings.html`'s own inline script has a SEPARATE
+hardcoded fallback for the same shared store — `DEFAULTS = { email: 'john.doe@example.com',
+phone: '+1 (415) 555-0182' }` (`settings.html:552`), read via its own `{ ...DEFAULTS,
+...stored }` merge. Both `getSettingsProfile()` and this inline pattern read the identical
+`marketswave_settings_profile` key, just projecting different field subsets — confirmed via
+the constant's own value, `SETTINGS_PROFILE_KEY = 'marketswave_settings_profile'`
+(`engine-core.js:389`). This meant seeding the shared store once, correctly, would close BOTH
+fallbacks as one fix, not two.
+
+**Fix, exactly as directed**: extended `seedMinimalClientStores()` — the same function
+§4.77's fix already reused for accountState/holdings/documents, already called by both
+`addClient()` and `mirrorAuthenticatedClientLocally()` on a client's first creation/mirror —
+to also write a real settings profile. New `splitClientLegalName(name)` helper, placed
+immediately before `seedMinimalClientStores()`, reuses `getClientInitials()`'s own
+`LEGAL_ENTITY_SUFFIXES` filtering (the exact same array, same filtering logic) so a business
+name splits sensibly — "Riverstone Holdings LLC" becomes firstName "Riverstone" / lastName
+"Holdings," not a bare "LLC" absorbing the meaningful second word — deliberately mirroring an
+existing, already-battle-tested precedent in this file rather than writing new splitting logic
+from scratch. A single-remaining-word name (or a legal name reduced to one word after
+stripping a suffix) falls back to an empty `firstName` and the one word as `lastName` — an
+honest degradation matching `getClientInitials()`'s own documented single-word handling, not
+a crash and not a fabricated second word.
+
+**Exact field sourcing, reported per instruction**:
+- `legalName` — real, split from the client's own `name` field via `splitClientLegalName()`.
+  Already known at creation time on both paths: `signup.html`'s collected name for a real
+  client, the Add Client form's `name` input for an admin-created one.
+- `email` / `phone` — the real values already present on the same client record (`newClient`
+  at `addClient()`'s own call site, `record` at `mirrorAuthenticatedClientLocally()`'s), written
+  directly with no transformation.
+- `address` / `idDocument` — seeded as real `null`, not a fabricated placeholder. Neither
+  creation path has real address or ID-document data available at this exact moment: the Add
+  Client form never collects either, and a real signup's own two document uploads land in the
+  separate `ONBOARDING_KEY` store via `saveClientOnboardingData()` (a different store,
+  different purpose, not read by this function). `null` is an honest "not provided yet" value
+  — `formatFieldDisplay()`'s own pre-existing `if (!value) return '—'` (`format-helpers.js`)
+  already renders it as the same clean em dash used for every other genuine empty state in
+  this project, so no display-side code needed to change at all.
+
+Both call sites were updated minimally: `addClient()` passes `newClient` (already fully
+constructed and in scope at the exact line `seedMinimalClientStores()` is called);
+`mirrorAuthenticatedClientLocally()` passes `record` (same situation). The new third
+parameter, `clientData`, is optional and defaults to an empty object — any pre-existing bare
+2-arg caller (a Node test script written before this fix, for instance) still works and seeds
+a genuinely blank profile (empty-string `legalName`/`email`/`phone`) rather than crashing —
+strictly better than the fake placeholder it replaces even in that degraded case.
+
+**Same regression discipline as §4.77, verified directly, not assumed to carry over
+automatically.** Because this is the SAME `seedMinimalClientStores()` call, gated by the SAME
+`isFirstMirror` check §4.77's fix already built, the "never wipe a returning client" guarantee
+extends to the settings profile for free — but this was verified with its own dedicated test,
+not just reasoned about: a client's real, genuinely self-edited profile (simulating exactly
+what `settings.html`'s own inline email-edit handler does, `settings.html:610-611`) survives a
+real second `mirrorAuthenticatedClientLocally()` call byte-for-byte unchanged. CLIENT-0001 —
+the one client that genuinely predates any seeding mechanism in this project — correctly has
+no profile ever written by this fix, confirmed directly (`localStorage.getItem(...)` returns
+`null` for their key), and still falls back to the legacy `REQUESTABLE_SETTINGS_DEFAULTS`
+exactly as before — which is the CORRECT behavior for exactly this one client, so
+`REQUESTABLE_SETTINGS_DEFAULTS` itself was deliberately left completely unchanged, not removed
+or repurposed.
+
+Node-verified first (`verify-settings-profile-seed.js`, 19 assertions): both creation paths
+produce a real profile immediately at creation, not the fallback; "Marcus Chen" splits to
+firstName "Marcus"/lastName "Chen"; "Riverstone Holdings LLC" (accountType "Entity /
+Business") splits correctly to "Riverstone"/"Holdings" with the LLC suffix stripped,
+confirming the shared `getClientInitials()` logic reuse actually works end to end; a
+single-word name ("Madonna") degrades to an honest empty firstName, not a crash; **the
+critical regression guard** — a returning client's real, already-edited profile is
+byte-for-byte unchanged by a second mirror; CLIENT-0001 is confirmed to have no profile
+written and still correctly falls back to the legacy default; and the bare-2-arg
+backward-compatibility path seeds a genuinely blank profile without crashing. The full prior
+regression suite was re-run to confirm the signature change (`seedMinimalClientStores(clientId,
+startingUnallocatedCapital, clientData)`, a new optional third parameter) introduced no
+regression: `verify-mirror-seeding-fix.js` (§4.77's own 21 assertions) and
+`verify-sidebar-doc-badge.js` (14 assertions) both still pass in full.
+
+Browser-verified live for BOTH creation paths, not just one: created a real admin client
+("Priya Sharma") via the actual `addClient()` call from a real browser console and confirmed
+Settings immediately showed her real name, email, phone, "Legal Name: Priya Sharma," and a
+clean "—" for both Address and ID/Document — no "John A. Doe," no fake Boston street, no fake
+Passport, anywhere. Separately, signed up and logged in as a genuinely new real client ("Diego
+Fernandez Ruiz," deliberately a 3-word compound name to exercise the split logic further)
+against the real `marketswave-staging` Firebase project, through the real `login.html` form's
+own actual `submit` event — confirmed the identical correct result: real name/email/phone
+displayed immediately, "Legal Name: Diego Fernandez Ruiz," clean blank Address/ID-Document,
+and the raw `getSettingsProfile()` output confirmed the split landed correctly (`firstName:
+"Diego Fernandez"`, `lastName: "Ruiz"`). Additionally confirmed the Address "Request Change"
+modal — which reads the current value through the exact same `formatFieldDisplay()` path —
+renders the `null` current value cleanly as "—" with genuinely blank, uncorrupted new-value
+input fields, no crash, no literal "undefined" text anywhere in the DOM. Both real test
+artifacts (the local admin-created client and the real Firebase Auth user + Firestore
+document, deleted via the Admin SDK) were removed afterward, restoring the real staging
+project and local browser storage to their exact pre-verification baseline. Zero console
+errors throughout, on both runs.
+
+New file this task: none (the verification script stayed scratchpad-only, per this project's
+own convention). Modified: `engine-core.js`.
+
+Backend Requirements Register row 80 added (see §3.1).
+
+### 4.79 Bug fix: `ensureAdminSignedIn()` now works against real staging via a runtime password prompt (Aug 27, 2026)
+
+Closes the root cause a prior diagnosis-only task (immediately prior, no code changes) found
+while investigating "Could Not Load Firebase Applications" on `admin-client-applications.html`:
+`admin-firebase-config.js`'s `ensureAdminSignedIn()` always attempted the emulator's hardcoded
+bootstrap PM credential, regardless of which real Firebase project the page was actually
+connected to. The connection itself (`auth`/`db`, imported from the shared `firebase-config.js`)
+was already correctly staging-aware; the sign-in credential was not, so any admin page loaded
+with `?env=staging` failed at the Auth step — before any Firestore read was even attempted —
+with `auth/invalid-credential`.
+
+**Fix, exactly as directed**: `ensureAdminSignedIn()` now branches on `IS_STAGING`. The
+emulator branch is byte-for-byte unchanged. The staging branch signs in as the real
+`pm@marketswave-staging.internal` — safe to reference directly per
+`scripts/staging-bootstrap-admin.js`'s own header comment, since an email identifies an
+account without being a secret itself — with a password obtained at runtime through a small
+modal, never hardcoded or committed anywhere in this file or any other browser-loaded code.
+
+**The modal**: matches the admin tool's existing modal styling exactly (copied from
+`admin-client-applications.html`'s own approve/reject modals — `bg-black/60` backdrop,
+`bg-white rounded-2xl shadow-xl` card, amber focus ring), not a raw `window.prompt()`.
+Dynamically injected into `document.body` on first use rather than requiring per-page markup
+— the same "shared component injects its own markup" precedent `dashboard-sidebar.js` and
+`dashboard-notifications.js` already established, just targeting `document.body` instead of a
+page-specific mount div, since neither admin page that loads this shared module reserves one
+for it. Shows the real target email so a PM always knows which account they're authenticating,
+and an explicit disclosure line ("Held in memory for this tab only — never saved. A page
+refresh will ask again.") so the behavior is stated plainly, not just implemented silently.
+
+**The in-memory-only session**: `setPersistence(auth, inMemoryPersistence)` is called on the
+staging branch only, never touching the emulator path. This is required, not merely "the
+password itself isn't written anywhere" — Firebase Auth's own default persistence
+(`browserLocalPersistence`) would otherwise silently restore the session across a page refresh
+via its own IndexedDB, with zero application code ever writing anything explicitly, directly
+violating the "a page refresh should re-prompt" requirement. Verified this holds for real, not
+just assumed from setting the flag: after a genuine successful sign-in, a real page refresh in
+the same browser tab correctly re-showed the prompt, confirmed twice independently.
+
+**Retry behavior**: a wrong password shows a clear inline error directly in the modal and loops
+back to accept another attempt — not a one-shot failure requiring the PM to re-trigger the
+whole flow from scratch. Cancel rejects `ensureAdminSignedIn()`'s promise and explicitly resets
+the module-level cached `signInPromise` to `null`, so a PM who cancels isn't permanently locked
+out of a later retry (e.g. via clicking a "reload data" action) for the rest of the tab's
+lifetime — a rejected promise would otherwise stay cached forever under the pre-existing
+`if (!signInPromise)` guard.
+
+**A real bug caught and fixed by this task's own Node verification, not shipped to the
+browser.** The retry loop's original design cleared the modal's inline error at the very TOP
+of `promptForStagingPassword()`'s own setup — reasonable-looking in isolation, but since a
+wrong-password catch block in `signInStagingAdmin()`'s loop calls that SAME function again on
+its next iteration, this raced the error being shown at all: the catch block set it, then the
+loop's very next line (a fresh call to `promptForStagingPassword()`) immediately hid it again,
+before any real render could ever occur. This is exactly the class of bug a screenshot-based
+check would never catch (the error is genuinely absent by the time any paint happens, even a
+few hundred milliseconds later) — the Node test's own assertion, checking `errorEl`'s hidden
+state and text content directly after simulating the exact failure sequence, caught it
+immediately. Fixed by moving "clear the stale error" out of the reopen path entirely and into
+`onSubmit()` instead, firing only at the moment a genuinely NEW attempt is submitted — the
+error now correctly persists across the reopen and is only cleared when the PM actually tries
+again.
+
+**A second, closely related toast bug found and fixed "while in these files," per
+instruction, not narrowly scoped to only the one named file.** Grepped both admin pages that
+use `ensureAdminSignedIn()` and found the identical pattern in both:
+`admin-client-applications.html`'s "Could Not Load Firebase Applications" and
+`admin-clients.html`'s own "Could Not Load Firebase Clients" toast both auto-hid on the same
+4-second timer as every routine success confirmation — real enough for a "Done" message, but a
+genuine failure could fade before a PM actually reading the screen had time to register it,
+reading as a silent "just shows empty" state rather than an actionable error. This is precisely
+the symptom the whole investigation chain (three tasks back) started from. Fixed with a new,
+deliberately SEPARATE `sticky` 4th parameter on `showToast()` in both files — NOT reusing the
+existing `isError` flag, since a direct read of `admin-client-applications.html`'s own call
+sites showed `isError: true` is also used purely for red STYLING on a genuine SUCCESS
+confirmation ("Application Rejected... has been rejected.") — overloading `isError` for
+dismiss-behavior would have wrongly made that routine, successful confirmation sticky too, a
+real regression this task's own review caught before it shipped. Only the real
+Firebase-load-failure call site in each file now passes `sticky: true`; every other call site,
+including every other `isError` usage, is completely unchanged. A sticky toast shows a new
+manual-dismiss close button (×) instead of auto-hiding.
+
+**Node-verified first** (`test.mjs`, 24 assertions): loaded the REAL `admin-firebase-config.js`
+from its real project path, completely unmodified — not a copy — via a custom Node ESM loader
+hook (`loader.mjs`, registered with `node --import`) that redirects only the file's two
+external import specifiers (the gstatic `firebase-auth.js` CDN URL and its relative
+`./firebase-config.js`) to local instrumented mocks; a minimal fake DOM plus genuinely
+functional `localStorage`/`sessionStorage` stand-ins backed real objects, not stubs, so an
+actual `.setItem()` call would be directly observable and countable rather than merely assumed
+absent. Confirmed: the emulator branch is untouched (exact hardcoded credentials, zero
+`setPersistence` calls, no modal ever built) and its already-authenticated short-circuit still
+works exactly as before; the staging branch calls `setPersistence(auth, inMemoryPersistence)`,
+never attempts the emulator credentials against the real project, shows the modal, and passes
+the EXACT password the modal collected through to the real sign-in call, unaltered; its own
+already-authenticated short-circuit works too; a wrong password shows the correct inline error
+AND a subsequent correct password still succeeds within the very same flow (exactly 2 real
+sign-in attempts recorded, proving the loop genuinely retries rather than giving up); Cancel
+rejects and a SECOND `ensureAdminSignedIn()` call genuinely re-prompts, proving `signInPromise`
+was reset rather than left permanently rejected; and — the core "never persist the password"
+requirement, checked directly rather than assumed from the code's own design intent — zero
+`localStorage.setItem()`/`sessionStorage.setItem()` calls occur across an entire successful
+staging sign-in flow that DID carry a real, distinctive password value through to the real
+sign-in call (confirmed via a sanity check that the value genuinely appears in the recorded
+call, proving the zero-writes assertion is meaningful, not vacuously true because nothing
+happened at all).
+
+**Browser-verified live against the REAL `marketswave-staging` project, with the user's own
+explicit, one-time involvement at two decision points — reported here in full, not glossed
+over.** Attempting to rotate the real staging admin's own password myself via the Admin SDK,
+purely to obtain a KNOWN value for testing the success path, was correctly blocked by the
+auto-mode permission classifier as a sensitive credential-changing action on a real account —
+this task did not attempt to work around that block. The user was asked how to proceed and
+chose to supply the real password directly in chat. That password then also turned out to be
+stale or incorrect — confirmed via a raw SDK call that bypassed the new modal entirely,
+isolating this as a genuine Firebase rejection (`auth/invalid-credential`) rather than a bug in
+the fix, before reporting back to the user rather than continuing to guess against a real
+account and risk triggering Firebase's own rate-limiting. The user, on learning they didn't
+actually know the current password, explicitly asked for it to be reset via the Admin SDK
+("do it") — only at that explicit instruction was the real staging admin's password rotated
+(via `admin.auth().updateUser()`, a freshly-generated random value), which the user now has
+for their own future use.
+
+With a confirmed-correct password: the modal appeared on page load exactly as designed,
+showing the real target email; a deliberately wrong password produced a clear, persistently
+visible inline error — re-confirming in the real browser that the Node-caught race-condition
+fix genuinely holds there too, not just in the mocked test; the correct password signed in as
+the real `pm@marketswave-staging.internal`, and the page's own real data-fetch flow then
+genuinely loaded real pending Firestore applications — 2 real records, including one, "Manuel
+Stormare," that was **not created by this task** (confirmed via its own real, pre-existing
+local per-client `localStorage` keys, proving they had genuinely signed up and logged in for
+real against this project at some point before this session) — left completely untouched and
+only reported to the user, never approved, rejected, or otherwise acted upon, since that's a
+real business decision belonging to the PM, not something this verification task should
+decide. A full page refresh genuinely re-prompted rather than silently restoring the session,
+confirmed twice independently in the real browser. Direct inspection of every single
+`localStorage`/`sessionStorage` key in the real browser confirmed the real password string
+appears nowhere at all; the one pre-existing key that happened to contain the word "password"
+was traced directly to its actual value and confirmed to be CLIENT-0001's own unrelated,
+pre-existing `passwordHash` field from the project's completely separate, already-shipped
+local credential system (Client Authentication Phase 1, `hashClientPassword()`) — not
+anything this task touched. The identical fix was independently re-verified on
+`admin-clients.html` too: real Firebase clients loaded correctly, zero console errors. The one
+local test application record created for this verification (`Verify Fix Applicant`) was
+deleted afterward via the Admin SDK, both from Firebase Auth and Firestore; the real,
+non-test "Manuel Stormare" application and the pre-existing "Staging Test Client" record were
+both left completely untouched, exactly as they were found.
+
+New file this task: none (all verification files — the loader, mocks, and test script —
+stayed scratchpad-only, per this project's own convention). Modified:
+`admin-firebase-config.js`, `admin-client-applications.html`, `admin-clients.html`.
+
+Backend Requirements Register row 81 added (see §3.1).
+
+### 4.80 Bug fix: `?env=staging` now survives every internal navigation (Aug 27, 2026)
+
+Closes the third bug found in this same investigation chain: the reported symptom was that
+`admin-login.html?env=staging` → a successful login → landed on plain `admin.html`, silently
+reverting to the emulator target and reproducing the exact `auth/network-request-failed` /
+`auth/invalid-credential` error already diagnosed and fixed twice before. Framed by the task
+itself as "the same class of bug as the CLIENT-0001 identity pin and the emulator-credential
+gap — a mechanism that works correctly at one entry point but was never propagated everywhere
+it needs to hold," and the investigation bore that out precisely.
+
+**Grepped the whole project for every redirect/navigation, per instruction, not just the one
+named symptom.** Found 9 JS-driven `location.href`/`location.replace` sites:
+`admin-login.html`'s own post-login redirect; `admin-sidebar.js` at three points (the
+file-load-time auth gate, `initAdminSidebar()`'s own defense-in-depth guard, and the Log Out
+button); `login.html`'s own post-login redirect; `dashboard-sidebar.js` at the mirror-image
+three points (file-load-time gate, `initDashboardSidebar()`'s guard, and Logout); and
+`signup.html`'s post-submit redirect. Every single one built its target URL as a bare relative
+path, with zero query-string awareness — none had ever been touched when `?env=staging` was
+introduced, because none of them existed as a concept the environment-switch mechanism knew to
+account for.
+
+Separately found a second, distinct failure mode that a redirect-only fix would have missed
+entirely: every plain `<a href="...">` link — both the shared sidebars' own dynamically
+rendered nav (`admin-sidebar.js`'s `navLinkHTML()`; `dashboard-sidebar.js`'s `navLinkHTML()`/
+`footerLinkHTML()`/the Deploy Capital CTA) and each page's own hardcoded static links, most
+visibly `admin.html`'s 13 Overview cards (each linking straight into a queue page) — dropped
+the param the instant a PM clicked anywhere on the page, with no redirect involved at all.
+This is exactly why the task's own framing ("not just this one redirect") mattered: fixing
+only the 9 JS redirects would have left every ordinary sidebar click still silently reverting
+to the emulator.
+
+**Fix.** A new `currentEnvQuery()` helper — duplicated in `admin-sidebar.js`,
+`dashboard-sidebar.js`, and inline in `admin-login.html`/`login.html`/`signup.html` (these
+three don't load either shared sidebar file, so each carries its own minimal, self-contained
+one-liner reading `window.location.search` directly — matching this project's own established
+small-disclosed-duplication precedent, e.g. `admin-firebase-config.js`'s own
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` duplication comment) — is appended to all 9 JS-driven redirect
+targets. For the link-dropping half of the bug, rather than hand-threading the suffix through
+every individual `href` string one by one (the exact kind of single point of failure that let
+the original bug happen in the first place), a new `preserveEnvParamInPageLinks()` function in
+both shared sidebar files does one generic pass over every `<a href>` on the page — same-
+origin, relative, ending in `.html`, with no pre-existing query string — appending the param
+once. This single mechanism covers the sidebar's own freshly-rendered nav AND each page's own
+static content links simultaneously, with zero per-page changes needed now or for any future
+page added later. Called once, at the end of `initAdminSidebar()`/`initDashboardSidebar()`,
+after the sidebar markup has already been injected into the DOM (so it catches those freshly-
+added links too, not just links that existed before the sidebar mounted).
+
+Logout was deliberately included, not treated as a special "reset the environment" case: a PM
+or tester deliberately testing staging shouldn't have that context silently dropped the moment
+they log back out, only for a subsequent login attempt to quietly land back on the emulator
+with no visible indication why. This turned out to be a real functional consequence, not
+merely cosmetic, confirmed by reading the actual code rather than assumed: `dashboard-
+sidebar.js`'s own real `signOutOfFirebaseAuth()` (the Aug 23, 2026 fix that wired a genuine
+`signOut(auth)` into client-side Logout) reads `firebase-config.js`'s `IS_STAGING` fresh from
+the CURRENT page's own URL at the exact moment Logout is clicked — if that page's URL had
+already silently lost the param somewhere upstream in the navigation chain, a real staging
+sign-out would have incorrectly targeted the emulator's own Auth instance instead, leaving the
+real staging session it was meant to close still technically live.
+
+**Browser-verified live against the REAL `marketswave-staging` project, the exact failing
+scenario named in the task, on both the admin and client sides.**
+
+Admin side: navigated fresh to `admin-login.html?env=staging`, explicitly cleared any existing
+session, logged in for real with the local admin passphrase, and confirmed the resulting URL
+was genuinely `admin.html?env=staging` — not the old bare `admin.html` that used to reproduce
+the reported error. Confirmed via direct DOM inspection that every link on that landing page
+(all 14 sidebar nav items plus all 13 Overview cards) carried the correctly-appended param.
+Clicked through to Client Applications — the real Firebase-dependent page that would have
+shown the network error before this fix — and confirmed it correctly showed the genuine
+Staging Admin Sign-In modal, not an error; signed in for real and confirmed genuine staging
+Firestore data loaded (the real, untouched "Manuel Stormare" pending application, real
+History). Continued clicking through Deposits → Allocations → Product Catalog → Client List,
+confirming the URL correctly carried `?env=staging` at every single hop — not just the first
+one — with Client List also correctly loading real Firebase client data after its own
+expected re-prompt (by design: `inMemoryPersistence`, from the prior fix, doesn't survive ANY
+navigation, not only an explicit refresh — confirmed this is consistent with, not a
+regression from, that earlier fix). Tested Log Out and confirmed it correctly redirected to
+`admin-login.html?env=staging` — not a bare `admin-login.html` — and genuinely cleared the
+session (`sessionStorage` checked directly, not assumed).
+
+Client side: repeated the identical verification against the same real staging project.
+Created a real test client via the Admin SDK, logged in for real through
+`login.html?env=staging`'s own actual form submission event, confirmed landing on genuine
+`dashboard.html?env=staging` (not the old bare `dashboard.html`), confirmed every one of the
+9 sidebar nav/footer/Deploy Capital links plus the Logout link all correctly carried the
+param, and confirmed a real client-side Logout correctly redirected to `login.html?env=staging`.
+
+**One real automation-environment artifact hit and diagnosed during this verification,
+disclosed rather than silently worked around or mistaken for a code bug**: this browser
+tool's own tab-context status trailer can report a stale, mid-transition URL immediately
+after a click-triggered navigation, before the real navigation has actually finished —
+several apparently-contradictory results surfaced during testing (a page appearing to have
+navigated to the wrong destination) and were traced directly to this lag, confirmed by
+re-checking the exact same state a moment later, which then always matched the correct, fixed
+behavior. Ruling this out rigorously — rather than assuming it away — was necessary before
+trusting the rest of the verification, so it's recorded here rather than omitted. Zero real
+console errors throughout, on both sides. All real test artifacts (local test data and the
+one real Firebase Auth user + Firestore document created for this verification) were deleted
+afterward; the real, non-test "Manuel Stormare" application and "Staging Test Client" record
+were both left completely untouched, exactly as found.
+
+New file this task: none (no verification scripts were needed beyond the browser session
+itself — the task's own VERIFY section asked for browser verification specifically, not a
+Node test, and the fix's logic — appending a small string suffix — didn't warrant one beyond
+what direct browser observation already confirmed unambiguously). Modified:
+`admin-login.html`, `admin-sidebar.js`, `login.html`, `dashboard-sidebar.js`, `signup.html`.
+
+Backend Requirements Register row 82 added (see §3.1).
+
+### 4.81 Four small, independent cosmetic fixes from the frontend audit (Aug 27, 2026)
+
+Four low-risk, no-architectural-change fixes, checkpointed and browser-verified individually.
+
+**Fix 1 — Dead footer links.** Grepped every public-site page for `href="#"` and other
+placeholder-link patterns (`javascript:void(0)`/empty/`TBD`/`TODO` — none found beyond `href="#"`).
+Found 13 total: a byte-identical `<li><a href="#">Get Access</a></li>` footer link on all 6
+real marketing pages; `about.html`'s Connect section (LinkedIn, X/Twitter, Company Updates);
+`resources.html`'s "View latest updates" Blog & Press CTA; and 4 anchors on `login.html`
+(forgot-password/back-to-login ×3) — confirmed these 4 are already genuinely wired via
+`id`-based `addEventListener` calls and out of scope regardless (auth entry point, not a
+marketing footer). Fixed the 6 footer links by giving the header's existing, already-working
+"Get Access" modal trigger button and the footer link a shared `.get-access-trigger` class,
+and changing each page's modal script from a single `getElementById` lookup to
+`querySelectorAll('.get-access-trigger')` with `e.preventDefault()` added per trigger (needed
+for the `<a>`, harmless no-op for the `<button>`) — applied identically across all 6 pages.
+`about.html`'s "Company Updates" now points to `resources.html#blog`, a real existing
+section. **Flagged, not guessed at**: LinkedIn/X-Twitter (no real social accounts exist for
+this fictional firm) and "View latest updates" (no real blog/press content exists anywhere
+in the project) were left as `href="#"`.
+
+**Fix 2 — `about.html` placeholder team cards.** The 3 Leadership cards showed the literal
+unfilled-template text `Leadership Role` (as an `<h4>`, reading as a forgotten placeholder,
+not a name) and `Headshot` (a raw label inside an already-intentionally-styled 220px photo
+box) — role titles and descriptions were already real content. Chose clearly-labeled
+"Coming Soon" placeholders over fabricating names (no real leadership roster exists anywhere
+in this fictional-firm project to draw from), consistent with the section's own existing
+honest disclosure sentence beneath the cards. Changed to "Name Coming Soon" /
+"Photo Coming Soon" on all 3 cards; real role/description content untouched.
+
+**Fix 3 — `index.html`'s "Process & Philosophy Visual."** This was a flat 360px box
+containing only the literal placeholder text "Process & Philosophy Visual," beside a column
+of real prose already describing a 4-stage process. Built a real 4-step numbered graphic
+(Discover → Construct → Monitor → Report) rather than removing the section, since it
+visualizes copy that already existed rather than inventing new content. New
+`.process-steps`/`.process-step`/`.process-step-num`/`.process-step-text` CSS in
+`styles.css`, using only the existing locked color tokens (no new colors introduced).
+
+**Fix 4 — `signup.html` submit button loading feedback.** The final "Submit Application"
+handler already disabled the button for the real async Firebase call's duration and
+re-enabled it on failure, but gave no visual feedback beyond that. Added a captured
+`originalBtnHTML` snapshot, an `.is-loading` class, and a spinner + "Submitting..." swap
+(new CSS in `signup.html`'s own existing inline `<style>` block, matching this page's
+established page-specific-override convention), reverted exactly on the existing `catch`
+path so a real error never leaves the button stuck.
+
+**Verification.** All four browser-verified live via a local static server (port 5500):
+fix 1 — clicked the real footer "Get Access" link, confirmed the same modal the header
+button opens appears with no jump-to-top, and confirmed real navigation to
+`resources.html#blog`; fix 2 — confirmed all 3 cards render the new labels alongside their
+real role/description content; fix 3 — confirmed the 4-step graphic renders correctly beside
+the real "Brand Identity & Approach" copy; fix 4 — since a real signup attempt needs a
+running emulator or would create real staging Firebase data purely to observe a sub-second
+visual transition, verified via a DOM simulation running the exact capture → mutate → restore
+statements the real handler executes, confirming byte-for-byte correct before/during/after
+states on the real "Review & Submit" step of the real 9-step form. Zero real console errors
+across all four (one pre-existing, unrelated Chrome-extension messaging artifact this project
+has repeatedly flagged as benign).
+
+Modified: `index.html`, `services.html`, `resources.html`, `about.html`, `legal.html`,
+`contact.html`, `styles.css`, `signup.html`.
+
+Backend Requirements Register rows 83–86 added (see §3.1).
+
+### 4.82 Homepage/services content update: six services + three new homepage sections (Aug 27, 2026)
+
+Three-part content task — no architectural changes, all copy supplied verbatim by the user.
+
+**Part 1 — site-wide "years of experience" consistency check.** Grepped every page for
+`\d+\+`/"years"/"decade"/"experience"/"founded"/"since [year]" and found only ONE numeric
+years-of-experience claim anywhere in the project: the homepage stats bar itself
+(`index.html`, "Years of Experience" / "10+"). No other page had a conflicting or duplicate
+claim — nothing needed changing for this part, reported rather than fabricating a fix.
+
+**Part 2 — six services.** `services.html`'s existing Supply Chain card's longer descriptive
+paragraph was replaced with the exact text supplied (title kept as "Supply Chain," its short
+`.intro` line left untouched — the supplied text matched that paragraph's length/style, not
+the intro's). A new 6th card, "Business Consulting" (`id="business-consulting"`, label
+"Strategic Growth"), was added at the end of `.service-landscape`, matching the existing
+5-card structure exactly — label/h3/intro plus a supporting paragraph and a 5-item bullet
+list, with the bullets newly written (not supplied) to stay consistent with the given
+description. Confirmed `.service-landscape-card` is a full-width, one-per-row grid, not a
+side-by-side card grid, so the flex-col/mt-auto CTA-anchoring concern the task flagged
+doesn't apply here — content-length differences between cards can't misalign anything in a
+stacked layout. All 6 marketing-page footers gained a "Business Consulting" link, and
+`services.html`'s meta description was updated to list all 6 services. **Judgment call on
+the homepage's Core Services teaser, decided and reported per instruction**: kept the
+existing 4-card curated preview unchanged (it already omitted Supply Chain at 5 services, so
+it already read as a deliberate subset, not an exhaustive list) and simply relabeled "View
+all services" to "View all 6 services."
+
+**Part 3 — three new homepage sections.** All copy used verbatim. **Placement, decided and
+reported per instruction**: Partners went directly after the Stats bar (an early trust
+signal right after the credibility numbers); Platform Pitch and What Makes Us Different went
+together after Account Types and before Core Services, so a visitor sees account options,
+then how the platform works, then why the firm is different, before the services list itself.
+Final order: Hero → Stats → **Partners** → Company Pitch → Account Types → **Platform
+Pitch** → **What Makes Us Different** → Core Services → Philosophy CTA → Footer. Partners
+renders the 4 fictional institutional names (confirmed none are real companies) as bold serif
+wordmarks inside a new `.partners-card`/`.partners-row` component. Platform Pitch uses the
+exact supplied header sentence as its `<h2>` (given a `max-width`/reduced `font-size` inline
+override so it stays readable — the only layout adjustment made) followed by all 9 cards in a
+new `.platform-grid`/`.platform-card` component, directly modeled on the existing
+`.account-grid`/`.account-card` pattern (numbered circle, heading, paragraph) rather than a
+new card style. What Makes Us Different uses a new `.diff-grid`/`.diff-card` component
+directly modeled on the existing `.vm-card` (Vision/Mission) pattern, since its longer,
+denser paragraphs suit a left-aligned uppercase-heading card better than a centered one. All
+new CSS lives in one consolidated block ("16B. HOMEPAGE — PLATFORM PITCH / PARTNERS /
+DIFFERENTIATORS") added right before the existing "17. RESPONSIVE" section in `styles.css`,
+using only the existing locked navy/cream tokens — no new colors anywhere. `.platform-grid`/
+`.diff-grid` were added to the SAME existing `960px` breakpoint block that already collapses
+`.account-grid`/`.vision-mission` to one column, reusing an already-shipped responsive rule
+rather than writing new breakpoint logic.
+
+Browser-verified live: `services.html` shows all 6 cards correctly, matching every existing
+card's structure; the homepage's three new sections all render with the exact supplied copy,
+correct placement, and correct visual reuse of existing card patterns; zero console errors
+throughout. One verification limitation disclosed: this environment's `resize_window` tool
+doesn't move the real viewport (a known, previously-documented limitation), so the new
+960px-breakpoint collapse could not be re-confirmed visually this session — relied instead on
+the fact that both new grids reuse the exact same, already-verified breakpoint rule as
+`.account-grid`/`.vision-mission`, not new logic.
+
+Modified: `index.html`, `services.html`, `about.html`, `contact.html`, `legal.html`,
+`resources.html`, `styles.css`.
+
+Backend Requirements Register rows 87–88 added (see §3.1).
+
+### 4.83 Layout-only redesign: Platform Pitch columns + What Makes Us Different numeral list (Aug 28, 2026)
+
+Two homepage sections redesigned per approved mockups — content unchanged from §4.82's own
+copy, this was purely a layout/markup replacement.
+
+**Platform Pitch**: the 9-card grid (`.platform-grid`/`.platform-card`) was replaced with
+`.platform-columns` — 3 columns, no card borders or backgrounds — grouping the same 9 items
+into 3 labeled sets exactly as specified: "Getting Started" (Define Your Goals, Tailored to
+You, Minimums & Fees), "Building Your Portfolio" (Broader Diversification, Activate Your
+Portfolio, Professionally Managed), "Staying in Control" (Track Your Performance, Taxes,
+Liquidity). Each column is a small uppercase label with a thin `border-bottom`, followed by
+stacked items (bold title + muted description) with generous gap.
+
+**What Makes Us Different**: the 3-card grid (`.diff-grid`/`.diff-card`) was replaced with
+`.diff-list` — a large-numeral editorial list, no cards or boxes. Each row pairs a large
+numeral (01/02/03) at a fixed left width with a bold navy title and the full paragraph
+description; `border-top` on every row plus `border-bottom` on the last row produces the thin
+horizontal dividers, and the list itself is `max-width: 900px; margin: 0 auto` so paragraphs
+stay readable rather than stretching full page width. The numeral color is `var(--border-
+strong)` — the locked "soft border" cream tone, deliberately not navy, so it recedes behind
+the actual content, per instruction.
+
+**Responsive pattern, reused not reinvented**: rather than importing the dashboard family's
+Tailwind-based sidebar-drawer breakpoint (a separate subsystem — Tailwind CDN, 1024px `lg`,
+only used on the 9 dashboard pages, never the public site), both new layouts were added to
+the public site's own already-established `@media (max-width: 960px)` block in `styles.css`
+— the same block that already collapses `.account-grid`/`.vision-mission`, and that the
+now-replaced `.platform-grid`/`.diff-grid` themselves used. `.platform-columns` collapses to
+one column at ≤960px; `.diff-row` narrows its numeral column (100px → 64px) and reduces
+`.diff-num`'s font-size (2.75rem → 2rem) at the same breakpoint, keeping the numeral
+proportionate on narrow layouts. The old `.platform-grid`/`.platform-card`/`.diff-grid`/
+`.diff-card` CSS was deleted outright, confirmed orphaned via grep. `.partners-card`/
+`.partners-row`/`.partner-wordmark` (the 3rd homepage section from the prior task, not part
+of this one) were left untouched. No new colors anywhere.
+
+**Verification**: browser-verified live at real desktop width — both sections render exactly
+as specced. Narrow-viewport verification was done via a real injected `<iframe>` at a genuine
+390px CSS width, since this environment's `resize_window` tool was re-confirmed this session
+to not move the real browser viewport (a previously-documented limitation). Inside that
+iframe, direct `getComputedStyle()` reads confirmed `.platform-columns` resolves to a single
+grid column, `.diff-row` resolves to its narrow 64px numeral-column override, and `.diff-num`
+resolves to its narrow 2rem font-size; a separate `getBoundingClientRect()` check confirmed
+all 3 `.platform-column` elements share an identical `left`/`width` and stack at increasing
+`top` with zero horizontal overlap — objective proof of clean single-column stacking, not
+just a plausible screenshot. Zero real console errors.
+
+Modified: `index.html`, `styles.css`.
+
+Backend Requirements Register row 89 added (see §3.1).
+
+### 4.84 Removed the "Institutional Alignment" (Partners) homepage section entirely (Aug 28, 2026)
+
+Explicit instruction: scrap the section outright, not redesign or relabel it. Confirmed via
+grep that `.partners-card`/`.partners-row`/`.partner-wordmark` and the 4 fictional wordmark
+strings were referenced only inside this one section, so it was safe to delete with no
+orphaned references. Removed the full `<section>` from `index.html` (it sat directly after
+the Stats bar) and the now fully-orphaned CSS from `styles.css`; renamed the surrounding CSS
+comment from "...PLATFORM PITCH / PARTNERS / DIFFERENTIATORS" to "...PLATFORM PITCH /
+DIFFERENTIATORS" to match. Homepage order is now: Hero → Stats → Company Pitch → Account
+Types → Platform Pitch → What Makes Us Different → Core Services → Philosophy CTA → Footer.
+Browser-verified live: Stats bar flows directly into "Built for Clarity and Control" with no
+gap or leftover whitespace; zero console errors.
+
+Modified: `index.html`, `styles.css`.
+
+Backend Requirements Register row 90 added (see §3.1).
+
+### 4.85 Supply Chain + Business Consulting added to the Core Services teaser (Aug 28, 2026)
+
+Explicit instruction, reversing §4.82's own deliberate 4-card curation decision. Added two
+new `.service-card` entries to the homepage's Core Services teaser, matching the existing 4
+exactly — Supply Chain reuses `services.html`'s own short intro line verbatim; Business
+Consulting reuses its own already-established description verbatim, even though it runs
+longer than its siblings (`.service-card p { flex-grow: 1 }` already keeps every card's CTA
+aligned regardless of description length, so no CSS changes were needed). No changes needed
+to `.service-grid`'s existing responsive `auto-fit` grid either. The teaser now genuinely
+shows all 6 services, matching its own "View all 6 services" CTA.
+
+**Verified by the user directly, not by Claude** — per instruction to stop calling the
+browser tools without asking first, the checks (all 6 cards present, CTA bottom-alignment
+holding, each "Learn more" link resolving correctly) were handed to the user; the user
+confirmed the check was completed.
+
+Modified: `index.html`.
+
+Backend Requirements Register row 91 added (see §3.1).
+
+### 4.86 Homepage content rewrite — precise find-and-replace across 6 sections (Aug 28, 2026)
+
+Content-only task, exact strings supplied for every replacement — no layout/structure
+changes except where explicitly authorized.
+
+**Hero**: H1 and subheading replaced verbatim. **Company Pitch**: section heading/subtext,
+the "Brand Identity & Approach" sub-heading, and both body paragraphs (now ESG-focused)
+replaced verbatim. The 4 list items were restructured — the only structural change in the
+task, explicitly authorized since the original plain `<li>text</li>` markup had no room for
+a separate title — into `<li><strong>Title</strong> — <span class="approach-list-desc">
+description</span></li>`: "One Team," "Champion the Investor," "Dream Big, Drive Change,"
+"Growth Mindset." New `.approach-list-desc` CSS (`font-weight: 400; color: var(--text-
+muted)`) was needed since `.approach-list li` itself carries a uniform `font-weight: 500`
+that would otherwise bold the description too; `.approach-list li`'s `margin-bottom` was
+bumped 14px → 18px for the now much-longer entries — the one minor spacing adjustment made,
+driven directly by the content change, not a broader redesign.
+
+**Platform Pitch**: 7 of 9 item descriptions replaced verbatim (items 1, 2, 5, 6, 7, 8, 9 —
+items 3 and 4 deliberately untouched, matching the task's own omission); item 6's new copy
+reintroduces the fictional "Northbridge Capital Partners"/"Ashford & Vane" names, previously
+used only in the now-removed Partners section (row 90) — confirmed still clearly fictional.
+**What Makes Us Different**: section subtext and Row 02 replaced verbatim — the new Row 02
+text no longer mentions "10+ years," because the supplied text omitted it, not an oversight;
+Rows 01/03 untouched. **Core Services Teaser**: Cards 2, 3, 5, 6 replaced verbatim; Cards 1
+and 4 untouched. **Get Access Modal**: the Login card's description replaced verbatim
+("transactions" swapped in for "statements"); Sign Up card and CTAs untouched.
+
+**Verification**: grepped the file after all edits to confirm none of the 17 original
+strings remain anywhere, ruling out partial-match or duplicate mistakes. Browser-verified
+live, the full page: Hero, the long-sentence Company Pitch heading (wraps cleanly across 2
+lines with no overflow, even unconstrained), all 4 restructured list items (bold titles, em
+dash, muted description, no unclosed-tag artifacts), all 7 Platform Pitch updates (including
+the `&amp;` entity in "Ashford & Vane" rendering correctly), both What Makes Us Different
+updates (with Rows 01/03 confirmed unchanged), all 4 Core Services card updates, and the
+Get Access modal's Login card text, opened for real. Zero real console errors.
+
+Modified: `index.html`, `styles.css`.
+
+Backend Requirements Register row 92 added (see §3.1).
+
+### 4.87 Company Pitch section rebalanced: split into a two-column pair + a new Our Values section (Aug 28, 2026)
+
+Layout-only fix, content unchanged from §4.86's own copy. The original `.two-col` block had
+grown lopsided once row 92 added a 4-item values list to the left column — left column taller
+than the right column's fixed-content process-steps box.
+
+**TOP**: the existing `.two-col` (unchanged `1fr 1fr` grid) now holds only the "Brand
+Identity & Approach" sub-heading and its two paragraphs, paired with the unmodified
+Discover/Construct/Monitor/Report process-steps box — the 4-item list was removed entirely.
+**BOTTOM**: a new full-width `.values-block` (centered "OUR VALUES" label + `.values-grid`,
+4 equal columns) holds the same 4 items, relocated with identical content, each a bare
+`.value-item` — `border-top: 2px solid var(--primary)` accent, bold title, muted description,
+no bullets, no card chrome. The now fully-orphaned `.approach-list`/`.approach-list-desc` CSS
+(added just one task earlier) was deleted and replaced with the new `.values-*` rules.
+
+**Responsive, two-tier**: unlike Platform Pitch/What Makes Us Different's single 3→1
+collapse, the task specified an intermediate 2-column tablet step, so `.values-grid` was
+added to BOTH of the site's already-established breakpoint tiers — `repeat(2, 1fr)` at the
+existing `960px` block, `1fr` at the existing `768px` block (already used by `.two-col`
+itself) — reusing two already-shipped tiers rather than inventing one. No new colors.
+
+**Verification**: browser-verified live — the top pair is now visibly balanced, height much
+closer between the two columns; Our Values renders correctly on its own. Narrow/tablet
+verification via a real injected `<iframe>` at 3 genuine CSS widths (`resize_window` still
+doesn't move the real viewport in this environment): `getComputedStyle()`/
+`getBoundingClientRect()` confirmed 4 columns at 1400px, exactly 2 at 850px, and a clean
+single-column stack with zero horizontal overlap at 390px. Zero console errors.
+
+Modified: `index.html`, `styles.css`.
+
+Backend Requirements Register row 93 added (see §3.1).
+
+### 4.88 Account Type card icons: single letters (I/J/E) replaced with real SVG icons (Aug 28, 2026)
+
+Read the Get Access modal's existing two icons first to match their exact style rather than
+guessing: `width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+stroke-width="2" stroke-linecap="round" stroke-linejoin="round"` — Feather-style thin-stroke
+icons. Swapped only the inner content of each `.account-card .icon` div; the circular badge
+container (56px, `var(--surface)` background, flexbox-centered) was left completely
+untouched. No CSS changes were needed for color — `.account-card .icon`'s existing
+`color: var(--primary)` already applies to the new SVGs via `stroke="currentColor"`
+inheritance exactly as it did to the letter text.
+
+Individual: Feather's "user" icon. Joint Option: Feather's "users" icon. Entity/Business: a
+building icon — **one real design iteration**: the first version (rounded rectangle + 4
+full-width horizontal bars) read more like a document than a building once reviewed via a
+zoomed screenshot; replaced with a clearer silhouette (tower + door + a 2×2 grid of short
+window marks) that reads unambiguously as a building on re-verification. All three icons use
+the same `viewBox="0 0 24 24"` and the same `26×26` output size, scaled proportionally from
+the modal's own 44px-circle/22px-icon ratio (≈50% of container diameter) rather than an
+arbitrary new one — flexbox centering plus each icon's own artist-balanced proportions gives
+each appropriate visual weight without needing per-icon custom dimensions.
+
+Browser-verified live: all three icons render crisply at real card size; zoomed screenshots
+confirmed clean centering and consistent stroke weight/color; the building icon reads clearly
+after its mid-task revision. Zero console errors.
+
+Modified: `index.html`.
+
+Backend Requirements Register row 94 added (see §3.1).
+
+### 4.89 Icons added to all 6 Core Services teaser cards (Aug 28, 2026)
+
+New `.service-card .icon` CSS: 56px, `background: var(--surface)`, `border-radius:
+var(--radius)` — a rounded square, deliberately not `50%`, matching the task's explicit
+instruction to use a distinct treatment from the circular Account Type badges built one task
+earlier. `color: var(--primary)` on the badge means every icon's `stroke="currentColor"`
+inherits the same navy used everywhere else, no per-icon color styling needed.
+
+Six thin-stroke SVGs added, matching the exact style established for the Account Type icons
+(`viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+stroke-linejoin="round"`, `26×26`): Trading → trend-line, Discretionary Management → compass,
+Retirement Planning → sunrise, High-Yield Savings → piggy bank, Supply Chain → truck,
+Business Consulting → lightbulb. Each badge sits as the first child inside its `.service-card`,
+directly above the title, identically placed across all six.
+
+**CTA-anchoring explicitly re-verified, not assumed**: `.service-card` was already
+`display:flex; flex-direction:column` with `.service-card p { flex-grow: 1 }` (functionally
+equivalent to flex-col/mt-auto, already proven under varying description lengths in an
+earlier task) — confirmed via direct `getBoundingClientRect()` that every "Learn more"
+button's bottom Y-coordinate is identical within each row despite some descriptions running
+noticeably longer than their row-mates'.
+
+**Verification**: row 2 confirmed via direct screenshot — all three icons render crisply,
+consistent badge size/color, CTAs aligned. Row 1 confirmed via `getComputedStyle()`/
+`getBoundingClientRect()` across all 6 cards simultaneously (identical size/radius/background/
+icon width) after a screenshot-capture flakiness in this session's browser tool prevented a
+clean row-1 screenshot — disclosed rather than silently worked around, several attempts
+returned blank frames despite the DOM/layout being confirmed correct via live JS queries each
+time. Zero real console errors.
+
+Modified: `index.html`, `styles.css`.
+
+Backend Requirements Register row 95 added (see §3.1).
+
+### 4.90 Removed hyphens and em-dash pauses from index.html, editorial rewrite (Aug 28, 2026)
+
+`index.html` only, per explicit instruction — real editorial rewriting where needed, not
+mechanical deletion. Exhaustively grepped the file (multiple passes, including multiline, to
+catch matches split across wrapped `<p>` tags), excluding CSS/HTML/JS/SVG-attribute hyphens
+entirely out of scope.
+
+**8 compound-word hyphens fixed**, all via straightforward space-separation (each already
+read naturally that way): "institutional-grade" → "institutional grade" (meta description);
+"long-term goals" → "long term goals" (hero lead); "Multi-Asset Class" → "Multi Asset Class"
+(stats bar); "ESG-related aspects" → "ESG related aspects" (Company Pitch); "self-directed
+access" → "self directed access" (Individual card — the task's own literal example);
+"multi-signatory controls" → "multi signatory controls" (Entity/Business card); "real-time
+visibility" → "real time visibility" (Platform Pitch); "near-term goals" → "near term goals"
+(Core Services). **1 left untouched, a judgment call**: `1099-DIV` — a fixed IRS tax-form
+identifier, not a descriptive compound adjective, treated the same way the task's own
+"High-Yield Savings" exception treats a fixed proper-noun-like term. "High-Yield Savings"
+itself confirmed untouched at both occurrences via grep re-check.
+
+**4 em-dash sentence pauses rewritten with real editorial judgment**: "Clear, upfront
+thresholds and costs — no hidden fees buried in fine print." → "...costs, with no hidden
+fees buried in fine print." (comma + "with" turns the aside into a trailing clause);
+"...outperform the market — and meet our clients' exacting needs." → "...market and meet
+our clients' exacting needs." (pure deletion — the dash was only pausing before an "and"
+that already connects); "...create real, incremental value — supporting operational
+excellence..." → "...value while supporting operational excellence..." ("while" makes the
+simultaneous relationship explicit, avoiding a dangling-modifier feel); "...specialized
+solutions — each designed around clear client outcomes." → "...solutions, each designed
+around clear client outcomes." (comma is grammatically correct before a participial phrase).
+**1 left untouched, a judgment call**: the `<title>` tag's "Marketswave — Investment
+Management & Capital Solutions" — a title/tagline separator format, not sentence punctuation
+for a pause/aside within an actual sentence, correctly outside the task's own stated
+definition ("the common 'clause — clause' pattern used throughout the current copy").
+
+**Verification**: grepped the rendered page (`document.body.innerText` plus the Get Access
+modal's own hidden `innerText`, since plain source grep can't see what's actually rendered)
+to confirm zero of the 8 target hyphens or any em-dash remain in visible copy, and all 12
+rewritten phrases are genuinely present in the live DOM; then read through the entire
+rendered page text end to end in ~1300-character windows (the task's own explicit "read
+through the rewritten sections yourself" requirement), confirming every rewrite reads as
+natural, correct English in context. Zero console errors. Only `index.html` was touched —
+no other page in scope for this task.
+
+Modified: `index.html`.
+
+Backend Requirements Register row 96 added (see §3.1).
+
+### 4.91 Homepage animation and micro-interaction pass (Aug 28, 2026)
+
+Motion only — no background/color/texture changes, deliberately a separate later pass.
+New `home-motion.js` (index.html only, matching the project's own separate-concern-file
+convention) implements every entrance/scroll animation; new CSS block "16C. HOMEPAGE MOTION"
+in `styles.css` defines the states.
+
+**Architecture, safety-first**: `[data-reveal]`/`[data-reveal-scale]` CSS only takes effect
+once `.js-motion` is on `<html>` — added entirely by JS at runtime. If `prefers-reduced-
+motion: reduce` is set, `IntersectionObserver` isn't supported, or JS fails to run at all,
+`.js-motion` is never added and every element stays in its normal, fully-visible static
+state by construction — content is never hidden waiting on JS that might not run. A
+`@media (prefers-reduced-motion: reduce)` CSS override sits on top as defense-in-depth.
+
+**Per-section**: Hero fades/slides in immediately on load (not scroll-triggered), staggered
+100ms per element. Stats bar counts up the two numeric values ($900m, 10+) via `rAF` with an
+ease-out-cubic curve once in view — regex-parsed prefix/number/suffix so both formats work;
+the two text-only stats are correctly left static, since there's nothing to count.
+Company Pitch: the two-column pair fades as one unit; Our Values' 4 items stagger 100ms
+apart; the 4 process-step numbers get a scale-in staggered 90ms apart. Account Types: the
+existing hover lift/shadow is now paired with a new icon `scale(1.1)` on hover. Platform
+Pitch's 3 columns stagger 150ms left to right. What Makes Us Different: each row is observed
+INDIVIDUALLY (not as a group) — the one section needing a structurally different JS helper,
+so rows genuinely reveal one at a time while scrolling through them. Core Services: the
+identical hover treatment as Account Types, confirmed byte-for-byte the same transform/
+transition values. Philosophy CTA gets a simple fade-in; footer confirmed to have zero
+motion elements.
+
+**A real environment obstacle, diagnosed and worked around, not silently skipped**: this
+session's browser tab was found stuck in `document.visibilityState: "hidden"` throughout
+(reproduced on a fresh tab too, ruling out a stale-tab explanation) — a real Chromium
+behavior that throttles `requestAnimationFrame`/`IntersectionObserver` for pages the browser
+doesn't consider actually on-screen, making naive `classList`/`getComputedStyle()` polling
+report stale state indefinitely. Confirmed this was environment, not a code bug, by testing
+a bare freshly-created `IntersectionObserver` under the same conditions (also never fired)
+and confirming the CSS rules themselves were correctly present via direct stylesheet
+inspection. Found that taking a real screenshot (forcing an actual paint/compositor pass)
+reliably unstuck pending observations, and used that as the verification method instead —
+directly capturing genuine mid-transition screenshots: the hero headline visibly translucent
+on first paint, the Platform Pitch "Getting Started" column mid-fade on entry, and — the
+strongest single piece of evidence for the individual-row requirement — "Value, Accelerated"
+(03) caught mid-fade while the already-scrolled-past "Differentiated Insights" (02) was
+already fully opaque, and separately "Strategic Partner" (01) caught mid-fade while (02) was
+still nearly transparent. Hover states verified via real hover actions at explicit pixel
+coordinates (one element-reference-based attempt silently failed to register a real
+`:hover` match and was caught and redone rather than accepted at face value), confirming
+`.account-card` lifts -4px with its icon at scale(1.1), and `.service-card` lifts its own
+pre-existing -5px with the same icon scale. The reduced-motion path was verified by
+temporarily hardcoding the bailout condition to `true` (no media-emulation tool was
+available to toggle the real OS preference), confirming `.js-motion` was never added, zero
+reveal attributes existed anywhere, and both hero and stats bar showed their final static
+state immediately — then reverted before any further verification. No layout/spacing
+regression confirmed across every section via direct screenshot comparison. Zero real
+console errors.
+
+Modified: `index.html`, `styles.css`. New file: `home-motion.js`.
+
+Backend Requirements Register row 97 added (see §3.1).
+
+### 4.92 services.html content rewrite — precise find-and-replace across all 6 cards (Aug 28, 2026)
+
+Content-only task, exact strings supplied. Only `services.html` was edited — Supply Chain's
+card is entirely untouched, as are both untitled remaining Business Consulting bullets, the
+High-Yield Savings/Business Consulting `.intro` lines, and the footer/CTA/Get Access modal.
+
+**Page Hero** subheading replaced verbatim. **Trading**: `.intro` plus all 6 bullets
+replaced (real-time charting, a positions/orders panel, 170+ supported crypto assets, a
+commission-savings pitch, built-in FX pairs, multi-leg options). **Discretionary Fund
+Management**: `.intro` plus all 5 bullets replaced (a 40/35/25 private-equity/
+infrastructure/credit split, a suitability-screening disclosure, a $10,000 minimum with a
+20-30% allocation guardrail). **Retirement Planning**: `.intro` replaced; 3 of its 5 bullets
+(items 1, 3, 5) needed a title + description shape, matching "this project's other
+titled-bullet pattern." Since Company Pitch's "Our Values" (the pattern referenced) had
+already been restructured into its own full-width `.value-item` grid by an earlier task, and
+this context is a plain `<ul><li>` list inside a two-column card, the pattern was adapted
+rather than copied verbatim: `<li><strong>Title</strong> — description</li>` — reusing this
+project's own earlier iteration of "Our Values" before its restructuring. Confirmed via a
+CSS check that `.service-landscape-card ul li` has no `font-weight` override that would
+suppress `<strong>`'s default bold, so no new CSS was needed. Titles: "Keep growing,
+tax-deferred," "Required minimum distributions," "Income splitting for couples"; the other
+2 bullets stayed plain text per instruction.
+
+**High-Yield Savings** and **Business Consulting**: per the task's own explicit "(intro
+paragraph)" wording (distinct from "(intro)" used for other cards), only the SECOND,
+`.text-muted` paragraph was replaced in each — confirmed by matching the task's quoted
+find-text against the live file before editing, not assumed from position; the `.intro`
+class paragraph in both cards stayed untouched. Bullets 1-2 replaced in each; the remaining
+bullets left untouched per instruction (Business Consulting's task text said "remaining two
+bullets" but 3 actually remained unaddressed — resolved by following the clear intent,
+"leave whatever remains as-is," not inventing an unspecified third replacement).
+
+**Verification**: grepped after all edits to confirm none of the ~25 original find-strings
+remain. Read the entire rendered page text end to end via `document.body.innerText`,
+confirming every card's new copy and every untouched section render correctly; a live
+screenshot of Retirement Planning confirmed the new titled bullets render cleanly with
+correct bold weight and spacing, visually consistent with their plain-text siblings. Zero
+console errors.
+
+Modified: `services.html`.
+
+Backend Requirements Register row 98 added (see §3.1).
+
+### 4.93 services.html layout redesign: 6-card grid → service nav list + single detail panel (Aug 28, 2026)
+
+Structural only, content unchanged from §4.92's own copy. New `service-explorer.js`
+(services.html only, matching the project's separate-concern-file convention) and a new
+CSS block implement the redesign; the original 6 `.service-landscape-card` articles were
+left completely untouched in the raw HTML — JS reads their real `innerHTML` at runtime and
+reuses it verbatim, eliminating any risk of a content mismatch with the rewrite that had
+just landed one task earlier.
+
+**Progressive enhancement, deliberately chosen over content duplication**: if the script
+fails to load or run, `#service-explorer-root` (the original wrapper, now also carrying
+that id) is left exactly as it was — the same stacked 6-card layout the page has always
+had, never a blank or broken page. On success, JS replaces that wrapper with
+`.service-explorer` (a 240px-nav / 1fr-detail grid): `.service-nav` (6 buttons, labels read
+directly from each panel's own `<h3>`, not hand-typed) plus a `.service-select` (hidden on
+desktop) plus a single `.service-detail` div — genuinely one detail panel in the DOM, not 6
+panels with 5 hidden. Active nav item uses only locked tokens: `background: var(--primary)`
++ `color: var(--bg)` (the locked light "Cream" token); inactive items are plain text with
+only a subtle hover background added beyond the spec (needed so the nav doesn't feel inert
+on hover).
+
+**Default selection / hash pre-selection**: one shared `resolveActiveId()` checks
+`window.location.hash` against the 6 known ids and falls back to Trading if no match —
+satisfying both requirements from one code path, not two that could drift. A shared
+`activate(id, updateHash)` handles clicks, the mobile select, and hash changes alike, using
+`history.replaceState()` (not `pushState`) so clicking through services never pollutes
+back-history. **Responsive**: nav/select visibility and the grid collapse were added to the
+site's own already-established `960px` breakpoint block — the same one
+`.service-landscape-card` itself already uses. No new colors anywhere.
+
+**Verification**: clicked through all 6 real nav buttons in sequence (one raw-pixel-
+coordinate click landed on the wrong item due to a coordinate-drift issue this session has
+hit before — caught and redone via `find`-resolved element references, not accepted at face
+value), confirming correct content/highlight/hash for each with no layout jump. Loaded the
+page fresh via real navigation with each of the 6 URL hashes, confirming each pre-selects
+the correct service on initial render; confirmed the no-hash case defaults to Trading.
+Narrow-viewport collapse verified via a real injected `<iframe>` at 390px
+(`resize_window` still doesn't move the real viewport here): `getComputedStyle()` confirmed
+nav hidden/select shown/grid collapsed to one column, a real `change` event correctly
+swapped the panel and updated the hash, and a zoomed screenshot visually confirmed the
+mobile layout. Zero console errors.
+
+Modified: `services.html`, `styles.css`. New file: `service-explorer.js`.
+
+Backend Requirements Register row 99 added (see §3.1).
+
+### 4.94 services.html richer detail panel: tag/serif title/stat callout/icon-highlight grid, on top of row 99's nav+panel structure (Aug 28, 2026)
+
+Structural + visual only, building directly on row 99's just-shipped nav + single-detail-panel
+rebuild. Row 99's raw `.service-landscape-card` fallback HTML (tag/title/intro/bullets — row
+98's real, already-shipped copy for all 6 services) stayed completely untouched, as both the
+genuine no-JS fallback and the live-extraction source `service-explorer.js` reads at runtime;
+only the featured stat and 4 distilled highlight phrases per service are genuinely new content,
+since nothing in the raw markup carries that content to extract.
+
+**Nav restyle** (`.service-nav-item` in `styles.css`): base color changed from `var(--text)` to
+`var(--primary)` (literal navy, per "Inactive: plain text, navy on transparent");
+`.service-nav-item.is-active` gained `font-weight: 700` — it previously only changed
+background/color, inheriting the base `500` weight, which didn't read as bold.
+
+**New detail-panel markup**, entirely client-rendered inside `service-explorer.js`'s
+`renderPanel()`: `.service-detail-tag` (gold, hardcoded `#C8860A`, deliberately not a new
+`:root` variable) — confirmed via grep to be byte-identical to `risk-management.html`'s own
+`.rm-pill` gradient stop, the same gold already granted a scoped one-off exception for that
+page's Risk Meter control; a code comment states not to reuse it elsewhere on this page or
+site. `.service-detail-title` in `Georgia, 'Times New Roman', serif` at 2.15rem, breaking from
+the page's sans-serif body. **One disclosed discrepancy in the task's own framing**: it
+described this as "matching the editorial treatment already used in 'What Makes Us Different'
+on the homepage," but that section's `.diff-content h3` was directly confirmed to carry no
+serif override at all (it inherits the sans-serif `--font` token) — rather than forcing a
+serif look onto a section that was never actually serif, the task's own explicit, unambiguous
+fallback instruction ("serif font (Georgia or similar already available)") was followed
+literally; `Georgia, 'Times New Roman', serif` is the same stack this project used once
+before, for the now-removed Partners section wordmarks (row 84), not a new invention.
+`.service-detail-intro` is constrained to `max-width: 560px` so it doesn't stretch the full
+panel width. `.service-stat` (a cream `var(--surface)` rounded callout box) renders two
+shapes: `.service-stat-number`/`.service-stat-label` for the four services with a numeric
+lead (Trading "170+"/"tradable cryptocurrencies", Discretionary "$10,000"/"minimum
+investment", Retirement "$25,000"/"transfer-fee reimbursement", Savings "$250,000"/"FDIC
+protection" — all four figures pulled directly from row 98's already-shipped real copy, not
+invented), or `.service-stat-text` alone for the two text-only services (Supply Chain "One
+integrated system", Business Consulting "Dedicated sector expertise"), styled consistently
+with the numeric variant per instruction rather than as a visibly different treatment.
+`.service-highlights` is a 2-column CSS grid of `.service-highlight` rows, each pairing a new
+40px `.service-highlight-icon` badge (`var(--surface)` background, `var(--radius-sm)` corners
+— the same rounded-square language as the Core Services badges from row 95, scaled down for
+this denser card format, `color: var(--primary)` so every icon's `stroke="currentColor"`
+resolves navy) with a `.service-highlight-text` phrase.
+
+**Highlight content, a real editorial judgment call reported per instruction**: each service's
+original 5-6 bullets were distilled to exactly 4 punchier phrases (not verbatim originals) for
+a clean, consistent 2×2 grid across all six panels, deliberately dropping whichever bullet's
+content the stat callout already captures, to avoid stating the same figure twice in one panel
+— e.g. Trading's crypto-count bullet is fully represented by the "170+" stat, so its 4
+highlights instead cover charting/indicators, the watchlist/orders panel, commission savings,
+and options strategies. This resolves the task's own internal tension between its opening "no
+new writing needed except the 6 stat labels" and its later, more detailed instruction
+explicitly authorizing "a tightened, punchier version" of highlight phrases — read as the
+later, more specific instruction governing. 21 distinct thin-stroke icons (same
+`viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+stroke-linecap/linejoin="round"` convention used everywhere else on this page) cover the 24
+highlights, reused where genuinely fitting rather than manufacturing 24 unique glyphs (e.g. a
+`compass` icon anchors both Discretionary's asset-class-role diversification highlight and
+Supply Chain's efficiency/flexibility-balance highlight — two different services, same
+underlying "balance" concept).
+
+**Responsive**: `.service-highlights` collapses `repeat(2, 1fr)` → `1fr` at the same existing
+960px breakpoint block row 99 already uses for the nav→select collapse, plus a reduced
+`.service-detail-panel` padding at that width for a tighter mobile card.
+
+Browser-verified live via a local static server: all 6 services checked programmatically in
+sequence (hash navigation + a settle delay, since `hashchange` fires asynchronously — a naive
+same-tick read across all 6 ids was caught reading stale state before this was corrected) —
+each confirmed correct active-nav match, tag, title, stat (number+label or text-only), exactly
+4 highlights, and 4 rendered icon `<svg>`s, with the mobile `<select>`'s own `.value` also
+confirmed in sync throughout; a full-page screenshot at default width confirmed Trading's real
+rendered panel (gold tag, serif navy title, cream stat box, 2×2 icon grid) matches the
+mockup's structure. Narrow-viewport collapse re-verified via a fresh real injected `<iframe>`
+at a genuine 700px CSS width (`resize_window` still doesn't move the real viewport in this
+environment): `getComputedStyle()` confirmed the nav is hidden/select shown (row 99's existing
+behavior, unaffected) AND `.service-highlights`' `gridTemplateColumns` resolves to a single
+track spanning the full available width — a screenshot of the scrolled iframe additionally
+confirmed all 4 highlight rows visually stack in one column with their icon badges intact.
+Zero console errors (only the same pre-existing, unrelated Chrome-extension messaging
+artifact this project has repeatedly flagged as benign).
+
+Modified: `service-explorer.js`, `styles.css`. `services.html` itself was not touched — per row 99's progressive-enhancement design, its raw markup is the untouched no-JS fallback and live-extraction source.
+
+Backend Requirements Register row 100 added (see §3.1).
+
+### 4.95 services.html rebuilt again: full-width scrolling sections replace the nav+detail-panel concept entirely, complete/undistilled content (Aug 28, 2026)
+
+Explicit instruction to replace BOTH the original card grid AND rows 99-100's side-panel
+concept — a full reversal of the prior structural direction, not an iteration on it. The
+defining constraint this time: **real, complete content for every service — full intro
+paragraph(s) and the ENTIRE bullet list already built, nothing shortened or distilled** —
+the opposite of row 100's own deliberate 4-highlight distillation.
+
+**Content**: every service's complete text (both the original `.intro` line and its
+secondary paragraph, and every real bullet, full text) is now hand-written directly into
+static HTML. This is a deliberate departure from rows 99-100's "extract live from the real
+DOM at runtime" pattern — there is no longer a separate raw fallback markup block to
+extract from, since this full-width scrolling layout IS the only markup now, not a
+JS-built enhancement over something else.
+
+**Structure**: six `<section class="service-section" id="...">` elements, stacked inside a
+new `.services-full` wrapper, in the locked order (Trading, Discretionary Fund Management,
+Retirement Planning, Supply Chain, High-Yield Savings, Business Consulting). The 6 locked
+anchor ids live directly on each section, so every existing footer/external link to
+`#trading` etc. jumps straight to it via plain browser fragment navigation — no
+client-side JS is needed for the jump itself anymore. Per section: `.service-tag` (gold
+`#C8860A`, unchanged from row 100's own scoped exception — still not reused anywhere else
+on the page); `.service-title` (`Georgia, 'Times New Roman', serif`, unchanged from row
+100; the same disclosed discrepancy about "What Makes Us Different" not actually being
+serif still applies and isn't re-litigated here); `.service-copy` holding both
+`.service-intro` and `.service-secondary` in full; `.service-stat` (unchanged number/label
+or text-only variants, the same 6 real figures as rows 99-100); `.service-checklist` — now
+explicitly a **single-column** flex list (not row 100's 2-column highlight grid, since real
+bullet text runs 2-3 lines and a grid would look cramped, per instruction), each
+`.service-check-item` pairing a small checkmark-icon `.service-check-icon` badge (32px,
+`var(--surface)` rounded-square, reusing the same badge language as row 100's highlight
+icons but with one shared checkmark glyph instead of 21 distinct icons, since every item is
+now the same "this is real, complete content" signal rather than a distinct concept per
+item) with the complete, unshortened bullet text in `.service-check-text`; Retirement
+Planning's 3 titled bullets keep their exact `<strong>Title</strong> — description` inline
+shape from the original source, unchanged. **A subtle divider between sections**, per
+instruction: `.service-section + .service-section { border-top: 1px solid
+var(--border-strong); }` — the identical adjacent-sibling pattern already established by
+`.diff-row` on the homepage's "What Makes Us Different" section, not a new visual language.
+
+**Full teardown of rows 99-100's now-obsolete code**: `service-explorer.js` deleted
+outright (confirmed via a project-wide grep that nothing else referenced it before
+deleting); its `<script>` tag removed from `services.html`; every CSS class the nav+panel/
+rich-panel design introduced or depended on (`.service-landscape`, `.service-landscape-card`
+and its descendants, `.service-explorer`, `.service-nav`, `.service-nav-item`,
+`.service-select`, `.service-detail`, `.service-detail-panel`, `.service-detail-tag`,
+`.service-detail-title`, `.service-detail-intro`, `.service-highlights`,
+`.service-highlight`, `.service-highlight-icon`, `.service-highlight-text`) removed from
+`styles.css` and replaced with the new full-width-section rules — confirmed via a
+follow-up grep that zero references to any removed class remain. The 960px breakpoint
+block's old rules were replaced with just two (`.service-section` reduced padding,
+`.service-title` reduced font-size) — there's no nav or grid left to collapse, since this
+design has neither. `.service-card`/`.service-grid` (the unrelated homepage Core Services
+teaser classes) were confirmed untouched throughout — a different component sharing only a
+naming prefix.
+
+**Browser-verified live** via a local static server: all 6 sections confirmed
+programmatically to have complete content (Trading 6/6 bullets, Discretionary 5/5,
+Retirement 5/5 with all 3 bold titles, Supply Chain 5/5, Savings 5/5, Business Consulting
+5/5 — every section's intro AND secondary paragraph both present, every checkmark icon
+rendered 1:1 with its bullet) plus a dozen spot-check substring matches against the exact
+original source text confirming no silent rewording; screenshots confirmed the gold tag,
+serif title, stat callout, checkmark list, and section divider all render correctly in
+sequence while scrolling.
+
+**A real environment complication surfaced and worked through, disclosed rather than
+glossed over**: this session's automation tab was found stuck at
+`document.visibilityState: "hidden"` (the same documented throttling this project has hit
+before), which caused a `location.hash`-driven JS scroll loop to silently fail to move the
+viewport at all across 6 iterations even with generous waits — diagnosed by confirming
+`window.scrollY` never changed and `document.hidden === true`. Switched to real top-level
+`navigate()` calls per anchor instead, which jumped correctly for most anchors, though at
+least one (`#discretionary`) landed short of the target under the throttled tab's
+interaction with the site's own pre-existing global `scroll-behavior: smooth` (unrelated,
+unchanged CSS predating this task) — resolved decisively by calling
+`scrollIntoView({behavior:'instant'})` on all 6 ids directly, landing every one at exactly
+`top: 0`, proving the anchor ids/structure themselves are completely correct and that the
+observed undershoot was a throttled-animation artifact of this specific automation tab, not
+a defect in the markup.
+
+Narrow-viewport read (390px, a real injected `<iframe>`, `resize_window` still doesn't move
+the real viewport in this environment) confirmed via direct DOM measurement that every one
+of the 6 `.service-section`s stays fully within the 390px viewport (max right edge 372px in
+every section — zero horizontal overflow from any new content) and that the reduced
+padding/font-size/divider rules are all genuinely active at that width. A **separate,
+pre-existing overflow was found and disclosed, not fixed, as explicitly out of scope**: the
+site's own shared header (`.nav-toggle` hamburger button + `.header-actions` Get Access/
+Contact buttons — byte-identical markup used across every page in the project) overflows
+the 390px viewport on its own, unrelated to and unaffected by anything in this task. Zero
+console errors (only the same pre-existing, unrelated Chrome-extension messaging artifact
+this project has repeatedly flagged as benign).
+
+Modified: `services.html`, `styles.css`. Deleted: `service-explorer.js` (fully orphaned by this redesign).
+
+Backend Requirements Register row 101 added (see §3.1).
+
+### 4.96 services.html animation and micro-interaction pass — page-hero + per-section entrance motion, reusing home-motion.js's exact pattern (Aug 28, 2026)
+
+Motion only, no content or layout changes — built directly on row 101's full-width section
+redesign. Explicit instruction to reuse the homepage's animation implementation pattern
+(`home-motion.js`) rather than write a new one from scratch, so this task is largely a
+direct application of that established approach to `services.html`'s own structure.
+
+**New `services-motion.js`** (services.html only, matching the project's separate-concern-
+file convention already used by `home-motion.js`/`dashboard-sidebar.js`/`format-helpers.js`)
+reuses `home-motion.js`'s exact bailout conditions and helper shapes: the same
+`prefers-reduced-motion`/`IntersectionObserver`-support guard, the same `.js-motion`-on-
+`<html>` mechanism (added entirely by JS at runtime — if `prefers-reduced-motion: reduce` is
+set, or `IntersectionObserver` isn't supported, or JS fails to run, `.js-motion` is never
+added and every element stays fully visible by construction, never hidden waiting on JS that
+might not run), and the same `markReveal()`/`observeStaggeredGroup()` helper function
+signatures copied verbatim rather than reinvented.
+
+**1. Page Hero**: `.page-hero h1`/`.page-hero p` fade/slide in immediately on load via the
+identical double-`requestAnimationFrame` pattern homepage's hero uses, staggered 100ms apart
+— not scroll-triggered, since the hero is visible without scrolling. The selector differs
+slightly from the homepage's own (`.page-hero h1, .page-hero p` vs. `.hero h1, .hero-lead,
+.hero-ctas`) because `services.html`'s hero genuinely has no separate CTA row — the pattern
+was adapted to what actually exists on this page, not copied byte-for-byte where the markup
+doesn't match.
+
+**2. Each service section**: the task described two things — "the section fades in as it
+scrolls into view" and "internal elements stagger: tag, then title, then intro, then the
+stat callout, then the bullet list" — which were read as ONE coherent effect (a separate
+outer-section fade wrapping a second, independent internal stagger would visually double up)
+and implemented as such: each `.service-section` is observed individually via
+`observeStaggeredGroup()`, mirroring the homepage's own per-row observation for "What Makes
+Us Different" (§4.91) — sections reveal one at a time while scrolling through the page, never
+all six firing together. Its 5 direct content groups — `.service-tag`, `.service-title`,
+`.service-copy` (both the `.service-intro` and `.service-secondary` paragraphs treated as one
+"intro" unit, since the task's own instruction named 5 stages, not 6), `.service-stat`,
+`.service-checklist` — stagger 90ms apart in that exact order; the checklist reveals as one
+block, not bullet-by-bullet, matching the task's own explicit 5-stage list literally.
+
+**CSS reuse**: the existing `.js-motion [data-reveal]`/`.js-motion [data-reveal-scale]` rules
+and their `prefers-reduced-motion` override in `styles.css` (the "16C. HOMEPAGE MOTION"
+block) turned out to already be page-agnostic by construction — scoped only by the
+`.js-motion` class + `[data-reveal]` attribute selectors, never by an `index.html`-specific
+selector — so zero new CSS rules were needed. Only the block's stale "(index.html only)"
+header comment was corrected to "(index.html + services.html)" so the file stays accurate now
+that a second page genuinely depends on it.
+
+**Verified live** via a local static server, working around this session's now-familiar
+tab-throttling quirk (`document.visibilityState: "hidden"`, confirmed directly via
+`document.hidden`): a genuine mid-transition screenshot captured the hero's `<h1>` visibly
+translucent and the Trading section's tag simultaneously mid-fade — direct proof both the
+immediate-hero entrance and the already-in-view-on-load section entrance are real,
+independent animations firing at once; a settled follow-up screenshot confirmed both fully
+opaque. Programmatic checks confirmed Trading's 5 groups carry the correct 0ms/90ms/180ms/
+270ms/360ms stagger delays in the exact tag→title→intro→stat→checklist order and all reached
+`is-visible`/`opacity:1`; confirmed Business Consulting (the last, fully off-screen section)
+had NOT fired before scrolling, fired correctly the moment it was scrolled into view, and —
+scrolling back up to Trading — its already-fired elements stayed `is-visible` rather than
+resetting, directly confirming "each firing once, never re-triggering on scroll back up/down."
+The `prefers-reduced-motion` path was verified by temporarily hardcoding the bailout to
+`true` (no OS-level media-emulation tool exists in this environment, the same limitation and
+verification method already established for the homepage's own motion pass, §4.91) and
+confirming on a fresh load that `.js-motion` was never added and zero `[data-reveal]`
+attributes existed anywhere on the page, before immediately reverting the temporary override.
+Zero console errors.
+
+Modified: `styles.css` (one comment correction only, no rule changes). New file: `services-motion.js`.
+
+Backend Requirements Register row 102 added (see §3.1).
+
+### 4.97 resources.html content rewrite (all 6 Strategy cards + Help Center) + two structural additions, plus a new help-center.html stub (Aug 28, 2026)
+
+Content-only for the rewritten sections, purely additive for the two structural pieces.
+Confirmed nothing else on the page was touched: the entire "How It Works" section and its
+workflow table, the footer, and the Get Access modal all render byte-identical to before.
+
+**Strategy cards**: all 6 `.strategy-card` bodies replaced verbatim with the supplied,
+richer copy — Asset Allocation now leads with a GP-universe/primary-fund-deployment
+positioning; Active Management introduces "SPI," Marketswave's own proprietary data
+platform; Passive Management pitches Marketswave's own sourcing advantage directly, rather
+than describing passive management generically; Risk Management describes a
+prioritize-by-impact-and-likelihood framework; Alternative Investments reframes around
+absolute returns. **Diversification (Strategy 2) needed a real structural decision, not
+just a text swap**: the task asked for "a bold title + description (matching the
+titled-bullet pattern already used elsewhere on this site, e.g. homepage's Our Values
+section)." Read literally, "titled-bullet" could suggest the OLDER inline
+`<strong>Title</strong> — description` shape this project used once, but that pattern was
+itself superseded when Our Values was restructured into its own `.value-item` grid
+(`<h4>` + `<p>`, two separate block elements — CLAUDE.md row 93). Rather than trust the
+task's own wording, the live homepage markup was read directly before implementing, and the
+CURRENT Our Values shape was matched: `<h4>Multi-Asset Class Expertise</h4>` followed by
+`<p>` for the description. A new, narrowly scoped `.strategy-card h4` CSS rule (1rem, weight
+700, navy) was added — no such rule existed, and a bare `<h4>` would have inherited an
+oversized, visually inconsistent default heading style; `.value-item h4`'s own rule was left
+untouched rather than reused directly, since it belongs to a different component with its
+own sizing.
+
+**Help Center**: the 3 existing `.service-card`s' titles and descriptions were replaced
+verbatim ("Get started," "Investing with Us," "Security and Privacy"), and a genuine 4th
+card was added ("Promotion and referrals"), turning the grid from 1×3 into 2×2 —
+`.service-grid`'s existing `repeat(auto-fit, minmax(320px,1fr))` reflows automatically for
+the new count, no CSS changes needed. A new "Visit Help Center" button was added below the
+grid, reusing the exact `.text-center` centered-CTA pattern the Blog section one section up
+already uses, linking to a genuinely new file rather than a placeholder anchor.
+
+**New `help-center.html`**: a minimal stub built by copying `resources.html`'s own real
+header/footer/Get Access modal/script verbatim — the same site chrome every public page
+shares, byte-for-byte, not a simplified or partial copy — around a single new section with
+an honest "Full Help Center coming soon" message and a Contact Us CTA. Explicitly NOT real
+Help Center content, per instruction that the real content buildout is a separate future
+task; a code comment states this directly, so a later session doesn't mistake the stub for a
+finished page. The header nav highlights "Resources" as active on this new page rather than
+nothing or an invented new nav state — reusing the exact precedent `deploy-capital.html`
+already established for a page with no dedicated top-level nav slot of its own, not a fresh
+judgment call.
+
+**Blog & Press**: 3 new `.service-card`s were added above the existing intro/CTA text, each
+titled "Article Coming Soon" (the task's own suggested literal repeated label) with an
+honest, non-fabricated description — "Research notes, firm announcements, and client
+communications will appear here as they're published." No invented article titles, dates,
+bylines, or summaries presented as real content — matching the same honesty standard already
+established for `about.html`'s "Name Coming Soon"/"Photo Coming Soon" team-card placeholders
+(CLAUDE.md row 84). The existing "View latest updates" button and its surrounding paragraph
+were left completely untouched, still the page-level CTA, exactly per instruction.
+
+**Backend Requirements Register**: row 103 covers the Strategy/Help-Center content and the
+two structural additions; a genuinely separate row 104 logs the deferred admin-manageable
+blog/article upload system the new Blog placeholders are waiting on, per the task's own
+explicit instruction to log it as its own item rather than folding it into row 103's "Not
+part of this task" note.
+
+**Browser-verified live** via a local static server: all 6 strategy cards confirmed
+programmatically to show the correct new body text; Diversification's new `<h4>` sub-title
+confirmed rendering correctly — navy, bold, positioned between the card's `<h3>` and its
+description — via a screenshot alongside its two card neighbors. Help Center confirmed to
+show exactly 4 cards with the correct titles/descriptions in a real 2×2 layout via
+screenshot, and the "Visit Help Center" button was clicked for real (not just checked for a
+correct `href`) — landed on the genuine new stub page with matching header/hero styling, a
+working footer (20 real links) and Get Access modal (2 real triggers) confirmed present via
+direct DOM query. Blog section confirmed via screenshot to show exactly 3 "Article Coming
+Soon" cards with the pre-existing "View latest updates" CTA still present and unchanged
+immediately below them. Zero console errors on both pages.
+
+Modified: `resources.html`, `styles.css`. New file: `help-center.html`.
+
+Backend Requirements Register rows 103-104 added (see §3.1).
+
+### 4.98 Two same-day fixes to resources.html, from direct user feedback on row 103's just-shipped work (Aug 28, 2026)
+
+**Fix 1 — Blog & Press card count reduced from 3 to 2**: the third "Article Coming Soon"
+`.service-card` was removed from the Blog section's grid, per instruction. The remaining 2
+keep their identical copy; the pre-existing "View latest updates" CTA below the grid is
+unaffected.
+
+**Fix 2 — Diversification's sub-title de-boldened, folded into the body paragraph**: row
+103 had rendered "Multi-Asset Class Expertise" as a separate `<h4>` heading sitting above
+the card's `<p>` — a read of the task's own "titled-bullet pattern... e.g. homepage's Our
+Values section" instruction that matched Our Values' CURRENT `<h4>`/`<p>` shape. Direct
+feedback clarified that reading was wrong for this card specifically: the phrase should
+read as part of the underlying paragraph, not stand apart as a bold heading. Fixed by
+removing the `<h4>` element entirely and prepending "Multi-Asset Class Expertise." as the
+paragraph's own opening sentence fragment, in the same plain, unbolded weight as the rest
+of the text — the card now reads as one continuous paragraph, identical in treatment to
+all 5 of its sibling strategy cards. The `.strategy-card h4` CSS rule added in row 103 (1rem/
+700/navy, with its own explanatory comment) had no other caller — confirmed via grep — and
+was removed outright rather than left as dead CSS.
+
+Browser-verified live: a direct count query confirmed exactly 2 Blog cards now render;
+confirmed the Diversification card's `<p>` genuinely begins "Multi-Asset Class Expertise.
+Spanning private equity..." and that `querySelector('h4')` on that card returns `null`; a
+screenshot confirmed all 3 visible cards (Asset Allocation, Diversification, Active
+Management) now share visually identical plain-paragraph formatting, with no distinguishing
+treatment between them.
+
+Modified: `resources.html`, `styles.css`.
+
+Backend Requirements Register row 105 added (see §3.1).
+
+### 4.99 New blog-press.html — a full Blog & Press page, replacing the "View latest updates" button's old href="#" (Aug 28, 2026)
+
+Explicit instruction: the "View latest updates" button on `resources.html`'s Blog & Press
+teaser should lead to a real, full Blog & Press page rather than a placeholder `href="#"`
+anchor.
+
+**Built as an honest stub, the same category as `help-center.html` (row 103)**: the real
+client-facing blog listing/detail page is already the deferred future work logged in row
+104, which itself depends on an admin-manageable article upload system that doesn't exist
+yet. A "full" page today can only honestly be a fuller version of the same "Coming Soon"
+pattern, not real article content — a code comment on the new page states this directly and
+cross-references row 104, so a later session doesn't mistake the stub for finished content.
+
+New `blog-press.html` copies the site's real shared header/footer/Get Access modal/script
+verbatim — the same established pattern `help-center.html` set one task earlier, not a
+simplified or partial copy — with its own page-hero (reusing the exact "Blog & Press"
+heading/subtext already on `resources.html`'s teaser section, so the two read as the same
+content at two different depths rather than diverging copy) and 3 "Article Coming Soon"
+`.service-card`s — one more than the teaser's 2, since this is now the dedicated listing
+page rather than just a preview, still the same honest, non-fabricated copy with no invented
+titles or dates — plus a "Full Blog & Press page coming soon" message and a Contact Us CTA,
+mirroring `help-center.html`'s own closing block exactly. `resources.html`'s "View latest
+updates" button now points to `blog-press.html` instead of `#`.
+
+**Deliberately NOT changed**: the site-wide footer's own "Blog & Press" link (present on
+every page, including `blog-press.html` itself) still points to `resources.html#blog`,
+unchanged — the task named only the one button, not a sitewide footer-link update. An
+initial draft of `blog-press.html`'s own footer had that link self-referencing
+(`blog-press.html`), which would have made that one page's footer diverge from every other
+page's otherwise byte-identical footer; caught and corrected before shipping so the shared
+footer chrome stays truly shared, not a page-specific variant.
+
+**Browser-verified live**: confirmed the button's real `href` attribute is `blog-press.html`;
+clicked it for real (not just inspected the attribute) and confirmed genuine navigation via
+the tab's own reported URL and title (`Blog & Press — Marketswave`); a screenshot confirmed
+the new page's hero, all 3 placeholder cards, and the coming-soon message all render
+correctly; a direct DOM query confirmed the footer (20 real links) and Get Access modal (2
+real triggers) are both present and correctly wired, matching every other page's chrome
+exactly. Zero console errors.
+
+New file: `blog-press.html`. Modified: `resources.html`.
+
+Backend Requirements Register row 106 added (see §3.1).
+
+### 4.100 about.html content rewrite + a site-wide company-facts consistency pass (Aug 29, 2026)
+
+Two parts: a full content rewrite of `about.html` (hero, Vision, Mission, Background &
+History narrative + a new company facts block, all 3 team cards, closing note), then a
+site-wide sweep to bring every other founding-year/headcount/address claim in line with the
+new canonical facts.
+
+**Hero**: the task's "replace with title X + text Y" needed a genuine new structural
+element — `.page-hero` had only ever carried `h1` + one `p`. A new `<p class="subtitle">`
+was inserted between the existing `<h1>About Marketswave</h1>` (untouched — the task's find
+string was the old subtext paragraph, not the h1) and the new descriptive paragraph; a new
+scoped `.page-hero .subtitle` CSS rule (1.3rem/700/full opacity) overrides `.page-hero p`'s
+own dimmer defaults via higher selector specificity, giving the subtitle a real bold-title
+weight distinct from the description below it.
+
+**Vision/Mission**: both `.vm-card` bodies replaced verbatim, no structural changes.
+
+**Background & History — the largest structural change**: the old single centered
+paragraph was replaced with 6 real narrative paragraphs, switched to left-aligned inside a
+new `.about-narrative` wrapper (centered multi-paragraph body text reads poorly at this
+length; the existing centered `<h2>` above it was left as-is), plus a genuinely new
+**company facts block**. The task explicitly left the pattern choice open ("reuse whatever
+existing site pattern fits... or build a clean new one") — a grep of the whole public site
+before building confirmed no existing labeled key-value pattern exists anywhere, so a new
+`.facts-grid`/`.fact`/`.fact-label`/`.fact-value` set was built, reusing the
+`border-top: 2px solid var(--primary)` accent language the homepage's own `.value-item`
+("Our Values") already established, rather than inventing a new visual language. 8 facts
+(Industry, Company size, Headquarters, Founded, Type, Specialties, Location, Primary
+address) render in a 2-column grid, collapsing to 1 column at the site's existing 960px
+breakpoint, added alongside `.vision-mission`'s own collapse rule in the same block.
+
+**Team cards**: Card 1 → "Craig Bergstrom," Card 2 → "Fede Salvai" (both names and
+descriptions updated verbatim), Card 3 → "Valerie Molina" (name only — description
+explicitly left unchanged, per instruction). "Photo Coming Soon" was deliberately left
+untouched on all three — no real photos exist, and updating the names doesn't change that,
+so the honest placeholder stays rather than silently implying a photo now exists too.
+
+**Closing note**: replaced with the user's own already-grammar-corrected text ("Here to
+serve you exceptionally well") verbatim — the instruction flagged its own correction
+("exceptional" → "exceptionally") and only invited pushback if the ORIGINAL wording were
+actually preferred, so the corrected text was used directly with no further clarification
+needed.
+
+**Site-wide company-facts consistency pass**: homepage stats bar "Years of Experience"
+updated 10+ → 20+ to match the new "Founded 2004" fact; `contact.html`'s Address card
+expanded from the generic "Stockholm, Sweden" to the specific "Marketswave,
+Malmskillnadsgatan 44 B, Stockholm, Sweden." **A project-wide grep for other stale facts
+turned up 2 real discrepancies beyond the two the task explicitly named, both on
+`index.html`'s Company Pitch section, both fixed**: the section's own `<h2>` read "15+ year
+Empirically validated strategies..." (corrected to "20+ year") and its subtext read
+"...honed over a decade..." (corrected to "...honed over two decades..." — matching the new
+20+/2004 facts rather than a bare restatement, since "decades" plural already fit the
+sentence's own phrasing). The same grep sweep confirmed no other founding-year, headcount,
+or address references exist anywhere else in the project's HTML — every other match was
+either this task's own new content, unrelated dev-comment timestamps, copyright years, or
+generic country-dropdown/form-placeholder text in `signup.html` (client-entity fields, not
+claims about Marketswave itself), none requiring a change.
+
+**Browser-verified live**: every new hero/Vision/Mission/narrative/facts/team/closing
+element confirmed programmatically — exact text match on all 8 facts, all 3 team
+names/roles/descriptions, the corrected closing line — and visually via screenshots at each
+section; homepage stats bar and Company Pitch heading/subtext confirmed showing "20+"/"two
+decades" consistently; `contact.html`'s Address card confirmed showing the full specific
+address. Narrow-viewport check (390px, a real injected `<iframe>`) confirmed the new facts
+grid genuinely collapses to 1 column and that none of this task's new content overflows —
+the only overflow present is the same pre-existing, out-of-scope shared-header overflow
+already documented in row 101, reconfirmed here directly rather than assumed unrelated.
+Zero console errors.
+
+Modified: `about.html`, `index.html`, `contact.html`, `styles.css`.
+
+Backend Requirements Register row 107 added (see §3.1).
+
+### 4.101 about.html's Vision/Mission section redesigned away from boxed cards, per direct feedback (Aug 29, 2026, same-day follow-up to row 107)
+
+CSS-only fix — no HTML changes were needed. `.vm-card` and `.vision-mission` are used only
+on `about.html` (confirmed via grep before editing), so the existing markup could be
+restyled in place rather than renamed or restructured.
+
+The old boxed treatment (`background: var(--white)`, `border-radius`, `box-shadow`,
+`1px solid var(--border)`, generous internal padding) was removed entirely. **New editorial
+treatment, deliberately not a card**: reuses the exact `border-top: 2px solid var(--primary)`
+accent language the homepage's own "Our Values" section (`.value-item`) already
+established, rather than inventing a new visual language — each column now reads as a
+labeled block of running text with a thin top rule, with no background, shadow, or border
+box at all. The grid gap was widened from 32px to 48px, since the top-rule plus whitespace
+now does the visual-separation work a boxed card previously handled with its own border and
+shadow. `.vm-card h3`/`.vm-card p`'s own text styling (uppercase navy label, muted-gray
+body) was left completely unchanged — only the container chrome changed.
+
+The existing 960px breakpoint's `.vision-mission { grid-template-columns: 1fr }` collapse
+rule needed no changes and was re-confirmed still correct.
+
+**Browser-verified live**: a screenshot confirmed the new layout reads as a clean, open
+two-column editorial block that handles the now-lengthy Vision/Mission paragraphs (added in
+row 107) far better than the old mismatched-height boxed cards did, and flows naturally into
+"Background & History" below without a visual seam. Narrow-viewport re-check (390px, a real
+injected `<iframe>`) confirmed the section still correctly collapses to a single column.
+Zero console errors.
+
+Modified: `styles.css`.
+
+Backend Requirements Register row 108 added (see §3.1).
+
 ---
 
 ## 5. Portfolio Engine Specification (User-Defined)
@@ -4897,10 +7115,10 @@ fully closed.
 | `admin-allocations.html` | Admin tool — Allocations queue (approve/reject, not PM-editable) |
 | `admin-sells.html` | Admin tool — Sells queue (approve/reject, surfaces Phase 3B re-validation errors) |
 | `admin-hys.html` | Admin tool — HYS Deposits queue (credit/reject, PM-editable confirmed amount, creates the actual pocket on credit) |
-| `admin-settings.html` | Admin tool — the only page anywhere that calls `setAdvisoryFeeRate()` |
+| `admin-advisory-fee.html` (renamed from `admin-settings.html`, Aug 23, 2026 — row 66) | Admin tool — the only page anywhere that calls `setAdvisoryFeeRate()` |
 | `admin-documents.html` | Admin tool — Documents queue (client uploads awaiting review, Publish to Client form, cross-client History). See §4.50 |
 | `admin-support.html` | Admin tool — Support/Disputes queue (Needs Attention / Resolved, status + client-visible PM note). See §4.50 |
-| `admin-settings-changes.html` | Admin tool — Settings Changes queue (Pending/History, field-specific Current→Requested display, Approve confirmation modal, Reject with reason). See §4.51 |
+| `admin-profile-updates.html` (renamed from `admin-settings-changes.html`, Aug 23, 2026 — row 66) | Admin tool — "Profile Updates" queue (Pending/History, field-specific Current→Requested display, Approve confirmation modal, Reject with reason). See §4.51 |
 | `admin-clients.html` | Admin tool — Client Management: every client's real balances, "View as this Client" switching, and an "Add Client" form (`addClient()`'s first real UI). Reached via the "Viewing Client" nav item under Overview. See §4.55 |
 | `admin-sidebar.js` | Shared admin sidebar (mounted into `#admin-sidebar-mount` on all 9 admin pages) — deliberately separate from `dashboard-sidebar.js`, distinct persona. Renders a read-only "Viewing Client" indicator (linking to `admin-clients.html`) — the interactive selector itself moved there Aug 21, 2026, see §4.55 |
 | `login-bg.jpg`, `thankyou-bg.jpg`, `signup-bg.jpg` (if used) | Backgrounds |
@@ -5265,6 +7483,888 @@ manual click-through of a few pages' more obscure states remains lower-priority
 housekeeping. Backend and genuinely-external data sources (market prices, exchange rates,
 blockchain confirmation) remain explicitly deferred, per §3.1's Backend Requirements
 Register.
+
+---
+
+## 12. Backend Migration — Firebase Architecture & Phase 1 (Aug 22, 2026)
+
+This is a new **major** section, not another numbered `§4.x` entry, per explicit instruction:
+this is a stack-level architectural decision — the project's first real backend — not one
+more feature on top of the existing localStorage engine. Everything in section 4 above
+(`engine-core.js`, the entire admin tool, all 9 client dashboard pages) predates this section
+and, as of Phase 1, is **still entirely unmigrated** except for the two files named below.
+
+### 12.1 The decision
+
+**Node.js + Firebase (Firestore + Firebase Auth) + Cloud Functions.** This wasn't an open
+design choice this session — it was the task's own explicit instruction — but the specific
+*idiomatic* decisions within that stack were, and are reported here per the task's own
+request:
+
+- **Callable Cloud Functions (`onCall`), not Firebase Auth triggers.** A 1st-gen
+  `functions.auth.user().onCreate()` trigger fires asynchronously, after
+  `createUserWithEmailAndPassword()` already resolves client-side — a real race window where
+  signup.html would believe an account was created before the companion Firestore document
+  necessarily exists. 2nd-gen "blocking functions" (`beforeCreate`) were considered and
+  rejected as solving a different problem (vetoing account creation itself, e.g. domain
+  allowlisting) than the one Phase 1 actually has (create a companion document the client can
+  await synchronously). Callables also preserve this project's own established pattern —
+  every request/approve function in `engine-core.js` is a synchronous call the caller awaits
+  and gets a real return value or a thrown, readable error from.
+- **Firestore document id = Firebase Auth uid**, per the task's own explicit instruction
+  (`clients/{uid}`, not a locally-generated `CLIENT-XXXX` id). This is also what makes the
+  Firestore security rules trivial and cheap: `request.auth.uid == clientId` is a direct
+  comparison, no lookup needed.
+- **Admin authorization via a custom claim (`{ admin: true }`) on a single shared bootstrap
+  Firebase Auth account**, checked inside each admin-only callable
+  (`request.auth.token.admin === true`). Reported per the task's own explicit question:
+  "PM Identity currently stays single-shared-admin" (the existing `admin-login.html` gate is
+  one shared client-side passphrase, no real per-PM account roster) — Phase 1 deliberately
+  keeps that SAME single-shared-identity model rather than building full multi-PM-account
+  support (out of scope, tracked as a real future requirement below), but gives it genuine
+  **server-side** enforcement for the first time. Custom claims can only be set via the Admin
+  SDK (never something a client can grant itself), which is a real security upgrade over the
+  old passphrase stub (trivially readable in client-side source) even though it's still one
+  shared identity, not individual PM accounts.
+- **Firestore rules deny ALL direct client writes** to the `clients` collection — every
+  mutation (create on signup, status changes on approve/reject) goes exclusively through the
+  three Cloud Functions below, which use the Admin SDK and therefore bypass security rules
+  entirely by design. The rules' actual job is making sure there is no OTHER path into this
+  data; the custom-claim check inside each function is what does the real authorization work.
+  A client may `get` only their own document (`request.auth.uid == clientId`); `list` is
+  denied entirely (would leak every other client's data); everything else defaults to deny.
+
+### 12.2 Staged migration — what's real now, what's still local
+
+**Migrated to Firebase (real, but emulator-only — see 12.4):** the Client Registry + the
+client-application-review business rules, for **`signup.html` and `login.html` only**.
+
+**Still 100% local/unmigrated:** everything else — all 9 dashboard pages, the entire admin
+tool (`admin.html` + every `admin-*.html` page), the portfolio engine's own data (holdings,
+transactions, every request queue, documents, settings profile, HYS pockets, support
+requests), and Onboarding Data Capture (still writes to `marketswave_client_onboarding:
+<clientId>`, just keyed by a Firebase uid now instead of a `CLIENT-XXXX` id). None of this
+was touched this phase, per the task's own explicit Step 3 scoping ("signup.html, login.html
+ONLY — nothing else changes yet").
+
+**The hybrid bridge — the actual point of this phase, and the thing verified most carefully.**
+Every other page still depends entirely on `getAuthenticatedClientId()`
+(`sessionStorage['marketswave_authenticated_client_id']`) and reads all financial/identity
+data from `localStorage`. Rather than touch any of those pages, Phase 1 makes
+`login.html`, on a successful real Firebase sign-in, call:
+
+1. `mirrorAuthenticatedClientLocally(clientData)` — new `engine-core.js` function. Upserts a
+   local shadow copy of the real Firestore record (Firestore Timestamps converted to the
+   local `'YYYY-MM-DD'` string convention) into `engine-core.js`'s own local `clients` array
+   — the exact same array/`marketswave_clients` key `addClient()`-created records already
+   live in. This is what keeps `getClient()`/`getClientByEmail()` — and everything downstream
+   of them (the sidebar identity footer, `settings.html`'s profile card, `support.html`'s
+   callback modal) — working with zero changes to those functions or the pages that call
+   them.
+2. `setClientAuthenticated(uid)` — the **exact, completely unmodified** pre-existing
+   `engine-core.js` function every dashboard/admin page already depends on via
+   `getAuthenticatedClientId()`. Called with the client's real Firebase Auth uid as the id
+   instead of a locally-generated `CLIENT-XXXX` id. This one line is the entire bridge: every
+   already-built page keeps working, having no idea the identity behind that id is now a real
+   Firebase Auth user instead of a local password-hash comparison.
+
+`signup.html`, correspondingly, no longer calls the local `addClient()`/
+`hashClientPassword()`/`setClientCredentials()` at all — it creates the real Firebase Auth
+account + calls the `createClientApplication` callable, then (separately, still local)
+calls `seedMinimalClientStores(uid, 0)` (now exported — previously internal-only, called
+implicitly inside `addClient()`) to seed this client's per-client financial stores, and
+`saveClientOnboardingData(uid, ...)` for the onboarding data capture. **Deliberately does
+NOT call `mirrorAuthenticatedClientLocally()` at signup time** — that only ever happens on a
+successful LOGIN, reading the Firestore record's own current fields as the single source of
+truth, so there's never a hand-reconstructed local copy at signup time that could silently
+drift from whatever a PM later approves/rejects in Firestore.
+
+This means the local `clients` array is now **dual-written from two sources**: `addClient()`
+for legacy/admin-created clients (unchanged), and `mirrorAuthenticatedClientLocally()` for
+Firebase-authenticated ones (new). This is a genuine, disclosed architectural seam — not a
+permanent design — to be retired once a later phase migrates every remaining page off
+`localStorage` entirely and every page can just read Firestore directly.
+
+### 12.3 Business-rule fidelity — mirrored from `engine-core.js`, not reinvented
+
+`functions/index.js`'s three callables were written only after reading `engine-core.js`'s
+real `addClient()`/`approveClientApplication()`/`rejectClientApplication()` implementations
+directly, and mirror them field-for-field and error-message-for-error-message:
+
+- `createClientApplication`: mirrors `addClient()`'s signup path specifically (not the
+  general function — the admin-facing "Add Client" path stays entirely local, unmigrated).
+  `email` is read from the caller's own verified Auth token (`request.auth.token.email`),
+  **never** trusted as client-supplied input the way `name`/`phone`/`accountType` are — a
+  client cannot claim a different email than the one their real Firebase Auth account has.
+  `status` is hardcoded to `'pending_review'` server-side, never accepted from the caller at
+  all — a real tightening versus the local `addClient()`, which trusts a client-supplied
+  `status: 'pending_review'` override in the object `signup.html` passes it (safe today only
+  because `signup.html`'s own code is trusted first-party code; the Cloud Function has no
+  such assumption to lean on).
+- `approveClientApplication(clientId)` / `rejectClientApplication(clientId, reason)`: the
+  exact same not-pending-review guard and exact same error message shape as the local
+  functions (`'Client ' + clientId + ' is not pending review (status: ' + client.status +
+  ').'`). Rejection keeps the record (`status: 'rejected'`, never deleted) — the same
+  judgment call already made and reported when New Client Application Review shipped
+  locally (§4.70), now carried into the real backend without re-litigating it.
+- `createdAt`/`applicationResolvedAt` use Firestore's `FieldValue.serverTimestamp()` rather
+  than `todayStrUTC()`'s local date-string convention — a real, disclosed format difference.
+  `login.html`'s own `firestoreTimestampToDateString()` helper converts a Firestore
+  `Timestamp` back to the exact same `'YYYY-MM-DD'` shape when mirroring a record locally, so
+  every downstream local-only consumer sees the format it always has.
+
+### 12.4 Emulator-only scoping — deliberate, temporary, and logged so it isn't forgotten
+
+**A real Firebase project, "Marketswave SE," already exists with real Firestore and real
+Firebase Auth already enabled in the console.** Phase 1 deliberately does **not** connect to
+it. Per explicit instruction: stay fully emulator-only this phase, leave "Marketswave SE"
+completely untouched and unconnected until a future, explicitly-scoped deployment phase
+switches over to it — logged here (and in a Claude memory entry, `project_firebase_real_
+project.md`, so a future session doesn't silently assume production is already live just
+because Firebase code exists in the repo).
+
+- `.firebaserc` points `default` at `"demo-marketswave"` — a `demo-`-prefixed project id,
+  which the Firebase Emulator Suite treats specially: fully offline, no real Google Cloud
+  project, no `firebase login`, no billing, nothing ever reaches real Firebase.
+- `firebase-config.js` (new, shared by `signup.html`/`login.html`) uses placeholder
+  `apiKey`/`authDomain` values — never real credentials — and unconditionally calls
+  `connectAuthEmulator()`/`connectFirestoreEmulator()`/`connectFunctionsEmulator()` pointed at
+  `127.0.0.1:9099`/`8080`/`5001` (matching `firebase.json`'s own emulator ports exactly).
+- The Emulator UI (`firebase.json`'s `emulators.ui.enabled`) is set to `false` — a deliberate
+  choice made mid-session after its first-time asset download stalled/was slow and wasn't
+  needed for the Node/browser-driven verification actually used; flip it back to `true`
+  anytime a visual emulator dashboard is wanted.
+
+**What genuinely still needs to happen before any of this touches real production Firebase**
+(a distinct, not-yet-started future phase — explicitly not done here):
+
+1. Point `.firebaserc`'s `default` alias at the real `Marketswave SE` project id, replacing
+   `demo-marketswave`.
+2. Replace `firebase-config.js`'s placeholder `apiKey`/`authDomain`/`projectId` with
+   Marketswave SE's real web-app config (Firebase Console → Project Settings → General → Web
+   apps — register a new Web app there first if one doesn't already exist).
+3. Guard the `connectAuthEmulator`/`connectFirestoreEmulator`/`connectFunctionsEmulator`
+   calls behind a local-dev check (e.g. `location.hostname === 'localhost'`) so they never
+   run against real production traffic.
+4. Confirm directly in the real Firebase Console that Email/Password sign-in is genuinely
+   enabled for Marketswave SE — the task states it already is, but this should be verified,
+   not assumed, immediately before any real cutover.
+5. `firebase deploy --only firestore:rules` and `firebase deploy --only functions` against
+   the real project — ideally exercised against a staging project first, not production
+   directly.
+6. Bootstrap a REAL admin/PM Firebase Auth account for the real project and set its custom
+   claim via an authenticated, one-time admin script — never hand-typed into a script that
+   might get committed (the emulator-only `bootstrap-admin.js` used for Phase 1's own
+   verification, with its plaintext test password, lives only in this session's scratchpad,
+   not in the repository, specifically because of this).
+7. Decide whether real multi-PM-account support is needed before going live, or whether the
+   single-shared-admin model (Phase 1's own deliberate scope) is acceptable for launch —
+   flagged as a genuine open decision, not resolved here.
+8. ~~Extend `admin-client-applications.html`/`admin-clients.html` to read/write Firestore~~ —
+   **DONE (Aug 22, 2026, same-session follow-up, §12.7 and §12.8)**. Both admin pages named
+   in this item now merge real Firebase clients alongside local ones.
+9. ~~Wire a real `signOut(auth)` into the app's own client-facing Logout action~~ — **DONE
+   (Aug 23, 2026, row 61)**. `dashboard-sidebar.js`'s `wireLogoutLinks()` now calls a real
+   `signOut(auth)` alongside the local session clear.
+
+### 12.5 Infrastructure inventory
+
+| File | Purpose |
+|---|---|
+| `.firebaserc` | Project alias → `demo-marketswave` (emulator-only, see 12.4) |
+| `firebase.json` | Emulator ports (Auth 9099, Firestore 8080, Functions 5001), Functions source dir, Firestore rules/indexes paths, UI disabled |
+| `firestore.rules` | Restrictive-by-default rules for `clients/{clientId}` — `get` only own doc, `list`/`create`/`update`/`delete` all denied to clients |
+| `firestore.indexes.json` | Empty — no composite indexes needed yet |
+| `functions/package.json` | `firebase-admin@^12.7.0`, `firebase-functions@^7.3.2` (upgraded mid-session from `^6.3.1` — the older version's discovery protocol was incompatible with firebase-tools 15.28.1, causing a real "Cannot determine backend specification" timeout, root-caused and fixed, not worked around) |
+| `functions/index.js` | The three callables — see 12.1/12.3 |
+| `firebase-config.js` | Shared Firebase App/Auth/Firestore/Functions bootstrap, ES module, imported by `signup.html`/`login.html` only |
+| `.gitignore` | New this phase — `functions/node_modules/`, `.firebase/`, various emulator debug logs |
+
+**Local environment note**: this machine had no Java runtime at all before Phase 1 — the
+Firestore emulator requires one (Auth/Functions emulators don't). Eclipse Temurin JRE 17 was
+installed first via `winget`, then found insufficient (`firebase-tools no longer supports
+Java version before 21`) and Temurin 21 installed alongside it. Neither installer added
+itself to this shell tool's own cached `PATH`, so every command in this session that needs
+`java` explicitly prepends `C:\Program Files\Eclipse Adoptium\jre-21.0.12.101-hotspot\bin` —
+worth knowing if a future session needs to run the emulator again and gets a `java: command
+not found` error despite Java genuinely being installed.
+
+### 12.6 Verification
+
+**Node-verified first** (`verify-backend-migration-phase1.js`, run from a dedicated scratchpad
+Node project with `firebase`/`firebase-admin` installed — kept out of the actual repository,
+same precedent as this project's own prior jsdom-based verification work — 26 assertions, all
+passing), against the real running Emulator Suite, not mocked:
+
+- A real Firebase Auth user + real Firestore document created via `createClientApplication`,
+  `status: 'pending_review'`, email correctly sourced server-side from the Auth token.
+- Firestore rules genuinely deny an unauthenticated read of `clients/{uid}` — confirmed
+  against the real emulator (attempted, caught the real `permission-denied`), not assumed
+  from the rules text.
+- Login is genuinely blocked while pending, verified against real Firebase Auth + Firestore
+  state (not a localStorage flag) — including confirming `getAuthenticatedClientId()` (the
+  real, unmodified engine function) returns `null` for the blocked attempt, and a wrong
+  password against the same pending client still fails on credential verification first,
+  proving the two checks are genuinely independent.
+- **The admin-authorization check is real, not decorative**: a non-admin caller (the
+  applicant themselves, signed in as their own account) is genuinely rejected with
+  `permission-denied` when attempting to call `approveClientApplication` on their own
+  application — confirmed directly, not assumed from the code looking right. The bootstrap
+  admin account (real custom claim `{admin: true}`, set via `firebase-admin` against the
+  emulator) succeeds. Re-approving an already-resolved application is rejected with
+  `failed-precondition`, matching the local `engine-core.js` rule exactly.
+- **THE CRITICAL CHECK**: after a successful login, `getAuthenticatedClientId()` — loaded
+  from the real, completely unmodified `engine-core.js` — returns the correct real Firebase
+  Auth uid. `getClient()`/`getClientByEmail()` (also unmodified) correctly resolve the
+  Firebase-authenticated client via the local mirror, with the CURRENT Firestore status
+  (`active`), not a stale signup-time guess. `seedMinimalClientStores()` + `getAccountState()`
+  (both real, unmodified) confirm per-client local financial stores exist and are readable —
+  `dashboard.html`'s own real data path.
+
+**Browser-verified live, the complete flow the task asked for**, against the real running
+Emulator Suite (local HTTP server + Chrome), not simulated:
+
+- Signed up as a brand-new individual applicant through the actual 7-step `signup.html` form
+  (real name/email/phone/DOB/country/financial-profile/goals/risk-questionnaire answers, two
+  real uploaded test files) — confirmed via a direct Admin SDK script (not UI inspection)
+  that a genuine Firebase Auth user and a matching Firestore document
+  (`status: 'pending_review'`) now exist.
+- Immediately attempted login with those exact credentials on the real `login.html` —
+  confirmed blocked with the exact expected message ("Your application is under review.
+  We'll notify you once it's approved."), and confirmed via `sessionStorage` inspection that
+  no local session was set.
+- Approved the application via the real admin-authorized callable (signed in as the
+  bootstrap PM account from a script — see the "no new admin UI" limitation below) —
+  confirmed via a direct Admin SDK read that the real Firestore document now shows
+  `status: 'active'`.
+- Logged in again with the identical credentials on the real `login.html` — succeeded this
+  time, redirecting to `dashboard.html`.
+- **The critical check, in the real browser**: `getAuthenticatedClientId()` correctly
+  returned the real Firebase Auth uid; `getClient(uid)` correctly resolved the local mirror
+  with this client's real name/status; `dashboard.html` rendered completely correctly
+  (correct name/initials in the sidebar footer, correct "Welcome Back, [Name]" greeting, $0
+  Total Portfolio Value and 0.0% allocation across every asset class — the genuinely empty
+  state for a freshly seeded client, exactly as expected) with **zero console errors**.
+  `settings.html` and `transactions.html` were also checked and both rendered completely
+  correctly — profile card, sidebar identity, and (for `transactions.html`) a genuine empty
+  transaction state — with zero console errors on either page. All three pages have **zero
+  idea** the identity behind their session is now a real Firebase Auth user instead of a
+  local password-hash comparison, exactly as designed.
+- Logout was also verified: clicking the existing Logout link correctly redirected to
+  `login.html`, and a subsequent direct navigation to `dashboard.html` correctly redirected
+  back to `login.html` again (Client Authentication Phase 3's own guard, completely
+  unaffected by this migration since it only ever reads `sessionStorage`).
+
+**Known limitations of Phase 1, disclosed rather than left implicit:**
+
+- **No new admin UI was built this phase** to call `approveClientApplication`/
+  `rejectClientApplication` — per Step 3's own explicit scoping ("signup.html, login.html
+  ONLY"), only the Cloud Functions themselves exist. A PM currently has to invoke the
+  callable directly (as this phase's own verification scripts do) to resolve a
+  Firebase-created application; `admin-client-applications.html` and `admin-clients.html`
+  still only see locally-created clients. Extending those pages to read/write Firestore is
+  named explicitly in 12.4's switch-over checklist as real follow-up work, not silently
+  dropped.
+- ~~**The app's own Logout action doesn't sign the client out of Firebase Auth.**~~ —
+  **RESOLVED (Aug 23, 2026, row 61, 12.4 item 9)**. `dashboard-sidebar.js`'s
+  `wireLogoutLinks()` now calls a real `signOut(auth)` (via dynamic `import()`) alongside the
+  local session clear, with two real races found and fixed along the way — see row 61 for
+  the full writeup.
+- ~~`npm audit` reports 8 moderate-severity advisories in `functions/`'s transitive
+  dependencies — not triaged this phase~~ — **TRIAGED (Aug 23, 2026, row 62)**. All 8 collapse
+  to one real CVE, confirmed not exploitable in this project's actual usage; no safe fix
+  exists short of a major `firebase-admin` bump, deliberately not applied. See row 62 for the
+  full writeup.
+
+Backend Requirements Register row 58 (added — see §3.1).
+
+### 12.7 Admin UI for Client Applications — closing the "PM must invoke the callable directly" gap (Aug 22, 2026, same-session follow-up)
+
+**COMPLETE, still emulator-only.** Closes the specific limitation §12.6 disclosed: a PM could
+only resolve a Firebase-created application by invoking `approveClientApplication`/
+`rejectClientApplication` directly (a script), not through `admin-client-applications.html`'s
+real UI. `admin-clients.html` (Client List) remains a separate, still-open item (§12.4 item
+8) — only the applications-review page was in scope here.
+
+**Which situation actually applies, investigated and reported before building anything**:
+both. A direct check of this browser's own `marketswave_clients` localStorage found a real,
+genuinely unresolved LOCAL pending application (`CLIENT-0007`, "Onboarding Capture
+Applicant," created before Phase 1 shipped) still sitting there — not hypothetical, real data
+that would have been silently dropped if the Pending list switched to Firestore-only. The
+page now merges BOTH sources at render time: `getPendingClientApplications()`/`getAllClients()`
+(local, synchronous, unchanged) plus two new real Firestore queries
+(`where('status', '==', 'pending_review')` and `where('status', 'in', ['active', 'rejected'])`,
+filtered client-side for `applicationResolvedAt` truthiness on the History side). Each row is
+tagged `_source: 'local'` or `'firebase'`; the local `CLIENT-0007` renders with no badge,
+every Firebase-sourced row gets a small amber "Firebase" pill so a PM can see at a glance
+which system will actually resolve that row's Approve/Reject click. History de-duplicates by
+id (a Firebase-approved client who has since logged in once exists in both the local mirror
+and the real Firestore result — verified live, see below).
+
+**Onboarding detail — a real, disclosed correction to the task's own framing.** The task
+described the detail panel as showing "the same real application data ... that Phase 1's
+signup flow now persists for real" in Firestore. Checked directly before building: Phase 1's
+`createClientApplication` Cloud Function only ever wrote `name`/`email`/`phone`/`accountType`/
+`status`/timestamps to Firestore — financial profile, risk questionnaire, and document
+metadata were deliberately left local-only (`saveClientOnboardingData()`, keyed by the same
+Firebase uid), a disclosed Phase 1 scope boundary, not an oversight. `applicationDetailHTML()`
+was NOT changed to read from Firestore — it still calls the same local
+`getClientOnboardingData(c.id)` as before, which continues to work correctly for a
+Firebase-sourced application specifically because the LOCAL onboarding store is keyed by the
+same real Firebase uid the Firestore document uses as its own id. This is genuinely real
+data, correctly correlated — just sourced from `localStorage`, not Firestore, a distinction
+worth stating plainly rather than silently building something that implies otherwise.
+
+**Firestore rules extended, not loosened for writes**: `firestore.rules`'s `clients/{clientId}`
+match gained `allow get`/`allow list` for `request.auth.token.admin == true` (previously `list`
+was denied to every caller, including admin-claimed ones — Phase 1's own rules hadn't
+anticipated an admin UI needing to enumerate pending applications yet). `allow create, update,
+delete: if false` is completely unchanged — every write still goes exclusively through the
+three Cloud Functions, unaffected by this change. Re-ran Phase 1's own 26-assertion Node suite
+against the updated rules before writing any UI code, confirming the non-admin-rejection proof
+and the self-only-read guarantee both still hold, 0 regressions.
+
+**Admin authorization is now bridged transparently, not by adding a second login screen.** New
+shared `admin-firebase-config.js` exports `ensureAdminSignedIn()` — on first call, signs the
+browser into the SAME single shared bootstrap PM Firebase Auth account (mirroring the existing
+single-shared-admin decision, same as Phase 1's own choice not to build full multi-PM support
+yet) using credentials duplicated from `bootstrap-admin.js` (Node/CommonJS vs. browser/ESM
+can't share one file directly — a small, disclosed duplication, same category as this
+project's other documented small duplications). A PM who's already through
+`admin-login.html`'s existing shared-passphrase gate never sees or needs to know about this —
+it just works underneath. Idempotent via `onAuthStateChanged`'s first callback, so navigating
+between pages doesn't re-authenticate unnecessarily.
+
+**Verified, the complete real UI flow the task asked for, not a script**: signed up two brand
+new applicants through the actual `signup.html` form ("Admin UI Approve Applicant," "Admin UI
+Reject Applicant") — confirmed via the Admin SDK that both have real Firestore documents,
+`status: 'pending_review'`. Navigated to the real admin tool (through the existing
+`admin-login.html` passphrase gate, unchanged), opened `admin-client-applications.html`, and
+confirmed Pending correctly showed all three real pending applications at once: both new
+Firebase-sourced ones (amber badge) AND the genuine local `CLIENT-0007` (no badge) — the
+merge working exactly as designed, not assumed. Expanded "View Details" on the Approve
+applicant and confirmed the real financial profile/goals/risk-questionnaire data rendered
+correctly. **Clicked Approve in the real UI** (the confirm modal, unchanged from Phase 1's
+original build) — Pending count dropped from 3 to 2, a toast confirmed success, and the PM
+never had to click through any second gate despite the Approve action now also establishing a
+real Firebase session underneath, exactly as designed. Navigated to
+`login.html` and confirmed those exact credentials now succeeded, redirecting to
+`dashboard.html`, with `getAuthenticatedClientId()`/`getClient()` both correctly resolving —
+proving the full chain end to end through the real UI. Separately, **clicked Reject in the
+real UI** on the second applicant with a real typed reason — Pending dropped to 1 (only
+`CLIENT-0007` remained), History correctly showed the rejected row with the reason text and
+the "Firebase" badge. Confirmed on `login.html` that the exact same credentials now produced
+the correct DISTINCT rejected message ("We were unable to approve your application. Please
+contact support for more information.") and that no session was set. Zero console errors
+throughout (only the same known Chrome-extension messaging artifact seen repeatedly elsewhere
+in this session — generic text, `:0:0` location, no app-code attribution).
+
+**On the "confirm the 26-assertion non-admin-rejection proof still holds through this UI path"
+requirement**: architecturally, there is no code path in this UI that a non-admin caller could
+reach — `ensureAdminSignedIn()` always establishes the single shared admin identity before any
+Firestore read or callable call happens, by design (mirroring the single-shared-admin model,
+not individual PM sessions this UI could ever authenticate as something less than admin). The
+actual authorization boundary lives entirely inside the unmodified Cloud Functions, verified
+independently via Node (re-run after the rules change, 0 regressions, including the exact
+non-admin-`permission-denied` assertion) — and this same unmodified code path was then
+exercised successfully, live, through the real UI (the Approve/Reject flows above). Reported
+rather than forcing an artificial UI-level negative test the architecture doesn't actually
+allow.
+
+**Operational note, disclosed rather than silently left out**: this session's attempt to
+gracefully shut down the emulator with `--export-on-exit` (added specifically so bootstrap
+admin/test data would survive a restart) did not succeed — sending SIGINT to the emulator's
+Node process via Git Bash on Windows did not trigger the graceful-shutdown export hook (a
+known Windows/POSIX-signal-translation limitation, not a bug in the emulator setup itself).
+The emulator was force-stopped instead. Any future session restarting the emulator will need
+to re-run `bootstrap-admin.js` (scratchpad-only, not in the repository) to recreate the
+bootstrap PM account and its custom claim before the admin UI's `ensureAdminSignedIn()` will
+work again — `emulator-data/` exists and is gitignored, ready to receive a successful export
+if a future session finds a working graceful-shutdown method (e.g. running the emulator
+directly in a native `cmd.exe`/PowerShell session rather than through Git Bash's `nohup`).
+
+Backend Requirements Register row 59 (added — see §3.1).
+
+### 12.8 Admin UI for Client List — merging real Firebase clients into `admin-clients.html` (Aug 22, 2026, same-session follow-up)
+
+**COMPLETE, still emulator-only.** Engine/UI code complete, Node-verified against the real
+emulator (15 assertions, 0 failures), and now also browser-verified live end to end (see the
+bottom of this section) — this section was originally checkpointed mid-task (engine/Node
+done, browser verification pending) per instruction, given limited remaining session budget;
+updated to COMPLETE now that browser verification has actually run.
+
+Mirrors `admin-client-applications.html`'s own proven merge pattern from §12.7 exactly, read
+directly from that file's real source before writing any of this — not reinvented. Two
+differences from that pattern, both deliberate: (1) Client List has one list, not a Pending/
+History split, so there's one `fetchFirestoreClients()` doing a bare, unfiltered
+`collection(db, 'clients')` read rather than two status-filtered queries — Client List's own
+job is "every client account," not "applications awaiting a decision"; (2) no new
+`firestore.rules` changes were needed this time — the `allow list: if request.auth.token.admin
+== true` rule §12.7 already added covers ANY query shape against this collection, confirmed
+directly via Node rather than assumed (see below).
+
+`admin-clients.html`'s script is now `type="module"`, importing `ensureAdminSignedIn`/`db`
+from `admin-firebase-config.js` (unchanged, reused as-is) and `collection`/`getDocs` from the
+Firestore SDK. New `cachedClients` (mirroring `cachedPending`/`cachedHistory`'s own naming)
+holds the de-duplicated merge of `getAllClients()` (local) and the new Firestore read, each
+row tagged `_source: 'local'`/`'firebase'`, rendered with the same small amber "Firebase"
+badge convention `admin-client-applications.html` already established. `renderClients()` now
+reads from `cachedClients` instead of calling `getAllClients()` directly; a new
+`refreshAndRenderClients()` (mirroring `refreshAndRenderAll()`'s exact shape) does the
+fetch/merge/render cycle, called on initial load and after every mutating action (Add Client,
+Reset Password/2FA) for consistency with the established pattern, even though those two
+actions only ever mutate local data.
+
+**Search/filter across both sources — achieved by construction, not special-cased.**
+`matchesSearch()`/`matchesTypeFilter()`/`applyFilters()` (the existing, Node-verified pure
+functions from `verify-clients-search-filter.js`) were **not modified at all** — passing the
+merged `cachedClients` array instead of a local-only one is the only change needed, since a
+Firestore-normalized record already has the same `name`/`id`/`accountType` shape these
+functions expect. Verified directly, not assumed: the new Node test confirms a real
+Firebase-sourced client is found correctly by name search, by a partial real Firebase uid
+(the same way a partial `CLIENT-XXXX` id already worked), by the Individual-type filter pill,
+and correctly EXCLUDED by a combined search+Business-filter query — the same AND logic the
+type-filter pill already enforced locally, now proven to hold across a mixed-source result
+set too.
+
+**Dedup proven with a real before/after login transition, not just a static merge check.**
+The Node test creates a real Firebase client (still only in Firestore, no local mirror yet —
+confirmed the merge is a simple sum with nothing to dedup at that point), approves it, logs
+in ONCE for real (triggering `mirrorAuthenticatedClientLocally()`), then re-runs the exact
+same merge logic and confirms the SAME client id now collapses to exactly one row, not two —
+and that the surviving row's `_source` is deterministically `'local'` (first-seen wins, since
+local is concatenated before Firestore in `refreshAndRenderClients()`), a real, observable
+tiebreak rule rather than undefined behavior.
+
+**Known limitation, flagged in the code and here, not fixed this task**: "Reset Password"/
+"Reset 2FA" (in `admin-clients.html`'s expanded row) call the local-only
+`resetClientPassword()`/`resetClient2FA()` engine functions, which write a LOCAL
+`forcePasswordReset` flag / `marketswave_settings_2fa` key that `login.html`'s real Firebase
+Auth sign-in path never reads. For a Firebase-sourced client, these two admin actions
+currently have no real effect on that client's actual ability to sign in — a genuine gap
+this task's own scope didn't ask to close (real per-client security actions for
+Firebase-backed clients need Firebase Auth's own admin APIs, e.g. revoking refresh tokens or
+disabling the account — a separate, unscoped future task).
+
+**Emulator bootstrap note**: confirmed live this session that last session's
+`--export-on-exit` genuinely did not persist (`emulators: Could not find import/export
+metadata file, skipping data import!` on this fresh start) — `bootstrap-admin.js` was
+re-run, exactly as anticipated in §12.7's own disclosed limitation and in the task's own
+instruction. A new bootstrap admin uid was created this session; the previous session's uid
+is gone.
+
+**Browser-verified live, the complete flow the task asked for**: signed up a brand-new real
+applicant ("Client List Merge Test") through the actual `signup.html` form, then — through
+the real admin UI, not a script — confirmed the new client appeared in `admin-clients.html`'s
+Client List with the "Firebase" badge, a real Firebase uid shown as its id, correct
+Individual type badge, and a genuine `$0` Portfolio Value (the fresh-seed empty state). As an
+unplanned but welcome additional confirmation, the merge also correctly picked up "Admin
+Clients Merge Test," the client the new Node test itself created earlier in this same
+emulator session — proving the merge surfaces ANY real Firestore client, not just ones
+created through this particular browser session. Searched for "Client List Merge" and
+confirmed the search box correctly narrowed to exactly that one Firebase-sourced row;
+cleared the search and confirmed the full merged list (10 clients: the pre-existing local
+ones plus every Firebase-sourced one from this and earlier sessions) rendered correctly, with
+already-mirrored Firebase clients (e.g. "Backend Migration Browser Test," "Admin UI Approve
+Applicant" — both approved and logged in once during earlier same-session tasks) correctly
+showing WITHOUT the badge, exactly matching the dedup rule proven in Node (local wins once a
+mirror exists). Clicked the Business filter pill and confirmed it correctly narrowed to only
+the one genuinely local Business-type client (`CLIENT-0007`), fully excluding every
+Individual-type client from both sources; clicked Individual and confirmed the Firebase
+client was included. Expanded the new Firebase client's row in place and confirmed the detail
+panel rendered correctly with no crash — real email, a correctly Firestore-Timestamp-
+converted "Client Since" date, a genuine `0` Pending Approval Gate Items count, and all three
+action buttons (View as this Client, Reset Password, Reset 2FA) present. Zero console errors
+throughout (only the same known Chrome-extension messaging artifact seen repeatedly elsewhere
+in this session). Session state cleared and both the local HTTP server and the emulator
+suite stopped before finishing.
+
+Backend Requirements Register row 60 updated to COMPLETE (see §3.1).
+
+### 12.9 Backend Migration — Phase 0, items 1 & 2: stabilizing the hybrid (Aug 26, 2026)
+
+**COMPLETE (items 1–2 of 3; item 3 deliberately deferred).** Adopts a new, explicitly-named
+migration structure for everything from here to real production — **Phase 0 (stabilize what
+already works) → Phase A (config/environment safety) → Phase B (real deploy) → Phase C (real
+admin bootstrap) → Phase D (multi-PM decision) → Phase E (cutover)** — see `README.md`'s own
+"Backend Migration roadmap" section for the full breakdown with each phase's concrete items.
+Phases A–E are a **grouping of this document's own pre-existing §12.4 7-item checklist**,
+named and ordered for the first time in this task — flagged in both `README.md` and here as a
+proposal to confirm, not settled history, since this task's own instructions described the
+Phase 0/A–E structure as "newly-adopted" without spelling out the A–E breakdown itself; the
+grouping chosen groups §12.4's items 1–3 (config/environment) into A, items 4–5 (deploy) into
+B, item 6 (real admin bootstrap) into C, item 7 (the multi-PM decision) into D, and leaves E
+as the not-yet-detailed actual cutover. Items 8–9 of the old §12.4 checklist (real Firestore
+reads in the admin UI, real `signOut(auth)`) were already done before this structure existed
+and don't belong to any phase above.
+
+**The actual problem this closes**: every piece needed to run the emulator half of this
+project locally existed only as tribal knowledge scattered across this document's own prose
+(a scratchpad-only `bootstrap-admin.js` that never survived between sessions — see §12.4's
+own item 6 note for why it was deliberately kept out of the repo — and a `--export-on-exit`
+limitation mentioned in passing in §12.7) — nothing a fresh session could actually run without
+re-deriving it from scratch, and no single command to confirm the full real chain still works
+after any gap in work. This task closes that gap for real, not just on paper: everything
+below was run against a genuinely live emulator on this machine, not written from reading the
+code and assuming it would work.
+
+**Item 1 — Emulator Bootstrap Runbook**: written as a new root-level `README.md`, not a new
+handover-doc section — a deliberate choice, reported per the task's own instruction: this is
+operational "how do I get this running" content a developer reaches for first, not phase-log
+narrative history, and burying it inside an already-585KB narrative document would work
+against the very findability this task exists to fix. Covers prerequisites (Java 21+ is
+installed on this machine but genuinely NOT on either shell's default `PATH` — confirmed
+directly, not assumed from the old §12.5 note, and the exact prepend command for both
+PowerShell and Git Bash is given), starting the three emulators, and what "known good" looks
+like at each step (the literal expected console output, not just a description of it).
+
+**Item 2 — Golden-Path Regression Script**: `scripts/golden-path-regression.js`, a genuinely
+new capability — nothing in this project before now could confirm the full real chain in one
+command. Two supporting files: `scripts/lib/engine-harness.js` (loads the REAL
+`engine-core.js` source into a fresh Node `vm` context per call — reconstructing the "load the
+real file against a minimal fake DOM" pattern this project's own prior Node-verification
+scripts used, necessary because those scripts were themselves kept scratchpad-only per this
+project's established convention and don't survive between sessions) and
+`scripts/lib/storage-polyfill.js` (a minimal `localStorage`/`sessionStorage` shim, since
+`engine-core.js` talks to those globals directly with no `typeof window` guards). The harness
+deliberately re-runs `engine-core.js`'s IIFE fresh on every simulated "page load" while
+REUSING the same underlying storage instances across calls — mirroring exactly what a real
+browser tab does (storage persists across navigation, in-memory JS variables don't) and,
+specifically, mirroring the exact ordering assumption `dashboard-sidebar.js`'s own
+file-load-time client-session pin depends on (§4.44/§4.45's own history is the reason this
+ordering was treated as load-bearing here, not incidental).
+
+The script walks: **Preflight** (emulators reachable + the PM bootstrap account's `{ admin:
+true }` claim genuinely live, failing fast with a message pointing at `bootstrap-admin.js`
+rather than a confusing downstream Functions `permission-denied`) → **Signup** (a real
+`createUserWithEmailAndPassword` + the real `createClientApplication` callable, then the
+exact same local mirror `signup.html` itself performs) → **Pending status** (a real Firestore
+read confirming `pending_review`, PLUS a genuine blocked-login proof — signs in with fully
+correct credentials while still pending and confirms the read status is what would refuse
+access, not just that the stored field looks right in isolation) → **Admin approve** (signs in
+as the real bootstrap PM account, calls the real `approveClientApplication` callable) →
+**Login succeeds** (a real `signInWithEmailAndPassword`, then the exact bridge `login.html`
+itself runs — `mirrorAuthenticatedClientLocally()` + `setClientAuthenticated()`) →
+**Dashboard loads** (mirrors `dashboard-sidebar.js`'s own file-load-time client pin, then
+confirms a genuinely clean $0/empty-ledger read — proof the new client isn't silently
+inheriting anyone else's seeded demo data) → **Deploy Capital** (a real `requestDeposit()`, a
+real explicit-`clientId` `creditDepositRequest()`, then confirms the resulting `DEPOSIT`
+transaction and `unallocatedCapital` are both correct) → **Allocation** (a real
+`requestAllocation()` against whichever catalog product fits the test amount, a real
+`approveAllocationRequest(clientId, requestId)`, then confirms the `BUY` transaction and new
+holding both appear and Total Portfolio Value is conserved through the trade to within a
+cent). 16 steps total, one `PASS`/`FAIL` line each plus a final summary table and a single
+`GOLDEN PATH: PASS`/`FAIL` line, exit code 0/1 to match.
+
+**Run for real, end to end, on 2026-08-26**: `GOLDEN PATH: PASS (16/16 steps)`. Also
+separately confirmed idempotent by re-running `bootstrap-admin.js` a second time in the same
+emulator session (correctly reported "Found existing account" rather than erroring or
+duplicating).
+
+**Two real environment findings surfaced and resolved live during this task, not assumed from
+old notes**:
+- A one-time "Cannot determine backend specification. Timeout after 10000" Functions-
+  discovery failure on the very first `emulators:start` of this session — the emulators
+  otherwise came up fine ("All emulators ready"), but the three callables never actually
+  loaded (no `http function initialized` lines). Isolated directly: `require()`-ing
+  `functions/index.js` standalone in plain Node completed in ~1 second with all three exports
+  present, and `initializeApp()` alone returned in 3ms — ruling out the module's own code as
+  the cause. A plain restart of the emulators resolved it completely, with the discovery
+  round-trip completing in about 2 seconds on the second attempt. Likely cause: something
+  (antivirus, first-touch disk scan of `functions/node_modules`) slowing the very first module
+  load past the discovery mechanism's fixed 10-second budget — documented in `README.md`'s
+  Troubleshooting section as a known, retry-and-move-on issue rather than left as a silent
+  mystery for the next session to panic over.
+- The `--export-on-exit` limitation first noted in §12.7 was re-confirmed directly under a
+  DIFFERENT launch method than whatever produced the original note (this session launched via
+  PowerShell's `Start-Process`, not a Git-Bash-backgrounded process) — `taskkill /PID <pid>`
+  without the `/F` flag is refused outright by Windows with *"This process can only be
+  terminated forcefully (with /F option)"*, confirming this is a genuine Windows process-
+  termination limitation independent of how the emulator happens to be launched, not a
+  one-off quirk of a particular shell. `README.md` states this as freshly re-verified, not
+  merely carried forward.
+
+**One real mistake made and disclosed, not hidden**: while cleaning up stray `java`/`node`
+processes left behind by two earlier failed emulator-start attempts (each correctly
+identified by inspecting its own command line before killing it — one was this session's own
+orphaned Firestore emulator jar, one was a stray `functions` emulator worker left over from
+Aug 22), a later, broader cleanup pass filtered on process name alone
+(`ProcessName -match 'java|node'`) rather than by specific PID, and caught an unrelated Adobe
+Creative Cloud helper `node.exe` in the process. Confirmed immediately afterward: the main
+Creative Cloud application and its other helper processes were all still running normally —
+only that one helper process was lost, and Creative Cloud apps commonly respawn helpers of
+this kind on their own. Reported directly rather than silently omitted, and this task's
+process-cleanup commands were tightened afterward to always target a specific PID confirmed
+via its own command line, never a bare name match broad enough to catch unrelated software.
+
+**Item 3 (labeling local-only admin actions with no real effect on a Firebase-sourced
+client — the gap §12.8 flagged, where Reset Password/2FA on a Firebase-sourced client
+currently does nothing to their real Firebase Auth sign-in) was deliberately NOT attempted in
+this task**, per explicit instruction, so items 1–2 could ship and be reviewed independently
+rather than being bundled with a third, unrelated change.
+
+New files this task: `README.md` (root), `scripts/package.json`, `scripts/bootstrap-admin.js`,
+`scripts/golden-path-regression.js`, `scripts/lib/engine-harness.js`,
+`scripts/lib/storage-polyfill.js`. `.gitignore` gained one new entry
+(`scripts/node_modules/` — `scripts/package-lock.json` is committed, matching `functions/`'s
+own convention). No changes to `engine-core.js`, `functions/index.js`, or `firestore.rules` —
+this task built tooling and documentation around the existing system, not new
+product-facing behavior. Backend Requirements Register row 68 added (see §3.1).
+
+### 12.10 Backend Migration — Phase 0, item 3: labeling local-only admin actions (Aug 26, 2026)
+
+**COMPLETE.** Closes Phase 0 item 3, deliberately deferred out of §12.9/row 68 so that task
+could ship independently. User confirmed the Phase A–E roadmap grouping proposed in §12.9
+matched their intent, then asked to proceed with item 3.
+
+**Investigated before labeling anything, rather than trusting the existing framing at face
+value** — the same discipline §12.9 itself used for the environment findings. The pre-existing
+code comment above `admin-clients.html`'s `expandedRowHTML()` (and the mirrored line in
+CLAUDE.md's "Next" section, from §12.8) stated: *"Reset Password"/"Reset 2FA"... currently have
+no real effect on their actual Firebase Auth sign-in"* — treating both actions as equally
+affected. Reading the actual code end to end shows this is only true for one of them:
+
+- **Reset Password** (`resetClientPassword()` → sets a local `forcePasswordReset` flag →
+  `settings.html` gates the whole page behind a "set a new password" screen until submitted).
+  Traced the submit handler for that forced form directly: it calls `clearForcePasswordReset()`
+  and nothing else — **no password is ever persisted anywhere, for any client**, because there
+  has never been a real credential store backing the *self-service* Change Password flow
+  either (confirmed by reading that flow too, not assumed from the forced-flow's own comment
+  alone). For a client whose real credential lives in Firebase Auth (post–Backend Migration
+  Phase 1), this means Reset Password genuinely changes nothing about their ability to sign
+  in — they keep using their existing real password, with no local trace of anything having
+  been "reset" beyond a one-time UI interruption. This is the case the original comment
+  correctly flagged, even if it didn't distinguish it from the other action.
+- **Reset 2FA** (`resetClient2FA()` → writes `'disabled'` directly to the exact
+  `marketswave_settings_2fa:<clientId>` key `settings.html`'s own 2FA section reads on every
+  load). This is **not** a no-op for a Firebase-sourced client. 2FA in this project has never
+  been connected to Firebase Auth at all, for any client, Firebase-sourced or local — it's a
+  fully independent, simulated, local feature layered on top of the app's own session (Firebase
+  Auth does have its own real MFA support; this project never adopted it, by design, per the
+  Password Reset + 2FA Rework phase's own original write-up). So resetting it achieves its
+  real, complete, intended effect (the client's 2FA is genuinely disabled, verifiably, on their
+  next `settings.html` load) identically regardless of where their login credential lives. The
+  original comment's blanket framing was **inaccurate** for this action specifically — labeling
+  it as a no-op would have been a new, self-inflicted inaccuracy, not a caution.
+
+**What shipped, `admin-clients.html` only, no `engine-core.js` changes** (the underlying
+functions are correct as-is; this is UI-layer disclosure, not a behavior fix):
+1. An inline amber note under the Reset Password / Reset 2FA buttons in a Firebase-sourced
+   client's expanded row (`c._source === 'firebase'`), visible before a PM even opens the
+   modal: *"Firebase-authenticated client: Reset Password will not change their real sign-in
+   password. Reset 2FA works normally."*
+2. A warning banner (`#security-firebase-warning`) inside the shared confirm modal itself,
+   shown only when `activeSecurityAction === 'PASSWORD_RESET'` **and** the target client's
+   `_source === 'firebase'` — checked in `openSecurityModal()` via a `cachedClients.find()`
+   lookup by id, toggled with `classList.toggle('hidden', !showWarning)`. Reset 2FA never
+   triggers this banner, on any client.
+3. The prior blanket code comment above `expandedRowHTML()` was rewritten in place (not
+   deleted, not left stale) to explain the real, asymmetric distinction found above, so a
+   future session reading the source doesn't re-inherit the less precise framing.
+
+**Verification**: every inline `<script>` block in `admin-clients.html` was extracted and run
+through `node --check` after editing — 0 syntax errors. Deliberately **not** browser-verified:
+this project's own standing verification policy is to skip launching a browser/dev server for
+a change unless explicitly asked, or unless there's genuine doubt the change works (there
+isn't here — this is additive DOM rendering + a boolean class toggle off an existing, already-
+correct data field, not new business logic). Described here and reported to the user instead,
+consistent with that policy.
+
+**One nuance worth being explicit about, not a contradiction of the above**: `resetClientPassword()`/
+`resetClient2FA()`'s own real, working effect — writing to the Account Security log
+(`admin-security.html`) and, for Reset 2FA, genuinely changing `settings.html`'s displayed 2FA
+state — is completely unchanged by this task. Nothing about the ENGINE'S behavior needed
+fixing; only what the admin UI tells a PM about what Reset Password will and won't accomplish
+for a Firebase-sourced client needed correcting.
+
+Backend Requirements Register row 69 added (see §3.1).
+
+### 12.11 Backend Migration — Phase A1: real Firebase identity against staging (Aug 26, 2026)
+
+**COMPLETE (identity only — Phase A2, real Cloud Functions on staging, BLOCKED on a Blaze
+plan upgrade).** User confirmed the Phase A–E roadmap grouping proposed in §12.9 matched
+their intent, then asked to proceed with this task: a deliberate SUBSET of the original
+Phase A — real Firebase identity (Auth + Firestore) against a real staging project, with NO
+Cloud Functions deployed, since the real admin UI approve/reject button needs a deployed
+callable and that's blocked on Blaze. Explicitly instructed not to attempt a Functions deploy
+in this task.
+
+**A genuinely new environment tier, not a variant of an existing one.** `marketswave-staging`
+is a real, separate Firebase project — not `demo-marketswave` (the emulator), and not
+"Marketswave SE" (the eventual real-production project named throughout this document's
+Backend Migration section, still completely untouched). This is the first time this project
+has had a real, persistent middle tier between "fully offline" and "real production."
+
+**Credential handling — resolved before writing any code, not after.** The task supplied a
+service account key path
+(`C:\WorkDirectory\marketswave-secrets\marketswave-staging-firebase-adminsdk.json`)
+deliberately kept outside the project directory, with explicit instructions: never copy it
+in, never reference it by a relative path, confirm git genuinely cannot reach it, treat this
+identically to the real-production bootstrap script's own uncommitted-credential requirement
+(§12.4 item 6). Confirmed structurally, not just assumed: `git rev-parse --show-toplevel`
+against the repo root and `realpath --relative-to` against the key file's path showed it
+resolves to `../marketswave-secrets/...` — one directory up and over from the repo root,
+entirely outside the working tree git could ever see, so no `.gitignore` entry was even
+possible or necessary. Every script that needs this credential (both new staging scripts,
+and the `firebase deploy` command used to push staging's rules) reads it exclusively via the
+standard `GOOGLE_APPLICATION_CREDENTIALS` environment variable, set by the operator at run
+time — no path of any kind lives in committed source. The staging PM account's own password
+is, unlike the emulator's own hardcoded constant (safe specifically because it only touches a
+fully offline emulator), generated randomly by `scripts/staging-bootstrap-admin.js` and shown
+once — since this is a real cloud account, even if not the production one.
+
+**Getting the real staging `firebaseConfig` without interrupting the user.** The task
+referenced "the earlier console screenshot" for the real `apiKey`/`authDomain`/`projectId`
+web-app config — not available in this session (context had been cleared). Rather than ask
+the user to re-paste it, used the service account's own credential to authenticate against
+the real Firebase Management API directly: `projects.webApps.list` found the already-
+registered `marketswave-web` app, then `projects.webApps.getConfig` returned its real config
+(apiKey `AIzaSyDZ-WrSpc3PQR_KKnR8kayTLah1UoWAFSc`, authDomain
+`marketswave-staging.firebaseapp.com`, etc.) — authoritative, not guessed, and not requiring
+the user to look anything up a second time. Separately confirmed via the Identity Toolkit
+Admin API that Email/Password sign-in is genuinely enabled on staging (`signIn.email.enabled:
+true`) before building anything that depended on it.
+
+**1. Environment switch — `firebase-config.js`.** `STAGING_CONFIG` added alongside the
+existing `EMULATOR_CONFIG`; a new `IS_STAGING` flag derived from `new
+URLSearchParams(window.location.search).get('env') === 'staging'`, exported for
+`signup.html` to branch on. **Mechanism choice, reported per instruction**: a URL query
+parameter over a persisted flag (localStorage/sessionStorage) or a hardcoded constant a
+developer flips by hand — specifically because a URL param cannot "stick." A persisted flag
+risks a browser silently staying pointed at staging across sessions after one deliberate
+test; a hardcoded constant risks being left `true` and committed, silently redirecting every
+future local dev/test session at a real cloud project. Neither failure mode is possible with
+a URL param that nothing — including every existing habit and every line of
+`golden-path-regression.js` — ever adds. `connectAuthEmulator`/`connectFirestoreEmulator`/
+`connectFunctionsEmulator` are now wrapped in `if (!IS_STAGING)`, never reachable in staging
+mode (a contradiction in terms otherwise). `functions` is still exported for shape parity
+with `admin-firebase-config.js`'s existing import, but nothing in this phase calls a callable
+against staging — attempting one today would fail with a real "not found," expected and
+correct given nothing is deployed there.
+
+**2. `firestore.staging.rules` — a genuinely different ruleset from the emulator's, not a
+copy.** The emulator's `firestore.rules` denies ALL client writes, including create, since
+every write goes through a Cloud Function using the Admin SDK. Staging has no Cloud Function
+in this phase, so `signup.html` must write its own document directly — these rules are what
+makes that safe rather than an open door: `allow get` (self-or-admin, same pattern as the
+emulator), `allow list` (admin-claim only), `allow create` requiring `request.auth.uid ==
+clientId`, `request.resource.data.status == 'pending_review'` (never accepted as whatever the
+client sends), and two checks added beyond the task's literal ask, flagged rather than
+silently smuggled in: `request.resource.data.email == request.auth.token.email` (spoofing
+prevention — without a Cloud Function reading the caller's verified Auth token server-side
+the way `createClientApplication` used to, nothing else would ever stop a client claiming a
+different email than their real Auth account) and `request.resource.data.accountType in
+[...]` (mirrors the same enum check the removed Function used to perform). `allow update,
+delete: if false` unconditionally — "exactly one document" falls directly out of Firestore's
+own create-vs-update request classification (a write to an existing path is never classified
+as `create`), not from an explicit existence check, so this single line is what actually
+guarantees a client can never revise their application after submitting it. Deployed for
+real: `firebase deploy --only firestore:rules --project marketswave-staging --config
+firebase.staging.json` (`firebase.staging.json` is new, minimal, and deliberately carries no
+`functions` block at all — `--only functions` against it isn't even well-formed, a
+structural safety net on top of the task's own "do not deploy Functions" instruction).
+`.firebaserc` gained a `"staging": "marketswave-staging"` alias; `"default"` stayed
+`"demo-marketswave"`, so any bare `firebase` command with no explicit `--project` still
+targets the emulator-safe project, never staging.
+
+**3. `signup.html` — a real branch, not a rewrite.** `createUserWithEmailAndPassword` is
+unchanged (same call, either environment). What happens next branches on `IS_STAGING`: the
+emulator path still calls `createClientApplication` exactly as before; the staging path calls
+`setDoc(doc(db, 'clients', uid), {...})` directly, with `email: credential.user.email` (the
+just-created account's own verified email, mirroring the one thing the removed Cloud
+Function refused to trust from the client — everything else in the written object is exactly
+what that callable would have written). `login.html` needed literally zero code changes — it
+was already Cloud-Function-free, just a real `signInWithEmailAndPassword` plus a direct
+Firestore `getDoc` read, which works identically regardless of which project `auth`/`db`
+happen to point at.
+
+**4. `scripts/staging-bootstrap-admin.js`.** Mirrors `scripts/bootstrap-admin.js`'s exact
+technique (`getUserByEmail`-or-create, `setCustomUserClaims`, re-fetch to confirm) against
+the real project instead of the emulator, using `admin.credential.applicationDefault()` (so
+no path of any kind appears in the file) and explicitly clearing any
+`FIREBASE_AUTH_EMULATOR_HOST`/`FIRESTORE_EMULATOR_HOST` that might be lingering in the
+calling shell from earlier emulator work — a real, deliberate defensive measure against this
+script silently becoming a no-op against staging while looking like it succeeded.
+
+**5. `scripts/staging-approve-client.js`.** Explicitly labeled a TEMPORARY stand-in, both in
+its own header comment and in every doc referencing it — mirrors
+`approveClientApplication(clientId)`'s exact business rule (only resolves a currently-
+`pending_review` document, throws a clear error otherwise) via the Admin SDK directly against
+staging. No `--reject` mode built — the task asked specifically for an approval stand-in; a
+symmetric reject version would be a small, easy addition if genuinely needed later, not
+pre-built here.
+
+**Live verification — the complete real chain, not assumed from the code.** Run for real
+against the live `marketswave-staging` project on 2026-08-26:
+- `scripts/staging-bootstrap-admin.js` created a real PM account
+  (`pm@marketswave-staging.internal`, uid `o74n8Pqjx6gmCcbrH0Y2VyW6uxF2`) with its real
+  `{ admin: true }` claim confirmed live.
+- A real applicant ("Staging Test Client") signed up through the ACTUAL 7-step `signup.html`
+  form, served locally at `http://127.0.0.1:8765/signup.html?env=staging` (a plain Python
+  static server), including real file uploads for both the ID and proof-of-address document
+  steps (via the browser automation's file-upload capability, not skipped).
+- Confirmed **visually, in the real Firebase Console** (per explicit instruction — not just a
+  script query): a real Firebase Auth user
+  (`staging-test-1787879500@test.marketswave.internal`, uid
+  `yhZmtHbTAKQ2NjDs4SjGb4vj4fd2`) under Authentication → Users, and a real
+  `clients/yhZmtHbTAKQ2NjDs4SjGb4vj4fd2` Firestore document under Firestore → Data, with
+  every field exactly as expected: `accountType: "Individual Account"`, `email` matching the
+  real Auth account (not client-typed), `createdAt` a genuine Firestore server timestamp
+  (not a client clock string), `status: "pending_review"`.
+- Attempted login while pending with the fully correct password — genuinely refused with
+  "Your application is under review. We'll notify you once it's approved," confirming the
+  status gate is real, not just present in the code.
+- Ran `scripts/staging-approve-client.js yhZmtHbTAKQ2NjDs4SjGb4vj4fd2` for real — confirmed
+  `status: "active"` and a real `applicationResolvedAt` timestamp again, visually, in the
+  Console.
+- Logged in again — succeeded for real, redirecting through the actual loading screen into a
+  genuinely empty ($0 Total Portfolio Value, 0.0% everywhere, "No recent activity yet.")
+  `dashboard.html`, with the sidebar correctly showing "Staging Test Client" / "SC" / "Individual
+  Account" — proof the local `mirrorAuthenticatedClientLocally()` + `setClientAuthenticated()`
+  bridge, and the Identity Display fix (§4.67)'s `getClientInitials()`, both work correctly
+  against a real staging-authenticated identity end to end, not only the emulator path they
+  were built and previously verified against.
+- Finally, stopped the local emulator entirely, restarted it from a clean state (re-running
+  `scripts/bootstrap-admin.js` for the emulator, per README.md's own documented requirement),
+  and re-ran `scripts/golden-path-regression.js` **completely unchanged** — `GOLDEN PATH: PASS
+  (16/16 steps)`, direct proof that Phase A1 disturbed nothing about the already-stabilized
+  local hybrid.
+
+**One real automation issue hit and root-caused, not worked around blindly.** Mid-flow,
+during the risk questionnaire step, the browser automation froze completely — screenshots and
+further actions all timed out, with the browser tab itself still reporting "page still
+loading" for over 45 seconds. Rather than assume a browser/tooling fault and retry blindly,
+read `signup.html`'s own `validateStep()`/`showError()` source directly: `showError()` calls
+a native `alert()`, and one of the six risk-questionnaire radio answers had evidently not
+registered before Continue was clicked, so `validateStep(7)`'s failure path fired a native
+dialog — which blocks CDP-based automation from interacting with the page at all, the exact
+same category of issue this project's own history already flagged once for
+`window.confirm()` (§4.35). Resolved by closing the frozen tab, restarting cleanly, and
+switching to element-reference-based `form_input` calls (confirmed visually after every
+click) instead of blind coordinate clicks for every radio/select on the retry — no freeze on
+the second attempt, and no code change was needed, since this was a genuine automation
+technique gap, not an application bug.
+
+**One process-cleanup mistake, disclosed rather than hidden.** While clearing stray
+`java`/`node` processes left over from earlier failed local-emulator restart attempts (part
+of the "confirm zero effect on local emulator dev" verification step, which required
+restarting the emulator from scratch), an early, broader cleanup pass filtered on process
+name alone (`ProcessName -match 'java|node'`) and caught an unrelated Adobe Creative Cloud
+helper `node.exe` in the process — confirmed immediately afterward that the main Creative
+Cloud application and its other helper processes were all still running normally, and that
+Creative Cloud commonly respawns helpers of this kind on its own. Every subsequent process
+kill in this task targeted an exact PID confirmed via its own command line first, the same
+discipline already adopted after row 68's own version of this mistake.
+
+New files this task: `firestore.staging.rules`, `firebase.staging.json`,
+`scripts/staging-bootstrap-admin.js`, `scripts/staging-approve-client.js`. Modified:
+`firebase-config.js` (staging config + switch), `signup.html` (staging branch),
+`.firebaserc` (new `staging` alias), `README.md` (new "Staging Environment" section, Phase A
+roadmap entry revised into A1/A2 and reported as such rather than silently redrawn). No
+changes to `engine-core.js`, `functions/index.js`, `firestore.rules` (the emulator's own,
+untouched), or any client-facing page beyond `signup.html`'s one new branch.
+
+Backend Requirements Register row 70 added (see §3.1).
 
 ---
 

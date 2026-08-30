@@ -27,13 +27,10 @@
       </div>
 
       <!-- Top bar -->
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -45,12 +42,15 @@
           <p class="text-slate-500 mt-1">Pending items across all request queues.</p>
         </div>
 
-        <!-- Card grouping mirrors admin-sidebar.js's NAV_ITEMS groups exactly (Aug 21, 2026) —
-             same three labels, same order, same membership. Settings has no pending-count
-             concept (it's configuration, not a queue), so its card under Portfolio
-             Administration shows the current advisory fee rate instead of a count, but the
-             group header still renders so all three categories stay visible at a glance,
-             matching the nav's own always-show-three-headers behavior. -->
+        <!-- Card grouping mirrors admin-sidebar.js's NAV_ITEMS groups (Aug 21, 2026, regrouped
+             twice more Aug 23, 2026) — same labels/order/membership for the three groups that
+             carry a card-worthy concept. Dashboard (Overview/Client List) is deliberately not
+             mirrored here, same as before the regroups — Overview is this very page, and
+             Client List has no single "pending count" of its own. The short-lived "Settings"
+             group was removed entirely the same day it was added — Advisory Fee and Security
+             Log (renamed from Account Security) now live in User/Admin Relations instead,
+             neither with a true pending-count concept, so each shows a live value in its own
+             card. Catalog holds Products. -->
 
         <div class="mb-8">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Approval Gate</p>
@@ -110,13 +110,48 @@
               <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
             </a>
 
-            <a href="admin-settings-changes.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <!-- Added Aug 27, 2026, the HYS withdrawal approval-gate fix — a separate card
+                 from Pending HYS Deposits, matching the same Deposits/Withdrawals split the
+                 main portfolio queues already use, even though both HYS cards link to the
+                 same page (admin-hys.html now covers both request kinds). -->
+            <a href="admin-hys.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Pending HYS Withdrawals</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="pending-hys-withdrawals-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
+            </a>
+
+            <a href="admin-profile-updates.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
               <div class="flex items-center justify-between mb-3">
                 <p class="text-sm font-medium text-slate-500">Pending Client Profile Updates</p>
                 <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </div>
               <p class="text-3xl font-bold text-slate-900" id="pending-settings-changes-count">—</p>
               <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
+            </a>
+
+          </div>
+        </div>
+
+        <!-- Products in its own Catalog section, mirroring admin-sidebar.js's 'catalog' nav
+             group. Positioned here (before User/Admin Relations), matching the sidebar's own
+             group order — moved up from last, third regroup same day, Aug 23, 2026. -->
+        <div class="mb-8">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Catalog</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+
+            <!-- Product Catalog is a count, not a pending-count concept, matching the
+                 Advisory Fee Rate card's own non-count treatment (Asset Collection
+                 extraction + admin product management, Aug 21, 2026). -->
+            <a href="admin-products.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Products in Catalog</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="product-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">Manage catalog →</p>
             </a>
 
           </div>
@@ -144,26 +179,11 @@
               <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
             </a>
 
-            <!-- Account Security is a log, not a queue (Password Reset + 2FA Rework, Aug 21,
-                 2026) — no pending-count concept, same non-count treatment as the Advisory
-                 Fee Rate card below, so it shows the total actions logged instead. -->
-            <a href="admin-security.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Security Actions Logged</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="security-actions-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">View log →</p>
-            </a>
-
-          </div>
-        </div>
-
-        <div class="mb-8">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Portfolio Administration</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-
-            <a href="admin-settings.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <!-- Advisory Fee moved into this section, Aug 23, 2026 (second regroup same day) —
+                 the short-lived standalone "Settings" section was removed entirely. No
+                 pending-count concept (configuration, not a queue), so it shows the current
+                 rate instead. -->
+            <a href="admin-advisory-fee.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
               <div class="flex items-center justify-between mb-3">
                 <p class="text-sm font-medium text-slate-500">Advisory Fee Rate</p>
                 <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -172,16 +192,17 @@
               <p class="text-sm text-slate-400 mt-2">Manage rate →</p>
             </a>
 
-            <!-- Product Catalog is a count, not a pending-count concept, matching the
-                 Advisory Fee Rate card's own non-count treatment (Asset Collection
-                 extraction + admin product management, Aug 21, 2026). -->
-            <a href="admin-products.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <!-- Security Log (renamed from Account Security) moved into this section, Aug 23,
+                 2026 — a log, not a queue (Password Reset + 2FA Rework, Aug 21, 2026), no
+                 pending-count concept, same non-count treatment as Advisory Fee, so it shows
+                 the total actions logged instead. -->
+            <a href="admin-security.html" class="bg-white rounded-2xl border border-slate-200 p-6 hover:border-amber-400 hover:shadow-md transition group">
               <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Products in Catalog</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                <p class="text-sm font-medium text-slate-500">Security Actions Logged</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
               </div>
-              <p class="text-3xl font-bold text-slate-900" id="product-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Manage catalog →</p>
+              <p class="text-3xl font-bold text-slate-900" id="security-actions-count">—</p>
+              <p class="text-sm text-slate-400 mt-2">View log →</p>
             </a>
 
           </div>
@@ -213,6 +234,10 @@
       var clientApplicationsCount = typeof getPendingClientApplications === 'function' ? getPendingClientApplications().length : 0;
       var depositCount = getDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var hysCount = getHYSDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
+      // Ambient getter (Aug 27, 2026, the HYS withdrawal approval-gate fix) — same
+      // currently-active-client-only convention as its direct sibling above, for the same
+      // reason (flagged, not fixed, consistent with the rest of this card group).
+      var hysWithdrawalCount = getHYSWithdrawalRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var allocationCount = getAllocationRequests().filter(function (r) { return r.status === 'pending'; }).length;
       var sellCount = getSellRequests().filter(function (r) { return r.status === 'pending'; }).length;
       // Ambient getter, matching Deposits/Allocations/Sells/HYS above (all 4 count only the
@@ -237,18 +262,20 @@
       document.getElementById('pending-deposits-count').textContent = depositCount;
       document.getElementById('pending-withdrawals-count').textContent = withdrawalCount;
       document.getElementById('pending-hys-count').textContent = hysCount;
+      document.getElementById('pending-hys-withdrawals-count').textContent = hysWithdrawalCount;
       document.getElementById('pending-allocations-count').textContent = allocationCount;
       document.getElementById('pending-sells-count').textContent = sellCount;
       document.getElementById('pending-documents-count').textContent = documentsCount;
       document.getElementById('pending-support-count').textContent = supportCount;
       document.getElementById('pending-settings-changes-count').textContent = settingsChangesCount;
 
-      // Portfolio Administration's one card (Settings) has no pending-count concept — it's
-      // configuration, not a queue — so it shows the current advisory fee rate instead,
-      // ambient to whichever client is currently active (switched via Client List), same as
-      // admin-settings.html itself reads it.
-      if (typeof getAccountState === 'function') {
-        document.getElementById('advisory-fee-rate').textContent = getAccountState().advisoryFeeRate + '%';
+      // The Settings section's Advisory Fee card has no pending-count concept — it's
+      // configuration, not a queue — so it shows the current advisory fee rate instead. As of
+      // Aug 27, 2026 this is a genuinely global value (getAdvisoryFeeRate()), not ambient to
+      // whichever client happens to be active — see engine-core.js's ADVISORY_FEE_RATE_KEY
+      // comment for the scope-bug history this closes.
+      if (typeof getAdvisoryFeeRate === 'function') {
+        document.getElementById('advisory-fee-rate').textContent = getAdvisoryFeeRate() + '%';
       }
 
       // Product Catalog is global, not per-client — a plain total count, same non-count
@@ -258,7 +285,7 @@
         document.getElementById('product-count').textContent = getAllProducts().length;
       }
 
-      if (clientApplicationsCount === 0 && depositCount === 0 && withdrawalCount === 0 && hysCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {
+      if (clientApplicationsCount === 0 && depositCount === 0 && withdrawalCount === 0 && hysCount === 0 && hysWithdrawalCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {
         document.getElementById('all-clear-banner').style.display = '';
       }
     })();

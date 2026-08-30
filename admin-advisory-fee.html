@@ -23,13 +23,10 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -74,7 +71,7 @@
 
   <script>
     (function () {
-      if (typeof getAccountState !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof getAdvisoryFeeRate !== 'function') return; // engine-core.js failed to load — bail defensively
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
@@ -95,7 +92,10 @@
       var rateError = document.getElementById('rate-error');
 
       function refreshRateDisplay() {
-        var rate = getAccountState().advisoryFeeRate;
+        // Genuinely global as of Aug 27, 2026 — getAdvisoryFeeRate() reads one shared value,
+        // not whichever client happens to be ambient in this admin session. See
+        // engine-core.js's ADVISORY_FEE_RATE_KEY comment for the scope-bug history this closes.
+        var rate = getAdvisoryFeeRate();
         currentRateDisplay.textContent = rate + '%';
         rateInput.value = rate;
       }
@@ -107,7 +107,7 @@
           setAdvisoryFeeRate(newRate);
           rateError.classList.add('hidden');
           refreshRateDisplay();
-          showToast('Advisory Fee Rate Updated', 'New rate: ' + newRate + '%. Reflected on transactions.html on next load.');
+          showToast('Advisory Fee Rate Updated', 'New rate: ' + newRate + '% — applies to every client immediately. Reflected on transactions.html on next load.');
         } catch (e) {
           rateError.textContent = e.message;
           rateError.classList.remove('hidden');

@@ -31,7 +31,7 @@
 
     <!-- ========== MAIN ========== -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -368,22 +368,19 @@
       });
     })();
 
-    // ---- My Requests + Open a Dispute — persisted to localStorage, seeded on first load ----
+    // ---- My Requests + Open a Dispute — persisted to localStorage. No demo seed data: a
+    // client with no real history genuinely sees the empty state (Aug 27, 2026 — removed a
+    // fabricated 3-ticket fallback that had made the real empty state unreachable). ----
     (function () {
       // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
       // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
       const STORAGE_KEY = clientScopedKey('marketswave_support_requests');
-      const SEED = [
-        { id: 'TCK-1042', reference: null, category: 'Account Access', description: 'Unable to log in after password reset — received an error on the final step.', status: 'Resolved', dateOpened: '2026-08-10', lastUpdated: '2026-08-12', evidence: null },
-        { id: 'DSP-2077', reference: 'TXN-48213', category: 'Billing/Fees', description: 'Management fee appears to have been charged twice for the August billing cycle.', status: 'In Progress', dateOpened: '2026-08-15', lastUpdated: '2026-08-18', evidence: 'fee_statement_aug.pdf' },
-        { id: 'TCK-1055', reference: null, category: 'Document/Signature Issue', description: "The signature request for the Custody Agreement Amendment isn't loading on mobile Safari.", status: 'Open', dateOpened: '2026-08-17', lastUpdated: '2026-08-17', evidence: null }
-      ];
 
       let requests = [];
       try {
         const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        requests = Array.isArray(stored) && stored.length ? stored : SEED.slice();
-      } catch (e) { requests = SEED.slice(); }
+        requests = Array.isArray(stored) ? stored : [];
+      } catch (e) { requests = []; }
 
       function saveRequests() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));

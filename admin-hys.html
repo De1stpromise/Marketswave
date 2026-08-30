@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HYS Deposits — Marketswave PM Tool</title>
+  <title>HYS Deposits &amp; Withdrawals — Marketswave PM Tool</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -23,22 +23,31 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
       <main class="flex-1 overflow-y-auto p-8">
 
         <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">HYS Deposits</h2>
-          <p class="text-slate-500 mt-1">Client-submitted High Yield Savings pocket funding requests, awaiting credit confirmation.</p>
+          <h2 class="text-2xl font-semibold text-slate-900">HYS Deposits &amp; Withdrawals</h2>
+          <p class="text-slate-500 mt-1">Client-submitted High Yield Savings pocket funding and withdrawal requests, awaiting Portfolio Manager review.</p>
         </div>
+
+        <!-- Deposit Requests — extended Aug 27, 2026 to also cover withdrawals below,
+             kept as its own clearly-labeled group rather than merged into one shared table:
+             deposit requests (requestedAmount/creditedAmount/pocketType/details) and
+             withdrawal requests (pocketId/receiveAmount/forfeit/destinationDetails) have
+             different-enough shapes that a merged table would need awkward conditional
+             columns; two clearly separated Pending/History pairs under distinct headings
+             stays readable and reuses the existing per-domain pattern this admin tool
+             already uses everywhere else (Deposits/Withdrawals/Allocations/Sells are all
+             separate pages, not merged) — just within one page instead of two, since HYS is
+             one persona-facing domain on the client side (high-yield-savings.html). -->
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">Deposit Requests</h3>
 
         <!-- Pending -->
         <div class="bg-white rounded-2xl border border-slate-200 mb-8">
@@ -49,11 +58,29 @@
         </div>
 
         <!-- History -->
-        <div class="bg-white rounded-2xl border border-slate-200">
+        <div class="bg-white rounded-2xl border border-slate-200 mb-10">
           <div class="px-6 py-4 border-b border-slate-100">
             <h3 class="font-semibold text-slate-900">History</h3>
           </div>
           <div id="history-list"></div>
+        </div>
+
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">Withdrawal Requests</h3>
+
+        <!-- Pending -->
+        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">Pending <span id="wd-pending-count" class="text-slate-400 font-normal"></span></h3>
+          </div>
+          <div id="wd-pending-list"></div>
+        </div>
+
+        <!-- History -->
+        <div class="bg-white rounded-2xl border border-slate-200">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-900">History</h3>
+          </div>
+          <div id="wd-history-list"></div>
         </div>
 
       </main>
@@ -97,6 +124,45 @@
     </div>
   </div>
 
+  <!-- Approve Withdrawal modal — no editable amount field, unlike the Credit modal above:
+       an HYS withdrawal's receive amount is deterministic (principal ± interest, computed
+       once at request time by computeHYSWithdrawalAmount() from the real pocket), not a
+       PM-confirmed external settlement figure like a deposit's credited amount can be, so
+       there is nothing to edit here — just review and confirm. -->
+  <div id="wd-approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="wd-approve-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Approve HYS Withdrawal</p>
+        <button type="button" id="wd-approve-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4">Approving pays out <span class="font-medium text-slate-900" id="wd-approve-amount-label"></span> to the client's <span class="font-medium text-slate-900" id="wd-approve-method-label"></span> and marks the pocket withdrawn. This does not affect Unallocated Capital — High Yield Savings is its own pool, funded and paid out externally.</p>
+      <p class="text-xs text-red-500 hidden mb-2" id="wd-approve-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="wd-approve-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="wd-approve-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Approve &amp; Pay Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Withdrawal modal -->
+  <div id="wd-reject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="wd-reject-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Reject HYS Withdrawal</p>
+        <button type="button" id="wd-reject-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+      <textarea id="wd-reject-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this request being rejected?"></textarea>
+      <p class="text-xs text-red-500 hidden mb-2" id="wd-reject-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="wd-reject-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="wd-reject-submit" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition">Reject Request</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
     <p class="font-medium text-sm" id="admin-toast-title">Done</p>
@@ -112,11 +178,13 @@
 
   <script>
     (function () {
-      if (typeof getAllClientHYSDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof getAllClientHYSDepositRequests !== 'function' || typeof getAllClientHYSWithdrawalRequests !== 'function') return; // engine-core.js failed to load — bail defensively
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
         credited: 'bg-emerald-50 text-emerald-700',
+        approved: 'bg-emerald-50 text-emerald-700', // HYS withdrawal requests resolve to
+        // 'approved' (matching approveWithdrawal()'s own status naming), not 'credited'
         rejected: 'bg-red-50 text-red-700'
       };
       var METHOD_STYLES = {
@@ -231,9 +299,86 @@
           }).join('') + '</tbody></table>';
       }
 
+      // ---- Withdrawal Requests (Aug 27, 2026) — mirrors renderPending()/renderHistory()
+      // above in shape, but reads getAllClientHYSWithdrawalRequests() and shows
+      // receiveAmount/forfeit instead of requestedAmount/creditedAmount, since an HYS
+      // withdrawal's amount is deterministic, not PM-editable. pocketTypeLabel()/
+      // detailsHTML() above are reused as-is — both already generic enough to cover a
+      // withdrawal request's shape (pocketType/termLabel, destinationDetails) without
+      // modification. ----
+      function renderWdPending() {
+        var requests = getAllClientHYSWithdrawalRequests().filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        document.getElementById('wd-pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
+        var listEl = document.getElementById('wd-pending-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No pending HYS withdrawal requests.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
+          var methodClass = METHOD_STYLES[r.method] || 'bg-slate-100 text-slate-600';
+          var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
+          var forfeitBadge = r.forfeit ? '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-600">Interest forfeited</span>' : '';
+          return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
+            '<div class="min-w-0">' +
+              '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
+                '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
+                forfeitBadge +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+              '</div>' +
+              '<p class="text-lg font-semibold text-slate-900 mb-1">' + formatUSD(r.receiveAmount) + ' · ' + pocketTypeLabel(r) + '</p>' +
+              '<div class="mt-1 space-y-0.5">' + detailsHTML(r.destinationDetails) + '</div>' +
+            '</div>' +
+            '<div class="flex gap-2 shrink-0">' +
+              '<button type="button" class="wd-reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
+              '<button type="button" class="wd-approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-amount="' + r.receiveAmount + '" data-method="' + methodLabel + '">Approve</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+
+      function renderWdHistory() {
+        var requests = getAllClientHYSWithdrawalRequests().filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var listEl = document.getElementById('wd-history-list');
+
+        if (requests.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No resolved requests yet.</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Client</th>' +
+          '<th class="text-left font-medium px-6 py-3">Request</th>' +
+          '<th class="text-left font-medium px-6 py-3">Pocket</th>' +
+          '<th class="text-right font-medium px-6 py-3">Amount</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="text-left font-medium px-6 py-3">Resolved</th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          requests.map(function (r) {
+            var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
+            var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+            var amountCell = formatUSD(r.receiveAmount) + (r.forfeit ? ' <span class="text-red-500 text-xs">(forfeited)</span>' : '');
+            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            return '<tr class="hover:bg-slate-50/50">' +
+              '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + pocketTypeLabel(r) + '</td>' +
+              '<td class="px-6 py-4 text-right text-slate-900">' + amountCell + '</td>' +
+              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
+              '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
+            '</tr>';
+          }).join('') + '</tbody></table>';
+      }
+
       function renderAll() {
         renderPending();
         renderHistory();
+        renderWdPending();
+        renderWdHistory();
       }
 
       // ---- Credit modal ----
@@ -312,6 +457,81 @@
         }
         var rejectBtn = e.target.closest('.reject-btn');
         if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
+      });
+
+      // ---- Approve Withdrawal modal ----
+      var wdApproveModal = document.getElementById('wd-approve-modal');
+      var wdApproveError = document.getElementById('wd-approve-error');
+      var wdApproveAmountLabel = document.getElementById('wd-approve-amount-label');
+      var wdApproveMethodLabel = document.getElementById('wd-approve-method-label');
+      var activeWdApproveClientId = null;
+      var activeWdApproveId = null;
+
+      function openWdApproveModal(clientId, id, amount, method) {
+        activeWdApproveClientId = clientId;
+        activeWdApproveId = id;
+        wdApproveAmountLabel.textContent = formatUSD(amount);
+        wdApproveMethodLabel.textContent = method;
+        wdApproveError.classList.add('hidden');
+        wdApproveModal.classList.remove('hidden');
+      }
+      function closeWdApproveModal() { wdApproveModal.classList.add('hidden'); activeWdApproveClientId = null; activeWdApproveId = null; }
+
+      document.getElementById('wd-approve-modal-close').addEventListener('click', closeWdApproveModal);
+      document.getElementById('wd-approve-modal-backdrop').addEventListener('click', closeWdApproveModal);
+      document.getElementById('wd-approve-cancel').addEventListener('click', closeWdApproveModal);
+      document.getElementById('wd-approve-submit').addEventListener('click', function () {
+        try {
+          var result = approveHYSWithdrawal(activeWdApproveClientId, activeWdApproveId);
+          closeWdApproveModal();
+          showToast('Withdrawal Approved', result.id + ' — ' + formatUSD(result.receiveAmount) + ' paid out, pocket marked withdrawn.');
+          renderAll();
+        } catch (e) {
+          wdApproveError.textContent = e.message;
+          wdApproveError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Reject Withdrawal modal ----
+      var wdRejectModal = document.getElementById('wd-reject-modal');
+      var wdRejectReasonInput = document.getElementById('wd-reject-reason-input');
+      var wdRejectError = document.getElementById('wd-reject-error');
+      var activeWdRejectClientId = null;
+      var activeWdRejectId = null;
+
+      function openWdRejectModal(clientId, id) {
+        activeWdRejectClientId = clientId;
+        activeWdRejectId = id;
+        wdRejectReasonInput.value = '';
+        wdRejectError.classList.add('hidden');
+        wdRejectModal.classList.remove('hidden');
+      }
+      function closeWdRejectModal() { wdRejectModal.classList.add('hidden'); activeWdRejectClientId = null; activeWdRejectId = null; }
+
+      document.getElementById('wd-reject-modal-close').addEventListener('click', closeWdRejectModal);
+      document.getElementById('wd-reject-modal-backdrop').addEventListener('click', closeWdRejectModal);
+      document.getElementById('wd-reject-cancel').addEventListener('click', closeWdRejectModal);
+      document.getElementById('wd-reject-submit').addEventListener('click', function () {
+        try {
+          var result = rejectHYSWithdrawal(activeWdRejectClientId, activeWdRejectId, wdRejectReasonInput.value.trim());
+          closeWdRejectModal();
+          showToast('HYS Withdrawal Rejected', result.id + ' has been rejected.', true);
+          renderAll();
+        } catch (e) {
+          wdRejectError.textContent = e.message;
+          wdRejectError.classList.remove('hidden');
+        }
+      });
+
+      // ---- Delegated click handlers for withdrawal row buttons ----
+      document.getElementById('wd-pending-list').addEventListener('click', function (e) {
+        var approveBtn = e.target.closest('.wd-approve-btn');
+        if (approveBtn) {
+          openWdApproveModal(approveBtn.dataset.client, approveBtn.dataset.id, approveBtn.dataset.amount, approveBtn.dataset.method);
+          return;
+        }
+        var rejectBtn = e.target.closest('.wd-reject-btn');
+        if (rejectBtn) openWdRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
       renderAll();

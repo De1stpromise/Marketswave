@@ -3,6 +3,38 @@
 // script has loaded, from a page that has an empty <div id="sidebar-mount"></div> in place
 // of the old <aside>. The matching nav item is highlighted based on the page key passed in.
 (function () {
+  // Bug fix (Aug 27, 2026): preserves the real-vs-emulator `?env=staging` URL param across
+  // every internal client-facing navigation, not just one redirect — the client-side half of
+  // the exact same fix admin-sidebar.js/admin-login.html just got. Matters for real here too,
+  // not just cosmetically: signOutOfFirebaseAuth() below reads firebase-config.js's IS_STAGING
+  // fresh from the CURRENT page's own URL at the moment Logout is clicked, so if this page's
+  // own URL never carried the param (because an earlier redirect or nav link silently dropped
+  // it), a real staging sign-out would incorrectly target the emulator instead, leaving the
+  // real staging session it meant to close still live. Defined here, before its first use
+  // below, rather than after — function declarations hoist in JS, but this reads clearer.
+  function currentEnvQuery() {
+    try {
+      return new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+    } catch (e) { return ''; }
+  }
+
+  // Rewrites every same-page, local .html link — this file's own rendered sidebar nav/footer/
+  // Deploy Capital CTA, AND each page's own other hardcoded internal links (e.g.
+  // asset-performance.html's "Browse Asset Collection" card) — to carry the same env param,
+  // in ONE place rather than requiring every current and future internal link to be
+  // hand-threaded individually. Mirrors admin-sidebar.js's own identically-named function.
+  function preserveEnvParamInPageLinks() {
+    var suffix = currentEnvQuery();
+    if (!suffix) return;
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var href = links[i].getAttribute('href');
+      if (!href || href.indexOf(':') !== -1 || href.indexOf('#') === 0 || href.indexOf('?') !== -1) continue;
+      if (!/\.html$/.test(href)) continue;
+      links[i].setAttribute('href', href + suffix);
+    }
+  }
+
   // Client Authentication, Phase 3 (Aug 21, 2026) — retires the unconditional CLIENT-0001
   // pin that Multi-Client Data Model Step 4 (see the git history of this comment) put here.
   // MUST still run here, at file-load time, not inside initDashboardSidebar(): this file
@@ -25,7 +57,7 @@
   var __authenticatedClientId = null;
   try { __authenticatedClientId = sessionStorage.getItem('marketswave_authenticated_client_id'); } catch (e) { /* sessionStorage unavailable — non-fatal, fails closed (redirects) */ }
   if (!__authenticatedClientId) {
-    location.replace('login.html');
+    location.replace('login.html' + currentEnvQuery());
   } else {
     try { sessionStorage.setItem('marketswave_current_client_id', __authenticatedClientId); } catch (e) { /* non-fatal */ }
   }
@@ -70,12 +102,17 @@
     }
   ];
 
-  // Documents & Reporting is the only nav item with a notification badge. It is always
-  // rendered with id="sidebar-doc-badge" and a default of "2" (matching the static value
-  // every non-documents page has always shown). documents.html's own script — which loads
-  // after this one and after the sidebar has been mounted — recomputes the real count from
-  // its live doc-row data and overwrites this element's text, exactly as it did before the
-  // sidebar markup was extracted. No other page ever touches this element.
+  // Documents & Reporting is the only nav item with a notification badge, id="sidebar-doc-
+  // badge". Bug fix (Aug 27, 2026, from the frontend audit): this used to be hardcoded to a
+  // static "2" here, correct only on documents.html itself (whose own script overwrote it
+  // after mount) — every other dashboard page showed that same fake "2" for the entire page
+  // visit, since nothing on those pages ever touched the element. Masked on a fresh install
+  // only because the seed data's real urgentCount also happens to be 2 by coincidence; any
+  // real change to a client's document state (sign a document, have a new one published,
+  // etc.) exposed the staleness on 9 of 10 client-facing pages. Now computed for real, at
+  // mount time, from getDocumentNotificationCounts() — the same engine-core.js function
+  // documents.html's own correction and the notification bell already use — so the badge is
+  // correct from the very first paint on every page, not hardcoded-then-corrected.
   var ACTIVE_MAIN = 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white font-medium';
   var INACTIVE_MAIN = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition';
   var ACTIVE_FOOTER = 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white transition text-sm font-medium';
@@ -84,11 +121,11 @@
   var SETTINGS_ICON = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>';
   var SUPPORT_ICON = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>';
 
-  function navLinkHTML(item, activePage) {
+  function navLinkHTML(item, activePage, docBadgeCount) {
     var cls = item.key === activePage ? ACTIVE_MAIN : INACTIVE_MAIN;
     var inner = item.badge
       ? '<span class="flex-1">' + item.label + '</span>' +
-        '<span id="sidebar-doc-badge" class="inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold leading-none">2</span>'
+        '<span id="sidebar-doc-badge" class="' + (docBadgeCount === 0 ? 'hidden ' : '') + 'inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold leading-none">' + docBadgeCount + '</span>'
       : item.label;
     return '<a href="' + item.href + '" class="' + cls + '">' +
       '<svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + item.icon + '"/></svg>' +
@@ -133,7 +170,7 @@
     // (already loaded by the time initDashboardSidebar() runs, unlike the top-of-file check)
     // — mirrors admin-sidebar.js's own initAdminSidebar() guard exactly.
     if (typeof getAuthenticatedClientId === 'function' && !getAuthenticatedClientId()) {
-      location.replace('login.html');
+      location.replace('login.html' + currentEnvQuery());
       return;
     }
 
@@ -155,7 +192,17 @@
     var footerAccountType = footerClient ? footerClient.accountType : '';
     var footerInitials = (footerClient && typeof getClientInitials === 'function') ? getClientInitials(footerClient.name) : '';
 
-    var navHTML = NAV_ITEMS.map(function (item) { return navLinkHTML(item, activePage); }).join('');
+    // Real Documents badge count (see the file-level comment above navLinkHTML() for the bug
+    // this replaces) — getDocumentNotificationCounts() is a real engine-core.js function,
+    // already loaded by the time this runs (only ever called after engine-core.js's own
+    // <script> tag, same as getClient()/getClientInitials() above). Falls back to 0 (hidden
+    // badge) only if something is genuinely wrong, e.g. engine-core.js failed to load —
+    // never a fake nonzero placeholder.
+    var docBadgeCount = (typeof getDocumentNotificationCounts === 'function')
+      ? getDocumentNotificationCounts().urgentCount
+      : 0;
+
+    var navHTML = NAV_ITEMS.map(function (item) { return navLinkHTML(item, activePage, docBadgeCount); }).join('');
 
     mount.innerHTML =
       '<button type="button" id="sidebar-toggle-btn" class="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 rounded-lg bg-navy text-white flex items-center justify-center shadow-lg" aria-label="Toggle menu" aria-expanded="false" aria-controls="sidebar-aside">' +
@@ -208,6 +255,7 @@
     });
 
     wireLogoutLinks();
+    preserveEnvParamInPageLinks();
   }
 
   // Logout is a plain <a href="index.html">Logout</a> duplicated in every page's own
@@ -223,17 +271,87 @@
   // for that key, same raw-key exception already used at file-load time above). Without this,
   // the file-load-time guard above would happily re-pin and let a "logged out" browser straight
   // back onto a dashboard page on the next navigation, since the auth key would still be set.
+  //
+  // Real Firebase signOut() (Aug 23, 2026, follow-up to Backend Migration Phase 1's own
+  // "flagged as real follow-up" note): previously Logout only cleared the local session
+  // mirror above, leaving any real Firebase Auth session (from a real login.html sign-in)
+  // silently still active. preventDefault() + a manual navigate-after is required here,
+  // not the plain <a href> default action, because signOut() is asynchronous and a normal
+  // link click's default navigation would tear down this page (aborting the in-flight
+  // Firebase call) before it resolves. The local session clear above still runs first and
+  // unconditionally — per Phase 1's hybrid bridge, every other page depends entirely on
+  // that local mirror, so it must never be skipped or made to wait on Firebase.
   function wireLogoutLinks() {
     Array.prototype.forEach.call(document.querySelectorAll('a'), function (link) {
       if (link.textContent.trim() !== 'Logout') return;
       link.setAttribute('href', 'login.html');
-      link.addEventListener('click', function () {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
         try {
           if (typeof clearClientAuthentication === 'function') clearClientAuthentication();
           sessionStorage.removeItem('marketswave_current_client_id');
-        } catch (e) { /* sessionStorage unavailable — non-fatal */ }
+        } catch (err) { /* sessionStorage unavailable — non-fatal */ }
+        signOutOfFirebaseAuth().then(function () {
+          window.location.href = 'login.html' + currentEnvQuery();
+        });
       });
     });
+  }
+
+  // Best-effort real Firebase Auth sign-out, run ALONGSIDE (never instead of) the local
+  // session clear in wireLogoutLinks() above. Uses dynamic import() — valid in this
+  // classic, non-module script — rather than adding a page-level <script type="module">
+  // tag to all 10 client-facing pages that load this file; this keeps Firebase reached
+  // from exactly one place outside signup.html/login.html (still the only pages that load
+  // it eagerly at page-load time — see CLAUDE.md's Tech Stack section), only at the moment
+  // Logout is actually clicked. Wrapped end-to-end (including a 3-second timeout race) so a
+  // stopped emulator, a network hiccup, or Firebase already having no live session can never
+  // block a real logout from completing.
+  //
+  // Two real races were found and fixed here, live, not hypothetically — both verified with
+  // a genuine signed-in Firebase Auth test user by checking auth state via a FRESH
+  // onAuthStateChanged on the very next page load (login.html), never just the in-page
+  // synchronous read, since that's what silently masked both bugs during initial testing.
+  //
+  // Race 1 — MUST wait for auth's own initial state hydration (onAuthStateChanged firing
+  // once) before calling signOut(). This file's dynamic import() always creates a BRAND NEW
+  // Auth instance (module registries are per-page-load, not cached across navigations),
+  // which kicks off an async read of any persisted session from IndexedDB the moment
+  // getAuth() runs. Calling signOut() before that read settles loses the race: the in-flight
+  // hydration resolves afterward and silently re-populates the very session signOut() just
+  // cleared.
+  //
+  // Race 2 — MUST wait briefly after signOut()'s own promise resolves before navigating
+  // away. signOut() resolving does not guarantee its underlying persisted-storage write has
+  // actually flushed; navigating immediately (even after Race 1's fix) can still cut that
+  // write short, leaving the old session to reappear on the next page. A short fixed delay
+  // gives it room to complete — confirmed sufficient at 300ms against the real emulator.
+  function signOutOfFirebaseAuth() {
+    var attempt = Promise.resolve()
+      .then(function () {
+        return Promise.all([
+          import('./firebase-config.js'),
+          import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js')
+        ]);
+      })
+      .then(function (mods) {
+        var auth = mods[0].auth;
+        var onAuthStateChanged = mods[1].onAuthStateChanged;
+        var signOut = mods[1].signOut;
+        return new Promise(function (resolve) {
+          var unsub = onAuthStateChanged(auth, function () {
+            unsub();
+            resolve();
+          });
+        }).then(function () {
+          return signOut(auth);
+        }).then(function () {
+          return new Promise(function (resolve) { setTimeout(resolve, 300); });
+        });
+      })
+      .catch(function () { /* non-fatal — see comment above */ });
+    var timeout = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+    return Promise.race([attempt, timeout]);
   }
 
   window.initDashboardSidebar = initDashboardSidebar;

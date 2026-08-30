@@ -400,6 +400,18 @@ img {
   box-shadow: var(--shadow-hover);
 }
 
+.service-card .icon {
+  width: 56px;
+  height: 56px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+  color: var(--primary);
+}
+
 .service-card h3 {
   font-size: 1.35rem;
   margin-bottom: 16px;
@@ -435,72 +447,124 @@ img {
   border-radius: 50%;
 }
 
-/* Large landscape service cards (Services page) */
-.service-landscape {
-  display: grid;
-  gap: 32px;
+/* Full-width scrolling service sections (services.html) — one full-width section per
+   service, stacked vertically down the page in order, replacing the earlier card-grid
+   and nav+single-detail-panel designs entirely. Each section carries its own locked
+   anchor id directly (no JS panel-swapping — a normal scrolling/anchor-jump page). */
+.services-full {
+  padding: 12px 0 20px;
 }
 
-.service-landscape-card {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 48px 44px;
-  box-shadow: var(--shadow);
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 48px;
-  align-items: start;
-  border: 1px solid var(--border);
-  transition: box-shadow 0.2s;
+.service-section {
+  padding: 64px 0;
 }
-.service-landscape-card:hover {
-  box-shadow: var(--shadow-hover);
+.service-section + .service-section {
+  border-top: 1px solid var(--border-strong);
 }
 
-.service-landscape-card .label {
-  display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 600;
+/* Gold accent — a scoped exception to the navy/cream palette, same category as the
+   Risk Meter's own .rm-* gold/mahogany accent (risk-management.html). Do not reuse
+   #C8860A anywhere else on this page or site. */
+.service-tag {
+  display: block;
+  color: #C8860A;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  margin-bottom: 12px;
+}
+
+.service-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2.15rem;
   color: var(--primary);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 22px;
+}
+
+.service-copy {
+  max-width: 760px;
+  margin-bottom: 28px;
+}
+.service-intro {
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.65;
   margin-bottom: 14px;
 }
-
-.service-landscape-card h3 {
-  font-size: 1.7rem;
-  color: var(--primary);
-  margin-bottom: 18px;
-  letter-spacing: -0.3px;
-}
-
-.service-landscape-card .intro {
+.service-secondary {
   color: var(--text-muted);
-  font-size: 1.05rem;
-  margin-bottom: 22px;
+  font-size: 1rem;
   line-height: 1.65;
 }
 
-.service-landscape-card ul {
-  margin-top: 8px;
+.service-stat {
+  display: inline-block;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px 28px;
+  margin-bottom: 36px;
 }
-.service-landscape-card ul li {
-  position: relative;
-  padding-left: 22px;
-  margin-bottom: 12px;
+
+.service-stat-number {
+  display: block;
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.service-stat-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.service-stat-text {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.service-checklist {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.service-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.service-check-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.service-check-text {
   color: var(--text);
-  font-size: 0.98rem;
-  line-height: 1.55;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding-top: 4px;
 }
-.service-landscape-card ul li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  width: 8px;
-  height: 8px;
-  background: var(--primary);
-  border-radius: 50%;
+.service-check-text strong {
+  color: var(--primary);
 }
 
 /* =====================================================
@@ -682,37 +746,91 @@ img {
   font-size: 1.05rem;
 }
 
-.approach-list {
-  margin-top: 28px;
+.values-block {
+  margin-top: 70px;
 }
 
-.approach-list li {
-  position: relative;
-  padding-left: 28px;
-  margin-bottom: 14px;
-  font-weight: 500;
+.values-label {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--primary);
+  margin-bottom: 32px;
 }
-.approach-list li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 9px;
-  width: 10px;
-  height: 10px;
-  background: var(--primary);
-  border-radius: 50%;
+
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
+
+.value-item {
+  border-top: 2px solid var(--primary);
+  padding-top: 20px;
+}
+
+.value-item h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.value-item p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .approach-visual {
   background: var(--surface);
   border-radius: 16px;
   height: 360px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: var(--text-muted);
   font-size: 1.05rem;
   border: 1px solid var(--border);
+}
+
+.process-steps {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  padding: 32px;
+}
+
+.process-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.process-step-num {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.process-step-text h4 {
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.process-step-text p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .philosophy {
@@ -747,16 +865,16 @@ img {
 .vision-mission {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 32px;
+  gap: 48px;
   margin-bottom: 70px;
 }
 
+/* Editorial treatment — deliberately not a card. Reuses the same top-rule accent
+   already established by the homepage's Our Values section (.value-item), rather
+   than a boxed/shadowed container. */
 .vm-card {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 40px 36px;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
+  border-top: 2px solid var(--primary);
+  padding-top: 22px;
 }
 
 .vm-card h3 {
@@ -772,6 +890,45 @@ img {
   color: var(--text-muted);
   font-size: 1.05rem;
   line-height: 1.7;
+}
+
+/* Background & History narrative + company facts (about.html) */
+.about-narrative p {
+  margin-bottom: 16px;
+}
+.about-narrative p:last-child {
+  margin-bottom: 0;
+}
+
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px 40px;
+  margin-top: 40px;
+  text-align: left;
+}
+
+.fact {
+  border-top: 2px solid var(--primary);
+  padding-top: 12px;
+}
+
+.fact-label {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.fact-value {
+  display: block;
+  font-size: 0.97rem;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .team-grid {
@@ -979,6 +1136,143 @@ img {
   line-height: 1.65;
 }
 
+/* Bold sub-heading line between h1 and the descriptive paragraph — used only where a
+   page hero needs a second, shorter title beneath the main h1 (about.html). */
+.page-hero .subtitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  opacity: 1;
+  margin-bottom: 14px;
+}
+
+/* =====================================================
+   16B. HOMEPAGE — PLATFORM PITCH / DIFFERENTIATORS
+===================================================== */
+.platform-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+
+.platform-column-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--primary);
+  padding-bottom: 14px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.platform-item {
+  margin-bottom: 28px;
+}
+.platform-item:last-child {
+  margin-bottom: 0;
+}
+
+.platform-item h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.platform-item p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.diff-list {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 32px;
+  align-items: start;
+  padding: 40px 0;
+  border-top: 1px solid var(--border-strong);
+}
+.diff-row:last-child {
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.diff-num {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--border-strong);
+  line-height: 1;
+}
+
+.diff-content h3 {
+  font-size: 1.25rem;
+  color: var(--primary);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.diff-content p {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* =====================================================
+   16C. MOTION (index.html + services.html)
+   [data-reveal]/[data-reveal-scale] only take effect once a page's own motion script
+   (home-motion.js or services-motion.js) has added .js-motion to <html> — if JS never
+   runs, or the browser lacks IntersectionObserver, or prefers-reduced-motion is set,
+   that class is never added and every element here stays in its normal, fully-visible
+   static state. No content is ever hidden waiting on JS that might not run.
+===================================================== */
+.js-motion [data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.js-motion [data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.js-motion [data-reveal-scale] {
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.js-motion [data-reveal-scale].is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Defense-in-depth: even if .js-motion were ever present, a reduced-motion
+   preference always wins and shows everything immediately, no transition. */
+@media (prefers-reduced-motion: reduce) {
+  .js-motion [data-reveal],
+  .js-motion [data-reveal-scale] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Card icon hover response, paired with the existing .account-card/.service-card
+   hover lift (transform/box-shadow transitions already defined on the cards
+   themselves) — a subtle scale-up on the icon badge only. */
+.account-card .icon,
+.service-card .icon {
+  transition: transform 0.2s ease;
+}
+.account-card:hover .icon,
+.service-card:hover .icon {
+  transform: scale(1.1);
+}
+
 /* =====================================================
    17. RESPONSIVE
 ===================================================== */
@@ -992,15 +1286,36 @@ img {
   .footer-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .service-landscape-card {
-    grid-template-columns: 1fr;
-    gap: 24px;
+  .service-section {
+    padding: 44px 0;
+  }
+  .service-title {
+    font-size: 1.7rem;
   }
   .account-grid {
     grid-template-columns: 1fr;
   }
   .vision-mission {
     grid-template-columns: 1fr;
+  }
+  .facts-grid {
+    grid-template-columns: 1fr;
+  }
+  .platform-columns {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .diff-row {
+    grid-template-columns: 64px 1fr;
+    gap: 20px;
+    padding: 32px 0;
+  }
+  .diff-num {
+    font-size: 2rem;
+  }
+  .values-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
   }
 }
 
@@ -1030,6 +1345,10 @@ img {
     width: 44px;
     height: 44px;
     font-size: 1rem;
+  }
+  .values-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 }
 

@@ -141,6 +141,29 @@
 //             signup.html's submit handler now calls this alongside addClient();
 //             admin-client-applications.html's Pending list renders it so a PM has real
 //             financial-profile/risk-questionnaire/document data to review, not just a name.
+//   Backend Migration Phase 1 (Aug 22, 2026): the Client Registry + client-application-review
+//             business rules now have a REAL backend for two pages only — signup.html and
+//             login.html — via Firestore + Firebase Auth + Cloud Functions (see the new
+//             functions/index.js and firestore.rules at the project root). Every other page
+//             (including admin-client-applications.html) is deliberately NOT migrated yet and
+//             stays on this file's own local `clients` array. mirrorAuthenticatedClientLocally
+//             (clientData) is the bridge that makes that split work: signup.html/login.html
+//             call it after a real Firebase operation succeeds, upserting a local shadow copy
+//             of the Firestore record into this file's own `clients` array so
+//             getClient()/getClientByEmail() — and everything downstream of them (identity
+//             display, etc.) — keep working unchanged. seedMinimalClientStores(), previously
+//             internal-only, is now exported too, since a Firebase-created client bypasses
+//             addClient() entirely and needs its own per-client local stores (holdings,
+//             transactions, etc.) seeded a different way. getAuthenticatedClientId() itself
+//             was NOT changed — login.html calls the existing setClientAuthenticated(uid)
+//             with the client's real Firebase Auth uid as the id, so every already-built page
+//             that already depends on getAuthenticatedClientId() keeps working with no idea
+//             the identity behind that id is now a real Firebase Auth user instead of a local
+//             password-hash comparison. See the handover doc's dedicated Backend Migration
+//             section (not a numbered §4.x entry — this is a stack-level decision, not one
+//             more feature) for the full writeup, including the emulator-only scoping
+//             decision and what's still needed before any of this touches real production
+//             Firebase.
 //
 // This is the foundational data model every later engine phase (allocation requests, PM
 // approval, transaction feed, etc.) will build on. Both phases so far deliberately do NOT
@@ -249,6 +272,11 @@
 //   ---- Onboarding Data Capture (Aug 22, 2026): see the phase-log entry above.
 //   saveClientOnboardingData(clientId, data), getClientOnboardingData(clientId) — explicit
 //   clientId only, stateless, document uploads stored as filename/type metadata only.
+//   ---- Backend Migration Phase 1 (Aug 22, 2026): see the phase-log entry above.
+//   mirrorAuthenticatedClientLocally(clientData) — the hybrid bridge; upserts a real
+//   Firebase-authenticated client's Firestore record into this file's local `clients` array.
+//   seedMinimalClientStores(clientId, startingUnallocatedCapital) — now exported (previously
+//   internal-only), since a Firebase-created client bypasses addClient() entirely.
 //   engineDebugDump()  — console-only, manual verification, no page should call this
 (function () {
   const CATALOG_KEY = 'marketswave_product_catalog';
@@ -273,6 +301,16 @@
   // client shares one registry, same reasoning as the Product Catalog being global rather
   // than per-client.
   const CLIENTS_KEY = 'marketswave_clients';
+  // Advisory Fee Rate — genuinely global (Aug 27, 2026, closing a real scope bug: the rate
+  // used to live inside each client's own scoped ACCOUNT_KEY state, `accountState.
+  // advisoryFeeRate`, even though admin-advisory-fee.html's own copy always claimed it was
+  // "Account-wide" / applied "across every client-facing page" — setAdvisoryFeeRate() only
+  // ever actually changed the AMBIENT current client's own rate. Fixed by giving the rate its
+  // own global key, same category as CATALOG_KEY/CLIENTS_KEY — a fee rate is platform policy,
+  // not per-client data, and should behave that way). See migrateAdvisoryFeeRateToGlobal()
+  // below for the one-time migration off the old per-client field.
+  const ADVISORY_FEE_RATE_KEY = 'marketswave_advisory_fee_rate';
+  const DEFAULT_ADVISORY_FEE_RATE = 1.25;
   // Step 2: sessionStorage (not localStorage) so it resets per browser session rather than
   // persisting forever — a stale "you're viewing CLIENT-0007" from a week-old session isn't
   // something either persona should silently inherit.
@@ -306,6 +344,28 @@
   // Mirrors the existing deposit/sell/allocation request pattern instead (each already its
   // own store with exactly the fields it needs), not a new pattern.
   const HYS_DEPOSIT_REQUESTS_KEY = 'marketswave_hys_deposit_requests';
+  // HYS Withdrawal Approval Queue (Aug 27, 2026, closing a real architectural gap the
+  // frontend audit found: high-yield-savings.html's own finalizeWithdrawal() previously
+  // flipped a pocket to 'withdrawn' and saved directly to localStorage — no approval gate,
+  // and no crediting of the withdrawal amount ANYWHERE, meaning the money genuinely vanished
+  // rather than merely skipping approval). A PARALLEL store, not an extension of
+  // WITHDRAWAL_REQUESTS_KEY (the main portfolio withdrawal queue) — same reasoning as
+  // HYS_DEPOSIT_REQUESTS_KEY staying parallel to DEPOSIT_REQUESTS_KEY: a pocket withdrawal
+  // carries pocketId/forfeit/receiveAmount fields the main withdrawal flow has no use for.
+  // Built stateless-per-call from the very start (no module-level cache anywhere in this
+  // domain), the same discipline WITHDRAWAL_REQUESTS_KEY itself already used from day one —
+  // see requestHYSWithdrawal() below.
+  //
+  // DELIBERATE DESIGN, decided with the user before building this: an approved HYS
+  // withdrawal does NOT credit unallocatedCapital. This exactly mirrors creditHYSDeposit()'s
+  // own explicit rule ("HYS is its own pool... never touching unallocatedCapital/
+  // allocatedCapital") — HYS deposits are funded externally (bank/crypto) and bypass
+  // unallocatedCapital entirely on the way in, so crediting unallocatedCapital on the way
+  // OUT would be a real double-count: money that never left unallocatedCapital would get
+  // added to it anyway. The withdraw modal's own client-facing copy ("is on its way to your
+  // bank account/crypto wallet") already describes an external payout, not an internal
+  // transfer — approveHYSWithdrawal() below makes that copy true rather than aspirational.
+  const HYS_WITHDRAWAL_REQUESTS_KEY = 'marketswave_hys_withdrawal_requests';
   // high-yield-savings.html's own existing pocket store — engine-core.js did not previously
   // read or write this at all (pockets were entirely page-local). creditHYSDeposit() below
   // is the first engine code to touch it, and does so via a direct scoped read/modify/write
@@ -334,7 +394,7 @@
   // throws immediately via the REQUESTABLE_SETTINGS_FIELDS.indexOf check below — existing
   // dateOfBirth records already in marketswave_settings_change_requests test data are left
   // untouched (not migrated, not deleted) and remain fully visible/resolvable in
-  // admin-settings-changes.html, since approveSettingsChangeRequest()/
+  // admin-profile-updates.html, since approveSettingsChangeRequest()/
   // rejectSettingsChangeRequest() never re-validate a request's field against this list.
   // Password Reset + 2FA Rework (Aug 21, 2026). SECURITY_LOG_KEY is GLOBAL — an audit trail
   // spanning every client, same category as CLIENTS_KEY/CATALOG_KEY, never scoped to one
@@ -695,8 +755,9 @@
     const accountState = {
       unallocatedCapital: unallocatedCapital,
       allocatedCapital: allocatedCapital,
-      assetReturns: 0, // realized returns only — stays 0 until a later phase posts to it
-      advisoryFeeRate: 1.25
+      assetReturns: 0 // realized returns only — stays 0 until a later phase posts to it
+      // advisoryFeeRate deliberately NOT here as of Aug 27, 2026 — the rate is now global
+      // (ADVISORY_FEE_RATE_KEY), not part of any per-client account state shape.
     };
 
     return { catalog: catalog, accountState: accountState, holdings: holdings };
@@ -774,6 +835,58 @@
     localStorage.setItem(clientScopedKey(ACCOUNT_KEY), JSON.stringify(accountState));
     localStorage.setItem(clientScopedKey(HOLDINGS_KEY), JSON.stringify(holdings));
   }
+
+  // ---- Advisory Fee Rate: global, one-time migration off the old per-client field ---------
+  // Runs once (guarded by ADVISORY_FEE_RATE_KEY already existing) — idempotent by construction,
+  // same pattern as migrateLegacyUnscopedKeysToClient0001(). Must run after `clients` is loaded
+  // (it is, by this point — the Client Registry seed block runs earlier in this IIFE) since it
+  // scans every real client's own scoped ACCOUNT_KEY data directly, not just the ambient
+  // current client's.
+  //
+  // JUDGMENT CALL, flagged rather than silently decided: if every client's pre-existing rate
+  // agrees (the overwhelmingly likely case, since admin-advisory-fee.html has always shown and
+  // edited "the" rate as if singular), that value is adopted as the new global rate
+  // automatically — there's a real, unambiguous answer, nothing to ask about. If clients'
+  // rates genuinely DIVERGE (only possible if different clients were "ambient" during
+  // different past edits), this function does NOT silently pick one and discard the rest: it
+  // falls back to DEFAULT_ADVISORY_FEE_RATE and logs every divergent value found via
+  // console.warn, so the discrepancy is visible and reviewable rather than quietly lost. (This
+  // machine's real browser data was checked directly before writing this function — as of Aug
+  // 27, 2026 every real client here agrees at 1.25%, so the divergent branch has not actually
+  // fired on this install; it exists for correctness on any other install, not hypothetically.)
+  function migrateAdvisoryFeeRateToGlobal() {
+    if (localStorage.getItem(ADVISORY_FEE_RATE_KEY) !== null) return; // already migrated
+
+    const found = [];
+    clients.forEach(function (c) {
+      const raw = safeParse(localStorage.getItem(scopedKeyForClient(ACCOUNT_KEY, c.id)));
+      if (raw && typeof raw.advisoryFeeRate === 'number') {
+        found.push({ clientId: c.id, rate: raw.advisoryFeeRate });
+      }
+    });
+
+    let resolvedRate;
+    const uniqueRates = found
+      .map(function (f) { return f.rate; })
+      .filter(function (r, i, arr) { return arr.indexOf(r) === i; });
+
+    if (uniqueRates.length <= 1) {
+      resolvedRate = uniqueRates.length === 1 ? uniqueRates[0] : DEFAULT_ADVISORY_FEE_RATE;
+    } else {
+      resolvedRate = DEFAULT_ADVISORY_FEE_RATE;
+      console.warn(
+        'Advisory fee rate migration found DIVERGENT per-client rates (this should not ' +
+        'happen under normal use — different clients were ambient during different past ' +
+        'edits): ' + JSON.stringify(found) + '. Defaulted the new global rate to ' +
+        DEFAULT_ADVISORY_FEE_RATE + '% rather than silently picking one. Review and correct ' +
+        'via admin-advisory-fee.html if this default is not the intended value.'
+      );
+    }
+
+    localStorage.setItem(ADVISORY_FEE_RATE_KEY, JSON.stringify(resolvedRate));
+  }
+  migrateAdvisoryFeeRateToGlobal();
+  let advisoryFeeRate = JSON.parse(localStorage.getItem(ADVISORY_FEE_RATE_KEY));
 
   // Loaded independently of the catalog/account/holdings trio above, rather than folded into
   // that "all-or-nothing" seed block — these two keys are new as of Phase 3 and an existing
@@ -948,18 +1061,27 @@
     return results;
   }
 
-  // ---- Advisory fee ----------------------------------------------------------
+  // ---- Advisory fee — GENUINELY GLOBAL (Aug 27, 2026, see ADVISORY_FEE_RATE_KEY's own
+  // comment for the scope-bug history) --------------------------------------------------
+  // allocatedCapital stays ambient/per-client here deliberately — that part is genuinely
+  // client-specific data (how much of THIS client's capital is deployed), while the rate
+  // itself is platform-wide policy. The accrued DOLLAR amount is correctly a per-client
+  // figure even though the RATE it's computed from is global.
+  function getAdvisoryFeeRate() {
+    return advisoryFeeRate;
+  }
+
   function getAdvisoryFeeAccrued(periodDays) {
-    return round2(accountState.allocatedCapital * (accountState.advisoryFeeRate / 100) * (periodDays / 365));
+    return round2(accountState.allocatedCapital * (advisoryFeeRate / 100) * (periodDays / 365));
   }
 
   function setAdvisoryFeeRate(newRate) {
     if (typeof newRate !== 'number' || !isFinite(newRate) || newRate <= 0) {
       throw new Error('Advisory fee rate must be a positive number.');
     }
-    accountState.advisoryFeeRate = newRate;
-    persistAccountState();
-    return accountState.advisoryFeeRate;
+    advisoryFeeRate = newRate;
+    localStorage.setItem(ADVISORY_FEE_RATE_KEY, JSON.stringify(advisoryFeeRate));
+    return advisoryFeeRate;
   }
 
   // Lazy catch-up: run once per engine load (here, not on a setInterval — see file header).
@@ -984,8 +1106,10 @@
   // needs no per-client helper at all.)
   function readAccountStateForClient(clientId) {
     const key = scopedKeyForClient(ACCOUNT_KEY, clientId);
+    // advisoryFeeRate deliberately not part of this default shape as of Aug 27, 2026 — see
+    // ADVISORY_FEE_RATE_KEY's own comment; the rate is global now, not per-client.
     return safeParse(localStorage.getItem(key)) ||
-      { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0, advisoryFeeRate: 1.25 };
+      { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
   }
 
   function writeAccountStateForClient(clientId, state) {
@@ -1618,13 +1742,14 @@
   // HYS_DEPOSIT_REQUESTS_KEY comment above for why this isn't just an extension of the
   // regular deposit queue.
   //
-  // Rate tables intentionally mirror high-yield-savings.html's own SHORT_TERM_BRACKETS/
-  // LOCKED_RATES exactly. This is real, if small, duplication — flagged rather than silently
-  // accepted: the client page needs these for its own live preview (rate/maturity/interest
-  // shown before the client ever submits), and the engine needs its OWN authoritative copy
-  // so a submitted request's rate is derived from validated inputs, not trusted verbatim from
-  // client-computed values, matching how every other money-affecting figure in this file
-  // works (price ticks, advisory fee, etc.). If either table ever changes, update both.
+  // Rate tables are this engine's own authoritative copy of the HYS interest rate schedule.
+  // Backend Requirements Register row 34 (Aug 23, 2026): high-yield-savings.html previously
+  // kept a SEPARATE, hand-duplicated copy of these same two tables for its own live preview
+  // (rate shown before the client ever submits) — real, if small, duplication that risked the
+  // two silently drifting apart. Resolved by exposing getHYSRate() below as the single public
+  // entry point into this schedule: requestHYSDeposit() itself now calls it internally (not
+  // just the client-facing preview), so there is exactly one place this schedule lives. If the
+  // schedule ever changes, this is the only place to edit.
   const HYS_SHORT_TERM_BRACKETS = [
     { max: 2, rate: 5 }, { max: 4, rate: 7 }, { max: 6, rate: 8.5 },
     { max: 8, rate: 9.5 }, { max: 10, rate: 10.5 }, { max: 12, rate: 12 }
@@ -1634,6 +1759,26 @@
   function hysShortTermRate(months) {
     const bracket = HYS_SHORT_TERM_BRACKETS.find(function (b) { return months <= b.max; });
     return bracket ? bracket.rate : HYS_SHORT_TERM_BRACKETS[HYS_SHORT_TERM_BRACKETS.length - 1].rate;
+  }
+
+  // termMode: 'short' (termValue = months, 1-12) or 'locked' (termValue = years, 1-5).
+  // Exposed on window (see the export block near the end of this file) so
+  // high-yield-savings.html's own New Pocket preview calls this exact function instead of
+  // keeping a separate copy of the rate schedule.
+  function getHYSRate(termMode, termValue) {
+    if (termMode === 'short') {
+      if (!Number.isInteger(termValue) || termValue < 1 || termValue > 12) {
+        throw new Error('Short-term months must be an integer between 1 and 12.');
+      }
+      return hysShortTermRate(termValue);
+    }
+    if (termMode === 'locked') {
+      if (!Number.isInteger(termValue) || termValue < 1 || termValue > 5) {
+        throw new Error('Locked-term years must be an integer between 1 and 5.');
+      }
+      return HYS_LOCKED_RATES[termValue];
+    }
+    throw new Error('termMode must be either "short" or "locked".');
   }
 
   // term is { mode: 'short'|'locked', value: number } for a Fixed Deposit pocket, or
@@ -1666,7 +1811,7 @@
           throw new Error('Short-term deposits must have a term between 1 and 12 months.');
         }
         termMonths = termValue;
-        rate = hysShortTermRate(termMonths);
+        rate = getHYSRate('short', termMonths);
         termInYears = termMonths / 12;
         termLabel = termMonths + ' Month' + (termMonths > 1 ? 's' : '');
       } else {
@@ -1674,7 +1819,7 @@
           throw new Error('Locked deposits must have a term between 1 and 5 years.');
         }
         termYears = termValue;
-        rate = HYS_LOCKED_RATES[termYears];
+        rate = getHYSRate('locked', termYears);
         termInYears = termYears;
         termLabel = termYears + ' Year' + (termYears > 1 ? 's' : '');
       }
@@ -1829,6 +1974,178 @@
     }, []);
   }
 
+  // ---- HYS Withdrawal Approval Queue (Aug 27, 2026) --------------------------------------
+  // See HYS_WITHDRAWAL_REQUESTS_KEY's own comment above for the full "why" — this closes a
+  // real bug (money vanishing with no approval gate and no credit anywhere), not just a
+  // missing-approval-gate gap. Built stateless-per-call throughout (no module-level cache),
+  // mirroring requestWithdrawal()/approveWithdrawal()/rejectWithdrawal()'s own from-day-one
+  // discipline rather than the ambient-cached pattern the Approval Gate unification later had
+  // to retrofit away from in four other domains.
+  //
+  // Determines the SAME receive amount / forfeiture rule high-yield-savings.html's own
+  // (now-removed) computeReceiveAmount() always used — preserved exactly, not reinvented: an
+  // As-You-Want pocket always returns its own balance; a Fixed Deposit pocket still 'active'
+  // (i.e. not yet matured) forfeits its projectedInterest on early withdrawal, a matured one
+  // does not. Computed here, once, at request time, from the REAL stored pocket — never
+  // trusted from the client, matching how every other request function in this file only
+  // ever derives money math from its own authoritative read, never a caller-supplied figure.
+  // Exported on window (see the export block near the end of this file) for the SAME reason
+  // getHYSRate() is: high-yield-savings.html's own withdraw-modal preview calls this exact
+  // function instead of keeping a separate duplicated copy of the forfeiture rule (Backend
+  // Requirements Register row 34's own precedent, applied here from the start rather than
+  // duplicated once and cleaned up later).
+  function computeHYSWithdrawalAmount(pocket) {
+    if (pocket.type === 'ayw') return round2(pocket.amount);
+    const forfeit = pocket.status === 'active';
+    return forfeit ? round2(pocket.amount) : round2(pocket.amount + pocket.projectedInterest);
+  }
+
+  function requestHYSWithdrawal(clientId, pocketId, method, destinationDetails) {
+    if (!clientId) throw new Error('requestHYSWithdrawal requires a clientId.');
+    if (method !== 'crypto' && method !== 'bank') {
+      throw new Error('method must be either "crypto" or "bank".');
+    }
+
+    const pocketsKey = scopedKeyForClient(HYS_POCKETS_KEY, clientId);
+    const pockets = safeParse(localStorage.getItem(pocketsKey)) || [];
+    const pocket = pockets.find(function (p) { return p.id === pocketId; });
+    if (!pocket) throw new Error('Unknown pocket: ' + pocketId);
+    if (pocket.status === 'withdrawn') {
+      throw new Error('Pocket ' + pocketId + ' has already been withdrawn.');
+    }
+    // Mirrors the button-visibility rule high-yield-savings.html's own renderPockets() has
+    // always used (a locked-term pocket still active shows no Withdraw button at all, only
+    // "Locked until maturity — no early withdrawal available") — now enforced here too,
+    // not just left as a UI-only guard a caller could bypass.
+    if (pocket.type === 'fixed' && pocket.termMode === 'locked' && pocket.status === 'active') {
+      throw new Error('Locked-term deposits cannot be withdrawn before maturity.');
+    }
+
+    const clientRequests = readRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId);
+    // A pocket can only ever be withdrawn once — unlike a partial sell, there's no notion of
+    // "some of it" — so a second pending request against the same pocket is rejected outright
+    // rather than left as a UI-only guard (the same category of gap Phase 4c's own sell-side
+    // guard was built to close, applied here at the engine layer from the start instead).
+    const alreadyPending = clientRequests.some(function (r) { return r.pocketId === pocketId && r.status === 'pending'; });
+    if (alreadyPending) {
+      throw new Error('A withdrawal request for this pocket is already pending.');
+    }
+
+    const forfeit = pocket.type === 'fixed' && pocket.status === 'active';
+    const receiveAmount = computeHYSWithdrawalAmount(pocket);
+
+    const request = {
+      id: nextSequentialId(clientRequests, 'HYSWD'),
+      pocketId: pocketId,
+      pocketType: pocket.type,
+      termLabel: pocket.termLabel || null, // mirrors requestHYSDeposit()'s own shape so the
+      // client's "My Pocket Requests" table can render both request kinds through one shared
+      // label function without a separate pocket lookup.
+      forfeit: forfeit,
+      receiveAmount: receiveAmount,
+      method: method,
+      destinationDetails: destinationDetails || null,
+      status: 'pending',
+      requestedAt: todayStrUTC(),
+      requestedAtMs: Date.now(),
+      resolvedAt: null,
+      transactionId: null,
+      reason: null
+    };
+    clientRequests.push(request);
+    writeRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  // Explicit clientId throughout — reads/writes ONLY that client's own scoped request queue,
+  // pocket store, and transaction ledger, the same discipline every Approval Gate domain
+  // uses. Re-validates against the CURRENT pocket state at approval time (not just the
+  // snapshot taken at request time) — mirrors approveSellRequest()'s own re-validation
+  // discipline (Phase 3B), for the same reason: state can genuinely change between a request
+  // being submitted and a PM getting to it.
+  function approveHYSWithdrawal(clientId, requestId) {
+    const clientRequests = readRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
+    if (!request) throw new Error('Unknown HYS withdrawal request: ' + requestId);
+    if (request.status !== 'pending') {
+      throw new Error('HYS withdrawal request ' + requestId + ' is not pending (status: ' + request.status + ').');
+    }
+
+    const pocketsKey = scopedKeyForClient(HYS_POCKETS_KEY, clientId);
+    const pockets = safeParse(localStorage.getItem(pocketsKey)) || [];
+    const pocket = pockets.find(function (p) { return p.id === request.pocketId; });
+    if (!pocket) throw new Error('Pocket ' + request.pocketId + ' no longer exists.');
+    if (pocket.status === 'withdrawn') {
+      throw new Error('Pocket ' + request.pocketId + ' has already been withdrawn.');
+    }
+
+    pocket.status = 'withdrawn';
+    pocket.withdrawnAt = new Date().toISOString();
+    pocket.withdrawnAmount = request.receiveAmount;
+    pocket.withdrawalMethod = request.method === 'crypto' ? 'crypto wallet' : 'bank account';
+    localStorage.setItem(pocketsKey, JSON.stringify(pockets));
+
+    // Symmetric with creditHYSDeposit(): deliberately never calls writeAccountStateForClient()
+    // / touches unallocatedCapital or allocatedCapital — see HYS_WITHDRAWAL_REQUESTS_KEY's own
+    // comment for the full "why" this is correct, not an oversight. Still lands in the shared
+    // transaction ledger (type HYS_WITHDRAWAL, distinct from both HYS_DEPOSIT and the main
+    // portfolio WITHDRAWAL type) so the activity is visible in one place, same as every other
+    // money-moving action in this file. realizedReturn stays null, matching HYS_DEPOSIT's own
+    // choice — HYS interest earned/forfeited is fully visible via the pocket's own
+    // projectedInterest and this request's own forfeit/receiveAmount fields without wiring it
+    // into the portfolio-side realized-return math, which HYS has never participated in.
+    const txnId = appendTransactionForClient(clientId, {
+      date: todayStrUTC(),
+      productId: null,
+      type: 'HYS_WITHDRAWAL',
+      units: null,
+      price: null,
+      totalValue: request.receiveAmount,
+      realizedReturn: null,
+      status: 'Completed',
+      method: request.method,
+      pocketId: request.pocketId
+    });
+
+    request.status = 'approved';
+    request.resolvedAt = todayStrUTC();
+    request.transactionId = txnId;
+    writeRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  function rejectHYSWithdrawal(clientId, requestId, reason) {
+    const clientRequests = readRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId);
+    const request = clientRequests.find(function (r) { return r.id === requestId; });
+    if (!request) throw new Error('Unknown HYS withdrawal request: ' + requestId);
+    if (request.status !== 'pending') {
+      throw new Error('HYS withdrawal request ' + requestId + ' is not pending (status: ' + request.status + ').');
+    }
+    request.status = 'rejected';
+    request.resolvedAt = todayStrUTC();
+    request.reason = reason || null;
+    writeRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, clientId, clientRequests);
+    return request;
+  }
+
+  // Client-facing ambient convenience — reads getCurrentClientId() fresh on every call, same
+  // pattern as getWithdrawalRequests().
+  function getHYSWithdrawalRequests() {
+    return readRequestsForClient(HYS_WITHDRAWAL_REQUESTS_KEY, getCurrentClientId()).map(withSortTimestamp);
+  }
+
+  // Cross-client aggregation, admin-facing — mirrors getAllClientHYSDepositRequests() exactly.
+  function getAllClientHYSWithdrawalRequests() {
+    return clients.reduce(function (acc, c) {
+      const key = scopedKeyForClient(HYS_WITHDRAWAL_REQUESTS_KEY, c.id);
+      const requests = safeParse(localStorage.getItem(key)) || [];
+      requests.forEach(function (r) {
+        acc.push(Object.assign({}, withSortTimestamp(r), { clientId: c.id, clientName: c.name }));
+      });
+      return acc;
+    }, []);
+  }
+
   // ---- Settings Change Request queue (Request Change redesign, Aug 21, 2026) -------------
   // Replaces marketswave_settings_pending (field names only, no requested value, no reason,
   // no timestamp — see the SETTINGS_CHANGE_REQUESTS_KEY comment above). Not a module-level
@@ -1968,7 +2285,7 @@
   // ---- Settings Change admin queue — cross-client aggregation (Aug 21, 2026) --------------
   // Mirrors getAllClientDocuments()/getAllClientSupportRequests(): reads every client's own
   // scoped request store directly via scopedKeyForClient(), tagging each record with
-  // clientId/clientName for admin-settings-changes.html's cross-client listing. Approve/reject
+  // clientId/clientName for admin-profile-updates.html's cross-client listing. Approve/reject
   // themselves already take an explicit clientId (see above) — this is purely the missing
   // "list everyone's pending requests" reader that was deliberately held back in Step 1.
   function getAllClientSettingsChangeRequests() {
@@ -2180,8 +2497,12 @@
       const requests = safeParse(localStorage.getItem(key)) || [];
       return requests.filter(function (r) { return r.status === 'pending'; }).length;
     }
+    // HYS Withdrawal Requests added Aug 27, 2026 (the frontend audit's HYS withdrawal
+    // approval-gate fix) — same category as HYS Deposits, so counted here for the same
+    // reason.
     return countPending(REQUESTS_KEY) + countPending(SELL_REQUESTS_KEY) +
       countPending(DEPOSIT_REQUESTS_KEY) + countPending(HYS_DEPOSIT_REQUESTS_KEY) +
+      countPending(HYS_WITHDRAWAL_REQUESTS_KEY) +
       countPending(SETTINGS_CHANGE_REQUESTS_KEY) + countPending(WITHDRAWAL_REQUESTS_KEY);
   }
 
@@ -2238,7 +2559,16 @@
   // form. id/createdAt/lastTickDate/inceptionUnitPrice are immutable for the same reason
   // most identity/bookkeeping fields are immutable elsewhere in this file (transaction ids,
   // request timestamps, etc.) — they describe what already happened, not something to edit.
-  const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment'];
+  // description/extendedDescription/logoUrl (Aug 23, 2026): all three optional, all editable
+  // through the same general patch path — unlike unitPrice, none of these feed the returns/
+  // allocation math, so there's no equivalent risk to gate them behind a separate override
+  // capability. Conceptually description is for every product, extendedDescription is meant
+  // for Private Equity/Real Assets, and logoUrl for Stocks & ETFs/Crypto — but that's a
+  // display convention enforced by admin-products.html's own form (which field is shown per
+  // Asset Class), not a data-layer restriction: nothing here stops any product from carrying
+  // any combination of the three, since a future category or judgment call might reasonably
+  // want one anyway.
+  const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment', 'description', 'extendedDescription', 'logoUrl'];
 
   // Shared by addProduct() (validates the full new-product object, unitPrice checked
   // separately since it's the one field addProduct() needs but editProduct() forbids) and
@@ -2260,6 +2590,17 @@
     }
     if (typeof fields.minimumInvestment !== 'number' || !isFinite(fields.minimumInvestment) || fields.minimumInvestment < 0) {
       throw new Error('minimumInvestment must be a non-negative number.');
+    }
+    // All three optional — undefined/null is fine (existing seeded products predate these
+    // fields entirely), but if present, must actually be a string.
+    if (fields.description != null && typeof fields.description !== 'string') {
+      throw new Error('description must be a string.');
+    }
+    if (fields.extendedDescription != null && typeof fields.extendedDescription !== 'string') {
+      throw new Error('extendedDescription must be a string.');
+    }
+    if (fields.logoUrl != null && typeof fields.logoUrl !== 'string') {
+      throw new Error('logoUrl must be a string.');
     }
   }
 
@@ -2294,6 +2635,12 @@
       createdAt: today,
       lastTickDate: today
     };
+    // Only set the key when a real value is given — keeps a product created without these
+    // fields byte-identical in shape to the pre-existing seeded ones, rather than padding
+    // every new product with empty-string placeholders nothing asked for.
+    if (typeof product.description === 'string' && product.description.trim()) newProduct.description = product.description.trim();
+    if (typeof product.extendedDescription === 'string' && product.extendedDescription.trim()) newProduct.extendedDescription = product.extendedDescription.trim();
+    if (typeof product.logoUrl === 'string' && product.logoUrl.trim()) newProduct.logoUrl = product.logoUrl.trim();
     catalog.push(newProduct);
     persistCatalog();
     return Object.assign({}, newProduct);
@@ -2337,6 +2684,9 @@
     });
     if (typeof product.name === 'string') product.name = product.name.trim();
     if (typeof product.investmentType === 'string') product.investmentType = product.investmentType.trim();
+    if (typeof product.description === 'string') product.description = product.description.trim();
+    if (typeof product.extendedDescription === 'string') product.extendedDescription = product.extendedDescription.trim();
+    if (typeof product.logoUrl === 'string') product.logoUrl = product.logoUrl.trim();
 
     persistCatalog();
     return Object.assign({}, product);
@@ -2390,6 +2740,24 @@
     return (words[0][0] + words[words.length - 1][0]).toUpperCase();
   }
 
+  // Splits a real client name into { firstName, lastName } for the settings profile's
+  // legalName field — reuses getClientInitials()'s own LEGAL_ENTITY_SUFFIXES filtering so
+  // "Riverstone Holdings LLC" splits as firstName "Riverstone", lastName "Holdings", not a
+  // bare "LLC" swallowing the meaningful second word. Splits on the LAST remaining word
+  // (lastName), everything before it joined back together (firstName) — correct for the
+  // common "First Last"/"First Middle Last" shapes; a single-word name (or a legal name
+  // reduced to one word after stripping its suffix) falls back to firstName '' / lastName
+  // <the one word>, an honest degradation, not a crash or a fabricated second word.
+  function splitClientLegalName(name) {
+    if (!name || typeof name !== 'string') return { firstName: '', lastName: '' };
+    const words = name.trim().split(/\s+/).filter(function (w) {
+      return LEGAL_ENTITY_SUFFIXES.indexOf(w.replace(/[.,]/g, '').toUpperCase()) === -1;
+    });
+    if (words.length === 0) return { firstName: '', lastName: '' };
+    if (words.length === 1) return { firstName: '', lastName: words[0] };
+    return { firstName: words.slice(0, -1).join(' '), lastName: words[words.length - 1] };
+  }
+
   // Multi-Client Data Model Phase, Step 5 (Aug 21, 2026): writes a fresh, minimal set of
   // per-client stores directly to the NEW client's scoped keys — deliberately bypassing
   // clientScopedKey()/getCurrentClientId() (which still resolve to whichever client is
@@ -2401,12 +2769,37 @@
   // keys — cloning demo data into every new client, not the "fresh account, modest starting
   // cash, no holdings" a real new client should start with. Holdings/transactions/every
   // request queue/documents all start empty; only unallocatedCapital is nonzero.
-  function seedMinimalClientStores(clientId, startingUnallocatedCapital) {
+  //
+  // Settings profile seeding (Aug 27, 2026): closes the gap flagged during the
+  // accountState/holdings/documents fix above — getSettingsProfile() and settings.html's own
+  // separate email/phone read both fell back to hardcoded placeholder identity ("John A.
+  // Doe," a fake Boston address, "john.doe@example.com") for EVERY new client, on both
+  // creation paths, since neither ever wrote a real settings profile at creation time. Fixed
+  // by seeding the SAME marketswave_settings_profile store both consumers already read from
+  // (getSettingsProfile() projects out legalName/address/idDocument; settings.html's own
+  // `{...DEFAULTS, ...stored}` merge separately reads email/phone from the identical key) —
+  // legalName is real, derived from the client's own real name via splitClientLegalName()
+  // above; email/phone are the real values already known at creation time (the signup form
+  // for a real client, the Add Client form for an admin-created one) — no separate source,
+  // no fabrication. address/idDocument are seeded `null`, not a fabricated placeholder:
+  // neither creation path has a real address or ID document available at this exact moment
+  // (the Add Client form never collects either; a real signup's own document uploads land in
+  // the separate ONBOARDING_KEY store via saveClientOnboardingData(), not here) — `null` is a
+  // real, honest "not provided yet" value, and formatFieldDisplay()'s existing `if (!value)
+  // return '—'` (format-helpers.js) already renders it as a clean em dash, the same
+  // empty-state convention used everywhere else in this project, requiring no display-side
+  // change. clientData is optional and defaults to an empty object so any pre-existing caller
+  // (Node test scripts, etc.) that doesn't pass it doesn't crash — it just seeds an empty-
+  // string legalName/email/phone rather than a real one, which is still strictly better than
+  // the fake placeholder it replaces.
+  function seedMinimalClientStores(clientId, startingUnallocatedCapital, clientData) {
+    const info = clientData || {};
+    // advisoryFeeRate deliberately not part of this shape as of Aug 27, 2026 — the rate is
+    // global now (ADVISORY_FEE_RATE_KEY), not seeded per-client.
     const freshAccountState = {
       unallocatedCapital: round2(startingUnallocatedCapital),
       allocatedCapital: 0,
-      assetReturns: 0,
-      advisoryFeeRate: 1.25
+      assetReturns: 0
     };
     localStorage.setItem(scopedKeyForClient(ACCOUNT_KEY, clientId), JSON.stringify(freshAccountState));
     localStorage.setItem(scopedKeyForClient(HOLDINGS_KEY, clientId), JSON.stringify([]));
@@ -2415,6 +2808,11 @@
     localStorage.setItem(scopedKeyForClient(SELL_REQUESTS_KEY, clientId), JSON.stringify([]));
     localStorage.setItem(scopedKeyForClient(DEPOSIT_REQUESTS_KEY, clientId), JSON.stringify([]));
     localStorage.setItem(scopedKeyForClient(DOCUMENTS_KEY, clientId), JSON.stringify([]));
+    const freshProfile = Object.assign(
+      { legalName: splitClientLegalName(info.name), address: null, idDocument: null },
+      { email: info.email || '', phone: info.phone || '' }
+    );
+    localStorage.setItem(scopedKeyForClient(SETTINGS_PROFILE_KEY, clientId), JSON.stringify(freshProfile));
   }
 
   // startingUnallocatedCapital is accepted as an input field purely to seed the new client's
@@ -2446,7 +2844,7 @@
     );
     clients.push(newClient);
     persistClients();
-    seedMinimalClientStores(newClient.id, startingUnallocatedCapital);
+    seedMinimalClientStores(newClient.id, startingUnallocatedCapital, newClient);
     return newClient;
   }
 
@@ -2493,6 +2891,71 @@
   function getPendingClientApplications() {
     return clients.filter(function (c) { return c.status === 'pending_review'; })
       .map(function (c) { return Object.assign({}, c); });
+  }
+
+  // ---- Backend Migration Phase 1 bridge: mirrorAuthenticatedClientLocally (Aug 22, 2026) --
+  // The actual point of Phase 1's hybrid design. A client created via the new Firebase-backed
+  // signup.html no longer exists in this file's local `clients` array at all — their real
+  // record lives in Firestore, keyed by their Firebase Auth uid, created by the
+  // createClientApplication Cloud Function (functions/index.js). But EVERY page in this
+  // project except signup.html/login.html (dashboard-sidebar.js's identity footer,
+  // settings.html's profile card, support.html's callback modal, the entire admin tool) still
+  // reads client identity through getClient()/getClientByEmail(), which only ever look at
+  // this local `clients` array. Without this function, those reads would return null for any
+  // Firebase-authenticated client and silently break every one of those surfaces.
+  //
+  // login.html/signup.html call this right after a successful Firebase operation, passing a
+  // plain object shaped exactly like a local Client Registry record (id = the Firebase Auth
+  // uid, matching what getAuthenticatedClientId() will also return once
+  // setClientAuthenticated(uid) is called — see the bridge itself, below) — writing it into
+  // the SAME local `clients` array/marketswave_clients key that addClient()-created records
+  // already live in. Deliberately upsert-shaped (creates on first login/signup, refreshes on
+  // every subsequent one) rather than a one-time write, so a status change made in Firestore
+  // (e.g. an admin approving the application) is reflected locally the next time this client
+  // authenticates, without needing a separate sync mechanism.
+  //
+  // This is a genuine, disclosed architectural seam, not a permanent design: the local
+  // `clients` array is now dual-written from two sources (addClient() for legacy/admin-
+  // created clients, this function for Firebase-authenticated ones) until a later phase
+  // migrates every remaining page off localStorage and this mirror can be retired entirely.
+  // See the handover doc's Backend Migration section for the full writeup.
+  function mirrorAuthenticatedClientLocally(clientData) {
+    if (!clientData || !clientData.id) {
+      throw new Error('mirrorAuthenticatedClientLocally requires a client record with an id.');
+    }
+    const record = Object.assign({}, clientData);
+    const idx = clients.findIndex(function (c) { return c.id === record.id; });
+    const isFirstMirror = idx === -1;
+    if (isFirstMirror) {
+      clients.push(record);
+    } else {
+      clients[idx] = record;
+    }
+    persistClients();
+    // Bug fix (Aug 27, 2026): a real Firebase-signup client's FIRST mirror never called
+    // seedMinimalClientStores() the way addClient() always has — so their first-ever engine
+    // load (documents.html/dashboard.html/etc., whichever they land on first) found nothing
+    // under their own scoped accountState/holdings/documents keys and fell straight through to
+    // the ambient module-level "load or seed" fallbacks (this file's own lines ~825-837 for
+    // accountState/holdings, ~3008-3013 for documents), which seed CLIENT-0001's fake demo
+    // portfolio/documents — not a real new client's empty baseline. Confirmed via direct
+    // investigation this genuinely happened for every real client that has ever signed up
+    // through login.html's real Firebase path (see the same-session repair pass below and the
+    // handover doc's writeup for the specific affected clients found and fixed on this
+    // machine). Fixed by reusing seedMinimalClientStores() directly — the same function
+    // addClient() already calls, not a duplicate of its logic — but ONLY on the client's
+    // genuinely first mirror (idx === -1, computed above): a RETURNING client re-authenticating
+    // on a later visit already has real per-client data (real transactions, real requests, a
+    // real Documents & Reporting history) that must never be wiped by a login. 0 is the correct
+    // startingUnallocatedCapital here — the same default addClient() itself falls back to when
+    // no explicit starting cash is given — since a real signup has no admin-specified funding
+    // to seed from. Also seeds a real settings profile (legalName/email/phone from this same
+    // real record) as of the same-session follow-up fix — see seedMinimalClientStores()'s own
+    // comment for the full writeup.
+    if (isFirstMirror) {
+      seedMinimalClientStores(record.id, 0, record);
+    }
+    return Object.assign({}, record);
   }
 
   // ---- Onboarding Data Capture (Aug 22, 2026) --------------------------------------------
@@ -2817,6 +3280,13 @@
   window.approveClientApplication = approveClientApplication;
   window.rejectClientApplication = rejectClientApplication;
   window.getPendingClientApplications = getPendingClientApplications;
+  window.mirrorAuthenticatedClientLocally = mirrorAuthenticatedClientLocally;
+  // Backend Migration Phase 1 (Aug 22, 2026): previously an internal-only helper called
+  // solely from inside addClient() — now also called directly from signup.html's new
+  // Firebase-backed path (a Firebase-created client is never routed through addClient()
+  // itself, so its per-client local stores need seeding some other way). Exported here for
+  // the first time; addClient()'s own internal call site is unchanged.
+  window.seedMinimalClientStores = seedMinimalClientStores;
   window.saveClientOnboardingData = saveClientOnboardingData;
   window.getClientOnboardingData = getClientOnboardingData;
   window.hashClientPassword = hashClientPassword;
@@ -2839,6 +3309,7 @@
   window.settleAllProducts = settleAllProducts;
   window.getAdvisoryFeeAccrued = getAdvisoryFeeAccrued;
   window.setAdvisoryFeeRate = setAdvisoryFeeRate;
+  window.getAdvisoryFeeRate = getAdvisoryFeeRate;
   window.getUnrealizedReturn = getUnrealizedReturn;
   window.getUnrealizedReturnPercent = getUnrealizedReturnPercent;
   window.getTotalUnrealizedReturns = getTotalUnrealizedReturns;
@@ -2864,11 +3335,18 @@
   window.rejectWithdrawal = rejectWithdrawal;
   window.getWithdrawalRequests = getWithdrawalRequests;
   window.getAllClientWithdrawalRequests = getAllClientWithdrawalRequests;
+  window.getHYSRate = getHYSRate;
+  window.computeHYSWithdrawalAmount = computeHYSWithdrawalAmount;
   window.requestHYSDeposit = requestHYSDeposit;
   window.creditHYSDeposit = creditHYSDeposit;
   window.rejectHYSDeposit = rejectHYSDeposit;
   window.getHYSDepositRequests = getHYSDepositRequests;
   window.getAllClientHYSDepositRequests = getAllClientHYSDepositRequests;
+  window.requestHYSWithdrawal = requestHYSWithdrawal;
+  window.approveHYSWithdrawal = approveHYSWithdrawal;
+  window.rejectHYSWithdrawal = rejectHYSWithdrawal;
+  window.getHYSWithdrawalRequests = getHYSWithdrawalRequests;
+  window.getAllClientHYSWithdrawalRequests = getAllClientHYSWithdrawalRequests;
   window.getSettingsProfile = getSettingsProfile;
   window.requestSettingsChange = requestSettingsChange;
   window.approveSettingsChangeRequest = approveSettingsChangeRequest;

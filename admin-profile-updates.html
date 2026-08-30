@@ -23,13 +23,10 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -114,6 +111,7 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="format-helpers.js"></script>
   <script>
     initAdminSidebar('settings-changes');
   </script>
@@ -132,28 +130,13 @@
       var FIELD_LABELS = { legalName: 'Legal Name', dateOfBirth: 'Date of Birth', address: 'Address', idDocument: 'ID / Document' };
       var STATUS_STYLES = { pending: 'bg-amber-50 text-amber-700', approved: 'bg-emerald-50 text-emerald-700', rejected: 'bg-red-50 text-red-700' };
 
-      // Same field-specific formatting logic as settings.html's own (former) formatDateDisplay()/
-      // formatFieldDisplay() — reused here rather than inventing a separate generic diff view,
-      // per the task's own instruction. Duplicated, not shared, since this project has no
-      // module system for plain display-formatting helpers like dashboard-sidebar.js/
-      // engine-core.js provide for stateful logic; a low-risk, purely cosmetic duplication
-      // (unlike the flagged HYS rate duplication, nothing here is a money or security figure)
-      // — logged as minor structural debt in the handover doc. This copy now intentionally
-      // diverges from settings.html's: settings.html dropped its own dateOfBirth branch
-      // entirely (Aug 21, 2026) since it can no longer display or request that field at all,
-      // while this copy keeps it for the legacy-record reason above.
-      function formatDateDisplay(iso) {
-        var d = new Date(iso + 'T00:00:00Z');
-        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-      }
-      function formatFieldDisplay(field, value) {
-        if (!value) return '—';
-        if (field === 'legalName') return value.firstName + ' ' + value.lastName;
-        if (field === 'dateOfBirth') return formatDateDisplay(value);
-        if (field === 'address') return value.street + ', ' + value.city + ', ' + value.state + ' ' + value.zip + ', ' + value.country;
-        if (field === 'idDocument') return value.fileName ? value.documentType + ' — ' + value.fileName : value.documentType;
-        return '—';
-      }
+      // formatDateDisplay()/formatFieldDisplay() now live in format-helpers.js (Aug 23,
+      // 2026), closing the structural debt this comment used to flag — both this page and
+      // settings.html now call the same shared copy instead of hand-kept duplicates. The
+      // shared version's formatFieldDisplay() keeps the dateOfBirth branch this page relies
+      // on (a legacy pending/resolved record may still name that field — see the FIELD_LABELS
+      // comment above), even though settings.html itself has no dateOfBirth UI left to call
+      // it with.
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');

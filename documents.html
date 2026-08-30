@@ -36,7 +36,7 @@
 
     <!-- ========== MAIN ========== -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -183,8 +183,12 @@
   <script src="dashboard-notifications.js"></script>
   <script>
     // Sidebar must be mounted before the notification-count logic below runs, since that
-    // logic looks up #sidebar-doc-badge (rendered inside the sidebar) and overwrites its
-    // text with the real, live-computed count.
+    // logic looks up #sidebar-doc-badge (rendered inside the sidebar) and re-confirms its
+    // text. dashboard-sidebar.js itself now also computes this badge's real value at mount
+    // time (Aug 27, 2026 fix — see its own file-level comment), so this page's own correction
+    // below is no longer the ONLY thing keeping the badge honest; it stays as the mechanism
+    // for a LIVE update after a mutation made without leaving this page (sign/upload/remove),
+    // which a mount-time-only computation can't cover on its own.
     initDashboardSidebar('documents');
     initDashboardNotifications();
   </script>
@@ -212,8 +216,16 @@
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 3500);
       }
 
-      // ---- Notification badge counts — now a reusable engine function, not logic living
-      // only in this page's script (getDocumentNotificationCounts() in engine-core.js) ----
+      // ---- Notification badge counts — a reusable engine function, not logic living only in
+      // this page's script (getDocumentNotificationCounts() in engine-core.js). The 3 chip
+      // spans below are THIS PAGE's own body content — dashboard-sidebar.js has no reason to
+      // know about them, so this remains the only thing that ever corrects them, exactly as
+      // before (still a real, correct value; the hardcoded HTML default is only ever visible
+      // for one paint). #sidebar-doc-badge is different: dashboard-sidebar.js now ALSO
+      // computes it correctly at mount time (Aug 27, 2026 fix), so the two lines touching it
+      // below are a deliberate keep, not leftover redundancy — they re-sync the badge live
+      // after a mutation made without leaving this page (sign/upload/remove), which the
+      // shared component's mount-time-only computation has no way to react to on its own. ----
       function refreshNotificationCounts() {
         var counts = getDocumentNotificationCounts();
         document.getElementById('chip-new-count').textContent = counts.newCount;

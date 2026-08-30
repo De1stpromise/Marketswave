@@ -31,7 +31,7 @@
 
     <!-- ========== MAIN ========== -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -251,41 +251,22 @@
           <div class="pt-6">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <p class="text-sm font-medium text-navy">Active Sessions & Linked Devices</p>
-              <button type="button" id="logout-all-btn" class="text-xs font-medium text-red-500 hover:underline">Log out all other sessions</button>
             </div>
             <div class="space-y-2" id="sessions-list">
               <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
                 <div class="flex items-center gap-3 min-w-0">
                   <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                   <div class="min-w-0">
-                    <p class="text-sm font-medium text-navy truncate">Chrome on Windows <span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span></p>
-                    <p class="text-xs text-slate-500">Boston, MA, United States · Active now</p>
+                    <p class="text-sm font-medium text-navy truncate" id="session-device-label">Loading…<span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span></p>
+                    <p class="text-xs text-slate-500" id="session-status-label">Active now</p>
                   </div>
                 </div>
-              </div>
-
-              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100" data-session="s2">
-                <div class="flex items-center gap-3 min-w-0">
-                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18h3"/></svg>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-navy truncate">Safari on iPhone</p>
-                    <p class="text-xs text-slate-500">Boston, MA, United States · 2 hours ago</p>
-                  </div>
-                </div>
-                <button type="button" class="session-logout-btn text-xs font-medium text-red-500 hover:underline shrink-0" data-session="s2" data-name="Safari on iPhone">Log out</button>
-              </div>
-
-              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100" data-session="s3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-navy truncate">Chrome on MacBook Pro</p>
-                    <p class="text-xs text-slate-500">New York, NY, United States · 3 days ago</p>
-                  </div>
-                </div>
-                <button type="button" class="session-logout-btn text-xs font-medium text-red-500 hover:underline shrink-0" data-session="s3" data-name="Chrome on MacBook Pro">Log out</button>
               </div>
             </div>
+            <p class="text-xs text-slate-400 mt-3">
+              This shows only your current session, derived from your real sign-in. Tracking
+              and managing sessions across other devices isn't available yet.
+            </p>
           </div>
         </div>
 
@@ -461,6 +442,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="format-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     initDashboardSidebar('settings');
@@ -645,18 +627,14 @@
     (function () {
       if (typeof getSettingsProfile !== 'function') return; // engine-core.js failed to load — bail defensively
 
-      function formatFieldDisplay(field, value) {
-        if (field === 'legalName') return `${value.firstName} ${value.lastName}`;
-        if (field === 'address') return `${value.street}, ${value.city}, ${value.state} ${value.zip}, ${value.country}`;
-        if (field === 'idDocument') return value.fileName ? `${value.documentType} — ${value.fileName}` : value.documentType;
-        return '—';
-      }
+      // formatFieldDisplay() now lives in format-helpers.js (Aug 23, 2026), shared with
+      // admin-profile-updates.html instead of duplicated — see that file's own comment.
 
       // Date of Birth removed as a requestable field (Aug 21, 2026) — see engine-core.js's
       // REQUESTABLE_SETTINGS_FIELDS comment for why. A legacy pending/resolved dateOfBirth
       // request may still exist in marketswave_settings_change_requests test data; it is
       // intentionally NOT surfaced anywhere on this page anymore (no row, no modal body), but
-      // it is still visible and actionable in admin-settings-changes.html.
+      // it is still visible and actionable in admin-profile-updates.html.
       const FIELDS = ['legalName', 'address', 'idDocument'];
 
       function renderProfileDisplay() {
@@ -896,23 +874,79 @@
       setState(localStorage.getItem(STORAGE_KEY) === 'enabled');
     })();
 
-    // ---- Active Sessions — in-memory demo data, no persistence needed across reload ----
+    // ---- Active Sessions — shows the CURRENT real session only, derived from real Firebase
+    // Auth state (Aug 27, 2026 — replaced 3 hardcoded demo sessions with specific fabricated
+    // cities/devices/timestamps and a "Log out" that only deleted the DOM row). Real
+    // multi-device session history/management would need backend session infrastructure this
+    // project doesn't have, so that's honestly disclosed via the note below the list rather
+    // than faked — tracked in the Backend Requirements Register. Uses the same dynamic
+    // import() pattern dashboard-sidebar.js's real signOut(auth) call already established
+    // (valid in this classic, non-module script), so this page still doesn't need a
+    // page-level <script type="module"> tag.
     (function () {
-      document.getElementById('logout-all-btn').addEventListener('click', () => {
-        const rows = document.querySelectorAll('.session-logout-btn');
-        if (rows.length === 0) return;
-        if (!window.confirm('Log out all other sessions? Those devices will need to sign in again.')) return;
-        document.querySelectorAll('#sessions-list [data-session]').forEach(row => row.remove());
-        showToast('Sessions Logged Out', 'All other sessions have been signed out.');
-      });
+      const deviceLabel = document.getElementById('session-device-label');
+      const statusLabel = document.getElementById('session-status-label');
+      const thisDeviceBadge = '<span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span>';
 
-      document.getElementById('sessions-list').addEventListener('click', (e) => {
-        const btn = e.target.closest('.session-logout-btn');
-        if (!btn) return;
-        if (!window.confirm(`Log out ${btn.dataset.name}?`)) return;
-        btn.closest('[data-session]').remove();
-        showToast('Session Logged Out', `${btn.dataset.name} was signed out.`);
-      });
+      // Coarse, honest browser/OS detection from the real navigator.userAgent — approximate
+      // by nature (UA strings are self-reported and imperfect), but genuinely derived from
+      // this real browser, not invented. Order matters: Edge's UA contains "Chrome", and
+      // Chrome's UA contains "Safari", so the more specific checks must run first.
+      function detectBrowser() {
+        const ua = navigator.userAgent;
+        if (/Edg\//.test(ua)) return 'Edge';
+        if (/OPR\//.test(ua)) return 'Opera';
+        if (/Chrome\//.test(ua)) return 'Chrome';
+        if (/Firefox\//.test(ua)) return 'Firefox';
+        if (/Safari\//.test(ua)) return 'Safari';
+        return 'Unknown Browser';
+      }
+      function detectOS() {
+        const ua = navigator.userAgent;
+        if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+        if (/Android/.test(ua)) return 'Android';
+        if (/Mac OS X/.test(ua)) return 'macOS';
+        if (/Windows/.test(ua)) return 'Windows';
+        if (/Linux/.test(ua)) return 'Linux';
+        return 'Unknown OS';
+      }
+      function deviceDescription() {
+        return `${detectBrowser()} on ${detectOS()}`;
+      }
+
+      deviceLabel.innerHTML = deviceDescription() + thisDeviceBadge;
+
+      // Best-effort real last-sign-in time from Firebase Auth. Falls back to a plain "Active
+      // now" (still true and honest for the session currently rendering this page) if
+      // Firebase can't be reached (emulator down, network hiccup) or this session wasn't
+      // established through a real Firebase Auth sign-in (e.g. a dev/console-set session) —
+      // never blocks the page, and never fabricates a value it can't back with something real.
+      Promise.resolve()
+        .then(function () {
+          return Promise.all([
+            import('./firebase-config.js'),
+            import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js')
+          ]);
+        })
+        .then(function (mods) {
+          const auth = mods[0].auth;
+          const onAuthStateChanged = mods[1].onAuthStateChanged;
+          return new Promise(function (resolve) {
+            const unsub = onAuthStateChanged(auth, function (user) {
+              unsub();
+              resolve(user);
+            });
+          });
+        })
+        .then(function (user) {
+          if (user && user.metadata && user.metadata.lastSignInTime) {
+            const signedIn = new Date(user.metadata.lastSignInTime);
+            statusLabel.textContent = 'Active now · signed in ' + signedIn.toLocaleString('en-US', {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+            });
+          }
+        })
+        .catch(function () { /* non-fatal — statusLabel already shows "Active now" */ });
     })();
 
     // ---- Notification Preferences — persisted per channel per notification type ----

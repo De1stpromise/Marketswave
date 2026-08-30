@@ -31,7 +31,7 @@
 
     <!-- ========== MAIN ========== -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -389,11 +389,11 @@
     // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
     // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
     const STORAGE_KEY = clientScopedKey('marketswave_hys_pockets');
-    const SHORT_TERM_BRACKETS = [
-      { max: 2, rate: 5 }, { max: 4, rate: 7 }, { max: 6, rate: 8.5 },
-      { max: 8, rate: 9.5 }, { max: 10, rate: 10.5 }, { max: 12, rate: 12 }
-    ];
-    const LOCKED_RATES = { 1: 14, 2: 16, 3: 17.5, 4: 19, 5: 20 };
+    // Backend Requirements Register row 34 (Aug 23, 2026): this page used to keep its own
+    // copy of the rate schedule (SHORT_TERM_BRACKETS/LOCKED_RATES) purely for this live
+    // preview. Removed — every rate shown here now comes from engine-core.js's getHYSRate(),
+    // the same function requestHYSDeposit() itself uses, so the preview and the eventual
+    // credited rate can never drift apart.
 
     let pockets = [];
     try {
@@ -415,22 +415,18 @@
     function daysUntil(iso) {
       return Math.ceil((new Date(iso) - new Date()) / 86400000);
     }
-    function getShortTermRate(months) {
-      const bracket = SHORT_TERM_BRACKETS.find(b => months <= b.max);
-      return bracket ? bracket.rate : SHORT_TERM_BRACKETS[SHORT_TERM_BRACKETS.length - 1].rate;
-    }
     function computeFDFields(amount, mode, termValue) {
       const now = new Date();
       let rate, maturity, termInYears, termLabel, termMonths = null, termYears = null;
       if (mode === 'short') {
         termMonths = termValue;
-        rate = getShortTermRate(termMonths);
+        rate = getHYSRate('short', termMonths);
         maturity = new Date(now); maturity.setMonth(maturity.getMonth() + termMonths);
         termInYears = termMonths / 12;
         termLabel = `${termMonths} Month${termMonths > 1 ? 's' : ''}`;
       } else {
         termYears = termValue;
-        rate = LOCKED_RATES[termYears];
+        rate = getHYSRate('locked', termYears);
         maturity = new Date(now); maturity.setFullYear(maturity.getFullYear() + termYears);
         termInYears = termYears;
         termLabel = `${termYears} Year${termYears > 1 ? 's' : ''}`;
@@ -533,6 +529,9 @@
     const POCKET_REQUEST_STATUS_STYLES = {
       pending: 'bg-amber-50 text-amber-700',
       credited: 'bg-emerald-50 text-emerald-700',
+      approved: 'bg-emerald-50 text-emerald-700', // HYS withdrawal requests resolve to
+      // 'approved' (matching approveWithdrawal()'s own status naming), not 'credited' —
+      // same green treatment, since both mean "the money moved."
       rejected: 'bg-red-50 text-red-700'
     };
 
@@ -540,10 +539,25 @@
       return r.pocketType === 'fixed' ? `Fixed Deposit (${r.termLabel})` : 'As You Want';
     }
 
+    // Kind badge — Deposit vs Withdrawal (Aug 27, 2026, closing the HYS withdrawal
+    // approval-gate fix) — mirrors asset-performance.html's own "My Requests" precedent of a
+    // type badge alongside the status badge when one section merges two request kinds.
+    const POCKET_REQUEST_KIND_STYLES = {
+      deposit: 'bg-purple-50 text-purple-700',
+      withdrawal: 'bg-amber-50 text-amber-700'
+    };
+
     function renderPocketRequests() {
       const listEl = document.getElementById('pocket-requests-list');
-      if (!listEl || typeof getHYSDepositRequests !== 'function') return;
-      const requests = getHYSDepositRequests().sort((a, b) => b.requestedAtMs - a.requestedAtMs);
+      if (!listEl || typeof getHYSDepositRequests !== 'function' || typeof getHYSWithdrawalRequests !== 'function') return;
+
+      // Merged, newest first — same "show everything, one shared timeline" principle
+      // asset-performance.html's own allocation+sell "My Requests" merge already established.
+      // _kind is a client-side-only tag (never persisted) distinguishing which getter a
+      // request came from, since the two share several field names but not all of them.
+      const depositRequests = getHYSDepositRequests().map(r => Object.assign({ _kind: 'deposit' }, r));
+      const withdrawalRequests = getHYSWithdrawalRequests().map(r => Object.assign({ _kind: 'withdrawal' }, r));
+      const requests = depositRequests.concat(withdrawalRequests).sort((a, b) => b.requestedAtMs - a.requestedAtMs);
 
       if (requests.length === 0) {
         listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No requests yet.</p>';
@@ -552,6 +566,7 @@
 
       listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
         '<th class="text-left font-medium px-6 py-3">Request</th>' +
+        '<th class="text-left font-medium px-6 py-3">Kind</th>' +
         '<th class="text-left font-medium px-6 py-3">Type</th>' +
         '<th class="text-right font-medium px-6 py-3">Amount</th>' +
         '<th class="text-left font-medium px-6 py-3">Method</th>' +
@@ -562,14 +577,26 @@
         requests.map(r => {
           const statusClass = POCKET_REQUEST_STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
           const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
-          const amountCell = r.status === 'credited' && r.creditedAmount !== r.requestedAmount
-            ? `${fmt(r.creditedAmount)} <span class="text-amber-600 text-xs">(requested ${fmt(r.requestedAmount)})</span>`
-            : fmt(r.requestedAmount);
+          const kindClass = POCKET_REQUEST_KIND_STYLES[r._kind];
+          const kindLabel = r._kind === 'deposit' ? 'Deposit' : 'Withdrawal';
+          let amountCell;
+          if (r._kind === 'deposit') {
+            amountCell = r.status === 'credited' && r.creditedAmount !== r.requestedAmount
+              ? `${fmt(r.creditedAmount)} <span class="text-amber-600 text-xs">(requested ${fmt(r.requestedAmount)})</span>`
+              : fmt(r.requestedAmount);
+          } else {
+            // Withdrawal amount is deterministic (principal ± interest, computed once at
+            // request time from the real pocket) — not PM-editable like a deposit's
+            // confirmed/credited amount can be, so there's no "requested vs actual" split to
+            // show, only whether interest was forfeited.
+            amountCell = fmt(r.receiveAmount) + (r.forfeit ? ' <span class="text-amber-600 text-xs">(interest forfeited)</span>' : '');
+          }
           const resolvedText = r.resolvedAt
             ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
             : '—';
           return '<tr class="hover:bg-slate-50/50">' +
             `<td class="px-6 py-4 font-medium text-navy">${r.id}</td>` +
+            `<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ${kindClass}">${kindLabel}</span></td>` +
             `<td class="px-6 py-4">${pocketRequestTypeLabel(r)}</td>` +
             `<td class="px-6 py-4 text-right">${amountCell}</td>` +
             `<td class="px-6 py-4 text-slate-500">${r.method === 'crypto' ? 'Crypto' : 'Bank Transfer'}</td>` +
@@ -611,14 +638,14 @@
         for (let m = 1; m <= 12; m++) {
           const opt = document.createElement('option');
           opt.value = m;
-          opt.textContent = `${m} Month${m > 1 ? 's' : ''} — ${getShortTermRate(m)}% APR`;
+          opt.textContent = `${m} Month${m > 1 ? 's' : ''} — ${getHYSRate('short', m)}% APR`;
           select.appendChild(opt);
         }
       } else {
         for (let y = 1; y <= 5; y++) {
           const opt = document.createElement('option');
           opt.value = y;
-          opt.textContent = `${y} Year${y > 1 ? 's' : ''} — ${LOCKED_RATES[y]}% APR`;
+          opt.textContent = `${y} Year${y > 1 ? 's' : ''} — ${getHYSRate('locked', y)}% APR`;
           select.appendChild(opt);
         }
       }
@@ -814,10 +841,12 @@
       document.getElementById('wd-bank-error').classList.add('hidden');
     }
 
-    function computeReceiveAmount(pocket, forfeit) {
-      if (pocket.type === 'ayw') return pocket.amount;
-      return forfeit ? pocket.amount : pocket.amount + pocket.projectedInterest;
-    }
+    // computeReceiveAmount() (formerly a local duplicate of this exact forfeiture rule) was
+    // removed Aug 27, 2026 — this preview now calls engine-core.js's own
+    // computeHYSWithdrawalAmount(pocket) directly, the single source of truth
+    // requestHYSWithdrawal() itself also uses, so the preview and the eventual approved
+    // amount can never drift apart (same discipline getHYSRate() already established for the
+    // deposit side, Backend Requirements Register row 34).
 
     function openWithdrawModal(id) {
       currentWithdrawId = id;
@@ -833,7 +862,7 @@
         document.getElementById('wd-warning-interest').textContent = fmt(pocket.projectedInterest);
         showWdStep('warning');
       } else {
-        document.getElementById('wd-receive-amount').textContent = fmt(computeReceiveAmount(pocket, false));
+        document.getElementById('wd-receive-amount').textContent = fmt(computeHYSWithdrawalAmount(pocket));
         showWdStep('destination');
       }
       withdrawModal.classList.remove('hidden');
@@ -842,17 +871,32 @@
       withdrawModal.classList.add('hidden');
     }
 
-    function finalizeWithdrawal(methodLabel) {
-      const pocket = pockets.find(p => p.id === currentWithdrawId);
-      const receiveAmount = computeReceiveAmount(pocket, currentForfeit);
-      pocket.status = 'withdrawn';
-      pocket.withdrawnAt = new Date().toISOString();
-      pocket.withdrawnAmount = receiveAmount;
-      pocket.withdrawalMethod = methodLabel;
-      savePockets();
+    // Aug 27, 2026 (the frontend audit's HYS withdrawal approval-gate fix): submits a
+    // requestHYSWithdrawal() request instead of executing immediately — the exact same UX
+    // shift "Open a New Pocket" already went through for deposits (submitPocketRequest()
+    // above). The pocket itself is only ever marked 'withdrawn' by approveHYSWithdrawal(),
+    // called from the admin tool once a Portfolio Manager approves — this function no longer
+    // touches `pockets`/savePockets() at all. computeReceiveAmount()/the forfeiture rule
+    // moved into engine-core.js (computeHYSWithdrawalAmount(), called internally by
+    // requestHYSWithdrawal()) as the single source of truth, rather than kept duplicated
+    // here — the exact same "derive money math from the real stored data, not a client-side
+    // copy" discipline getHYSRate() already established (Backend Requirements Register row
+    // 34). getAuthenticatedClientId() is used explicitly, not the ambient getCurrentClientId()
+    // — requestHYSWithdrawal() takes an explicit clientId by design (mirrors
+    // requestWithdrawal()'s own from-day-one discipline, not requestHYSDeposit()'s older
+    // ambient one), same correction deploy-capital.html's own Withdraw handler already needed.
+    function finalizeWithdrawal(methodLabel, method, destinationDetails, errorEl) {
+      try {
+        requestHYSWithdrawal(getAuthenticatedClientId(), currentWithdrawId, method, destinationDetails);
+      } catch (e) {
+        if (errorEl) { errorEl.textContent = e.message; errorEl.classList.remove('hidden'); }
+        return;
+      }
+      if (errorEl) errorEl.classList.add('hidden');
       renderPockets();
+      renderPocketRequests();
       closeWithdrawModal();
-      showToast('Withdrawal Submitted', `${fmt(receiveAmount)} is on its way to your ${methodLabel}. Pocket marked as Withdrawn.`);
+      showToast('Withdrawal Request Sent', `Your request to withdraw to your ${methodLabel} has been submitted. Pending Portfolio Manager approval.`);
     }
 
     document.getElementById('wd-close').addEventListener('click', closeWithdrawModal);
@@ -861,7 +905,10 @@
 
     document.getElementById('wd-warning-continue').addEventListener('click', () => {
       const pocket = pockets.find(p => p.id === currentWithdrawId);
-      document.getElementById('wd-receive-amount').textContent = fmt(computeReceiveAmount(pocket, true));
+      // pocket.status is still 'active' here (that's exactly why the warning step showed at
+      // all) so computeHYSWithdrawalAmount() independently derives the same forfeit=true
+      // result the old explicit `true` argument forced — no behavior change.
+      document.getElementById('wd-receive-amount').textContent = fmt(computeHYSWithdrawalAmount(pocket));
       showWdStep('destination');
     });
 
@@ -882,7 +929,7 @@
       const errorEl = document.getElementById('wd-crypto-error');
       if (!address || !asset || !network) { errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
-      finalizeWithdrawal('crypto wallet');
+      finalizeWithdrawal('crypto wallet', 'crypto', { address, asset, network }, errorEl);
     });
 
     document.getElementById('wd-bank-confirm').addEventListener('click', () => {
@@ -894,7 +941,7 @@
       const errorEl = document.getElementById('wd-bank-error');
       if (!name || !institution || !account || (!routing && !swift)) { errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
-      finalizeWithdrawal('bank account');
+      finalizeWithdrawal('bank account', 'bank', { accountHolderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null }, errorEl);
     });
 
     document.getElementById('pockets-grid').addEventListener('click', (e) => {

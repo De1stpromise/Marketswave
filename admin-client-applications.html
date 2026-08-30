@@ -23,13 +23,10 @@
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">No login gate — internal preview build</span>
         </div>
       </header>
 
@@ -97,8 +94,13 @@
 
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
-    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
-    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+        <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+      </div>
+      <button type="button" id="admin-toast-close" class="hidden text-white/60 hover:text-white transition text-lg leading-none shrink-0">&times;</button>
+    </div>
   </div>
 
   <script src="admin-sidebar.js"></script>
@@ -108,7 +110,69 @@
     initAdminSidebar('client-applications');
   </script>
 
-  <script>
+  <!-- Admin follow-up to Backend Migration Phase 1 (Aug 22, 2026): type="module" specifically
+       so this script can `import` the Firebase Firestore/Functions SDK and
+       admin-firebase-config.js's shared, admin-authorized session bootstrap — the only
+       change of its kind on this page. The IIFE below is otherwise the same shape as before;
+       nothing outside this script reaches into its scope. Deferred module execution (this
+       always runs after every classic script tag above, including initAdminSidebar()) means
+       engine-core.js's globals are already defined by the time this runs. -->
+  <script type="module">
+    import { ensureAdminSignedIn, db, functions } from './admin-firebase-config.js';
+    import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+    import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
+
+    // Same 'YYYY-MM-DD' conversion login.html's own copy uses — see that file's comment for
+    // why this stays a small, disclosed duplication rather than a shared utility module.
+    function firestoreTimestampToDateString(ts) {
+      if (!ts || typeof ts.toDate !== 'function') return null;
+      return ts.toDate().toISOString().slice(0, 10);
+    }
+
+    // Normalizes a Firestore clients/ document into the exact same shape
+    // getPendingClientApplications()/getAllClients() already produce locally (id/name/email/
+    // phone/accountType/status/createdAt/applicationResolvedAt/applicationReason), plus a
+    // _source tag this page uses to route Approve/Reject to the right system. This is what
+    // lets renderPending()/renderHistory() below treat local and Firebase-created
+    // applications identically at render time — they only need to branch on _source at the
+    // point of actually taking an action.
+    function firestoreDocToClientRecord(docSnap) {
+      var data = docSnap.data();
+      return {
+        id: docSnap.id,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        accountType: data.accountType,
+        status: data.status,
+        createdAt: firestoreTimestampToDateString(data.createdAt),
+        applicationResolvedAt: firestoreTimestampToDateString(data.applicationResolvedAt),
+        applicationReason: data.applicationReason || null,
+        _source: 'firebase'
+      };
+    }
+
+    async function fetchFirestorePendingApplications() {
+      await ensureAdminSignedIn();
+      var q = query(collection(db, 'clients'), where('status', '==', 'pending_review'));
+      var snap = await getDocs(q);
+      return snap.docs.map(firestoreDocToClientRecord);
+    }
+
+    // status 'in' [active, rejected] rather than a `!=` filter on applicationResolvedAt —
+    // simpler, avoids a `!=` query's own restrictions, and every Firestore-created client
+    // always has exactly one of these three status values so it's equivalent for this
+    // collection. Still filters for applicationResolvedAt truthiness client-side, matching
+    // the local History filter's own "only genuinely reviewed applications" rule exactly —
+    // not every possible future 'active'/'rejected' Firestore client is necessarily a
+    // resolved APPLICATION (mirrors the local getAllClients() filter's own reasoning).
+    async function fetchFirestoreResolvedApplications() {
+      await ensureAdminSignedIn();
+      var q = query(collection(db, 'clients'), where('status', 'in', ['active', 'rejected']));
+      var snap = await getDocs(q);
+      return snap.docs.filter(function (d) { return !!d.data().applicationResolvedAt; }).map(firestoreDocToClientRecord);
+    }
+
     (function () {
       if (typeof getPendingClientApplications !== 'function') return; // engine-core.js failed to load — bail defensively
 
@@ -126,7 +190,7 @@
       // own display text exactly (copied from that file's markup, not re-derived) — no shared
       // module system exists in this project for plain display-formatting helpers (only
       // stateful logic is shared, via engine-core.js), the same category of duplication
-      // already documented for admin-settings-changes.html's own copy of settings.html's
+      // already documented for admin-profile-updates.html's own copy of settings.html's
       // formatFieldDisplay(). Low-risk (display-only, not a money or security figure) — if
       // signup.html's own option labels ever change, this map needs updating by hand.
       var INVESTABLE_ASSETS_LABELS = {
@@ -169,16 +233,35 @@
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
       var toastBody = document.getElementById('admin-toast-body');
+      var toastClose = document.getElementById('admin-toast-close');
       var toastTimer;
-      function showToast(title, body, isError) {
+      // Bug fix (Aug 27, 2026): a genuine failure toast (e.g. ensureAdminSignedIn()
+      // rejecting) used to auto-hide on the same 4s timer as every other toast — real enough
+      // for a routine "Done" confirmation, but it could fade before a PM actually reading the
+      // screen had time to register it, reading as a silent "just shows empty" state rather
+      // than a real, actionable error. New 4th param `sticky` — deliberately separate from
+      // `isError` (isError is reused purely for red styling on some genuine SUCCESS
+      // confirmations too, e.g. "Application Rejected" below — overloading it for
+      // dismiss-behavior would have wrongly made that routine confirmation sticky as well) —
+      // requires manual dismissal via the new close button instead of auto-hiding. Only the
+      // real Firebase-load-failure call site below passes it; every other existing call site
+      // is completely unchanged, including its 4s auto-hide.
+      function showToast(title, body, isError, sticky) {
         toastTitle.textContent = title;
         toastBody.textContent = body;
         toast.classList.toggle('bg-red-700', !!isError);
         toast.classList.toggle('bg-slate-900', !isError);
+        toastClose.classList.toggle('hidden', !sticky);
         toast.classList.remove('hidden');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+        if (!sticky) {
+          toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+        }
       }
+      toastClose.addEventListener('click', function () {
+        clearTimeout(toastTimer);
+        toast.classList.add('hidden');
+      });
 
       // signup.html only ever passes name/email/phone/accountType to addClient() — confirmed
       // by reading its submit handler directly, not assumed. Everything ELSE signup.html's
@@ -255,8 +338,21 @@
         return '<div class="px-6 pb-5 -mt-1"><div class="bg-slate-50/60 rounded-xl px-5 py-4">' + sections + '</div></div>';
       }
 
+      // Admin follow-up to Backend Migration Phase 1 (Aug 22, 2026): a genuinely local
+      // pending application (e.g. one created before this migration shipped, confirmed for
+      // real in this browser's own localStorage before building this) still exists and must
+      // keep showing here — this is NOT a hypothetical, it's real unresolved data. cachedPending/
+      // cachedHistory hold the MERGED result of local (getPendingClientApplications()/
+      // getAllClients()) and real Firestore reads, refreshed by refreshAndRenderAll() below;
+      // renderPending()/renderHistory() just render whatever's currently cached, tagging each
+      // row with a small "Firebase" badge when _source === 'firebase' so a PM can see at a
+      // glance which system will actually resolve that row's Approve/Reject click.
+      var cachedPending = [];
+      var cachedHistory = [];
+      var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Firebase</span>';
+
       function renderPending() {
-        var applications = getPendingClientApplications()
+        var applications = cachedPending.slice()
           .sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
         document.getElementById('pending-count').textContent = applications.length ? '(' + applications.length + ')' : '';
         var listEl = document.getElementById('pending-list');
@@ -275,6 +371,7 @@
               '<div class="min-w-0">' +
                 '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                   '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeClass + '">' + (c.accountType || 'Individual Account') + '</span>' +
+                  (c._source === 'firebase' ? SOURCE_BADGE_HTML : '') +
                   '<span class="text-xs text-slate-400">' + c.id + ' · Submitted ' + c.createdAt + '</span>' +
                 '</div>' +
                 '<p class="text-lg font-semibold text-slate-900 mb-1">' + c.name + '</p>' +
@@ -286,8 +383,8 @@
                   (isExpanded ? 'Hide Details' : 'View Details') +
                   '<svg class="w-3.5 h-3.5 transition-transform' + (isExpanded ? ' rotate-180' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
                 '</button>' +
-                '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '">Reject</button>' +
-                '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-id="' + c.id + '" data-summary="' + summary + '">Approve</button>' +
+                '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-source="' + c._source + '">Reject</button>' +
+                '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-id="' + c.id + '" data-source="' + c._source + '" data-summary="' + summary + '">Approve</button>' +
               '</div>' +
             '</div>' +
             (isExpanded ? applicationDetailHTML(c) : '') +
@@ -296,12 +393,7 @@
       }
 
       function renderHistory() {
-        // History = every client that has actually gone through approve/reject at least
-        // once (applicationResolvedAt set) — deliberately NOT every 'active' client, since
-        // an admin-created client (addClient() from Client List) never has this field set
-        // at all and was never a reviewed application in the first place.
-        var applications = getAllClients()
-          .filter(function (c) { return c.applicationResolvedAt; })
+        var applications = cachedHistory.slice()
           .sort(function (a, b) { return (b.applicationResolvedAt || '').localeCompare(a.applicationResolvedAt || ''); });
         var listEl = document.getElementById('history-list');
 
@@ -323,7 +415,7 @@
             var statusLabel = c.status === 'active' ? 'Approved' : (c.status.charAt(0).toUpperCase() + c.status.slice(1));
             var resolvedText = c.applicationResolvedAt + (c.status === 'rejected' && c.applicationReason ? ' — ' + c.applicationReason : '');
             return '<tr class="hover:bg-slate-50/50">' +
-              '<td class="px-6 py-4 font-medium text-slate-900">' + c.name + ' <span class="text-slate-400 font-normal">(' + c.id + ')</span></td>' +
+              '<td class="px-6 py-4 font-medium text-slate-900">' + c.name + ' <span class="text-slate-400 font-normal">(' + c.id + ')</span>' + (c._source === 'firebase' ? ' ' + SOURCE_BADGE_HTML : '') + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + c.email + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + (c.accountType || '—') + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
@@ -338,32 +430,93 @@
         renderHistory();
       }
 
+      // Refetches both local (synchronous) and real Firestore (async) data, merges, then
+      // re-renders. Firestore reads use `await ensureAdminSignedIn()` internally — the first
+      // call on a fresh page load pays the one-time sign-in cost, every call after is
+      // effectively free (session already established). A Firestore read failure (e.g. the
+      // emulator isn't running) is caught and surfaced via the existing toast rather than
+      // left as a silent gap — local data still renders regardless.
+      async function refreshAndRenderAll() {
+        document.getElementById('pending-list').innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">Loading…</p>';
+
+        var localPending = getPendingClientApplications().map(function (c) { return Object.assign({ _source: 'local' }, c); });
+        var localHistory = getAllClients()
+          .filter(function (c) { return c.applicationResolvedAt; })
+          .map(function (c) { return Object.assign({ _source: 'local' }, c); });
+
+        var firestorePending = [];
+        var firestoreHistory = [];
+        try {
+          firestorePending = await fetchFirestorePendingApplications();
+          firestoreHistory = await fetchFirestoreResolvedApplications();
+        } catch (e) {
+          showToast('Could Not Load Firebase Applications', e.message || String(e), true, true);
+        }
+
+        cachedPending = localPending.concat(firestorePending);
+
+        // De-duplicate History by id: a Firebase-approved client who has since logged in
+        // once (mirrorAuthenticatedClientLocally()) exists in BOTH the local array and the
+        // real Firestore result — keep one row, not two.
+        var seen = {};
+        cachedHistory = [];
+        localHistory.concat(firestoreHistory).forEach(function (c) {
+          if (seen[c.id]) return;
+          seen[c.id] = true;
+          cachedHistory.push(c);
+        });
+
+        renderAll();
+      }
+
       // ---- Approve modal ----
       var approveModal = document.getElementById('approve-modal');
       var approveError = document.getElementById('approve-error');
       var approveSummaryLabel = document.getElementById('approve-summary-label');
+      var approveSubmitBtn = document.getElementById('approve-submit');
       var activeApproveId = null;
+      var activeApproveSource = null;
 
-      function openApproveModal(id, summary) {
+      function openApproveModal(id, summary, source) {
         activeApproveId = id;
+        activeApproveSource = source;
         approveSummaryLabel.textContent = summary;
         approveError.classList.add('hidden');
         approveModal.classList.remove('hidden');
       }
-      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveId = null; }
+      function closeApproveModal() { approveModal.classList.add('hidden'); activeApproveId = null; activeApproveSource = null; }
 
       document.getElementById('approve-modal-close').addEventListener('click', closeApproveModal);
       document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
       document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
-      document.getElementById('approve-submit').addEventListener('click', function () {
+      // Branches on _source: a local application still resolves through the exact same
+      // synchronous engine-core.js call as before; a Firebase-sourced one now genuinely
+      // calls the real admin-authorized approveClientApplication Cloud Function — the same
+      // callable Phase 1's own verification invoked directly from a script, now reached
+      // through this real UI path instead. ensureAdminSignedIn() is awaited first so the
+      // callable's request.auth carries the bootstrap admin's real custom claim; if that
+      // claim were ever missing, the function itself would reject with permission-denied,
+      // surfaced here exactly like any other thrown error.
+      approveSubmitBtn.addEventListener('click', async function () {
+        approveSubmitBtn.disabled = true;
         try {
-          var result = approveClientApplication(activeApproveId);
-          closeApproveModal();
-          showToast('Application Approved', result.name + ' (' + result.id + ') can now log in.');
-          renderAll();
+          if (activeApproveSource === 'firebase') {
+            await ensureAdminSignedIn();
+            var approveFn = httpsCallable(functions, 'approveClientApplication');
+            await approveFn({ clientId: activeApproveId });
+            closeApproveModal();
+            showToast('Application Approved', activeApproveId + ' can now log in.');
+          } else {
+            var result = approveClientApplication(activeApproveId);
+            closeApproveModal();
+            showToast('Application Approved', result.name + ' (' + result.id + ') can now log in.');
+          }
+          await refreshAndRenderAll();
         } catch (e) {
           approveError.textContent = e.message;
           approveError.classList.remove('hidden');
+        } finally {
+          approveSubmitBtn.disabled = false;
         }
       });
 
@@ -371,28 +524,42 @@
       var rejectModal = document.getElementById('reject-modal');
       var rejectReasonInput = document.getElementById('reject-reason-input');
       var rejectError = document.getElementById('reject-error');
+      var rejectSubmitBtn = document.getElementById('reject-submit');
       var activeRejectId = null;
+      var activeRejectSource = null;
 
-      function openRejectModal(id) {
+      function openRejectModal(id, source) {
         activeRejectId = id;
+        activeRejectSource = source;
         rejectReasonInput.value = '';
         rejectError.classList.add('hidden');
         rejectModal.classList.remove('hidden');
       }
-      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectId = null; }
+      function closeRejectModal() { rejectModal.classList.add('hidden'); activeRejectId = null; activeRejectSource = null; }
 
       document.getElementById('reject-modal-close').addEventListener('click', closeRejectModal);
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
-      document.getElementById('reject-submit').addEventListener('click', function () {
+      rejectSubmitBtn.addEventListener('click', async function () {
+        rejectSubmitBtn.disabled = true;
         try {
-          var result = rejectClientApplication(activeRejectId, rejectReasonInput.value.trim());
-          closeRejectModal();
-          showToast('Application Rejected', result.name + ' (' + result.id + ') has been rejected.', true);
-          renderAll();
+          if (activeRejectSource === 'firebase') {
+            await ensureAdminSignedIn();
+            var rejectFn = httpsCallable(functions, 'rejectClientApplication');
+            await rejectFn({ clientId: activeRejectId, reason: rejectReasonInput.value.trim() });
+            closeRejectModal();
+            showToast('Application Rejected', activeRejectId + ' has been rejected.', true);
+          } else {
+            var result = rejectClientApplication(activeRejectId, rejectReasonInput.value.trim());
+            closeRejectModal();
+            showToast('Application Rejected', result.name + ' (' + result.id + ') has been rejected.', true);
+          }
+          await refreshAndRenderAll();
         } catch (e) {
           rejectError.textContent = e.message;
           rejectError.classList.remove('hidden');
+        } finally {
+          rejectSubmitBtn.disabled = false;
         }
       });
 
@@ -400,12 +567,12 @@
       document.getElementById('pending-list').addEventListener('click', function (e) {
         var approveBtn = e.target.closest('.approve-btn');
         if (approveBtn) {
-          openApproveModal(approveBtn.dataset.id, approveBtn.dataset.summary);
+          openApproveModal(approveBtn.dataset.id, approveBtn.dataset.summary, approveBtn.dataset.source);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');
         if (rejectBtn) {
-          openRejectModal(rejectBtn.dataset.id);
+          openRejectModal(rejectBtn.dataset.id, rejectBtn.dataset.source);
           return;
         }
         var expandBtn = e.target.closest('.expand-btn');
@@ -416,7 +583,7 @@
         }
       });
 
-      renderAll();
+      refreshAndRenderAll();
     })();
   </script>
 

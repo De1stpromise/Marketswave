@@ -41,7 +41,7 @@
     <div class="flex-1 flex flex-col overflow-hidden">
 
       <!-- Top bar -->
-      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <p class="text-sm font-medium text-navy" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
@@ -96,6 +96,20 @@
         <div id="allocation-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
           <p class="font-medium text-sm" id="allocation-toast-title">Request Sent</p>
           <p class="text-xs text-white/70 mt-1" id="allocation-toast-body"></p>
+        </div>
+
+        <!-- "More info" popup (Private Equity/Real Assets cards) — one shared modal,
+             populated per click; works identically regardless of which category tab is
+             active, since it's driven by the clicked card's own product id, not the tab. -->
+        <div id="more-info-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div class="absolute inset-0 bg-black/50" id="more-info-modal-backdrop"></div>
+          <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div class="flex items-start justify-between mb-3">
+              <p class="text-lg font-semibold text-navy" id="more-info-modal-title"></p>
+              <button type="button" id="more-info-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+            </div>
+            <p class="text-sm text-slate-600 whitespace-pre-line" id="more-info-modal-body"></p>
+          </div>
         </div>
 
       </main>
@@ -165,6 +179,22 @@
       var categoryFilter = '';
       var visibleCount = PAGE_SIZE;
 
+      // Logo box (Stocks & ETFs/Crypto only) — real image if logoUrl is set, otherwise
+      // initials derived from the product name via the same getClientInitials() logic
+      // client identity avatars already use elsewhere. Both nodes are always rendered when a
+      // logo is present; the fallback stays hidden until the image actually fails to load
+      // (wired via a real 'error' listener after render, not an inline handler — this
+      // project doesn't use inline event attributes anywhere else), so a bad/broken logoUrl
+      // degrades to initials instead of a broken-image icon.
+      function logoBoxHTML(product) {
+        var initials = (typeof getClientInitials === 'function') ? getClientInitials(product.name) : '';
+        var hasLogo = !!product.logoUrl;
+        return '<div class="w-7 h-7 rounded-md bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">' +
+          (hasLogo ? '<img src="' + product.logoUrl + '" alt="" class="product-logo-img w-full h-full object-cover" data-product-id="' + product.id + '">' : '') +
+          '<span class="product-logo-fallback text-slate-500 text-[10px] font-semibold' + (hasLogo ? ' hidden' : '') + '">' + initials + '</span>' +
+          '</div>';
+      }
+
       function cardHTML(product) {
         var holding = holdingByProductId(product.id);
         var badgeHtml;
@@ -177,15 +207,29 @@
         }
         var allocatedLine = holding ? 'Allocated: ' + formatUSD(Math.round(holding.costBasis)) : 'Not yet allocated';
 
+        // Logo box (Stocks & ETFs/Crypto) and "More info" popup link (Private Equity/Real
+        // Assets) are mutually exclusive by category, both minimal by design — neither
+        // competes with Request Allocation for visual weight. Both degrade cleanly when the
+        // underlying field is unset: no logo box renders for a product missing logoUrl
+        // outside its category (not applicable), and no "More info" link renders at all when
+        // extendedDescription is empty, rather than opening on nothing.
+        var showLogo = product.assetClass === 'Stocks & ETFs' || product.assetClass === 'Crypto';
+        var showMoreInfo = (product.assetClass === 'Private Equity' || product.assetClass === 'Real Assets') && product.extendedDescription;
+
         // flex flex-col + mt-auto on the CTA block — unchanged from the original card,
         // anchors the input/button to the bottom of the card regardless of how many lines
-        // the content above it takes.
+        // the content above it takes (description length now varies this further).
         return '<div class="border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition flex flex-col" data-product-id="' + product.id + '">' +
           '<div class="flex items-start justify-between mb-3">' +
+          '<div class="flex items-start gap-2.5">' +
+          (showLogo ? logoBoxHTML(product) : '') +
           '<div><p class="font-medium text-navy">' + product.name + '</p>' +
           '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
+          '</div>' +
           badgeHtml +
           '</div>' +
+          (product.description ? '<p class="text-sm text-slate-600 mb-1">' + product.description + '</p>' : '') +
+          (showMoreInfo ? '<button type="button" class="more-info-link text-xs font-medium text-navy underline hover:no-underline mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
           '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
           '<p class="text-xs text-slate-400 mb-4">Minimum investment: ' + formatUSD(product.minimumInvestment) + '</p>' +
           '<div class="mt-auto">' +
@@ -213,6 +257,17 @@
         noResultsEl.classList.add('hidden');
         cardsGrid.innerHTML = visible.map(cardHTML).join('');
         loadMoreBtn.classList.toggle('hidden', visibleCount >= filtered.length);
+
+        // Real 'error' listener per rendered logo image (not an inline onerror attribute —
+        // this project doesn't use inline event handlers anywhere else) — falls back to the
+        // adjacent initials span rather than showing a broken-image icon.
+        cardsGrid.querySelectorAll('.product-logo-img').forEach(function (img) {
+          img.addEventListener('error', function () {
+            img.classList.add('hidden');
+            var fallback = img.nextElementSibling;
+            if (fallback) fallback.classList.remove('hidden');
+          });
+        });
       }
       render();
 
@@ -262,7 +317,24 @@
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
       }
 
+      // ---- "More info" popup (Private Equity/Real Assets) ----
+      var moreInfoModal = document.getElementById('more-info-modal');
+      var moreInfoTitle = document.getElementById('more-info-modal-title');
+      var moreInfoBody = document.getElementById('more-info-modal-body');
+      function closeMoreInfoModal() { moreInfoModal.classList.add('hidden'); }
+      document.getElementById('more-info-modal-close').addEventListener('click', closeMoreInfoModal);
+      document.getElementById('more-info-modal-backdrop').addEventListener('click', closeMoreInfoModal);
+
       cardsGrid.addEventListener('click', function (e) {
+        var moreInfoBtn = e.target.closest('.more-info-link');
+        if (moreInfoBtn) {
+          var product = productById(moreInfoBtn.dataset.productId);
+          if (!product) return;
+          moreInfoTitle.textContent = product.name;
+          moreInfoBody.textContent = product.extendedDescription;
+          moreInfoModal.classList.remove('hidden');
+          return;
+        }
         var btn = e.target.closest('.request-allocation-btn');
         if (!btn) return;
         var card = btn.closest('[data-product-id]');

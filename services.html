@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Services — Marketswave</title>
-  <meta name="description" content="Marketswave services: Trading, Discretionary Fund Management, Retirement Planning, Supply Chain solutions, and High-Yield Savings." />
+  <meta name="description" content="Marketswave services: Trading, Discretionary Fund Management, Retirement Planning, Supply Chain solutions, High-Yield Savings, and Business Consulting." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,7 +26,7 @@
       </nav>
 
       <div class="header-actions">
-        <button type="button" class="btn btn-outline btn-sm" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
+        <button type="button" class="btn btn-outline btn-sm get-access-trigger" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
         <a href="contact.html" class="btn btn-primary btn-sm">Contact</a>
       </div>
 
@@ -40,114 +40,247 @@
   <section class="page-hero">
     <div class="container">
       <h1>Services & Solutions</h1>
-      <p>Professional management, trading access, retirement planning, and specialized capital solutions — each built around clear client outcomes and transparent processes.</p>
+      <p>United by a culture of purpose, passion and commitment to excellence, our professional team adheres to the highest standards of ethics and integrity, tailoring innovative products and services to help advisors succeed.</p>
     </div>
   </section>
 
-  <!-- ========== SERVICE CARDS ========== -->
-  <section class="section">
-    <div class="container">
-      <div class="service-landscape">
+  <!-- ========== SERVICES: full-width scrolling sections ========== -->
+  <!-- One full-width section per service, stacked vertically in the locked order. Each
+       section keeps its own anchor id directly (no client-side panel-swapping) so every
+       existing footer/external link to #trading etc. still jumps straight to it. -->
+  <div class="services-full">
 
-        <!-- Trading -->
-        <article class="service-landscape-card" id="trading">
-          <div>
-            <span class="label">Markets Access</span>
-            <h3>Trading</h3>
-            <p class="intro">Comprehensive access across major asset classes with professional infrastructure and execution support.</p>
-          </div>
-          <div>
-            <p style="color:var(--text-muted); margin-bottom:18px;">Our trading offering covers the full spectrum of liquid markets, enabling clients to participate with institutional-grade tools and oversight.</p>
-            <ul>
-              <li>Stocks and equities across major global exchanges</li>
-              <li>Funds and collective investment vehicles</li>
-              <li>Cryptocurrency markets with controlled access frameworks</li>
-              <li>Commodities and related instruments</li>
-              <li>Currencies and foreign-exchange exposure</li>
-              <li>Professional order handling and execution support</li>
-            </ul>
-          </div>
-        </article>
-
-        <!-- Discretionary Fund Management -->
-        <article class="service-landscape-card" id="discretionary">
-          <div>
-            <span class="label">Core Offering</span>
-            <h3>Discretionary Fund Management</h3>
-            <p class="intro">Experienced professionals make portfolio decisions on your behalf — aligned to your goals, risk tolerance, and time horizon.</p>
-          </div>
-          <div>
-            <p style="color:var(--text-muted); margin-bottom:18px;">Discretionary management lets a qualified team handle the full investment process so you can focus on your life and business rather than day-to-day markets.</p>
-            <ul>
-              <li>Saves the time required for research, trading, monitoring, and rebalancing</li>
-              <li>Managers tailor asset allocation and risk controls to your specific objectives and risk tolerance</li>
-              <li>Provides broader diversification and access to investment capabilities than many investors can obtain alone</li>
-              <li>Transparent reporting of positions, performance, and activity</li>
-              <li>These benefits come with management fees, reduced direct control over individual trades, and no guarantee of better targeted yield</li>
-            </ul>
-          </div>
-        </article>
-
-        <!-- Retirement Planning -->
-        <article class="service-landscape-card" id="retirement">
-          <div>
-            <span class="label">Life Stage Planning</span>
-            <h3>Retirement Planning</h3>
-            <p class="intro">A structured approach that connects today’s savings decisions to a realistic future lifestyle.</p>
-          </div>
-          <div>
-            <p style="color:var(--text-muted); margin-bottom:18px;">Effective retirement planning begins with clear targets and then builds the investment and savings framework required to support them.</p>
-            <ul>
-              <li>Set a target retirement age, desired lifestyle, and realistic estimate of future spending</li>
-              <li>Save consistently through tax-advantaged accounts and capture any available employer match</li>
-              <li>Match investment risk and asset allocation to your time horizon, then become more conservative near retirement</li>
-              <li>Plan for inflation, health care, long-term care, longevity, and changes in public benefits</li>
-              <li>Access professionals who help structure a plan that reflects your personal experience and priorities</li>
-            </ul>
-          </div>
-        </article>
-
-        <!-- Supply Chain -->
-        <article class="service-landscape-card" id="supply-chain">
-          <div>
-            <span class="label">Operational Resilience</span>
-            <h3>Supply Chain</h3>
-            <p class="intro">End-to-end coordination of planning, sourcing, production, delivery, and returns as one integrated system.</p>
-          </div>
-          <div>
-            <p style="color:var(--text-muted); margin-bottom:18px;">Strong supply chains treat the entire flow of goods and information as a single system rather than isolated functions. This improves resilience and reduces waste.</p>
-            <ul>
-              <li>Coordinate planning, sourcing, production, delivery, and returns as one end-to-end system</li>
-              <li>Use timely data and strong forecasting to control inventory, reduce waste, and respond quickly to demand</li>
-              <li>Build dependable supplier relationships while avoiding overreliance on one supplier or region</li>
-              <li>Protect quality through clear standards, supplier oversight, and continuous process improvement</li>
-              <li>Balance efficiency with flexibility and resilience instead of optimizing solely for the lowest inventory or cost</li>
-            </ul>
-          </div>
-        </article>
-
-        <!-- High-Yield Savings -->
-        <article class="service-landscape-card" id="savings">
-          <div>
-            <span class="label">Cash Management</span>
-            <h3>High-Yield Savings</h3>
-            <p class="intro">Accounts designed to pay substantially more interest than conventional savings while keeping cash accessible.</p>
-          </div>
-          <div>
-            <p style="color:var(--text-muted); margin-bottom:18px;">High-yield savings accounts offer a practical home for emergency reserves and near-term capital without locking funds into longer-term instruments.</p>
-            <ul>
-              <li>Generally pay substantially more interest than conventional savings accounts (rates can change)</li>
-              <li>Keep cash accessible for emergencies and near-term goals without a CD’s early-withdrawal penalty</li>
-              <li>Deposits at an FDIC-insured bank are protected up to $250,000 per depositor, per institution and ownership category</li>
-              <li>Fees, withdrawal limits, and minimum-balance rules vary by institution and can reduce effective earnings</li>
-              <li>Compare APY, balance requirements, monthly fees, and access methods — not APY alone — before opening an account</li>
-            </ul>
-          </div>
-        </article>
-
+    <!-- Trading -->
+    <section class="service-section" id="trading">
+      <div class="container">
+        <span class="service-tag">Markets Access</span>
+        <h2 class="service-title">Trading</h2>
+        <div class="service-copy">
+          <p class="service-intro">In a world that's always changing, there's always an angle. Trade stocks and more with advanced tools, data, and low commissions.</p>
+          <p class="service-secondary">Our trading offering covers the full spectrum of liquid markets, enabling clients to participate with institutional-grade tools and oversight.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-number">170+</span>
+          <span class="service-stat-label">tradable cryptocurrencies</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Access real-time sub-day intervals, candlestick views, and technical indicators — moving averages, RSI, VWAP, and more — to time entries and exits with confidence.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">View your watchlist, holdings, and pending orders alongside your chart. Use the dedicated panel to track positions and modify open orders without losing context.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Trade Bitcoin, Ethereum, Solana and 170+ other coins, held through insured custodial partnerships designed to protect your assets against theft or loss.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Active traders could save more than $4,200 a year on commission fees versus the big banks. Enter your monthly trades to see how much you could save by ditching the big guys.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Access major currency pairs alongside your core holdings — no separate account, no added complexity, just built into your existing portfolio.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Execute your market strategy with precision thanks to covered calls, secured puts, and multi-leg options, like vertical and calendar spreads.</span>
+          </li>
+        </ul>
       </div>
-    </div>
-  </section>
+    </section>
+
+    <!-- Discretionary Fund Management -->
+    <section class="service-section" id="discretionary">
+      <div class="container">
+        <span class="service-tag">Core Offering</span>
+        <h2 class="service-title">Discretionary Fund Management</h2>
+        <div class="service-copy">
+          <p class="service-intro">Strengthen your investments beyond public markets with a mix of private credit, private equity, and private infrastructure.</p>
+          <p class="service-secondary">Discretionary management lets a qualified team handle the full investment process so you can focus on your life and business rather than day-to-day markets.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-number">$10,000</span>
+          <span class="service-stat-label">minimum investment</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Unlock broad private market exposure with an asset mix designed to perform through market ups and downs. Private equity 40%, Private infrastructure 35%, Private credit 25%.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Each asset class carries its own risk profile. Past performance is not indicative of future results. Marketswave reviews all investments for client suitability; if you don't meet the criteria, we'll redirect you to a more appropriate product.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Each of the asset classes plays a different role. Private equity focuses on growing businesses, private credit generates income through lending, and infrastructure provides stable, often inflation-linked cash flows. Together, they can help diversify your portfolio and reduce your reliance on the fluctuations of the public markets.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">With our management we cut down on fees, keeping the portfolio running efficiently at low cost.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">The minimum is $10,000, but the right amount depends on your overall financial situation. Private markets should generally represent a portion of a diversified portfolio — not your entire investment. That's why we've built in guardrails, including an investment limit based on your overall assets. Most institutional investors allocate between 20-30% of their total portfolio to private markets.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Retirement Planning -->
+    <section class="service-section" id="retirement">
+      <div class="container">
+        <span class="service-tag">Life Stage Planning</span>
+        <h2 class="service-title">Retirement Planning</h2>
+        <div class="service-copy">
+          <p class="service-intro">A simple way to draw down your retirement savings.</p>
+          <p class="service-secondary">Effective retirement planning begins with clear targets and then builds the investment and savings framework required to support them.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-number">$25,000</span>
+          <span class="service-stat-label">transfer-fee reimbursement</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text"><strong>Keep growing, tax-deferred</strong> — Your retirement investments keep compounding on a tax-deferred basis. Withdrawals are treated as taxable income when you take them.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">A structured drawdown lets you keep your nest egg invested and growing while turning it into the income that funds your retirement, without giving up the tax advantages you spent decades building.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text"><strong>Required minimum distributions</strong> — Most tax-advantaged retirement accounts require you to begin withdrawing by a certain age, with the required amount increasing gradually over time. We help you plan around these thresholds well before they apply.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">We'll automatically reimburse the transfer-out fees charged by your brokerage when you move at least $25,000 to us.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text"><strong>Income splitting for couples</strong> — Retirement income can often be shared with a spouse or partner to help lower your household's overall tax bill — one of several strategies we build into your plan.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Supply Chain -->
+    <section class="service-section" id="supply-chain">
+      <div class="container">
+        <span class="service-tag">Operational Resilience</span>
+        <h2 class="service-title">Supply Chain</h2>
+        <div class="service-copy">
+          <p class="service-intro">End-to-end coordination of planning, sourcing, production, delivery, and returns as one integrated system.</p>
+          <p class="service-secondary">A supply chain is a complex logistics system that consists of facilities that convert raw materials into finished products and distribute them to end consumers or end customers, while supply chain management focuses on the optimization of the flow of goods within the supply chain's distribution channels to ensure efficiency.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-text">One integrated system</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Coordinate planning, sourcing, production, delivery, and returns as one end-to-end system</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Use timely data and strong forecasting to control inventory, reduce waste, and respond quickly to demand</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Build dependable supplier relationships while avoiding overreliance on one supplier or region</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Protect quality through clear standards, supplier oversight, and continuous process improvement</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Balance efficiency with flexibility and resilience instead of optimizing solely for the lowest inventory or cost</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- High-Yield Savings -->
+    <section class="service-section" id="savings">
+      <div class="container">
+        <span class="service-tag">Cash Management</span>
+        <h2 class="service-title">High-Yield Savings</h2>
+        <div class="service-copy">
+          <p class="service-intro">Accounts designed to pay substantially more interest than conventional savings while keeping cash accessible.</p>
+          <p class="service-secondary">Need an emergency fund? Waiting on a market moment? Park your savings in an account that grows your cash faster than at any of the big banks.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-number">$250,000</span>
+          <span class="service-stat-label">FDIC protection</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Features like fixed deposits and insured pockets — all free. Move it in to grow it, move it out anytime. Because moving your money shouldn't cost you money.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Free means free. Open and fund an account in minutes, with no paperwork or surprise costs — only savings that grow from day 1.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Deposits at an FDIC-insured bank are protected up to $250,000 per depositor, per institution and ownership category</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Fees, withdrawal limits, and minimum-balance rules vary by institution and can reduce effective earnings</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Compare APY, balance requirements, monthly fees, and access methods — not APY alone — before opening an account</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Business Consulting -->
+    <section class="service-section" id="business-consulting">
+      <div class="container">
+        <span class="service-tag">Strategic Growth</span>
+        <h2 class="service-title">Business Consulting</h2>
+        <div class="service-copy">
+          <p class="service-intro">We help turn ambitious ideas into structured, scalable, and real-world results, with the right strategy, the right partners, and the right next steps to achieve sustainable growth and lasting business value.</p>
+          <p class="service-secondary">Our investment professionals specialize by asset class, geography, and investment strategy, producing the research, the precise due diligence and the analysis that realize each client opportunity. They're part of a service team we dedicate to each client, offering a full suite of capabilities or customized selections to complement the client's strengths and coverage.</p>
+        </div>
+        <div class="service-stat">
+          <span class="service-stat-text">Dedicated sector expertise</span>
+        </div>
+        <ul class="service-checklist">
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">We get the fuller picture on investments and GPs through our dedicated sector coverage teams and the rigorous analytics provided by our proprietary database and performance reporting systems.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Every opportunity comes with operational risk. Which is why we rigorously examine the sponsor's existing policies and controls, measuring them against current industry best practices.</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Connect you with the right partners, capital sources, and operational resources to execute</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Establish scalable systems and processes that support growth without adding unnecessary complexity</span>
+          </li>
+          <li class="service-check-item">
+            <span class="service-check-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="service-check-text">Focus on decisions that compound into real, lasting business value — not short-term wins</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
 
   <!-- ========== CTA ========== -->
   <section class="philosophy">
@@ -175,6 +308,7 @@
             <li><a href="services.html#retirement">Retirement Planning</a></li>
             <li><a href="services.html#supply-chain">Supply Chain</a></li>
             <li><a href="services.html#savings">High-Yield Savings</a></li>
+            <li><a href="services.html#business-consulting">Business Consulting</a></li>
           </ul>
         </div>
 
@@ -195,7 +329,7 @@
             <li><a href="about.html#team">Leadership</a></li>
             <li><a href="legal.html">Legal</a></li>
             <li><a href="contact.html">Contact</a></li>
-            <li><a href="#">Get Access</a></li>
+            <li><a href="#" class="get-access-trigger">Get Access</a></li>
           </ul>
         </div>
       </div>
@@ -245,8 +379,8 @@
   <script>
     (function () {
       const modal = document.getElementById('access-modal');
-      const openBtn = document.getElementById('get-access-btn');
-      if (!modal || !openBtn) return;
+      const openBtns = document.querySelectorAll('.get-access-trigger');
+      if (!modal || openBtns.length === 0) return;
 
       function openModal() {
         modal.hidden = false;
@@ -260,7 +394,12 @@
         setTimeout(() => { modal.hidden = true; }, 220);
       }
 
-      openBtn.addEventListener('click', openModal);
+      openBtns.forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          openModal();
+        });
+      });
 
       modal.querySelectorAll('[data-close-modal]').forEach(el => {
         el.addEventListener('click', closeModal);
@@ -271,6 +410,8 @@
       });
     })();
   </script>
+
+  <script src="services-motion.js"></script>
 
 </body>
 </html>

@@ -1,0 +1,13 @@
+# Backend Migration Phase 1 (Firebase) — Node/Firebase local artifacts
+functions/node_modules/
+functions/.env
+functions/.env.*
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+emulator-data/
+
+# Backend Migration Phase 0 (Aug 26, 2026) — dev-only tooling in scripts/, not deployed
+scripts/node_modules/
