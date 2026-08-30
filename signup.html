@@ -953,6 +953,11 @@
   import { createUserWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
   import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
   import { doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+  // Supabase Migration Stage 2 (Aug 30, 2026): a second, independent backend option,
+  // selected via ?backend=supabase — see supabase-config.js's own header for the full
+  // disambiguation scheme. Importing this here has no effect unless that param is present;
+  // the entire Firebase code path above/below is completely unchanged either way.
+  import { supabase, IS_SUPABASE_BACKEND } from './supabase-config.js';
 
   (function () {
     // ---------- State ----------
@@ -1350,6 +1355,60 @@
         submitBtn.disabled = true;
         submitBtn.classList.add("is-loading");
         submitBtn.innerHTML = '<span class="btn-spinner"></span>Submitting...';
+
+        // Supabase Migration Stage 2 (Aug 30, 2026): checked FIRST, before any Firebase code
+        // runs — a completely separate code path from the Firebase branch below, sharing
+        // only what happens AFTER a client record exists (the two saveClientOnboardingData()/
+        // seedMinimalClientStores() calls, identical either way since both are backend-
+        // agnostic engine-core.js functions that only take a plain id + plain data). Mirrors
+        // createClientApplication's/addClient's own field shape exactly (read Stage 1's own
+        // migration + firestore rules before writing this, not reinvented): id = the real
+        // Supabase Auth user's own uuid, status forced to 'pending_review' (also enforced
+        // server-side by the clients table's own RLS INSERT policy — see
+        // supabase/migrations/20260830094238_create_clients_and_admin_roles.sql — so this
+        // isn't the only thing stopping a tampered client from claiming 'active' outright).
+        // No Edge Function needed for creation, same reasoning Stage 1's own migration
+        // comment already gives for the Firestore-staging-rules-write-via-client-SDK
+        // approach: RLS is what actually enforces the "own row only, forced pending_review,
+        // email must match your own verified account" rules, not this code.
+        if (IS_SUPABASE_BACKEND) {
+          try {
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+              email: email,
+              password: rawPassword
+            });
+            if (signUpError) throw signUpError;
+            const uid = signUpData.user.id;
+
+            const { error: insertError } = await supabase.from('clients').insert({
+              id: uid,
+              name: fullName,
+              email: signUpData.user.email,
+              phone: phone,
+              account_type: accountTypeLabel,
+              status: 'pending_review'
+            });
+            if (insertError) throw insertError;
+
+            // Mirrors the Firebase branch's own signOut(auth) immediately after signup —
+            // signup has never authenticated a client straight into the dashboard in this
+            // project, on either backend; that only happens through a real login.html
+            // submission, after PM approval.
+            await supabase.auth.signOut();
+
+            saveClientOnboardingData(uid, collectOnboardingData());
+            seedMinimalClientStores(uid, 0);
+
+            window.location.href = 'thank-you.html?backend=supabase';
+          } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('is-loading');
+            submitBtn.innerHTML = originalBtnHTML;
+            showError('Something went wrong creating your account: ' + (err.message || err));
+          }
+          return;
+        }
+
         try {
           // Backend Migration Phase 1 (Aug 22, 2026): completing onboarding now creates a
           // REAL Firebase Auth account and a REAL Firestore client document — replacing the

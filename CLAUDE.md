@@ -1525,11 +1525,23 @@ backend is migrating from Firebase to Supabase (reason: Firebase Cloud Functions
 on a Blaze plan upgrade for staging; Supabase's free tier includes real Edge Functions with
 no card required, at the cost of free-tier auto-pause after 7 days idle). **Supabase
 Migration Stage 1** (local Docker stack, schema, RLS, admin-role custom-claim hook, local
-bootstrap — see the Tech Stack entry below and `README.md`'s "Supabase Local Development
-Runbook") is complete; it is additive infrastructure only — `signup.html`/`login.html` still
-run on Firebase exactly as described above, untouched, and no client-facing code talks to
-Supabase yet. Do not assume Supabase has replaced anything here until a later Stage's own
-Tech Stack entry says so.
+bootstrap) and **Stage 2** (client-facing `signup.html`/`login.html` support against the
+LOCAL Supabase stack only, selected via a NEW, separate `?backend=supabase` query param —
+its absence leaves both pages running on Firebase exactly as before, confirmed via `git diff`
+to be byte-for-byte unchanged) are both complete — see the Tech Stack entries below and
+`README.md`'s "Supabase Local Development Runbook" for the full detail. **Still additive,
+still real backends kept side by side, not a replacement**: `signup.html`/`login.html` now
+support BOTH backends behind one query param, but the default (no param) is still 100%
+Firebase, and the real cloud "Marketswave Staging" project has not been touched by either
+Supabase stage — everything Supabase-related so far is the LOCAL Docker stack only. Every
+other page (all 9 dashboard pages, the entire admin tool) has zero Supabase-awareness either
+way — the hybrid bridge (`mirrorAuthenticatedClientLocally()`/`setClientAuthenticated()`,
+unmodified, already backend-agnostic) is what makes that possible, mirroring the exact same
+role the Firebase-only bridge already played. One disclosed, tracked gap: Logout does not
+yet sign out of a real Supabase session (mirrors a bug already fixed once on the Firebase
+side, deliberately left open here — see the Stage 2 Tech Stack entry). Do not assume
+Supabase has replaced anything beyond signup/login-against-the-local-stack until a later
+Stage's own Tech Stack entry says so.
 
 **Build it in-house, not via external APIs.** Explicit user direction (Aug 19, 2026): "we
 are building an engine locally for our operation, we would not be needing a lot of
@@ -3409,6 +3421,93 @@ row 74.
   stage), not a failure. See `Marketswave_Project_Handover.md` §12 (Firebase) for context on
   what this migration is replacing, and the Backend Requirements Register row 109 below for
   the closed/open items.
+- **Supabase Migration — Stage 2: client-facing signup/login rebuild, LOCAL STACK ONLY**
+  (Aug 30, 2026, row 110): builds on Stage 1's schema/RLS, still entirely additive — the
+  entire Firebase integration (`signup.html`/`login.html`'s existing code paths,
+  `firebase-config.js`, `admin-firebase-config.js`, `functions/`, `firestore.rules`,
+  `firestore.staging.rules`) is confirmed **completely untouched** (`git diff --stat`
+  against every one of those files shows zero changes — only `signup.html`/`login.html`
+  themselves changed, and only by addition plus one safe, backward-compatible extension of
+  an existing helper, detailed below). Does not touch the real cloud "Marketswave Staging"
+  project — Stage 3 work, deliberately deferred. **1. Environment switch**: new
+  `supabase-config.js` (mirrors `firebase-config.js`'s exact shape) introduces a SECOND,
+  orthogonal query param — `?backend=supabase` — alongside Firebase's own pre-existing
+  `?env=staging`, rather than overloading one param for two independent axes. Disambiguation
+  scheme, reported per instruction: `(no params)` → Firebase emulator (unchanged);
+  `?env=staging` → Firebase staging (unchanged); `?backend=supabase` → Supabase LOCAL stack
+  (this stage); `?backend=supabase&env=staging` → reserved for a future Supabase cloud
+  staging (Stage 3, not built) — falls back to local with a `console.warn` rather than
+  silently reaching a real cloud project, the same safe-default philosophy
+  `firebase-config.js`'s own `IS_STAGING` already uses for anything unrecognized.
+  `signup.html`/`login.html` check `IS_SUPABASE_BACKEND` FIRST, before ever touching
+  Firebase's own `IS_STAGING` branch. **2. Session persistence — checked against the actual
+  installed SDK source, not assumed** (`@supabase/auth-js` v2.112.4's `GoTrueClient.js`):
+  `DEFAULT_OPTIONS = { autoRefreshToken: true, persistSession: true }`, and `persistSession:
+  true` in a browser defaults to `globalThis.localStorage` — same CATEGORY of behavior as
+  Firebase's own default `browserLocalPersistence`. `supabase-config.js` (client-facing)
+  explicitly sets `persistSession: true` (a normal client should stay signed in);
+  a future ADMIN-facing Supabase client (Stage 3, no page loads this today) is DECIDED to
+  use `persistSession: false`, mirroring `admin-firebase-config.js`'s own
+  `inMemoryPersistence` fix exactly — the precedent being the real bug that fix closed
+  (Firebase's default silently restored an admin session across what was meant to be a fresh
+  prompt). **Verified live in a real browser, both configurations, comparatively**: after a
+  real client login, a real `sb-127-auth-token` key appeared in `localStorage`; a separate
+  admin sign-in test using `persistSession: false` wrote NOTHING to `localStorage` (confirmed
+  the only `sb-` key present was still the earlier client's, unchanged) and a brand-new
+  client instance (the correct proxy for "a real page refresh") got back `getSession() ===
+  null` for it. **3. Real signup/login**: `signup.html?backend=supabase` calls
+  `supabase.auth.signUp()` then a direct, RLS-enforced `clients` table insert (no Edge
+  Function needed for creation — Stage 1's own INSERT policy is what actually enforces "own
+  row, forced `pending_review`, email must match your real account," the same reasoning
+  `firestore.staging.rules` already established for its own client-SDK-direct-write
+  design); `login.html?backend=supabase` reads real `status` for the real
+  blocked/active/rejected behavior, byte-for-byte the same three messages as the Firebase
+  branch. **4. THE HYBRID BRIDGE — the actual point of this stage, call chain traced before
+  writing code, per instruction**: confirmed `mirrorAuthenticatedClientLocally()` and
+  `setClientAuthenticated()` (both pre-existing, unmodified `engine-core.js` functions) are
+  already fully backend-agnostic — they take a plain id + plain data object and have no
+  Firebase-specific logic at all — so the Supabase branch calls them with data read from the
+  real Postgres `clients` row (snake_case columns mapped to the same camelCase shape the
+  Firebase branch's Firestore-document reader already produces) instead of a Firestore
+  document, with ZERO `engine-core.js` changes needed. Confirmed `dashboard-sidebar.js`'s
+  file-load-time gate reads the exact same raw `marketswave_authenticated_client_id`
+  session key regardless of which backend wrote it — needing zero changes either. **5.
+  Golden-path script**: new `scripts/supabase-golden-path-regression.js` mirrors
+  `golden-path-regression.js` exactly in structure, reusing `lib/engine-harness.js`/
+  `storage-polyfill.js` UNCHANGED for the local half (backend-agnostic by construction) and
+  the real `@supabase/supabase-js` client (anon + `service_role`) for the Supabase half — no
+  admin UI/Edge Function exists yet, so "admin approve" uses `service_role` directly (new
+  `scripts/supabase-approve-client.js`, mirroring `scripts/staging-approve-client.js`'s own
+  "explicitly a temporary stand-in" category). **Run twice in direct succession: `GOLDEN
+  PATH: PASS (16/16 steps)` both times**, confirming signup → pending status (+ blocked-login
+  proof) → local approve → login → dashboard ($0, clean) → fund the account (deposit +
+  credit, needed before an allocation is even possible) → request an allocation → local
+  approve → BUY transaction + holding appear, Total Portfolio Value conserved. **Browser-
+  verified live, the complete real chain, exactly as the task asked**: drove the real 9-step
+  signup form (via real DOM events, not a shortcut) against `?backend=supabase`, confirmed
+  the resulting account **directly via a raw Postgres query** (not Studio's UI) — a real
+  `auth.users` row, a real `clients` row, `status: pending_review`; confirmed login
+  genuinely blocked with the real pending-review message; approved via
+  `supabase-approve-client.js`; logged in for real, redirected to plain `dashboard.html`
+  (no query param needed — downstream pages have zero reason to know which backend
+  authenticated the client, which is the whole point); confirmed **`dashboard.html`,
+  `settings.html`, `transactions.html`, and `asset-collection.html` all rendered correctly
+  with the real client's own name/initials and a genuinely clean, empty portfolio — zero
+  code changes to any of them**, having no idea anything changed underneath. **One real,
+  disclosed limitation found and logged, not silently fixed or hidden**: clicking Logout
+  correctly clears the local session (`dashboard-sidebar.js`'s existing, backend-agnostic
+  mechanism) and redirects to `login.html`, but the real Supabase session in `localStorage`
+  is confirmed still present afterward — `dashboard-sidebar.js`'s Logout handler only calls
+  Firebase's own `signOutOfFirebaseAuth()`, by design untouched this stage (the same file
+  Stage 2's own success criterion required stay at zero modifications). Mirrors the exact bug
+  class already fixed once on the Firebase side (row 61) — deliberately left unfixed here
+  since fixing it needs the one file this stage couldn't touch; tracked as Stage 2.x/3 work.
+  All test accounts created during verification (browser + script) were deleted afterward,
+  confirmed via a direct query that zero `clients` rows remain. New "Supabase Local
+  Development Runbook" README steps 6-9 (signup/login walkthrough, the persistence proof,
+  the golden-path script, the disclosed Logout gap) added; Stage 1's own "What Stage 1 does
+  NOT include yet" section retired in favor of a "What Stage 2 does NOT include yet" one.
+  See the Backend Requirements Register row 110 below for the closed/open items.
 
 **Next**: Phase A2 (real Cloud Functions on staging) is blocked on a Blaze plan upgrade for
 `marketswave-staging` — not attempted, not forgotten; once unblocked, deploy

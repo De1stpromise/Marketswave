@@ -187,7 +187,144 @@ that matter most**:
 All test users/rows are deleted at the end of the script — it leaves no residue in the local
 stack.
 
-### Step 6 — Stop the stack when you're done
+### Step 6 — Real signup/login against Supabase (Stage 2, `?backend=supabase`)
+
+**Who this is for**: testing the actual client-facing pages against Supabase, not just the
+raw schema/RLS layer Step 5 already covers.
+
+Serve the project over plain HTTP first — `signup.html`/`login.html`'s Supabase code path
+(like their existing Firebase one) loads real ES modules, which browsers refuse to import
+from a `file://` URL:
+
+```
+python -m http.server 8765
+```
+
+(any static file server works — this is just the one already used to verify this stage).
+Then open:
+
+```
+http://127.0.0.1:8765/signup.html?backend=supabase
+```
+
+`?backend=supabase` is a NEW, separate query param from Firebase's own `?env=staging` — see
+`supabase-config.js`'s own header comment for the full three-backend disambiguation scheme
+(Firebase emulator / Firebase staging / Supabase local, with Supabase cloud staging reserved
+for a future Stage 3). Its absence leaves `signup.html`/`login.html` running exactly as
+before, on Firebase, with zero behavior change — confirmed via `git diff`, not just
+asserted: the only lines touched inside either file's existing Firebase code path are a
+single query-string-building helper extended to also recognize `backend=supabase` (same net
+effect for `?env=staging` as before), everything else is pure addition.
+
+Complete the real 9-step form and submit — this creates a REAL Supabase Auth account (via
+`supabase.auth.signUp()`) and a REAL `clients` row (via a direct, RLS-enforced insert — no
+Edge Function needed for creation, the same reasoning `firestore.staging.rules` already
+established on the Firebase side: the migration's own INSERT policy, not application code,
+is what actually enforces "your own row only, forced `pending_review`, email must match your
+real account"). Confirm it landed for real, directly against Postgres, not just a UI success
+message:
+
+```
+docker exec supabase_db_Marketswave psql -U postgres -d postgres -c "select id, email, status from public.clients order by created_at desc limit 1;"
+```
+
+A real signup while pending is genuinely blocked at login — approve it with the local
+stand-in script (there is no real admin UI or Edge Function for this yet; Stage 3+ work):
+
+```
+cd scripts
+node supabase-approve-client.js <uid-from-the-query-above>
+```
+
+Then log in at `http://127.0.0.1:8765/login.html?backend=supabase` with the same
+credentials — this is **THE BRIDGE**, the actual point of Stage 2: on success,
+`mirrorAuthenticatedClientLocally()` (from `engine-core.js`, byte-for-byte the same function
+the Firebase branch already calls) upserts a local shadow copy of the real `clients` row,
+then `setClientAuthenticated(uid)` — the exact same pre-existing session function every one
+of the 9 already-built dashboard pages already depends on — is called with the client's real
+Supabase Auth uid. **Every already-built dashboard page keeps working with zero
+modification**, having no idea the identity behind that id is now Supabase instead of
+Firebase — verified live, not assumed: `dashboard.html`, `settings.html`,
+`transactions.html`, and `asset-collection.html` all rendered correctly with the real
+client's own name/initials and a genuinely clean, empty ($0, zero holdings) portfolio.
+
+### Step 7 — Session persistence: deliberately configured, verified directly
+
+Checked against the ACTUAL installed `@supabase/supabase-js` source first (not assumed):
+`DEFAULT_OPTIONS = { autoRefreshToken: true, persistSession: true }`, and when
+`persistSession` is true in a browser, session storage defaults to `globalThis.localStorage`
+— the same CATEGORY of behavior as Firebase's own default `browserLocalPersistence`, just
+backed by `localStorage` instead of IndexedDB. `supabase-config.js` (the client-facing file)
+explicitly sets `persistSession: true` — not left implicit — because a normal client SHOULD
+stay signed in like a normal login. **Verified live in a real browser**: after a real login,
+`Object.keys(localStorage).filter(k => k.startsWith('sb-'))` shows a real
+`sb-127-auth-token` key holding the actual session.
+
+A future **admin-facing** Supabase client (Stage 3, not built yet — no admin page loads
+`supabase-config.js` today) is DECIDED to use `persistSession: false`, mirroring
+`admin-firebase-config.js`'s own `inMemoryPersistence` fix exactly (the real bug that fix
+closed: Firebase's default persistence silently restored a signed-in admin session across
+what was supposed to be a fresh prompt). **Verified directly, not assumed** — in a real
+browser, signed in as the bootstrapped local admin (`pm@marketswave.local`) via a client
+configured with `persistSession: false`:
+- `localStorage` was checked immediately after a successful sign-in and held ONLY the
+  pre-existing client session key, never a new one for the admin — a genuine comparative
+  proof (the client config right above genuinely does write a key; the admin config,
+  checked in the same origin, genuinely does not).
+- A brand-new client instance (the correct proxy for "a real page refresh," since a fresh
+  instance can only recover a session from actual persisted storage, never another
+  instance's in-memory state) called `getSession()` and got back `null` — the admin session
+  is real and usable for the lifetime of the signed-in instance, but does not survive a
+  reload, exactly as decided.
+
+### Step 8 — Confirm the golden path end to end, repeatably
+
+```
+cd scripts
+node supabase-golden-path-regression.js
+```
+
+Mirrors `golden-path-regression.js` (the Firebase one) exactly in spirit: one command, walks
+signup → pending status (+ a genuine blocked-login proof) → local `service_role` approve
+(stands in for a real admin UI/Edge Function, which don't exist yet) → login succeeds →
+dashboard loads with a clean $0 read → fund the account (a deposit request + local
+credit, needed before an allocation is even possible) → request an allocation → local
+approve → a BUY transaction + holding appear, Total Portfolio Value conserved. Prints a
+clear `GOLDEN PATH: PASS (16/16 steps)` / `FAIL` line. **Confirmed to run clean, repeatedly**
+— run twice in direct succession against the same local stack, `16/16` both times, no
+manual cleanup needed between runs (a fresh timestamped test email avoids collisions). Test
+accounts are left in the local stack afterward (harmless, real but fake data) — remove them
+with `supabase db reset` if a clean slate is ever needed, or delete individually via Studio/
+`psql`.
+
+### Known, disclosed limitation: Logout does not sign out of a real Supabase session
+
+Mirrors a bug this project already found and fixed once on the Firebase side
+(`dashboard-sidebar.js`'s real `signOut(auth)` fix) — except here it is **deliberately left
+unfixed this stage**, not missed: `dashboard-sidebar.js`'s Logout handler only ever calls
+Firebase's `signOutOfFirebaseAuth()`; it has no Supabase-awareness at all, by design (Stage
+2's own success criterion is that this file gets ZERO modifications). Verified directly, not
+assumed: after a real Supabase login, clicking Logout correctly clears the local session
+(`marketswave_authenticated_client_id` etc. — the backend-agnostic mechanism every dashboard
+page already depends on) and redirects to `login.html`, but the real
+`sb-127-auth-token` key in `localStorage` is confirmed still present afterward — a real
+Supabase Auth session outlives an app-level logout. Logged as a real, tracked gap (Backend
+Requirements Register), not silently absorbed — fixing it is Stage 2.x/3 work, since it
+requires the one file this stage's own scope deliberately kept untouched.
+
+### What Stage 2 does NOT include yet
+
+No admin UI or Edge Function exists for approving/rejecting a Supabase-backed application —
+`scripts/supabase-approve-client.js` (a `service_role` stand-in, same category as
+`scripts/staging-approve-client.js` on the Firebase side) is the entire "approval flow" for
+now. Logout doesn't sign out of a real Supabase session (see above). Real Cloud Functions-
+equivalent work (Supabase Edge Functions mirroring `functions/index.js`'s three callables) is
+Stage 3+, not built. Real Supabase cloud staging (a fourth environment tier, alongside
+Firebase's own emulator/staging/production) is also Stage 3+ — `supabase-config.js` already
+reserves the `?backend=supabase&env=staging` combination for it and fails safe (falls back to
+local with a `console.warn`) until it's actually built.
+
+### Step 9 — Stop the stack when you're done
 
 ```
 supabase stop
@@ -195,19 +332,6 @@ supabase stop
 
 Leaves data intact (see Step 3) for next time. Use `supabase stop --no-backup` only if you
 deliberately want a clean slate next start.
-
-### What Stage 1 does NOT include yet
-
-No client-facing code (`signup.html`/`login.html`, or any new page) talks to Supabase at
-all — this stage is infrastructure + schema + local bootstrap only, exactly as scoped.
-Stage 2 (not started) is the client-facing signup/login rebuild against Supabase, plus a
-Supabase-side `golden-path-regression.js` equivalent exercising the real chain end to end
-the way the Firebase one does today. Real Cloud Functions-equivalent work (Supabase Edge
-Functions for `createClientApplication`/`approveClientApplication`/
-`rejectClientApplication`, mirroring `functions/index.js`) is also Stage 2+, not built yet —
-today, resolving an application (`pending_review` → `active`/`rejected`) can only happen via
-`service_role` directly (confirmed working in `verify-supabase-schema.js`'s own last check),
-with no Edge Function or admin UI wired to it yet.
 
 ---
 

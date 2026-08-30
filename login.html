@@ -405,6 +405,10 @@
     import { auth, db } from './firebase-config.js';
     import { signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
     import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+    // Supabase Migration Stage 2 (Aug 30, 2026): a second, independent backend option,
+    // selected via ?backend=supabase — see supabase-config.js's own header for the full
+    // disambiguation scheme. Importing this here has no effect unless that param is present.
+    import { supabase, IS_SUPABASE_BACKEND } from './supabase-config.js';
 
     // Converts a Firestore Timestamp (returned for any serverTimestamp()-written field, e.g.
     // createdAt/applicationResolvedAt) into the SAME 'YYYY-MM-DD' UTC string shape
@@ -420,11 +424,19 @@
     // Bug fix (Aug 27, 2026): propagates ?env=staging to the "Create an account" link too, so
     // a PM/tester bouncing from a staging login attempt to signup doesn't silently land back
     // on the emulator. Same class of fix as the redirect below, just for a static <a> link
-    // rather than a JS-driven navigation.
+    // rather than a JS-driven navigation. Extended (Aug 30, 2026, Supabase Migration Stage 2)
+    // to also propagate ?backend=supabase, the same way and for the same reason — a tester on
+    // login.html?backend=supabase clicking "Create an account" should land on
+    // signup.html?backend=supabase, not silently fall back to Firebase. Both params are
+    // independent and compose freely (see supabase-config.js's own header).
     (function () {
       var signupLink = document.querySelector('a[href="signup.html"]');
-      var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
-      if (signupLink && envQuery) signupLink.setAttribute('href', 'signup.html' + envQuery);
+      var qs = new URLSearchParams(window.location.search);
+      var parts = [];
+      if (qs.get('backend') === 'supabase') parts.push('backend=supabase');
+      if (qs.get('env') === 'staging') parts.push('env=staging');
+      var suffix = parts.length ? '?' + parts.join('&') : '';
+      if (signupLink && suffix) signupLink.setAttribute('href', 'signup.html' + suffix);
     })();
 
     (function () {
@@ -467,6 +479,91 @@
 
           const email = emailInput.value.trim();
           const rawPassword = passwordInput.value;
+
+          // Supabase Migration Stage 2 (Aug 30, 2026): checked FIRST, before any Firebase
+          // code runs — a completely separate code path, sharing only the same generic
+          // error-message discipline (never distinguish which half of the credential pair
+          // was wrong, never distinguish "unknown email" from "wrong password") and THE
+          // BRIDGE itself at the end, which is byte-for-byte the same two engine-core.js
+          // calls the Firebase branch below already makes — mirrorAuthenticatedClientLocally()
+          // and setClientAuthenticated() have no idea, and don't need to, whether the uid
+          // they were handed came from Firebase Auth or Supabase Auth.
+          if (IS_SUPABASE_BACKEND) {
+            try {
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: rawPassword
+              });
+              if (signInError) throw signInError;
+              const uid = signInData.user.id;
+
+              const { data: clientRow, error: fetchError } = await supabase
+                .from('clients')
+                .select('*')
+                .eq('id', uid)
+                .single();
+              if (fetchError || !clientRow) {
+                // Defensive only — not expected for any account created through the real
+                // signup flow above, since it always writes the companion clients row
+                // synchronously before ever redirecting away.
+                await supabase.auth.signOut();
+                throw new Error('no-client-record');
+              }
+
+              // Same business rule and message copy as the Firebase branch's own status
+              // check, checked AFTER credentials verify but BEFORE
+              // setClientAuthenticated()/mirrorAuthenticatedClientLocally() — correct
+              // credentials alone are still not enough to reach the dashboard while an
+              // application is pending or was rejected.
+              if (clientRow.status === 'pending_review') {
+                await supabase.auth.signOut();
+                loginError.textContent = 'Your application is under review. We’ll notify you once it’s approved.';
+                loginError.classList.add('is-visible');
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
+              if (clientRow.status === 'rejected') {
+                await supabase.auth.signOut();
+                loginError.textContent = 'We were unable to approve your application. Please contact support for more information.';
+                loginError.classList.add('is-visible');
+                if (submitBtn) submitBtn.disabled = false;
+                return;
+              }
+
+              // THE BRIDGE. Postgres's snake_case columns (account_type,
+              // application_resolved_at, application_reason) are mapped to the local
+              // record's existing camelCase shape here — the one real, disclosed field-name
+              // difference from the Firestore branch's own clientData object, which already
+              // arrives camelCase. created_at/application_resolved_at are real Postgres
+              // timestamptz strings (ISO 8601) — sliced to the same 'YYYY-MM-DD' shape
+              // firestoreTimestampToDateString() already produces for the Firebase branch,
+              // so a mirrored record looks identical to every page reading it regardless of
+              // which backend actually authenticated the client.
+              mirrorAuthenticatedClientLocally({
+                id: uid,
+                name: clientRow.name,
+                email: clientRow.email,
+                phone: clientRow.phone,
+                accountType: clientRow.account_type,
+                status: clientRow.status,
+                createdAt: clientRow.created_at ? clientRow.created_at.slice(0, 10) : null,
+                applicationResolvedAt: clientRow.application_resolved_at ? clientRow.application_resolved_at.slice(0, 10) : null,
+                applicationReason: clientRow.application_reason || null
+              });
+              setClientAuthenticated(uid);
+
+              loadingScreen.classList.add('is-active');
+              setTimeout(function () {
+                window.location.href = 'dashboard.html';
+              }, 2200);
+            } catch (err) {
+              await supabase.auth.signOut().catch(function () {});
+              loginError.textContent = 'Incorrect email or password. Please try again.';
+              loginError.classList.add('is-visible');
+              if (submitBtn) submitBtn.disabled = false;
+            }
+            return;
+          }
 
           try {
             const credential = await signInWithEmailAndPassword(auth, email, rawPassword);
