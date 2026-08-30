@@ -9,7 +9,9 @@
     "supabase-bootstrap-admin": "node supabase-bootstrap-admin.js",
     "supabase-verify": "node verify-supabase-schema.js",
     "supabase-approve-client": "node supabase-approve-client.js",
-    "supabase-golden-path": "node supabase-golden-path-regression.js"
+    "supabase-golden-path": "node supabase-golden-path-regression.js",
+    "supabase-seed-portfolio": "node supabase-seed-portfolio.js",
+    "supabase-verify-portfolio": "node verify-supabase-portfolio-engine.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

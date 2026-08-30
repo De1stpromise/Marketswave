@@ -385,6 +385,55 @@ Functions. Real production Supabase (a distinct future project, not this same
 local-stack branch — there is no "local admin UI" version of this to build, since the local
 stack's own Edge Functions only run via a manual `supabase functions serve` dev session.
 
+### Backend Migration Phase B — Stage 1: the portfolio engine, real tables (Aug 30, 2026)
+
+**The highest-risk category of work in this migration — real money figures, going server-
+side for the first time.** Local stack only, same discipline as every prior stage — this
+does not touch the real cloud "Marketswave Staging" project. Adds 5 real tables
+(`products`, `advisory_fee_rate`, `account_state`, `holdings`, `transactions`) and 6 real
+Edge Functions (`get-account-state`, `get-holdings`, `get-transaction-ledger`,
+`get-total-portfolio-value`, `execute-buy`, `execute-sell`) — a faithful port of
+`engine-core.js`'s own settlement math, cost-basis math, and account bookkeeping, not a
+reinterpretation. See CLAUDE.md's Tech Stack entry for the full writeup, including the two
+genuinely necessary additions beyond the task's own literal 3-table list (`products` and
+`advisory_fee_rate`, both hard dependencies of the 3 named tables).
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local          # applies this stage's migration (and Stage 1's, if not already)
+cd scripts
+node supabase-seed-portfolio.js        # seeds products + a demo client's account_state/holdings
+supabase functions serve               # in a separate terminal — serves all Edge Functions locally
+node verify-supabase-portfolio-engine.js   # the full 40-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-portfolio-engine.js` — **40/40 assertions
+passed**, run twice for repeatability, including a genuine settlement-determinism cross-
+check against the real, unmodified `engine-core.js` source (not just the ported TypeScript
+trusted on its own): the same product, seeded to the same past `last_tick_date`, settles to
+the byte-identical price on both the original browser-side engine and the real deployed
+Edge Function stack. Also verified: the exact proportional cost-basis formula on a partial
+sell (including the one detail most likely to get subtly wrong in a careless port —
+`unallocated_capital` is credited with the cost-basis portion of a sale, NOT the full sale
+value; the gain/loss goes separately into `asset_returns`); Total Portfolio Value exactly
+conserved through a round-trip buy-then-sell; cross-client isolation (one client's
+Edge Function calls never touch another client's rows, confirmed byte-for-byte); and the
+core RLS property — a client can SELECT only their own rows across `account_state`/
+`holdings`/`transactions`, and **no client-side INSERT/UPDATE/DELETE path exists on any of
+the 5 tables for any role, including admin** — every write goes through `execute-buy`/
+`execute-sell`, which are themselves admin-authorized only (mirroring the real engine's own
+effective design: these primitives are never called directly by client-facing code, only
+via a PM-approval action).
+
+**What's now server-authoritative vs. what still isn't** — see CLAUDE.md's Tech Stack
+entry for the complete list. In short: Account State, Holdings, and the Transaction ledger
+(read + the raw buy/sell execution primitives) are real Postgres tables now, for the local
+stack. The client-facing request/approval GATING layer around those primitives (the seven
+Approval Gate queues — Client Applications, Deposits, Withdrawals, Allocations, Sells, HYS
+Deposits, Client Profile Updates) is still 100% local/`localStorage`, as are High Yield
+Savings and the Documents/Support domains — each awaits its own future Phase B stage.
+
 ### Step 9 — Stop the stack when you're done
 
 ```

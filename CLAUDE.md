@@ -3712,6 +3712,99 @@ row 74.
   flag is present. README.md's Supabase runbook and every retired Firebase section (each now
   carrying its own retirement banner) and CLAUDE.md updated in place; Backend Requirements
   Register row 113 added.
+- **Backend Migration Phase B — Stage 1: the portfolio engine goes server-side, real
+  Supabase tables** (Aug 30, 2026, row 114): **the highest-risk category of work in this
+  entire migration — real money figures, going server-side for the first time.** Local
+  stack only, same discipline as every prior Supabase stage — does not touch the real cloud
+  "Marketswave Staging" project. Prior stages moved identity (Client Registry/Auth); this
+  stage moves Account State, Holdings, and the Transaction ledger — the actual financial
+  engine. **Schema, real migration files**: `products` (global, unscoped, mirrors
+  `engine-core.js`'s Product Catalog) and `advisory_fee_rate` (a genuinely global singleton
+  table — `id boolean primary key default true` + `check(id)` — deliberately NOT per-client,
+  preserving the "genuinely global, not per-client" fix already locked in for the local
+  engine) were added beyond the task's own literal 3-table list, flagged explicitly as
+  necessary dependencies of the 3 named tables, not scope creep. `account_state` (`client_id
+  uuid primary key references auth.users(id)`, `unallocated_capital`/`allocated_capital`/
+  `asset_returns numeric`), `holdings` (`id uuid default gen_random_uuid()`, `client_id`,
+  `product_id references products(id)`, `units`/`cost_basis numeric`, `UNIQUE(client_id,
+  product_id)`), `transactions` (`id uuid default gen_random_uuid()`, `client_id`,
+  `product_id` nullable — DEPOSIT/WITHDRAWAL have no product — `type CHECK IN ('BUY','SELL',
+  'DEPOSIT','WITHDRAWAL')`, `units`/`price`/`total_value`/`realized_return numeric`,
+  `status`, `created_at`). **`gen_random_uuid()` chosen over the local engine's own
+  sequential `TXN-XXXX`/`PROD-XXXX` id scheme, flagged as a genuine infrastructure adaptation,
+  not a business-rule change** — a concurrency-safety property sequential ids don't give for
+  free under real concurrent writers. **RLS, the core security property, verified with the
+  same 16/16-style rigor as the Approval Gate unification**: a client may `SELECT` only their
+  own rows across all 5 tables (self-or-admin, reusing Stage 1's own `public.is_admin()`
+  helper); **no client-side INSERT/UPDATE/DELETE path exists on any of the 5 tables for any
+  role, including admin** — every write goes exclusively through a service-role-authenticated
+  Edge Function, the identical write-path property already locked in for the `clients` table
+  in Stage 1. **Business logic, ported not reinterpreted**: new shared
+  `supabase/functions/_shared/portfolio-engine.ts` is a byte-for-byte TypeScript port of
+  `engine-core.js`'s own settlement math — the FNV-1a hash → mulberry32 PRNG → Box-Muller
+  transform chain, `RISK_TIER_RETURN_CONFIG`, the GBM log-return NAV-tick formula, and the
+  lazy day-by-day settlement catch-up — deliberately written in TypeScript/Deno rather than
+  SQL/plpgsql specifically because Deno runs V8, guaranteeing bit-identical `Math.imul`/
+  `>>> 0` bitwise semantics to the original browser-side JS; a SQL port could not make that
+  guarantee. 6 new Edge Functions: `get-account-state`/`get-holdings`/
+  `get-transaction-ledger`/`get-total-portfolio-value` (self-or-admin — a caller may omit
+  `clientId` to read their own data, or pass another client's id only if their own JWT carries
+  `app_metadata.is_admin === true`, checked via `getClaims(jwt)` — never `getUser()`, which
+  reads the live `auth.users` DB record instead of the JWT's own hook-injected claims, a real
+  bug already caught once in Stage 3's own Edge Functions and avoided here from the start;
+  the first 3 settle every product via `settleAllProducts()` before reading, matching the
+  local engine's own "lazy catch-up runs once per engine load" behavior) and `execute-buy`/
+  `execute-sell` (the money-moving primitives, exact ports of `executeBuy(clientId,
+  productId, dollarAmount)`/`executeSell(clientId, productId, unitsToSell)` — **deliberately
+  ADMIN-ONLY, not client-callable**, mirroring that the real local engine's own
+  `executeBuy`/`executeSell` are never invoked directly by client-facing code either, only
+  via a PM-approval action; each settles only the ONE traded product via a new
+  `settleOneProduct()`, not the whole catalog, matching exactly which local function the
+  original calls). **The one detail most likely to get subtly wrong in a careless port,
+  called out explicitly in `execute-sell/index.ts`'s own header comment and preserved
+  exactly**: `unallocated_capital` is credited with the COST-BASIS PORTION of a sale
+  (`costBasisPortion = holding.cost_basis × (unitsToSell / holding.units)`), NOT the full
+  sale value — the gain/loss (`realizedReturn = saleValue − costBasisPortion`) is credited
+  SEPARATELY to `asset_returns`; cost basis is PROPORTIONAL to the sold fraction, not
+  FIFO/LIFO lot tracking, since holdings aren't tracked as discrete lots here either. New
+  `scripts/supabase-seed-portfolio.js` ports `buildSeedData()`'s exact math (same
+  `SEED_PRODUCTS`, same unit-price/cost-basis/`unallocatedCapital` derivation) to seed a
+  demo Supabase Auth client for local testing — produces the identical numbers the local
+  engine's own seed always has ($1,284,500 Total Portfolio Value, $205,520 unallocated,
+  $1,078,980 allocated). **Verified**: `scripts/verify-supabase-portfolio-engine.js`, a new
+  40-assertion suite, run twice for repeatability, 40/40 passing both times — settlement
+  determinism (the same product, seeded to the same past `last_tick_date`, ticked on BOTH
+  the real unmodified `engine-core.js` source, loaded into a Node `vm` sandbox via the
+  existing `scripts/lib/engine-harness.js`, AND the real deployed Edge Function stack,
+  asserted to settle to the byte-identical price — not just "the ported code looks right,"
+  an actual cross-implementation proof; also confirms same-day idempotency); the exact
+  proportional cost-basis/unallocated-vs-asset_returns split formula against a controlled
+  scenario; Total Portfolio Value exactly conserved through a real round-trip buy-then-sell;
+  cross-client isolation (resolving an action for one client, then diffing a second client's
+  `account_state`/`holdings`/`transactions` byte-for-byte against a pre-action snapshot,
+  confirming zero leakage — the identical rigor standard set by "Approval Gate unification");
+  the full RLS matrix (self-reads succeed, cross-client reads return empty, zero
+  INSERT/UPDATE/DELETE succeeds on any of the 5 tables for any role including admin, `anon`
+  sees nothing); and `execute-buy`/`execute-sell` authorization (401 unauthenticated, 403
+  non-admin, confirmed no state change on rejection). **A real test-hygiene bug found and
+  fixed during verification, not a port bug**: the determinism test deliberately ticks a
+  product forward several days, then restores its price/`last_tick_date` afterward — the
+  first pass restored the product but never forced a recompute of the demo client's own
+  `allocated_capital` (which had been computed against the temporarily-ticked price mid-test
+  and was left stale, $1,091,099.93 vs. the correct $1,078,980) — fixed by adding a second
+  `get-total-portfolio-value` call after restoring the product, forcing a fresh recompute;
+  re-ran the full suite afterward to confirm a genuinely clean baseline. Both new scripts
+  added to `scripts/package.json`. README.md's Supabase runbook gained a new "Backend
+  Migration Phase B — Stage 1" section with the full step-by-step local rebuild sequence.
+  **What's now server-authoritative** (for the local Supabase stack): Account State,
+  Holdings, and the Transaction ledger's raw read/write primitives, for a client's own
+  portfolio data, RLS-secured, with business logic byte-for-byte cross-verified against the
+  real local engine. **What still is not, awaiting its own future Phase B stage**: the
+  client-facing request/approval GATING layer around those primitives — all seven Approval
+  Gate queues (Client Applications, Deposits, Withdrawals, Allocations, Sells, HYS Deposits,
+  Client Profile Updates) — plus High Yield Savings and the Documents/Support domains, all
+  still 100% local/`localStorage` via `engine-core.js`, completely unaffected by this stage.
+  Backend Requirements Register row 114 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -3729,18 +3822,25 @@ retired `?legacyBackend=firebase` path for historical/reference testing — see 
 retired Firebase sections (each now carries its own retirement banner) rather than repeating
 it here. A fresh session's own "did I break the backend" check is now
 `node scripts/supabase-golden-path-regression.js` (Stage 3's own, run against the local
-Supabase stack), not the Firebase golden-path script. Beyond the backend itself: row 3
-(Onboarding data capture/PM review) is fully closed. Real file storage
-(the uploaded documents' actual bytes, not just filename metadata) remains a genuinely
-backend-dependent need, already tracked separately in the Documents & Reporting register
-rows. Further client-selector UX work at higher client counts, if ever needed — the earlier
-perf report found no slowdown at 50 clients, and this redesign already added search/filter,
-so this stays non-urgent. A deliberate, explicitly-labeled "correct a starting-price typo"
-override for the Product Catalog, if that turns out to be a genuine operational need —
-flagged, not built, per the Edit Product judgment call in §4.63. See the handover doc §5,
-§9 for the fuller forward-path discussion (note: §9's table predates both this phase and
-Admin Tool Phase B, and is stale in places — the Tech Stack log here, §4.41-§4.71, and the
-new §12 are the current source of truth).
+Supabase stack), not the Firebase golden-path script; a new, separate
+`node scripts/supabase-verify-portfolio-engine.js` is this stage's own "did I break the
+portfolio engine" check (also local-stack-only) — the two scripts are complementary, not a
+replacement of one by the other, since they cover different table sets. **Phase B's own next
+stage is not yet scoped or started**: it would need to move the seven Approval Gate queues
+(and, separately, HYS/Documents/Support) onto real Supabase tables + Edge Functions the same
+way this stage moved Account State/Holdings/Transactions — do not assume any of those domains
+are server-authoritative anywhere in this project until a dedicated future stage says so.
+Beyond the backend itself: row 3 (Onboarding data capture/PM review) is fully closed. Real
+file storage (the uploaded documents' actual bytes, not just filename metadata) remains a
+genuinely backend-dependent need, already tracked separately in the Documents & Reporting
+register rows. Further client-selector UX work at higher client counts, if ever needed — the
+earlier perf report found no slowdown at 50 clients, and this redesign already added
+search/filter, so this stays non-urgent. A deliberate, explicitly-labeled "correct a
+starting-price typo" override for the Product Catalog, if that turns out to be a genuine
+operational need — flagged, not built, per the Edit Product judgment call in §4.63. See the
+handover doc §5, §9 for the fuller forward-path discussion (note: §9's table predates both
+this phase and Admin Tool Phase B, and is stale in places — the Tech Stack log here,
+§4.41-§4.71, and the new §12 are the current source of truth).
 
 ## Known structural debt
 
