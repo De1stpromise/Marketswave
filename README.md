@@ -2,11 +2,27 @@
 
 Marketswave is a discretionary wealth / capital management platform: a public marketing
 site, multi-step client onboarding, login + password recovery, and a client dashboard. Most
-of the app is frontend-only, static HTML backed by `localStorage` (see `engine-core.js`) —
-**the one exception is `signup.html`/`login.html`, which talk to a real Firebase backend.**
-That hybrid is what this document is about. There are now THREE Firebase environment tiers,
-not two — see "Which Firebase environment am I looking at?" below before assuming which one
-any given session/browser/script is pointed at:
+of the app is frontend-only, static HTML backed by `localStorage` (see `engine-core.js`).
+
+**Backend pivot (Aug 30, 2026): the real backend is migrating from Firebase to Supabase.**
+`signup.html`/`login.html` still talk to the real Firebase backend described in the sections
+below — **that stays fully in place and untouched** until Supabase is proven equivalent end
+to end; this is additive work, not a replacement yet. The reason for the pivot, reported
+plainly: real Cloud Functions on the Firebase side are blocked on a Blaze (pay-as-you-go)
+plan upgrade for `marketswave-staging` (see "What's blocked: Phase A2" below) — a real card
+requirement this project didn't want to take on. Supabase's free tier includes real Edge
+Functions with no card required, at the cost of a real tradeoff, not a free lunch: free-tier
+Supabase projects auto-pause after 7 days of inactivity and need a manual un-pause. **Supabase
+Migration Stage 1** (infrastructure + schema + local bootstrap only — no client-facing
+signup/login rebuild yet, no golden-path regression script yet, both Stage 2) is documented in
+its own "Supabase Local Development Runbook" section below, placed first as the now-active
+path. The Firebase sections that follow are kept intact as historical record of real,
+working, verified infrastructure — not deleted, not superseded by this pivot on their own
+terms — until Supabase Stage 2+ actually replaces what they do.
+
+There are now THREE Firebase environment tiers, not two — see "Which Firebase environment am
+I looking at?" below before assuming which one any given session/browser/script is pointed
+at:
 
 | Tier | Project id | Status |
 |---|---|---|
@@ -18,8 +34,180 @@ For the full project context (tech stack, locked design rules, feature history),
 `CLAUDE.md` — it is read automatically by Claude Code at the start of every session in this
 directory and is the actual day-to-day source of truth. `Marketswave_Project_Handover.md` is
 the full narrative history behind it. This file is deliberately narrower: it is an
-operational runbook for the Firebase half of the app — the emulator (getting it running from
-nothing, confirming it works) and, now, the real staging project.
+operational runbook — now for both backends, side by side during the migration.
+
+---
+
+## Supabase Local Development Runbook
+
+**Who this is for**: anyone (including a Claude Code session with zero memory of any prior
+one) who needs to get the local Supabase stack running from a machine where nothing is
+running yet. This is the ACTIVE path going forward — start here, not the Firebase runbook
+below, unless you specifically need to touch the Firebase side (which still runs
+`signup.html`/`login.html` for real today; Supabase Stage 1 is infra/schema only, nothing
+user-facing points at it yet).
+
+### What you're bringing up
+
+`supabase start` brings up a full local Supabase stack as Docker containers — Postgres,
+GoTrue (Auth), PostgREST (the REST API), Realtime, Storage, Studio (a local admin UI), an
+Edge Functions runtime, and a few supporting services (Kong as the API gateway, Mailpit for
+catching outgoing email locally, Logflare/Vector for the Studio Logs Explorer). All of it is
+fully offline — a local Postgres database in a container, not the real cloud
+`marketswave-staging`/`ujnmlwbpginplfnofhhv` project, even though the CLI is logged into the
+real Supabase account that owns that project (`supabase login`/`supabase projects list`).
+Nothing here reaches the real cloud project unless you explicitly `supabase link` and run a
+`supabase db push`/`supabase functions deploy` — a local `supabase start` session never does
+that on its own.
+
+| Service | Local URL | What it's for |
+|---|---|---|
+| API gateway (Kong) | `http://127.0.0.1:54321` | Fronts REST/GraphQL/Functions/Storage — this is the one URL client code actually talks to |
+| Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` | Direct DB access — `psql`, migrations, `docker exec ... psql` |
+| Studio | `http://127.0.0.1:54323` | A local web admin UI — browse tables, run SQL, inspect Auth users |
+| Mailpit (mail catcher) | `http://127.0.0.1:54324` | Catches any email the local Auth stack would send (signup confirmations, etc.) — nothing ever leaves the machine |
+
+The actual `ANON_KEY`/`SERVICE_ROLE_KEY`/`PUBLISHABLE_KEY`/`SECRET_KEY` values are printed by
+`supabase status` — see below. They rotate only if `supabase/config.toml`'s JWT secret is
+ever changed; the default one (`super-secret-jwt-token-with-at-least-32-characters-long`) is
+a well-known, publicly-documented Supabase CLI default, identical across every unmodified
+local Supabase project on any machine — **not a real secret**, the same category as the
+Firebase emulator's own hardcoded bootstrap password (see `scripts/bootstrap-admin.js`'s own
+header for that precedent). This is why `scripts/supabase-bootstrap-admin.js` and
+`scripts/verify-supabase-schema.js` are safe to keep committed.
+
+### Prerequisites (one-time, per machine)
+
+- **Docker Desktop**, running. `supabase start` pulls ~15 images on first run — expect this
+  to take several minutes on a fresh machine (verified live: roughly 5–6 minutes on this
+  machine's connection). Subsequent starts are fast, since the images are already local.
+- **Supabase CLI** (`supabase --version` — this was verified against `2.116.0`). If missing:
+  `npm install -g supabase` (or see the CLI's own install docs for other package managers).
+- **`supabase login`**, once per machine — opens a browser to authenticate against the real
+  Supabase account. Confirm it worked with `supabase projects list`, which should show the
+  real "Marketswave Staging" project (`ujnmlwbpginplfnofhhv`) with `"linked": false` — that
+  `false` is correct and expected for local-only work; `supabase link` is a separate, later
+  step this Stage does not need.
+- **Node.js** with the `scripts/` dependencies installed (`cd scripts && npm install`) —
+  needed for `supabase-bootstrap-admin.js`/`verify-supabase-schema.js`, both of which use
+  `@supabase/supabase-js`.
+
+### Step 1 — Initialize (one-time per project)
+
+```
+supabase init
+```
+
+Creates `supabase/config.toml` (all local stack configuration — ports, Auth settings, the
+custom access token hook wiring) and `supabase/migrations/` (schema, applied automatically
+on every `supabase start`). Already done for this project — this step is here for
+completeness/a from-scratch clone, not something to re-run.
+
+### Step 2 — Start the local stack
+
+```
+supabase start
+```
+
+First run pulls every image (slow, one-time); every run after that starts in seconds. On
+success it prints a JSON blob with every service URL and key — the `ANON_KEY`/
+`SERVICE_ROLE_KEY` values change only if the JWT secret in `config.toml` is edited. Re-run
+`supabase status` any time afterward to see the same JSON again without restarting anything.
+
+**Known cosmetic issue, disclosed not hidden**: the `vector` container (Logflare's log
+shipper, feeds Studio's Logs Explorer tab only) restart-loops on this machine with
+`Connection refused` trying to reach the Docker socket — a known Docker-Desktop-on-Windows
+socket-mounting quirk, not something this project's own config caused. Confirmed it does
+**not** affect Postgres/Auth/REST/Storage/Studio itself — `docker ps` shows all of those
+`(healthy)` regardless, and every functional check in this document (schema, RLS, bootstrap)
+passed with `vector` still restart-looping. `imgproxy`/`pooler` show as "Stopped services" in
+every `supabase status` call — that's by design, not a failure: neither is enabled in
+`config.toml` for this project (no image transforms, no connection pooling needed at this
+stage).
+
+### Step 3 — Confirm data actually persists across a stop/start (verified, not assumed)
+
+This project's Firebase emulator has a real, documented data-loss quirk
+(`--export-on-exit` doesn't reliably persist across a restart — see "Known limitation" in
+the Emulator Bootstrap Runbook below). Supabase's local stack was checked directly for the
+same failure mode rather than assumed fine just because Docker volumes are generally
+persistent:
+
+1. Inserted a real test row into `auth.users` and `public.user_roles` via `docker exec ...
+   psql`.
+2. `supabase stop` — output includes `"backup": true`, and `docker volume ls` afterward
+   still shows `supabase_db_Marketswave` (the Postgres data volume survives the stop).
+3. `supabase start` — output begins with `Starting database from backup...` (not
+   `Initialising schema...`, which is what a fresh/empty database prints).
+4. Queried both rows again — both present, byte-identical.
+
+**Confirmed: no Firebase-style data-loss quirk.** `supabase stop` performs a real backup;
+`supabase start` restores from it automatically. Data genuinely survives a stop/start cycle
+on this machine. (`supabase stop --no-backup` or `supabase db reset` are the two ways to
+deliberately wipe local data — neither is part of the normal stop/start cycle.)
+
+### Step 4 — Bootstrap the local admin/PM account
+
+```
+cd scripts
+node supabase-bootstrap-admin.js
+```
+
+Creates (or reuses) a local `pm@marketswave.local` Auth user and writes `{ is_admin: true }`
+into `public.user_roles` for that account — mirroring `scripts/bootstrap-admin.js`'s own
+idempotent create-or-reuse-and-verify-live technique for the Firebase side. Safe to re-run
+any time; it self-heals a partially-bootstrapped state rather than erroring. On success it
+prints the account's real Supabase Auth uid and confirms the `user_roles` row live (a
+verification read, not just trusting the write call succeeded).
+
+### Step 5 — Verify the schema/RLS actually work, not just that they exist
+
+```
+cd scripts
+node verify-supabase-schema.js
+```
+
+This is Stage 1's own regression check — the Supabase-side analog of
+`golden-path-regression.js` (below), except it exercises the raw schema/RLS layer directly
+via `@supabase/supabase-js` rather than real app code, since no app code talks to Supabase
+yet (Stage 2). Creates two real throwaway client users and one real throwaway admin user,
+signs in as each, and checks 16 real behaviors against the live stack — not read from the
+migration file and assumed correct. **Last run: `16/16 assertions passed`, including the two
+that matter most**:
+- an ordinary client's real issued JWT carries `app_metadata.is_admin === false`, and a
+  client genuinely cannot see another client's row, update their own row, delete it, or
+  insert one under someone else's id/with a spoofed email/with `status` forced to anything
+  but `pending_review`/with an invalid `account_type`;
+- an admin-claimed caller's real issued JWT carries `app_metadata.is_admin === true`, and
+  that claim genuinely unlocks reading every client's row — while still **not** granting a
+  client-side write path (no UPDATE/DELETE policy exists for `authenticated` at all,
+  admin-claimed or not) — only `service_role` (the path a future Edge Function will use,
+  confirmed it genuinely can write) bypasses RLS.
+
+All test users/rows are deleted at the end of the script — it leaves no residue in the local
+stack.
+
+### Step 6 — Stop the stack when you're done
+
+```
+supabase stop
+```
+
+Leaves data intact (see Step 3) for next time. Use `supabase stop --no-backup` only if you
+deliberately want a clean slate next start.
+
+### What Stage 1 does NOT include yet
+
+No client-facing code (`signup.html`/`login.html`, or any new page) talks to Supabase at
+all — this stage is infrastructure + schema + local bootstrap only, exactly as scoped.
+Stage 2 (not started) is the client-facing signup/login rebuild against Supabase, plus a
+Supabase-side `golden-path-regression.js` equivalent exercising the real chain end to end
+the way the Firebase one does today. Real Cloud Functions-equivalent work (Supabase Edge
+Functions for `createClientApplication`/`approveClientApplication`/
+`rejectClientApplication`, mirroring `functions/index.js`) is also Stage 2+, not built yet —
+today, resolving an application (`pending_review` → `active`/`rejected`) can only happen via
+`service_role` directly (confirmed working in `verify-supabase-schema.js`'s own last check),
+with no Edge Function or admin UI wired to it yet.
 
 ---
 

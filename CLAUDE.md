@@ -1520,6 +1520,17 @@ only via a dynamic `import()` inside the Logout click handler, purely to call a 
 other data on those pages comes from Firebase. `signup.html`/`login.html` remain the only
 pages that load Firebase eagerly at page-load time.
 
+**Backend pivot, Aug 30, 2026 — read before assuming the above is still the plan.** The real
+backend is migrating from Firebase to Supabase (reason: Firebase Cloud Functions are blocked
+on a Blaze plan upgrade for staging; Supabase's free tier includes real Edge Functions with
+no card required, at the cost of free-tier auto-pause after 7 days idle). **Supabase
+Migration Stage 1** (local Docker stack, schema, RLS, admin-role custom-claim hook, local
+bootstrap — see the Tech Stack entry below and `README.md`'s "Supabase Local Development
+Runbook") is complete; it is additive infrastructure only — `signup.html`/`login.html` still
+run on Firebase exactly as described above, untouched, and no client-facing code talks to
+Supabase yet. Do not assume Supabase has replaced anything here until a later Stage's own
+Tech Stack entry says so.
+
 **Build it in-house, not via external APIs.** Explicit user direction (Aug 19, 2026): "we
 are building an engine locally for our operation, we would not be needing a lot of
 external APIs." Default to building portfolio/allocation/notification/document logic as
@@ -3306,6 +3317,98 @@ row 74.
   narrow-viewport re-check (390px, real injected iframe) confirmed the section still
   correctly collapses to one column. Zero console errors. See
   `Marketswave_Project_Handover.md` §4.101. Backend Requirements Register row 108.
+- **Supabase Migration — Stage 1: local infrastructure + schema + bootstrap** (Aug 30, 2026,
+  row 109): **the real backend is pivoting from Firebase to Supabase.** Reason, reported
+  plainly: real Cloud Functions on the Firebase side are blocked on a Blaze (pay-as-you-go)
+  plan upgrade for `marketswave-staging` (see Phase A2 above) — a real card requirement this
+  project didn't want to take on. Supabase's free tier includes real Edge Functions with no
+  card required, at the cost of a genuine tradeoff, not a free lunch: free-tier Supabase
+  projects auto-pause after 7 days of inactivity and need a manual un-pause. **This is
+  additive work — the existing Firebase integration (`signup.html`/`login.html`,
+  `functions/`, both emulator and real `marketswave-staging`) is completely untouched and
+  stays fully in place** until Supabase is proven equivalent end to end; a safety-net commit
+  (`47bf335`) was made before any of this started, per the standing high-risk-change
+  convention. **Stage 1 is infrastructure/schema/local-bootstrap only — no client-facing
+  signup/login rebuild yet, no Supabase-side golden-path regression script yet; both are
+  Stage 2, not started.** New real, separate, persistent cloud project: "Marketswave
+  Staging" (`ujnmlwbpginplfnofhhv`, `supabase login`-confirmed reachable via
+  `supabase projects list`) — **not linked yet** (`supabase link` is a later step this Stage
+  deliberately doesn't need); every command this Stage ran was against the local Docker
+  stack (`supabase start`), never that real cloud project. `supabase init` scaffolded
+  `supabase/config.toml` + `supabase/migrations/`. New migration
+  `supabase/migrations/20260830094238_create_clients_and_admin_roles.sql` mirrors Firestore's
+  `clients/{uid}` collection field-for-field (read directly from `firestore.rules`/
+  `firestore.staging.rules`/`functions/index.js` before writing it, not reinvented): a
+  `clients` table (`id` = `auth.users.id` directly, same "document id = the owning user's own
+  uid" design) with RLS mirroring the Firestore rules exactly — INSERT allows a client to
+  create exactly their own row with `status` forced to `pending_review` and `email` checked
+  against their own verified JWT email (the same anti-spoofing check
+  `firestore.staging.rules` already enforces); SELECT allows self-or-admin; no UPDATE/DELETE
+  policy exists for any client role at all, so both are denied by default — resolving an
+  application is reserved for `service_role`/a future Edge Function, mirroring
+  "writes are 100% Cloud-Function-gated" exactly. `account_type`/`status` validity is
+  enforced via table `CHECK` constraints (stronger than a policy-only check, since it also
+  protects `service_role` writes). **Admin-role pattern, researched and decided per
+  instruction**: a Custom Access Token Auth Hook (`public.custom_access_token_hook`,
+  registered via `config.toml`'s `[auth.hook.custom_access_token]`) that stamps
+  `app_metadata.is_admin` onto every issued JWT from a new `public.user_roles` table (never
+  exposed to any client role — RLS enabled with zero policies for `authenticated`/`anon`,
+  only `supabase_auth_admin`/`service_role` can ever reach it) — chosen over the simpler
+  `profiles.role` + RLS-subquery pattern because it's Supabase's own current-documented
+  recommended approach (confirmed via a live web search, not assumed from training) and reads
+  the claim straight off the already-verified JWT with zero extra DB round-trip per row,
+  unlike a subquery-per-row-checked pattern; a boolean `is_admin` (not a `role` enum) was
+  chosen to mirror Firebase's `{admin: true}` custom claim literally, matching this project's
+  single-shared-admin model. New `public.is_admin()` (plain SQL, reads only the JWT, no table
+  touch) is the one place RLS policies read the claim from. New
+  `scripts/supabase-bootstrap-admin.js` mirrors `scripts/bootstrap-admin.js`'s own
+  idempotent create-or-reuse-and-verify-live technique for a local `pm@marketswave.local`
+  account; reads local-stack credentials from `supabase status -o json` at runtime rather
+  than hardcoding them, with an explicit localhost-only guard refusing to run against
+  anything else — the local `ANON_KEY`/`SERVICE_ROLE_KEY` are derived from `config.toml`'s
+  well-known default local JWT secret, identical across every unmodified local Supabase
+  project on any machine, the same "not actually a secret" category as the Firebase
+  emulator's own hardcoded bootstrap password, which is why this script (and the verification
+  script below) are safe to keep committed. New `@supabase/supabase-js` dependency added to
+  `scripts/package.json`; `npm audit` confirmed its only advisory is the same pre-existing
+  `uuid` chain already triaged (row 74/§62), nothing new introduced. **Local stack Docker
+  persistence — investigated and verified directly, not assumed just because Docker volumes
+  are generally persistent** (the task's own explicit instruction, given this project's real
+  history of a Firebase emulator data-loss quirk): inserted a real test row into
+  `auth.users`/`public.user_roles` via `docker exec ... psql`, ran `supabase stop` (output:
+  `"backup": true`; `docker volume ls` confirmed `supabase_db_Marketswave` survives), ran
+  `supabase start` again (output began `Starting database from backup...`, not
+  `Initialising schema...`), and confirmed both rows still present, byte-identical.
+  **Confirmed: no Firebase-style data-loss quirk — `supabase stop` performs a real backup and
+  `supabase start` restores it automatically.** New `scripts/verify-supabase-schema.js` —
+  Stage 1's own regression check, the Supabase-side analog of `golden-path-regression.js` —
+  creates two real throwaway client users and one real throwaway admin user against the live
+  local stack, signs in as each, and directly tests 16 real behaviors: **16/16 assertions
+  passed**, including the two that matter most for the admin-role decision — an ordinary
+  client's real issued JWT carries `app_metadata.is_admin === false` and that client
+  genuinely cannot see another client's row, update/delete their own row, or insert one under
+  someone else's id/with a spoofed email/with a non-`pending_review` status/with an invalid
+  `account_type`; and an admin-claimed caller's real issued JWT carries
+  `app_metadata.is_admin === true`, which genuinely unlocks reading every client's row while
+  still **not** granting any client-side write path (confirmed `service_role` is the only
+  role that can actually write, the path a future Edge Function will use). All test
+  users/rows deleted at the end of the script, leaving no residue. New "Supabase Local
+  Development Runbook" section added to `README.md`, placed first as the now-active path,
+  covering prerequisites, `supabase init`/`start`/`stop`, the persistence proof above, both
+  new scripts, and an explicit "What Stage 1 does NOT include yet" section (no client-facing
+  code talks to Supabase at all; Edge Functions equivalents to
+  `createClientApplication`/`approveClientApplication`/`rejectClientApplication` don't exist
+  yet — today an application can only be resolved via direct `service_role` access,
+  confirmed working in the verification script's own last check). One disclosed cosmetic
+  issue: the `vector` container (Logflare's log shipper, feeds only Studio's Logs Explorer
+  tab) restart-loops on this machine with `Connection refused` reaching the Docker socket — a
+  known Docker-Desktop-on-Windows socket-mounting quirk, confirmed **not** to affect
+  Postgres/Auth/REST/Storage/Studio (`docker ps` shows all `(healthy)` regardless, and every
+  functional check above passed with `vector` still restart-looping); `imgproxy`/`pooler`
+  show as "Stopped services" by design (not enabled in `config.toml`, not needed at this
+  stage), not a failure. See `Marketswave_Project_Handover.md` §12 (Firebase) for context on
+  what this migration is replacing, and the Backend Requirements Register row 109 below for
+  the closed/open items.
 
 **Next**: Phase A2 (real Cloud Functions on staging) is blocked on a Blaze plan upgrade for
 `marketswave-staging` — not attempted, not forgotten; once unblocked, deploy

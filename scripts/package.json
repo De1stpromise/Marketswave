@@ -1,13 +1,16 @@
 {
   "name": "marketswave-dev-scripts",
-  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself — dev-only, run against the local Firebase Emulator Suite. See ../README.md for the full runbook.",
+  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "bootstrap-admin": "node bootstrap-admin.js",
-    "golden-path": "node golden-path-regression.js"
+    "golden-path": "node golden-path-regression.js",
+    "supabase-bootstrap-admin": "node supabase-bootstrap-admin.js",
+    "supabase-verify": "node verify-supabase-schema.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "firebase": "^11.0.2",
     "firebase-admin": "^12.7.0"
   }
