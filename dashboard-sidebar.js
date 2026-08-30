@@ -291,7 +291,15 @@
           if (typeof clearClientAuthentication === 'function') clearClientAuthentication();
           sessionStorage.removeItem('marketswave_current_client_id');
         } catch (err) { /* sessionStorage unavailable — non-fatal */ }
-        signOutOfFirebaseAuth().then(function () {
+        // Supabase Migration Stage 2 follow-up (Aug 30, 2026): closes the disclosed gap
+        // logged when Stage 2 shipped — a real Supabase Auth session (from a real
+        // login.html?backend=supabase sign-in) silently outlived an app-level logout, the
+        // same bug class already fixed once for Firebase here. Both real sign-outs run
+        // alongside each other (Promise.all, not sequential) — this file has no idea which
+        // backend actually authenticated the current session (that's the whole point of the
+        // hybrid bridge), so it just best-effort signs out of both; whichever one wasn't
+        // actually used resolves as a fast, harmless no-op.
+        Promise.all([signOutOfFirebaseAuth(), signOutOfSupabaseAuth()]).then(function () {
           window.location.href = 'login.html' + currentEnvQuery();
         });
       });
@@ -348,6 +356,59 @@
         }).then(function () {
           return new Promise(function (resolve) { setTimeout(resolve, 300); });
         });
+      })
+      .catch(function () { /* non-fatal — see comment above */ });
+    var timeout = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+    return Promise.race([attempt, timeout]);
+  }
+
+  // Best-effort real Supabase Auth sign-out, run ALONGSIDE signOutOfFirebaseAuth() above
+  // (never instead of the local session clear in wireLogoutLinks()). Same dynamic-import
+  // technique and the same "one shared module, reached only at the moment Logout is
+  // clicked" discipline signOutOfFirebaseAuth() already established — supabase-config.js is
+  // otherwise only loaded eagerly by signup.html/login.html.
+  //
+  // Investigated whether this needs the SAME two races signOutOfFirebaseAuth() had to work
+  // around by hand, rather than assuming symmetry between the two SDKs — checked directly
+  // against the actual installed @supabase/auth-js source (v2.112.4,
+  // scripts/node_modules/@supabase/auth-js/dist/main/GoTrueClient.js), not assumed:
+  //
+  //   Race 1 (hydration-before-signOut) — does NOT apply here, and this is a genuine,
+  //   verified SDK design difference, not an oversight. GoTrueClient's own constructor
+  //   fires `this.initialize()` automatically (line ~289-292, unless `skipAutoInitialize` is
+  //   set, which supabase-config.js never sets) and assigns `this.initializePromise`
+  //   SYNCHRONOUSLY at construction time, even though the promise itself resolves async.
+  //   `signOut()` (line ~3405) begins with `await this.initializePromise` before doing
+  //   anything else — so the SDK itself already guarantees any in-flight persisted-session
+  //   hydration has settled before sign-out logic runs, the exact guarantee Firebase's own
+  //   client needed a manual onAuthStateChanged-wait to provide at the app level.
+  //
+  //   Race 2 (flush-after-resolve) — does NOT apply either, for a different, equally real
+  //   reason: Firebase's own default persistence is IndexedDB-backed, a genuinely
+  //   asynchronous store whose write can still be in flight after its own promise resolves.
+  //   Supabase's session storage here is `globalThis.localStorage` (see supabase-config.js's
+  //   own persistSession:true decision) — a synchronous browser API. The SDK's own
+  //   `removeItemAsync()` helper (auth-js/dist/main/lib/helpers.js:154-156) is just
+  //   `await storage.removeItem(key)`; awaiting an already-synchronous call does not
+  //   introduce a delay to wait out — by the time that await's microtask resolves, the
+  //   removal has already durably happened, there is no separate flush to race.
+  //
+  // Both conclusions were then verified the same way the two Firebase races originally were
+  // caught — not trusted from reading the source alone: a fresh, real signed-in Supabase
+  // test client's session was confirmed genuinely absent via a FRESH auth-state check on the
+  // NEXT page load (login.html, a brand-new supabase-config.js client instance calling
+  // getSession()), never just an in-page synchronous read on the same page that called
+  // signOut() — exactly the discipline that caught both Firebase races in the first place,
+  // reused here even though it confirmed a clean result rather than a bug this time. Still
+  // wrapped in the same 3-second timeout race as signOutOfFirebaseAuth() — for network
+  // resilience (a stopped local stack, a slow connection), not because of either race above.
+  function signOutOfSupabaseAuth() {
+    var attempt = Promise.resolve()
+      .then(function () {
+        return import('./supabase-config.js');
+      })
+      .then(function (mod) {
+        return mod.supabase.auth.signOut();
       })
       .catch(function () { /* non-fatal — see comment above */ });
     var timeout = new Promise(function (resolve) { setTimeout(resolve, 3000); });

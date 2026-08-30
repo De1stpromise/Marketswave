@@ -1537,11 +1537,11 @@ Supabase stage — everything Supabase-related so far is the LOCAL Docker stack 
 other page (all 9 dashboard pages, the entire admin tool) has zero Supabase-awareness either
 way — the hybrid bridge (`mirrorAuthenticatedClientLocally()`/`setClientAuthenticated()`,
 unmodified, already backend-agnostic) is what makes that possible, mirroring the exact same
-role the Firebase-only bridge already played. One disclosed, tracked gap: Logout does not
-yet sign out of a real Supabase session (mirrors a bug already fixed once on the Firebase
-side, deliberately left open here — see the Stage 2 Tech Stack entry). Do not assume
-Supabase has replaced anything beyond signup/login-against-the-local-stack until a later
-Stage's own Tech Stack entry says so.
+role the Firebase-only bridge already played. Logout now genuinely signs out of a real
+Supabase session too (closed same-day, row 111 below) — `dashboard-sidebar.js`'s Logout
+handler runs a real Supabase `signOut()` alongside the existing Firebase one and the local
+session clear. Do not assume Supabase has replaced anything beyond
+signup/login-against-the-local-stack until a later Stage's own Tech Stack entry says so.
 
 **Build it in-house, not via external APIs.** Explicit user direction (Aug 19, 2026): "we
 are building an engine locally for our operation, we would not be needing a lot of
@@ -3508,6 +3508,39 @@ row 74.
   the golden-path script, the disclosed Logout gap) added; Stage 1's own "What Stage 1 does
   NOT include yet" section retired in favor of a "What Stage 2 does NOT include yet" one.
   See the Backend Requirements Register row 110 below for the closed/open items.
+- **Real Supabase `signOut()` wired into the client-facing Logout action — closes Stage 2's
+  own disclosed gap** (Aug 30, 2026, row 111): `dashboard-sidebar.js`'s Logout handler now
+  runs a real `signOutOfSupabaseAuth()` alongside (via `Promise.all`, never instead of) the
+  existing `signOutOfFirebaseAuth()` and the local session clear — mirrors that function's
+  own dynamic-`import()`/best-effort/3-second-timeout shape exactly. **Investigated whether
+  the same two races `signOutOfFirebaseAuth()` needed manual workarounds for also apply
+  here, rather than assumed symmetric, per instruction** — checked directly against the
+  actual installed `@supabase/auth-js` v2.112.4 source: **neither race applies, a genuine
+  verified SDK/architecture difference, not an oversight.** Race 1 (hydration-before-
+  signOut) doesn't apply because `GoTrueClient`'s own constructor auto-fires `initialize()`
+  and assigns `initializePromise` synchronously, and `signOut()` itself begins with
+  `await this.initializePromise` — the SDK already guarantees this, where Firebase's client
+  needed an app-level `onAuthStateChanged`-wait to provide the same guarantee. Race 2
+  (flush-after-resolve) doesn't apply because Supabase's session storage here is
+  `localStorage` (synchronous) per `supabase-config.js`'s own `persistSession: true`
+  decision, unlike Firebase's default IndexedDB-backed persistence (genuinely async,
+  needing the 300ms buffer) — confirmed via `removeItemAsync()`'s own source, which is just
+  `await storage.removeItem(key)`. **Verified with the exact same discipline that caught
+  Firebase's two races, reused here even though it confirmed a clean result rather than
+  finding a bug**: a real signed-in Supabase test client's session was checked via a FRESH
+  auth-state check on the NEXT page load (a brand-new `supabase-config.js` client instance
+  calling `getSession()` on `login.html`), never an in-page synchronous read. **A real bug
+  WAS caught during this exact verification, but it was environmental, not logical — the
+  same stale-script-cache pitfall this project has hit before (row 76 et al.)**: the first
+  verification pass showed the session still present after Logout, root-caused via
+  `performance.getEntriesByType('resource')` showing `dashboard-sidebar.js` loaded with
+  `transferSize: 0` (served from cache) and a `decodedBodySize` (23,671 bytes) matching the
+  PRE-fix file, not the real 28,042-byte current file — a hard reload (`Ctrl+Shift+R`)
+  resolved it, and the identical test re-run clean: `localStorageKeyStillPresent: false`,
+  `freshClientHasSession: false`. Also re-confirmed navigating directly to `dashboard.html`
+  after logout correctly redirects to `login.html` (the local session guard, unaffected by
+  this fix, still works). Test accounts deleted afterward. See the Backend Requirements
+  Register row 111 below.
 
 **Next**: Phase A2 (real Cloud Functions on staging) is blocked on a Blaze plan upgrade for
 `marketswave-staging` — not attempted, not forgotten; once unblocked, deploy
