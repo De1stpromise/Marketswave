@@ -118,6 +118,14 @@
        always runs after every classic script tag above, including initAdminSidebar()) means
        engine-core.js's globals are already defined by the time this runs. -->
   <script type="module">
+    // ★ RETIRED, Aug 30, 2026 — Firebase Retirement. Supabase is now the sole ACTIVE remote
+    // source on this page; the Firebase merge below is disabled by default via
+    // LEGACY_FIREBASE_ENABLED, not deleted. Flip it to `true` only for deliberate historical/
+    // reference testing of the retired Firebase path (requires the emulator or real staging
+    // project reachable) — see firebase-config.js's own header for the full "why" of the
+    // retirement itself. These 3 Firebase imports still always execute at parse time
+    // regardless (static ES module imports) — harmless, no network calls of their own.
+    const LEGACY_FIREBASE_ENABLED = false;
     import { ensureAdminSignedIn, db, functions } from './admin-firebase-config.js';
     import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
     import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
@@ -497,11 +505,13 @@
 
         var firestorePending = [];
         var firestoreHistory = [];
-        try {
-          firestorePending = await fetchFirestorePendingApplications();
-          firestoreHistory = await fetchFirestoreResolvedApplications();
-        } catch (e) {
-          showToast('Could Not Load Firebase Applications', e.message || String(e), true, true);
+        if (LEGACY_FIREBASE_ENABLED) {
+          try {
+            firestorePending = await fetchFirestorePendingApplications();
+            firestoreHistory = await fetchFirestoreResolvedApplications();
+          } catch (e) {
+            showToast('Could Not Load Firebase Applications', e.message || String(e), true, true);
+          }
         }
 
         // Supabase Migration Stage 3 (Aug 30, 2026): a real third source, fetched and merged

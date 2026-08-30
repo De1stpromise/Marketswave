@@ -4,37 +4,40 @@ Marketswave is a discretionary wealth / capital management platform: a public ma
 site, multi-step client onboarding, login + password recovery, and a client dashboard. Most
 of the app is frontend-only, static HTML backed by `localStorage` (see `engine-core.js`).
 
-**Backend pivot (Aug 30, 2026): the real backend is migrating from Firebase to Supabase.**
-`signup.html`/`login.html` still talk to the real Firebase backend described in the sections
-below — **that stays fully in place and untouched** until Supabase is proven equivalent end
-to end; this is additive work, not a replacement yet. The reason for the pivot, reported
-plainly: real Cloud Functions on the Firebase side are blocked on a Blaze (pay-as-you-go)
-plan upgrade for `marketswave-staging` (see "What's blocked: Phase A2" below) — a real card
-requirement this project didn't want to take on. Supabase's free tier includes real Edge
-Functions with no card required, at the cost of a real tradeoff, not a free lunch: free-tier
-Supabase projects auto-pause after 7 days of inactivity and need a manual un-pause. **Supabase
-Migration Stage 1** (infrastructure + schema + local bootstrap only — no client-facing
-signup/login rebuild yet, no golden-path regression script yet, both Stage 2) is documented in
-its own "Supabase Local Development Runbook" section below, placed first as the now-active
-path. The Firebase sections that follow are kept intact as historical record of real,
-working, verified infrastructure — not deleted, not superseded by this pivot on their own
-terms — until Supabase Stage 2+ actually replaces what they do.
+**Firebase is RETIRED as of Aug 30, 2026 — Supabase is now the sole active backend.**
+`signup.html`/`login.html` default to Supabase with zero query params needed (local Docker
+stack) or `?env=staging` (the real "Marketswave Staging" cloud project). The reason for the
+move, reported plainly: real Cloud Functions on the Firebase side stayed permanently blocked
+on a Blaze (pay-as-you-go) plan upgrade for `marketswave-staging` (see "What's blocked: Phase
+A2" further down, kept as historical record) — a real card requirement this project declined.
+Supabase's free tier deploys real Edge Functions with no card required, at the cost of a real
+tradeoff, not a free lunch: free-tier Supabase projects auto-pause after 7 days of inactivity
+and need a manual un-pause. **Supabase Migration Stage 1** (infra/schema/local bootstrap),
+**Stage 2** (client-facing signup/login against the local stack), and **Stage 3** (the real
+cloud project + real deployed Edge Functions — the real admin approve/reject flow is fully
+live for the first time in this project's history, closing the exact gap that stayed
+permanently blocked on Firebase) are all complete — see the "Supabase Local Development
+Runbook" section below.
 
-There are now THREE Firebase environment tiers, not two — see "Which Firebase environment am
-I looking at?" below before assuming which one any given session/browser/script is pointed
-at:
+**The Firebase sections that follow are kept intact as historical/reference record of real,
+working, verified infrastructure — not deleted.** They remain reachable only via an explicit
+`?legacyBackend=firebase` flag on `signup.html`/`login.html` (see `supabase-config.js`'s own
+header for the full switch scheme) — no longer the default, no longer reachable by accident.
+There are still THREE Firebase environment tiers, not two, if you deliberately opt into that
+retired path — see "Which Firebase environment am I looking at?" below:
 
 | Tier | Project id | Status |
 |---|---|---|
-| Emulator | `demo-marketswave` | Fully offline, default for all local dev — see "Emulator Bootstrap Runbook" |
-| Staging | `marketswave-staging` | REAL Firebase project, Phase A1 complete — see "Staging Environment" |
-| Production | "Marketswave SE" | REAL Firebase project, untouched — not started (Phases B–E) |
+| Emulator | `demo-marketswave` | RETIRED — reachable only via `?legacyBackend=firebase` |
+| Staging | `marketswave-staging` | RETIRED, REAL project, untouched since Phase A1 — reachable only via `?legacyBackend=firebase&env=staging` |
+| Production | "Marketswave SE" | REAL Firebase project, was always untouched — no longer a relevant future target, since Supabase is now the active path |
 
 For the full project context (tech stack, locked design rules, feature history), see
 `CLAUDE.md` — it is read automatically by Claude Code at the start of every session in this
 directory and is the actual day-to-day source of truth. `Marketswave_Project_Handover.md` is
 the full narrative history behind it. This file is deliberately narrower: it is an
-operational runbook — now for both backends, side by side during the migration.
+operational runbook — Supabase is the active-path runbook; the Firebase sections below are
+historical/reference only.
 
 ---
 
@@ -395,6 +398,12 @@ deliberately want a clean slate next start.
 
 ## Emulator Bootstrap Runbook
 
+> **★ RETIRED, Aug 30, 2026.** Firebase is no longer the active backend — see the top of this
+> document for the full "why." Everything below still works exactly as written, kept as
+> historical/reference record, but is reachable only via `signup.html`/`login.html`'s explicit
+> `?legacyBackend=firebase` flag now, not the default. The active runbook is the "Supabase
+> Local Development Runbook" section above.
+
 **Who this is for**: anyone (including a Claude Code session with zero memory of any prior
 one) who needs to get `signup.html`/`login.html`/the admin tool's Firebase-backed pages
 working locally, starting from a machine where nothing is running yet.
@@ -621,6 +630,11 @@ was well under a second).
 
 ## Golden-Path Regression Script
 
+> **★ RETIRED, Aug 30, 2026.** This is the FIREBASE golden-path script — no longer the active
+> one. Still fully functional against the retired emulator path, kept as historical/reference
+> record. The active regression check is `scripts/supabase-golden-path-regression.js` (see
+> "Supabase Local Development Runbook" → Step 8 above).
+
 `scripts/golden-path-regression.js` walks the **entire real chain**, end to end, against a
 live emulator, and prints one unambiguous `GOLDEN PATH: PASS` or `GOLDEN PATH: FAIL` at the
 end (exit code 0 or 1 to match — safe to wire into any future CI-style check). This is the
@@ -716,6 +730,14 @@ session to rediscover the same thing.
 ---
 
 ## Staging Environment (Phase A1)
+
+> **★ RETIRED, Aug 30, 2026.** This is the real, untouched "marketswave-staging" FIREBASE
+> project — no longer the active backend. Everything below still works exactly as written
+> (the real project is still there, untouched), kept as historical/reference record, reachable
+> only via `?legacyBackend=firebase&env=staging` now. The active real cloud project is
+> Supabase's "Marketswave Staging" (`ujnmlwbpginplfnofhhv`) — see "Supabase Local Development
+> Runbook" → Stage 3 above. Two DIFFERENT real cloud projects share a similar name, on two
+> different platforms — do not confuse them.
 
 **Which Firebase environment am I looking at?** Before touching anything below, know that
 "staging" here means a REAL, separate Firebase project (`marketswave-staging`) — not the
@@ -856,6 +878,13 @@ on local emulator dev.
 ---
 
 ## Backend Migration roadmap (Phase 0 / A / B / C / D / E)
+
+> **★ RETIRED, Aug 30, 2026.** This was the planned path to real PRODUCTION Firebase — moot
+> now that Firebase itself is retired as the active backend (see the top of this document).
+> Kept as historical record of the plan in motion at the time of the pivot; it is not being
+> continued. The equivalent forward-looking plan for real production Supabase, if/when that
+> becomes a real requirement, is a genuinely separate, not-yet-written future roadmap — do not
+> assume anything below still applies.
 
 This is the shape of the plan the work in this document belongs to — kept here so a future
 session has the full roadmap, not just whichever single phase it happens to be picking up.

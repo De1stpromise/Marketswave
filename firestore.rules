@@ -1,5 +1,11 @@
 rules_version = '2';
 
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend (see
+// firebase-config.js's own header for why). Still fully functional against the local
+// emulator for deliberate historical/reference testing; the active equivalent is
+// supabase/migrations/20260830094238_create_clients_and_admin_roles.sql's RLS policies.
+// KEPT, NOT DELETED.
+//
 // Backend Migration Phase 1 (Aug 22, 2026) — Client Registry + Auth.
 //
 // Deliberately restrictive by default, matching the task's own instruction to "start

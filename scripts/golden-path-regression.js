@@ -1,4 +1,16 @@
 #!/usr/bin/env node
+// ============================================================================================
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend. See
+// firebase-config.js's own header for the full "why" (Supabase's free tier deploys real Edge
+// Functions with no card required; Firebase's own admin approve/reject flow stayed
+// permanently blocked on a Blaze plan requirement). This script still works exactly as
+// documented below — it exercises the real (still fully functional) Firebase emulator chain
+// — but it is no longer what a fresh session should reach for by default. Its Supabase
+// equivalent, scripts/supabase-golden-path-regression.js, is the active regression check
+// now; run that one instead unless you're deliberately testing the retired Firebase path for
+// historical/reference purposes. KEPT, NOT DELETED.
+// ============================================================================================
+//
 // Backend Migration — Phase 0, item 2 (Aug 26, 2026).
 //
 // Walks the FULL real chain end to end against the emulator, in one command, producing a

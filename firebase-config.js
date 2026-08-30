@@ -1,3 +1,28 @@
+// ============================================================================================
+// ★ RETIRED, Aug 30, 2026 — read this before touching or relying on anything in this file.
+// ============================================================================================
+// This Firebase integration is RETIRED. Supabase is now the sole active backend for
+// signup.html/login.html — see supabase-config.js's own header for the live environment
+// switch. WHY: the whole reason this project migrated off Firebase in the first place — real
+// Cloud Functions (the admin approve/reject flow) stayed permanently blocked on a required
+// Blaze (pay-as-you-go) plan upgrade for the real staging project, a card requirement this
+// project declined to take on. Supabase's free tier deploys real Edge Functions with no card
+// required, and Supabase Migration Stage 3 (Aug 30, 2026) proved that out completely: the
+// real admin approve/reject flow now works end to end against real cloud infrastructure —
+// the exact capability that stayed permanently out of reach here.
+//
+// KEPT, NOT DELETED: this file (and every other Firebase file — admin-firebase-config.js,
+// functions/index.js, firestore.rules, firestore.staging.rules, scripts/golden-path-
+// regression.js, the Firebase Bootstrap/Staging sections of README.md) remains exactly as it
+// was, fully functional, as historical/reference record of real, working, verified
+// infrastructure — not a dead stub. It is reachable again only via signup.html/login.html's
+// new explicit `?legacyBackend=firebase` flag (see supabase-config.js's header for the full
+// scheme) — no longer the default, no longer reachable by accident. See CLAUDE.md's Tech
+// Stack section for the full arc (why Firebase was chosen, what got built on it, why it was
+// retired) and the Backend Requirements Register for how each Firebase-specific item now
+// maps to its Supabase equivalent.
+// ============================================================================================
+//
 // Backend Migration Phase 1 (Aug 22, 2026) — shared Firebase app/SDK bootstrap for
 // signup.html and login.html ONLY (see engine-core.js's own Backend Migration comment for
 // why no other page touches this yet). Plain ES module, loaded via

@@ -1,33 +1,44 @@
-// Supabase Migration — Stage 2 (Aug 30, 2026) — shared Supabase client bootstrap for
-// signup.html and login.html ONLY, mirroring firebase-config.js's exact shape/role for the
-// Firebase side. Plain ES module, loaded via <script type="module" src="supabase-config.js">
-// — no bundler, matching this project's "no build step" convention; @supabase/supabase-js
-// ships a real ES module build from a CDN, loaded the same way the Firebase SDK already is.
+// Supabase Migration — Stage 2 (Aug 30, 2026), Stage 3 (Aug 30, 2026), Firebase Retirement
+// (Aug 30, 2026) — shared Supabase client bootstrap for signup.html and login.html ONLY,
+// mirroring firebase-config.js's exact shape/role for the (now-retired) Firebase side. Plain
+// ES module, loaded via <script type="module" src="supabase-config.js"> — no bundler,
+// matching this project's "no build step" convention; @supabase/supabase-js ships a real ES
+// module build from a CDN, loaded the same way the Firebase SDK already is.
 //
-// ---- Disambiguating THREE backends, reported per instruction --------------------------
-// Before this file, there was one axis: Firebase emulator vs. Firebase staging, chosen by
-// `?env=staging` (see firebase-config.js's own header). This migration adds a SECOND,
-// orthogonal axis — which backend FAMILY a page load hits at all — via a NEW, separate query
-// param, `?backend=supabase`. The two params compose cleanly rather than colliding:
+// ---- SUPABASE IS NOW THE SOLE ACTIVE BACKEND — read this before assuming the old scheme
+// still applies. Firebase is RETIRED as of Aug 30, 2026 (see firebase-config.js's own header
+// for the full "why"), kept only as historical/reference code, no longer reachable by
+// accident. The environment switch was INVERTED, not removed — reported per instruction:
 //
-//   (no params)                        -> Firebase, emulator            (unchanged default)
-//   ?env=staging                       -> Firebase, real staging        (unchanged)
-//   ?backend=supabase                  -> Supabase, LOCAL Docker stack  (Stage 2)
-//   ?backend=supabase&env=staging      -> Supabase, REAL cloud staging  (Stage 3, Aug 30,
-//                                          2026 — now live, "Marketswave Staging",
-//                                          project ref ujnmlwbpginplfnofhhv)
+//   (no params)                              -> Supabase, LOCAL Docker stack   (NEW DEFAULT)
+//   ?env=staging                             -> Supabase, REAL cloud staging  ("Marketswave
+//                                                Staging", project ref ujnmlwbpginplfnofhhv)
+//   ?backend=supabase (/ &env=staging)       -> same as above — kept as a harmless,
+//                                                now-redundant synonym so every existing
+//                                                Stage 2/3 script, bookmark, and habit that
+//                                                already typed this still works unchanged;
+//                                                no longer necessary to type it at all.
+//   ?legacyBackend=firebase                  -> Firebase, emulator (the OLD default, now
+//                                                requires this explicit, unmistakable,
+//                                                distinctly-named flag — chosen deliberately
+//                                                different from `backend=`/`env=` so it can
+//                                                never be reached by a typo or muscle memory
+//                                                from the old scheme)
+//   ?legacyBackend=firebase&env=staging      -> Firebase, real staging (same historical
+//                                                behavior as before retirement, still gated
+//                                                behind the explicit flag)
 //
-// `env` means "which tier of whichever backend family was selected"; `backend` means "which
-// backend family at all." A query param (not a persisted flag or a hardcoded constant) was
-// chosen for the exact same reasons firebase-config.js's own header already gives for
-// `?env=staging`: it can't "accidentally stick" across sessions, and typing it is about as
-// unambiguous an opt-in as this project's URL bar can offer. signup.html/login.html check
-// `IS_SUPABASE_BACKEND` FIRST, before ever looking at Firebase's own `IS_STAGING` — the two
-// files' existing Firebase code paths are completely unaffected when this param is absent,
-// which is every existing habit and everything golden-path-regression.js (the Firebase one)
-// does today.
+// `env` still means "which tier of whichever backend family is active"; `legacyBackend` is
+// the one and only door back to Firebase — deliberately not reusing `backend=firebase` (too
+// easy to type by analogy with the still-supported `backend=supabase` synonym above) or a
+// bare boolean-ish name. signup.html/login.html's own control flow needed ZERO changes for
+// this inversion: they already check `IS_SUPABASE_BACKEND` first and `return` before ever
+// reaching the Firebase branch below it — flipping what this one boolean defaults to is the
+// entire mechanism, confirmed by reading both files' actual branching logic before deciding
+// this was sufficient rather than assumed.
 const params = new URLSearchParams(window.location.search);
-const IS_SUPABASE_BACKEND = params.get('backend') === 'supabase';
+const LEGACY_FIREBASE_REQUESTED = params.get('legacyBackend') === 'firebase';
+const IS_SUPABASE_BACKEND = !LEGACY_FIREBASE_REQUESTED;
 const WANTS_SUPABASE_STAGING = IS_SUPABASE_BACKEND && params.get('env') === 'staging';
 
 // Pinned to the exact version scripts/package.json's package-lock.json resolved and Stage 1's
@@ -100,14 +111,14 @@ const ACTIVE_CONFIG = WANTS_SUPABASE_STAGING ? STAGING_CONFIG : LOCAL_CONFIG;
 // even though the two don't actually collide (magic-link tokens live in the URL HASH, this
 // app's params live in the URL QUERY STRING) — explicit-over-implicit, per instruction.
 //
-// DECISION for a future ADMIN-facing Supabase client (Stage 3, not built yet — no admin page
-// loads this file today, confirmed via grep): persistSession: false, autoRefreshToken: true —
-// mirroring admin-firebase-config.js's own inMemoryPersistence choice exactly, for the exact
-// same reason ("a page refresh should re-prompt" must genuinely hold, not just "the password
-// isn't written anywhere"). Recorded here as the decision for whoever builds that client next,
-// not implemented as dead code with no caller — see README.md's Supabase runbook for the
-// verification that proves both configurations behave as described, run directly against the
-// real local stack in a real browser, not assumed from reading the source alone.
+// DECISION for the ADMIN-facing Supabase client: persistSession: false, autoRefreshToken:
+// true — mirroring admin-firebase-config.js's own inMemoryPersistence choice exactly, for
+// the exact same reason ("a page refresh should re-prompt" must genuinely hold, not just
+// "the password isn't written anywhere"). Built in Stage 3 as admin-supabase-config.js (a
+// SEPARATE file, not this one — this file is client-facing only) using this exact
+// configuration; see that file's own header. See README.md's Supabase runbook for the
+// verification that proves both configurations behave as described, run directly against
+// the real local stack in a real browser, not assumed from reading the source alone.
 const supabase = createClient(ACTIVE_CONFIG.url, ACTIVE_CONFIG.anonKey, {
   auth: {
     persistSession: true,

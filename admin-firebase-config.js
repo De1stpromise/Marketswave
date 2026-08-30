@@ -1,3 +1,13 @@
+// ============================================================================================
+// ★ RETIRED, Aug 30, 2026 — see firebase-config.js's own header for the full "why" (Supabase
+// is now the sole active backend; Firebase's real Cloud Functions/admin-approve flow stayed
+// permanently blocked on a Blaze plan requirement, which Supabase's free tier doesn't need).
+// KEPT, NOT DELETED, as historical/reference record. admin-client-applications.html — the
+// only caller of ensureAdminSignedIn() below — no longer calls into this file by default
+// (see that page's own LEGACY_FIREBASE_ENABLED flag); the real, active admin approve/reject
+// path is now admin-supabase-config.js + the deployed Edge Functions (Stage 3).
+// ============================================================================================
+//
 // Backend Migration Phase 1 admin follow-up (Aug 22, 2026) — shared Firebase bootstrap for
 // admin pages that need to read/write real Firestore data or call admin-authorized Cloud
 // Functions. Reuses the SAME Firebase app instance firebase-config.js already initializes

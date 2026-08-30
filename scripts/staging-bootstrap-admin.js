@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend (see
+// firebase-config.js's own header for why). Still fully functional for deliberate
+// historical/reference testing against the real, untouched "marketswave-staging" Firebase
+// project; the active equivalent is scripts/supabase-staging-bootstrap-admin.js. KEPT, NOT
+// DELETED.
+//
 // Backend Migration — Phase A1, item 4 (Aug 26, 2026).
 //
 // Creates (or reuses) the real staging PM/admin Firebase Auth account and sets its real

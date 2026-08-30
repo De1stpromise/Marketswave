@@ -402,12 +402,17 @@
        scope. See firebase-config.js's own header comment for the emulator-only scoping, and
        engine-core.js's Backend Migration phase-log entry for the full picture. -->
   <script type="module">
+    // ★ RETIRED, Aug 30, 2026 — these 3 Firebase imports are only actually USED further down
+    // if ?legacyBackend=firebase is explicitly present (see supabase-config.js's own header).
+    // Static ES module imports still always execute at parse time regardless — harmless: no
+    // network calls of their own. See firebase-config.js's own header for the full "why."
     import { auth, db } from './firebase-config.js';
     import { signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
     import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-    // Supabase Migration Stage 2 (Aug 30, 2026): a second, independent backend option,
-    // selected via ?backend=supabase — see supabase-config.js's own header for the full
-    // disambiguation scheme. Importing this here has no effect unless that param is present.
+    // Supabase is now the ACTIVE, DEFAULT backend (Firebase Retirement, Aug 30, 2026) — no
+    // param needed. See supabase-config.js's own header for the full switch scheme, including
+    // the new ?legacyBackend=firebase flag that's now required to reach the Firebase code
+    // path below instead.
     import { supabase, IS_SUPABASE_BACKEND } from './supabase-config.js';
 
     // Converts a Firestore Timestamp (returned for any serverTimestamp()-written field, e.g.
@@ -565,6 +570,10 @@
             return;
           }
 
+          // ★ RETIRED, Aug 30, 2026 — reached ONLY via the explicit ?legacyBackend=firebase
+          // flag now (see supabase-config.js's own header for the full switch scheme);
+          // Supabase is the active path by default. Kept fully functional, not deleted, for
+          // deliberate historical/reference testing of the retired Firebase path.
           try {
             const credential = await signInWithEmailAndPassword(auth, email, rawPassword);
             const uid = credential.user.uid;

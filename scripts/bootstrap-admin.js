@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend (see
+// firebase-config.js's own header for why). Still fully functional for deliberate
+// historical/reference testing of the retired emulator path; the active equivalent is
+// scripts/supabase-bootstrap-admin.js. KEPT, NOT DELETED.
+//
 // Backend Migration — Phase 0, item 1 (Aug 26, 2026).
 //
 // Creates (or reuses) the single shared bootstrap PM Firebase Auth account and sets its

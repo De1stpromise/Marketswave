@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend (see
+// firebase-config.js's own header for why); this was already its own documented "temporary
+// stand-in," now doubly so. The active equivalent (a real admin UI button, not a script) is
+// admin-client-applications.html's Supabase-sourced Approve/Reject, calling the real deployed
+// Edge Functions (Supabase Migration Stage 3). KEPT, NOT DELETED.
+//
 // Backend Migration — Phase A1, item 5 (Aug 26, 2026).
 //
 // EXPLICITLY A TEMPORARY STAND-IN, not a permanent solution. Flips a specified staging

@@ -15,14 +15,16 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
 
 - **Public site + onboarding** (`index.html`, `services.html`, `resources.html`, `about.html`,
   `legal.html`, `contact.html`, `signup.html`, `login.html`, `thank-you.html`): static HTML +
-  custom CSS in `styles.css`. No Tailwind here. **One dependency exception (Aug 22, 2026,
-  Backend Migration Phase 1):** `signup.html`/`login.html` ONLY now also load the Firebase
-  modular JS SDK (via CDN, `<script type="module">`) and `firebase-config.js` — real Firebase
-  Auth + Firestore + Cloud Functions, emulator-only for now (see the Tech Stack log below and
-  the handover doc's dedicated §12 for the full architecture). No other public-site page
-  loads Firebase, and this doesn't touch the custom-CSS-vs-Tailwind styling boundary at all —
-  only the data layer, same category of exception `engine-core.js` itself already was for
-  these pages.
+  custom CSS in `styles.css`. No Tailwind here. **One dependency exception, now on its SECOND
+  backend:** `signup.html`/`login.html` ONLY also load a real backend SDK — real Supabase Auth
+  + Postgres (RLS) + Edge Functions as of Aug 30, 2026 (Supabase is now the SOLE ACTIVE
+  backend — see the dedicated "Firebase — RETIRED" Tech Stack entry below for the full arc).
+  Real Firebase Auth + Firestore + Cloud Functions (Backend Migration Phase 1, Aug 22, 2026)
+  preceded it and is RETIRED, kept only as historical/reference code, reachable solely via an
+  explicit `?legacyBackend=firebase` URL flag now, never the default. Neither backend touches
+  the custom-CSS-vs-Tailwind styling boundary at all — only the data layer, same category of
+  exception `engine-core.js` itself already was for these pages. No other public-site page
+  loads either backend SDK.
 - **Dashboard family** (`dashboard.html`, `asset-performance.html`, `transactions.html`,
   `deploy-capital.html`, `documents.html`, `risk-management.html`, `high-yield-savings.html`,
   `settings.html`, `support.html` — the full locked sidebar menu is now built): Tailwind CSS
@@ -1502,52 +1504,48 @@ these, build the frontend interaction (forms, buttons, confirmations, toasts) an
 result — do not silently leave controls non-functional. If something looks clickable, it
 should do something, even if that something is just a client-side confirmation state.
 
-**One real, deliberate exception as of Aug 22, 2026 — read before assuming "frontend-only"
-still applies everywhere.** `signup.html` and `login.html` (ONLY these two files) now talk to
-a real backend: real Firebase Auth + real Firestore + real Cloud Functions, via Backend
-Migration Phase 1 — see the dedicated `Marketswave_Project_Handover.md` §12 for the full
-architecture writeup and Tech Stack entry below for the summary. **This still stays
-frontend-only in the sense that matters**: it's the Firebase Local Emulator Suite, not real
-production Firebase — a real project ("Marketswave SE") exists with real Firestore/Auth
-already enabled in its console, but is explicitly untouched and unconnected until a future,
-separately-scoped deployment phase (§12.4's switch-over checklist). Every other page (all 9
-dashboard pages, the entire admin tool) is still 100% local/`localStorage`-only for its actual
-data — a hybrid bridge (`mirrorAuthenticatedClientLocally()` + `setClientAuthenticated()`) is
-what makes that possible; see the Tech Stack entry. **One narrow addition, Aug 23, 2026**:
-`dashboard-sidebar.js` (loaded by all 10 client-facing pages) now also reaches Firebase, but
-only via a dynamic `import()` inside the Logout click handler, purely to call a real
-`signOut(auth)` — no page gained an eager `<script type="module">` Firebase load, and no
-other data on those pages comes from Firebase. `signup.html`/`login.html` remain the only
-pages that load Firebase eagerly at page-load time.
+**One real, deliberate exception, now on its SECOND real backend — read before assuming
+"frontend-only" still applies everywhere.** `signup.html` and `login.html` (ONLY these two
+files) talk to a real backend. **Supabase is the SOLE ACTIVE backend as of Aug 30, 2026**
+(Firebase Retirement) — see the dedicated "Firebase — RETIRED" Tech Stack entry below for
+the full arc (why Firebase was chosen, what got built on it, why it was retired) and the
+Supabase Migration Stage 1-3 entries for what replaced it. Every other page (all 9 dashboard
+pages, the entire admin tool minus its own real Edge Function calls) is still 100%
+local/`localStorage`-only for its actual data — a hybrid bridge
+(`mirrorAuthenticatedClientLocally()` + `setClientAuthenticated()`, backend-agnostic by
+construction) is what makes that possible regardless of which real backend authenticated the
+client. `dashboard-sidebar.js` (loaded by all 10 client-facing pages) reaches whichever real
+backend was actually used only via a dynamic `import()` inside the Logout click handler,
+purely to call a real `signOut()` — no page gained an eager `<script type="module">` real-
+backend load; `signup.html`/`login.html` remain the only pages that load a backend SDK
+eagerly at page-load time.
 
-**Backend pivot, Aug 30, 2026 — read before assuming the above is still the plan.** The real
-backend is migrating from Firebase to Supabase (reason: Firebase Cloud Functions are blocked
-on a Blaze plan upgrade for staging; Supabase's free tier includes real Edge Functions with
-no card required, at the cost of free-tier auto-pause after 7 days idle). **Supabase
-Migration Stage 1** (local Docker stack, schema, RLS, admin-role custom-claim hook, local
-bootstrap), **Stage 2** (client-facing `signup.html`/`login.html` support against the LOCAL
-Supabase stack, selected via a NEW, separate `?backend=supabase` query param), and **Stage 3**
-(the real cloud "Marketswave Staging" project — schema pushed for real, real Edge Functions
-deployed and wired to a real admin UI) are all complete — see the Tech Stack entries below
-and `README.md`'s Supabase runbook for the full detail. **★ Stage 3 is the headline result:
-the real admin approve/reject flow is fully live for the first time in this project's entire
-migration history** — Firebase's own Cloud Functions equivalent never got past being blocked
-on a Blaze plan upgrade; Supabase's now genuinely resolves a real application end to end,
-approved through a real admin UI button, no card required. **Still additive, still real
-backends kept side by side, not a replacement**: `signup.html`/`login.html` support BOTH
-backends behind query params (`?backend=supabase`, plus `&env=staging` for the real cloud
-project), but the default (no param) is still 100% Firebase — confirmed via `git diff` that
-the entire Firebase integration remains byte-for-byte unchanged through all three Supabase
-stages. Every one of the 9 dashboard pages has zero Supabase-awareness either way — the
-hybrid bridge (`mirrorAuthenticatedClientLocally()`/`setClientAuthenticated()`, unmodified,
-already backend-agnostic) is what makes that possible, mirroring the exact same role the
-Firebase-only bridge already played. Logout now genuinely signs out of a real
-Supabase session too (closed same-day, row 111 below) — `dashboard-sidebar.js`'s Logout
-handler runs a real Supabase `signOut()` alongside the existing Firebase one and the local
-session clear. Do not assume Supabase has replaced anything beyond signup/login (local stack
-or real cloud staging) plus the real admin approve/reject flow until a later Stage's own
-Tech Stack entry says so — every OTHER admin action (deposits, allocations, sells, HYS,
-withdrawals, profile updates, advisory fee, security log) is still 100% local/`localStorage`.
+**The full arc, summarized — see the two dedicated Tech Stack entries below for the complete
+writeups.** Real Firebase Auth + Firestore + Cloud Functions (Backend Migration Phase 1, Aug
+22, 2026) was built first, emulator-only, then extended to a real staging project (Phase A1,
+Aug 26, 2026) — but real Cloud Functions on that real project stayed permanently BLOCKED on a
+required Blaze (pay-as-you-go) plan upgrade, meaning the real admin approve/reject flow could
+never actually be deployed there. Supabase Migration Stage 1 (Aug 30, 2026: local Docker
+stack, schema, RLS, admin-role custom-claim hook), Stage 2 (client-facing `signup.html`/
+`login.html` support against the local stack), and Stage 3 (the real cloud "Marketswave
+Staging" Supabase project, real deployed Edge Functions, a real admin UI) proved out a full
+replacement — **Stage 3 is the headline result: the real admin approve/reject flow is fully
+live for the first time in this project's entire migration history**, since Supabase's free
+tier deploys real Edge Functions with no card required. **Firebase Retirement (same day, Aug
+30, 2026)** then flipped the environment switch's own default: `signup.html`/`login.html` now
+default to Supabase with ZERO query params needed (local stack) or `?env=staging` (the real
+Supabase cloud project) — the OLD Firebase path is retired, kept fully functional as
+historical/reference code, reachable only via the new, explicit, unmistakable
+`?legacyBackend=firebase` flag (never the default, never reachable by accident). Confirmed
+via `git diff` at every stage that the Firebase integration itself was never modified, only
+made unreachable by default — nothing about it was deleted. `dashboard-sidebar.js`'s Logout
+handler runs BOTH a real Firebase `signOut()` and a real Supabase `signOut()` unconditionally
+(best-effort, alongside the local session clear) — it has no idea, and doesn't need to know,
+which real backend actually authenticated the current session. Do not assume Supabase has
+replaced anything beyond signup/login (either environment) plus the real admin approve/reject
+flow until a later Tech Stack entry says so — every OTHER admin action (deposits,
+allocations, sells, HYS, withdrawals, profile updates, advisory fee, security log) is still
+100% local/`localStorage`.
 
 **Build it in-house, not via external APIs.** Explicit user direction (Aug 19, 2026): "we
 are building an engine locally for our operation, we would not be needing a lot of
@@ -3635,38 +3633,104 @@ row 74.
   README.md "Stage 3" section documents the full runbook; the Logout fix's own section
   updated from "known limitation" to "Fixed." See the Backend Requirements Register row 112
   below.
+- **★ Firebase — RETIRED (Aug 30, 2026). The full arc, kept as historical record, not
+  deleted.** Read this before assuming anything about "the real backend" without checking
+  the date of whatever section you're reading. **Why Firebase was chosen** (Aug 22, 2026,
+  Backend Migration Phase 1): `signup.html`/`login.html` needed a real credential-verified
+  auth system and a real Client Registry, and Firebase's Emulator Suite offered a
+  fully-offline way to build and verify that without touching a real cloud project or
+  billing — a deliberate, reported choice at the time (see `Marketswave_Project_Handover.md`
+  §12 for the original architecture writeup). **What got built on it**: real Firebase Auth +
+  Firestore + Cloud Functions, emulator-only at first (Phase 1); extended to a real, separate
+  staging project, `marketswave-staging` (Phase A1, Aug 26, 2026) — real signup/login against
+  real cloud infrastructure, a real staging admin bootstrap, real `firestore.staging.rules`
+  deployed; a real admin UI merging local + Firebase-sourced client applications
+  (`admin-client-applications.html`, `admin-clients.html`); a real `signOut(auth)` wired into
+  client-facing Logout (Aug 23, 2026); `functions/index.js`'s three Cloud Functions
+  (`createClientApplication`/`approveClientApplication`/`rejectClientApplication`), fully
+  written and tested against the local emulator. **Why it was retired**: the one piece that
+  never shipped for real was the actual point of having Cloud Functions at all — deploying
+  them to the real `marketswave-staging` project (Phase A2) required a Blaze (pay-as-you-go)
+  billing plan upgrade, which stayed permanently blocked for the length of this project. That
+  meant the real admin approve/reject flow — the core PM workflow this whole migration exists
+  to support — could never actually run against real infrastructure on Firebase, only the
+  local emulator. Supabase's free tier deploys real Edge Functions with no card required;
+  Supabase Migration Stage 3 (Aug 30, 2026, same day as retirement) proved a full,
+  real-cloud-verified replacement in one session, closing the exact gap Phase A2 could never
+  close. **What "retired" means concretely**: every Firebase file (`firebase-config.js`,
+  `admin-firebase-config.js`, `functions/index.js`, `firestore.rules`,
+  `firestore.staging.rules`, `scripts/bootstrap-admin.js`, `scripts/staging-bootstrap-
+  admin.js`, `scripts/staging-approve-client.js`, `scripts/golden-path-regression.js`) is
+  marked with a dated `★ RETIRED` header comment explaining this same arc, and remains fully
+  functional, byte-for-byte unmodified in its actual logic — confirmed via `git diff` that
+  retirement touched ZERO lines inside any of these files' own working code, only added
+  header comments. The real, untouched `marketswave-staging` Firebase project and the real,
+  never-connected "Marketswave SE" production project both still exist exactly as before —
+  retirement is a code-reachability and documentation change, not an infrastructure teardown.
+  See the "Firebase Retirement" entry directly below for the mechanics of how the code paths
+  were actually disabled, and the Backend Requirements Register (row 113) for the item-by-item
+  mapping of every remaining Firebase-specific register row to its Supabase equivalent.
+- **Firebase Retirement — Supabase becomes the sole active backend, environment switch
+  inverted** (Aug 30, 2026, row 113). Closes the loop Supabase Migration Stage 3 opened —
+  Supabase now proven to fully replace Firebase's own real admin approve/reject flow, so the
+  environment switch's own DEFAULT flips: `signup.html`/`login.html` now reach Supabase with
+  ZERO query params needed (was: Firebase emulator by default), or `?env=staging` for the
+  real Supabase cloud project. **Switch mechanism decision, reported per instruction: kept,
+  not removed, inverted, with a new distinctly-named explicit flag** — `supabase-config.js`'s
+  `IS_SUPABASE_BACKEND` now defaults to `true` and only flips to `false` when a NEW,
+  unmistakable `?legacyBackend=firebase` param is present (deliberately not reusing
+  `backend=firebase`, which would be too easy to type by analogy with the still-supported
+  `?backend=supabase` synonym kept for backward compatibility with every existing Stage 2/3
+  script and habit). **Confirmed sufficient by reading `signup.html`/`login.html`'s own
+  control flow before deciding, not assumed**: both files already checked
+  `IS_SUPABASE_BACKEND` first and `return`ed before ever reaching their own Firebase branch —
+  flipping this one boolean's default is the entire mechanism; zero restructuring needed in
+  either file. Both Firebase branches (in `signup.html`/`login.html`) and the Firebase
+  imports immediately above them got their own inline `★ RETIRED` marker comments, confirming
+  they're reached only via the explicit flag now. **`admin-client-applications.html`** (not
+  literally named in the task's own file list, but the other real runtime reach point,
+  extended to cover per the retirement's own stated goal of "Supabase as the sole active
+  backend"): its Firebase Firestore merge — previously running unconditionally on every page
+  load — is now gated behind a new `LEGACY_FIREBASE_ENABLED` constant, hardcoded `false`
+  (not a URL param, since this admin page never had one before and the retired path here is
+  meant for deliberate code-level opt-in during reference testing, not casual URL-typing);
+  flipping it to `true` re-enables the exact same working code, unmodified. **`git diff`
+  confirmed**: every actual Firebase file's own internal logic is byte-for-byte unchanged —
+  only header/inline comments were added anywhere inside them; the only FUNCTIONAL changes
+  are the inverted default in `supabase-config.js` and the new gate in
+  `admin-client-applications.html`. **Verified live, both Supabase environments completely
+  unaffected — this was a pure Firebase-side change, confirmed not assumed**: re-ran
+  `scripts/supabase-golden-path-regression.js` against the local stack, `GOLDEN PATH: PASS
+  (16/16 steps)`, identical to before retirement; separately confirmed via a real browser
+  session that a plain `signup.html`/`login.html` load with NO query params now reaches
+  Supabase (not Firebase) by default, that `?legacyBackend=firebase` genuinely restores the
+  old Firebase behavior, and that the browser's own Network panel shows **zero** requests to
+  any Firebase endpoint (`identitytoolkit.googleapis.com`/`firestore.googleapis.com`/
+  emulator ports) on a default page load — the static ES module imports of
+  `firebase-config.js` still execute (harmless — pure endpoint configuration, no network I/O
+  of their own, confirmed directly) but nothing downstream ever calls them unless the legacy
+  flag is present. README.md's Supabase runbook and every retired Firebase section (each now
+  carrying its own retirement banner) and CLAUDE.md updated in place; Backend Requirements
+  Register row 113 added.
 
-**Next**: Phase A2 (real Cloud Functions on staging) is blocked on a Blaze plan upgrade for
-`marketswave-staging` — not attempted, not forgotten; once unblocked, deploy
-`functions/index.js`'s three callables there, tighten `firestore.staging.rules` back to
-Cloud-Function-only writes, and wire a real admin UI approve/reject button, retiring
-`scripts/staging-approve-client.js`. Beyond that, the real-production Firebase switch-over
-(§12.4's remaining checklist, now sequenced as README.md's Phase B–D — repointing
-`.firebaserc`/adding a real `PRODUCTION_CONFIG` to `firebase-config.js` for the real
-"Marketswave SE" project, guarding emulator connections to dev-only, deploying real
-rules/Functions, bootstrapping a real production admin account, deciding on real multi-PM
-support) is explicitly NOT started — do not assume production Firebase is live just because
-Firebase (or even real staging) code exists in the repo; verify against `.firebaserc`/
-`firebase-config.js` directly, and note that staging (`marketswave-staging`) and production
-("Marketswave SE") are two different real projects, not the same one under two names.
-`admin-clients.html` (Client List) now merges
-real Firebase clients too (§12.8) — §12.4 item 8 is fully closed for both admin pages named
-in it, and item 9 (real `signOut(auth)`) is now closed too (row 61, above). Reset Password on
-a Firebase-sourced client (from either admin page) still has no real effect on that client's
-actual Firebase Auth sign-in — now clearly labeled in the admin UI itself (Phase 0 item 3,
-row 69, above) rather than silently misleading, but real per-client Firebase Auth admin APIs
-(revoking refresh tokens, disabling the account) are still needed for a genuine fix, a
-separate unscoped future task. Reset 2FA is NOT in this category — it works correctly for
-Firebase-sourced clients too (row 69's own investigation found the original "both have no
-real effect" framing was inaccurate for this one). `--export-on-exit` still does not persist
-across an emulator restart — a genuine Windows process-termination limitation, re-confirmed
-under a second, different launch method (row 68/Phase 0 above), not a one-off shell quirk —
-so any fresh emulator session needs `README.md`'s Emulator Bootstrap Runbook followed in
-full, including `node scripts/bootstrap-admin.js` (now a real, committed, idempotent script
-— no longer scratchpad-only) before the admin UI's Firebase sign-in will work. Run
-`node scripts/golden-path-regression.js` afterward (or any time "did I break the backend"
-needs a real answer) to confirm the whole chain still works in one command instead of
-manually re-testing each piece. Beyond that: row 3 (Onboarding data capture/PM review) is fully closed. Real file storage
+**Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
+Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
+pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
+Migration Stage 3 already delivered what Phase A2 was trying to reach (a real admin approve/
+reject flow against real cloud infrastructure), so there is nothing left to unblock there.
+If a real PRODUCTION backend is ever genuinely needed, it is Supabase's own future
+real-production project (a distinct, not-yet-decided future item — see README.md's Backend
+Migration roadmap section, itself marked retired/historical) — not a revival of
+`.firebaserc`'s `PRODUCTION_CONFIG`/"Marketswave SE" plan. The Firebase-specific operational
+detail that used to live here (the `--export-on-exit` emulator limitation, `admin-clients.html`
+merging real Firebase clients, Reset Password/2FA's differing real effect on a
+Firebase-sourced client) all still applies verbatim if anyone deliberately opts into the
+retired `?legacyBackend=firebase` path for historical/reference testing — see README.md's own
+retired Firebase sections (each now carries its own retirement banner) rather than repeating
+it here. A fresh session's own "did I break the backend" check is now
+`node scripts/supabase-golden-path-regression.js` (Stage 3's own, run against the local
+Supabase stack), not the Firebase golden-path script. Beyond the backend itself: row 3
+(Onboarding data capture/PM review) is fully closed. Real file storage
 (the uploaded documents' actual bytes, not just filename metadata) remains a genuinely
 backend-dependent need, already tracked separately in the Documents & Reporting register
 rows. Further client-selector UX work at higher client counts, if ever needed — the earlier

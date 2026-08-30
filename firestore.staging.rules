@@ -1,5 +1,12 @@
 rules_version = '2';
 
+// ★ RETIRED, Aug 30, 2026 — Firebase is no longer the active backend (see
+// firebase-config.js's own header for why). Still deployed and functional against the real,
+// untouched "marketswave-staging" Firebase project for deliberate historical/reference
+// testing; the active equivalent is the RLS policies deployed to the real "Marketswave
+// Staging" Supabase project via `supabase db push`/`config push` (Supabase Migration Stage
+// 3). KEPT, NOT DELETED.
+//
 // Backend Migration — Phase A1 (Aug 26, 2026) — Firestore rules for the REAL staging project
 // (marketswave-staging), deployed via `firebase deploy --only firestore:rules
 // --project marketswave-staging --config firebase.staging.json`. Deliberately a SEPARATE file

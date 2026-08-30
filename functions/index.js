@@ -1,4 +1,24 @@
 /**
+ * ============================================================================================
+ * ★ RETIRED, Aug 30, 2026 — read this before deploying or relying on anything in this file.
+ * ============================================================================================
+ * This is the Firebase Cloud Functions equivalent of the real admin approve/reject flow —
+ * RETIRED along with the rest of the Firebase integration (see firebase-config.js's own
+ * header for the full "why"). These three callables were, in practice, only ever exercised
+ * against the local emulator — the real deployed equivalent for the real "marketswave-staging"
+ * project (Phase A2) stayed permanently BLOCKED on a required Blaze plan upgrade, and was
+ * never actually deployed to a real project. Supabase's own Edge Function equivalents
+ * (supabase/functions/approve-client-application/, reject-client-application/ — creation
+ * itself stays a direct, RLS-enforced client insert, mirroring this file's own
+ * createClientApplication rules but enforced by Postgres RLS instead of a callable) ARE
+ * deployed for real and ARE the active path — see CLAUDE.md's Tech Stack section (Supabase
+ * Migration Stage 3) for the full writeup, including a real authorization bug this file's own
+ * design (trusting `request.auth.token.admin`, injected by the Firebase Admin SDK's custom
+ * claim mechanism) helped surface an analogous mistake for on the Supabase side (`getUser()`
+ * vs `getClaims()`) before it shipped. KEPT, NOT DELETED, as historical/reference record of
+ * real, working, verified server-side logic.
+ * ============================================================================================
+ *
  * Marketswave Cloud Functions — Backend Migration Phase 1 (Aug 22, 2026)
  *
  * Migrates the Client Registry + client-application-review business rules that previously
