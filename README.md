@@ -5,8 +5,13 @@ site, multi-step client onboarding, login + password recovery, and a client dash
 of the app is frontend-only, static HTML backed by `localStorage` (see `engine-core.js`).
 
 **Firebase is RETIRED as of Aug 30, 2026 — Supabase is now the sole active backend.**
-`signup.html`/`login.html` default to Supabase with zero query params needed (local Docker
-stack) or `?env=staging` (the real "Marketswave Staging" cloud project). The reason for the
+`signup.html`/`login.html` default to Supabase, with zero query params needed either way —
+which real target that reaches depends on where the page is actually being served from
+(fixed 2026-09-04, see "Pre-hosting fix" below for the full "why"): on `localhost`/
+`127.0.0.1` (local development) it reaches the local Docker stack; on any real hosted domain
+it reaches the real "Marketswave Staging" cloud project — the correct default for a real
+visitor, whose browser will never carry a query param. `?env=staging`/`?dev=local` remain
+available as explicit overrides in either direction. The reason for the Firebase-to-Supabase
 move, reported plainly: real Cloud Functions on the Firebase side stayed permanently blocked
 on a Blaze (pay-as-you-go) plan upgrade for `marketswave-staging` (see "What's blocked: Phase
 A2" further down, kept as historical record) — a real card requirement this project declined.
@@ -433,6 +438,1163 @@ stack. The client-facing request/approval GATING layer around those primitives (
 Approval Gate queues — Client Applications, Deposits, Withdrawals, Allocations, Sells, HYS
 Deposits, Client Profile Updates) is still 100% local/`localStorage`, as are High Yield
 Savings and the Documents/Support domains — each awaits its own future Phase B stage.
+
+### Backend Migration Phase B — Stage 2: Deposits and Withdrawals (Aug 30, 2026)
+
+The first two of the seven Approval Gate queues to move off `engine-core.js`/`localStorage`.
+Local stack only — the real cloud "Marketswave Staging" project is untouched. Adds 2 real
+tables (`deposit_requests`, `withdrawal_requests`) and 6 real Edge Functions
+(`request-deposit`, `request-withdrawal` — client-callable, self-only, `clientId` derived
+from the caller's own JWT; `credit-deposit`, `approve-withdrawal`, `reject-deposit`,
+`reject-withdrawal` — admin-only) — a faithful port of `requestDeposit()`/
+`creditDepositRequest()`/`rejectDepositRequest()`/`requestWithdrawal()`/`approveWithdrawal()`/
+`rejectWithdrawal()`. See CLAUDE.md's Tech Stack entry for the full writeup, including the
+zero-balance-default-on-a-missing-`account_state`-row detail and the PM-editable-amount
+property both functions preserve exactly.
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local                       # applies this stage's migration too
+cd scripts
+supabase functions serve                            # in a separate terminal, if not already via `supabase start`
+node verify-supabase-deposits-withdrawals.js         # the full 76-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-deposits-withdrawals.js` — **76/76 assertions
+passed**. Covers every validation path on both client-callable functions; the PM-editable-
+amount property proven with a real differing confirmed/requested pair on both deposits and
+withdrawals; **the re-validation-at-approval-time edge case** — two pending withdrawal
+requests that together exceed available capital, where approving the first correctly leaves
+the second refused (409) rather than driving the balance negative; double-resolve protection
+(crediting/rejecting an already-resolved request is refused, with zero state change);
+cross-client isolation (byte-for-byte diff of a second client's rows before/after the first
+client's full deposit+withdrawal activity); the full RLS matrix on both new tables; and
+authorization negative cases (401/403) on all 6 functions. The full existing Supabase suite
+was re-run alongside with zero regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `supabase-golden-path-regression.js`
+`PASS (16/16 steps)`.
+
+**No client-facing or admin UI has been wired to these Edge Functions yet** —
+`deploy-capital.html`/`admin-deposits.html`/`admin-withdrawals.html` still call the local
+`engine-core.js` functions. This stage is schema + Edge Functions + Node verification only,
+per its own scope; wiring the UI is separate, not-yet-scoped future work.
+
+### Backend Migration Phase B — Stage 3: Allocations and Sells (Aug 30, 2026)
+
+Two more of the seven Approval Gate queues move off `engine-core.js`/`localStorage` — 4 of 7
+total after this stage. Local stack only — real cloud "Marketswave Staging" untouched.
+Meaningfully different from Stage 2: `allocation_requests`/`sell_requests` don't stand
+alone, they resolve INTO Stage 1's already-built `execute-buy`/`execute-sell` functions via
+a real internal HTTP call (forwarding the caller's own admin JWT), rather than duplicating
+either function's settlement/cost-basis logic. Adds 2 real tables (`allocation_requests`,
+`sell_requests`, RLS reused verbatim from Stage 2) and 6 real Edge Functions
+(`request-allocation`, `request-sell` — client-callable, self-only; `approve-allocation`,
+`approve-sell`, `reject-allocation`, `reject-sell` — admin-only) — a faithful port of
+`requestAllocation()`/`approveAllocationRequest()`/`rejectAllocationRequest()`/
+`requestSell()`/`approveSellRequest()`/`rejectSellRequest()`. See CLAUDE.md's Tech Stack
+entry for the full writeup, including a real, deliberate, flagged strengthening:
+`approve-allocation` re-validates against the client's current `unallocated_capital` at
+approval time even though the real local `approveAllocationRequest()` does not — a genuine
+gap in the local engine this stage closes, not merely ports.
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local                       # applies this stage's migration too
+cd scripts
+supabase functions serve                            # in a separate terminal, if not already via `supabase start`
+node verify-supabase-allocations-sells.js            # the full 88-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-allocations-sells.js` — **88/88 assertions
+passed** on the first run. Covers every validation path on both client-callable functions;
+an investigated-and-reported finding (the real local `requestSell()` has no "sum of this
+client's own other pending sell requests" guard — that guard is UI-only, in
+`asset-performance.html`, not inside the engine function itself); **the
+internal-call-not-reimplementation proof** — a dedicated test calls `approve-allocation`
+for one client and a direct `execute-buy` call for another on the same product/day,
+confirming both entry points settle to the identical unit price and units-from-price
+formula, with the mirrored proof for `approve-sell`/`execute-sell`; **both
+re-validation-at-approval-time edge cases** (two allocations, then two sells, each pair
+together exceeding what's available — only the first of each pair succeeds); reject-with-
+reason for both queues; cross-client isolation; the full RLS matrix; and authorization
+negative cases (401/403) on all 6 functions. The full existing Supabase suite was re-run
+alongside with zero regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js`
+76/76 (132 total, unaffected), `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**No client-facing or admin UI has been wired to these Edge Functions yet** —
+`asset-collection.html`/`asset-performance.html`/`admin-allocations.html`/
+`admin-sells.html` still call the local `engine-core.js` functions. This stage is schema +
+Edge Functions + Node verification only, per its own scope; wiring the UI is separate,
+not-yet-scoped future work.
+
+**Approval Gate queues now server-authoritative (local stack only), after Stages 1-3**:
+Deposits, Withdrawals, Allocations, Sells — 4 of 7. **Still 100% local/`localStorage`**:
+Client Applications, HYS Deposits, Client Profile Updates — plus HYS pocket withdrawals and
+Documents/Support, each awaiting its own future Phase B stage.
+
+### Backend Migration Phase B — Stage 4: HYS pockets + HYS Deposit/Withdrawal (2026-09-02)
+
+HYS pockets and both HYS approval queues move off `engine-core.js`/`localStorage` — 5 of the
+7 Approval Gate queues are now server-authoritative after this stage; only Client
+Applications and Client Profile Updates remain local. Local stack only — real cloud
+"Marketswave Staging" untouched. Adds 3 real tables (`hys_pockets`, `hys_deposit_requests`,
+`hys_withdrawal_requests` — the third a genuinely necessary addition beyond this stage's own
+literal 2-table schema list, since the EDGE FUNCTIONS section it also specified had nowhere
+else to persist a pending HYS withdrawal request) and 6 real Edge Functions
+(`request-hys-deposit`, `request-hys-withdrawal` — client-callable, self-only;
+`credit-hys-deposit`, `reject-hys-deposit`, `approve-hys-withdrawal`,
+`reject-hys-withdrawal` — admin-only) — a faithful port of `requestHYSDeposit()`/
+`creditHYSDeposit()`/`rejectHYSDeposit()`/`getHYSRate()`/`requestHYSWithdrawal()`/
+`approveHYSWithdrawal()`/`rejectHYSWithdrawal()`/`computeHYSWithdrawalAmount()`. See
+CLAUDE.md's Tech Stack entry for the full writeup, including a real, disclosed gap found
+while reading the local source: `high-yield-savings.html`'s own client-side
+`updatePocketStatuses()` — not `engine-core.js` — is the only place a fixed pocket ever
+transitions from `active` to a third status, `matured`, once its `maturity_date` passes; this
+stage's `hys_pockets.status` CHECK constraint includes `matured` to stay faithful to that real
+three-status model, but no Edge Function here performs the transition itself, since there's no
+client-facing HYS UI wired to Supabase yet to port that page-load-time behavior from.
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local                       # applies this stage's migration too
+cd scripts
+supabase functions serve                            # in a separate terminal, if not already via `supabase start`
+node verify-supabase-hys.js                          # the full 103-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-hys.js` — **103/103 assertions passed** on the
+first run. Covers every validation path on both client-callable functions across both Fixed
+(short-term and locked-term) and As-You-Want pockets; the PM-editable-confirmed-amount
+property; **maturity computed from the credit date, not the request date**, and
+**projected interest computed from the confirmed amount, not the requested one**; the
+locked-term-blocks-early-withdrawal rule (and, distinctly, that a short-term pocket is NOT
+hard-blocked the same way — it can be withdrawn early, it just forfeits interest); the
+forfeiture-vs-matured distinction (an active fixed pocket forfeits, a matured one does not,
+an AYW pocket never forfeits and always returns its full balance); a duplicate-pending guard
+per pocket; **the re-validation-at-approval-time edge case** — a pocket withdrawn out from
+under a still-pending request by some other resolved path correctly fails approval (409)
+rather than double-withdrawing it; the symmetric external-payout property (neither
+`credit-hys-deposit` nor `approve-hys-withdrawal` ever touches `account_state`); cross-client
+isolation across all 3 new tables; the full RLS matrix, including that `hys_pockets` has NO
+client-side INSERT path at all, even a genuinely-own one (pockets are created only via
+`credit-hys-deposit`); and authorization negative cases (401/403) on all 6 functions. The full
+existing Supabase suite was re-run alongside with zero regressions: `verify-supabase-schema.js`
+16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js`
+88/88 (323 total, unaffected), `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**No client-facing or admin UI has been wired to these Edge Functions yet** —
+`high-yield-savings.html`/`admin-hys.html` still call the local `engine-core.js` functions.
+This stage is schema + Edge Functions + Node verification only, per its own scope; wiring the
+UI is separate, not-yet-scoped future work.
+
+**Approval Gate queues now server-authoritative (local stack only), after Stages 1-4**:
+Deposits, Withdrawals, Allocations, Sells, HYS Deposits, HYS Withdrawals — 5 of 7 domains (6
+of the queue-shaped stores, since HYS Deposits/Withdrawals are 2 stores within 1 conceptual
+domain). **Still 100% local/`localStorage`**: Client Applications, Client Profile Updates —
+plus Documents/Support, each awaiting its own future Phase B stage.
+
+### Backend Migration Phase B — Stage 5: the final 2 Approval Gate queues (2026-09-02)
+
+**★ ALL 7 OF 7 APPROVAL GATE QUEUES ARE NOW SERVER-AUTHORITATIVE (LOCAL STACK ONLY). This
+closes the entire "Approval Gate" category of Phase B work — Client Applications and Client
+Profile Updates were the last two.** Local stack only — real cloud "Marketswave Staging"
+untouched.
+
+**Client Applications — investigated first, per instruction. Nothing to build.** Confirmed by
+reading the real, already-shipped source before writing anything: this queue has been fully
+real, end to end, since Stage 3 (Aug 30, 2026) — the `clients` table (Stage 1) already has
+`status`/`application_resolved_at`/`application_reason`; creation is already a direct
+RLS-enforced insert from `signup.html`; `approve-client-application`/
+`reject-client-application` (Stage 3) already exist, are already deployed to real staging, and
+are already enabled for the local stack; `admin-client-applications.html` already lists and
+resolves real Supabase applications. The one genuine gap: no *persistent* Node script
+previously exercised these two functions against the *local* stack — closed by this stage's
+own `verify-supabase-final-approval-gate.js`, Part 1.
+
+**Client Profile Updates — genuinely new.** Adds 2 real tables (`client_profiles` — a
+necessary addition beyond this stage's own literal schema list, since a real server-side
+profile store is required for "snapshot the current value automatically" to mean anything;
+`profile_change_requests`, which also picked up a necessary `resolution_note` column, kept
+deliberately separate from the client's own `reason`) and 3 real Edge Functions
+(`request-profile-change` — client-callable, self-only; `approve-profile-change`,
+`reject-profile-change` — admin-only) — a faithful port of `requestSettingsChange()`/
+`approveSettingsChangeRequest()`/`rejectSettingsChangeRequest()`/`getSettingsProfile()`.
+**Confirmed, per instruction: `dateOfBirth` is genuinely gone** — the real
+`REQUESTABLE_SETTINGS_FIELDS` array is exactly `['legalName', 'address', 'idDocument']`, no
+fourth field; this migration's CHECK constraint uses those same 3 real values (camelCase, not
+the task's own `legal_name`/`address`/`id_document` snake_case paraphrase — a field-value
+fidelity finding in the same category as Stage 4's `pocket_type`). A client with no profile on
+file yet reads back a genuine `null` current value, never a fabricated default — the local
+engine's own real fix for this exact fake-default bug (register row 80) is ported forward from
+the start rather than repeated.
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local                        # applies this stage's migration too
+cd scripts
+supabase functions serve                             # in a separate terminal, if not already via `supabase start`
+node verify-supabase-final-approval-gate.js           # the full 69-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-final-approval-gate.js` — **69/69 assertions
+passed**. Part 1 (Client Applications, 12 assertions): real state transitions for both
+approve and reject against genuine `pending_review` rows, double-resolve protection,
+cross-client isolation, and authorization negative cases against the already-existing
+functions. Part 2 (Client Profile Updates, 57 assertions): validation for all 3 fields;
+the no-fake-fallback `null` current-value snapshot; **field-specific correctness proven for
+each of the 3 fields individually, not one tested as a stand-in for all** (a real legalName
+approval, a real address approval, and a real idDocument approval, each confirmed not to
+clobber the other two on the same profile row); a wholesale-replace-not-merge proof on a
+second legalName change; cross-client isolation; the full RLS matrix (including that
+`client_profiles` has NO client-side INSERT path at all — profiles are created only via
+`approve-profile-change`); and authorization negative cases (401/403) on all 3 functions. The
+full existing Supabase suite was re-run alongside with zero regressions:
+`verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js` 88/88,
+`verify-supabase-hys.js` 103/103 (392 total, unaffected), `supabase-golden-path-regression.js`
+`PASS (16/16 steps)`.
+
+**No client-facing UI has been wired to `request-profile-change` yet** —
+`settings.html` still calls the local `engine-core.js` function directly.
+`admin-client-applications.html` already calls the real (pre-existing) Client Applications
+functions; no admin UI exists yet for Client Profile Updates specifically (the local
+`admin-profile-updates.html` still calls the local `engine-core.js` functions). This stage is
+schema + Edge Functions + Node verification only for Client Profile Updates, per its own
+scope; wiring the UI is separate, not-yet-scoped future work.
+
+**All 7 Approval Gate queues are now server-authoritative (local stack only)**: Client
+Applications, Deposits, Withdrawals, Allocations, Sells, HYS Deposits, HYS Withdrawals, Client
+Profile Updates.
+
+### Backend Migration Phase B — Stage 6: Documents & Support (2026-09-02)
+
+**★ EVERY DOMAIN FROM THE ORIGINAL ENGINE NOW HAS REAL SUPABASE SCHEMA/FUNCTIONS (LOCAL
+STACK ONLY). This closes the entire backend-logic portion of Phase B — the remaining gap,
+across all 6 stages, is UI-wiring only, not backend logic.** Local stack only — real cloud
+"Marketswave Staging" untouched.
+
+**★ Documents & Support are NOT Approval Gate queues, and this stage's own schema
+deliberately does not copy the "zero client-side write, everything through service_role"
+pattern Stages 2-5 used.** Investigated the real client-side call pattern in
+`documents.html`/`support.html` before writing any schema, per instruction, and confirmed:
+a client directly calls `addDocument()` (upload), `updateDocument()` (Sign), and
+`removeDocument()` (Remove) with NO gate at all; a client's own dispute-submit handler
+creates a ticket immediately, status `'Open'`, no pending/approved/rejected step. Only
+publishing a `from` document, a generic admin patch (e.g. "Mark Reviewed"), and support
+ticket status/pmNote updates are admin-only. The schema below matches that real shape.
+
+**Documents**: `documents` table gets a REAL client-side INSERT policy (own upload only,
+`with check` pinned to the exact real `addDocument()` call shape — `direction='upload'`,
+category restricted to the 3 real client-selectable values, `status='Received'`,
+`is_new=false`, `deadline_label` null) and a REAL client-side UPDATE policy scoped
+exclusively to the Sign transition (`direction='from'` + `status='Signature Required'` →
+`status='Signed'`). A client can never INSERT a `direction='from'` document (impersonating
+the firm) — that's `publish-document`, admin-only. `update-document` (admin-only, generic
+patch) covers "Mark Reviewed" and any other admin patch. **A deliberate strengthening beyond
+the local engine, flagged per instruction**: client-side DELETE (Remove) is scoped to
+`direction='upload'` only — the real local `removeDocument(id)` has no such check at all, but
+the real UI never exposes Remove for a `from` document either; at the real Supabase security
+boundary, "never exploitable via the shipped UI" isn't the same guarantee as "structurally
+impossible," so the RLS policy closes that gap.
+
+**Support**: `support_requests` gets NO client-side INSERT/UPDATE/DELETE policy at all —
+a genuine, reasoned deviation from documents' own direct-insert approach, not an
+inconsistency. Ticket creation (`request-support-ticket`) is still immediate and
+unconditional — the same real "no approval gate" property — but goes through a thin
+Edge Function because the human-readable `display_id` (e.g. `DISP-0001`) must be genuinely
+server-computed, and RLS's row-level `with check` has no clean way to verify "this id was
+computed by our own scan-and-increment algorithm" without a trigger. **A real, investigated
+finding, confirmed not assumed**: the local `nextDisputeId()` scans only the CURRENT
+client's own scoped array — `display_id` is unique PER CLIENT, not globally (two different
+clients' first-ever ticket can both legitimately be `DISP-0001`) — so `support_requests.id`
+is a genuine `gen_random_uuid()` primary key, with `display_id` kept in its own column,
+`unique(client_id, display_id)`.
+
+Get a fresh local stack to this stage's own working baseline:
+
+```
+supabase migration up --local                        # applies this stage's migration too
+cd scripts
+supabase functions serve                              # in a separate terminal, if not already via `supabase start`
+node verify-supabase-documents-support.js              # the full 64-assertion proof suite
+```
+
+**Verified**: `node scripts/verify-supabase-documents-support.js` — **64/64 assertions
+passed** on the first run. Documents (Part 1): the exact real client-INSERT shape proven
+(and every deviation from it refused — spoofed direction/category/status/is_new/client_id);
+`publish-document` as the only path to a `from` document, including its real
+`deadlineLabel` computation; the Sign action's exact real UPDATE shape (and every
+deviation refused — re-signing, signing a non-required doc, an arbitrary target status,
+signing an upload); `update-document`'s real "Mark Reviewed" usage; the Remove
+DELETE scoped correctly (own upload succeeds, a `from` document is refused); cross-client
+isolation; the RLS matrix; auth negatives. Support (Part 2): immediate no-gate ticket
+creation with a real server-computed `display_id`, confirmed genuinely per-client (not
+global) by creating two different clients' first tickets and proving both land on
+`DISP-0001` as two distinct rows with different real uuid primary keys; `update-support-ticket`
+setting status + pmNote atomically, including a second real re-update; the full RLS matrix
+proving zero client-side write path at all (INSERT/UPDATE/DELETE all refused, for a
+non-admin AND an admin-claimed caller alike); cross-client isolation; auth negatives. The
+full existing Supabase suite was re-run alongside with zero regressions:
+`verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js`
+88/88, `verify-supabase-hys.js` 103/103, `verify-supabase-final-approval-gate.js` 69/69 (456
+total, unaffected), `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**No client-facing or admin UI has been wired to any of these 4 Edge Functions yet** —
+`documents.html`/`admin-documents.html`/`support.html`/`admin-support.html` all still call
+the local `engine-core.js` functions. This stage is schema + Edge Functions + Node
+verification only, per its own scope; wiring the UI is separate, not-yet-scoped future work.
+
+**★ Every domain from the original engine now has real Supabase schema/functions (local
+stack only)**: all 7 Approval Gate queues (Stages 2-5) plus HYS pockets (Stage 4) plus
+Documents & Support (this stage) plus the portfolio engine's own financial core (Stage 1)
+plus identity (earlier Supabase stages). **The entire remaining gap is UI-wiring, not backend
+logic** — across every one of Stages 1 through 6, not one client-facing page or admin page
+anywhere in the project has been switched over to call any of these Supabase functions
+instead of the local `engine-core.js` equivalents (the sole partial exception, unaffected by
+this stage, is Client Applications' own admin listing/resolve UI, wired back in Stage 3).
+Every dashboard page and every admin page still runs entirely on `localStorage` today,
+regardless of how much of the backend now technically exists in Supabase.
+
+### UI Wiring — Stage 1: dashboard.html (2026-09-03)
+
+**The FIRST page in the project wired to any real Supabase backend logic.** Every prior
+Supabase stage (1-6) was schema + Edge Functions + Node verification only — this is where a
+real client-facing page starts calling them. Local stack only, real cloud "Marketswave
+Staging" untouched.
+
+**Identity — investigated first, per instruction. No change needed.** `dashboard.html` still
+resolves the authenticated client via `getAuthenticatedClientId()` (the local hybrid-bridge
+mirror `dashboard-sidebar.js`'s own file-load-time guard already established). That mirror
+already reflects real Supabase identity — `login.html`'s real Supabase branch calls
+`mirrorAuthenticatedClientLocally()` + `setClientAuthenticated(uid)` with the client's REAL
+Supabase Auth uid — so no identity-resolution code changed. The only new concern this stage
+introduces: the new Supabase calls need a live Supabase session (JWT), which is already
+sitting in `localStorage` from the real login that got the client here (`persistSession:
+true`) — `supabase-data.js` reaches it via the exact same `import('./supabase-config.js')`
+dynamic-import technique `dashboard-sidebar.js`'s own `signOutOfSupabaseAuth()` already uses.
+
+**New shared file, `supabase-data.js`** — the canonical async data-fetching + loading/error
+pattern every future UI-wiring stage should import and reuse rather than re-deriving:
+- `getSupabaseClient()` / `callFunction(name, body)` / `selectTable(table, applyQuery)` —
+  thin wrappers around a lazily-created, page-lifetime-cached Supabase client.
+- **`renderAsyncBundle(regions, { load, render, skeletonHTML })`** — the reusable loading/
+  error convention. Paints a Tailwind `animate-pulse` skeleton into the given region(s)
+  immediately, calls `load()` once, calls `render(data)` on success, or paints a consistent
+  red error card (with a real "Try Again" button that re-runs the whole sequence) on
+  failure. `regions` may be a single element or an array sharing one combined data load.
+  **This is THE pattern — cite `supabase-data.js`'s own header comment directly in future
+  wiring stages instead of re-deriving it.**
+
+**dashboard.html's data fetching**: `get-account-state`, `get-holdings`,
+`get-transaction-ledger`, `get-total-portfolio-value` (all Phase B Stage 1), plus a direct
+RLS-authorized read of `products` (no Edge Function needed or exists for the catalog).
+**Two real behavioral differences found by reading the actual Edge Functions before wiring
+anything, not assumed**: (1) `get-account-state` returns a genuine 404 for a client with no
+`account_state` row yet (a fresh/unfunded client) — the local engine's own
+`readAccountStateForClient()` has always defaulted to a real $0 state instead of treating
+"not found" as an error, so a 404 here is caught and mapped to the same $0 default, not
+surfaced as an error card. (2) `get-transaction-ledger` already queries
+`ORDER BY created_at DESC` (newest first) — genuinely different from the local engine's own
+insertion-order array (oldest first), which the old code compensated for with
+`.slice(-3).reverse()`. Blindly reusing that slice against the real query's own real
+ordering would have silently shown the 3 OLDEST transactions in reverse order; fixed to
+`.slice(0, 3)`, the correct equivalent.
+
+**Responsive/animation**: unaffected — confirmed by diff, not just assumed; only the
+`<script>` contents changed (plus one new `<script src="supabase-data.js">` tag), zero
+markup/CSS touched.
+
+**Verified**: `npm run verify-dashboard-ui-wiring` (from `scripts/`) — **27/27 assertions
+passed, twice in direct succession**. **★ No browser automation tool is available in this
+session (checked directly before starting, not assumed) — this script is the substitute**,
+loading the REAL, unmodified `supabase-data.js` and the REAL, unmodified `dashboard.html`
+inline script (extracted verbatim) into a minimal fake DOM (mirroring this project's own
+established `scripts/lib/engine-harness.js` precedent), driven by a REAL local Supabase
+session for a REAL test client seeded with deliberately distinctive numbers (never
+mistakable for the old hardcoded/local-demo figures). Covers: `renderAsyncBundle()`'s own
+loading/error/retry mechanics in isolation (skeleton paints synchronously before any
+promise resolves; a failed load shows the error card with a genuine clickable Try Again;
+retry re-fetches exactly once, not more); the real page rendering the real, independently-
+computed TPV/allocation/risk-metric/recent-activity figures for the real test client (cross-
+checked directly against Postgres, not the app's own logic); the "3 most recent, newest
+first" ordering proven correct against 4 real seeded transactions; and a genuinely failed
+call (a signed-out session, a real 401) showing the error card — not a blank or broken page —
+on every affected region independently. One seam disclosed, not hidden: `supabase-config.js`'s
+own CDN import (`https://esm.sh/@supabase/supabase-js@2.112.4`) is redirected to the
+already-installed local npm package via a custom `module.register()` loader
+(`scripts/lib/esm-loader-supabase-cdn.mjs`, the same technique this project used once before
+for an equivalent Firebase-side config file) — every other line of both real files runs
+completely unmodified. The full existing Supabase suite was re-run alongside with zero
+regressions: `verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js`
+88/88, `verify-supabase-hys.js` 103/103, `verify-supabase-final-approval-gate.js` 69/69,
+`verify-supabase-documents-support.js` 64/64 (456 total, unaffected),
+`supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**If a real visual/browser check is wanted**: log in as a real test client at
+`login.html` (no query params needed for the local stack) and visit `dashboard.html` — a
+real client can be created via `scripts/supabase-seed-portfolio.js` (see that script's own
+header for its demo credentials), though that demo user has no `clients` row and so cannot
+complete a real login through the form itself; a client created via the real 9-step signup
+form (approved via `admin-client-applications.html`) can.
+
+### UI Wiring — Stage 2: asset-collection.html + asset-performance.html (2026-09-03)
+
+**This project's first two real WRITE actions** — Request Allocation and Sell — join Stage
+1's read-only wiring. Reuses `supabase-data.js`'s canonical pattern exactly, extending it
+(not forking a page-specific alternative) with two additions every future write-action
+wiring stage should also cite directly:
+
+- **`MarketswaveData.withButtonBusy(button, busyLabel, fn)`** — the write-action counterpart
+  to `renderAsyncBundle()`. A write is NOT safely auto-retryable the way a read is (retrying
+  a GET is harmless; blindly "retrying" a write risks a real double-submission), so this
+  helper owns only the clicked button's own in-flight visual state (disabled + a small
+  Tailwind `animate-spin` indicator + a busy label) — the caller's own `fn()` promise is what
+  the caller reacts to (a toast, a modal close), exactly mirroring how `renderAsyncBundle`
+  only owns a region's loading/error state and leaves `render()` to the caller.
+- **A real bug found and fixed in `callFunction()`/`classifyError()` (present since Stage 1,
+  never exercised there)**: confirmed directly against the installed `@supabase/functions-js`
+  source that a failed Edge Function call's own `.message` is ALWAYS the literal generic
+  string `"Edge Function returned a non-2xx status code"` — supabase-js does NOT parse the
+  real response body for you. Every one of this project's Edge Functions returns its real,
+  specific validation message as `{ error: "..." }` JSON, reachable only via
+  `error.context.json()` (`.context` is the raw fetch `Response`). Without this fix, every
+  failed write action in the whole project would have shown that same useless generic string
+  instead of e.g. "Allocation amount exceeds current unallocated capital." — fixed now,
+  before any write action needed it for real. New `MarketswaveData.writeErrorMessage(err)`
+  shows the real server message verbatim for a genuine business-rule rejection (400/409) and
+  falls back to the existing generic `friendlyMessage()` only for 401/403/network/500, where
+  there's no business-specific text to show.
+
+**Investigated first, per instruction — a real task correction**: "My Requests" (allocation +
+sell history) lives on `asset-performance.html`, not `asset-collection.html` — confirmed by
+reading both real files directly; the latter has no such section. Wired there accordingly.
+
+**A real client-side-validation finding**: the only client-side check that existed before this
+stage, on either page, was a plain positive-number check — neither page ever duplicated the
+minimum-investment/sufficient-capital/held-units business rules client-side; those were
+always enforced by the callee's own thrown validation. "The server is authoritative" was
+already true architecturally; this stage didn't have to newly establish it, only carry it
+across the sync-to-async boundary.
+
+**A real schema gap found and disclosed, not silently worked around**: `engine-core.js`'s own
+Product Catalog carries `description`/`extendedDescription`/`logoUrl`, but Phase B Stage 1's
+real `products` table has no such columns (schema changes are out of this UI-wiring-only
+stage's scope) — every product's logo/More-info features now show their existing, already-
+correct "not set" fallback (initials instead of a logo, no More Info link) until a future
+stage adds real column support.
+
+**Verified**: `npm run verify-asset-pages-ui-wiring` (from `scripts/`) — **36/36 assertions
+passed, twice in direct succession**. **★ No browser automation tool is available in this
+session — checked again, not assumed carried over from Stage 1.** Stage 2's real write
+actions are driven by delegated click handlers with real `closest()` DOM traversal, which
+Stage 1's own hand-rolled minimal DOM stub can't faithfully simulate — rather than keep
+hand-rolling an increasingly fragile stub, `jsdom` was installed as a genuine, persistent
+`scripts/` devDependency (every future UI-wiring stage will need the same real-click-
+simulation capability) — a real DOM implementation, so `closest()`/`querySelectorAll()`/
+`.click()`/event bubbling all work exactly as a real browser's would. Both real HTML files'
+`<body>` markup and real inline `<script>` blocks are extracted verbatim (not hand-
+reconstructed) and run inside that real DOM via `window.eval()`. Covers: real product cards
+rendering with correct "already holding"/"No position" badges; a real successful Request
+Allocation round trip (a real new pending row confirmed directly in Postgres, the toast, the
+input clearing, the button's busy-then-restored state); **two genuine server-side
+rejections** — below a product's real minimum investment, and exceeding the client's real
+unallocated capital — each confirmed via the real, specific server message appearing
+verbatim in the toast AND via a direct Postgres query proving zero rows were created, not
+just a client-side catch; the real Return Table/summary cards rendering correctly for real
+holdings; a real successful Sell round trip (modal closes, a real pending row created for
+the full held units, Return Table and My Requests both genuinely refresh); and **a real
+server-side sell rejection via an actual concurrent-change race** (a holding's real unit
+count reduced in Postgres, from a separate path, between the Sell modal opening and
+Submit being clicked) — proving `request-sell`'s own re-validation catches exactly the
+real-world race it exists for, with the real rejection message shown and the modal staying
+open rather than silently closing. The full existing Supabase suite was re-run alongside
+with zero regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js`
+76/76, `verify-supabase-allocations-sells.js` 88/88, `verify-supabase-hys.js` 103/103,
+`verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-documents-support.js`
+64/64, `verify-dashboard-ui-wiring.mjs` 27/27 (483 total, unaffected — including Stage 1's
+own dashboard.html check, confirming the `supabase-data.js` extensions above introduced no
+regression there), and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**★ A real visual/browser check is worth doing manually before the next wiring stage** —
+these are this project's first two real write actions, and while the Node-level harness
+above proves the real request/response/DOM-update chain end to end, seeing it with your own
+eyes is still worth the few minutes given the stakes. Suggested walkthrough: sign up (or use
+an already-approved) real test client, log in at `login.html` (no query params needed for the
+local stack), visit `asset-collection.html`, submit a real Request Allocation (try both a
+valid amount and one you expect the server to reject, e.g. below a product's minimum), then
+visit `asset-performance.html` and submit a real Sell on any held position — watch for the
+skeleton-then-content loading state, the button's busy state while the request is in flight,
+and the toast's exact wording on both success and a deliberate rejection.
+
+### UI Wiring — Stage 3: deploy-capital.html + transactions.html (2026-09-03)
+
+Two more real actions join the wired set: **Deposit** (crypto/bank) and **Withdraw** on
+`deploy-capital.html` (this project's 3rd and 4th real write actions, following Stage 2's
+Request Allocation/Sell), plus `transactions.html`'s full read-only surface — summary cards,
+both charts, Recent Activity, the ledger table with all 4 filters, and the drill-down modal.
+Reused `supabase-data.js`'s canonical pattern exactly as instructed — `renderAsyncBundle()`,
+`withButtonBusy()`, `writeErrorMessage()`, `classifyError()` — with **zero further extension
+needed**; Stage 2's two additions already covered everything both pages required.
+
+**A real structural conflict found and fixed before any test ran, not caught as a runtime
+failure**: `transactions.html`'s ledger table had a static `<tr id="ledger-empty-row">` sitting
+inside `<tbody id="ledger-body">` in the original markup. `renderAsyncBundle()`'s skeleton
+phase replaces that container's `innerHTML` wholesale, which would silently destroy that
+static child on the very first load. Fixed by removing the static row from the HTML entirely
+and rewriting `renderLedger()` to build the table body's full content — including the empty
+state — on every call, matching the same full-rebuild discipline already established for
+`asset-collection.html`/`asset-performance.html`'s own card grids in Stage 2. **General
+principle for any future wiring stage, worth restating**: a container that gets
+`renderAsyncBundle()`'d must have its `render()` do a complete rebuild each call — never
+assume a static pre-existing child survives past the first skeleton paint.
+
+**Real schema/behavior findings, confirmed against the actual running local stack, not
+assumed**:
+- `get-transaction-ledger` returns rows **newest-first** (`ORDER BY created_at DESC`) — the
+  opposite of the local engine's own oldest-first in-memory array. `transactions.html`'s
+  existing sort/group logic was checked against this and needed no change (it always sorted
+  by real date/derived values itself, never relied on array order).
+- `created_at`/`requested_at` are real, full ISO `timestamptz` values — no more need for the
+  local engine's own `requestedAtMs` workaround (that field existed there only to disambiguate
+  same-day string dates). A small `toDateOnly(iso)` helper maps the real timestamp down to a
+  plain `'YYYY-MM-DD'` string wherever the page's existing filter/grouping logic was written
+  against date-only strings, so that logic keeps working completely unchanged.
+- `get-account-state`'s established "404 on no row = a genuine $0 default, not an error"
+  pattern (Stage 1) was reused as-is on both pages — a client with no funding activity yet
+  correctly sees $0/empty state, not an error card.
+
+**deploy-capital.html**: the two previously-separate Deposit/Withdraw IIFEs (communicating
+only via a fragile `window.renderMyFundingRequests` global) were merged into one IIFE sharing
+real module-level state (`depositRequests`, `withdrawalRequests`, `account`), loaded once via
+a cached-promise `loadFundingData()` and rendered through a single `renderAsyncBundle()` call
+over the "My Funding Requests" section. Both Deposit forms (crypto/bank) and the Withdraw form
+now call the real `request-deposit`/`request-withdrawal` Edge Functions through
+`withButtonBusy()`, showing the real server message via `writeErrorMessage()` on rejection and
+reloading the funding-requests list on success. The "Available to withdraw" figure is informational
+only here (unlike Stage 2's Sell modal, which hard-gates its Submit button on a stale
+client-side value) — confirmed by reading the real form's own submit handler before writing
+any test.
+
+**Verified**: `npm run verify-funding-transactions-ui-wiring` (from `scripts/`) — **54/54
+assertions passed, twice in direct succession**. **★ No browser automation tool is available
+in this session — checked again, not assumed carried over from Stage 2.** Reused the same
+`jsdom`-based real-DOM harness (verbatim `<body>`/`<script>` extraction, `window.eval()`)
+established in Stage 2. A real test client was seeded with a real funded account, one real
+holding, and 4 real transactions spanning 2 calendar months (DEPOSIT, BUY, SELL, WITHDRAWAL)
+so every rendering path — including DEPOSIT/WITHDRAWAL's "—" Quantity/Price guard and both
+charts' documented positive/negative cash-flow treatment — had real data to prove itself
+against. Covers: a real successful crypto deposit and a real successful bank deposit (each
+confirmed via a direct Postgres row, not just the toast); a real successful withdrawal,
+confirming the real "Available to withdraw" figure; a real **409 server-side rejection**
+requesting a withdrawal far beyond unallocated capital, confirmed via the real message shown
+verbatim through `writeErrorMessage()` and zero new rows in Postgres; **a real concurrent-
+change race**, adapted from Stage 2's Sell-verification pattern — the real unallocated balance
+was reduced directly in Postgres, from a separate path, after the form's stale "Available to
+withdraw" figure was already captured, then a withdrawal was submitted against that stale
+figure and confirmed genuinely rejected server-side (not just caught client-side), proving
+`request-withdrawal`'s own re-validation-at-request-time check is real, not decorative. On
+`transactions.html`: real, independently-computed summary cards (Total Buys, Total Sells, Net
+Invested, and the advisory fee accrual computed independently against the real global rate and
+compared); Recent Activity and DEPOSIT/WITHDRAWAL labels/badges rendering correctly; all 4
+filters (Type, Asset, Date range, Reset) re-confirmed working correctly against real
+async-loaded data, including a Date-From filter proven against real timestamps; both charts
+verified via a fake `Chart` constructor stub that records the real config/data passed to it
+(jsdom has no real Canvas 2D backend, so this proves the real data-aggregation logic feeds
+Chart.js correct real numbers — explicitly **not** a proof of actual pixel rendering) —
+confirmed 2 real month buckets, correct Buys/Sells-per-month figures, and the documented
+Net-Cash-Flow rule (deposits positive, withdrawals negative) holding against real seeded data;
+the drill-down modal opening on a real row click and showing the real DEPOSIT total with a
+correct Realized Return row for the real SELL. **One real bug found and fixed — in the test
+script itself, disclosed rather than silently patched**: the first run used `'mainnet'` as the
+crypto network value, which isn't one of the real `<select>`'s actual options
+(ERC20/TRC20/BEP20/Native); fixed to `'ERC20'` and re-run clean. The full existing Supabase
+suite was re-run alongside with zero regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js` 76/76,
+`verify-supabase-allocations-sells.js` 88/88, `verify-supabase-hys.js` 103/103,
+`verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-documents-support.js` 64/64,
+`verify-dashboard-ui-wiring.mjs` 27/27, `verify-asset-pages-ui-wiring.mjs` 36/36 (573 total,
+unaffected), and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**★ A real visual/browser check is worth doing manually before the next wiring stage** —
+suggested walkthrough: log in as a real (already-approved) test client at `login.html` (no
+query params needed for the local stack), visit `deploy-capital.html`, submit a real Crypto
+Deposit and a real Bank Deposit (watch the button's busy state and the success toast), then
+try a Withdraw request for an amount larger than your real unallocated capital and confirm the
+real server-rejection message appears; scroll to "My Funding Requests" and confirm all of them
+appear with correct status badges. Then visit `transactions.html` and confirm: the summary
+cards and both charts load (skeleton-then-content), the ledger table shows your real deposit/
+withdrawal rows alongside any existing buy/sell activity with correct "—" Quantity/Price cells,
+each of the 4 filters narrows the table correctly, and clicking a row opens the drill-down
+modal with the correct details.
+
+### UI Wiring — Stage 4: high-yield-savings.html + documents.html (2026-09-03)
+
+Two more real pages move off `engine-core.js`/`localStorage`: High Yield Savings (pockets,
+Open a New Pocket, Withdraw, My Pocket Requests) and Documents & Reporting (both document
+lists, Upload, Sign, Remove, notification chips). Reused `supabase-data.js`'s canonical
+pattern — no further extension needed for the read/skeleton side, but Documents' own write
+actions needed a genuinely new addition (see below), since Documents is architecturally
+different from every prior write-action stage.
+
+**Investigated first, per instruction: does the live rate/interest preview call the real
+`hys-engine.ts` shared module or stay client-side?** Answer: stays client-side, reusing
+`engine-core.js`'s own already-loaded, already-pure `getHYSRate()`/`computeFDFields()`/
+`computeHYSWithdrawalAmount()` directly — `hys-engine.ts` runs in Deno and is unreachable from
+the browser except by invoking a real Edge Function per keystroke, which would be pointless
+for a rate schedule that's pure, deterministic, and non-secret. `engine-core.js` stays loaded
+on this page regardless (the shared sidebar/notification bell depend on it), and neither
+function touches `localStorage`, so calling them is genuine reuse, not a new duplicate. The
+real, authoritative computation for an actual submitted request still happens server-side in
+`request-hys-deposit`/`request-hys-withdrawal` via that same `hys-engine.ts` module, so the
+preview and the real outcome can never drift apart — the same discipline Backend Requirements
+Register row 34 already established locally.
+
+**A real architecture gap found and disclosed, not silently patched**: `high-yield-savings.html`'s
+own local-only `updatePocketStatuses()` (client-side 'active'→'matured' auto-transition once a
+fixed pocket's maturity date passes) was removed rather than ported — investigated and
+confirmed there is nowhere valid to persist this under real RLS (`hys_pockets` grants clients
+`SELECT` only, no `UPDATE` policy at all, and no Edge Function performs this transition either).
+A display-only client-side "effective status" was considered and rejected — it would make the
+card's badge and the Withdraw modal's warning/lockout decision inconsistent with what
+`request-hys-withdrawal` will actually do server-side (which keys off the real stored `status`),
+exactly the "confusing UI... controls that would fail" anti-pattern this stage's own task
+explicitly warned against, just in the opposite direction. The page now uniformly trusts the
+real stored `status` for both the card badge and the Withdraw flow, guaranteeing the preview
+always matches the server's real computation. **The real, disclosed consequence**: since
+nothing server-side ever transitions a pocket's status once its real `maturity_date` elapses, a
+genuinely-matured pocket whose stored status is still `'active'` will keep being treated as
+pre-maturity (forfeiting interest early, or blocking a locked pocket's withdrawal outright)
+until a future stage adds a real maturity-transition mechanism — inherited from Phase B Stage
+4's own schema design (its own migration comment already flagged the local version of this
+gap), not introduced here. A pocket whose real stored status IS `'matured'` already renders and
+withdraws correctly today, verified directly.
+
+**Documents — architecturally different from every prior write-action stage**: Stage 6's real
+design gives a client direct, RLS-authorized INSERT/UPDATE/DELETE for their own Upload/Sign/
+Remove — no Edge Function gates these three actions, unlike every Approval Gate queue wired so
+far. This needed a genuine `supabase-data.js` extension: `insertRow()`/`updateRow()`/
+`deleteRow()`, plus `classifyPostgrestError()` to map real Postgres/PostgREST error codes into
+the same `.kind` scheme `writeErrorMessage()` already understands (a rejected direct table
+write has no `.context` Response to read a custom JSON message from, unlike a rejected Edge
+Function call). The static `#from-empty`/`#upload-empty` placeholders were rebuilt to always be
+freshly regenerated by `renderDocumentLists()` on every call — the same static-child-vs-skeleton
+conflict UI Wiring Stage 3 already found and fixed once for `transactions.html`'s ledger table.
+
+**Two real bugs caught by this stage's own verification, fixed before shipping, not silently
+patched around**:
+1. The Upload action's real INSERT never included `client_id` in its payload — unlike every
+   prior write action (an Edge Function derives `clientId` server-side from the JWT), a direct
+   client INSERT has no such step; the row's own `client_id` column must be supplied by the
+   client for the table's `with check (auth.uid() = client_id ...)` policy to ever evaluate
+   true. Confirmed via a real failing insert first (RLS rejected it, `client_id` was implicitly
+   `NULL`) before adding `getAuthenticatedClientId()` to the payload.
+2. `deleteRow()`'s own first draft could silently "succeed" when RLS's `using` clause filtered
+   out every row — unlike an INSERT/UPDATE's `with check` (which genuinely throws when a row is
+   rejected), a DELETE's policy fails silently: a row that doesn't qualify is just not matched,
+   not an error. Confirmed directly: a client attempting to delete a document RLS scopes them
+   out of (e.g. a "from Marketswave" document) got back a plain success with zero rows
+   affected — meaning the original code would have shown a genuine "Document Removed" toast for
+   a document that was never actually removed. Fixed by chaining `.select()` after `.delete()`
+   and treating a genuinely empty result as a real, thrown rejection.
+
+A third, real, disclosed finding (not a bug, a genuine architectural incompatibility):
+Download's local-engine behavior cleared a document's `isNew` flag as a side effect
+(`updateDocument(dId, { isNew: false })`, with no RLS-equivalent restriction locally). Under
+Stage 6's real schema, the ONE client UPDATE policy on `documents` is scoped exclusively to the
+Sign transition (`USING` requires `status='Signature Required'`, `WITH CHECK` requires the
+result be `status='Signed'`) — there is structurally no client write path that clears `isNew`
+on its own, for ANY `from` document, confirmed by direct testing (100% of the time, not an edge
+case). The write attempt was removed entirely rather than kept as code that can never succeed;
+the real, disclosed consequence is that a "from" document's New badge now only ever clears via
+Sign, never via Download — the download simulation itself (no real file bytes exist anywhere in
+this project) is completely unaffected.
+
+**Verified**: `npm run verify-hys-documents-ui-wiring` (from `scripts/`) — **68/68 assertions
+passed, twice in direct succession**. **★ No browser automation tool is available in this
+session — checked again, not assumed carried over from Stage 3.** Reused the established
+`jsdom`-based real-DOM harness; `engine-core.js` was loaded into the HYS test's own DOM first
+(the one page this stage's design deliberately keeps depending on it for the pure rate/
+forfeiture preview functions), and `#sidebar-doc-badge`/`getAuthenticatedClientId()` were
+stubbed for `documents.html`'s own earlier-script-block dependencies, mirroring Stage 3's
+precedent. Covers, against real seeded Postgres data: 4 real pockets spanning every render/
+withdraw branch (an active short-term Fixed, a genuinely `matured` short-term Fixed seeded
+directly, an active locked Fixed, and an AYW pocket); the locked-pocket-no-withdraw-control
+rule confirmed genuinely absent from the rendered DOM, not just server-blocked; a real
+forfeiture-warning withdrawal round trip (principal-only receive amount, `forfeit=true`); a
+real matured/no-warning withdrawal round trip (`forfeit=false`, principal+interest); a real
+server-side rejection via the actual UI (submitting a second withdrawal request on a pocket
+that already has one pending — a rule the client UI has no awareness of at all, unlike the
+locked-before-maturity case, which is hidden by design); two real successful "Open a New
+Pocket" round trips (Fixed/crypto with a server-computed rate matching the real schedule,
+AYW/bank); a real server-side rejection called directly (a sub-$5,000 Fixed deposit, proving
+defense in depth beyond the client's own pre-check, which already blocks this path through the
+real UI); real document rendering (Sign button only where genuinely signature-required, Remove
+button only on real uploads); the "from Marketswave" no-Remove-option rule confirmed genuinely
+absent from the DOM; real notification counts computed from the real fetched list, including
+the sidebar badge's live correction; a real Sign round trip confirmed against all three fields
+the RLS policy's `WITH CHECK` requires; the Download finding confirmed both ways (the toast
+still fires, and a direct is_new-only update against the same real row is genuinely rejected);
+a real Upload round trip with the new row's real flash confirmed; a real Remove round trip
+confirmed gone from Postgres; and two real security-boundary tests — a direct DELETE against a
+"from" document genuinely rejected (structurally impossible now, not just unreachable via the
+shipped UI), and a direct INSERT with `direction='from'` (impersonating the firm) genuinely
+rejected. The full existing Supabase suite was re-run alongside with zero regressions:
+`verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js` 88/88,
+`verify-supabase-hys.js` 103/103, `verify-supabase-final-approval-gate.js` 69/69,
+`verify-supabase-documents-support.js` 64/64, `verify-dashboard-ui-wiring.mjs` 27/27,
+`verify-asset-pages-ui-wiring.mjs` 36/36, `verify-funding-transactions-ui-wiring.mjs` 54/54
+(641 total, unaffected), and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**★ A real visual/browser check is worth doing manually** — suggested walkthrough: log in as a
+real test client, visit `high-yield-savings.html`, open a new Fixed Deposit pocket (watch the
+live rate/maturity/interest preview update as you change the term) and a new As You Want
+pocket, confirm both appear in "My Pocket Requests" as pending; once any pocket exists (e.g.
+after an admin credits one of these, or against existing seeded data), try Withdraw on a
+still-active locked pocket and confirm there is genuinely no Withdraw button at all, then try
+Withdraw on an active short-term pocket and confirm the forfeiture warning appears before you
+can continue. Then visit `documents.html` and confirm: the loading skeleton appears before real
+content, the 3 header chips show real counts (never a stale "2"/"1"/"1"), a real file upload
+appears and flashes, signing a signature-required document clears its badge and updates the
+sidebar's own document count, removing an uploaded document works, and no "From Marketswave"
+document ever shows a Remove button.
+
+### UI Wiring — Stage 5: risk-management.html + settings.html + support.html (2026-09-03)
+
+**This closes out ALL client-facing pages** — every one of the 10 pages behind the locked
+sidebar now genuinely calls real Supabase wherever real backend support exists. Reused
+`supabase-data.js`'s canonical pattern throughout, no further extension needed.
+
+**Investigated first, per instruction, for each page, before wiring anything** — full findings:
+
+- **risk-management.html**: no real Supabase table/column exists for a CLIENT's own risk
+  profile anywhere in Phase B's six stages (the only real schema mention of "risk" anywhere is
+  `products.risk_tier`, a per-PRODUCT classification for the portfolio engine's own return
+  simulation — an entirely different concept). The Risk Meter (preview/save
+  conservative/balanced/aggressive) stays 100% local, unchanged. The Diversification Score,
+  however, turned out to **not actually be derived from real holdings at all** — it was a
+  static "78/100" block hardcoded to match CLIENT-0001's own specific historical seed data,
+  with the delta-preview math comparing against a hardcoded reference mix that only
+  coincidentally equalled the real seed. Wired for real: reused dashboard.html's own
+  established asset-class-grouping pattern (holdings × real current unit price, grouped by
+  `products.asset_class`, plus Unallocated/Cash from `account_state`) to compute a genuine
+  per-client HHI-based score, replacing both the static block and the hardcoded reference.
+- **settings.html**: Email/Phone **do not live on `client_profiles`** as the task assumed — a
+  real correction, confirmed by reading Phase B Stage 5's migration directly — they're real
+  columns on `clients` (Phase B Stage 1). Display can genuinely go real (a plain SELECT);
+  inline edit structurally cannot, since `clients` has no UPDATE policy for `authenticated` at
+  all and no Edge Function updates it either. The Edit/Save UI stays, but Save now shows a
+  real, honest "not available yet" disclosure instead of the old fake-success-then-silently-
+  reverts-on-reload behavior a naive real-display wiring would have produced. Legal Name/
+  Address/ID Document were already correctly modeled 1:1 by `client_profiles`/
+  `profile_change_requests` — a straightforward wire. Password Change had **no backend of any
+  kind** before this (not even fake-persisted) — wired to real
+  `supabase.auth.updateUser({password})`, plus a real current-password re-check via
+  `signInWithPassword()` first (Supabase's own `updateUser()` API has no "current password"
+  parameter of its own, so a naive wire would have left that field purely decorative — the
+  full, responsible version was chosen instead, per the task's own explicit invitation to make
+  this call). 2FA and Notification Preferences: confirmed no real Supabase table exists for
+  either — stay 100% local. Active Sessions: a **real, separate bug found during
+  investigation** — it still imported the retired Firebase SDK, so its "signed in at"
+  enhancement has been silently dead for every real Supabase-authenticated client since
+  Firebase Retirement; fixed to try the real Supabase session first, Firebase as a fallback
+  (mirroring `dashboard-sidebar.js`'s own real Logout handler, which already runs both real
+  `signOut()` calls unconditionally for the identical "don't assume which backend
+  authenticated this session" reason).
+- **support.html**: ticket list, filing a dispute, and My Requests wire cleanly to
+  `support_requests` + `request-support-ticket` (a direct RLS-authorized read for the list, no
+  Edge Function needed there — creation is Edge-Function-only, since `display_id` must be
+  genuinely server-computed). Quick-contact (Call/Chat/Email) stays pure UI, exactly as
+  instructed. The Callback modal's phone default now reads the same real `clients.phone`
+  column settings.html displays, for consistency, replacing its own local-storage read.
+
+**Verified**: `npm run verify-settings-risk-support-ui-wiring` (from `scripts/`) — **33/33
+assertions passed, twice in direct succession**. **★ No browser automation tool is available
+in this session — checked again, not assumed carried over from Stage 4.** Reused the
+established `jsdom`-based real-DOM harness; `engine-core.js`'s `getAuthenticatedClientId()`/
+`getClient()`/`clientScopedKey()`/`getClientSecurityState()` and `format-helpers.js`'s
+`formatFieldDisplay()` were stubbed/loaded as needed for each page's own remaining local-only
+sections, mirroring prior stages' precedent for earlier-script-block dependencies. Covers,
+against real seeded Postgres data: a real Diversification Score independently computed from a
+deliberately non-balanced real holdings mix, confirmed to match the page's own rendered
+score/label/top-concentration exactly and confirmed genuinely different from the old hardcoded
+"78/100"; the Risk Meter's own delta line correctly waiting on and then using the real score;
+real Email/Phone display from `clients`, with a real attempted edit confirmed to show the
+honest disclosure AND confirmed via a direct Postgres read that nothing was actually changed;
+a real Legal Name value (seeded directly) rendering correctly via the real `client_profiles`
+read; a real Address change request round trip, including the server's own automatic
+current-value snapshot (`null` — nothing on file yet) and a real 409 rejection of a genuine
+duplicate-pending attempt; a real password-change round trip proving BOTH directions — a
+genuinely wrong current password rejected via a real `signInWithPassword` re-check, and a
+correct one succeeding, confirmed not just by the toast but by a fresh real sign-in with the
+new password actually succeeding afterward; the real "signed in [time]" Active Sessions
+enhancement confirmed resolving via the real Supabase session; two real dispute submissions
+confirmed with real sequential per-client `display_id`s (DISP-0001/DISP-0002) and correct
+newest-first ordering; a real direct server-side rejection of an invalid category; and the
+Callback modal's real phone default. The full existing Supabase suite was re-run alongside
+with zero regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js` 76/76,
+`verify-supabase-allocations-sells.js` 88/88, `verify-supabase-hys.js` 112/112,
+`verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-documents-support.js` 64/64,
+`verify-dashboard-ui-wiring.mjs` 27/27, `verify-asset-pages-ui-wiring.mjs` 36/36,
+`verify-funding-transactions-ui-wiring.mjs` 54/54, `verify-hys-documents-ui-wiring.mjs` 68/68
+(683 total, unaffected), and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**★ A real visual/browser check is worth doing manually** — suggested walkthrough: log in as a
+real test client, visit `risk-management.html` and confirm the Diversification Score reflects
+your own real holdings (not a fixed "78/100"), then visit `settings.html` and confirm: your
+real email/phone display correctly, trying to edit either shows the honest "not available yet"
+message, submitting a real Address or ID Document change request works and shows a Pending
+Review badge, changing your password with the wrong current password is rejected and with the
+correct one genuinely works (try logging out and back in with the new password), and Active
+Sessions shows a real "signed in [time]" line rather than just "Active now." Finally visit
+`support.html` and confirm: My Requests starts empty for a fresh client, filing a real dispute
+gets a real DISP-0001-style id and appears immediately, and the Callback modal's phone field is
+pre-filled with your real phone number.
+
+### Admin UI Wiring — Stage 1: the five Approval Gate admin queue pages (2026-09-03)
+
+The first ADMIN-side UI Wiring stage. Every UI Wiring stage before this one (Stages 1-5 above)
+wired a client-facing page; `admin-deposits.html`, `admin-withdrawals.html`,
+`admin-allocations.html`, `admin-sells.html`, and `admin-hys.html` are the first admin pages to
+genuinely call real Supabase Edge Functions/tables instead of `engine-core.js`/localStorage.
+LOCAL STACK ONLY — the real cloud "Marketswave Staging" project is untouched.
+
+**The architectural question this stage had to answer first**: the caller on an admin page is
+an admin session, not a client session — does `supabase-data.js`'s existing pattern already
+handle that, or does it need an extension? `admin-supabase-config.js` (Supabase Migration
+Stage 3) was built explicitly real-cloud-only, with its own header stating there was "no
+meaningful local admin UI version of this to branch to" — true at the time, since its only
+caller only ever needed the real deployed Edge Functions. That's no longer true once these
+five pages needed the LOCAL stack's own functions, so that file was extended (not forked) with
+a local branch mirroring `admin-firebase-config.js`'s own historical emulator-vs-staging
+split: `?env=staging` still reaches real "Marketswave Staging" exactly as before (unchanged,
+still prompt-based); its absence — what these five pages use by default — auto-signs in with
+the known local bootstrap PM credential (`pm@marketswave.local`), no prompt. The actual
+extension to `supabase-data.js` itself is one new function, `MarketswaveData.useAdminClient()`
+— every other function in that file already funnels through one lazily-created
+`clientPromise`, so redirecting that to an admin-authenticated session was the entire change;
+zero other functions needed touching. Each of the five pages' own inline script calls this
+once, as its own first statement.
+
+**RLS was confirmed, not assumed, to already permit cross-client admin reads** — all 6
+relevant tables (`deposit_requests`, `withdrawal_requests`, `allocation_requests`,
+`sell_requests`, `hys_deposit_requests`, `hys_withdrawal_requests`) already grant
+`using (auth.uid() = client_id or public.is_admin())` on SELECT, confirmed by reading each
+migration directly. Every real Edge Function's exact request shape was also confirmed by
+reading its deployed source, not assumed from memory: `credit-deposit`/`credit-hys-deposit`
+and `approve-withdrawal` take a PM-editable amount (`confirmedAmount`/`approvedAmount`) that
+may differ from what the client originally requested; `approve-allocation`/`approve-sell`/
+`approve-hys-withdrawal` take `{requestId}` only and execute exactly as requested — the first
+two forward the caller's own JWT into a real internal call to the already-deployed
+`execute-buy`/`execute-sell`, never duplicating that logic.
+
+`admin-sells.html`'s Realized Return column previously read `getTransactionForClient(clientId,
+txnId)` (a per-client-scoped localStorage lookup) — it now reads a real `transactions` row
+directly (the same self-or-admin RLS every other table in this schema already grants), fetched
+cross-client alongside the sell requests themselves and joined by `transaction_id`.
+
+**Verified**: `npm run verify-admin-approval-gate-ui-wiring` (from `scripts/`) — **102/102
+assertions passed, twice in direct succession**. **★ No browser automation tool is available
+in this session — checked again, not assumed carried over from Stage 5.** Reused the
+established `jsdom`-based real-DOM harness (verbatim `<body>`/`<script>` extraction,
+`window.eval()`). For each of the five domains the script covers: a real successful
+approve/credit round trip (confirming, where applicable, that the PM's own edited input value
+is what gets sent — verified with a real $2000→$1950 deposit edit and a real $700→$650
+withdrawal edit, both checked against the raw stored row afterward, not just the toast); a
+real successful reject round trip; and — the check that matters most for this stage — a
+genuine re-validation-at-approval-time test driven through the ACTUAL admin UI (real button
+clicks, never a direct function call). For Withdrawals/Allocations/Sells/HYS-Withdrawals this
+is a real two-competing-requests test: two individually-valid pending requests against the
+same finite resource (unallocated capital, held units, or the same HYS pocket) — approving the
+first via a real click succeeds, approving the second via a second real click is genuinely
+refused with the real server-computed 409 message, the second request stays pending, and the
+contested resource is confirmed unchanged. Deposits and HYS Deposits don't contest a shared
+resource the same way (crediting adds money rather than drawing down a pool), so their own
+real-world race is a double-resolve test instead: open the Credit modal, resolve the SAME
+request via a separate direct write (standing in for a second PM/tab), then submit via the
+real UI and confirm the same 409 "not pending" guard fires, modal staying open. Cross-client
+rendering was confirmed on every page — two real, independently-seeded clients both render
+correctly side by side, not just one. The Allocations/Sells approve tests additionally
+confirmed the real internal `execute-buy`/`execute-sell` calls genuinely ran (a real holding
+created, real units debited, a real unallocated-capital change) rather than a status-only
+stub.
+
+**One real bug was caught in this new test script itself, not the app, during its own first
+run — disclosed, not silently patched**: an early HYS-domain assertion hardcoded an expected
+`unallocated_capital` figure left over from the Withdrawals domain's own end state, without
+accounting for the Allocations domain resetting/debiting it further and the Sells domain's own
+real cost-basis credit moving it again later in the same script run (both correct, real app
+behavior) — fixed by capturing the balance immediately before the HYS withdrawal approval and
+asserting it's unchanged afterward, instead of a stale cross-domain hardcoded number.
+
+The full existing Supabase suite was re-run alongside with zero regressions:
+`verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js` 88/88,
+`verify-supabase-hys.js` 112/112, `verify-supabase-final-approval-gate.js` 69/69,
+`verify-supabase-documents-support.js` 64/64, `verify-dashboard-ui-wiring.mjs` 27/27,
+`verify-asset-pages-ui-wiring.mjs` 36/36, `verify-funding-transactions-ui-wiring.mjs` 54/54,
+`verify-hys-documents-ui-wiring.mjs` 68/68, `verify-settings-risk-support-ui-wiring.mjs` 33/33
+(683 total, unaffected), and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**★ A real visual/browser check is worth doing manually across all five pages** — suggested
+walkthrough (sign in through `admin-login.html` first, same passphrase gate as always):
+
+1. **admin-deposits.html**: as a real client, submit a deposit request (`deploy-capital.html`)
+   for two different real test clients. Confirm both appear in Pending here with their correct
+   real client names — not just one. Click Credit on one, confirm the modal pre-fills the
+   requested amount, edit it to a different figure, submit, and confirm the toast/history shows
+   the edited amount, not the original request. Reject the other with a reason and confirm it
+   appears correctly in History.
+2. **admin-withdrawals.html**: submit two withdrawal requests as the same real client that
+   together exceed their unallocated capital. Approve the first (optionally editing the
+   approved amount). Then try to approve the second — confirm a real error appears in the
+   modal itself (not a silent failure) referencing the real remaining balance, and the modal
+   stays open rather than closing.
+3. **admin-allocations.html**: submit two allocation requests (via `asset-collection.html`)
+   that together exceed a client's unallocated capital. Approve the first — confirm the toast
+   references a real transaction id, and check `asset-performance.html`'s Return Table
+   afterward to confirm a real holding now exists. Approve the second and confirm it's
+   genuinely refused with a real "only $X unallocated capital remains" message.
+4. **admin-sells.html**: submit two sell requests (via `asset-performance.html`) against the
+   same holding that together exceed the units held. Approve the first, confirm a real
+   Realized Return figure now shows in History for it (not a dash). Approve the second and
+   confirm it's refused, referencing the real remaining unit count.
+5. **admin-hys.html**: submit an HYS pocket-funding request (`high-yield-savings.html`) and
+   credit it at a different confirmed amount than requested — confirm the created pocket shows
+   the confirmed figure. Separately, submit two withdrawal requests against the same pocket;
+   approve the first (confirm the pocket shows withdrawn and Unallocated Capital on
+   `dashboard.html` is unaffected — HYS is its own pool), then confirm the second is refused
+   with a real "already been withdrawn" message.
+
+### Admin UI Wiring — Final Stage: the remaining admin pages (2026-09-03)
+
+Closes out the admin tool wiring effort entirely. Each of the 6 remaining admin pages was
+investigated individually before wiring anything, per instruction — no page was wired just
+because a similar-sounding domain had already been built elsewhere.
+
+**Wired:**
+- **`admin-profile-updates.html`** — the one Approval Gate queue Admin UI Wiring Stage 1
+  (above) genuinely missed. Real backend already existed (Phase B Stage 5:
+  `client_profiles`/`profile_change_requests`/`request-profile-change`/
+  `approve-profile-change`/`reject-profile-change`), and `settings.html`'s own client-side
+  half was already wired to it — this closes the missing admin half of that same real domain.
+  Reused Stage 1's exact `useAdminClient()` + cross-client `selectTable()`-joined-against-
+  `clients` + real-Edge-Function-Approve/Reject pattern.
+- **`admin.html`** — every Overview card with a real backend now reads it directly (all 7
+  Approval Gate pending counts, Documents Awaiting Review, Support Needing Attention, Product
+  Catalog count, Advisory Fee Rate), via direct RLS-authorized cross-client reads. Security
+  Actions Logged stays local (see below), deliberately excluded from the all-clear check.
+- **`admin-advisory-fee.html`** — closes a real "table exists, nothing writes to it" gap:
+  Phase B Stage 1's own `advisory_fee_rate` singleton table had a real SELECT policy but no
+  write path anywhere. A new, small, admin-only `update-advisory-fee-rate` Edge Function
+  (mirrors the local `setAdvisoryFeeRate()`'s own validation byte-for-byte) closes it.
+- **`admin-clients.html`** — REWIRED, real cleanup, not a straightforward wire. Found stuck
+  on the pre-Retirement Firebase merge (built Aug 22, 2026) — Firebase was retired
+  project-wide Aug 30, 2026, and this page was never updated afterward; it was still
+  importing the retired `admin-firebase-config.js` and querying the retired emulator's
+  Firestore `clients` collection, which no real signup path has written to since Supabase
+  became the sole active backend. That whole `type="module"` Firebase block was removed
+  outright and replaced with a real Supabase `clients` table merge (still combined with
+  `getAllClients()` for the still-genuinely-local demo/admin-created clients, e.g.
+  CLIENT-0001) — a "Supabase" badge replaces "Firebase." Real cross-client Total Portfolio
+  Value for Supabase clients via the already-deployed `get-total-portfolio-value` function
+  (admin can pass any `clientId`), pre-fetched in parallel on load. Real per-client pending
+  Approval Gate count for Supabase clients, computed by querying the 7 real Approval Gate
+  tables filtered by `client_id`/`status='pending'`, lazily on row-expand, cached per client.
+  "View as this Client" — confirmed via project-wide grep to be the only remaining
+  `getCurrentClientId()`/`setCurrentClientId()` caller anywhere in the admin tool — is shown
+  only for local clients; a Supabase client gets an honest explanatory note instead of a
+  button with no real identity-switch mechanism behind it.
+
+**Confirmed no real backend, left correctly local — nothing faked:**
+- **`admin-security.html`** — a project-wide grep of every migration and every
+  `supabase/functions/` directory found no table/function resembling a security-actions log
+  (mirrors `settings.html`'s own finding that 2FA has no real Supabase backend either).
+- **`admin-products.html`** — the real `products` table (Phase B Stage 1) exists and is
+  genuinely read by 4 already-wired pages (`dashboard.html`, `risk-management.html`,
+  `asset-collection.html`, `asset-performance.html`), but carries only a SELECT policy — no
+  write path for any role, no Edge Function, and no `description`/`logo_url`/
+  `extended_description` columns the local schema has. Left the WHOLE page on the local
+  engine (read AND write) rather than a partial wire, since a real-read/local-write split
+  would have been actively misleading. **Flagged prominently**: since the 4 pages above were
+  wired to the real table in earlier stages, this page's own Add/Edit actions against the
+  local catalog have had ZERO effect on what any client actually sees since those stages
+  shipped — it has been silently managing an orphaned catalog. Closing this needs its own
+  scoped future task (a real migration for the missing columns, a real admin-only
+  `add-product`/`edit-product` Edge Function pair, and a real UI wire).
+
+**Verified**: `npm run verify-admin-final-wiring` (from `scripts/`) — **39/39 assertions
+passed**, using the same `jsdom`-based real-DOM harness every prior UI-wiring stage
+established. Covers: real Approve/Reject round trips for Client Profile Updates (including a
+genuine `client_profiles` write, not just a status flip, and confirming a rejection performs
+NO profile write); a real successful Advisory Fee Rate update AND a real server-rejected
+invalid-rate attempt (rate provably unchanged); every one of `admin.html`'s 10 real
+pending-count cards cross-checked against an independently-computed live DB query (not
+derived from the page's own rendering logic); the real Supabase client merge, a real
+cross-client Total Portfolio Value read, a real lazily-fetched per-client pending count
+matched against an independent 7-table sum, and confirmation "View as this Client" is
+genuinely absent for a Supabase-sourced client. The full existing Supabase suite was re-run
+alongside with zero regressions (824 prior assertions unaffected, plus
+`supabase-golden-path-regression.js` `PASS (16/16 steps)`).
+
+**★ A real visual/browser check is worth doing manually** — sign in through
+`admin-login.html`, then: open `admin-profile-updates.html` and confirm a real
+`settings.html`-submitted Legal Name/Address/ID Document change appears and can be
+approved/rejected for real; open `admin.html` and confirm every card shows a real number, not
+a dash; open `admin-advisory-fee.html`, save a new rate, and confirm `admin.html`'s own
+Advisory Fee card and `transactions.html`'s own card pick it up; open `admin-clients.html`
+and confirm real Supabase-signed-up clients render with a "Supabase" badge, a real Total
+Portfolio Value, and (on expand) a real pending-count figure that matches what the Approval
+Gate pages themselves show for that client.
+
+### Real Supabase Storage integration for Documents (2026-09-04)
+
+Replaces the metadata-only Documents stub (a row with just a client-typed filename, no real
+bytes anywhere) with genuine file upload/download — the fix for the originally reported bug
+(the Download button doing nothing for PM-uploaded files). Local stack only, real cloud
+"Marketswave Staging" untouched.
+
+- A new private `documents` Storage bucket, real `storage.objects` RLS policies (a client can
+  upload/read/delete only their own `<clientId>/uploads/...` files; a PM/admin-claimed session
+  can read across every client; only `service_role`, inside `publish-document`, can write into
+  a client's `<clientId>/published/...` folder).
+- `documents.storage_path` (nullable, for real backward compatibility with any pre-existing
+  row that has no file behind it).
+- `documents.html`'s Upload now uploads real bytes directly before inserting the row (a
+  missing file selection is now a real validation error); Download fetches a real, 60-second
+  signed URL and opens it; Remove now also best-effort deletes the real underlying file.
+- `admin-documents.html`'s Publish now sends the real chosen file's bytes (base64-encoded) to
+  the extended `publish-document` Edge Function; Download (Pending + History) fetches real
+  signed URLs the same way.
+
+**Verified**: `npm run verify-documents-storage-integration` (from `scripts/`) — **46/46
+assertions passed** — a real bidirectional round trip with byte-for-byte content verification
+in both directions, cross-client isolation tested directly at the Storage level (not just the
+table level), real storage cleanup on Remove, and the honest "no file attached" state for a
+null `storage_path`. The full existing Supabase suite was re-run alongside with zero
+regressions.
+
+**★ This one specifically needs an eyes-on check — it's the first feature moving real file
+bytes through the system.** Manual repro steps:
+
+1. Sign in as a real client (`login.html`, no `?legacyBackend=firebase`) and go to
+   `documents.html`.
+2. Under "Upload to Marketswave," choose a real file from your machine (any small PDF/image/
+   text file works), pick a category, click **Upload Document**. Confirm the toast says
+   "Document Uploaded" and the new row appears.
+3. In a second browser/tab, sign in through `admin-login.html`, open `admin-documents.html`.
+   Confirm your real upload appears under "Client Uploads Awaiting Review." Click its
+   **Download** button — confirm the real file actually opens/downloads (not a no-op), and
+   that it's genuinely the same file you chose in step 2 (open it and check).
+4. Still in `admin-documents.html`, use "Publish to Client": pick the same client, a category,
+   choose a real file, optionally check "Signature required," click **Publish Document**.
+   Confirm the toast says "Document Published."
+5. Back in the client tab, reload `documents.html`. Confirm the newly published document
+   appears under "From Marketswave." Click its **Download** button — confirm the real file
+   opens/downloads and is genuinely the same file the PM published in step 4.
+6. Back on the client's own uploaded row from step 2, click **Remove**, confirm in the modal.
+   Confirm the row disappears. (There's no user-visible way to confirm the underlying Storage
+   object is also gone without opening Supabase Studio's Storage browser at
+   `http://127.0.0.1:54323/project/default/storage/buckets/documents` and checking the
+   client's own folder is now empty of that file — optional, for the curious.)
+7. As a negative check: try Upload with no file chosen — confirm a real "Choose a file to
+   upload first" toast, not a fake upload. Try Publish with no file chosen — confirm a real
+   inline "Choose a file to publish" error, no request sent.
+
+### ★ Pre-hosting fix: the real hosted default now reaches Supabase staging (2026-09-04)
+
+**Read this before this project is ever deployed anywhere public.** Confirmed and fixed a
+real, launch-blocking bug: the Aug 30, 2026 Firebase Retirement inversion made "no query
+params" mean "reach the local Docker stack" — correct for a developer's own machine, but
+wrong for a real hosted deployment, since a real visitor's browser will never carry
+`?env=staging` (or any other query param) in the URL. A page served from a real public
+domain with that old default would have silently tried to reach `http://127.0.0.1:54321` —
+unreachable from anywhere but the machine that ran `supabase start` — and every real
+signup/login would have simply failed, silently, with no obvious cause from the outside.
+
+**The fix, in both `supabase-config.js` and `admin-supabase-config.js` (checked and fixed
+independently, not assumed one covers the other)**: the default now depends on the page's
+own `window.location.hostname`, not a query param —
+
+- **`localhost` / `127.0.0.1`** (real local development — confirmed against this project's
+  own actual workflow: `python -m http.server` serves it at `127.0.0.1:8765`) → **local
+  Docker stack**, zero config needed. Nothing changes for any existing local-dev habit.
+- **Any other hostname** (a real hosted deployment, by definition) → **real cloud "Marketswave
+  Staging"**, zero config needed. This is the actual fix.
+- `?env=staging` still works as an explicit override, from anywhere, including localhost —
+  unchanged, since local development deliberately testing against real staging is an
+  existing, relied-upon workflow (see "Staging Environment" above).
+- `?dev=local` is new: an explicit opt-in to reach the local stack from a non-localhost host
+  (e.g. testing local backend code from a preview deployment of the frontend). Not needed for
+  normal local development — hostname detection already covers that automatically. If both
+  `?dev=local` and `?env=staging` are somehow present together, `env=staging` wins.
+
+The Firebase legacy escape hatch (`?legacyBackend=firebase`) is completely unaffected — out
+of this fix's scope, unchanged.
+
+**A project-wide grep for every other hardcoded `localhost`/`127.0.0.1` reference was run, per
+instruction, to catch anything else that could break on a real hosted domain.** Everything
+found:
+- `scripts/*.js` / `scripts/*.mjs` (dev/test tooling only, never shipped or served to a real
+  visitor) — every one either connects directly to the local stack by design, or (the local-
+  stack scripts) carries its own explicit `readLocalStackCredentials()` guard that already
+  *refuses* to run against anything but a `127.0.0.1`/`localhost` API URL. No fix needed —
+  these are correctly local-only on purpose.
+- `firebase-config.js` (and its own emulator connection calls) — also defaults to the
+  emulator on zero params, the exact same bug class, but genuinely out of scope: Firebase is
+  retired and reachable *only* via the explicit, unmistakable `?legacyBackend=firebase` flag,
+  never the default path a real visitor would ever silently hit. Reported, not fixed.
+- `supabase/config.toml`'s own `site_url` — local Supabase CLI config only, already
+  confirmed (Supabase Migration Stage 3) to have zero functional effect on this app (no
+  OAuth/redirect/OTP/MFA flow exists anywhere in this codebase).
+- No `.html` file, and no other browser-loaded `.js` file (`dashboard-sidebar.js`,
+  `admin-sidebar.js`, `engine-core.js`, `dashboard-notifications.js`, `format-helpers.js`,
+  `supabase-data.js`), contains a hardcoded `localhost`/`127.0.0.1` reference anywhere.
+
+**Verified**: `npm run verify-hosting-default-fix` (from `scripts/`, no local stack needed —
+this check is about which target gets *selected*, not a real network call against either
+one) — **18/18 assertions passed**, covering both files independently: a real hosted domain
+with zero params genuinely constructs a client wired to the real staging URL; `localhost`/
+`127.0.0.1` with zero params genuinely stays on the local stack; `?env=staging` still reaches
+staging from localhost; the new `?dev=local` reaches the local stack from a hosted domain;
+the `env=staging`-wins priority when both are present; and the Firebase escape hatch is
+unaffected. The full existing Supabase suite was re-run alongside — **found and fixed 11
+existing test files that broke** as a direct, real consequence of this fix (not a false
+regression): every one of them constructs a bare fake `window` object
+(`{ location: { search: '' } }`, with no `hostname` at all) to simulate a browser tab before
+importing `supabase-data.js`, which — now that hostname is actually read — resolved to
+`undefined`, matched neither `localhost` nor `127.0.0.1`, and silently made every affected
+test run against **real cloud staging instead of the local stack**, breaking on missing
+seed data/permissions. Fixed by adding `hostname: '127.0.0.1'` to each fake window (the
+correct, more faithful simulation of what a real local dev browser tab always provides,
+never previously needed because no code read it before now):
+`verify-admin-final-wiring.mjs`, `verify-asset-pages-ui-wiring.mjs`,
+`verify-admin-approval-gate-ui-wiring.mjs`, `verify-cross-role-sync-bugfix.mjs`,
+`verify-dashboard-real-data-fixes.mjs`, `verify-dashboard-ui-wiring.mjs`,
+`verify-documents-storage-integration.mjs`, `verify-funding-transactions-ui-wiring.mjs`,
+`verify-hys-documents-ui-wiring.mjs`, `verify-products-catalog-fix.mjs`,
+`verify-settings-risk-support-ui-wiring.mjs`. After that fix, the complete existing suite
+passed with zero further regressions: `verify-supabase-schema.js` 16/16,
+`verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js`
+76/76, `verify-supabase-allocations-sells.js` 88/88, `verify-supabase-hys.js` 112/112,
+`verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-documents-support.js`
+67/67, `verify-dashboard-ui-wiring.mjs` 27/27, `verify-asset-pages-ui-wiring.mjs` 36/36,
+`verify-funding-transactions-ui-wiring.mjs` 54/54, `verify-hys-documents-ui-wiring.mjs`
+69/69, `verify-cross-role-sync-bugfix.mjs` 34/34, `verify-settings-risk-support-ui-wiring.mjs`
+33/33, `verify-admin-approval-gate-ui-wiring.mjs` 102/102, `verify-admin-final-wiring.mjs`
+39/39, `verify-products-catalog-fix.mjs` 35/35, `verify-dashboard-real-data-fixes.mjs`
+38/38, `verify-documents-storage-integration.mjs` 46/46, and
+`supabase-golden-path-regression.js` `PASS (16/16 steps)`.
 
 ### Step 9 — Stop the stack when you're done
 
