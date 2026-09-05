@@ -197,3 +197,23 @@ export async function recomputeAllocatedCapital(
   if (error) throw new Error('recomputeAllocatedCapital: failed to update account_state: ' + error.message);
   return total;
 }
+
+// Dashboard Real-Data Fixes (2026-09-03). Extracted from get-total-portfolio-value/index.ts's
+// own original inline logic — a genuine refactor, not a new computation: settle every
+// product, recompute allocated_capital for the target client if they hold anything, then sum
+// unallocated + allocated + assetReturns. Now shared by get-total-portfolio-value itself AND
+// the new get-portfolio-monthly-change function (which needs the exact same "what is this
+// client's real total portfolio value right now" figure to compare against a monthly anchor)
+// — a single source of truth rather than two independently-maintained copies that could drift
+// apart on a future change to the total-value formula.
+export async function computeTotalPortfolioValue(supabaseAdmin: any, clientId: string): Promise<number> {
+  const products = await settleAllProducts(supabaseAdmin);
+  const { data: holdings } = await supabaseAdmin.from('holdings').select('product_id, units').eq('client_id', clientId);
+  if (holdings && holdings.length > 0) {
+    await recomputeAllocatedCapital(supabaseAdmin, clientId, holdings, products);
+  }
+  const { data: state, error } = await supabaseAdmin.from('account_state').select('*').eq('client_id', clientId).maybeSingle();
+  if (error) throw new Error('computeTotalPortfolioValue: failed to read account_state: ' + error.message);
+  if (!state) return 0;
+  return state.unallocated_capital + state.allocated_capital + state.asset_returns;
+}

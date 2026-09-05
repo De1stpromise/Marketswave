@@ -5,9 +5,15 @@
 // port honors that rule server-side too: unallocatedCapital + allocatedCapital + assetReturns,
 // nothing else, computed here and nowhere else in this Edge Function surface. Settles
 // products first — see get-account-state/index.ts's own header for why.
+//
+// Dashboard Real-Data Fixes (2026-09-03): the actual computation was extracted into
+// computeTotalPortfolioValue() in _shared/portfolio-engine.ts, now also used by the new
+// get-portfolio-monthly-change function — a pure refactor, zero behavior change (still
+// settle-then-recompute-then-sum, same order, same fields), verified by re-running the full
+// existing Supabase suite (this function's own callers included) after the change.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { settleAllProducts, recomputeAllocatedCapital } from '../_shared/portfolio-engine.ts';
+import { computeTotalPortfolioValue } from '../_shared/portfolio-engine.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,17 +48,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const products = await settleAllProducts(admin);
-    const { data: holdings } = await admin.from('holdings').select('product_id, units').eq('client_id', targetClientId);
-    if (holdings && holdings.length > 0) {
-      await recomputeAllocatedCapital(admin, targetClientId, holdings, products);
-    }
-
-    const { data: state, error } = await admin.from('account_state').select('*').eq('client_id', targetClientId).maybeSingle();
-    if (error) return jsonResponse({ error: error.message }, 500);
-    if (!state) return jsonResponse({ totalPortfolioValue: 0 }, 200);
-
-    const total = state.unallocated_capital + state.allocated_capital + state.asset_returns;
+    const total = await computeTotalPortfolioValue(admin, targetClientId);
     return jsonResponse({ totalPortfolioValue: total }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);

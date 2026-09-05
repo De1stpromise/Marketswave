@@ -503,3 +503,177 @@ entrypoint = "./functions/execute-sell/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/execute-sell/*.html" ]
+
+[functions.request-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-deposit/deno.json"
+entrypoint = "./functions/request-deposit/index.ts"
+
+[functions.request-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-withdrawal/deno.json"
+entrypoint = "./functions/request-withdrawal/index.ts"
+
+[functions.credit-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/credit-deposit/deno.json"
+entrypoint = "./functions/credit-deposit/index.ts"
+
+[functions.approve-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/approve-withdrawal/deno.json"
+entrypoint = "./functions/approve-withdrawal/index.ts"
+
+[functions.reject-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-deposit/deno.json"
+entrypoint = "./functions/reject-deposit/index.ts"
+
+[functions.reject-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-withdrawal/deno.json"
+entrypoint = "./functions/reject-withdrawal/index.ts"
+
+[functions.request-allocation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-allocation/deno.json"
+entrypoint = "./functions/request-allocation/index.ts"
+
+[functions.request-sell]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-sell/deno.json"
+entrypoint = "./functions/request-sell/index.ts"
+
+[functions.approve-allocation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/approve-allocation/deno.json"
+entrypoint = "./functions/approve-allocation/index.ts"
+
+[functions.approve-sell]
+enabled = true
+verify_jwt = false
+import_map = "./functions/approve-sell/deno.json"
+entrypoint = "./functions/approve-sell/index.ts"
+
+[functions.reject-allocation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-allocation/deno.json"
+entrypoint = "./functions/reject-allocation/index.ts"
+
+[functions.reject-sell]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-sell/deno.json"
+entrypoint = "./functions/reject-sell/index.ts"
+
+[functions.request-hys-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-hys-deposit/deno.json"
+entrypoint = "./functions/request-hys-deposit/index.ts"
+
+[functions.credit-hys-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/credit-hys-deposit/deno.json"
+entrypoint = "./functions/credit-hys-deposit/index.ts"
+
+[functions.reject-hys-deposit]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-hys-deposit/deno.json"
+entrypoint = "./functions/reject-hys-deposit/index.ts"
+
+[functions.request-hys-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-hys-withdrawal/deno.json"
+entrypoint = "./functions/request-hys-withdrawal/index.ts"
+
+[functions.approve-hys-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/approve-hys-withdrawal/deno.json"
+entrypoint = "./functions/approve-hys-withdrawal/index.ts"
+
+[functions.reject-hys-withdrawal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-hys-withdrawal/deno.json"
+entrypoint = "./functions/reject-hys-withdrawal/index.ts"
+
+[functions.request-profile-change]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-profile-change/deno.json"
+entrypoint = "./functions/request-profile-change/index.ts"
+
+[functions.approve-profile-change]
+enabled = true
+verify_jwt = false
+import_map = "./functions/approve-profile-change/deno.json"
+entrypoint = "./functions/approve-profile-change/index.ts"
+
+[functions.reject-profile-change]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reject-profile-change/deno.json"
+entrypoint = "./functions/reject-profile-change/index.ts"
+
+[functions.publish-document]
+enabled = true
+verify_jwt = false
+import_map = "./functions/publish-document/deno.json"
+entrypoint = "./functions/publish-document/index.ts"
+
+[functions.update-document]
+enabled = true
+verify_jwt = false
+import_map = "./functions/update-document/deno.json"
+entrypoint = "./functions/update-document/index.ts"
+
+[functions.request-support-ticket]
+enabled = true
+verify_jwt = false
+import_map = "./functions/request-support-ticket/deno.json"
+entrypoint = "./functions/request-support-ticket/index.ts"
+
+[functions.update-support-ticket]
+enabled = true
+verify_jwt = false
+import_map = "./functions/update-support-ticket/deno.json"
+entrypoint = "./functions/update-support-ticket/index.ts"
+
+[functions.update-advisory-fee-rate]
+enabled = true
+verify_jwt = false
+import_map = "./functions/update-advisory-fee-rate/deno.json"
+entrypoint = "./functions/update-advisory-fee-rate/index.ts"
+
+[functions.add-product]
+enabled = true
+verify_jwt = false
+import_map = "./functions/add-product/deno.json"
+entrypoint = "./functions/add-product/index.ts"
+
+[functions.edit-product]
+enabled = true
+verify_jwt = false
+import_map = "./functions/edit-product/deno.json"
+entrypoint = "./functions/edit-product/index.ts"
+
+[functions.get-portfolio-monthly-change]
+enabled = true
+verify_jwt = false
+import_map = "./functions/get-portfolio-monthly-change/deno.json"
+entrypoint = "./functions/get-portfolio-monthly-change/index.ts"
