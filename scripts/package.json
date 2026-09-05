@@ -11,11 +11,29 @@
     "supabase-approve-client": "node supabase-approve-client.js",
     "supabase-golden-path": "node supabase-golden-path-regression.js",
     "supabase-seed-portfolio": "node supabase-seed-portfolio.js",
-    "supabase-verify-portfolio": "node verify-supabase-portfolio-engine.js"
+    "supabase-verify-portfolio": "node verify-supabase-portfolio-engine.js",
+    "supabase-verify-deposits-withdrawals": "node verify-supabase-deposits-withdrawals.js",
+    "supabase-verify-allocations-sells": "node verify-supabase-allocations-sells.js",
+    "supabase-verify-hys": "node verify-supabase-hys.js",
+    "supabase-verify-final-approval-gate": "node verify-supabase-final-approval-gate.js",
+    "supabase-verify-documents-support": "node verify-supabase-documents-support.js",
+    "verify-dashboard-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-ui-wiring.mjs",
+    "verify-asset-pages-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-asset-pages-ui-wiring.mjs",
+    "verify-funding-transactions-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-funding-transactions-ui-wiring.mjs",
+    "verify-hys-documents-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-hys-documents-ui-wiring.mjs",
+    "verify-settings-risk-support-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-settings-risk-support-ui-wiring.mjs",
+    "verify-admin-approval-gate-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-admin-approval-gate-ui-wiring.mjs",
+    "verify-cross-role-sync-bugfix": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-cross-role-sync-bugfix.mjs",
+    "verify-admin-final-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-admin-final-wiring.mjs",
+    "verify-products-catalog-fix": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-catalog-fix.mjs",
+    "verify-dashboard-real-data-fixes": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-real-data-fixes.mjs",
+    "verify-documents-storage-integration": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-storage-integration.mjs",
+    "verify-hosting-default-fix": "node verify-hosting-default-fix.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "firebase": "^11.0.2",
-    "firebase-admin": "^12.7.0"
+    "firebase-admin": "^12.7.0",
+    "jsdom": "^30.0.1"
   }
 }
