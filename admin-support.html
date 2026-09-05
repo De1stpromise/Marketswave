@@ -91,13 +91,26 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('support');
   </script>
 
   <script>
+    // Bug-fix follow-up to Admin UI Wiring Stage 1 (2026-09-03): wired to the real
+    // `support_requests` table + update-support-ticket Edge Function — closing an
+    // investigated, confirmed BIDIRECTIONAL local/Supabase split, the same class as
+    // admin-documents.html's own fix (see that file's own comment). Needs Attention +
+    // Resolved both used to read only engine-core.js's local getAllClientSupportRequests()
+    // — meaning a real dispute filed via support.html (wired Stage 5, its own real
+    // request-support-ticket Edge Function) was invisible here, and Update used to write
+    // only to local localStorage, which the real Supabase-backed support.html could never
+    // see. See admin-deposits.html's own comment for the base useAdminClient()/
+    // cross-client-RLS reasoning, identical here — `support_requests`' own SELECT policy
+    // already grants self-or-admin.
     (function () {
-      if (typeof getAllClientSupportRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var STATUS_STYLES = {
         Open: 'bg-amber-50 text-amber-700',
@@ -123,8 +136,10 @@
         return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
       }
 
+      var supportData = [];
+
       function renderPending() {
-        var requests = getAllClientSupportRequests()
+        var requests = supportData
           .filter(function (r) { return r.status !== 'Resolved'; })
           .sort(function (a, b) { return (a.lastUpdated < b.lastUpdated) ? 1 : -1; });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
@@ -155,7 +170,7 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientSupportRequests()
+        var requests = supportData
           .filter(function (r) { return r.status === 'Resolved'; })
           .sort(function (a, b) { return (a.lastUpdated < b.lastUpdated) ? 1 : -1; });
         var listEl = document.getElementById('history-list');
@@ -183,9 +198,41 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('support_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.display_id, dbId: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              reference: r.reference, category: r.category, description: r.description, status: r.status,
+              dateOpened: r.date_opened, lastUpdated: r.last_updated, evidence: r.evidence, pmNote: r.pm_note
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { supportData = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { supportData = data; renderHistory(); }
+        });
       }
 
       // ---- Update modal ----
@@ -200,7 +247,7 @@
       function openUpdateModal(clientId, requestId, currentStatus) {
         activeClientId = clientId;
         activeRequestId = requestId;
-        var req = getAllClientSupportRequests().find(function (r) { return r.clientId === clientId && r.id === requestId; });
+        var req = supportData.find(function (r) { return r.clientId === clientId && r.id === requestId; });
         updateRequestLabel.textContent = requestId + ' — ' + (req ? req.category : '');
         updateStatusInput.value = currentStatus;
         updateNoteInput.value = req && req.pmNote ? req.pmNote : '';
@@ -217,20 +264,21 @@
       document.getElementById('update-modal-backdrop').addEventListener('click', closeUpdateModal);
       document.getElementById('update-cancel').addEventListener('click', closeUpdateModal);
       document.getElementById('update-submit').addEventListener('click', function () {
-        try {
-          var today = new Date().toISOString().slice(0, 10);
-          var result = updateSupportRequestForClient(activeClientId, activeRequestId, {
-            status: updateStatusInput.value,
-            pmNote: updateNoteInput.value.trim() || null,
-            lastUpdated: today
-          });
+        var clientId = activeClientId;
+        var requestId = activeRequestId;
+        var status = updateStatusInput.value;
+        var pmNote = updateNoteInput.value.trim() || null;
+        var btn = document.getElementById('update-submit');
+        MarketswaveData.withButtonBusy(btn, 'Saving...', function () {
+          return MarketswaveData.callFunction('update-support-ticket', { clientId: clientId, requestId: requestId, status: status, pmNote: pmNote });
+        }).then(function (result) {
           closeUpdateModal();
           showToast('Request Updated', result.id + ' is now ' + result.status + '.');
-          renderAll();
-        } catch (e) {
-          updateError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          updateError.textContent = MarketswaveData.writeErrorMessage(err);
           updateError.classList.remove('hidden');
-        }
+        });
       });
 
       document.getElementById('pending-list').addEventListener('click', function (e) {
@@ -239,7 +287,7 @@
         openUpdateModal(btn.dataset.client, btn.dataset.id, btn.dataset.status);
       });
 
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

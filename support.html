@@ -198,12 +198,17 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initDashboardSidebar('support');
     initDashboardNotifications();
   </script>
 
   <script>
+    // UI Wiring — Stage 5 (2026-09-03): ticket list, filing a dispute, and My Requests all
+    // wire to the real support_requests table + request-support-ticket below. Quick-contact
+    // (Call/Chat/Email) stays pure UI, no backend needed — see each section's own comment.
+
     // Toast helper
     const toast = document.getElementById('support-toast');
     const toastTitle = document.getElementById('support-toast-title');
@@ -237,12 +242,22 @@
       const timeInput = document.getElementById('callback-time');
       const errorEl = document.getElementById('callback-error');
 
+      // UI Wiring Stage 5 (2026-09-03): the phone default now reads the real Supabase
+      // `clients.phone` column instead of the local marketswave_settings_profile store — the
+      // same real column settings.html's own Profile card now displays (UI Wiring Stage 5's
+      // own Email/Phone finding: these live on `clients`, not client_profiles). Fetched once,
+      // fire-and-forget, cached for whenever the modal is opened — a best-effort default the
+      // client can freely edit either way, not a data-integrity-critical read, so no loading
+      // state is needed for this one small convenience.
+      let realPhone = null;
+      if (typeof MarketswaveData !== 'undefined') {
+        MarketswaveData.selectTable('clients').then(function (rows) {
+          if (rows && rows[0] && rows[0].phone) realPhone = rows[0].phone;
+        }).catch(function () { /* non-fatal — falls back to the placeholder default below */ });
+      }
+
       function defaultPhone() {
-        try {
-          const profile = JSON.parse(localStorage.getItem(clientScopedKey('marketswave_settings_profile')));
-          if (profile && profile.phone) return profile.phone;
-        } catch (e) { /* ignore malformed storage */ }
-        return '+1 (415) 555-0182';
+        return realPhone || '+1 (415) 555-0182';
       }
 
       function openModal() {
@@ -368,23 +383,40 @@
       });
     })();
 
-    // ---- My Requests + Open a Dispute — persisted to localStorage. No demo seed data: a
-    // client with no real history genuinely sees the empty state (Aug 27, 2026 — removed a
-    // fabricated 3-ticket fallback that had made the real empty state unreachable). ----
+    // ---- My Requests + Open a Dispute — UI Wiring Stage 5 (2026-09-03): wired to the real
+    // support_requests table (a direct, RLS-authorized SELECT for reads — "requests-list"
+    // never mutates anything, so no Edge Function is needed for that half, the same
+    // established "RLS itself already permits this read" reasoning as every prior stage's own
+    // request-* domains) and the real request-support-ticket Edge Function for filing a new
+    // dispute (server-computed display_id, a real no-approval-gate creation, exactly
+    // preserving the local "file a dispute, no approval needed" behavior). No demo seed data,
+    // same discipline as the local version this replaces: a client with no real history
+    // genuinely sees the empty state. ----
     (function () {
-      // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
-      // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
-      const STORAGE_KEY = clientScopedKey('marketswave_support_requests');
+      if (typeof MarketswaveData === 'undefined') return;
 
       let requests = [];
-      try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        requests = Array.isArray(stored) ? stored : [];
-      } catch (e) { requests = []; }
+      var dataPromise = null;
 
-      function saveRequests() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+      function mapRequestRow(r) {
+        return {
+          id: r.display_id, dbId: r.id, reference: r.reference, category: r.category,
+          description: r.description, status: r.status, dateOpened: r.date_opened,
+          lastUpdated: r.last_updated, evidence: r.evidence, pmNote: r.pm_note
+        };
       }
+
+      function loadRequests() {
+        if (dataPromise) return dataPromise;
+        dataPromise = MarketswaveData.selectTable('support_requests').then(function (rows) {
+          return rows.map(mapRequestRow);
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
       function fmtDate(iso) {
         return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
       }
@@ -434,6 +466,20 @@
         return wrap;
       }
 
+      // ★ Newest-first ordering, a real finding worth disclosing: support_requests has NO
+      // timestamptz column at all (date_opened/last_updated are plain DATE, confirmed by
+      // reading Phase B Stage 6's migration directly) — a raw `.select('*')` has no reliable
+      // sub-day ordering to sort by. display_id (DISP-NNNN), by contrast, IS guaranteed
+      // strictly increasing per client (server-computed as a real max+1 scan at creation
+      // time) — sorting by its own numeric suffix is genuinely more reliable here than trying
+      // to use date_opened, and exactly reproduces the local engine's own
+      // "[...requests].reverse()" (reverse of append order = newest first) with no ambiguity
+      // for same-day tickets.
+      function displayIdNumber(id) {
+        const match = /^DISP-(\d+)$/.exec(id);
+        return match ? parseInt(match[1], 10) : 0;
+      }
+
       function renderRequests() {
         const list = document.getElementById('requests-list');
         const empty = document.getElementById('requests-empty');
@@ -443,11 +489,25 @@
           empty.classList.remove('hidden');
         } else {
           empty.classList.add('hidden');
-          [...requests].reverse().forEach(req => list.appendChild(buildRequestRow(req)));
+          [...requests].sort((a, b) => displayIdNumber(b.id) - displayIdNumber(a.id)).forEach(req => list.appendChild(buildRequestRow(req)));
         }
         count.textContent = `${requests.length} request${requests.length === 1 ? '' : 's'}`;
       }
-      renderRequests();
+
+      function reloadRequests(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('requests-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3">' +
+            '<div class="h-12 bg-slate-100 rounded-xl"></div>' +
+            '<div class="h-12 bg-slate-100 rounded-xl"></div>' +
+            '</div>',
+          load: loadRequests,
+          render: function (data) {
+            requests = data;
+            renderRequests();
+          }
+        });
+      }
 
       document.getElementById('requests-list').addEventListener('click', (e) => {
         const toggleBtn = e.target.closest('.request-row-toggle');
@@ -458,19 +518,10 @@
         chevron.classList.toggle('rotate-180');
       });
 
-      // Open a Dispute — appends to the same requests list. Reference number is system-assigned
-      // at submission (DISP-0001 style), matching the sequential-id convention used across the
-      // engine (PROD-, TXN-, REQ-, SELL-) rather than typed in by the client.
-      function nextDisputeId() {
-        let maxNum = 0;
-        const re = /^DISP-(\d+)$/;
-        requests.forEach(r => {
-          const match = re.exec(r.id);
-          if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
-        });
-        return `DISP-${String(maxNum + 1).padStart(4, '0')}`;
-      }
-
+      // Open a Dispute — a real, RLS-gated-but-Edge-Function-only creation (no client-side
+      // INSERT policy on support_requests exists at all, see Phase B Stage 6's own migration
+      // header for why) via request-support-ticket, which computes the real, server-authoritative
+      // display_id — never trusted from the client.
       document.getElementById('dispute-submit').addEventListener('click', () => {
         const category = document.getElementById('dispute-category').value;
         const description = document.getElementById('dispute-description').value.trim();
@@ -483,29 +534,24 @@
         }
         errorEl.classList.add('hidden');
 
-        const id = nextDisputeId();
-        const today = new Date().toISOString().slice(0, 10);
         const evidenceName = evidenceInput.files && evidenceInput.files[0] ? evidenceInput.files[0].name : null;
+        const btn = document.getElementById('dispute-submit');
 
-        requests.push({
-          id,
-          reference: null,
-          category,
-          description,
-          status: 'Open',
-          dateOpened: today,
-          lastUpdated: today,
-          evidence: evidenceName
+        MarketswaveData.withButtonBusy(btn, 'Submitting...', function () {
+          return MarketswaveData.callFunction('request-support-ticket', { category: category, description: description, evidence: evidenceName });
+        }).then(function (request) {
+          document.getElementById('dispute-category').value = '';
+          document.getElementById('dispute-description').value = '';
+          evidenceInput.value = '';
+          reloadRequests(true);
+          showToast('Dispute Submitted', `Dispute ${request.id} submitted.`);
+        }).catch(function (err) {
+          errorEl.textContent = MarketswaveData.writeErrorMessage(err);
+          errorEl.classList.remove('hidden');
         });
-        saveRequests();
-        renderRequests();
-
-        document.getElementById('dispute-category').value = '';
-        document.getElementById('dispute-description').value = '';
-        evidenceInput.value = '';
-
-        showToast('Dispute Submitted', `Dispute ${id} submitted.`);
       });
+
+      reloadRequests(true);
     })();
   </script>
 </body>

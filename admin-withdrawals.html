@@ -103,13 +103,19 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('withdrawals');
   </script>
 
   <script>
+    // Admin UI Wiring — Stage 1 (2026-09-03): wired to the real withdrawal_requests table +
+    // approve-withdrawal/reject-withdrawal Edge Functions (local stack). See
+    // admin-deposits.html's own comment for the full useAdminClient()/cross-client-RLS
+    // reasoning, identical here.
     (function () {
-      if (typeof getAllClientWithdrawalRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -155,9 +161,13 @@
         }).join('');
       }
 
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+
+      var withdrawalRequests = [];
+
       function renderPending() {
-        var requests = getAllClientWithdrawalRequests().filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = withdrawalRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
@@ -174,7 +184,7 @@
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</p>' +
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.destinationDetails) + '</div>' +
@@ -188,8 +198,8 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientWithdrawalRequests().filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = withdrawalRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('history-list');
 
         if (requests.length === 0) {
@@ -213,7 +223,7 @@
             var approvedCell = r.status === 'approved'
               ? formatUSD(r.approvedAmount) + (Math.round(r.approvedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
               : '—';
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
@@ -226,9 +236,43 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('withdrawal_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              method: r.method, requestedAmount: r.requested_amount, currency: r.currency,
+              destinationDetails: r.destination_details, status: r.status, requestedAt: r.requested_at,
+              resolvedAt: r.resolved_at, approvedAmount: r.approved_amount,
+              transactionId: r.transaction_id, reason: r.reason
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { withdrawalRequests = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { withdrawalRequests = data; renderHistory(); }
+        });
       }
 
       // ---- Approve modal ----
@@ -254,15 +298,18 @@
       document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
       document.getElementById('approve-submit').addEventListener('click', function () {
         var amount = parseFloat(approveAmountInput.value);
-        try {
-          var result = approveWithdrawal(activeApproveClientId, activeApproveId, amount);
+        var requestId = activeApproveId;
+        var btn = document.getElementById('approve-submit');
+        MarketswaveData.withButtonBusy(btn, 'Approving...', function () {
+          return MarketswaveData.callFunction('approve-withdrawal', { requestId: requestId, approvedAmount: amount });
+        }).then(function (result) {
           closeApproveModal();
           showToast('Withdrawal Approved', result.id + ' — $' + result.approvedAmount.toLocaleString() + ' debited from unallocated capital.');
-          renderAll();
-        } catch (e) {
-          approveError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          approveError.textContent = MarketswaveData.writeErrorMessage(err);
           approveError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject modal ----
@@ -285,15 +332,19 @@
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectWithdrawal(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+        var requestId = activeRejectId;
+        var reason = rejectReasonInput.value.trim();
+        var btn = document.getElementById('reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-withdrawal', { requestId: requestId, reason: reason });
+        }).then(function (result) {
           closeRejectModal();
           showToast('Withdrawal Rejected', result.id + ' has been rejected.', true);
-          renderAll();
-        } catch (e) {
-          rejectError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          rejectError.textContent = MarketswaveData.writeErrorMessage(err);
           rejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for row buttons ----
@@ -307,7 +358,7 @@
         if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

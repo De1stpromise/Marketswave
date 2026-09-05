@@ -232,13 +232,29 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('products');
   </script>
 
   <script>
+    // Products Catalog Fix (2026-09-03): closes the "PM acts, client never sees it" bug class
+    // already fixed once for Documents/Support (row 127) — this page was confirmed (Admin UI
+    // Wiring — Final Stage, row 128) to be silently managing a LOCAL catalog completely
+    // disconnected from the real Supabase `products` table every already-wired client-facing
+    // page (dashboard.html/risk-management.html/asset-collection.html/asset-performance.html)
+    // actually reads. Closed for real this time: a new migration added the three missing
+    // columns (description/extended_description/logo_url), and new admin-only
+    // add-product/edit-product Edge Functions (mirroring update-advisory-fee-rate's own
+    // minimal pattern, plus the local engine's own unitPrice-edit-blocked business rule,
+    // re-confirmed still true by reading editProduct()'s real current source before porting
+    // it) give this page a real write path for the first time. List is cross-client by
+    // nature — the Product Catalog is global, not per-client, same "no per-client scoping
+    // needed" reasoning as `products` already carries throughout this project — a direct
+    // RLS-authorized `selectTable('products')` read, no Edge Function needed for the LIST.
     (function () {
-      if (typeof getAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var CLASS_BADGE = {
         'Private Equity': 'bg-amber-50 text-amber-700',
@@ -337,9 +353,44 @@
         '</tr>';
       }
 
+      // Real Supabase products (mapped to the same camelCase shape the local engine's own
+      // getAllProducts() already returned, so renderProducts()/expandedRowHTML()/
+      // openEditModal() below needed zero further changes) — refreshed by
+      // reloadProducts(forceReload) below.
+      var products = [];
+
+      function mapProductRow(p) {
+        return {
+          id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
+          riskTier: p.risk_tier, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
+          inceptionUnitPrice: p.inception_unit_price, createdAt: p.created_at, lastTickDate: p.last_tick_date,
+          description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url
+        };
+      }
+
+      var dataPromise = null;
+      function loadProducts() {
+        if (dataPromise) return dataPromise;
+        dataPromise = MarketswaveData.selectTable('products').then(function (rows) {
+          return rows.map(mapProductRow);
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadProducts(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('products-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadProducts,
+          render: function (data) { products = data; renderProducts(); }
+        });
+      }
+
       function renderProducts() {
-        var all = getAllProducts();
-        var filtered = applyFilters(all, searchQuery, classFilter, tierFilter);
+        var filtered = applyFilters(products, searchQuery, classFilter, tierFilter);
         var listEl = document.getElementById('products-list');
 
         if (filtered.length === 0) {
@@ -463,9 +514,10 @@
         var extendedDescription = document.getElementById('add-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('add-minimum-investment').value);
         var unitPrice = parseFloat(document.getElementById('add-unit-price').value);
+        var btn = document.getElementById('add-submit');
 
-        try {
-          var result = addProduct({
+        MarketswaveData.withButtonBusy(btn, 'Adding...', function () {
+          return MarketswaveData.callFunction('add-product', {
             name: name,
             assetClass: assetClass,
             investmentType: investmentType,
@@ -476,13 +528,14 @@
             logoUrl: logoUrl,
             extendedDescription: extendedDescription
           });
+        }).then(function (result) {
           closeAddModal();
           showToast('Product Added', result.name + ' (' + result.id + ') is now available for allocation.');
-          renderProducts();
-        } catch (e) {
-          addError.textContent = e.message;
+          reloadProducts(true);
+        }).catch(function (err) {
+          addError.textContent = MarketswaveData.writeErrorMessage(err);
           addError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Edit Product modal ----
@@ -491,7 +544,7 @@
       var activeEditId = null;
 
       function openEditModal(id) {
-        var p = getProduct(id);
+        var p = products.find(function (prod) { return prod.id === id; });
         if (!p) return;
         activeEditId = id;
         document.getElementById('edit-modal-id').textContent = p.id;
@@ -527,30 +580,36 @@
         var logoUrl = document.getElementById('edit-logo-url').value.trim();
         var extendedDescription = document.getElementById('edit-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('edit-minimum-investment').value);
+        var btn = document.getElementById('edit-submit');
+        var id = activeEditId;
 
-        try {
-          var result = editProduct(activeEditId, {
-            name: name,
-            assetClass: assetClass,
-            investmentType: investmentType,
-            riskTier: riskTier,
-            minimumInvestment: minimumInvestment,
-            description: description,
-            logoUrl: logoUrl,
-            extendedDescription: extendedDescription
+        MarketswaveData.withButtonBusy(btn, 'Saving...', function () {
+          return MarketswaveData.callFunction('edit-product', {
+            id: id,
+            patch: {
+              name: name,
+              assetClass: assetClass,
+              investmentType: investmentType,
+              riskTier: riskTier,
+              minimumInvestment: minimumInvestment,
+              description: description,
+              logoUrl: logoUrl,
+              extendedDescription: extendedDescription
+            }
           });
+        }).then(function (result) {
           closeEditModal();
           showToast('Product Updated', result.name + ' (' + result.id + ') saved.');
-          renderProducts();
-        } catch (e) {
-          editError.textContent = e.message;
+          reloadProducts(true);
+        }).catch(function (err) {
+          editError.textContent = MarketswaveData.writeErrorMessage(err);
           editError.classList.remove('hidden');
-        }
+        });
       });
 
       renderPills('.class-filter-pill', classFilter);
       renderPills('.tier-filter-pill', tierFilter);
-      renderProducts();
+      reloadProducts(true);
     })();
   </script>
 

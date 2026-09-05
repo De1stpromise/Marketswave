@@ -179,6 +179,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     initDashboardSidebar('asset-performance');
@@ -186,13 +187,24 @@
   </script>
 
   <script>
-    // Wires this page to engine-core.js (Phase 4b) — summary cards, the Return Table, the
-    // Asset Collection cards, Request Allocation, and My Allocation Requests all now read
-    // live engine state instead of hardcoded demo numbers.
+    // UI Wiring — Stage 2 (2026-09-03): summary cards, the Return Table, and My Requests now
+    // read real Supabase data (Phase B Stage 1's get-account-state/get-holdings/
+    // get-transaction-ledger/get-total-portfolio-value, a direct products read, and a direct
+    // read of allocation_requests/sell_requests — both RLS-authorized, no Edge Function
+    // needed for a plain "list my own requests" read, same established precedent as
+    // products) instead of engine-core.js/localStorage. Sell is wired to the real Phase B
+    // Stage 3 request-sell Edge Function. Reuses supabase-data.js's canonical pattern exactly
+    // (renderAsyncBundle for reads, withButtonBusy/callFunction/writeErrorMessage for the
+    // write) — see that file's own header comments for the full convention, not reinvented
+    // here.
+    //
+    // ★ TASK CORRECTION, investigated and reported per this project's own standing
+    // discipline rather than followed blindly: "My Requests" (allocation + sell request
+    // history) lives on THIS page, asset-performance.html — confirmed by reading both real
+    // files directly, asset-collection.html has no such section at all (it only has the
+    // product grid + Request Allocation). Wired here, not there.
     (function () {
-      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
-
-      settleAllProducts(); // catch prices up to today before reading any engine value
+      if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -202,57 +214,87 @@
           maximumFractionDigits: decimals || 0
         });
       }
+      // 'YYYY-MM-DDTHH:mm:ss...' -> 'YYYY-MM-DD' — every real Supabase timestamp column here
+      // (requested_at/resolved_at/etc.) is a full timestamptz, unlike the local engine's own
+      // plain date strings, so display needs an explicit conversion to keep the same output.
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+      function round2ish(n) { return Math.round(n * 100) / 100; }
 
-      var account = getAccountState();
-      var tpv = getTotalPortfolioValue();
-      var holdings = getHoldings();
-      var products = getAllProducts();
-      var totalUnrealized = getTotalUnrealizedReturns();
+      // Real data, populated once the async loads below resolve.
+      var account = { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
+      var tpv = 0;
+      var holdings = [];
+      var products = [];
+      var ledger = [];
+      var sellRequests = [];
+      var allocationRequests = [];
 
       function productById(id) { return products.find(function (p) { return p.id === id; }); }
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
 
+      // Pure port of engine-core.js's own getUnrealizedReturn(Percent)()/
+      // getTotalUnrealizedReturns() — real holdings + real live unit_price, computed
+      // client-side from the already-fetched data (no server-side-only logic here worth its
+      // own Edge Function). Small, disclosed duplication with asset-collection.html's own
+      // identical getUnrealizedReturnPercent() — pure financial math, not part of the async/
+      // UI pattern supabase-data.js owns, so it stays page-local, same category as this
+      // project's own already-documented formatUSD() duplication (Known Structural Debt).
+      function getUnrealizedReturn(productId) {
+        var holding = holdingByProductId(productId);
+        if (!holding) return 0;
+        var product = productById(productId);
+        if (!product) return 0;
+        return round2ish(holding.units * product.unitPrice - holding.costBasis);
+      }
+      function getUnrealizedReturnPercent(productId) {
+        var holding = holdingByProductId(productId);
+        if (!holding || holding.costBasis === 0) return 0;
+        return round2ish((getUnrealizedReturn(productId) / holding.costBasis) * 100);
+      }
+      function getTotalUnrealizedReturns() {
+        return round2ish(holdings.reduce(function (sum, h) { return sum + getUnrealizedReturn(h.productId); }, 0));
+      }
+
       // ---- Summary cards ----
       var allocatedEl = document.getElementById('total-allocated-amount');
       var allocatedPctEl = document.getElementById('total-allocated-pct');
-      if (allocatedEl) allocatedEl.textContent = formatUSD(Math.round(account.allocatedCapital));
-      if (allocatedPctEl) allocatedPctEl.textContent = (tpv > 0 ? Math.round((account.allocatedCapital / tpv) * 100) : 0) + '% of portfolio';
-
       var unallocatedEl = document.getElementById('unallocated-amount');
       var unallocatedPctEl = document.getElementById('unallocated-pct');
-      if (unallocatedEl) unallocatedEl.textContent = formatUSD(Math.round(account.unallocatedCapital));
-      if (unallocatedPctEl) unallocatedPctEl.textContent = (tpv > 0 ? Math.round((account.unallocatedCapital / tpv) * 100) : 0) + '% of portfolio';
-
-      // Total Asset Returns is deliberately the live UNREALIZED preview (getTotalUnrealizedReturns()),
-      // not Account State's realized-only assetReturns (which stays $0 until something actually
-      // sells) — labeled "Unrealized" in the card so it's never mistaken for a realized figure.
       var returnsEl = document.getElementById('total-asset-returns-amount');
-      if (returnsEl) {
-        returnsEl.textContent = (totalUnrealized >= 0 ? '+' : '') + formatUSD(Math.round(totalUnrealized));
-        returnsEl.className = 'text-2xl font-semibold ' + (totalUnrealized >= 0 ? 'text-emerald-600' : 'text-red-600');
+
+      function renderSummaryCards() {
+        if (allocatedEl) allocatedEl.textContent = formatUSD(Math.round(account.allocatedCapital));
+        if (allocatedPctEl) allocatedPctEl.textContent = (tpv > 0 ? Math.round((account.allocatedCapital / tpv) * 100) : 0) + '% of portfolio';
+        if (unallocatedEl) unallocatedEl.textContent = formatUSD(Math.round(account.unallocatedCapital));
+        if (unallocatedPctEl) unallocatedPctEl.textContent = (tpv > 0 ? Math.round((account.unallocatedCapital / tpv) * 100) : 0) + '% of portfolio';
+        // Total Asset Returns is deliberately the live UNREALIZED preview
+        // (getTotalUnrealizedReturns()), not Account State's realized-only assetReturns
+        // (which stays $0 until something actually sells) — labeled "Unrealized" in the card
+        // so it's never mistaken for a realized figure.
+        if (returnsEl) {
+          var totalUnrealized = getTotalUnrealizedReturns();
+          returnsEl.textContent = (totalUnrealized >= 0 ? '+' : '') + formatUSD(Math.round(totalUnrealized));
+          returnsEl.className = 'text-2xl font-semibold ' + (totalUnrealized >= 0 ? 'text-emerald-600' : 'text-red-600');
+        }
       }
 
-      // ---- Return Table: one row per current holding ----
-      var ledger = getTransactionLedger();
-      // Realized Amount is genuinely realized now — the actual sum of realizedReturn across
+      // Realized Amount is genuinely realized — the actual sum of realizedReturn across
       // every SELL transaction for that product, not the live unrealized preview (that's the
       // summary card above). "—" only when that sum is genuinely zero (no sells exist for
-      // this product yet), which happens to look identical to a fresh seed but stays correct
-      // if a sell is ever executed via any path, not just hardcoded to always show "—".
+      // this product yet).
       function realizedAmountForProduct(productId) {
         return round2ish(ledger.reduce(function (sum, t) {
           return t.type === 'SELL' && t.productId === productId ? sum + t.realizedReturn : sum;
         }, 0));
       }
-      function round2ish(n) { return Math.round(n * 100) / 100; }
 
       // Sum of unitsToSell across this product's own PENDING sell requests — subtracted from
       // the holding before offering a new Sell, so a client can't submit a second request
-      // that's already doomed to fail at approval time (Phase 3B's re-validation would
-      // reject it). Re-fetched fresh each call, not cached, so it stays accurate after a
-      // submission changes the pending set.
+      // that's already doomed to fail at approval time (approve-sell's own re-validation
+      // would reject it). Reads the already-fetched sellRequests array — refreshed by
+      // reloadTableAndRequests() after every real Sell submission, so this stays accurate.
       function pendingSellUnitsForProduct(productId) {
-        return getSellRequests().reduce(function (sum, r) {
+        return sellRequests.reduce(function (sum, r) {
           return r.productId === productId && r.status === 'pending' ? sum + r.unitsToSell : sum;
         }, 0);
       }
@@ -263,7 +305,7 @@
       var tableBody = document.getElementById('return-table-body');
       function renderReturnTable() {
         if (!tableBody) return;
-        var currentHoldings = getHoldings();
+        var currentHoldings = holdings;
         if (currentHoldings.length === 0) {
           tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
           return;
@@ -301,15 +343,12 @@
             '</tr>';
         }).join('');
       }
-      renderReturnTable();
-
       // ---- My Requests: allocation + sell requests merged, full history, every status,
-      // newest first — sorted by requestedAtMs (Phase 4c addition), a real millisecond
-      // timestamp set at request time, so same-day ordering between an allocation request
-      // and a sell request is now genuinely correct, not just a documented stable-merge
-      // approximation. Records from before this field existed get a deterministic
-      // end-of-day fallback computed by getAllocationRequests()/getSellRequests() themselves
-      // (see engine-core.js), so old and new requests still sort reasonably together.
+      // newest first. The real requested_at column is already a full timestamptz (unlike the
+      // local engine's own plain 'YYYY-MM-DD' date string, which needed a SEPARATE
+      // requestedAtMs field to disambiguate same-day ordering) — sorting directly by
+      // requested_at's own ISO string is already correct to millisecond precision, so there is
+      // no requestedAtMs-equivalent field to port at all; a real simplification, not a gap.
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
         approved: 'bg-emerald-50 text-emerald-700',
@@ -323,16 +362,16 @@
       function renderMyRequests() {
         var listEl = document.getElementById('my-requests-list');
         if (!listEl) return;
-        var allocations = getAllocationRequests().map(function (r) {
-          return { kind: 'Allocation', id: r.id, productId: r.productId, amountLabel: formatUSD(Math.round(r.amount)),
-            status: r.status, requestedAt: r.requestedAt, requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason };
+        var allocations = allocationRequests.map(function (r) {
+          return { kind: 'Allocation', id: r.id, productId: r.productId, amountLabel: formatUSD(Math.round(r.requestedAmount)),
+            status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason };
         });
-        var sells = getSellRequests().map(function (r) {
+        var sells = sellRequests.map(function (r) {
           return { kind: 'Sell', id: r.id, productId: r.productId, amountLabel: r.unitsToSell.toFixed(4) + ' units',
-            status: r.status, requestedAt: r.requestedAt, requestedAtMs: r.requestedAtMs, resolvedAt: r.resolvedAt, reason: r.reason };
+            status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason };
         });
         var requests = allocations.concat(sells)
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
 
         if (requests.length === 0) {
           listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-6 text-center">No requests yet.</p>';
@@ -353,21 +392,125 @@
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             var typeClass = TYPE_STYLES[r.kind] || 'bg-slate-100 text-slate-600';
             var resolvedText = r.resolvedAt
-              ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
+              ? toDateOnly(r.resolvedAt) + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
               : '—';
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 font-medium text-navy">' + name + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeClass + '">' + r.kind + '</span></td>' +
               '<td class="px-6 py-4 text-right">' + r.amountLabel + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
-              '<td class="px-6 py-4 text-slate-500">' + r.requestedAt + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + toDateOnly(r.requestedAt) + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
               '</tr>';
           }).join('') +
           '</tbody></table>';
       }
 
-      renderMyRequests();
+      // ---- Async load: account state, holdings, transaction ledger, total portfolio value,
+      // products, and my own allocation/sell requests — the real replacement for the old
+      // synchronous engine-core.js reads. Summary cards and Return Table+My Requests are two
+      // SEPARATE renderAsyncBundle calls sharing this one cached fetch (exactly dashboard.html's
+      // own multi-region-shared-load pattern) so a post-Sell refresh can re-trigger just the
+      // Return-Table+My-Requests regions without unnecessarily re-flashing the summary cards,
+      // whose own figures (allocated/unallocated capital) genuinely don't change from a mere
+      // sell REQUEST — only from an admin's later approval. ----
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          // A brand-new/unfunded client genuinely has no account_state row yet — see
+          // dashboard.html's own identical handling and comment for the full "why" this 404
+          // is caught and mapped to a real $0 default, not surfaced as an error.
+          MarketswaveData.callFunction('get-account-state').catch(function (err) {
+            if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
+            throw err;
+          }),
+          MarketswaveData.callFunction('get-holdings'),
+          MarketswaveData.callFunction('get-transaction-ledger'),
+          MarketswaveData.callFunction('get-total-portfolio-value'),
+          MarketswaveData.selectTable('products'),
+          MarketswaveData.selectTable('allocation_requests'),
+          MarketswaveData.selectTable('sell_requests')
+        ]).then(function (results) {
+          return {
+            account: results[0],
+            holdings: results[1],
+            ledger: results[2],
+            tpv: results[3].totalPortfolioValue,
+            products: results[4].map(function (p) {
+              return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price };
+            }),
+            allocationRequests: results[5].map(function (r) {
+              return { id: r.id, productId: r.product_id, requestedAmount: r.requested_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
+            }),
+            sellRequests: results[6].map(function (r) {
+              return { id: r.id, productId: r.product_id, unitsToSell: r.units_to_sell, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
+            })
+          };
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function applyPageData(data) {
+        account = data.account;
+        tpv = data.tpv;
+        holdings = data.holdings;
+        products = data.products;
+        ledger = data.ledger;
+        allocationRequests = data.allocationRequests;
+        sellRequests = data.sellRequests;
+      }
+
+      MarketswaveData.renderAsyncBundle([allocatedEl, allocatedPctEl, unallocatedEl, unallocatedPctEl, returnsEl], {
+        skeletonHTML: '<span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span>',
+        load: loadPageData,
+        render: function (data) {
+          applyPageData(data);
+          renderSummaryCards();
+        }
+      });
+
+      // tableBody (a <tbody>) and myRequestsListEl (a plain <div>) need DIFFERENT skeleton
+      // markup shapes — a <tbody> may only ever contain <tr> elements, so the same skeleton
+      // HTML string can't safely cover both regions at once the way dashboard.html's own
+      // same-shaped regions could. Both share the SAME cached loadPageData() promise (so
+      // reloadTableAndRequests() below still triggers exactly one real re-fetch, not two),
+      // just via two separate renderAsyncBundle calls, each with its own valid skeleton.
+      var myRequestsListEl = document.getElementById('my-requests-list');
+      // forceReload: true after a real write (a submitted Sell) — the shared dataPromise
+      // must be reset first so loadPageData() genuinely re-fetches instead of replaying the
+      // same already-resolved promise. Called with no argument at page-init, where the
+      // summary cards' own bundle (set up just above) already owns the initial shared fetch —
+      // resetting it here too would just force a second, redundant initial round trip.
+      function reloadTableAndRequests(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(tableBody, {
+          skeletonHTML: '<tr><td colspan="7" class="px-6 py-6"><div class="animate-pulse space-y-2">' +
+            '<div class="h-4 bg-slate-200 rounded"></div><div class="h-4 bg-slate-200 rounded w-2/3 mx-auto"></div>' +
+            '</div></td></tr>',
+          load: loadPageData,
+          render: function (data) {
+            applyPageData(data);
+            renderReturnTable();
+          }
+        });
+        MarketswaveData.renderAsyncBundle(myRequestsListEl, {
+          skeletonHTML: '<div class="animate-pulse p-6 space-y-3">' +
+            '<div class="h-4 bg-slate-200 rounded"></div>' +
+            '<div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
+            '<div class="h-4 bg-slate-200 rounded w-2/3"></div>' +
+            '</div>',
+          load: loadPageData,
+          render: function (data) {
+            applyPageData(data);
+            renderMyRequests();
+          }
+        });
+      }
+      reloadTableAndRequests();
 
       // ---- Toast — shared by Sell Request below (Request Allocation, and its own use of
       // this same #allocation-toast element, moved to asset-collection.html, Aug 21, 2026) ----
@@ -508,16 +651,28 @@
         sellSubmitBtn.addEventListener('click', function () {
           if (sellSubmitBtn.disabled) return;
           var units = sellState.unitsToSell;
+          var productId = sellState.productId;
           var product = sellState.product;
-          try {
-            requestSell(sellState.productId, units);
+
+          // This project's second real write action (after Request Allocation). The
+          // client-side preview above (updateSellPreview()) already disables this button for
+          // an invalid amount — the only client-side gate that existed before this stage,
+          // same "investigated, not assumed" finding as Request Allocation's own comment.
+          // The real server-side re-validation (against the CURRENT holding, which may have
+          // shifted since the modal opened) is request-sell/index.ts's own job — its exact
+          // rejection message is shown verbatim via writeErrorMessage(). The modal stays open
+          // with the button in its busy state while the request is in flight, and only closes
+          // on genuine success — a failure leaves it open with the real error visible via
+          // toast, so the client can see exactly what to fix without having to reopen it.
+          MarketswaveData.withButtonBusy(sellSubmitBtn, 'Submitting...', function () {
+            return MarketswaveData.callFunction('request-sell', { productId: productId, unitsToSell: units });
+          }).then(function () {
             closeSellModal();
             showToast('Sell Request Sent', units.toFixed(4) + ' units of ' + product.name + ' submitted. Pending Portfolio Manager approval.', false);
-            renderReturnTable();
-            renderMyRequests();
-          } catch (err) {
-            showToast('Request Not Sent', err.message, true);
-          }
+            reloadTableAndRequests(true);
+          }).catch(function (err) {
+            showToast('Request Not Sent', MarketswaveData.writeErrorMessage(err), true);
+          });
         });
       }
     })();

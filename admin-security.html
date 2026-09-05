@@ -56,6 +56,17 @@
   </script>
 
   <script>
+    // Admin UI Wiring — Final Stage (2026-09-03): investigated directly, per instruction,
+    // rather than assumed. No real Supabase table or Edge Function exists anywhere for a
+    // password-reset/2FA-reset action log — confirmed via a project-wide grep of every
+    // supabase/migrations/*.sql file and supabase/functions/ directory for any table/function
+    // resembling "security_actions"/"reset_log"/similar; none exists. This mirrors
+    // settings.html's own Stage 5 finding that 2FA itself has no real Supabase backend
+    // (resetClientPassword()/resetClient2FA(), the two local functions this log records,
+    // remain 100% local engine-core.js calls — see admin-clients.html's own comment on those
+    // two functions for the full, still-accurate "why" of what each one really does). Left
+    // correctly local — wiring nothing fake here, per instruction — reading
+    // getSecurityActionsLog() exactly as before. No code below this comment changed.
     (function () {
       if (typeof getSecurityActionsLog !== 'function') return; // engine-core.js failed to load — bail defensively
 

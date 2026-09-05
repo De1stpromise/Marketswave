@@ -172,13 +172,24 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('hys');
   </script>
 
   <script>
+    // Admin UI Wiring — Stage 1 (2026-09-03): wired to the real hys_deposit_requests +
+    // hys_withdrawal_requests tables + credit-hys-deposit/reject-hys-deposit/
+    // approve-hys-withdrawal/reject-hys-withdrawal Edge Functions (local stack). See
+    // admin-deposits.html's own comment for the full useAdminClient()/cross-client-RLS
+    // reasoning, identical here — confirmed via Phase B Stage 4's migration that all 3 HYS
+    // tables (hys_pockets/hys_deposit_requests/hys_withdrawal_requests) already grant
+    // admin-SELECT-all. approve-hys-withdrawal/credit-hys-deposit's own real
+    // re-validation-at-approval-time checks (against the pocket's CURRENT state, not the
+    // request-time snapshot) are now exercisable for real through this actual admin UI.
     (function () {
-      if (typeof getAllClientHYSDepositRequests !== 'function' || typeof getAllClientHYSWithdrawalRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -210,6 +221,11 @@
         return '$' + Math.round(n).toLocaleString();
       }
 
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+
+      var depositRequests = [];
+      var withdrawalRequests = [];
+
       function pocketTypeLabel(r) {
         return r.pocketType === 'fixed' ? ('Fixed Deposit (' + r.termLabel + ' @ ' + r.rate + '% APR)') : 'As You Want';
       }
@@ -230,8 +246,8 @@
       }
 
       function renderPending() {
-        var requests = getAllClientHYSDepositRequests().filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = depositRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
@@ -248,7 +264,7 @@
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + formatUSD(r.requestedAmount) + ' · ' + pocketTypeLabel(r) + '</p>' +
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
@@ -262,8 +278,8 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientHYSDepositRequests().filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = depositRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('history-list');
 
         if (requests.length === 0) {
@@ -286,7 +302,7 @@
             var creditedCell = r.status === 'credited'
               ? formatUSD(r.creditedAmount) + (Math.round(r.creditedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
               : '—';
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
@@ -299,16 +315,16 @@
           }).join('') + '</tbody></table>';
       }
 
-      // ---- Withdrawal Requests (Aug 27, 2026) — mirrors renderPending()/renderHistory()
-      // above in shape, but reads getAllClientHYSWithdrawalRequests() and shows
-      // receiveAmount/forfeit instead of requestedAmount/creditedAmount, since an HYS
-      // withdrawal's amount is deterministic, not PM-editable. pocketTypeLabel()/
-      // detailsHTML() above are reused as-is — both already generic enough to cover a
-      // withdrawal request's shape (pocketType/termLabel, destinationDetails) without
-      // modification. ----
+      // ---- Withdrawal Requests (Aug 27, 2026; Supabase-wired Sep 3, 2026) — mirrors
+      // renderPending()/renderHistory() above in shape, but reads loadWithdrawalData()'s own
+      // real hys_withdrawal_requests rows and shows receiveAmount/forfeit instead of
+      // requestedAmount/creditedAmount, since an HYS withdrawal's amount is deterministic,
+      // not PM-editable. pocketTypeLabel()/detailsHTML() above are reused as-is — both
+      // already generic enough to cover a withdrawal request's shape (pocketType/termLabel,
+      // destinationDetails) without modification. ----
       function renderWdPending() {
-        var requests = getAllClientHYSWithdrawalRequests().filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = withdrawalRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('wd-pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('wd-pending-list');
 
@@ -327,7 +343,7 @@
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
                 forfeitBadge +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + formatUSD(r.receiveAmount) + ' · ' + pocketTypeLabel(r) + '</p>' +
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.destinationDetails) + '</div>' +
@@ -341,8 +357,8 @@
       }
 
       function renderWdHistory() {
-        var requests = getAllClientHYSWithdrawalRequests().filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = withdrawalRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('wd-history-list');
 
         if (requests.length === 0) {
@@ -362,7 +378,7 @@
             var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             var amountCell = formatUSD(r.receiveAmount) + (r.forfeit ? ' <span class="text-red-500 text-xs">(forfeited)</span>' : '');
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
@@ -374,11 +390,82 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
-        renderWdPending();
-        renderWdHistory();
+      var depositDataPromise = null;
+      function loadDepositData() {
+        if (depositDataPromise) return depositDataPromise;
+        depositDataPromise = Promise.all([
+          MarketswaveData.selectTable('hys_deposit_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              pocketType: r.pocket_type, termMode: r.term_mode, termMonths: r.term_months,
+              termYears: r.term_years, termLabel: r.term_label, rate: r.rate,
+              termInYears: r.term_in_years, requestedAmount: r.requested_amount,
+              method: r.method, currency: r.currency, details: r.details, status: r.status,
+              requestedAt: r.requested_at, resolvedAt: r.resolved_at,
+              creditedAmount: r.credited_amount, pocketId: r.pocket_id,
+              transactionId: r.transaction_id, reason: r.reason
+            };
+          });
+        }).catch(function (err) {
+          depositDataPromise = null;
+          throw err;
+        });
+        return depositDataPromise;
+      }
+
+      var withdrawalDataPromise = null;
+      function loadWithdrawalData() {
+        if (withdrawalDataPromise) return withdrawalDataPromise;
+        withdrawalDataPromise = Promise.all([
+          MarketswaveData.selectTable('hys_withdrawal_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              pocketId: r.pocket_id, pocketType: r.pocket_type, termLabel: r.term_label,
+              forfeit: r.forfeit, receiveAmount: r.receive_amount, method: r.method,
+              destinationDetails: r.destination_details, status: r.status,
+              requestedAt: r.requested_at, resolvedAt: r.resolved_at,
+              transactionId: r.transaction_id, reason: r.reason
+            };
+          });
+        }).catch(function (err) {
+          withdrawalDataPromise = null;
+          throw err;
+        });
+        return withdrawalDataPromise;
+      }
+
+      function reloadAll(forceReload) {
+        if (forceReload) { depositDataPromise = null; withdrawalDataPromise = null; }
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadDepositData,
+          render: function (data) { depositRequests = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadDepositData,
+          render: function (data) { depositRequests = data; renderHistory(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('wd-pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadWithdrawalData,
+          render: function (data) { withdrawalRequests = data; renderWdPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('wd-history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadWithdrawalData,
+          render: function (data) { withdrawalRequests = data; renderWdHistory(); }
+        });
       }
 
       // ---- Credit modal ----
@@ -405,16 +492,19 @@
       document.getElementById('credit-modal-backdrop').addEventListener('click', closeCreditModal);
       document.getElementById('credit-cancel').addEventListener('click', closeCreditModal);
       document.getElementById('credit-submit').addEventListener('click', function () {
+        var requestId = activeCreditId;
         var amount = parseFloat(creditAmountInput.value);
-        try {
-          var result = creditHYSDeposit(activeCreditClientId, activeCreditId, amount);
+        var btn = document.getElementById('credit-submit');
+        MarketswaveData.withButtonBusy(btn, 'Crediting...', function () {
+          return MarketswaveData.callFunction('credit-hys-deposit', { requestId: requestId, confirmedAmount: amount });
+        }).then(function (result) {
           closeCreditModal();
           showToast('Pocket Opened', result.id + ' — $' + result.creditedAmount.toLocaleString() + ' pocket created for the client.');
-          renderAll();
-        } catch (e) {
-          creditError.textContent = e.message;
+          reloadAll(true);
+        }).catch(function (err) {
+          creditError.textContent = MarketswaveData.writeErrorMessage(err);
           creditError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject modal ----
@@ -437,15 +527,19 @@
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectHYSDeposit(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+        var requestId = activeRejectId;
+        var reason = rejectReasonInput.value.trim();
+        var btn = document.getElementById('reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-hys-deposit', { requestId: requestId, reason: reason });
+        }).then(function (result) {
           closeRejectModal();
           showToast('HYS Deposit Rejected', result.id + ' has been rejected.', true);
-          renderAll();
-        } catch (e) {
-          rejectError.textContent = e.message;
+          reloadAll(true);
+        }).catch(function (err) {
+          rejectError.textContent = MarketswaveData.writeErrorMessage(err);
           rejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for row buttons ----
@@ -481,15 +575,22 @@
       document.getElementById('wd-approve-modal-backdrop').addEventListener('click', closeWdApproveModal);
       document.getElementById('wd-approve-cancel').addEventListener('click', closeWdApproveModal);
       document.getElementById('wd-approve-submit').addEventListener('click', function () {
-        try {
-          var result = approveHYSWithdrawal(activeWdApproveClientId, activeWdApproveId);
+        var requestId = activeWdApproveId;
+        var btn = document.getElementById('wd-approve-submit');
+        // approve-hys-withdrawal re-validates against the pocket's CURRENT state server-side
+        // (not the request-time snapshot) and rejects with a real 409 if the pocket was
+        // already withdrawn through some other resolved request — surfaced verbatim here via
+        // writeErrorMessage() rather than assumed to always succeed.
+        MarketswaveData.withButtonBusy(btn, 'Approving...', function () {
+          return MarketswaveData.callFunction('approve-hys-withdrawal', { requestId: requestId });
+        }).then(function (result) {
           closeWdApproveModal();
           showToast('Withdrawal Approved', result.id + ' — ' + formatUSD(result.receiveAmount) + ' paid out, pocket marked withdrawn.');
-          renderAll();
-        } catch (e) {
-          wdApproveError.textContent = e.message;
+          reloadAll(true);
+        }).catch(function (err) {
+          wdApproveError.textContent = MarketswaveData.writeErrorMessage(err);
           wdApproveError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject Withdrawal modal ----
@@ -512,15 +613,19 @@
       document.getElementById('wd-reject-modal-backdrop').addEventListener('click', closeWdRejectModal);
       document.getElementById('wd-reject-cancel').addEventListener('click', closeWdRejectModal);
       document.getElementById('wd-reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectHYSWithdrawal(activeWdRejectClientId, activeWdRejectId, wdRejectReasonInput.value.trim());
+        var requestId = activeWdRejectId;
+        var reason = wdRejectReasonInput.value.trim();
+        var btn = document.getElementById('wd-reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-hys-withdrawal', { requestId: requestId, reason: reason });
+        }).then(function (result) {
           closeWdRejectModal();
           showToast('HYS Withdrawal Rejected', result.id + ' has been rejected.', true);
-          renderAll();
-        } catch (e) {
-          wdRejectError.textContent = e.message;
+          reloadAll(true);
+        }).catch(function (err) {
+          wdRejectError.textContent = MarketswaveData.writeErrorMessage(err);
           wdRejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for withdrawal row buttons ----
@@ -534,7 +639,7 @@
         if (rejectBtn) openWdRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
-      renderAll();
+      reloadAll(true);
     })();
   </script>
 

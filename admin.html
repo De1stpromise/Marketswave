@@ -219,75 +219,104 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('overview');
   </script>
 
   <script>
+    // Admin UI Wiring — Final Stage (2026-09-03): every domain this page counts is now real
+    // (7 of 7 Approval Gate queues, Documents, Support, Product Catalog) except Security Log,
+    // which stays local by design — investigated directly (mirroring settings.html's own Stage
+    // 5 finding on 2FA): no real Supabase table/Edge Function exists for the local
+    // password-reset/2FA-reset action log, so its card keeps reading getSecurityActionsLog()
+    // exactly as before, left correctly local rather than fake-wired. Every count below is a
+    // direct, RLS-authorized cross-client read (admin-claimed JWT already grants SELECT-all on
+    // every one of these tables per each migration's own policy) — no Edge Function needed for
+    // any of them, same "RLS itself already permits this read" reasoning as every prior
+    // cross-client admin page in this project.
     (function () {
-      if (typeof getDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
-      // Client Registry is already global/unscoped (one array, not per-client-scoped
-      // stores), so getPendingClientApplications() already sees every applicant in one
-      // read — no ambient-vs-cross-client distinction to worry about here, unlike the
-      // deposit/withdrawal/etc. counts right below.
-      var clientApplicationsCount = typeof getPendingClientApplications === 'function' ? getPendingClientApplications().length : 0;
-      var depositCount = getDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      var hysCount = getHYSDepositRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      // Ambient getter (Aug 27, 2026, the HYS withdrawal approval-gate fix) — same
-      // currently-active-client-only convention as its direct sibling above, for the same
-      // reason (flagged, not fixed, consistent with the rest of this card group).
-      var hysWithdrawalCount = getHYSWithdrawalRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      var allocationCount = getAllocationRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      var sellCount = getSellRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      // Ambient getter, matching Deposits/Allocations/Sells/HYS above (all 4 count only the
-      // currently-active client's own pending items, a real pre-existing inconsistency with
-      // Documents/Support/Client Profile Updates below, which DO cross-client aggregate —
-      // not introduced or fixed by this addition, flagged and left as-is for consistency
-      // with this card's own direct siblings).
-      var withdrawalCount = getWithdrawalRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      // Documents/Support are cross-client aggregated (unlike the four queues above, which
-      // only ever count the currently-selected client's own pending items) — matching how
-      // admin-documents.html/admin-support.html themselves aggregate across every client.
-      var documentsCount = getAllClientDocuments().filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }).length;
-      var supportCount = getAllClientSupportRequests().filter(function (r) { return r.status !== 'Resolved'; }).length;
-      var settingsChangesCount = getAllClientSettingsChangeRequests().filter(function (r) { return r.status === 'pending'; }).length;
-      // Not a pending count — Account Security is a log, not a queue — so it's deliberately
-      // excluded from the all-clear check below, same treatment as the Advisory Fee Rate card.
+      function countWhere(table, predicate) {
+        return MarketswaveData.selectTable(table).then(function (rows) {
+          return rows.filter(predicate).length;
+        });
+      }
+
+      var counts = {
+        clientApplications: countWhere('clients', function (c) { return c.status === 'pending_review'; }),
+        deposits: countWhere('deposit_requests', function (r) { return r.status === 'pending'; }),
+        withdrawals: countWhere('withdrawal_requests', function (r) { return r.status === 'pending'; }),
+        allocations: countWhere('allocation_requests', function (r) { return r.status === 'pending'; }),
+        sells: countWhere('sell_requests', function (r) { return r.status === 'pending'; }),
+        hys: countWhere('hys_deposit_requests', function (r) { return r.status === 'pending'; }),
+        hysWithdrawals: countWhere('hys_withdrawal_requests', function (r) { return r.status === 'pending'; }),
+        settingsChanges: countWhere('profile_change_requests', function (r) { return r.status === 'pending'; }),
+        documents: countWhere('documents', function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }),
+        support: countWhere('support_requests', function (r) { return r.status !== 'Resolved'; })
+      };
+
+      var CARD_IDS = {
+        clientApplications: 'pending-client-applications-count',
+        deposits: 'pending-deposits-count',
+        withdrawals: 'pending-withdrawals-count',
+        allocations: 'pending-allocations-count',
+        sells: 'pending-sells-count',
+        hys: 'pending-hys-count',
+        hysWithdrawals: 'pending-hys-withdrawals-count',
+        settingsChanges: 'pending-settings-changes-count',
+        documents: 'pending-documents-count',
+        support: 'pending-support-count'
+      };
+
+      Object.keys(counts).forEach(function (key) {
+        var el = document.getElementById(CARD_IDS[key]);
+        counts[key].then(function (n) {
+          el.textContent = n;
+        }).catch(function () {
+          el.textContent = '—';
+        });
+      });
+
+      Promise.all(Object.keys(counts).map(function (key) { return counts[key]; }))
+        .then(function (values) {
+          if (values.every(function (n) { return n === 0; })) {
+            document.getElementById('all-clear-banner').style.display = '';
+          }
+        })
+        .catch(function () { /* one or more counts failed to load — leave the banner hidden rather than claim all-clear on incomplete data */ });
+
+      // Not a pending count — Account Security is a log, not a queue, and stays fully local
+      // (no real backend exists for it — see the header comment above) — deliberately excluded
+      // from the all-clear check above, same treatment it always had.
       if (typeof getSecurityActionsLog === 'function') {
         document.getElementById('security-actions-count').textContent = getSecurityActionsLog().length;
       }
 
-      document.getElementById('pending-client-applications-count').textContent = clientApplicationsCount;
-      document.getElementById('pending-deposits-count').textContent = depositCount;
-      document.getElementById('pending-withdrawals-count').textContent = withdrawalCount;
-      document.getElementById('pending-hys-count').textContent = hysCount;
-      document.getElementById('pending-hys-withdrawals-count').textContent = hysWithdrawalCount;
-      document.getElementById('pending-allocations-count').textContent = allocationCount;
-      document.getElementById('pending-sells-count').textContent = sellCount;
-      document.getElementById('pending-documents-count').textContent = documentsCount;
-      document.getElementById('pending-support-count').textContent = supportCount;
-      document.getElementById('pending-settings-changes-count').textContent = settingsChangesCount;
+      // The Advisory Fee card has no pending-count concept — it's configuration, not a queue —
+      // so it shows the current global rate instead. Now a real, genuinely global Supabase
+      // value (advisory_fee_rate, Admin UI Wiring Final Stage), not the local engine's own
+      // getAdvisoryFeeRate(). A fresh local stack may have no row yet if the rate has never
+      // been saved through admin-advisory-fee.html — shown as "—" rather than a fabricated
+      // default.
+      MarketswaveData.selectTable('advisory_fee_rate').then(function (rows) {
+        var rate = rows && rows[0] ? rows[0].rate : null;
+        document.getElementById('advisory-fee-rate').textContent = rate !== null ? rate + '%' : '—';
+      }).catch(function () {
+        document.getElementById('advisory-fee-rate').textContent = '—';
+      });
 
-      // The Settings section's Advisory Fee card has no pending-count concept — it's
-      // configuration, not a queue — so it shows the current advisory fee rate instead. As of
-      // Aug 27, 2026 this is a genuinely global value (getAdvisoryFeeRate()), not ambient to
-      // whichever client happens to be active — see engine-core.js's ADVISORY_FEE_RATE_KEY
-      // comment for the scope-bug history this closes.
-      if (typeof getAdvisoryFeeRate === 'function') {
-        document.getElementById('advisory-fee-rate').textContent = getAdvisoryFeeRate() + '%';
-      }
-
-      // Product Catalog is global, not per-client — a plain total count, same non-count
-      // treatment as the Advisory Fee Rate card above, deliberately excluded from the
-      // all-clear check below (it's not a pending queue either).
-      if (typeof getAllProducts === 'function') {
-        document.getElementById('product-count').textContent = getAllProducts().length;
-      }
-
-      if (clientApplicationsCount === 0 && depositCount === 0 && withdrawalCount === 0 && hysCount === 0 && hysWithdrawalCount === 0 && allocationCount === 0 && sellCount === 0 && documentsCount === 0 && supportCount === 0 && settingsChangesCount === 0) {
-        document.getElementById('all-clear-banner').style.display = '';
-      }
+      // Product Catalog is global, not per-client — a plain total count from the real
+      // products table (already read by dashboard.html/risk-management.html/asset-collection
+      // & asset-performance.html), deliberately excluded from the all-clear check above (not a
+      // pending queue either).
+      MarketswaveData.selectTable('products').then(function (rows) {
+        document.getElementById('product-count').textContent = rows.length;
+      }).catch(function () {
+        document.getElementById('product-count').textContent = '—';
+      });
     })();
   </script>
 

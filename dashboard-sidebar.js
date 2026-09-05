@@ -109,10 +109,24 @@
   // visit, since nothing on those pages ever touched the element. Masked on a fresh install
   // only because the seed data's real urgentCount also happens to be 2 by coincidence; any
   // real change to a client's document state (sign a document, have a new one published,
-  // etc.) exposed the staleness on 9 of 10 client-facing pages. Now computed for real, at
-  // mount time, from getDocumentNotificationCounts() — the same engine-core.js function
-  // documents.html's own correction and the notification bell already use — so the badge is
-  // correct from the very first paint on every page, not hardcoded-then-corrected.
+  // etc.) exposed the staleness on 9 of 10 client-facing pages. That fix computed the count,
+  // at mount time, from getDocumentNotificationCounts() — a real engine-core.js function at
+  // the time.
+  //
+  // ★ Bug-fix rewrite (2026-09-03): getDocumentNotificationCounts() now reads a local,
+  // long-stale closure array — documents.html was wired to the real Supabase `documents`
+  // table in UI Wiring Stage 4, and its own script was already fixed then to compute its own
+  // 3 body-content chips AND re-correct #sidebar-doc-badge from the real fetched data (see
+  // its own computeNotificationCounts()/refreshNotificationCounts()) — but this file's own
+  // MOUNT-TIME render (which runs on all 9 OTHER client-facing pages, not documents.html
+  // itself) never got the same fix, so every page besides documents.html was still showing a
+  // stale local count. fetchDocumentBadgeCount() below is a real Supabase read, mirroring
+  // documents.html's own real urgentCount rule (isNew/is_new || status === 'Signature
+  // Required') exactly, just against real column names. Since this is now genuinely async,
+  // the sidebar still renders synchronously first with the badge in its default hidden
+  // state (never a fake placeholder count) and patches in the real number once the fetch
+  // resolves — see fetchDocumentBadgeCount()'s own call site at the end of
+  // initDashboardSidebar() below.
   var ACTIVE_MAIN = 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white font-medium';
   var INACTIVE_MAIN = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition';
   var ACTIVE_FOOTER = 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white transition text-sm font-medium';
@@ -131,6 +145,19 @@
       '<svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + item.icon + '"/></svg>' +
       inner +
       '</a>';
+  }
+
+  // Real Supabase read for the sidebar's own Documents badge count — see the file-level
+  // comment above navLinkHTML() for the full "why now, why async" reasoning. Mirrors
+  // documents.html's own real computeNotificationCounts() urgentCount rule exactly (is_new
+  // OR status === 'Signature Required'), against real column names, so both places can never
+  // silently disagree about what counts as "urgent." Fails closed to 0 (hidden badge), never
+  // a fake nonzero placeholder, if supabase-data.js isn't loaded or the fetch itself fails.
+  function fetchDocumentBadgeCount() {
+    if (typeof MarketswaveData === 'undefined') return Promise.resolve(0);
+    return MarketswaveData.selectTable('documents').then(function (rows) {
+      return rows.reduce(function (n, d) { return (d.is_new || d.status === 'Signature Required') ? n + 1 : n; }, 0);
+    }).catch(function () { return 0; });
   }
 
   function footerLinkHTML(href, key, label, iconPaths, activePage) {
@@ -198,9 +225,9 @@
     // <script> tag, same as getClient()/getClientInitials() above). Falls back to 0 (hidden
     // badge) only if something is genuinely wrong, e.g. engine-core.js failed to load —
     // never a fake nonzero placeholder.
-    var docBadgeCount = (typeof getDocumentNotificationCounts === 'function')
-      ? getDocumentNotificationCounts().urgentCount
-      : 0;
+    // Starts hidden/0 — the real count is fetched and patched in below, once
+    // fetchDocumentBadgeCount() resolves; never a fake interim value.
+    var docBadgeCount = 0;
 
     var navHTML = NAV_ITEMS.map(function (item) { return navLinkHTML(item, activePage, docBadgeCount); }).join('');
 
@@ -256,6 +283,19 @@
 
     wireLogoutLinks();
     preserveEnvParamInPageLinks();
+
+    // Real, async — patches the just-mounted badge in place once the real count arrives.
+    // documents.html's own script runs this exact same real query independently right after
+    // (via computeNotificationCounts()/refreshNotificationCounts()) and will correctly patch
+    // it again the moment ITS OWN fetch resolves — both converge on the same real number,
+    // this call just means the other 9 pages are no longer permanently stuck on the hidden
+    // default.
+    fetchDocumentBadgeCount().then(function (count) {
+      var badge = document.getElementById('sidebar-doc-badge');
+      if (!badge) return;
+      badge.textContent = String(count);
+      badge.classList.toggle('hidden', count === 0);
+    });
   }
 
   // Logout is a plain <a href="index.html">Logout</a> duplicated in every page's own

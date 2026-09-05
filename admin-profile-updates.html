@@ -112,31 +112,40 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="format-helpers.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('settings-changes');
   </script>
 
   <script>
-    (function () {
-      if (typeof getAllClientSettingsChangeRequests !== 'function') return; // engine-core.js failed to load — bail defensively
-
-      // dateOfBirth kept here deliberately (Aug 21, 2026), even though it was removed as a
-      // requestable field in settings.html/engine-core.js the same day: any dateOfBirth
-      // record already in marketswave_settings_change_requests test data was NOT deleted
-      // (per instruction — kept as an example of why the field's type mismatch mattered), so
-      // this queue must still be able to render and resolve it correctly rather than show
-      // "undefined" or crash. No new dateOfBirth request can ever reach this page again —
-      // requestSettingsChange('dateOfBirth', ...) throws at the source.
+    // Admin UI Wiring — Final Stage (2026-09-03): the one queue genuinely missed by Admin UI
+    // Wiring Stage 1's own five-page scope. Real backend confirmed to exist (Phase B Stage 5:
+    // client_profiles, profile_change_requests, request-profile-change/approve-profile-change/
+    // reject-profile-change), and settings.html's own client-side half was already wired to it
+    // (UI Wiring Stage 5) — this page is the missing admin half of that same real domain.
+    // Wired the same way as Admin UI Wiring Stage 1's five queues: MarketswaveData.useAdminClient()
+    // + selectTable('profile_change_requests') (RLS's own admin-SELECT-all policy already grants
+    // this cross-client read, no Edge Function needed for the LIST) joined client-side against
+    // selectTable('clients') for a display name, same "no Edge Function needed, RLS itself
+    // already permits this read" reasoning as admin-deposits.html's own identical join. Approve/
+    // Reject route through the real approve-profile-change/reject-profile-change Edge Functions.
+    //
+    // dateOfBirth kept here deliberately (Aug 21, 2026), even though it was removed as a
+    // requestable field in settings.html/engine-core.js the same day: any dateOfBirth
+    // record already in local test data (marketswave_settings_change_requests, the NOW-RETIRED
+    // local store this page used before this stage) was NOT deleted (per instruction — kept as
+    // an example of why the field's type mismatch mattered). The real profile_change_requests
+    // table's own `field` CHECK constraint only allows 'legalName'/'address'/'idDocument' —
+    // dateOfBirth can never reach the real backend at all — but FIELD_LABELS/formatFieldDisplay()
+    // keep the branch anyway, purely so a legacy LOCAL record (if this page is ever pointed back
+    // at engine-core.js's own local functions for any reason) still renders correctly rather
+    // than crashing. Inert against real data today.
       var FIELD_LABELS = { legalName: 'Legal Name', dateOfBirth: 'Date of Birth', address: 'Address', idDocument: 'ID / Document' };
       var STATUS_STYLES = { pending: 'bg-amber-50 text-amber-700', approved: 'bg-emerald-50 text-emerald-700', rejected: 'bg-red-50 text-red-700' };
 
-      // formatDateDisplay()/formatFieldDisplay() now live in format-helpers.js (Aug 23,
-      // 2026), closing the structural debt this comment used to flag — both this page and
-      // settings.html now call the same shared copy instead of hand-kept duplicates. The
-      // shared version's formatFieldDisplay() keeps the dateOfBirth branch this page relies
-      // on (a legacy pending/resolved record may still name that field — see the FIELD_LABELS
-      // comment above), even though settings.html itself has no dateOfBirth UI left to call
-      // it with.
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
@@ -152,10 +161,17 @@
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
       }
 
+      // Real requested_at/resolved_at are full ISO timestamptz values — sorting directly on
+      // the real ISO string is already correct, same real simplification every prior
+      // UI-wiring stage's own "My Requests"-style tables already found (no local
+      // requestedAtMs-equivalent field needed).
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+
+      var profileRequests = [];
+
       function renderPending() {
-        var requests = getAllClientSettingsChangeRequests()
-          .filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = profileRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
@@ -172,7 +188,7 @@
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">' + FIELD_LABELS[r.field] + '</span>' +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-sm text-slate-500">Current: <span class="text-slate-700">' + currentDisplay + '</span></p>' +
               '<p class="text-sm text-slate-900 font-medium">Requested: ' + requestedDisplay + '</p>' +
@@ -187,9 +203,8 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientSettingsChangeRequests()
-          .filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = profileRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('history-list');
 
         if (requests.length === 0) {
@@ -207,7 +222,7 @@
           requests.map(function (r) {
             var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.resolutionNote ? ' — ' + r.resolutionNote : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.resolutionNote ? ' — ' + r.resolutionNote : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + FIELD_LABELS[r.field] + '</td>' +
@@ -221,6 +236,48 @@
       function renderAll() {
         renderPending();
         renderHistory();
+      }
+
+      // ---- Real data load — cross-client (RLS's own SELECT policy already grants an
+      // admin-claimed caller every client's own rows). `clients` is fetched alongside since
+      // profile_change_requests rows only carry client_id, not a display name — joined
+      // client-side, same pattern as admin-deposits.html's own identical join. ----
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('profile_change_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              field: r.field, currentValue: r.current_value, requestedValue: r.requested_value,
+              reason: r.reason, status: r.status, requestedAt: r.requested_at,
+              resolvedAt: r.resolved_at, resolutionNote: r.resolution_note
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { profileRequests = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { profileRequests = data; renderHistory(); }
+        });
       }
 
       // ---- Approve modal ----
@@ -245,15 +302,18 @@
       document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
       document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
       document.getElementById('approve-submit').addEventListener('click', function () {
-        try {
-          var result = approveSettingsChangeRequest(activeApproveClientId, activeApproveId);
+        var requestId = activeApproveId;
+        var btn = document.getElementById('approve-submit');
+        MarketswaveData.withButtonBusy(btn, 'Approving...', function () {
+          return MarketswaveData.callFunction('approve-profile-change', { requestId: requestId });
+        }).then(function (result) {
           closeApproveModal();
           showToast('Change Approved', result.id + ' (' + FIELD_LABELS[result.field] + ') applied to the client\'s profile.');
-          renderAll();
-        } catch (e) {
-          approveError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          approveError.textContent = MarketswaveData.writeErrorMessage(err);
           approveError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject modal ----
@@ -276,15 +336,19 @@
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectSettingsChangeRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+        var requestId = activeRejectId;
+        var resolutionNote = rejectReasonInput.value.trim() || null;
+        var btn = document.getElementById('reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-profile-change', { requestId: requestId, resolutionNote: resolutionNote });
+        }).then(function (result) {
           closeRejectModal();
           showToast('Change Rejected', result.id + ' has been rejected. No change applied.', true);
-          renderAll();
-        } catch (e) {
-          rejectError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          rejectError.textContent = MarketswaveData.writeErrorMessage(err);
           rejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for row buttons ----
@@ -298,7 +362,7 @@
         if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

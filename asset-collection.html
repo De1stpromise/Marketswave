@@ -119,6 +119,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     // No dedicated nav item for this page (the locked sidebar menu order is fixed — see
@@ -131,17 +132,29 @@
   </script>
 
   <script>
-    // Extracted from asset-performance.html (Aug 21, 2026) — same requestAllocation() calls,
-    // same "Pending PM approval" flow, unchanged behavior. New here: search (by name) and a
-    // genuinely load-bearing category filter (previously cosmetic on a 4-product catalog),
-    // plus a "Load More" control instead of an unbounded grid — chosen over numbered
-    // pagination as the simpler option given the existing card markup is a single
-    // .map().join() render into one container; Load More just re-renders a larger slice of
-    // the same already-filtered array, no page-index bookkeeping needed.
+    // UI Wiring — Stage 2 (2026-09-03): the product catalog and holdings-dependent card state
+    // (badges, "already holding this" indicators) now come from real Supabase — a direct
+    // RLS-authorized `products` read plus Phase B Stage 1's get-holdings — and Request
+    // Allocation calls the real Phase B Stage 3 request-allocation Edge Function instead of
+    // the local engine. Reuses supabase-data.js's canonical pattern exactly (renderAsyncBundle
+    // for the read, withButtonBusy/callFunction/writeErrorMessage for the write) — see that
+    // file's own header comments for the full convention this stage did not reinvent.
+    //
+    // Products Catalog Fix (2026-09-03): closes the real gap flagged when this stage was
+    // originally built — the real `products` table now genuinely carries
+    // description/extended_description/logo_url (a new migration + admin-only
+    // add-product/edit-product Edge Functions, see admin-products.html's own header comment
+    // for the full fix), so these three fields are now mapped for real below instead of left
+    // undefined. The existing card-rendering code needed ZERO changes — it already handled an
+    // unset value for each of these gracefully (no logo box outside its category default,
+    // initials fallback, no "More info" link when extendedDescription is empty), and that
+    // same code now renders a REAL value once one is actually set through the real admin UI.
+    //
+    // Search (by name), the category filter, and "Load More" are all unchanged in behavior —
+    // they operate on the SAME already-fetched arrays as before, just populated asynchronously
+    // now instead of synchronously at page load.
     (function () {
-      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
-
-      settleAllProducts(); // catch prices up to today before reading any engine value
+      if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
       var UNALLOCATABLE_CLASS = 'Unallocated / Cash';
       var PAGE_SIZE = 9;
@@ -155,11 +168,27 @@
         });
       }
 
-      var holdings = getHoldings();
-      var allocatableProducts = getAllProducts().filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
+      // Real holdings/products, populated once the async load below resolves — everything
+      // that reads these is only ever invoked from inside render()/the click handler, both of
+      // which only run after that first population (render() is only ever called from the
+      // async render() callback or from a control wired up inside it).
+      var holdings = [];
+      var allocatableProducts = [];
 
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
       function productById(id) { return allocatableProducts.find(function (p) { return p.id === id; }); }
+
+      // Pure port of engine-core.js's own getUnrealizedReturnPercent(productId) — real holding
+      // + real live unit_price, computed client-side from the already-fetched data rather than
+      // a dedicated Edge Function (no server-side-only logic here worth a round trip for).
+      function getUnrealizedReturnPercent(productId) {
+        var holding = holdingByProductId(productId);
+        if (!holding || holding.costBasis === 0) return 0;
+        var product = productById(productId);
+        if (!product) return 0;
+        var unrealized = holding.units * product.unitPrice - holding.costBasis;
+        return Math.round((unrealized / holding.costBasis) * 10000) / 100;
+      }
 
       // ---- Search + filter — pure functions, same shape as admin-clients.html's own
       // matchesSearch()/matchesTypeFilter()/applyFilters() precedent. ----
@@ -243,8 +272,12 @@
       var cardsGrid = document.getElementById('asset-cards-grid');
       var noResultsEl = document.getElementById('no-results');
       var loadMoreBtn = document.getElementById('load-more-btn');
+      var dataLoaded = false; // guards render() against firing on a search/tab/load-more
+      // interaction that happens to land during the initial async load, before there is
+      // real data to filter/render against.
 
       function render() {
+        if (!dataLoaded) return;
         var filtered = applyFilters(allocatableProducts, searchQuery, categoryFilter);
         var visible = filtered.slice(0, visibleCount);
 
@@ -269,7 +302,41 @@
           });
         });
       }
-      render();
+
+      // ---- Async load: product catalog + holdings, the real replacement for the old
+      // synchronous getAllProducts()/getHoldings() reads. ----
+      MarketswaveData.renderAsyncBundle(cardsGrid, {
+        skeletonHTML: [1, 2, 3].map(function () {
+          return '<div class="border border-slate-200 rounded-xl p-5 animate-pulse space-y-3">' +
+            '<div class="h-5 bg-slate-200 rounded w-3/4"></div>' +
+            '<div class="h-4 bg-slate-200 rounded w-1/2"></div>' +
+            '<div class="h-10 bg-slate-200 rounded"></div>' +
+            '</div>';
+        }).join(''),
+        load: function () {
+          return Promise.all([
+            MarketswaveData.selectTable('products'),
+            MarketswaveData.callFunction('get-holdings')
+          ]).then(function (results) {
+            return {
+              products: results[0].map(function (p) {
+                return {
+                  id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
+                  minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
+                  description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url
+                };
+              }),
+              holdings: results[1]
+            };
+          });
+        },
+        render: function (data) {
+          allocatableProducts = data.products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
+          holdings = data.holdings;
+          dataLoaded = true;
+          render();
+        }
+      });
 
       // ---- Search ----
       document.getElementById('asset-search').addEventListener('input', function (e) {
@@ -350,13 +417,25 @@
           return;
         }
 
-        try {
-          requestAllocation(productId, amount);
+        // This project's FIRST real write action. The only real client-side check that
+        // existed before this stage — a plain positive-number check, above — is unchanged;
+        // investigated and confirmed the local requestAllocation() itself never had a
+        // separate minimum-investment/sufficient-capital pre-check either (those were always
+        // enforced by the callee's own thrown validation, never duplicated client-side) — so
+        // "the server is authoritative" was already true architecturally, not something this
+        // stage had to newly establish. request-allocation/index.ts re-validates both rules
+        // for real, server-side, against the real current unallocated_capital, and its exact
+        // rejection message is shown verbatim via writeErrorMessage() below (see
+        // supabase-data.js's own callFunction()/classifyError() header for why that needs a
+        // real Response body read to work at all, not just the generic HTTP-status string).
+        MarketswaveData.withButtonBusy(btn, 'Sending...', function () {
+          return MarketswaveData.callFunction('request-allocation', { productId: productId, dollarAmount: amount });
+        }).then(function () {
           showToast('Allocation Request Sent', '$' + amount.toLocaleString() + ' requested for ' + product.name + '. Pending Portfolio Manager approval.', false);
           input.value = '';
-        } catch (err) {
-          showToast('Request Not Sent', err.message, true);
-        }
+        }).catch(function (err) {
+          showToast('Request Not Sent', MarketswaveData.writeErrorMessage(err), true);
+        });
       });
     })();
   </script>

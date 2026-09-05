@@ -184,8 +184,8 @@
             </div>
             <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
               <p class="text-xs text-slate-500 mb-1">Portfolio Diversification Score</p>
-              <p class="text-lg font-semibold text-navy">78/100 — Well Diversified</p>
-              <p class="text-xs text-slate-500 mt-1">Highest concentration is Private Equity at 32% of allocated capital, with the remainder spread across four other asset classes.</p>
+              <p class="text-lg font-semibold text-navy" id="diversification-score">—</p>
+              <p class="text-xs text-slate-500 mt-1" id="diversification-concentration">—</p>
               <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200" id="diversification-delta">—</p>
             </div>
           </div>
@@ -271,12 +271,48 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initDashboardSidebar('risk-management');
     initDashboardNotifications();
   </script>
 
   <script>
+    // UI Wiring — Stage 5 (2026-09-03): investigated, per instruction, before wiring anything.
+    // The Risk Meter's own risk-profile selection (conservative/balanced/aggressive, saved to
+    // marketswave_risk_profile) has NO real Supabase equivalent anywhere in Phase B's six
+    // stages — confirmed via a project-wide migration/function grep, not assumed: the only real
+    // schema mention of "risk" anywhere is `products.risk_tier` (Phase B Stage 1), a per-PRODUCT
+    // classification for the portfolio engine's own return simulation, an entirely different
+    // concept from a CLIENT's own selected risk tolerance. This stays 100% local, unchanged
+    // below — see the Backend Requirements Register for the logged gap. The Diversification
+    // Score, however, genuinely DOES have real backing (Stage 1's holdings/products/
+    // account_state/get-total-portfolio-value) and is wired for real further down this file —
+    // see that section's own comment for what was actually wrong with the PRIOR version.
+
+    // ---- Shared between the Risk Meter's own preview-delta comparison (below) and the real
+    // Diversification Score fetch (further down this file) — computeDiversification() and
+    // ASSET_LABELS moved to page scope so both sections can reference the exact same function,
+    // rather than duplicating it. realCurrentDiversification starts null and is populated once
+    // the real fetch resolves; renderDiversificationDelta() (defined inside the Risk Meter's own
+    // IIFE below) already guards against it still being null. ----
+    var ASSET_LABELS = {
+      privateEquity: 'Private Equity',
+      realAssets: 'Real Assets',
+      stocksEtfs: 'Stocks & ETFs',
+      crypto: 'Crypto',
+      cash: 'Unallocated / Cash'
+    };
+    function computeDiversification(mix) {
+      var hhi = Object.values(mix).reduce(function (sum, pct) { return sum + Math.pow(pct / 100, 2); }, 0);
+      var score = Math.round((1 - hhi) * 100);
+      var label = score >= 75 ? 'Well Diversified' : score >= 60 ? 'Moderately Diversified' : 'Concentrated';
+      var topKey = Object.keys(mix)[0];
+      Object.keys(mix).forEach(function (key) { if (mix[key] > mix[topKey]) topKey = key; });
+      return { score: score, label: label, topLabel: ASSET_LABELS[topKey], topPct: mix[topKey] };
+    }
+    var realCurrentDiversification = null;
+
     // Risk Meter preview + save — preview is frontend-only until saved; save persists to localStorage
     (function () {
       // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
@@ -295,29 +331,17 @@
       const TOLERANCE_ORDINAL = { conservative: 1, balanced: 2, aggressive: 3 };
       const CAPACITY_ORDINAL = 2; // client's actual capacity ("Moderate"), fixed demo data
 
-      // Reference model mixes per tolerance level, used only for the diversification delta line.
-      // Balanced === the client's real 32/22/18/12/16 holdings by design.
-      const ASSET_LABELS = {
-        privateEquity: 'Private Equity',
-        realAssets: 'Real Assets',
-        stocksEtfs: 'Stocks & ETFs',
-        crypto: 'Crypto',
-        cash: 'Unallocated / Cash'
-      };
+      // Reference model mixes per tolerance level, used only for the Risk Meter's OWN
+      // hypothetical preview-delta line ("if I switched to X, my score would be Y") — these
+      // stay a static, illustrative reference model, not something owed to real per-client
+      // data (a MODEL portfolio isn't a real holding). ASSET_LABELS/computeDiversification()
+      // moved to page scope (see the top of this file's own script block) so this section and
+      // the real Diversification Score fetch below share the exact same function.
       const MODEL_MIXES = {
         conservative: { privateEquity: 10, realAssets: 20, stocksEtfs: 20, crypto: 5, cash: 45 },
         balanced: { privateEquity: 32, realAssets: 22, stocksEtfs: 18, crypto: 12, cash: 16 },
         aggressive: { privateEquity: 35, realAssets: 15, stocksEtfs: 20, crypto: 25, cash: 5 }
       };
-
-      function computeDiversification(mix) {
-        const hhi = Object.values(mix).reduce((sum, pct) => sum + Math.pow(pct / 100, 2), 0);
-        const score = Math.round((1 - hhi) * 100);
-        const label = score >= 75 ? 'Well Diversified' : score >= 60 ? 'Moderately Diversified' : 'Concentrated';
-        let topKey = Object.keys(mix)[0];
-        Object.keys(mix).forEach(key => { if (mix[key] > mix[topKey]) topKey = key; });
-        return { score, label, topLabel: ASSET_LABELS[topKey], topPct: mix[topKey] };
-      }
 
       const pill = document.getElementById('rm-pill');
       const tabs = Array.from(document.querySelectorAll('.risk-preview-tab'));
@@ -394,19 +418,30 @@
         document.getElementById('risk-tolerance-description').textContent = TOLERANCE_DESCRIPTIONS[previewLevel];
       }
 
-      // The client's real holdings (32/22/18/12/16) are identical to the Balanced model mix by design,
-      // so this is the one true "current" score — used only to compute the delta, never displayed directly
-      // (the visible 78/100 block above stays static HTML, per spec: it must never change with the toggle).
-      const CURRENT_DIVERSIFICATION = computeDiversification(MODEL_MIXES.balanced);
-
+      // ★ UI Wiring Stage 5 (2026-09-03): the delta line now compares against
+      // realCurrentDiversification — the client's REAL current score, computed from real
+      // holdings further down this file — instead of the old CURRENT_DIVERSIFICATION, which
+      // was silently computed from MODEL_MIXES.balanced (a hardcoded reference mix) rather
+      // than any real per-client data at all. That old approach only ever looked correct for
+      // CLIENT-0001's own specific historical seed data (32/22/18/12/16, by design identical
+      // to the Balanced model mix) — it would have been WRONG for any other real client with
+      // different real holdings, the exact kind of coincidental-not-actually-wired bug this
+      // stage's own task called out by name ("Diversification Score derives from real
+      // holdings — that part should wire regardless"). The visible 78/100 block above ALSO
+      // used to be static HTML for the same reason — it's now populated from the same real
+      // fetch, see this file's own dedicated section below.
       function renderDiversificationDelta() {
         const el = document.getElementById('diversification-delta');
+        if (!realCurrentDiversification) {
+          el.textContent = 'Loading your real diversification data…';
+          return;
+        }
         if (previewLevel === actualLevel) {
           el.textContent = 'This is your current allocation.';
           return;
         }
         const model = computeDiversification(MODEL_MIXES[previewLevel]);
-        const diff = model.score - CURRENT_DIVERSIFICATION.score;
+        const diff = model.score - realCurrentDiversification.score;
         const diffLabel = diff > 0 ? `+${diff}` : `${diff}`;
         el.textContent = `Under ${LABELS[previewLevel]}: ${model.score}/100 (${diffLabel} pts), concentrated in ${model.topLabel}.`;
       }
@@ -429,6 +464,10 @@
         renderSuitability();
         renderDiversificationDelta();
       }
+      // Exposed so the real Diversification Score fetch (below) can re-trigger a full render
+      // — including this section's own renderDiversificationDelta() — the moment real data
+      // arrives, without waiting for the client to touch a tab themselves.
+      window.renderPreview = renderPreview;
 
       tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -462,6 +501,79 @@
       // correct if web-font swap or a window resize shifts the segments after first paint.
       window.addEventListener('load', () => positionPill(previewLevel));
       window.addEventListener('resize', () => positionPill(previewLevel));
+    })();
+
+    // ---- Real Diversification Score, UI Wiring Stage 5 (2026-09-03) — reuses the exact
+    // real per-client asset-class grouping pattern dashboard.html's own Portfolio Allocation
+    // chart already established in UI Wiring Stage 1 (products grouped by asset_class,
+    // weighted by units × real current unit_price, plus Unallocated/Cash from account_state),
+    // fed through the shared computeDiversification() at the top of this file instead of a
+    // static/hardcoded mix. ----
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+
+      var ASSET_CLASS_ORDER = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto'];
+      var ASSET_KEY_MAP = { 'Private Equity': 'privateEquity', 'Real Assets': 'realAssets', 'Stocks & ETFs': 'stocksEtfs', 'Crypto': 'crypto' };
+
+      var dataPromise = null;
+      function loadDiversificationData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.callFunction('get-account-state').catch(function (err) {
+            if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
+            throw err;
+          }),
+          MarketswaveData.callFunction('get-holdings'),
+          MarketswaveData.callFunction('get-total-portfolio-value'),
+          MarketswaveData.selectTable('products')
+        ]).then(function (results) {
+          var account = results[0];
+          var holdings = results[1];
+          var tpv = results[2].totalPortfolioValue;
+          var products = results[3].map(function (p) { return { id: p.id, assetClass: p.asset_class, unitPrice: p.unit_price }; });
+
+          var classTotals = {};
+          ASSET_CLASS_ORDER.forEach(function (c) { classTotals[c] = 0; });
+          holdings.forEach(function (h) {
+            var product = products.find(function (p) { return p.id === h.productId; });
+            if (!product || !classTotals.hasOwnProperty(product.assetClass)) return;
+            classTotals[product.assetClass] += h.units * product.unitPrice;
+          });
+
+          var mix = {};
+          ASSET_CLASS_ORDER.forEach(function (c) {
+            mix[ASSET_KEY_MAP[c]] = tpv > 0 ? (classTotals[c] / tpv) * 100 : 0;
+          });
+          mix.cash = tpv > 0 ? (account.unallocatedCapital / tpv) * 100 : 100;
+
+          return computeDiversification(mix);
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      MarketswaveData.renderAsyncBundle(
+        [document.getElementById('diversification-score'), document.getElementById('diversification-concentration')],
+        {
+          skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+          load: loadDiversificationData,
+          render: function (result) {
+            realCurrentDiversification = result;
+            document.getElementById('diversification-score').textContent = result.score + '/100 — ' + result.label;
+            document.getElementById('diversification-concentration').textContent =
+              'Highest concentration is ' + result.topLabel + ' at ' + result.topPct.toFixed(0) +
+              '% of your total portfolio value, with the remainder spread across the other asset classes.';
+            // Re-render the Risk Meter's own delta line now that real data has arrived — a
+            // no-op visually if the client hasn't touched a tab yet (previewLevel === actualLevel
+            // already shows "This is your current allocation."), but genuinely necessary if they
+            // clicked a preview tab before this real fetch resolved (renderDiversificationDelta()
+            // would have shown the "Loading…" placeholder until now).
+            if (typeof window.renderPreview === 'function') window.renderPreview();
+          }
+        }
+      );
     })();
   </script>
 </body>

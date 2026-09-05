@@ -101,13 +101,22 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('allocations');
   </script>
 
   <script>
+    // Admin UI Wiring — Stage 1 (2026-09-03): wired to the real allocation_requests table +
+    // approve-allocation/reject-allocation Edge Functions (local stack). See
+    // admin-deposits.html's own comment for the full useAdminClient()/cross-client-RLS
+    // reasoning, identical here. productName() below now reads from a real fetched `products`
+    // array instead of the local getProduct() — RLS already grants every authenticated caller
+    // (client or admin) a SELECT-all on `products`, confirmed by reading Phase B Stage 1's own
+    // migration directly, so this is a plain, ungated read, no admin-specific concern here.
     (function () {
-      if (typeof getAllClientAllocationRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -133,14 +142,17 @@
         return '$' + Math.round(n).toLocaleString();
       }
 
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+
+      var allocationRequests = [];
+      var productsById = {};
       function productName(id) {
-        var p = getProduct(id);
-        return p ? p.name : id;
+        return productsById[id] || id;
       }
 
       function renderPending() {
-        var requests = getAllClientAllocationRequests().filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = allocationRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
@@ -154,7 +166,7 @@
             '<div class="min-w-0">' +
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900">' + productName(r.productId) + '</p>' +
               '<p class="text-sm text-slate-500 mt-0.5">' + formatUSD(r.amount) + '</p>' +
@@ -168,8 +180,8 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientAllocationRequests().filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = allocationRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('history-list');
 
         if (requests.length === 0) {
@@ -188,7 +200,7 @@
           requests.map(function (r) {
             var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
@@ -200,9 +212,45 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('allocation_requests'),
+          MarketswaveData.selectTable('clients'),
+          MarketswaveData.selectTable('products')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          productsById = {};
+          results[2].forEach(function (p) { productsById[p.id] = p.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              productId: r.product_id, amount: r.requested_amount, status: r.status,
+              requestedAt: r.requested_at, resolvedAt: r.resolved_at,
+              transactionId: r.transaction_id, reason: r.reason
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { allocationRequests = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { allocationRequests = data; renderHistory(); }
+        });
       }
 
       // ---- Approve modal ----
@@ -225,15 +273,18 @@
       document.getElementById('approve-modal-backdrop').addEventListener('click', closeApproveModal);
       document.getElementById('approve-cancel').addEventListener('click', closeApproveModal);
       document.getElementById('approve-submit').addEventListener('click', function () {
-        try {
-          var result = approveAllocationRequest(activeApproveClientId, activeApproveId);
+        var requestId = activeApproveId;
+        var btn = document.getElementById('approve-submit');
+        MarketswaveData.withButtonBusy(btn, 'Approving...', function () {
+          return MarketswaveData.callFunction('approve-allocation', { requestId: requestId });
+        }).then(function (result) {
           closeApproveModal();
           showToast('Allocation Approved', result.id + ' executed as transaction ' + result.transactionId + '.');
-          renderAll();
-        } catch (e) {
-          approveError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          approveError.textContent = MarketswaveData.writeErrorMessage(err);
           approveError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject modal ----
@@ -256,15 +307,19 @@
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectAllocationRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+        var requestId = activeRejectId;
+        var reason = rejectReasonInput.value.trim();
+        var btn = document.getElementById('reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-allocation', { requestId: requestId, reason: reason });
+        }).then(function (result) {
           closeRejectModal();
           showToast('Allocation Rejected', result.id + ' has been rejected.', true);
-          renderAll();
-        } catch (e) {
-          rejectError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          rejectError.textContent = MarketswaveData.writeErrorMessage(err);
           rejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for row buttons ----
@@ -278,7 +333,7 @@
         if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

@@ -1,24 +1,45 @@
 // Shared dashboard notification bell — the unified "needs attention" aggregation point for
 // the whole dashboard, mounted the same way dashboard-sidebar.js mounts the sidebar. Call
 // initDashboardNotifications() once per page, from a page with an empty
-// <div id="notif-bell-mount"></div> in its header and engine-core.js already loaded.
+// <div id="notif-bell-mount"></div> in its header, engine-core.js already loaded, and (as of
+// this fix) supabase-data.js already loaded — confirmed present, in that order or earlier,
+// on all 10 client-facing pages this component mounts on.
 //
-// Aggregates from five sources. Three read straight through existing engine-core.js
-// functions (no parallel counting/aggregation logic): getDocuments(), getAllocationRequests(),
-// getSellRequests(). The other two — High Yield Savings pockets and Support requests — are
-// NOT part of engine-core.js today, and this feature does not migrate them there: that would
-// be a much larger, unrequested scope expansion (mirroring the Documents & Reporting
-// migration), not what "build the notification bell" asked for. Both are instead read
-// directly from their own existing localStorage keys, same as documents.html read its own
-// data before that migration existed. See the maturity-computation note on
-// buildSavingsItems() below for one real consequence of not migrating HYS.
+// ★ Bug-fix rewrite (2026-09-03): all five sources now read real Supabase data instead of
+// engine-core.js/localStorage — a real, separate fix, not a side effect of the
+// admin-documents.html/admin-support.html fix this same investigation found. This component
+// is a SHARED, client-facing piece every one of the 10 client pages mounts, independent of
+// which admin page a PM happens to use — it was found stale for ALL FIVE of its sources the
+// moment each domain's own client-facing page was wired to Supabase in an earlier UI Wiring
+// stage (Documents/Savings in Stage 4, Allocation/Sell in Stage 2, Support in Stage 5), since
+// none of those stages touched this file. Reuses supabase-data.js's plain client-facing
+// session (MarketswaveData.selectTable() — never useAdminClient(), this always runs as the
+// currently signed-in CLIENT) — every one of the 5 tables' own SELECT RLS policy is
+// self-or-admin, so a plain client session already sees exactly and only its own rows with
+// no extra client-side filtering needed. Every build*Items() function is now a pure mapper
+// over an already-fetched real row array (real column names, not engine-core.js's local
+// camelCase field names) instead of calling a local engine-core.js function or reading a raw
+// localStorage key directly.
+//
+// getAllNotifications()/renderPanel() are now ASYNC (return Promises) — the one structural
+// change this fix required throughout the file, since Supabase reads are inherently async
+// where the old local reads were synchronous. initDashboardNotifications() still renders
+// once, immediately, at mount time (the badge simply stays at its honest default — hidden,
+// no fake interim count — until that first real fetch resolves, the same "no fabricated
+// data" discipline used everywhere real data replaced a placeholder in this project); opening
+// the panel re-fetches fresh so it always reflects genuinely live counts, not a stale
+// snapshot from page load.
+//
+// The per-item READ-STATE store (marketswave_notifications_read) is deliberately UNCHANGED —
+// it is real, but purely local UI-preference state ("has THIS browser already seen this
+// notification"), not business data with a corresponding server-side source of truth, so it
+// stays exactly as it was: client-scoped localStorage, no Supabase table behind it.
 (function () {
   // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
   // clientScopedKey() — safe to call at module-load time since this script always loads
-  // after engine-core.js (confirmed in every page's own script tag order).
+  // after engine-core.js (confirmed in every page's own script tag order). Read-state only —
+  // see this file's own header for why this one store stays local.
   var READ_KEY = clientScopedKey('marketswave_notifications_read');
-  var HYS_KEY = clientScopedKey('marketswave_hys_pockets');
-  var SUPPORT_KEY = clientScopedKey('marketswave_support_requests');
   var NEAR_MATURITY_DAYS = 7;
 
   var BELL_ICON = 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9';
@@ -41,13 +62,6 @@
   }
   function saveReadMap(map) {
     localStorage.setItem(READ_KEY, JSON.stringify(map));
-  }
-
-  function readJSONArray(key) {
-    try {
-      var stored = JSON.parse(localStorage.getItem(key));
-      return Array.isArray(stored) ? stored : [];
-    } catch (e) { return []; }
   }
 
   function parseDateMs(dateStr) {
@@ -75,82 +89,80 @@
     return Math.floor(months / 12) + 'y ago';
   }
 
-  // ---- Documents — via getDocuments(), the same underlying source
-  // getDocumentNotificationCounts() reads, just at item level instead of a count ----
-  function buildDocumentItems() {
-    if (typeof getDocuments !== 'function') return [];
+  // ---- Documents — real `documents` rows (real column names: is_new/deadline_label/
+  // created_at), replacing the old getDocuments() local read ----
+  function buildDocumentItems(rows) {
     var items = [];
-    getDocuments().forEach(function (d) {
-      var ts = parseDateMs(d.date);
-      if (d.isNew) {
+    rows.forEach(function (d) {
+      var ts = parseDateMs(d.created_at);
+      if (d.is_new) {
         items.push({ key: 'doc-new-' + d.id, category: 'Documents', text: 'New document: ' + d.filename, timestampMs: ts, href: 'documents.html' });
       }
       if (d.status === 'Signature Required') {
         items.push({ key: 'doc-sig-' + d.id, category: 'Documents', text: 'Signature required: ' + d.filename, timestampMs: ts, href: 'documents.html' });
       }
-      if (d.deadlineLabel) {
-        items.push({ key: 'doc-deadline-' + d.id, category: 'Documents', text: d.deadlineLabel + ': ' + d.filename, timestampMs: ts, href: 'documents.html' });
+      if (d.deadline_label) {
+        items.push({ key: 'doc-deadline-' + d.id, category: 'Documents', text: d.deadline_label + ': ' + d.filename, timestampMs: ts, href: 'documents.html' });
       }
     });
     return items;
   }
 
-  // ---- Allocation requests — pending ones awaiting PM approval, plus recently resolved
+  // ---- Allocation requests — real `allocation_requests` rows, joined against a real
+  // products fetch for the display name, replacing the old getAllocationRequests() local
+  // read + getProduct() lookup. Pending ones awaiting PM approval, plus recently resolved
   // ones keyed by id+status so approve/reject each produce their own distinct, one-time
   // unread notification ----
-  function buildAllocationItems() {
-    if (typeof getAllocationRequests !== 'function') return [];
+  function buildAllocationItems(rows, productsById) {
     var items = [];
-    getAllocationRequests().forEach(function (r) {
-      var product = typeof getProduct === 'function' ? getProduct(r.productId) : null;
-      var name = product ? product.name : r.productId;
-      var amountText = fmtMoney(r.amount);
+    rows.forEach(function (r) {
+      var name = productsById[r.product_id] || r.product_id;
+      var amountText = fmtMoney(r.requested_amount);
       if (r.status === 'pending') {
-        items.push({ key: 'allocation-pending-' + r.id, category: 'Allocation', text: 'Allocation request pending: ' + name + ' — ' + amountText, timestampMs: r.requestedAtMs, href: 'asset-performance.html' });
+        items.push({ key: 'allocation-pending-' + r.id, category: 'Allocation', text: 'Allocation request pending: ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.requested_at), href: 'asset-performance.html' });
       } else if (r.status === 'approved' || r.status === 'rejected') {
-        items.push({ key: 'allocation-resolved-' + r.id + '-' + r.status, category: 'Allocation', text: 'Allocation ' + r.status + ': ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.resolvedAt) || r.requestedAtMs, href: 'asset-performance.html' });
+        items.push({ key: 'allocation-resolved-' + r.id + '-' + r.status, category: 'Allocation', text: 'Allocation ' + r.status + ': ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.resolved_at) || parseDateMs(r.requested_at), href: 'asset-performance.html' });
       }
     });
     return items;
   }
 
-  // ---- Sell requests — same treatment as allocation requests ----
-  function buildSellItems() {
-    if (typeof getSellRequests !== 'function') return [];
+  // ---- Sell requests — real `sell_requests` rows, same treatment as allocation requests ----
+  function buildSellItems(rows, productsById) {
     var items = [];
-    getSellRequests().forEach(function (r) {
-      var product = typeof getProduct === 'function' ? getProduct(r.productId) : null;
-      var name = product ? product.name : r.productId;
-      var amountText = Number(r.unitsToSell).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' units';
+    rows.forEach(function (r) {
+      var name = productsById[r.product_id] || r.product_id;
+      var amountText = Number(r.units_to_sell).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' units';
       if (r.status === 'pending') {
-        items.push({ key: 'sell-pending-' + r.id, category: 'Sell', text: 'Sell request pending: ' + name + ' — ' + amountText, timestampMs: r.requestedAtMs, href: 'asset-performance.html' });
+        items.push({ key: 'sell-pending-' + r.id, category: 'Sell', text: 'Sell request pending: ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.requested_at), href: 'asset-performance.html' });
       } else if (r.status === 'approved' || r.status === 'rejected') {
-        items.push({ key: 'sell-resolved-' + r.id + '-' + r.status, category: 'Sell', text: 'Sell ' + r.status + ': ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.resolvedAt) || r.requestedAtMs, href: 'asset-performance.html' });
+        items.push({ key: 'sell-resolved-' + r.id + '-' + r.status, category: 'Sell', text: 'Sell ' + r.status + ': ' + name + ' — ' + amountText, timestampMs: parseDateMs(r.resolved_at) || parseDateMs(r.requested_at), href: 'asset-performance.html' });
       }
     });
     return items;
   }
 
-  // ---- High Yield Savings pockets — read directly from marketswave_hys_pockets (not
-  // migrated into engine-core.js — see the file-level note above for why). A pocket's
-  // stored `status` field only ever advances from 'active' to 'matured' inside
-  // high-yield-savings.html's own updatePocketStatuses(), which doesn't run on other
-  // pages — so maturity is computed independently here from `maturityDate` vs. the current
-  // time, not read off the possibly-stale `status` field. Near-maturity and already-matured
-  // are two distinctly-keyed notifications per pocket, so reading the "maturing soon" one
-  // doesn't suppress the separate "matured" one that follows it. ----
-  function buildSavingsItems() {
+  // ---- High Yield Savings pockets — real `hys_pockets` rows, replacing the old raw
+  // localStorage read of marketswave_hys_pockets. A pocket's own stored `status` column only
+  // ever gets self-healed from 'active' to 'matured' when request-hys-withdrawal happens to
+  // touch it (Backend Requirements Register row 124) — not on every read — so maturity here
+  // is still computed independently from `maturity_date` vs. the current time, not read off
+  // the possibly-stale `status` column, exactly the same principle the old local
+  // implementation already used (only the field names/source changed). Near-maturity and
+  // already-matured stay two distinctly-keyed notifications per pocket, so reading the
+  // "maturing soon" one doesn't suppress the separate "matured" one that follows it. ----
+  function buildSavingsItems(rows) {
     var items = [];
     var now = Date.now();
-    readJSONArray(HYS_KEY).forEach(function (p) {
-      if (p.type !== 'fixed' || p.status === 'withdrawn' || !p.maturityDate) return;
-      var maturityMs = parseDateMs(p.maturityDate);
+    rows.forEach(function (p) {
+      if (p.pocket_type !== 'fixed' || p.status === 'withdrawn' || !p.maturity_date) return;
+      var maturityMs = parseDateMs(p.maturity_date);
       if (!maturityMs) return;
       if (maturityMs <= now) {
         items.push({
           key: 'hys-matured-' + p.id,
           category: 'Savings',
-          text: 'Pocket matured: ' + (p.termLabel || 'Fixed Deposit') + ' — ready to withdraw',
+          text: 'Pocket matured: ' + (p.term_label || 'Fixed Deposit') + ' — ready to withdraw',
           timestampMs: maturityMs,
           href: 'high-yield-savings.html'
         });
@@ -160,7 +172,7 @@
           items.push({
             key: 'hys-nearmaturity-' + p.id,
             category: 'Savings',
-            text: 'Pocket maturing soon: ' + (p.termLabel || 'Fixed Deposit') + ' — ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + ' left',
+            text: 'Pocket maturing soon: ' + (p.term_label || 'Fixed Deposit') + ' — ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + ' left',
             timestampMs: maturityMs - NEAR_MATURITY_DAYS * 86400000,
             href: 'high-yield-savings.html'
           });
@@ -170,36 +182,55 @@
     return items;
   }
 
-  // ---- Support requests — read directly from marketswave_support_requests (not migrated,
-  // same rationale as Savings). A notification fires only for a request that has moved OFF
-  // its original 'Open' state — the client already knows about a request the moment they
-  // submit it, so 'Open' itself isn't a notification; a status change away from it is.
-  // Keyed by id+status (not one global watermark) so a later transition, e.g. In Progress
-  // -> Resolved, produces its own fresh unread notification even if the earlier
-  // 'In Progress' one was already read. ----
-  function buildSupportItems() {
+  // ---- Support requests — real `support_requests` rows, replacing the old raw localStorage
+  // read of marketswave_support_requests. A notification fires only for a request that has
+  // moved OFF its original 'Open' state — the client already knows about a request the
+  // moment they submit it, so 'Open' itself isn't a notification; a status change away from
+  // it is. Keyed by the real, per-client-unique display_id + status (not one global
+  // watermark) so a later transition, e.g. In Progress -> Resolved, produces its own fresh
+  // unread notification even if the earlier 'In Progress' one was already read. ----
+  function buildSupportItems(rows) {
     var items = [];
-    readJSONArray(SUPPORT_KEY).forEach(function (r) {
+    rows.forEach(function (r) {
       if (!r.status || r.status === 'Open') return;
       items.push({
-        key: 'support-' + r.id + '-' + r.status,
+        key: 'support-' + r.display_id + '-' + r.status,
         category: 'Support',
-        text: r.status + ': ' + r.category + ' (' + r.id + ')',
-        timestampMs: parseDateMs(r.lastUpdated),
+        text: r.status + ': ' + r.category + ' (' + r.display_id + ')',
+        timestampMs: parseDateMs(r.last_updated),
         href: 'support.html'
       });
     });
     return items;
   }
 
+  // Fetches all 5 real sources fresh (plus `products` for the Allocation/Sell display name)
+  // and returns a Promise resolving to the combined, sorted item list. A failed fetch fails
+  // CLOSED to an empty list rather than throwing and breaking every page's own header — the
+  // bell showing zero notifications until the next successful reload is a smaller failure
+  // than a broken header on every client-facing page.
   function getAllNotifications() {
-    var items = buildDocumentItems()
-      .concat(buildAllocationItems())
-      .concat(buildSellItems())
-      .concat(buildSavingsItems())
-      .concat(buildSupportItems());
-    items.sort(function (a, b) { return b.timestampMs - a.timestampMs; });
-    return items;
+    if (typeof MarketswaveData === 'undefined') return Promise.resolve([]);
+    return Promise.all([
+      MarketswaveData.selectTable('documents'),
+      MarketswaveData.selectTable('allocation_requests'),
+      MarketswaveData.selectTable('sell_requests'),
+      MarketswaveData.selectTable('hys_pockets'),
+      MarketswaveData.selectTable('support_requests'),
+      MarketswaveData.selectTable('products')
+    ]).then(function (results) {
+      var productsById = {};
+      results[5].forEach(function (p) { productsById[p.id] = p.name; });
+      var items = buildDocumentItems(results[0])
+        .concat(buildAllocationItems(results[1], productsById))
+        .concat(buildSellItems(results[2], productsById))
+        .concat(buildSavingsItems(results[3]))
+        .concat(buildSupportItems(results[4]));
+      items.sort(function (a, b) { return b.timestampMs - a.timestampMs; });
+      return items;
+    }).catch(function () {
+      return [];
+    });
   }
 
   function itemHTML(item, unread) {
@@ -213,29 +244,33 @@
     '</a>';
   }
 
+  // Async now — fetches fresh real data on every call (mount time, and again every time the
+  // panel opens) so both the badge and the panel always reflect genuinely live counts, not a
+  // cached snapshot from an earlier point in the page's life.
   function renderPanel() {
-    var items = getAllNotifications();
-    var readMap = loadReadMap();
-    var unreadCount = items.filter(function (it) { return !readMap[it.key]; }).length;
+    return getAllNotifications().then(function (items) {
+      var readMap = loadReadMap();
+      var unreadCount = items.filter(function (it) { return !readMap[it.key]; }).length;
 
-    var badge = document.getElementById('notif-bell-badge');
-    if (badge) {
-      badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
-      badge.classList.toggle('hidden', unreadCount === 0);
-    }
-
-    var list = document.getElementById('notif-bell-list');
-    var empty = document.getElementById('notif-bell-empty');
-    if (list && empty) {
-      if (items.length === 0) {
-        list.innerHTML = '';
-        empty.classList.remove('hidden');
-      } else {
-        empty.classList.add('hidden');
-        list.innerHTML = items.map(function (it) { return itemHTML(it, !readMap[it.key]); }).join('');
+      var badge = document.getElementById('notif-bell-badge');
+      if (badge) {
+        badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+        badge.classList.toggle('hidden', unreadCount === 0);
       }
-    }
-    return { items: items, readMap: readMap };
+
+      var list = document.getElementById('notif-bell-list');
+      var empty = document.getElementById('notif-bell-empty');
+      if (list && empty) {
+        if (items.length === 0) {
+          list.innerHTML = '';
+          empty.classList.remove('hidden');
+        } else {
+          empty.classList.add('hidden');
+          list.innerHTML = items.map(function (it) { return itemHTML(it, !readMap[it.key]); }).join('');
+        }
+      }
+      return { items: items, readMap: readMap };
+    });
   }
 
   function initDashboardNotifications() {
@@ -262,19 +297,25 @@
     var btn = document.getElementById('notif-bell-btn');
     var panel = document.getElementById('notif-bell-panel');
 
+    // Fire-and-forget at mount time — the badge stays at its honest hidden/0 default until
+    // this first real fetch resolves, never a fabricated interim count.
     renderPanel();
 
     function openPanel() {
-      var state = renderPanel();
       panel.classList.remove('hidden');
       btn.setAttribute('aria-expanded', 'true');
-      if (state.items.length) {
-        var readMap = state.readMap;
-        state.items.forEach(function (it) { readMap[it.key] = true; });
-        saveReadMap(readMap);
-        var badge = document.getElementById('notif-bell-badge');
-        if (badge) badge.classList.add('hidden');
-      }
+      // Re-fetch fresh on every open, not just at mount time — this is what actually makes
+      // "live counts after a real action elsewhere" true, since a client could have taken an
+      // action (or a PM could have resolved something) any time after the page first loaded.
+      renderPanel().then(function (state) {
+        if (state.items.length) {
+          var readMap = state.readMap;
+          state.items.forEach(function (it) { readMap[it.key] = true; });
+          saveReadMap(readMap);
+          var badge = document.getElementById('notif-bell-badge');
+          if (badge) badge.classList.add('hidden');
+        }
+      });
     }
     function closePanel() {
       panel.classList.add('hidden');

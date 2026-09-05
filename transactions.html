@@ -148,11 +148,17 @@
                   <th scope="col" class="text-left font-medium px-6 py-3">Status</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100" id="ledger-body">
-                <tr id="ledger-empty-row" class="hidden">
-                  <td colspan="7" class="px-6 py-10 text-center text-slate-400" id="ledger-empty-text">No transactions match your filters.</td>
-                </tr>
-              </tbody>
+              <!-- UI Wiring — Stage 3 (2026-09-03): the static empty-row placeholder that used
+                   to live here was removed — renderAsyncBundle's own skeleton phase replaces
+                   this tbody's entire innerHTML while loading (the same lifecycle every other
+                   wired page's own table region already uses), which would silently destroy a
+                   static child element like the old #ledger-empty-row/#ledger-empty-text and
+                   leave renderLedger()'s own captured references pointing at a detached node.
+                   renderLedger() now builds the WHOLE tbody content itself on every call,
+                   empty-state row included when needed — the same full-innerHTML-rebuild
+                   pattern asset-collection.html/asset-performance.html's own render()
+                   functions already use, not a new one invented here. -->
+              <tbody class="divide-y divide-slate-100" id="ledger-body"></tbody>
             </table>
           </div>
         </div>
@@ -189,6 +195,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     initDashboardSidebar('transactions');
@@ -196,13 +203,20 @@
   </script>
 
   <script>
-    // Wires this page to engine-core.js (Phase 4c) — summary cards, Recent Activity, both
-    // charts, the ledger table + filters, and the drill-down modal all now read live engine
-    // state instead of hardcoded demo numbers.
+    // UI Wiring — Stage 3 (2026-09-03): summary cards, Recent Activity, both charts, the
+    // ledger table + filters, and the drill-down modal all now read real Supabase data
+    // (Phase B Stage 1's get-transaction-ledger/get-holdings/get-account-state, plus direct
+    // RLS-authorized reads of `products` and the genuinely-global `advisory_fee_rate`)
+    // instead of engine-core.js/localStorage. This page is READ-ONLY — no write actions — so
+    // it follows Stage 1's own renderAsyncBundle-only pattern, not Stage 2/3's write-action
+    // additions; nothing new was needed in supabase-data.js for this page.
+    //
+    // get-transaction-ledger already queries ORDER BY created_at DESC (newest first) — the
+    // same real ordering difference UI Wiring Stage 1 already found for dashboard.html's own
+    // Recent Activity — so the local engine's own `.slice().reverse()` (needed only because
+    // the LOCAL array is oldest-first) is correctly dropped, not blindly kept.
     (function () {
-      if (typeof settleAllProducts !== 'function') return; // engine-core.js failed to load — bail defensively
-
-      settleAllProducts(); // catch prices up to today before reading any engine value
+      if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -212,11 +226,21 @@
           maximumFractionDigits: decimals || 0
         });
       }
+      // 'YYYY-MM-DDTHH:mm:ss...' -> 'YYYY-MM-DD' — mapped onto each real transaction's own
+      // `.date` field at fetch time (see loadPageData() below) so every piece of downstream
+      // logic in this file (string-comparison date filters, monthKey() grouping, display)
+      // keeps working completely unchanged against a plain date string, exactly like the
+      // local engine's own shape — the real createdAt timestamptz is never referenced
+      // directly anywhere past that one mapping point.
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
 
-      // Newest first, master list every other section below reads from.
-      var allTransactions = getTransactionLedger().slice().reverse();
+      // Real data, populated once the async loads below resolve.
+      var allTransactions = [];
+      var products = [];
+      var dataLoaded = false;
 
-      function txnProduct(txn) { return txn.productId ? getProduct(txn.productId) : null; }
+      function productById(id) { return products.find(function (p) { return p.id === id; }); }
+      function txnProduct(txn) { return txn.productId ? productById(txn.productId) : null; }
       // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL/HYS_WITHDRAWAL has no product — no buy/sell target,
       // nothing to look up — so each gets its own label instead of falling through to a
       // failed product lookup (which used to render the literal text "null" for DEPOSIT
@@ -247,48 +271,53 @@
         return 'Deposit';
       }
 
-      // ---- Summary cards ----
-      var buys = allTransactions.filter(function (t) { return t.type === 'BUY'; });
-      var sells = allTransactions.filter(function (t) { return t.type === 'SELL'; });
-      var totalBuys = buys.reduce(function (s, t) { return s + t.totalValue; }, 0);
-      var totalSells = sells.reduce(function (s, t) { return s + t.totalValue; }, 0);
-      // Net Invested = cost basis of CURRENT holdings — principal still allocated and not
-      // yet sold. Deliberately NOT allocatedCapital, which reflects current market value
-      // including price movement (same cost-basis-vs-current-value distinction Phase 4b
-      // already applied to "Capital Allocated").
-      var netInvested = getHoldings().reduce(function (s, h) { return s + h.costBasis; }, 0);
-
       function pluralize(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
 
+      // ---- Summary cards ----
       var totalBuysEl = document.getElementById('total-buys-amount');
       var totalBuysCountEl = document.getElementById('total-buys-count');
-      if (totalBuysEl) totalBuysEl.textContent = formatUSD(Math.round(totalBuys));
-      if (totalBuysCountEl) totalBuysCountEl.textContent = pluralize(buys.length, 'transaction');
-
       var totalSellsEl = document.getElementById('total-sells-amount');
       var totalSellsCountEl = document.getElementById('total-sells-count');
-      if (totalSellsEl) totalSellsEl.textContent = formatUSD(Math.round(totalSells));
-      if (totalSellsCountEl) totalSellsCountEl.textContent = pluralize(sells.length, 'transaction');
-
       var netInvestedEl = document.getElementById('net-invested-amount');
-      if (netInvestedEl) netInvestedEl.textContent = formatUSD(Math.round(netInvested));
-
-      // ---- Advisory fee card: live accrual estimate, read-only. Setting the rate is a
-      // Portfolio Manager / admin action, not something a client should be able to do from
-      // their own dashboard — setAdvisoryFeeRate() is only ever called from
-      // admin-advisory-fee.html, nothing on this page calls it. The rate itself is
-      // genuinely global as of Aug 27, 2026 (getAdvisoryFeeRate()) — this client sees the
-      // real platform-wide rate, not whatever happened to be ambient in some past admin
-      // session; only the accrued DOLLAR amount below is this client's own (their own
-      // allocatedCapital × the shared rate). ----
       var advisoryFeeAmountEl = document.getElementById('advisory-fee-amount');
       var advisoryFeeRateEl = document.getElementById('advisory-fee-rate-display');
-      if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = formatUSD(Math.round(getAdvisoryFeeAccrued(30)));
-      if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = getAdvisoryFeeRate();
+
+      function renderSummaryCards(holdings, account, rate) {
+        var buys = allTransactions.filter(function (t) { return t.type === 'BUY'; });
+        var sells = allTransactions.filter(function (t) { return t.type === 'SELL'; });
+        var totalBuys = buys.reduce(function (s, t) { return s + t.totalValue; }, 0);
+        var totalSells = sells.reduce(function (s, t) { return s + t.totalValue; }, 0);
+        if (totalBuysEl) totalBuysEl.textContent = formatUSD(Math.round(totalBuys));
+        if (totalBuysCountEl) totalBuysCountEl.textContent = pluralize(buys.length, 'transaction');
+        if (totalSellsEl) totalSellsEl.textContent = formatUSD(Math.round(totalSells));
+        if (totalSellsCountEl) totalSellsCountEl.textContent = pluralize(sells.length, 'transaction');
+
+        // Net Invested = cost basis of CURRENT holdings — principal still allocated and not
+        // yet sold. Deliberately NOT allocatedCapital, which reflects current market value
+        // including price movement (same cost-basis-vs-current-value distinction Phase 4b
+        // already applied to "Capital Allocated").
+        var netInvested = holdings.reduce(function (s, h) { return s + h.costBasis; }, 0);
+        if (netInvestedEl) netInvestedEl.textContent = formatUSD(Math.round(netInvested));
+
+        // ---- Advisory fee card: live accrual estimate, read-only. Setting the rate is a
+        // Portfolio Manager / admin action — admin-advisory-fee.html is the only real caller
+        // anywhere in the project (confirmed via grep), nothing on this page writes it. The
+        // rate itself is genuinely global (a real, singleton advisory_fee_rate table,
+        // real-fixed Aug 27, 2026) — this client sees the real platform-wide rate, not
+        // whatever happened to be ambient in some past admin session; only the accrued
+        // DOLLAR amount below is this client's own (their own allocatedCapital × the shared
+        // rate) — the exact same math as the local engine's own getAdvisoryFeeAccrued(),
+        // reproduced here client-side from the already-fetched account/rate data rather than
+        // a dedicated Edge Function, no server-side-only logic involved.
+        var accrued = Math.round(account.allocatedCapital * (rate / 100) * (30 / 365) * 100) / 100;
+        if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = formatUSD(Math.round(accrued));
+        if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = rate;
+      }
 
       // ---- Recent Activity (this page's own instance) ----
       var activityEl = document.getElementById('recent-activity-list');
-      if (activityEl) {
+      function renderRecentActivity() {
+        if (!activityEl) return;
         var recent = allTransactions.slice(0, 5);
         if (recent.length === 0) {
           // Matches the chart cards' empty-state pattern exactly (h-40 fixed height +
@@ -333,6 +362,11 @@
       var volumeCanvas = document.getElementById('volume-chart');
       var cashflowCanvas = document.getElementById('cashflow-chart');
 
+      // Charts are deliberately left un-skeletoned — the canvas starts genuinely blank (no
+      // stale/wrong data ever drawn on it) and is only ever populated here, inside
+      // renderCharts(), called once real data has arrived — the exact same treatment
+      // dashboard.html's own allocation pie chart already established in UI Wiring Stage 1.
+      function renderCharts() {
       // The empty-state text doesn't depend on Chart.js being loaded at all — shown
       // whenever there's no transaction history, regardless of whether the CDN chart
       // library itself is available, so a slow/blocked CDN never leaves a blank canvas
@@ -404,12 +438,19 @@
           });
         }
       }
+      }
 
       // ---- Asset filter: populated from the Product Catalog, Cash excluded (it can never
-      // appear in a transaction — no HOLDINGS entry, no buy/sell target). ----
+      // appear in a transaction — no HOLDINGS entry, no buy/sell target). Populated exactly
+      // once, the first time real data arrives — a <select> showing only "All Assets" during
+      // loading is a fine, unremarkable transient state, matching how form controls
+      // elsewhere in this project don't get skeleton treatment either. ----
       var assetFilter = document.getElementById('filter-asset');
-      if (assetFilter) {
-        getAllProducts()
+      var assetFilterPopulated = false;
+      function populateAssetFilter() {
+        if (!assetFilter || assetFilterPopulated) return;
+        assetFilterPopulated = true;
+        products
           .filter(function (p) { return p.assetClass !== 'Unallocated / Cash'; })
           .forEach(function (p) {
             var opt = document.createElement('option');
@@ -419,42 +460,43 @@
           });
       }
 
-      // ---- Ledger table: real rows + working filters ----
+      // ---- Ledger table: real rows + working filters. renderLedger() builds the ENTIRE
+      // tbody content itself on every call, empty-state row included when needed — the old
+      // static #ledger-empty-row/#ledger-empty-text placeholder is gone (see the HTML
+      // template's own comment for why: renderAsyncBundle's skeleton phase replaces this
+      // tbody's whole innerHTML while loading, which would otherwise silently destroy a
+      // static child and leave any captured reference to it pointing at a detached node). ----
       var tbody = document.getElementById('ledger-body');
-      var emptyRow = document.getElementById('ledger-empty-row');
-      var emptyText = document.getElementById('ledger-empty-text');
       var countLabel = document.getElementById('ledger-count');
 
       function renderLedger(filtered) {
-        Array.prototype.slice.call(tbody.querySelectorAll('tr[data-txn-id]')).forEach(function (r) { r.remove(); });
-
-        emptyText.textContent = allTransactions.length === 0 ? 'No transactions yet.' : 'No transactions match your filters.';
-
         if (filtered.length === 0) {
-          emptyRow.classList.remove('hidden');
-        } else {
-          emptyRow.classList.add('hidden');
-          var rowsHtml = filtered.map(function (txn) {
-            var badgeClass = txn.type === 'BUY' ? 'bg-emerald-50 text-emerald-700'
-              : txn.type === 'SELL' ? 'bg-red-50 text-red-600'
-              : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
-              : txn.type === 'WITHDRAWAL' ? 'bg-orange-50 text-orange-700'
-              : txn.type === 'HYS_WITHDRAWAL' ? 'bg-amber-50 text-amber-700'
-              : 'bg-blue-50 text-blue-700';
-            var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
-            var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
-            return '<tr class="hover:bg-slate-50/50 cursor-pointer" data-txn-id="' + txn.id + '">' +
-              '<td class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
-              '<td class="px-6 py-4 font-medium text-navy">' + txnProductName(txn) + '</td>' +
-              '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + badgeClass + '">' + txnTypeLabel(txn) + '</span></td>' +
-              '<td class="px-6 py-4 text-right">' + unitsCell + '</td>' +
-              '<td class="px-6 py-4 text-right">' + priceCell + '</td>' +
-              '<td class="px-6 py-4 text-right font-medium">' + formatUSD(Math.round(txn.totalValue)) + '</td>' +
-              '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">' + txn.status + '</span></td>' +
-              '</tr>';
-          }).join('');
-          emptyRow.insertAdjacentHTML('beforebegin', rowsHtml);
+          var emptyMsg = allTransactions.length === 0 ? 'No transactions yet.' : 'No transactions match your filters.';
+          tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">' + emptyMsg + '</td></tr>';
+          countLabel.textContent = filtered.length === allTransactions.length ? 'Showing latest activity' : 'Showing ' + filtered.length + ' of ' + allTransactions.length + ' transactions';
+          return;
         }
+
+        var rowsHtml = filtered.map(function (txn) {
+          var badgeClass = txn.type === 'BUY' ? 'bg-emerald-50 text-emerald-700'
+            : txn.type === 'SELL' ? 'bg-red-50 text-red-600'
+            : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
+            : txn.type === 'WITHDRAWAL' ? 'bg-orange-50 text-orange-700'
+            : txn.type === 'HYS_WITHDRAWAL' ? 'bg-amber-50 text-amber-700'
+            : 'bg-blue-50 text-blue-700';
+          var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
+          var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
+          return '<tr class="hover:bg-slate-50/50 cursor-pointer" data-txn-id="' + txn.id + '">' +
+            '<td class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
+            '<td class="px-6 py-4 font-medium text-navy">' + txnProductName(txn) + '</td>' +
+            '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + badgeClass + '">' + txnTypeLabel(txn) + '</span></td>' +
+            '<td class="px-6 py-4 text-right">' + unitsCell + '</td>' +
+            '<td class="px-6 py-4 text-right">' + priceCell + '</td>' +
+            '<td class="px-6 py-4 text-right font-medium">' + formatUSD(Math.round(txn.totalValue)) + '</td>' +
+            '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">' + txn.status + '</span></td>' +
+            '</tr>';
+        }).join('');
+        tbody.innerHTML = rowsHtml;
 
         countLabel.textContent = filtered.length === allTransactions.length
           ? 'Showing latest activity'
@@ -469,6 +511,7 @@
       }
 
       function applyFilters() {
+        if (!dataLoaded) return; // filters are wired up before the async load resolves; a no-op until there's real data to filter
         var dateFrom = document.getElementById('filter-date-from').value;
         var dateTo = document.getElementById('filter-date-to').value;
         var type = document.getElementById('filter-type').value;
@@ -496,7 +539,80 @@
       document.getElementById('apply-filters').addEventListener('click', applyFilters);
       document.getElementById('reset-filters').addEventListener('click', resetFilters);
 
-      renderLedger(allTransactions);
+      // ---- Async load: the real transaction ledger, holdings (Net Invested), account state
+      // (advisory fee accrual), the product catalog (asset filter + name lookups), and the
+      // real, genuinely-global advisory fee rate. Cached so all 3 async-bundle regions below
+      // trigger exactly ONE real round trip. ----
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.callFunction('get-transaction-ledger'),
+          MarketswaveData.callFunction('get-holdings'),
+          // A brand-new/unfunded client genuinely has no account_state row yet — see
+          // dashboard.html's own identical handling and comment for the full "why" this 404
+          // is caught and mapped to a real $0 default, not surfaced as an error.
+          MarketswaveData.callFunction('get-account-state').catch(function (err) {
+            if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
+            throw err;
+          }),
+          MarketswaveData.selectTable('products'),
+          MarketswaveData.selectTable('advisory_fee_rate')
+        ]).then(function (results) {
+          return {
+            transactions: results[0].map(function (t) { return Object.assign({}, t, { date: toDateOnly(t.createdAt) }); }),
+            holdings: results[1],
+            account: results[2],
+            products: results[3].map(function (p) { return { id: p.id, name: p.name, assetClass: p.asset_class }; }),
+            rate: (results[4] && results[4][0] && results[4][0].rate) || 0
+          };
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function applyPageData(data) {
+        allTransactions = data.transactions;
+        products = data.products;
+      }
+
+      MarketswaveData.renderAsyncBundle([totalBuysEl, totalBuysCountEl, totalSellsEl, totalSellsCountEl, netInvestedEl, advisoryFeeAmountEl, advisoryFeeRateEl], {
+        skeletonHTML: '<span class="inline-block h-5 w-16 bg-slate-200 rounded animate-pulse"></span>',
+        load: loadPageData,
+        render: function (data) {
+          applyPageData(data);
+          renderSummaryCards(data.holdings, data.account, data.rate);
+        }
+      });
+
+      MarketswaveData.renderAsyncBundle(activityEl, {
+        skeletonHTML: '<div class="animate-pulse space-y-3">' +
+          '<div class="h-4 bg-slate-200 rounded"></div>' +
+          '<div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
+          '<div class="h-4 bg-slate-200 rounded w-2/3"></div>' +
+          '</div>',
+        load: loadPageData,
+        render: function (data) {
+          applyPageData(data);
+          renderRecentActivity();
+        }
+      });
+
+      MarketswaveData.renderAsyncBundle(tbody, {
+        skeletonHTML: '<tr><td colspan="7" class="px-6 py-6"><div class="animate-pulse space-y-2">' +
+          '<div class="h-4 bg-slate-200 rounded"></div><div class="h-4 bg-slate-200 rounded w-2/3 mx-auto"></div>' +
+          '</div></td></tr>',
+        load: loadPageData,
+        render: function (data) {
+          applyPageData(data);
+          dataLoaded = true;
+          populateAssetFilter();
+          renderCharts();
+          renderLedger(allTransactions);
+        }
+      });
 
       // ---- Transaction drill-down modal: real per-transaction detail ----
       var modal = document.getElementById('txn-modal');

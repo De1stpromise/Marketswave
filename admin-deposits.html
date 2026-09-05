@@ -103,13 +103,24 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('deposits');
   </script>
 
   <script>
+    // Admin UI Wiring — Stage 1 (2026-09-03): wired to the real deposit_requests table +
+    // credit-deposit/reject-deposit Edge Functions (local stack). MarketswaveData.useAdminClient()
+    // — a small, clearly-scoped extension to supabase-data.js investigated and added by this
+    // stage — points the shared module's client at a real admin-authenticated Supabase session
+    // instead of the plain client-facing one; every other MarketswaveData function needed zero
+    // changes. Cross-client by design: RLS's own SELECT policy on deposit_requests already grants
+    // an admin-claimed caller `auth.uid() = client_id or public.is_admin()`, confirmed by reading
+    // that migration directly — the same real cross-client read every other admin-facing table in
+    // this schema already supports.
     (function () {
-      if (typeof getAllClientDepositRequests !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var STATUS_STYLES = {
         pending: 'bg-amber-50 text-amber-700',
@@ -159,9 +170,18 @@
         }).join('');
       }
 
+      // Real requested_at/resolved_at are full ISO timestamptz values (no local
+      // requestedAtMs-equivalent field needed — sorting directly on the real ISO string is
+      // already correct, the same real simplification every prior UI-wiring stage's own
+      // "My Requests"-style tables already found). toDateOnly() keeps the display compact,
+      // matching the established convention from those same stages.
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
+
+      var depositRequests = [];
+
       function renderPending() {
-        var requests = getAllClientDepositRequests().filter(function (r) { return r.status === 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = depositRequests.filter(function (r) { return r.status === 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         document.getElementById('pending-count').textContent = requests.length ? '(' + requests.length + ')' : '';
         var listEl = document.getElementById('pending-list');
 
@@ -178,7 +198,7 @@
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + r.clientName + ' (' + r.clientId + ')</span>' +
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
-                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + r.requestedAt + '</span>' +
+                '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</p>' +
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
@@ -192,8 +212,8 @@
       }
 
       function renderHistory() {
-        var requests = getAllClientDepositRequests().filter(function (r) { return r.status !== 'pending'; })
-          .sort(function (a, b) { return b.requestedAtMs - a.requestedAtMs; });
+        var requests = depositRequests.filter(function (r) { return r.status !== 'pending'; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); });
         var listEl = document.getElementById('history-list');
 
         if (requests.length === 0) {
@@ -217,7 +237,7 @@
             var creditedCell = r.status === 'credited'
               ? formatUSD(r.creditedAmount) + (Math.round(r.creditedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
               : '—';
-            var resolvedText = r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
+            var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
@@ -230,9 +250,48 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
+      // ---- Real data load — cross-client (RLS's own SELECT policy already grants an
+      // admin-claimed caller every client's own rows). `clients` is fetched alongside since
+      // deposit_requests rows only carry client_id, not a display name — joined client-side,
+      // the same "no Edge Function needed, RLS itself already permits this read" reasoning as
+      // every other cross-client aggregation in this project. ----
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('deposit_requests'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          var clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          return results[0].map(function (r) {
+            return {
+              id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
+              method: r.method, requestedAmount: r.requested_amount, currency: r.currency,
+              details: r.details, status: r.status, requestedAt: r.requested_at,
+              resolvedAt: r.resolved_at, creditedAmount: r.credited_amount,
+              transactionId: r.transaction_id, reason: r.reason
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { depositRequests = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { depositRequests = data; renderHistory(); }
+        });
       }
 
       // ---- Credit modal ----
@@ -258,15 +317,18 @@
       document.getElementById('credit-cancel').addEventListener('click', closeCreditModal);
       document.getElementById('credit-submit').addEventListener('click', function () {
         var amount = parseFloat(creditAmountInput.value);
-        try {
-          var result = creditDepositRequest(activeCreditClientId, activeCreditId, amount);
+        var requestId = activeCreditId;
+        var btn = document.getElementById('credit-submit');
+        MarketswaveData.withButtonBusy(btn, 'Crediting...', function () {
+          return MarketswaveData.callFunction('credit-deposit', { requestId: requestId, confirmedAmount: amount });
+        }).then(function (result) {
           closeCreditModal();
           showToast('Deposit Credited', result.id + ' — $' + result.creditedAmount.toLocaleString() + ' added to unallocated capital.');
-          renderAll();
-        } catch (e) {
-          creditError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          creditError.textContent = MarketswaveData.writeErrorMessage(err);
           creditError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Reject modal ----
@@ -289,15 +351,19 @@
       document.getElementById('reject-modal-backdrop').addEventListener('click', closeRejectModal);
       document.getElementById('reject-cancel').addEventListener('click', closeRejectModal);
       document.getElementById('reject-submit').addEventListener('click', function () {
-        try {
-          var result = rejectDepositRequest(activeRejectClientId, activeRejectId, rejectReasonInput.value.trim());
+        var requestId = activeRejectId;
+        var reason = rejectReasonInput.value.trim();
+        var btn = document.getElementById('reject-submit');
+        MarketswaveData.withButtonBusy(btn, 'Rejecting...', function () {
+          return MarketswaveData.callFunction('reject-deposit', { requestId: requestId, reason: reason });
+        }).then(function (result) {
           closeRejectModal();
           showToast('Deposit Rejected', result.id + ' has been rejected.', true);
-          renderAll();
-        } catch (e) {
-          rejectError.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          rejectError.textContent = MarketswaveData.writeErrorMessage(err);
           rejectError.classList.remove('hidden');
-        }
+        });
       });
 
       // ---- Delegated click handlers for row buttons ----
@@ -311,7 +377,7 @@
         if (rejectBtn) openRejectModal(rejectBtn.dataset.client, rejectBtn.dataset.id);
       });
 
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

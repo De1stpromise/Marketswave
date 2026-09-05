@@ -379,30 +379,127 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initDashboardSidebar('high-yield-savings');
     initDashboardNotifications();
   </script>
 
   <script>
-    // ---- Data ----
-    // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
-    // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
-    const STORAGE_KEY = clientScopedKey('marketswave_hys_pockets');
-    // Backend Requirements Register row 34 (Aug 23, 2026): this page used to keep its own
-    // copy of the rate schedule (SHORT_TERM_BRACKETS/LOCKED_RATES) purely for this live
-    // preview. Removed — every rate shown here now comes from engine-core.js's getHYSRate(),
-    // the same function requestHYSDeposit() itself uses, so the preview and the eventual
-    // credited rate can never drift apart.
+    // UI Wiring — Stage 4 (2026-09-03): pockets, deposit requests, and withdrawal requests now
+    // read from real Supabase tables (Phase B Stage 4: hys_pockets/hys_deposit_requests/
+    // hys_withdrawal_requests) instead of the client-scoped localStorage store above — that
+    // whole Multi-Client Data Model-era STORAGE_KEY/savePockets() mechanism is retired on this
+    // page (engine-core.js's own local marketswave_hys_pockets store is untouched for any other
+    // page still reading it, this page just stops being one of them).
+    //
+    // getHYSRate()/computeFDFields()/computeHYSWithdrawalAmount() investigation, per
+    // instruction: these three stay calling engine-core.js's own real functions directly,
+    // NOT a new call to the real hys-engine.ts shared module. Reasoning: hys-engine.ts runs in
+    // Deno, on the server, unreachable from the browser at all except by invoking a real Edge
+    // Function per keystroke — pointless for a live preview, since the rate schedule/forfeiture
+    // rule are pure, deterministic, non-secret functions of public inputs, not real'server
+    // state, exactly the same category of "client-side check for immediate feedback only" this
+    // project has used since UI Wiring Stage 2's own write-action discipline. engine-core.js's
+    // getHYSRate()/computeHYSWithdrawalAmount() are BOTH already pure (confirmed by reading
+    // them directly — neither touches localStorage), and engine-core.js stays loaded on this
+    // page regardless (dashboard-sidebar.js/dashboard-notifications.js both depend on it), so
+    // reusing those exact functions is a genuine "reuse what exists," not a new duplicate copy —
+    // the real, authoritative rate/forfeiture computation for the actual submitted request still
+    // happens server-side, in request-hys-deposit/request-hys-withdrawal, via that SAME
+    // hys-engine.ts module, so client preview and server outcome can never drift apart, same
+    // discipline Backend Requirements Register row 34 already established for the local engine.
 
-    let pockets = [];
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (Array.isArray(stored)) pockets = stored;
-    } catch (e) { pockets = []; }
+    var pockets = [];
+    var depositRequests = [];
+    var withdrawalRequests = [];
+    var dataLoaded = false;
+    var dataPromise = null;
 
-    function savePockets() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pockets));
+    // ★ Backend Requirements Register row 124 (2026-09-03): closes the real gap disclosed in this
+    // stage's own §4.74/CLAUDE.md entry — nothing server-side previously transitioned a pocket
+    // from 'active' to 'matured' once its real maturity_date passed, and this page's own direct
+    // `selectTable('hys_pockets')` read never touches ANY Edge Function (a raw RLS-authorized
+    // table SELECT), so request-hys-withdrawal's own server-side self-heal fix (see that
+    // function's own comment) cannot reach this read path at all — a genuinely matured LOCKED
+    // pocket would otherwise render with NO Withdraw control at all (a real access blocker, not
+    // just a stale badge), until a withdrawal happened to be attempted against it once.
+    // effectivePocketStatus() applies the IDENTICAL deterministic rule
+    // resolveEffectivePocketStatus() now applies server-side — safe to duplicate here (not the
+    // same risk as the display-only "effective status" this stage's own original writeup
+    // rejected) specifically because BOTH sides now apply the exact same pure, deterministic
+    // function of real data (maturity_date, current time), so the two can never disagree; the
+    // real server-side money decision (request-hys-withdrawal) no longer trusts a possibly-stale
+    // stored status either, it independently recomputes and self-heals before acting. Applied
+    // once, here, at mapping time — every downstream read of `.status` on a pocket object
+    // (buildPocketCard's badge/action-block, openWithdrawModal's needsWarning decision,
+    // computeHYSWithdrawalAmount()'s own forfeit check) automatically sees the correct value
+    // with no further changes needed anywhere else in this file.
+    function effectivePocketStatus(p) {
+      if (p.type === 'fixed' && p.status === 'active' && p.maturityDate && new Date(p.maturityDate) <= new Date()) {
+        return 'matured';
+      }
+      return p.status;
+    }
+
+    function mapPocketRow(r) {
+      const mapped = {
+        id: r.id, type: r.pocket_type, amount: r.amount, status: r.status,
+        termMode: r.term_mode, termMonths: r.term_months, termYears: r.term_years,
+        termLabel: r.term_label, rate: r.rate, termInYears: r.term_in_years,
+        maturityDate: r.maturity_date, projectedInterest: r.projected_interest,
+        fundingMethod: r.funding_method, createdAt: r.created_at,
+        withdrawnAt: r.withdrawn_at, withdrawnAmount: r.withdrawn_amount,
+        withdrawalMethod: r.withdrawal_method
+      };
+      mapped.status = effectivePocketStatus(mapped);
+      return mapped;
+    }
+    function mapDepositRequestRow(r) {
+      return {
+        _kind: 'deposit', id: r.id, pocketType: r.pocket_type, termMode: r.term_mode,
+        termMonths: r.term_months, termYears: r.term_years, termLabel: r.term_label,
+        rate: r.rate, termInYears: r.term_in_years, requestedAmount: r.requested_amount,
+        method: r.method, currency: r.currency, details: r.details, status: r.status,
+        requestedAt: r.requested_at, resolvedAt: r.resolved_at,
+        creditedAmount: r.credited_amount, pocketId: r.pocket_id,
+        transactionId: r.transaction_id, reason: r.reason
+      };
+    }
+    function mapWithdrawalRequestRow(r) {
+      return {
+        _kind: 'withdrawal', id: r.id, pocketId: r.pocket_id, pocketType: r.pocket_type,
+        termLabel: r.term_label, forfeit: r.forfeit, receiveAmount: r.receive_amount,
+        method: r.method, destinationDetails: r.destination_details, status: r.status,
+        requestedAt: r.requested_at, resolvedAt: r.resolved_at,
+        transactionId: r.transaction_id, reason: r.reason
+      };
+    }
+
+    function loadHysData() {
+      if (dataPromise) return dataPromise;
+      dataPromise = Promise.all([
+        MarketswaveData.selectTable('hys_pockets'),
+        MarketswaveData.selectTable('hys_deposit_requests'),
+        MarketswaveData.selectTable('hys_withdrawal_requests')
+      ]).then(function (results) {
+        return {
+          pockets: results[0].map(mapPocketRow),
+          depositRequests: results[1].map(mapDepositRequestRow),
+          withdrawalRequests: results[2].map(mapWithdrawalRequestRow)
+        };
+      }).catch(function (err) {
+        dataPromise = null;
+        throw err;
+      });
+      return dataPromise;
+    }
+
+    function applyHysData(data) {
+      pockets = data.pockets;
+      depositRequests = data.depositRequests;
+      withdrawalRequests = data.withdrawalRequests;
+      dataLoaded = true;
     }
 
     // ---- Helpers ----
@@ -414,6 +511,14 @@
     }
     function daysUntil(iso) {
       return Math.ceil((new Date(iso) - new Date()) / 86400000);
+    }
+    // Same precedent already established in asset-performance.html's own My Requests table
+    // (UI Wiring Stage 2): requested_at/resolved_at are now real, full ISO timestamptz values,
+    // not the local engine's own plain 'YYYY-MM-DD' strings — a simple slice is enough for a
+    // "My Pocket Requests" table cell (formatDate() above is used for the nicer pocket-card
+    // dates like Opened/Matures, which deserve the fuller locale format).
+    function toDateOnly(iso) {
+      return typeof iso === 'string' ? iso.slice(0, 10) : iso;
     }
     function computeFDFields(amount, mode, termValue) {
       const now = new Date();
@@ -436,17 +541,40 @@
     }
 
     // ---- Render ----
-    function updatePocketStatuses() {
-      const now = new Date();
-      let changed = false;
-      pockets.forEach(p => {
-        if (p.type === 'fixed' && p.status === 'active' && p.maturityDate && new Date(p.maturityDate) <= now) {
-          p.status = 'matured';
-          changed = true;
-        }
-      });
-      if (changed) savePockets();
-    }
+    // updatePocketStatuses() — the local engine's own client-side 'active'->'matured'
+    // auto-transition — is deliberately REMOVED, not ported, per instruction to investigate
+    // rather than assume. Investigated: the real hys_pockets RLS policy set (Phase B Stage 4's
+    // own migration) grants clients SELECT only — there is no client-side UPDATE policy on
+    // hys_pockets at all, and no Edge Function exists to perform this transition server-side
+    // either (confirmed via a functions-directory grep; the migration's own header comment
+    // already flags this as a known, disclosed local-architecture gap). There is nowhere valid
+    // to persist this transition under real RLS.
+    //
+    // At the time UI Wiring Stage 4 originally shipped, a display-only client-side derivation
+    // (compute "is this visually matured" from maturityDate <= now, without writing anything
+    // back) was considered and deliberately REJECTED: request-hys-withdrawal's own server-side
+    // forfeit/lockout logic keyed off the REAL STORED `status` column only, with no maturity
+    // check of its own — so a client-computed "Matured, no forfeit warning" preview could have
+    // disagreed with what the server would actually do, exactly the "confusing UI... controls
+    // that would fail" anti-pattern this project explicitly avoids, just in the opposite
+    // direction (a control that LOOKS like it will succeed as previewed, but doesn't).
+    //
+    // ★ Backend Requirements Register row 124 (2026-09-03) closed that gap: request-hys-
+    // withdrawal now independently resolves and self-heals a pocket's real maturity status
+    // (resolveEffectivePocketStatus(), in supabase/functions/_shared/hys-engine.ts) BEFORE
+    // applying any status-dependent logic, the moment a withdrawal is actually requested against
+    // it — the one real money/access decision point. That server-side fix alone still can't
+    // cover a pure READ, though: this page's own `selectTable('hys_pockets')` call is a raw,
+    // RLS-authorized table SELECT that never touches any Edge Function at all — a genuinely
+    // matured LOCKED pocket would otherwise keep rendering with NO Withdraw control (a real
+    // access blocker) until a withdrawal happened to be attempted against it once. So
+    // mapPocketRow() above ALSO applies the identical deterministic rule via
+    // effectivePocketStatus() at read time — safe to duplicate now, specifically because both
+    // sides apply the exact same pure function of real data (maturity_date, current time), never
+    // a stateful assumption that could drift between the two copies. Every downstream read of
+    // `.status` on a pocket object — this render code's own badge/action-block logic below, and
+    // openWithdrawModal()'s needsWarning decision further down — sees the corrected value
+    // automatically, with no per-call-site changes needed.
 
     function renderSummary() {
       const held = pockets.filter(p => p.status !== 'withdrawn');
@@ -511,7 +639,6 @@
     }
 
     function renderPockets() {
-      updatePocketStatuses();
       const grid = document.getElementById('pockets-grid');
       const empty = document.getElementById('pockets-empty');
       grid.innerHTML = '';
@@ -549,15 +676,16 @@
 
     function renderPocketRequests() {
       const listEl = document.getElementById('pocket-requests-list');
-      if (!listEl || typeof getHYSDepositRequests !== 'function' || typeof getHYSWithdrawalRequests !== 'function') return;
+      if (!listEl) return;
 
       // Merged, newest first — same "show everything, one shared timeline" principle
       // asset-performance.html's own allocation+sell "My Requests" merge already established.
-      // _kind is a client-side-only tag (never persisted) distinguishing which getter a
-      // request came from, since the two share several field names but not all of them.
-      const depositRequests = getHYSDepositRequests().map(r => Object.assign({ _kind: 'deposit' }, r));
-      const withdrawalRequests = getHYSWithdrawalRequests().map(r => Object.assign({ _kind: 'withdrawal' }, r));
-      const requests = depositRequests.concat(withdrawalRequests).sort((a, b) => b.requestedAtMs - a.requestedAtMs);
+      // _kind is applied by mapDepositRequestRow()/mapWithdrawalRequestRow() above, since the
+      // two real tables share several column names but not all of them. Sorting directly by the
+      // real requestedAt ISO timestamp (no requestedAtMs-equivalent field to port — same real
+      // simplification UI Wiring Stage 2 already found for asset-performance.html's own My
+      // Requests table).
+      const requests = depositRequests.concat(withdrawalRequests).sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
 
       if (requests.length === 0) {
         listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No requests yet.</p>';
@@ -592,7 +720,7 @@
             amountCell = fmt(r.receiveAmount) + (r.forfeit ? ' <span class="text-amber-600 text-xs">(interest forfeited)</span>' : '');
           }
           const resolvedText = r.resolvedAt
-            ? r.resolvedAt + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
+            ? toDateOnly(r.resolvedAt) + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
             : '—';
           return '<tr class="hover:bg-slate-50/50">' +
             `<td class="px-6 py-4 font-medium text-navy">${r.id}</td>` +
@@ -601,7 +729,7 @@
             `<td class="px-6 py-4 text-right">${amountCell}</td>` +
             `<td class="px-6 py-4 text-slate-500">${r.method === 'crypto' ? 'Crypto' : 'Bank Transfer'}</td>` +
             `<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ${statusClass}">${statusLabel}</span></td>` +
-            `<td class="px-6 py-4 text-slate-500">${r.requestedAt}</td>` +
+            `<td class="px-6 py-4 text-slate-500">${toDateOnly(r.requestedAt)}</td>` +
             `<td class="px-6 py-4 text-slate-500">${resolvedText}</td>` +
             '</tr>';
         }).join('') + '</tbody></table>';
@@ -708,26 +836,26 @@
       showNpStep('funding');
     }
 
-    // Multi-Client Data Model / HYS Deposit Approval Queue phase (Aug 21, 2026): "Open a New
-    // Pocket" now submits a request via requestHYSDeposit() instead of creating the pocket
-    // immediately — same UX shift Deploy Capital already went through for portfolio
-    // allocations. The pocket itself is only ever created by creditHYSDeposit(), called from
-    // the admin tool once a Portfolio Manager approves — this function no longer touches
-    // `pockets`/savePockets() at all.
+    // UI Wiring — Stage 4 (2026-09-03): "Open a New Pocket" now calls the real
+    // request-hys-deposit Edge Function instead of the local requestHYSDeposit() — same
+    // "request now, execute later" discipline as before (the pocket itself is still only ever
+    // created by credit-hys-deposit, admin-only, out of this stage's scope). Returns the
+    // withButtonBusy()-wrapped Promise directly so each call site can drive its own button's
+    // busy state — the client-side amount/field checks at each call site below stay exactly as
+    // they were (immediate feedback only); the real, authoritative validation (minimum
+    // investment, term range, etc.) now comes from the server via writeErrorMessage().
     function submitPocketRequest(method, details) {
       const term = draft.type === 'fixed'
         ? { mode: draft.termMode, value: draft.termMode === 'short' ? draft.termMonths : draft.termYears }
         : null;
-      try {
-        requestHYSDeposit(draft.type, term, draft.amount, method, details);
-      } catch (e) {
-        return { error: e.message };
-      }
-      renderPocketRequests();
-      closeNewPocketModal();
-      const typeLabel = draft.type === 'fixed' ? `Fixed Deposit (${draft.termLabel})` : 'As You Want';
-      showToast('Pocket Request Sent', `${typeLabel} request for ${fmt(draft.amount)} submitted. Pending Portfolio Manager approval.`);
-      return { error: null };
+      return MarketswaveData.callFunction('request-hys-deposit', {
+        pocketType: draft.type, term: term, amount: draft.amount, method: method, details: details
+      }).then(function (request) {
+        reloadHysData(true);
+        closeNewPocketModal();
+        const typeLabel = draft.type === 'fixed' ? `Fixed Deposit (${draft.termLabel})` : 'As You Want';
+        showToast('Pocket Request Sent', `${typeLabel} request for ${fmt(draft.amount)} submitted (${request.id}). Pending Portfolio Manager approval.`);
+      });
     }
 
     document.getElementById('open-new-pocket-btn').addEventListener('click', openNewPocketModal);
@@ -795,9 +923,10 @@
         errorEl.classList.remove('hidden');
         return;
       }
-      const result = submitPocketRequest('crypto', { asset, network });
-      if (result.error) { errorEl.textContent = result.error; errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
+      const btn = document.getElementById('np-crypto-confirm');
+      MarketswaveData.withButtonBusy(btn, 'Submitting...', () => submitPocketRequest('crypto', { asset, network }))
+        .catch((err) => { errorEl.textContent = MarketswaveData.writeErrorMessage(err); errorEl.classList.remove('hidden'); });
     });
 
     document.getElementById('np-bank-confirm').addEventListener('click', () => {
@@ -812,9 +941,11 @@
         errorEl.classList.remove('hidden');
         return;
       }
-      const result = submitPocketRequest('bank', { senderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null });
-      if (result.error) { errorEl.textContent = result.error; errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
+      const btn = document.getElementById('np-bank-confirm');
+      const details = { senderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null };
+      MarketswaveData.withButtonBusy(btn, 'Submitting...', () => submitPocketRequest('bank', details))
+        .catch((err) => { errorEl.textContent = MarketswaveData.writeErrorMessage(err); errorEl.classList.remove('hidden'); });
     });
 
     // ---- Withdraw modal ----
@@ -842,11 +973,14 @@
     }
 
     // computeReceiveAmount() (formerly a local duplicate of this exact forfeiture rule) was
-    // removed Aug 27, 2026 — this preview now calls engine-core.js's own
-    // computeHYSWithdrawalAmount(pocket) directly, the single source of truth
-    // requestHYSWithdrawal() itself also uses, so the preview and the eventual approved
-    // amount can never drift apart (same discipline getHYSRate() already established for the
-    // deposit side, Backend Requirements Register row 34).
+    // removed Aug 27, 2026 — this preview calls engine-core.js's own
+    // computeHYSWithdrawalAmount(pocket) directly (still pure, still loaded — see this file's
+    // own script-block-top investigation note). UI Wiring Stage 4: the real, authoritative
+    // computation now happens server-side in request-hys-withdrawal (via the identical
+    // hys-engine.ts computeHysWithdrawalAmount()), keyed off the REAL stored pocket, so this
+    // client-side preview and the server's real outcome can never drift apart — same discipline
+    // getHYSRate() already established for the deposit side, Backend Requirements Register row
+    // 34.
 
     function openWithdrawModal(id) {
       currentWithdrawId = id;
@@ -871,32 +1005,27 @@
       withdrawModal.classList.add('hidden');
     }
 
-    // Aug 27, 2026 (the frontend audit's HYS withdrawal approval-gate fix): submits a
-    // requestHYSWithdrawal() request instead of executing immediately — the exact same UX
-    // shift "Open a New Pocket" already went through for deposits (submitPocketRequest()
-    // above). The pocket itself is only ever marked 'withdrawn' by approveHYSWithdrawal(),
-    // called from the admin tool once a Portfolio Manager approves — this function no longer
-    // touches `pockets`/savePockets() at all. computeReceiveAmount()/the forfeiture rule
-    // moved into engine-core.js (computeHYSWithdrawalAmount(), called internally by
-    // requestHYSWithdrawal()) as the single source of truth, rather than kept duplicated
-    // here — the exact same "derive money math from the real stored data, not a client-side
-    // copy" discipline getHYSRate() already established (Backend Requirements Register row
-    // 34). getAuthenticatedClientId() is used explicitly, not the ambient getCurrentClientId()
-    // — requestHYSWithdrawal() takes an explicit clientId by design (mirrors
-    // requestWithdrawal()'s own from-day-one discipline, not requestHYSDeposit()'s older
-    // ambient one), same correction deploy-capital.html's own Withdraw handler already needed.
-    function finalizeWithdrawal(methodLabel, method, destinationDetails, errorEl) {
-      try {
-        requestHYSWithdrawal(getAuthenticatedClientId(), currentWithdrawId, method, destinationDetails);
-      } catch (e) {
-        if (errorEl) { errorEl.textContent = e.message; errorEl.classList.remove('hidden'); }
-        return;
-      }
-      if (errorEl) errorEl.classList.add('hidden');
-      renderPockets();
-      renderPocketRequests();
-      closeWithdrawModal();
-      showToast('Withdrawal Request Sent', `Your request to withdraw to your ${methodLabel} has been submitted. Pending Portfolio Manager approval.`);
+    // UI Wiring — Stage 4 (2026-09-03): submits via the real request-hys-withdrawal Edge
+    // Function instead of the local requestHYSWithdrawal() — same "request now, execute later"
+    // discipline as before (the pocket is only ever marked 'withdrawn' by the admin-only
+    // approve-hys-withdrawal, out of this stage's scope). No explicit clientId is passed —
+    // request-hys-withdrawal derives it from the caller's own verified JWT server-side, the
+    // same simplification already found for deploy-capital.html's own Withdraw handler in UI
+    // Wiring Stage 3 (getAuthenticatedClientId() is no longer needed on this page at all).
+    // forfeit/receiveAmount are computed authoritatively server-side, from the real stored
+    // pocket, and returned in the response — this function doesn't need to compute or pass
+    // them itself.
+    function finalizeWithdrawal(methodLabel, method, destinationDetails, errorEl, btn) {
+      return MarketswaveData.withButtonBusy(btn, 'Submitting...', () => MarketswaveData.callFunction('request-hys-withdrawal', {
+        pocketId: currentWithdrawId, method, destinationDetails
+      })).then(() => {
+        if (errorEl) errorEl.classList.add('hidden');
+        reloadHysData(true);
+        closeWithdrawModal();
+        showToast('Withdrawal Request Sent', `Your request to withdraw to your ${methodLabel} has been submitted. Pending Portfolio Manager approval.`);
+      }).catch((err) => {
+        if (errorEl) { errorEl.textContent = MarketswaveData.writeErrorMessage(err); errorEl.classList.remove('hidden'); }
+      });
     }
 
     document.getElementById('wd-close').addEventListener('click', closeWithdrawModal);
@@ -929,7 +1058,7 @@
       const errorEl = document.getElementById('wd-crypto-error');
       if (!address || !asset || !network) { errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
-      finalizeWithdrawal('crypto wallet', 'crypto', { address, asset, network }, errorEl);
+      finalizeWithdrawal('crypto wallet', 'crypto', { address, asset, network }, errorEl, document.getElementById('wd-crypto-confirm'));
     });
 
     document.getElementById('wd-bank-confirm').addEventListener('click', () => {
@@ -941,7 +1070,8 @@
       const errorEl = document.getElementById('wd-bank-error');
       if (!name || !institution || !account || (!routing && !swift)) { errorEl.classList.remove('hidden'); return; }
       errorEl.classList.add('hidden');
-      finalizeWithdrawal('bank account', 'bank', { accountHolderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null }, errorEl);
+      const details = { accountHolderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null };
+      finalizeWithdrawal('bank account', 'bank', details, errorEl, document.getElementById('wd-bank-confirm'));
     });
 
     document.getElementById('pockets-grid').addEventListener('click', (e) => {
@@ -955,9 +1085,47 @@
       if (!withdrawModal.classList.contains('hidden')) closeWithdrawModal();
     });
 
-    // ---- Init ----
-    renderPockets();
-    renderPocketRequests();
+    // ---- Init — UI Wiring Stage 4 (2026-09-03): three renderAsyncBundle calls, all sharing
+    // the same cached loadHysData() promise (mirrors transactions.html's own established
+    // multi-region-one-fetch pattern from UI Wiring Stage 3), each owning the loading/error
+    // state for one visually distinct part of the page. forceReload resets the cache so a
+    // write action's own reload genuinely re-fetches instead of replaying stale cached data. ----
+    function reloadHysData(forceReload) {
+      if (forceReload) dataPromise = null;
+
+      MarketswaveData.renderAsyncBundle(
+        [document.getElementById('hys-total-balance'), document.getElementById('hys-active-count'), document.getElementById('hys-total-interest')],
+        {
+          skeletonHTML: '<span class="inline-block h-6 w-20 bg-slate-200 rounded animate-pulse"></span>',
+          load: loadHysData,
+          render: (data) => { applyHysData(data); renderSummary(); }
+        }
+      );
+
+      MarketswaveData.renderAsyncBundle(
+        document.getElementById('pockets-grid'),
+        {
+          skeletonHTML: '<div class="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse space-y-3">' +
+            '<div class="h-4 bg-slate-200 rounded w-2/3"></div><div class="h-6 bg-slate-200 rounded w-1/2"></div>' +
+            '<div class="h-3 bg-slate-200 rounded"></div><div class="h-3 bg-slate-200 rounded w-3/4"></div></div>' +
+            '<div class="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse space-y-3 hidden md:block">' +
+            '<div class="h-4 bg-slate-200 rounded w-2/3"></div><div class="h-6 bg-slate-200 rounded w-1/2"></div>' +
+            '<div class="h-3 bg-slate-200 rounded"></div><div class="h-3 bg-slate-200 rounded w-3/4"></div></div>',
+          load: loadHysData,
+          render: (data) => { applyHysData(data); renderPockets(); }
+        }
+      );
+
+      MarketswaveData.renderAsyncBundle(
+        document.getElementById('pocket-requests-list'),
+        {
+          load: loadHysData,
+          render: (data) => { applyHysData(data); renderPocketRequests(); }
+        }
+      );
+    }
+
+    reloadHysData(false);
   </script>
 </body>
 </html>

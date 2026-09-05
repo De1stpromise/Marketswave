@@ -135,13 +135,15 @@
               </div>
             </div>
 
-            <!-- Read-only: Request Change fields — display text is now rendered from
-                 getSettingsProfile() rather than hardcoded (Request Change redesign, Aug 21,
-                 2026), so it reflects a real approved change on next load. -->
+            <!-- Read-only: Request Change fields — display text renders from real Supabase
+                 data (client_profiles, UI Wiring Stage 5, 2026-09-03; formerly the local
+                 engine's own getSettingsProfile()), so it reflects a real approved change on
+                 next load. -->
             <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100" data-field-row="legalName">
               <div>
                 <p class="text-xs text-slate-500">Legal Name</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="legalName-display">—</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="legalName-empty-hint">Not on file yet — submit a Request Change to add this.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
@@ -153,6 +155,7 @@
               <div>
                 <p class="text-xs text-slate-500">Address</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="address-display">—</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="address-empty-hint">Not on file yet — submit a Request Change to add this.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
@@ -164,6 +167,7 @@
               <div>
                 <p class="text-xs text-slate-500">ID / Document</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="idDocument-display">—</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="idDocument-empty-hint">Not on file yet — submit a Request Change to add this.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
@@ -444,12 +448,19 @@
   <script src="engine-core.js"></script>
   <script src="format-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initDashboardSidebar('settings');
     initDashboardNotifications();
   </script>
 
   <script>
+    // UI Wiring — Stage 5 (2026-09-03): Profile display + Email/Phone display, Legal Name/
+    // Address/ID Document request-change, Password Change, and Active Sessions all wire to
+    // real Supabase below wherever real backend support genuinely exists — see each section's
+    // own comment for the specific finding. 2FA and Notification Preferences stay 100% local
+    // (confirmed no real backend exists for either) — see their own sections' comments.
+
     // Toast helper
     const toast = document.getElementById('settings-toast');
     const toastTitle = document.getElementById('settings-toast-title');
@@ -544,20 +555,45 @@
       });
     })();
 
-    // ---- Editable profile fields (Email, Phone) ----
+    // ---- Editable profile fields (Email, Phone) — UI Wiring Stage 5 (2026-09-03) ----
+    // ★ Investigated first, per instruction — a real correction to this task's own framing:
+    // Email/Phone do NOT live on client_profiles (that table only has legal_name/address/
+    // id_document, confirmed by reading Phase B Stage 5's own migration directly). They're
+    // real columns on `clients` itself (Phase B Stage 1). DISPLAY can genuinely go real (a
+    // plain SELECT — RLS already grants self-or-admin read); INLINE EDIT structurally cannot:
+    // `clients` has no UPDATE policy for `authenticated` at all (confirmed by reading that
+    // migration's own RLS section — only INSERT-own-as-pending-application and SELECT exist),
+    // and no Edge Function updates it either. The Edit/Save/Cancel UI below is kept exactly as
+    // it was — the local engine's own edit affordance has no real equivalent to silently fall
+    // back to — but Save no longer pretends to persist anything: a fake "Updated" toast here
+    // would be immediately contradicted the next time this real display loads and reverts to
+    // the real value, a genuinely worse, more confusing experience than the honest disclosure
+    // now shown instead. Logged as its own Backend Requirements Register gap, not silently
+    // left looking done.
     (function () {
-      // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
-      // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
-      const STORAGE_KEY = clientScopedKey('marketswave_settings_profile');
-      const DEFAULTS = { email: 'john.doe@example.com', phone: '+1 (415) 555-0182' };
-      let profile = { ...DEFAULTS };
-      try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (stored) profile = { ...DEFAULTS, ...stored };
-      } catch (e) { /* ignore malformed storage */ }
+      if (typeof MarketswaveData === 'undefined') return;
 
-      document.getElementById('email-view').textContent = profile.email;
-      document.getElementById('phone-view').textContent = profile.phone;
+      let realEmail = null, realPhone = null;
+
+      function loadClientRow() {
+        return MarketswaveData.selectTable('clients').then(function (rows) {
+          return rows && rows[0] ? rows[0] : null;
+        });
+      }
+
+      MarketswaveData.renderAsyncBundle(
+        [document.getElementById('email-view'), document.getElementById('phone-view')],
+        {
+          skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+          load: loadClientRow,
+          render: function (client) {
+            realEmail = client ? client.email : null;
+            realPhone = client ? client.phone : null;
+            document.getElementById('email-view').textContent = realEmail || '—';
+            document.getElementById('phone-view').textContent = realPhone || '—';
+          }
+        }
+      );
 
       // Identity display fix (Aug 22, 2026): the avatar/name/account-type badge above used to
       // hardcode "JD"/"John Doe"/"Individual Account" regardless of who Phase 3 actually
@@ -579,7 +615,7 @@
         document.querySelector(`.edit-btn[data-field="${field}"]`).classList.add('hidden');
         document.querySelector(`.save-btn[data-field="${field}"]`).classList.remove('hidden');
         document.querySelector(`.cancel-btn[data-field="${field}"]`).classList.remove('hidden');
-        document.getElementById(`${field}-input`).value = profile[field];
+        document.getElementById(`${field}-input`).value = (field === 'email' ? realEmail : realPhone) || '';
         document.getElementById(`${field}-error`).classList.add('hidden');
       }
       function exitEdit(field) {
@@ -598,57 +634,86 @@
           const errorEl = document.getElementById(`${field}-error`);
 
           if (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            errorEl.textContent = 'Enter a valid email address.';
             errorEl.classList.remove('hidden');
             return;
           }
           if (field === 'phone' && value.replace(/\D/g, '').length < 7) {
+            errorEl.textContent = 'Enter a valid phone number.';
             errorEl.classList.remove('hidden');
             return;
           }
-          errorEl.classList.add('hidden');
-
-          profile[field] = value;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-          document.getElementById(`${field}-view`).textContent = value;
-          exitEdit(field);
-          showToast(`${field === 'email' ? 'Email' : 'Phone'} Updated`, `Your ${field} has been updated to ${value}.`);
+          // No real write path exists yet (see this IIFE's own header comment) — an honest
+          // disclosure, reusing the field's existing error slot, not a fake success toast.
+          errorEl.textContent = `Updating your ${field === 'email' ? 'email' : 'phone number'} directly isn't available yet. Please contact support to request this change.`;
+          errorEl.classList.remove('hidden');
         });
       });
     })();
 
-    // ---- Request Change redesign (Aug 21, 2026): Legal Name / Address / ID-Document now go
-    // through a real request queue (requestSettingsChange() in engine-core.js) instead of
-    // marketswave_settings_pending's field-names-only array. Display text and the modal's
-    // "current value" both read from getSettingsProfile() instead of hardcoded HTML, so an
-    // approved change is visible on next load. Email/Phone are untouched — self-service, no
-    // request queue, out of scope for this redesign. Date of Birth was originally part of
-    // this redesign but removed as a requestable field same-day (Aug 21, 2026) — see
-    // engine-core.js's REQUESTABLE_SETTINGS_FIELDS comment. ----
+    // ---- Request Change (Legal Name / Address / ID Document) — UI Wiring Stage 5
+    // (2026-09-03): wired to the real client_profiles (display) + profile_change_requests
+    // (queue) + request-profile-change Edge Function, replacing the local engine's own
+    // getSettingsProfile()/requestSettingsChange()/getSettingsChangeRequests(). Field shapes
+    // (legalName: {firstName,lastName}; address: {street,city,state,zip,country}; idDocument:
+    // {documentType,fileName}) are byte-for-byte identical between the local store and the
+    // real client_profiles columns (Phase B Stage 5's own migration mirrors them
+    // deliberately, confirmed by reading it directly), so formatFieldDisplay()
+    // (format-helpers.js) needed zero changes — only WHERE the data comes from changed.
+    // Email/Phone stay untouched here — see the separate IIFE above for that real finding.
+    // Date of Birth is not part of this at all (removed as a requestable field project-wide,
+    // Aug 21, 2026, before either backend existed). ----
     (function () {
-      if (typeof getSettingsProfile !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
 
-      // formatFieldDisplay() now lives in format-helpers.js (Aug 23, 2026), shared with
-      // admin-profile-updates.html instead of duplicated — see that file's own comment.
-
-      // Date of Birth removed as a requestable field (Aug 21, 2026) — see engine-core.js's
-      // REQUESTABLE_SETTINGS_FIELDS comment for why. A legacy pending/resolved dateOfBirth
-      // request may still exist in marketswave_settings_change_requests test data; it is
-      // intentionally NOT surfaced anywhere on this page anymore (no row, no modal body), but
-      // it is still visible and actionable in admin-profile-updates.html.
       const FIELDS = ['legalName', 'address', 'idDocument'];
+      let profile = { legalName: null, address: null, idDocument: null };
+      let pendingRequests = [];
 
+      var dataPromise = null;
+      function loadProfileChangeData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('client_profiles'),
+          MarketswaveData.selectTable('profile_change_requests')
+        ]).then(function (results) {
+          var row = results[0] && results[0][0] ? results[0][0] : null;
+          return {
+            profile: {
+              legalName: row ? row.legal_name : null,
+              address: row ? row.address : null,
+              idDocument: row ? row.id_document : null
+            },
+            requests: results[1].map(function (r) { return { id: r.id, field: r.field, status: r.status }; })
+          };
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
+
+      // Dashboard/Settings Real-Data Fixes (2026-09-03): investigated per instruction — for
+      // a real client (stormarem@gmail.com) reporting these fields look empty/broken,
+      // confirmed directly against the real client_profiles/profile_change_requests tables
+      // that no row and zero requests exist for them at all: the "—" display is genuinely
+      // correct and honest (the established "never fabricate a default" rule holding exactly
+      // as designed), not a rendering bug. Added a small, dismissable-by-context helper hint
+      // (shown only when the real value is genuinely empty) so an intentional empty state
+      // reads as intentional rather than looking broken to a real client seeing it for the
+      // first time.
       function renderProfileDisplay() {
-        const profile = getSettingsProfile();
         FIELDS.forEach(field => {
           const el = document.getElementById(`${field}-display`);
+          const hintEl = document.getElementById(`${field}-empty-hint`);
           if (el) el.textContent = formatFieldDisplay(field, profile[field]);
+          if (hintEl) hintEl.classList.toggle('hidden', !!profile[field]);
         });
       }
 
       function renderPendingBadges() {
-        const requests = getSettingsChangeRequests();
         FIELDS.forEach(field => {
-          const isPending = requests.some(r => r.field === field && r.status === 'pending');
+          const isPending = pendingRequests.some(r => r.field === field && r.status === 'pending');
           const row = document.querySelector(`[data-field-row="${field}"]`);
           if (!row) return;
           row.querySelector('.pending-badge').classList.toggle('hidden', !isPending);
@@ -656,8 +721,28 @@
         });
       }
 
-      renderProfileDisplay();
-      renderPendingBadges();
+      // Only the leaf value <p> elements are used as renderAsyncBundle() regions — NOT the
+      // whole [data-field-row] container, which also holds the pending-badge/request-change
+      // button this render() only ever toggles classes on, never rebuilds. Painting a skeleton
+      // into the whole row would destroy those children on first load, the same static-child-
+      // vs-skeleton conflict already found and fixed once for transactions.html's ledger table
+      // (UI Wiring Stage 3) — avoided here from the start rather than repeated.
+      function reloadProfileChangeData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(
+          FIELDS.map(f => document.getElementById(`${f}-display`)),
+          {
+            skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+            load: loadProfileChangeData,
+            render: function (data) {
+              profile = data.profile;
+              pendingRequests = data.requests;
+              renderProfileDisplay();
+              renderPendingBadges();
+            }
+          }
+        );
+      }
 
       const modal = document.getElementById('change-modal');
       const titleEl = document.getElementById('change-modal-title');
@@ -687,8 +772,7 @@
         btn.addEventListener('click', () => {
           activeField = btn.dataset.field;
           titleEl.textContent = `Request Change — ${btn.dataset.label}`;
-          const currentValue = getSettingsProfile()[activeField];
-          document.getElementById(`cm-${activeField}-current`).textContent = formatFieldDisplay(activeField, currentValue);
+          document.getElementById(`cm-${activeField}-current`).textContent = formatFieldDisplay(activeField, profile[activeField]);
           clearNewValueInputs();
           reasonInput.value = '';
           errorEl.classList.add('hidden');
@@ -701,9 +785,10 @@
       document.getElementById('change-modal-backdrop').addEventListener('click', closeModal);
       document.getElementById('change-modal-cancel').addEventListener('click', closeModal);
 
-      // Builds the requestedValue object for whichever field is active — engine-core.js
-      // validates the shape itself (missing required sub-fields throw), so this only needs
-      // to assemble what the form collected, not duplicate that validation client-side.
+      // Builds the requestedValue object for whichever field is active — request-profile-
+      // change itself validates the shape server-side (missing required sub-fields reject
+      // with a real 400), so this only needs to assemble what the form collected, not
+      // duplicate that validation client-side.
       function buildRequestedValue(field) {
         if (field === 'legalName') {
           return {
@@ -734,22 +819,39 @@
       document.getElementById('change-modal-submit').addEventListener('click', () => {
         const requestedValue = buildRequestedValue(activeField);
         const reason = reasonInput.value.trim() || null;
-        try {
-          requestSettingsChange(activeField, requestedValue, reason);
-        } catch (e) {
-          errorEl.textContent = e.message;
+        const field = activeField;
+        const btn = document.getElementById('change-modal-submit');
+        MarketswaveData.withButtonBusy(btn, 'Submitting...', function () {
+          return MarketswaveData.callFunction('request-profile-change', { field: field, requestedValue: requestedValue, reason: reason });
+        }).then(function () {
+          errorEl.classList.add('hidden');
+          closeModal();
+          reloadProfileChangeData(true);
+          const label = document.querySelector(`.request-change-btn[data-field="${field}"]`).dataset.label;
+          showToast('Change Request Sent', `Your request to update ${label} has been submitted for review.`);
+        }).catch(function (err) {
+          errorEl.textContent = MarketswaveData.writeErrorMessage(err);
           errorEl.classList.remove('hidden');
-          return;
-        }
-        errorEl.classList.add('hidden');
-        closeModal();
-        renderPendingBadges();
-        const label = document.querySelector(`.request-change-btn[data-field="${activeField}"]`).dataset.label;
-        showToast('Change Request Sent', `Your request to update ${label} has been submitted for review.`);
+        });
       });
+
+      reloadProfileChangeData(true);
     })();
 
-    // ---- Password change — reuses signup.html's step-2 strength/match validation ----
+    // ---- Password change — UI Wiring Stage 5 (2026-09-03). Investigated per instruction:
+    // this section had NO real backend at all before now — not even fake-persisted locally,
+    // confirmed by reading the prior handler directly (it validated the form, cleared the
+    // inputs, and showed a success toast, with nothing written anywhere). Decision, per the
+    // task's own explicit invitation to make this call: wire the real
+    // supabase.auth.updateUser({password}) call, and do the FULL, responsible version of it —
+    // Supabase's own updateUser() API has no "current password" parameter of its own (it
+    // trusts the already-authenticated session outright, by design), so a naive wiring would
+    // have left "Current Password" a purely decorative field even though it visually presents
+    // as a real security gate. Instead, this re-verifies the real current password first via
+    // a real client.auth.signInWithPassword() call against the session's own real email — a
+    // genuine, idiomatic Supabase re-authentication pattern for a sensitive action, not a
+    // workaround — before calling updateUser(). Reuses signup.html's step-2 strength/match
+    // validation, unchanged. ----
     (function () {
       const passwordInput = document.getElementById('new-password');
       const strengthFill = document.getElementById('strength-fill');
@@ -786,6 +888,7 @@
         const next = passwordInput.value;
         const confirm = document.getElementById('confirm-password').value;
         const errorEl = document.getElementById('password-error');
+        const btn = document.getElementById('password-submit');
 
         if (!current) {
           errorEl.textContent = 'Please enter your current password.';
@@ -802,14 +905,36 @@
           errorEl.classList.remove('hidden');
           return;
         }
+        if (typeof MarketswaveData === 'undefined') {
+          errorEl.textContent = 'Password change is unavailable right now.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
         errorEl.classList.add('hidden');
 
-        document.getElementById('current-password').value = '';
-        passwordInput.value = '';
-        document.getElementById('confirm-password').value = '';
-        applyLevel(levels[0]);
-
-        showToast('Password Updated', 'Your password has been changed successfully.');
+        MarketswaveData.withButtonBusy(btn, 'Updating...', function () {
+          return MarketswaveData.getSupabaseClient().then(function (client) {
+            return client.auth.getSession().then(function (sessionResult) {
+              const email = sessionResult.data.session && sessionResult.data.session.user && sessionResult.data.session.user.email;
+              if (!email) throw new Error('Your session may have expired. Try refreshing the page.');
+              return client.auth.signInWithPassword({ email: email, password: current }).then(function (signInResult) {
+                if (signInResult.error) throw new Error('Your current password is incorrect.');
+                return client.auth.updateUser({ password: next });
+              });
+            });
+          }).then(function (updateResult) {
+            if (updateResult.error) throw new Error(updateResult.error.message);
+          });
+        }).then(function () {
+          document.getElementById('current-password').value = '';
+          passwordInput.value = '';
+          document.getElementById('confirm-password').value = '';
+          applyLevel(levels[0]);
+          showToast('Password Updated', 'Your password has been changed successfully.');
+        }).catch(function (err) {
+          errorEl.textContent = (err && err.message) || 'Something went wrong. Please try again.';
+          errorEl.classList.remove('hidden');
+        });
       });
     })();
 
@@ -821,7 +946,15 @@
     // than accepting any 6 digits — a real, if trivial, verification step. The storage key/
     // format (a bare 'enabled'/'disabled' string) is UNCHANGED from before, which is also
     // exactly what resetClient2FA() writes to when a PM resets this client's 2FA — this read
-    // picks that up automatically on the next load, no extra code needed for that case. ----
+    // picks that up automatically on the next load, no extra code needed for that case.
+    //
+    // ★ UI Wiring Stage 5 (2026-09-03): investigated, per instruction, before leaving this
+    // untouched — confirmed no real Supabase table/column for 2FA state exists anywhere
+    // (project-wide migration grep). Stays 100% local. Worth noting for a future stage,
+    // logged in the Backend Requirements Register rather than acted on here: Supabase Auth
+    // has its own real, native MFA/TOTP support this project has never adopted — a genuine
+    // future alternative to this simulated-email-code stub, not assumed to be the right call
+    // to build now. ----
     (function () {
       const STORAGE_KEY = clientScopedKey('marketswave_settings_2fa');
       const toggle = document.getElementById('twofa-toggle');
@@ -916,31 +1049,56 @@
 
       deviceLabel.innerHTML = deviceDescription() + thisDeviceBadge;
 
-      // Best-effort real last-sign-in time from Firebase Auth. Falls back to a plain "Active
-      // now" (still true and honest for the session currently rendering this page) if
-      // Firebase can't be reached (emulator down, network hiccup) or this session wasn't
-      // established through a real Firebase Auth sign-in (e.g. a dev/console-set session) —
-      // never blocks the page, and never fabricates a value it can't back with something real.
-      Promise.resolve()
-        .then(function () {
-          return Promise.all([
-            import('./firebase-config.js'),
-            import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js')
-          ]);
-        })
-        .then(function (mods) {
-          const auth = mods[0].auth;
-          const onAuthStateChanged = mods[1].onAuthStateChanged;
-          return new Promise(function (resolve) {
-            const unsub = onAuthStateChanged(auth, function (user) {
-              unsub();
-              resolve(user);
+      // ★ UI Wiring Stage 5 (2026-09-03): a real, separate bug found and fixed during this
+      // stage's own investigation, not something the task named directly — this lookup
+      // previously ONLY ever tried Firebase Auth. Firebase Retirement (Aug 30, 2026) flipped
+      // the DEFAULT active backend to Supabase, so for every real session since then this has
+      // been silently reaching a backend nothing actually authenticated through — always
+      // falling through to the honest-but-uninformative plain "Active now," a real, silent
+      // degradation of a feature that used to genuinely work. Now tries Supabase FIRST (the
+      // default/primary backend), then Firebase as a fallback — mirrors dashboard-sidebar.js's
+      // own real Logout handler, which already runs both real signOut() calls unconditionally
+      // for the identical reason ("it has no idea, and doesn't need to know, which real
+      // backend actually authenticated the current session"). Still never blocks the page and
+      // never fabricates a value it can't back with something real.
+      function trySupabaseSignInTime() {
+        if (typeof MarketswaveData === 'undefined') return Promise.resolve(null);
+        return MarketswaveData.getSupabaseClient().then(function (client) {
+          return client.auth.getSession();
+        }).then(function (result) {
+          var user = result.data.session && result.data.session.user;
+          return user && user.last_sign_in_at ? new Date(user.last_sign_in_at) : null;
+        }).catch(function () { return null; });
+      }
+
+      function tryFirebaseSignInTime() {
+        return Promise.resolve()
+          .then(function () {
+            return Promise.all([
+              import('./firebase-config.js'),
+              import('https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js')
+            ]);
+          })
+          .then(function (mods) {
+            const auth = mods[0].auth;
+            const onAuthStateChanged = mods[1].onAuthStateChanged;
+            return new Promise(function (resolve) {
+              const unsub = onAuthStateChanged(auth, function (user) {
+                unsub();
+                resolve(user);
+              });
             });
-          });
-        })
-        .then(function (user) {
-          if (user && user.metadata && user.metadata.lastSignInTime) {
-            const signedIn = new Date(user.metadata.lastSignInTime);
+          })
+          .then(function (user) {
+            return user && user.metadata && user.metadata.lastSignInTime ? new Date(user.metadata.lastSignInTime) : null;
+          })
+          .catch(function () { return null; });
+      }
+
+      trySupabaseSignInTime()
+        .then(function (signedIn) { return signedIn || tryFirebaseSignInTime(); })
+        .then(function (signedIn) {
+          if (signedIn) {
             statusLabel.textContent = 'Active now · signed in ' + signedIn.toLocaleString('en-US', {
               month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
             });
@@ -949,7 +1107,10 @@
         .catch(function () { /* non-fatal — statusLabel already shows "Active now" */ });
     })();
 
-    // ---- Notification Preferences — persisted per channel per notification type ----
+    // ---- Notification Preferences — persisted per channel per notification type. ★ UI
+    // Wiring Stage 5 (2026-09-03): investigated, per instruction — confirmed no real
+    // Supabase table exists for notification preferences anywhere (project-wide migration
+    // grep). Stays 100% local; logged in the Backend Requirements Register. ----
     (function () {
       const STORAGE_KEY = clientScopedKey('marketswave_settings_notifications');
       const DEFAULTS = {

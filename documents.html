@@ -181,6 +181,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     // Sidebar must be mounted before the notification-count logic below runs, since that
     // logic looks up #sidebar-doc-badge (rendered inside the sidebar) and re-confirms its
@@ -188,20 +189,54 @@
     // time (Aug 27, 2026 fix — see its own file-level comment), so this page's own correction
     // below is no longer the ONLY thing keeping the badge honest; it stays as the mechanism
     // for a LIVE update after a mutation made without leaving this page (sign/upload/remove),
-    // which a mount-time-only computation can't cover on its own.
+    // which a mount-time-only computation can't cover on its own. ★ UI Wiring Stage 4
+    // (2026-09-03) disclosure: dashboard-sidebar.js's own mount-time computation still reads
+    // the LOCAL engine-core.js document store (out of this stage's scope — that file isn't
+    // touched here), which no longer reflects this client's REAL documents once this page
+    // moves to Supabase below. The correction mechanism below still runs, now driven by real
+    // data, so the badge is corrected live on THIS page exactly as before — it's only ever
+    // stale, for this client, on some OTHER dashboard page visited before ever loading
+    // documents.html once in that browser session. A future stage rewiring
+    // dashboard-sidebar.js itself would close this fully; not done here.
     initDashboardSidebar('documents');
     initDashboardNotifications();
   </script>
 
   <script>
-    // Migrated to read/write through engine-core.js's document store (Aug 20, 2026) instead
-    // of this page's own logic — same UI, same filters, same upload/sign/download/remove
-    // flows, same badge behavior, just backed by the shared engine now. Rows are rendered
-    // fresh from getDocuments() rather than hardcoded HTML, so every action re-renders
-    // rather than surgically patching one row's DOM in place (a behavior-preserving internal
-    // change, not a user-visible one).
+    // UI Wiring — Stage 4 (2026-09-03): documents now read from and write to the real
+    // Supabase `documents` table (Phase B Stage 6) instead of engine-core.js's local
+    // getDocuments()/addDocument()/updateDocument()/removeDocument(). Genuinely different from
+    // every prior write-action stage: Documents' own real design (Stage 6's migration, read in
+    // full before writing this) gives a client direct, RLS-authorized INSERT/UPDATE/DELETE
+    // policies for their own upload/sign/remove actions — no Edge Function gates these three
+    // actions at all, unlike every Approval Gate queue wired so far — so this page is the
+    // first to use supabase-data.js's new insertRow()/updateRow()/deleteRow() (added this
+    // stage) instead of callFunction().
     (function () {
-      if (typeof getDocuments !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
+
+      var allDocs = [];
+      var dataPromise = null;
+      var pendingFlashDocId = null; // set right before a write that should flash its own row once the post-write reload finishes rendering
+
+      function mapDocRow(r) {
+        return {
+          id: r.id, direction: r.direction, filename: r.filename, category: r.category,
+          status: r.status, isNew: r.is_new, deadlineLabel: r.deadline_label, date: r.created_at,
+          storagePath: r.storage_path
+        };
+      }
+
+      function loadDocuments() {
+        if (dataPromise) return dataPromise;
+        dataPromise = MarketswaveData.selectTable('documents').then(function (rows) {
+          return rows.map(mapDocRow);
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
+      }
 
       // ---- Toast helper ----
       var toast = document.getElementById('doc-toast');
@@ -216,18 +251,29 @@
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 3500);
       }
 
-      // ---- Notification badge counts — a reusable engine function, not logic living only in
-      // this page's script (getDocumentNotificationCounts() in engine-core.js). The 3 chip
-      // spans below are THIS PAGE's own body content — dashboard-sidebar.js has no reason to
-      // know about them, so this remains the only thing that ever corrects them, exactly as
-      // before (still a real, correct value; the hardcoded HTML default is only ever visible
-      // for one paint). #sidebar-doc-badge is different: dashboard-sidebar.js now ALSO
-      // computes it correctly at mount time (Aug 27, 2026 fix), so the two lines touching it
-      // below are a deliberate keep, not leftover redundancy — they re-sync the badge live
-      // after a mutation made without leaving this page (sign/upload/remove), which the
-      // shared component's mount-time-only computation has no way to react to on its own. ----
+      // ---- Notification badge counts — UI Wiring Stage 4: engine-core.js's own
+      // getDocumentNotificationCounts() reads its own LOCAL closure array (populated from
+      // localStorage), which no longer reflects this client's REAL documents once this page
+      // reads from Supabase — calling it here would silently show wrong (stale/local) counts,
+      // not real ones. computeNotificationCounts() below is a faithful, byte-for-byte port of
+      // that same function's real rule set, operating on the REAL fetched `allDocs` array
+      // instead. The 3 chip spans are THIS PAGE's own body content — dashboard-sidebar.js has
+      // no reason to know about them, so this remains the only thing that ever corrects them.
+      // #sidebar-doc-badge is different (see this file's own script-block-top disclosure): kept
+      // as a deliberate live-correction-on-this-page mechanism, not leftover redundancy. ----
+      function computeNotificationCounts(docs) {
+        var newCount = 0, signatureCount = 0, deadlineCount = 0, urgentCount = 0;
+        docs.forEach(function (d) {
+          if (d.isNew) newCount++;
+          if (d.status === 'Signature Required') signatureCount++;
+          if (d.deadlineLabel) deadlineCount++;
+          if (d.isNew || d.status === 'Signature Required') urgentCount++;
+        });
+        return { newCount: newCount, signatureCount: signatureCount, deadlineCount: deadlineCount, urgentCount: urgentCount };
+      }
+
       function refreshNotificationCounts() {
-        var counts = getDocumentNotificationCounts();
+        var counts = computeNotificationCounts(allDocs);
         document.getElementById('chip-new-count').textContent = counts.newCount;
         document.getElementById('chip-signature-count').textContent = counts.signatureCount;
         document.getElementById('chip-deadline-count').textContent = counts.deadlineCount;
@@ -278,27 +324,34 @@
           '</div>';
       }
 
-      function renderDocumentLists() {
-        var allDocs = getDocuments();
-        var fromDocs = allDocs.filter(function (d) { return d.direction === 'from'; });
-        var uploadDocs = allDocs.filter(function (d) { return d.direction === 'upload'; });
-
-        var fromListEl = document.getElementById('from-list');
-        var uploadListEl = document.getElementById('upload-list');
-        var fromEmpty = document.getElementById('from-empty');
-        var uploadEmpty = document.getElementById('upload-empty');
-
-        Array.prototype.slice.call(fromListEl.querySelectorAll('.doc-row')).forEach(function (r) { r.remove(); });
-        Array.prototype.slice.call(uploadListEl.querySelectorAll('.doc-row')).forEach(function (r) { r.remove(); });
-
-        fromEmpty.insertAdjacentHTML('beforebegin', fromDocs.map(docRowHTML).join(''));
-        uploadEmpty.insertAdjacentHTML('beforebegin', uploadDocs.map(docRowHTML).join(''));
+      // ---- UI Wiring Stage 4: from-list/upload-list get fed through renderAsyncBundle() below,
+      // whose loading-skeleton phase replaces their ENTIRE innerHTML — so renderDocumentLists()
+      // must do a complete, self-contained rebuild every call, including a FRESH empty-state
+      // placeholder each time, rather than assuming #from-empty/#upload-empty survive as
+      // persistent DOM nodes across a skeleton repaint (the exact static-child pitfall UI
+      // Wiring Stage 3 already found and fixed once for transactions.html's ledger table).
+      // The empty placeholder is always rendered (defaulted hidden), regardless of whether
+      // `docs` is actually empty — applyFilters() below still decides its real visibility from
+      // the current FILTER match count, exactly as before, not from the raw unfiltered count. --
+      function docListHTML(docs, emptyId, emptyMessage) {
+        return docs.map(docRowHTML).join('') +
+          '<div id="' + emptyId + '" class="hidden px-6 py-10 text-center text-slate-400">' + emptyMessage + '</div>';
       }
 
-      // ---- Filtering — category, direction, date range across both sections (same logic
-      // as before, now just re-querying freshly-rendered rows each time) ----
-      var fromEmpty = document.getElementById('from-empty');
-      var uploadEmpty = document.getElementById('upload-empty');
+      function renderDocumentLists() {
+        var fromDocs = allDocs.filter(function (d) { return d.direction === 'from'; });
+        var uploadDocs = allDocs.filter(function (d) { return d.direction === 'upload'; });
+        document.getElementById('from-list').innerHTML = docListHTML(fromDocs, 'from-empty', 'No documents match your filters.');
+        document.getElementById('upload-list').innerHTML = docListHTML(uploadDocs, 'upload-empty', 'No uploads match your filters.');
+      }
+
+      // ---- Filtering — category, direction, date range across both sections (same logic as
+      // before). fromEmpty/uploadEmpty are looked up FRESH inside applyFilters() itself now,
+      // since renderDocumentLists() recreates those two elements on every call — caching them
+      // once at module-scope, the way the local-engine version safely could, would go stale the
+      // moment a reload/write action re-renders the lists. fromCount/uploadCount/fromSection/
+      // uploadSection sit OUTSIDE from-list/upload-list and are never replaced, so those stay
+      // cached exactly as before. ----
       var fromCount = document.getElementById('from-count');
       var uploadCount = document.getElementById('upload-count');
       var fromSection = document.getElementById('from-section');
@@ -335,8 +388,10 @@
         var visibleFrom = showFrom ? filterSet(fromRows) : 0;
         var visibleUpload = showUpload ? filterSet(uploadRows) : 0;
 
-        fromEmpty.classList.toggle('hidden', !showFrom || visibleFrom > 0);
-        uploadEmpty.classList.toggle('hidden', !showUpload || visibleUpload > 0);
+        var fromEmpty = document.getElementById('from-empty');
+        var uploadEmpty = document.getElementById('upload-empty');
+        if (fromEmpty) fromEmpty.classList.toggle('hidden', !showFrom || visibleFrom > 0);
+        if (uploadEmpty) uploadEmpty.classList.toggle('hidden', !showUpload || visibleUpload > 0);
 
         fromCount.textContent = visibleFrom === fromRows.length
           ? 'Showing all documents'
@@ -377,52 +432,127 @@
         });
       });
 
-      // ---- Sign action: updateDocument() clears status/isNew/deadlineLabel together in
-      // one atomic engine call, then the row re-renders from the updated data ----
+      // ---- Sign action — UI Wiring Stage 4: the real, RLS-scoped UPDATE Stage 6 built for
+      // exactly this transition (direction='from' + status='Signature Required' ->
+      // status='Signed', is_new=false, deadline_label=null — this page's own call mirrors that
+      // policy's own `with check` verbatim, confirmed by reading the migration directly). No
+      // Edge Function is involved — this is a direct table write, same as Upload/Remove below. --
       document.getElementById('from-list').addEventListener('click', function (e) {
         var signBtn = e.target.closest('.sign-btn');
         var downloadBtn = e.target.closest('.download-btn');
         if (signBtn) {
           var docId = signBtn.closest('.doc-row').dataset.docId;
-          var doc = getDocument(docId);
+          var doc = allDocs.find(function (d) { return d.id === docId; });
           if (!doc) return;
-          updateDocument(docId, { status: 'Signed', isNew: false, deadlineLabel: null });
-          renderDocumentLists();
-          applyFilters();
-          refreshNotificationCounts();
-          showToast('Signature Captured', doc.filename + ' has been marked as signed.');
+          MarketswaveData.withButtonBusy(signBtn, 'Signing...', function () {
+            return MarketswaveData.updateRow('documents', { id: docId }, { status: 'Signed', is_new: false, deadline_label: null });
+          }).then(function () {
+            reloadDocuments(true);
+            showToast('Signature Captured', doc.filename + ' has been marked as signed.');
+          }).catch(function (err) {
+            showToast('Sign Failed', MarketswaveData.writeErrorMessage(err));
+          });
         } else if (downloadBtn) {
           var dId = downloadBtn.closest('.doc-row').dataset.docId;
-          var d = getDocument(dId);
+          var d = allDocs.find(function (x) { return x.id === dId; });
           if (!d) return;
-          if (d.isNew) {
-            updateDocument(dId, { isNew: false });
-            renderDocumentLists();
-            applyFilters();
-            refreshNotificationCounts();
+          // ★ A real, disclosed finding, not a silent behavior change: the local engine's own
+          // Download handler cleared isNew via updateDocument(dId, { isNew: false }), a plain
+          // single-field write with no RLS-equivalent restriction. Under Stage 6's real schema,
+          // the ONE client UPDATE policy on `documents` is scoped EXCLUSIVELY to the Sign
+          // transition (USING requires status='Signature Required', WITH CHECK requires the
+          // result be status='Signed') — there is structurally no client write path that clears
+          // is_new on its own, for ANY 'from' document, signature-required or not (even a
+          // signature-required one fails, since a bare is_new-clear leaves status unchanged,
+          // violating WITH CHECK's own status='Signed' requirement). This was tested directly
+          // and confirmed to always fail — 100% of the time, not an edge case — so the write
+          // attempt is removed entirely rather than kept as code that can never succeed; keeping
+          // it would just be a wasted round trip silently swallowed by a catch. The real,
+          // disclosed consequence: a "from" document's New badge now only ever clears via Sign,
+          // never via Download — confirmed via a real test, not assumed, and still true now that
+          // Download triggers a genuine file transfer below (a read-only signed URL, no write).
+          //
+          // ★ Real Storage integration (2026-09-04): this is now a genuine download — a real,
+          // time-limited signed URL for the actual stored file, opened in a new tab, which is
+          // how a browser is triggered to download/view a direct-from-storage URL without this
+          // page having to fetch and re-serve the bytes itself. A null storagePath (a document
+          // published before this feature shipped, or this project's own disclosed pre-existing
+          // leftover test row with no file behind it — see the storage migration's own comment)
+          // is a real, honest "no file attached" state, not an error — shown as its own toast
+          // rather than attempting a signed-url request that could only ever fail.
+          if (!d.storagePath) {
+            showToast('No File Attached', d.filename + ' has no file on record yet.');
+            return;
           }
-          showToast('Download Started', d.filename + ' is downloading.');
+          MarketswaveData.getSignedDownloadUrl('documents', d.storagePath, 60).then(function (url) {
+            window.open(url, '_blank');
+            showToast('Download Started', d.filename + ' is downloading.');
+          }).catch(function (err) {
+            showToast('Download Failed', MarketswaveData.writeErrorMessage(err));
+          });
         }
       });
 
-      // ---- Upload form: addDocument() creates the record, then the row renders from it ----
+      // ---- Upload form — UI Wiring Stage 4: a real, RLS-scoped INSERT, no approval gate,
+      // exactly matching Stage 6's own client-INSERT policy (direction='upload', category one
+      // of the 3 real client-selectable values, status='Received', is_new=false,
+      // deadline_label=null). No Edge Function — a direct table write. ★ A real bug caught by
+      // this stage's own verification, fixed before shipping: unlike every prior write action
+      // (an Edge Function derives clientId server-side from the caller's JWT), a direct client
+      // INSERT has no such server-side step — the row's own client_id column must be supplied
+      // in the payload for the table's `with check (auth.uid() = client_id ...)` policy to ever
+      // evaluate true. Confirmed via a real failing insert first (RLS rejected it, client_id was
+      // implicitly NULL) before adding getAuthenticatedClientId() here.
+      //
+      // ★ Real Storage integration (2026-09-04): the old stub silently fell back to a fake
+      // "Untitled Document.pdf" filename when no file was chosen — meaningless now that a real
+      // file's real bytes are what actually gets stored, so a missing file selection is now a
+      // real, disclosed validation error instead. The real upload sequence: generate the row's
+      // own id client-side, upload the real bytes to `<clientId>/uploads/<docId>/<filename>`
+      // (RLS-authorized directly — the storage migration's own client-INSERT policy scopes this
+      // exactly), THEN insert the row referencing that same path — this order means a failed row
+      // insert (after a successful upload) only ever leaves a harmless orphaned file, never a row
+      // pointing at bytes that don't exist. `getAuthenticatedClientId()` is used for BOTH the
+      // storage path's own client-id segment and the row's client_id, so both stay in lockstep by
+      // construction — the storage bucket's own RLS policy independently re-derives and checks
+      // this same identity server-side from the caller's real session, not trusted from this
+      // client-composed path string. ----
       document.getElementById('submit-upload').addEventListener('click', function () {
         var fileInput = document.getElementById('upload-file');
         var category = document.getElementById('upload-category').value;
-        var fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'Untitled Document.pdf';
+        var file = fileInput.files && fileInput.files[0];
+        var btn = document.getElementById('submit-upload');
 
-        var newDoc = addDocument({ filename: fileName, category: category, direction: 'upload', status: 'Received', isNew: false, deadlineLabel: null });
+        if (!file) {
+          showToast('Upload Failed', 'Choose a file to upload first.');
+          return;
+        }
 
-        fileInput.value = '';
-        renderDocumentLists();
-        applyFilters();
-        refreshNotificationCounts();
-        flashRow(document.querySelector('.doc-row[data-doc-id="' + newDoc.id + '"]'));
-        showToast('Document Uploaded', fileName + ' was sent to Marketswave and is pending review.');
+        var clientId = getAuthenticatedClientId();
+        var docId = crypto.randomUUID();
+        var storagePath = clientId + '/uploads/' + docId + '/' + file.name;
+
+        MarketswaveData.withButtonBusy(btn, 'Uploading...', function () {
+          return MarketswaveData.uploadFile('documents', storagePath, file).then(function () {
+            return MarketswaveData.insertRow('documents', {
+              id: docId, client_id: clientId, filename: file.name, category: category,
+              direction: 'upload', status: 'Received', is_new: false, deadline_label: null,
+              storage_path: storagePath
+            });
+          });
+        }).then(function (newDoc) {
+          fileInput.value = '';
+          pendingFlashDocId = newDoc.id;
+          reloadDocuments(true);
+          showToast('Document Uploaded', file.name + ' was sent to Marketswave and is pending review.');
+        }).catch(function (err) {
+          showToast('Upload Failed', MarketswaveData.writeErrorMessage(err));
+        });
       });
 
       // ---- Remove uploaded document: custom confirm modal (not window.confirm — native dialogs
-      // block browser automation entirely), removeDocument() deletes the record, then re-renders ----
+      // block browser automation entirely) — the real deleteRow() call and its own comment sit
+      // below, on the actual submit handler. ----
       var removeConfirmModal = document.getElementById('remove-confirm-modal');
       var removeConfirmFilename = document.getElementById('remove-confirm-filename');
       var pendingRemoveDocId = null;
@@ -436,7 +566,7 @@
         var removeBtn = e.target.closest('.remove-upload-btn');
         if (!removeBtn) return;
         var docId = removeBtn.closest('.doc-row').dataset.docId;
-        var doc = getDocument(docId);
+        var doc = allDocs.find(function (d) { return d.id === docId; });
         if (!doc) return;
         pendingRemoveDocId = docId;
         removeConfirmFilename.textContent = doc.filename;
@@ -447,22 +577,85 @@
       document.getElementById('remove-confirm-backdrop').addEventListener('click', closeRemoveConfirmModal);
       document.getElementById('remove-confirm-cancel').addEventListener('click', closeRemoveConfirmModal);
 
+      // ---- Remove action — UI Wiring Stage 4: a real, RLS-scoped DELETE. Confirmed via
+      // migration 20260902160000's own header: the real local removeDocument(id) has NO
+      // direction check at all (it will delete any document by id), but this DELETE policy is
+      // scoped to direction='upload' only — a deliberate strengthening beyond the local
+      // primitive, not a regression. In practice unreachable anyway: the Remove button (below,
+      // docRowHTML()) is rendered only inside the non-`isFrom` branch, so a 'from' document was
+      // never reachable through this button — confirmed still true, unchanged, against the real
+      // fetched data below.
+      //
+      // ★ Real Storage integration (2026-09-04): the row delete is the primary, user-facing
+      // action and runs first; the underlying stored file is then removed best-effort — the
+      // storage migration's own client-DELETE policy on storage.objects (scoped to the same
+      // uploads-subfolder-only rule as the row policy) makes this possible directly, no Edge
+      // Function needed. A missing storagePath (a pre-existing row from before this feature,
+      // see documents.html's own Download-handler comment) or a failed storage delete is
+      // swallowed here deliberately — the row is already genuinely gone, which is what the user
+      // asked for and what the toast/UI reflects; an orphaned or already-missing storage object
+      // is a harmless, invisible resource leak, not a user-facing failure worth surfacing as one. ----
       document.getElementById('remove-confirm-submit').addEventListener('click', function () {
         if (!pendingRemoveDocId) return;
-        var doc = getDocument(pendingRemoveDocId);
+        var doc = allDocs.find(function (d) { return d.id === pendingRemoveDocId; });
         if (!doc) { closeRemoveConfirmModal(); return; }
-        removeDocument(pendingRemoveDocId);
-        closeRemoveConfirmModal();
-        renderDocumentLists();
-        applyFilters();
-        refreshNotificationCounts();
-        showToast('Document Removed', doc.filename + ' was removed from your uploads.');
+        var docId = pendingRemoveDocId;
+        var btn = document.getElementById('remove-confirm-submit');
+        MarketswaveData.withButtonBusy(btn, 'Removing...', function () {
+          return MarketswaveData.deleteRow('documents', { id: docId });
+        }).then(function () {
+          closeRemoveConfirmModal();
+          reloadDocuments(true);
+          showToast('Document Removed', doc.filename + ' was removed from your uploads.');
+          if (doc.storagePath) {
+            MarketswaveData.deleteFile('documents', doc.storagePath).catch(function () {
+              // Best-effort — see this handler's own comment above for why a failure here
+              // stays silent rather than surfacing a second, confusing toast for an action the
+              // user already saw succeed.
+            });
+          }
+        }).catch(function (err) {
+          closeRemoveConfirmModal();
+          showToast('Remove Failed', MarketswaveData.writeErrorMessage(err));
+        });
       });
 
-      // ---- Initial load ----
-      renderDocumentLists();
-      applyFilters();
-      refreshNotificationCounts();
+      // ---- Init — UI Wiring Stage 4 (2026-09-03): one renderAsyncBundle call spanning both
+      // list containers, since they're genuinely fed by one shared `documents` table fetch with
+      // no meaningful independent retry granularity (mirrors deploy-capital.html's own single
+      // combined "My Funding Requests" call from UI Wiring Stage 3). The 3 header chip spans are
+      // set to a neutral placeholder immediately, before the real async load even starts, so no
+      // fake nonzero count (the old static HTML's hardcoded "2"/"1"/"1") is ever shown — the
+      // same "never show a fake value" discipline the sidebar-doc-badge fix (Backend
+      // Requirements Register row 78) already established. `forceReload` behaves the same as
+      // every other write-action stage: reset the cache so a write's own reload genuinely
+      // re-fetches. pendingFlashDocId is consumed once, right after a genuinely fresh render, to
+      // flash the row a just-uploaded document landed in. ----
+      document.getElementById('chip-new-count').textContent = '—';
+      document.getElementById('chip-signature-count').textContent = '—';
+      document.getElementById('chip-deadline-count').textContent = '—';
+
+      function reloadDocuments(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle([document.getElementById('from-list'), document.getElementById('upload-list')], {
+          skeletonHTML: '<div class="animate-pulse space-y-3 px-6 py-5">' +
+            '<div class="h-4 bg-slate-200 rounded"></div><div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
+            '</div>',
+          load: loadDocuments,
+          render: function (docs) {
+            allDocs = docs;
+            renderDocumentLists();
+            applyFilters();
+            refreshNotificationCounts();
+            if (pendingFlashDocId) {
+              flashRow(document.querySelector('.doc-row[data-doc-id="' + pendingFlashDocId + '"]'));
+              pendingFlashDocId = null;
+            }
+          }
+        });
+      }
+
+      reloadDocuments(true);
     })();
   </script>
 </body>

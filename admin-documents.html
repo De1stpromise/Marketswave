@@ -106,13 +106,26 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('documents');
   </script>
 
   <script>
+    // Bug-fix follow-up to Admin UI Wiring Stage 1 (2026-09-03): wired to the real
+    // `documents` table + publish-document/update-document Edge Functions — closing an
+    // investigated, confirmed BIDIRECTIONAL local/Supabase split. Client Uploads Awaiting
+    // Review + History both used to read only engine-core.js's local getAllClientDocuments()
+    // — meaning a real client upload via documents.html (wired Stage 4, Phase B Stage 6's
+    // real direct client INSERT policy) was invisible here, and Publish/Mark Reviewed used to
+    // write only to local localStorage, which the real Supabase-backed documents.html could
+    // never see — the exact bug reported (a published document never appearing on the
+    // client's real page despite a real notification firing off the same stale local data).
+    // See admin-deposits.html's own comment for the base useAdminClient()/cross-client-RLS
+    // reasoning, identical here — `documents`' own SELECT policy already grants self-or-admin.
     (function () {
-      if (typeof getAllClientDocuments !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
@@ -133,17 +146,20 @@
         return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
       }
 
-      // ---- Client dropdown for the Publish to Client form ----
+      var documentsData = [];
+      var clientsById = {};
+
+      // ---- Client dropdown for the Publish to Client form — real, cross-client, fetched
+      // alongside the documents themselves in one combined loadPageData(). ----
       var clientSelect = document.getElementById('publish-client');
-      function populateClientSelect() {
-        var clients = getAllClients();
+      function populateClientSelect(clients) {
         clientSelect.innerHTML = clients.map(function (c) {
           return '<option value="' + c.id + '">' + c.name + ' (' + c.id + ')</option>';
         }).join('');
       }
 
       function renderPending() {
-        var uploads = getAllClientDocuments()
+        var uploads = documentsData
           .filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; })
           .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
         document.getElementById('pending-count').textContent = uploads.length ? '(' + uploads.length + ')' : '';
@@ -166,7 +182,7 @@
               '<p class="text-xs text-slate-500">' + d.category + ' · Uploaded ' + formatDisplayDate(d.date) + '</p>' +
             '</div>' +
             '<div class="shrink-0 flex gap-2">' +
-              '<button type="button" class="download-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-filename="' + d.filename.replace(/"/g, '&quot;') + '">Download</button>' +
+              '<button type="button" class="download-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-doc="' + d.id + '">Download</button>' +
               '<button type="button" class="review-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + d.clientId + '" data-doc="' + d.id + '">Mark Reviewed</button>' +
             '</div>' +
           '</div>';
@@ -174,7 +190,7 @@
       }
 
       function renderHistory() {
-        var items = getAllClientDocuments()
+        var items = documentsData
           .filter(function (d) { return d.direction === 'from' || d.status === 'Reviewed'; })
           .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
         var listEl = document.getElementById('history-list');
@@ -196,7 +212,7 @@
           items.map(function (d) {
             var directionLabel = d.direction === 'from' ? 'From Marketswave' : 'Uploaded by Client';
             var actionCell = d.direction === 'upload'
-              ? '<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-filename="' + d.filename.replace(/"/g, '&quot;') + '">Download</button>'
+              ? '<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-doc="' + d.id + '">Download</button>'
               : '';
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + d.clientName + ' (' + d.clientId + ')</td>' +
@@ -210,37 +226,102 @@
           }).join('') + '</tbody></table>';
       }
 
-      function renderAll() {
-        renderPending();
-        renderHistory();
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('documents'),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (results) {
+          clientsById = {};
+          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          populateClientSelect(results[1]);
+          return results[0].map(function (d) {
+            return {
+              id: d.id, clientId: d.client_id, clientName: clientsById[d.client_id] || d.client_id,
+              direction: d.direction, filename: d.filename, category: d.category,
+              status: d.status, isNew: d.is_new, deadlineLabel: d.deadline_label, date: d.created_at,
+              storagePath: d.storage_path
+            };
+          });
+        }).catch(function (err) {
+          dataPromise = null;
+          throw err;
+        });
+        return dataPromise;
       }
 
-      // Download is a stub, matching documents.html's own existing "Download" button for
-      // "From Marketswave" documents (see its download-btn handler) — this project never
-      // stores real file bytes anywhere, only the filename a client typed/selected at upload
-      // time (see engine-core.js's Documents & Reporting section), so there is no real file
-      // content behind either button to actually transfer. Confirms the action fired rather
-      // than leaving the control decorative, per the project's own stub convention.
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
+          load: loadPageData,
+          render: function (data) { documentsData = data; renderPending(); }
+        });
+        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
+          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
+          load: loadPageData,
+          render: function (data) { documentsData = data; renderHistory(); }
+        });
+      }
+
+      // ★ Real Storage integration (2026-09-04): genuinely downloads the client-uploaded
+      // file's real bytes via a real, time-limited signed URL — the storage migration's own
+      // SELECT policy on storage.objects grants an admin-claimed session cross-client read
+      // access (`... or public.is_admin()`), so this works identically for a PM reviewing ANY
+      // client's upload, not just their own. A null storagePath (a document uploaded before
+      // this feature shipped) is a real, honest "no file attached" state, not an error.
       function handleDownloadClick(e) {
         var btn = e.target.closest('.download-btn');
         if (!btn) return;
-        showToast('Download Started', btn.dataset.filename + ' is downloading.');
+        var doc = documentsData.find(function (d) { return d.id === btn.dataset.doc; });
+        if (!doc) return;
+        if (!doc.storagePath) {
+          showToast('No File Attached', doc.filename + ' has no file on record yet.');
+          return;
+        }
+        MarketswaveData.getSignedDownloadUrl('documents', doc.storagePath, 60).then(function (url) {
+          window.open(url, '_blank');
+          showToast('Download Started', doc.filename + ' is downloading.');
+        }).catch(function (err) {
+          showToast('Download Failed', MarketswaveData.writeErrorMessage(err), true);
+        });
       }
 
       document.getElementById('pending-list').addEventListener('click', function (e) {
         handleDownloadClick(e);
         var btn = e.target.closest('.review-btn');
         if (!btn) return;
-        try {
-          var result = updateDocumentForClient(btn.dataset.client, btn.dataset.doc, { status: 'Reviewed' });
+        var clientId = btn.dataset.client;
+        var docId = btn.dataset.doc;
+        MarketswaveData.withButtonBusy(btn, 'Reviewing...', function () {
+          return MarketswaveData.callFunction('update-document', { clientId: clientId, docId: docId, patch: { status: 'Reviewed' } });
+        }).then(function (result) {
           showToast('Document Reviewed', result.filename + ' marked as reviewed.');
-          renderAll();
-        } catch (e2) {
-          showToast('Error', e2.message, true);
-        }
+          reloadPageData(true);
+        }).catch(function (err) {
+          showToast('Error', MarketswaveData.writeErrorMessage(err), true);
+        });
       });
 
       document.getElementById('history-list').addEventListener('click', handleDownloadClick);
+
+      // ★ Real Storage integration (2026-09-04): reads the chosen file's real bytes and
+      // base64-encodes them client-side (publish-document's own request body stays plain
+      // JSON, matching every other Edge Function in this project, rather than restructuring
+      // this one endpoint as multipart) — a chunked loop, not a spread/`String.fromCharCode(...
+      // bytes)` one-shot call, so a real, reasonably large document file doesn't risk
+      // "Maximum call stack size exceeded" the way spreading a large typed array into a
+      // function call can.
+      function arrayBufferToBase64(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var chunkSize = 0x8000;
+        var chunks = [];
+        for (var i = 0; i < bytes.length; i += chunkSize) {
+          chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+        }
+        return btoa(chunks.join(''));
+      }
 
       document.getElementById('publish-submit').addEventListener('click', function () {
         var errorEl = document.getElementById('publish-error');
@@ -248,36 +329,43 @@
         var clientId = clientSelect.value;
         var category = document.getElementById('publish-category').value;
         var fileInput = document.getElementById('publish-file');
-        var filename = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+        var file = fileInput.files && fileInput.files[0];
         var dueDate = document.getElementById('publish-due-date').value || null;
         var signatureRequired = document.getElementById('publish-signature-required').checked;
+        var selectedClientLabel = clientSelect.options[clientSelect.selectedIndex] ? clientSelect.options[clientSelect.selectedIndex].text : clientId;
 
-        if (!filename) {
+        if (!file) {
           errorEl.textContent = 'Choose a file to publish.';
           errorEl.classList.remove('hidden');
           return;
         }
 
-        try {
-          var result = publishDocumentToClient(clientId, {
-            filename: filename,
-            category: category,
-            signatureRequired: signatureRequired,
-            dueDate: dueDate
+        var btn = document.getElementById('publish-submit');
+        MarketswaveData.withButtonBusy(btn, 'Publishing...', function () {
+          return file.arrayBuffer().then(function (buffer) {
+            return MarketswaveData.callFunction('publish-document', {
+              clientId: clientId,
+              filename: file.name,
+              category: category,
+              signatureRequired: signatureRequired,
+              dueDate: dueDate,
+              fileBase64: arrayBufferToBase64(buffer),
+              fileType: file.type || 'application/octet-stream'
+            });
           });
-          showToast('Document Published', result.filename + ' delivered to ' + clientSelect.options[clientSelect.selectedIndex].text + '.');
+        }).then(function (result) {
+          showToast('Document Published', result.filename + ' delivered to ' + selectedClientLabel + '.');
           fileInput.value = '';
           document.getElementById('publish-due-date').value = '';
           document.getElementById('publish-signature-required').checked = false;
-          renderAll();
-        } catch (e) {
-          errorEl.textContent = e.message;
+          reloadPageData(true);
+        }).catch(function (err) {
+          errorEl.textContent = MarketswaveData.writeErrorMessage(err);
           errorEl.classList.remove('hidden');
-        }
+        });
       });
 
-      populateClientSelect();
-      renderAll();
+      reloadPageData(true);
     })();
   </script>
 

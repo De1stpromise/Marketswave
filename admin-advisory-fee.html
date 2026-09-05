@@ -65,13 +65,25 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('settings');
   </script>
 
   <script>
+    // Admin UI Wiring — Final Stage (2026-09-03). Investigated first, per instruction: Phase B
+    // Stage 1's own migration already created a real, genuinely global advisory_fee_rate
+    // singleton table (id boolean primary key default true — a second row is structurally
+    // impossible) with a real "authenticated can view" SELECT policy, but no INSERT/UPDATE/
+    // DELETE policy for any client role and no Edge Function called it — the table existed,
+    // nothing wrote to it. Closed with a new admin-only update-advisory-fee-rate Edge Function
+    // (mirrors setAdvisoryFeeRate()'s own validation byte-for-byte), following this project's
+    // same minimal admin-only pattern as every other write. Reads directly via
+    // MarketswaveData.selectTable('advisory_fee_rate') — RLS's own "authenticated can view"
+    // policy already permits this, no Edge Function needed for the read side.
     (function () {
-      if (typeof getAdvisoryFeeRate !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
@@ -91,27 +103,37 @@
       var rateInput = document.getElementById('rate-input');
       var rateError = document.getElementById('rate-error');
 
+      // The `advisory_fee_rate` singleton has a fixed id=true row, but a fresh local stack
+      // may not have any row at all yet (nothing has ever upserted it) — a genuinely empty
+      // select() result is treated as "no real rate set yet" and falls back to displaying
+      // nothing rather than a fabricated default; the first Save creates the row for real.
       function refreshRateDisplay() {
-        // Genuinely global as of Aug 27, 2026 — getAdvisoryFeeRate() reads one shared value,
-        // not whichever client happens to be ambient in this admin session. See
-        // engine-core.js's ADVISORY_FEE_RATE_KEY comment for the scope-bug history this closes.
-        var rate = getAdvisoryFeeRate();
-        currentRateDisplay.textContent = rate + '%';
-        rateInput.value = rate;
+        MarketswaveData.renderAsyncBundle(currentRateDisplay, {
+          skeletonHTML: '<span class="inline-block h-8 w-20 bg-slate-200 rounded animate-pulse"></span>',
+          load: function () { return MarketswaveData.selectTable('advisory_fee_rate'); },
+          render: function (rows) {
+            var rate = rows && rows[0] ? rows[0].rate : null;
+            currentRateDisplay.textContent = rate !== null ? rate + '%' : '— (not yet set)';
+            if (rate !== null) rateInput.value = rate;
+          }
+        });
       }
       refreshRateDisplay();
 
       document.getElementById('save-rate-btn').addEventListener('click', function () {
         var newRate = parseFloat(rateInput.value);
-        try {
-          setAdvisoryFeeRate(newRate);
+        var btn = document.getElementById('save-rate-btn');
+        MarketswaveData.withButtonBusy(btn, 'Saving...', function () {
+          return MarketswaveData.callFunction('update-advisory-fee-rate', { newRate: newRate });
+        }).then(function (result) {
           rateError.classList.add('hidden');
-          refreshRateDisplay();
-          showToast('Advisory Fee Rate Updated', 'New rate: ' + newRate + '% — applies to every client immediately. Reflected on transactions.html on next load.');
-        } catch (e) {
-          rateError.textContent = e.message;
+          currentRateDisplay.textContent = result.rate + '%';
+          rateInput.value = result.rate;
+          showToast('Advisory Fee Rate Updated', 'New rate: ' + result.rate + '% — applies to every client immediately. Reflected on transactions.html on next load.');
+        }).catch(function (err) {
+          rateError.textContent = MarketswaveData.writeErrorMessage(err);
           rateError.classList.remove('hidden');
-        }
+        });
       });
     })();
   </script>

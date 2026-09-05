@@ -155,66 +155,27 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('clients');
   </script>
 
-  <!-- Admin follow-up to the admin-client-applications.html Firebase merge (Aug 22, 2026):
-       type="module" specifically so this script can `import` the Firebase Firestore/
-       Functions SDK and admin-firebase-config.js's shared, admin-authorized session
-       bootstrap — mirrors admin-client-applications.html's own script-type change exactly,
-       same reasoning. The IIFE below is otherwise the same shape as before; nothing outside
-       this script reaches into its scope. Deferred module execution (this always runs after
-       every classic script tag above, including initAdminSidebar()) means engine-core.js's
-       globals are already defined by the time this runs. -->
-  <script type="module">
-    import { ensureAdminSignedIn, db } from './admin-firebase-config.js';
-    import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-
-    // Same 'YYYY-MM-DD' conversion login.html's and admin-client-applications.html's own
-    // copies use — see those files' comments for why this stays a small, disclosed
-    // duplication rather than a shared utility module.
-    function firestoreTimestampToDateString(ts) {
-      if (!ts || typeof ts.toDate !== 'function') return null;
-      return ts.toDate().toISOString().slice(0, 10);
-    }
-
-    // Same normalization shape admin-client-applications.html's own
-    // firestoreDocToClientRecord() produces — id/name/email/phone/accountType/status/
-    // createdAt/applicationResolvedAt/applicationReason, plus _source: 'firebase'. Client
-    // List doesn't need the status-specific fields for anything today, but keeping the same
-    // shape (rather than a narrower one) means this row can be handed to any function that
-    // already expects a full client record — matchesSearch()/matchesTypeFilter()/
-    // formatDisplayDate() all just work on it unchanged.
-    function firestoreDocToClientRecord(docSnap) {
-      var data = docSnap.data();
-      return {
-        id: docSnap.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        accountType: data.accountType,
-        status: data.status,
-        createdAt: firestoreTimestampToDateString(data.createdAt),
-        applicationResolvedAt: firestoreTimestampToDateString(data.applicationResolvedAt),
-        applicationReason: data.applicationReason || null,
-        _source: 'firebase'
-      };
-    }
-
-    // Unlike admin-client-applications.html's two STATUS-filtered queries, Client List shows
-    // every client regardless of status (pending_review/active/rejected) — this page's own
-    // job is "every client account," not "applications awaiting a decision." A bare
-    // collection() read with no `where` still requires the same admin custom claim per
-    // firestore.rules' `allow list` rule — confirmed via Node before writing this UI code.
-    async function fetchFirestoreClients() {
-      await ensureAdminSignedIn();
-      var snap = await getDocs(collection(db, 'clients'));
-      return snap.docs.map(firestoreDocToClientRecord);
-    }
-
+  <!-- Admin UI Wiring — Final Stage (2026-09-03): real cleanup, not a straightforward wire,
+       per instruction. This page was stuck on the pre-retirement Firebase merge built Aug 22,
+       2026 — Firebase was retired project-wide Aug 30, 2026 (see CLAUDE.md's "Firebase —
+       RETIRED" Tech Stack entry), and this page was never updated after that: it was still
+       importing the retired admin-firebase-config.js and querying the retired emulator's
+       Firestore `clients` collection, which no real signup path has written to since Supabase
+       became the sole active backend. That merge is REMOVED outright (not merely disabled) —
+       real clients now sign up through Supabase (signup.html's default path since Firebase
+       Retirement), so the real cross-client source here is the real Supabase `clients` table,
+       merged with the still-genuinely-local demo/admin-created clients (getAllClients()) the
+       same way the old code merged local + Firebase. No `type="module"` needed any more —
+       MarketswaveData (a plain classic script) covers everything this page needs. -->
+  <script>
     (function () {
       if (typeof getAllClients !== 'function') return; // engine-core.js failed to load — bail defensively
+      if (typeof MarketswaveData !== 'undefined') MarketswaveData.useAdminClient();
 
       var TYPE_BADGE = {
         'Individual Account': { label: 'Individual', cls: 'bg-slate-100 text-slate-600' },
@@ -227,13 +188,10 @@
       var toastBody = document.getElementById('admin-toast-body');
       var toastClose = document.getElementById('admin-toast-close');
       var toastTimer;
-      // Bug fix (Aug 27, 2026): closes the same gap found and fixed in
-      // admin-client-applications.html — this file shares the identical showToast()
-      // pattern and the identical ensureAdminSignedIn() call ("Could Not Load Firebase
-      // Clients" is this file's own version of the exact toast that faded before it could be
-      // read). New 4th param `sticky`, deliberately separate from `isError` (kept exactly as
-      // it already was, pure styling), requires manual dismissal via the new close button
-      // instead of auto-hiding — only the real Firebase-load-failure call site below passes
+      // Bug fix (Aug 27, 2026, kept — still applies to the real Supabase load path below):
+      // New 4th param `sticky`, deliberately separate from `isError` (kept exactly as it
+      // already was, pure styling), requires manual dismissal via the new close button
+      // instead of auto-hiding — only the real Supabase-load-failure call site below passes
       // it; every other call site (none currently pass `isError` at all in this file) is
       // completely unchanged.
       function showToast(title, body, isError, sticky) {
@@ -281,41 +239,57 @@
       var typeFilter = 'All';
       var expandedIds = {};
 
-      // Same merge pattern proven on admin-client-applications.html this session, mirrored
-      // exactly rather than reinvented: cachedClients holds the MERGED result of local
-      // (getAllClients()) and real Firestore reads, refreshed by refreshAndRenderClients()
-      // below; renderClients() just renders/filters whatever's currently cached, tagging
-      // each row with the same small "Firebase" badge when _source === 'firebase'.
-      // De-duplicated by id — a Firebase client who has since logged in once
-      // (mirrorAuthenticatedClientLocally()) exists in BOTH the local array and the real
-      // Firestore result, same reasoning as admin-client-applications.html's own History
-      // dedup.
+      // Real cleanup, not a straightforward wire (Admin UI Wiring — Final Stage, 2026-09-03):
+      // cachedClients now holds the MERGED result of local (getAllClients() — the still-
+      // genuinely-local demo/admin-created clients, e.g. CLIENT-0001) and real Supabase
+      // (`clients` table) reads, refreshed by refreshAndRenderClients() below; renderClients()
+      // just renders/filters whatever's currently cached, tagging each row with a small
+      // "Supabase" badge when _source === 'supabase'. De-duplicated by id — structurally
+      // impossible to collide today (local ids are PROD/CLIENT-XXXX strings, Supabase ids are
+      // real auth.users UUIDs), kept anyway as defense-in-depth, same reasoning
+      // admin-client-applications.html's own History dedup already used for its analogous merge.
       var cachedClients = [];
-      var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Firebase</span>';
+      var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Supabase</span>';
 
-      // Backend Migration Phase 0, item 3 (Aug 26, 2026): labels the one of these two actions
-      // that's genuinely misleading for a Firebase-sourced client, rather than fixing it (real
-      // credential revocation for Firebase-backed clients needs Firebase Auth's own admin APIs
-      // — e.g. revoking refresh tokens, disabling the account — a separate, unscoped future
-      // task, not silently pretended to work here). Re-investigated before labeling anything,
-      // rather than trusting the prior blanket note this replaces: "Reset Password"/"Reset 2FA"
-      // both call local-only resetClientPassword()/resetClient2FA() engine functions, but they
-      // are NOT equally affected —
+      // pendingCountCache — lazy, per-client cache for a Supabase client's own "Pending
+      // Approval Gate Items" figure. Unlike a local client (getClientPendingApprovalCount() is
+      // a synchronous localStorage read), a Supabase client's pending count requires querying 7
+      // real tables — fetched only when a row is actually expanded (matching this page's own
+      // established expand-in-place lazy-detail pattern, §4.56), not eagerly for every client on
+      // load, to avoid N×7 queries for a client list nobody is looking at yet.
+      var pendingCountCache = {};
+      var pendingCountInFlight = {};
+      var APPROVAL_GATE_TABLES = ['deposit_requests', 'withdrawal_requests', 'allocation_requests', 'sell_requests', 'hys_deposit_requests', 'hys_withdrawal_requests', 'profile_change_requests'];
+
+      function fetchPendingCountForSupabaseClient(clientId) {
+        return Promise.all(APPROVAL_GATE_TABLES.map(function (table) {
+          return MarketswaveData.selectTable(table, function (q) { return q.eq('client_id', clientId).eq('status', 'pending'); });
+        })).then(function (results) {
+          return results.reduce(function (sum, rows) { return sum + rows.length; }, 0);
+        });
+      }
+
+      // Re-investigated before labeling anything, rather than assuming the prior
+      // Firebase-specific note still applies verbatim now that Supabase is the sole active
+      // backend: "Reset Password"/"Reset 2FA" both call local-only resetClientPassword()/
+      // resetClient2FA() engine functions — the SAME real distinction found for Firebase-
+      // sourced clients (Backend Migration Phase 0, item 3) holds identically for a real
+      // Supabase-authenticated client, since neither local function has ever depended on which
+      // real backend authenticated the client:
       //   - Reset Password sets a LOCAL forcePasswordReset flag that gates settings.html until
-      //     the client submits a "new password." Traced that form's own submit handler
-      //     (settings.html): it never persists a password anywhere for ANY client (there is no
-      //     real credential store backing the self-service Change Password flow either) — it
-      //     only clears the flag. For a Firebase-sourced client specifically, this means the
-      //     reset has NO effect on their real sign-in credential at all: they keep using their
-      //     existing real Firebase Auth password, unaware anything was supposed to change. This
-      //     IS the genuinely misleading case, and the one labeled below.
+      //     the client submits a "new password." That form's own submit handler never persists
+      //     a password anywhere for ANY client (no real credential store backs the self-service
+      //     Change Password flow either) — it only clears the flag. For a Supabase-sourced
+      //     client, this means the reset has NO effect on their real sign-in credential at all:
+      //     they keep using their existing real Supabase Auth password, unaware anything was
+      //     supposed to change. This IS the genuinely misleading case, labeled below.
       //   - Reset 2FA writes directly to the same marketswave_settings_2fa:<clientId> key
       //     settings.html's own 2FA section reads — and 2FA has ALWAYS been a fully local,
-      //     simulated feature independent of Firebase Auth for every client, Firebase-sourced
-      //     or not (Firebase Auth has its own real MFA support; this project never adopted it).
-      //     So Reset 2FA achieves its real, complete, intended effect for a Firebase-sourced
-      //     client exactly as designed — there is no discrepancy to warn about, and doing so
-      //     would be inaccurate, not just unnecessary caution.
+      //     simulated feature independent of whichever real backend authenticated the client
+      //     (confirmed no real Supabase table/Edge Function exists for 2FA either — see
+      //     settings.html's own Stage 5 investigation). So Reset 2FA achieves its real,
+      //     complete, intended effect for a Supabase-sourced client exactly as designed — no
+      //     discrepancy to warn about there.
 
       function renderFilterPills() {
         var buttons = document.querySelectorAll('.filter-pill');
@@ -327,7 +301,44 @@
       }
 
       function expandedRowHTML(c) {
-        var pendingCount = getClientPendingApprovalCount(c.id);
+        var isSupabase = c._source === 'supabase';
+        var pendingCount;
+        if (!isSupabase) {
+          pendingCount = getClientPendingApprovalCount(c.id);
+        } else if (pendingCountCache.hasOwnProperty(c.id)) {
+          pendingCount = pendingCountCache[c.id];
+        } else {
+          pendingCount = 'Loading…';
+          if (!pendingCountInFlight[c.id]) {
+            pendingCountInFlight[c.id] = true;
+            fetchPendingCountForSupabaseClient(c.id).then(function (n) {
+              pendingCountCache[c.id] = n;
+              delete pendingCountInFlight[c.id];
+              renderClients();
+            }).catch(function () {
+              pendingCountCache[c.id] = '—';
+              delete pendingCountInFlight[c.id];
+              renderClients();
+            });
+          }
+        }
+        // "View as this Client" only makes sense for a genuinely local client — it works by
+        // pinning the local engine's own ambient marketswave_current_client_id
+        // (setCurrentClientId()), which is meaningless for a real Supabase-authenticated
+        // client: there's no real identity-switch mechanism here, and none of the wired admin
+        // queue pages read that ambient id any more (every one of them now takes an explicit
+        // clientId per row, since Admin UI Wiring Stage 1) — confirmed via project-wide grep
+        // that this page is the ONLY admin page left calling getCurrentClientId()/
+        // setCurrentClientId() at all. Shown only for local clients; a Supabase client gets an
+        // explanatory note instead of a button that would silently do nothing meaningful.
+        var viewControl;
+        if (isSupabase) {
+          viewControl = '<p class="text-xs text-slate-400">Real Supabase-authenticated client — no local "view as" mechanism exists for it.</p>';
+        } else if (c.id === getCurrentClientId()) {
+          viewControl = '<p class="text-xs text-slate-400">Currently viewing this client.</p>';
+        } else {
+          viewControl = '<button type="button" class="view-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + c.id + '">View as this Client</button>';
+        }
         return '<tr class="expand-row">' +
           '<td colspan="4" class="px-6 pb-5 pt-0 bg-slate-50/60">' +
             '<div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">' +
@@ -337,7 +348,7 @@
               '</div>' +
               '<div>' +
                 '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Client Since</p>' +
-                '<p class="text-slate-700">' + formatDisplayDate(c.createdAt) + '</p>' +
+                '<p class="text-slate-700">' + (c.createdAt ? formatDisplayDate(c.createdAt) : '—') + '</p>' +
               '</div>' +
               '<div>' +
                 '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Pending Approval Gate Items</p>' +
@@ -345,14 +356,12 @@
               '</div>' +
             '</div>' +
             '<div class="flex flex-wrap items-center gap-2 mt-4">' +
-              (c.id === getCurrentClientId()
-                ? '<p class="text-xs text-slate-400">Currently viewing this client.</p>'
-                : '<button type="button" class="view-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + c.id + '">View as this Client</button>') +
+              viewControl +
               '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="PASSWORD_RESET">Reset Password</button>' +
               '<button type="button" class="security-btn px-4 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="2FA_RESET">Reset 2FA</button>' +
             '</div>' +
-            (c._source === 'firebase'
-              ? '<p class="text-xs text-amber-600 mt-2">Firebase-authenticated client: Reset Password will not change their real sign-in password. Reset 2FA works normally.</p>'
+            (isSupabase
+              ? '<p class="text-xs text-amber-600 mt-2">Supabase-authenticated client: Reset Password will not change their real sign-in password. Reset 2FA works normally.</p>'
               : '') +
           '</td>' +
         '</tr>';
@@ -378,10 +387,14 @@
             var isExpanded = !!expandedIds[c.id];
             var isCurrent = c.id === currentId;
             var badge = TYPE_BADGE[c.accountType] || { label: c.accountType || '—', cls: 'bg-slate-100 text-slate-600' };
-            var total = getTotalPortfolioValue(c.id);
+            // Real Supabase clients had their totalPortfolioValue pre-fetched (in parallel,
+            // via the real get-total-portfolio-value Edge Function) during
+            // refreshAndRenderClients() below, since this render path is synchronous — a
+            // local client's own value is still a plain synchronous engine read.
+            var total = c._source === 'supabase' ? (c.totalPortfolioValue || 0) : getTotalPortfolioValue(c.id);
             var summaryRow = '<tr class="client-row cursor-pointer hover:bg-slate-50/50' + (isCurrent ? ' bg-amber-50/40' : '') + '" data-id="' + c.id + '">' +
               '<td class="px-6 py-4">' +
-                '<p class="font-medium text-slate-900">' + c.name + (c._source === 'firebase' ? ' ' + SOURCE_BADGE_HTML : '') + '</p>' +
+                '<p class="font-medium text-slate-900">' + c.name + (c._source === 'supabase' ? ' ' + SOURCE_BADGE_HTML : '') + '</p>' +
                 '<p class="text-xs text-slate-400">' + c.id + '</p>' +
               '</td>' +
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + badge.cls + '">' + badge.label + '</span></td>' +
@@ -394,26 +407,58 @@
           }).join('') + '</tbody></table>';
       }
 
-      // Refetches both local (synchronous) and real Firestore (async) clients, merges
-      // (de-duplicated by id), then re-renders — same shape as admin-client-applications.
-      // html's own refreshAndRenderAll(). A Firestore read failure (e.g. the emulator isn't
-      // running) is caught and surfaced via the existing toast rather than left as a silent
-      // gap — local data still renders regardless.
+      // Maps a real `clients` row to the same shape local records already carry
+      // (id/name/email/phone/accountType/status/createdAt/applicationResolvedAt/
+      // applicationReason), plus _source: 'supabase' — mirrors
+      // admin-client-applications.html's own row-mapping convention. account_type's real
+      // column values ('Individual Account'/'Joint Account'/'Business Account') are already
+      // identical to the local engine's own accountType strings — no translation needed, only
+      // the key renamed. createdAt is date-only ('YYYY-MM-DD', matching formatDisplayDate()'s
+      // own expected input), sliced from the real full timestamptz.
+      function supabaseRowToClientRecord(row) {
+        return {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          accountType: row.account_type,
+          status: row.status,
+          createdAt: row.created_at ? row.created_at.slice(0, 10) : null,
+          applicationResolvedAt: row.application_resolved_at ? row.application_resolved_at.slice(0, 10) : null,
+          applicationReason: row.application_reason || null,
+          _source: 'supabase'
+        };
+      }
+
+      // Refetches both local (synchronous) and real Supabase (async) clients, merges
+      // (de-duplicated by id), pre-fetches each Supabase client's real Total Portfolio Value
+      // in parallel (get-total-portfolio-value, admin-authorized cross-client reads — RLS
+      // itself already permits an admin-claimed caller to pass any clientId), then re-renders.
+      // A Supabase read failure (e.g. the local stack isn't running) is caught and surfaced via
+      // the existing toast rather than left as a silent gap — local data still renders
+      // regardless.
       async function refreshAndRenderClients() {
         document.getElementById('clients-list').innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">Loading…</p>';
 
         var localClients = getAllClients().map(function (c) { return Object.assign({ _source: 'local' }, c); });
 
-        var firestoreClients = [];
+        var supabaseClients = [];
         try {
-          firestoreClients = await fetchFirestoreClients();
+          var rows = await MarketswaveData.selectTable('clients');
+          supabaseClients = rows.map(supabaseRowToClientRecord);
+          var totals = await Promise.all(supabaseClients.map(function (c) {
+            return MarketswaveData.callFunction('get-total-portfolio-value', { clientId: c.id })
+              .then(function (r) { return r.totalPortfolioValue; })
+              .catch(function () { return 0; });
+          }));
+          supabaseClients.forEach(function (c, i) { c.totalPortfolioValue = totals[i]; });
         } catch (e) {
-          showToast('Could Not Load Firebase Clients', e.message || String(e), true, true);
+          showToast('Could Not Load Supabase Clients', (e && e.message) || String(e), true, true);
         }
 
         var seen = {};
         cachedClients = [];
-        localClients.concat(firestoreClients).forEach(function (c) {
+        localClients.concat(supabaseClients).forEach(function (c) {
           if (seen[c.id]) return;
           seen[c.id] = true;
           cachedClients.push(c);
