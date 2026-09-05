@@ -555,12 +555,20 @@
       document.getElementById('security-modal-close').addEventListener('click', closeSecurityModal);
       document.getElementById('security-modal-backdrop').addEventListener('click', closeSecurityModal);
       document.getElementById('security-cancel').addEventListener('click', closeSecurityModal);
-      document.getElementById('security-submit').addEventListener('click', function () {
+      document.getElementById('security-submit').addEventListener('click', async function () {
         var reason = securityReasonInput.value.trim();
         try {
+          // Real per-PM attribution (Backend Migration Phase C — Stage 1): this domain stays
+          // 100% local (no real Supabase backend for the Security Log), so unlike every real
+          // Edge Function's own server-side getClaims(jwt) read, the real signed-in admin's
+          // email has to be fetched here, client-side, from the real admin Supabase session
+          // this page already established via useAdminClient() at load time.
+          var performedByEmail = typeof MarketswaveData !== 'undefined'
+            ? await MarketswaveData.getCurrentUserEmail()
+            : null;
           var result = activeSecurityAction === 'PASSWORD_RESET'
-            ? resetClientPassword(activeSecurityClientId, reason)
-            : resetClient2FA(activeSecurityClientId, reason);
+            ? resetClientPassword(activeSecurityClientId, reason, performedByEmail)
+            : resetClient2FA(activeSecurityClientId, reason, performedByEmail);
           var actionLabel = activeSecurityAction === 'PASSWORD_RESET' ? 'Password reset' : '2FA reset';
           closeSecurityModal();
           showToast(actionLabel + ' logged', result.clientName + ' (' + result.clientId + ') — ' + actionLabel.toLowerCase() + ' recorded in the Account Security log.');

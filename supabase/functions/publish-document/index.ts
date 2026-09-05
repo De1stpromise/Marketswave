@@ -64,6 +64,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This action requires Portfolio Manager access.' }, 403);
     }
 
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): captured
+    // directly from the caller's own already-verified JWT claims computed above — zero extra
+    // DB round trip. Written into the resolved/created/updated row below.
+    const adminId = claimsData.claims.sub as string;
+    const adminEmail = claimsData.claims.email as string;
+
     const body = await req.json();
     const clientId = body && body.clientId;
     const filename = body && body.filename;
@@ -111,7 +117,9 @@ Deno.serve(async (req) => {
         status: signatureRequired ? 'Signature Required' : null,
         is_new: true,
         deadline_label: deadlineLabel,
-        storage_path: storagePath
+        storage_path: storagePath,
+        published_by: adminId,
+        published_by_email: adminEmail
       })
       .select()
       .single();
@@ -133,7 +141,9 @@ function toClientShape(row: Record<string, unknown>) {
     status: row.status,
     isNew: row.is_new,
     deadlineLabel: row.deadline_label,
-    date: row.created_at
+    date: row.created_at,
+    publishedBy: row.published_by,
+    publishedByEmail: row.published_by_email
   };
 }
 

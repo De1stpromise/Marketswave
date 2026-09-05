@@ -67,6 +67,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This action requires Portfolio Manager access.' }, 403);
     }
 
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): captured
+    // directly from the caller's own already-verified JWT claims computed above — zero extra
+    // DB round trip. Written into the resolved/created/updated row below.
+    const adminId = claimsData.claims.sub as string;
+    const adminEmail = claimsData.claims.email as string;
+
     const body = await req.json();
     const clientId = body && body.clientId;
     if (!clientId) {
@@ -93,7 +99,7 @@ Deno.serve(async (req) => {
 
     const { error: updateError } = await adminClient
       .from('clients')
-      .update({ status: 'active', application_resolved_at: new Date().toISOString() })
+      .update({ status: 'active', application_resolved_at: new Date().toISOString(), application_resolved_by: adminId, application_resolved_by_email: adminEmail })
       .eq('id', clientId);
     if (updateError) {
       return jsonResponse({ error: 'Update failed: ' + updateError.message }, 500);

@@ -47,6 +47,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This action requires Portfolio Manager access.' }, 403);
     }
 
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): captured
+    // directly from the caller's own already-verified JWT claims computed above — zero extra
+    // DB round trip. Written into the resolved/created/updated row below.
+    const adminId = claimsData.claims.sub as string;
+    const adminEmail = claimsData.claims.email as string;
+
     const body = await req.json();
     const clientId = body && body.clientId;
     const docId = body && body.docId;
@@ -64,6 +70,12 @@ Deno.serve(async (req) => {
     if (Object.keys(columnPatch).length === 0) {
       return jsonResponse({ error: 'patch must include at least one field.' }, 400);
     }
+
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1) — applied unconditionally
+    // to every real call to this function, since every call is an admin review action
+    // regardless of which fields the patch itself touches.
+    columnPatch.reviewed_by = adminId;
+    columnPatch.reviewed_by_email = adminEmail;
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
@@ -100,7 +112,9 @@ function toClientShape(row: Record<string, unknown>) {
     status: row.status,
     isNew: row.is_new,
     deadlineLabel: row.deadline_label,
-    date: row.created_at
+    date: row.created_at,
+    reviewedBy: row.reviewed_by,
+    reviewedByEmail: row.reviewed_by_email
   };
 }
 

@@ -2424,7 +2424,21 @@
   // and always-in-sync) Client Registry — safe to read here since, unlike the per-client
   // stores Approval Gate had to fix, there is only ever one Client Registry, not one per
   // client, so there's no "wrong client's copy" to go stale.
-  function appendSecurityLogEntry(clientId, type, reason) {
+  //
+  // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): performedBy
+  // used to be a hardcoded 'Portfolio Manager' literal — the ONE place in this whole project
+  // that string ever appeared (confirmed via grep before this change; every real Supabase
+  // Edge Function's own admin-write path recorded no actor at all, not even a generic
+  // placeholder — see this stage's migration file for the fuller picture). Now takes the
+  // real signed-in admin's own email as an explicit parameter — this domain is still 100%
+  // local (no real Supabase backend exists for the Security Log, confirmed directly during
+  // this same stage), so there's no JWT to read server-side the way every Edge Function
+  // does; the caller (admin-clients.html) is responsible for obtaining the real email from
+  // its own real Supabase admin session and passing it through. Falls back to 'Unknown PM'
+  // — never the old fictional-reading 'Portfolio Manager' default — if a future caller ever
+  // forgets to pass it, so a gap in attribution stays honestly visible instead of silently
+  // reading as a real, generic answer.
+  function appendSecurityLogEntry(clientId, type, reason, performedByEmail) {
     const log = safeParse(localStorage.getItem(SECURITY_LOG_KEY)) || [];
     const client = getClient(clientId);
     const entry = {
@@ -2434,7 +2448,7 @@
       type: type,
       reason: reason,
       performedAt: todayStrUTC(),
-      performedBy: 'Portfolio Manager'
+      performedBy: (performedByEmail && performedByEmail.trim()) || 'Unknown PM'
     };
     log.push(entry);
     localStorage.setItem(SECURITY_LOG_KEY, JSON.stringify(log));
@@ -2463,7 +2477,7 @@
   // actual server rejecting stale credentials — needs the login gate + backend session work
   // already tracked as deferred; this is buildable now only as a client-side UI gate, not as
   // real security. See the Backend Requirements Register for the explicit callout.
-  function resetClientPassword(clientId, reason) {
+  function resetClientPassword(clientId, reason, performedByEmail) {
     if (!reason || !reason.trim()) {
       throw new Error('A reason is required to reset a client\'s password.');
     }
@@ -2473,7 +2487,7 @@
     state.forcePasswordReason = reason.trim();
     state.forcePasswordFlaggedAt = todayStrUTC();
     localStorage.setItem(key, JSON.stringify(state));
-    return appendSecurityLogEntry(clientId, 'PASSWORD_RESET', reason.trim());
+    return appendSecurityLogEntry(clientId, 'PASSWORD_RESET', reason.trim(), performedByEmail);
   }
 
   // Explicit clientId, admin-triggered. Writes 'disabled' directly to the SAME raw key/format
@@ -2482,12 +2496,12 @@
   // `localStorage.getItem(STORAGE_KEY) === 'enabled'` read needs no changes at all to pick
   // this up on its next load; the reset just writes the same state that page would write to
   // itself if the client disabled 2FA on their own.
-  function resetClient2FA(clientId, reason) {
+  function resetClient2FA(clientId, reason, performedByEmail) {
     if (!reason || !reason.trim()) {
       throw new Error('A reason is required to reset a client\'s two-factor authentication.');
     }
     localStorage.setItem(scopedKeyForClient('marketswave_settings_2fa', clientId), 'disabled');
-    return appendSecurityLogEntry(clientId, '2FA_RESET', reason.trim());
+    return appendSecurityLogEntry(clientId, '2FA_RESET', reason.trim(), performedByEmail);
   }
 
   // ---- Client-facing reads (ambient — settings.html checking its OWN state) ---------------

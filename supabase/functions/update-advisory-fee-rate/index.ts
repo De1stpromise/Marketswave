@@ -48,6 +48,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This action requires Portfolio Manager access.' }, 403);
     }
 
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): captured
+    // directly from the caller's own already-verified JWT claims computed above — zero extra
+    // DB round trip. Written into the resolved/created/updated row below.
+    const adminId = claimsData.claims.sub as string;
+    const adminEmail = claimsData.claims.email as string;
+
     const body = await req.json();
     const newRate = body && body.newRate;
     if (typeof newRate !== 'number' || !isFinite(newRate) || newRate <= 0) {
@@ -58,12 +64,12 @@ Deno.serve(async (req) => {
 
     const { data: updated, error: upsertErr } = await admin
       .from('advisory_fee_rate')
-      .upsert({ id: true, rate: newRate, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+      .upsert({ id: true, rate: newRate, updated_at: new Date().toISOString(), updated_by: adminId, updated_by_email: adminEmail }, { onConflict: 'id' })
       .select()
       .single();
     if (upsertErr) return jsonResponse({ error: upsertErr.message }, 500);
 
-    return jsonResponse({ rate: updated.rate }, 200);
+    return jsonResponse({ rate: updated.rate, updatedBy: updated.updated_by, updatedByEmail: updated.updated_by_email }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }

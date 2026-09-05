@@ -111,6 +111,24 @@
     });
   }
 
+  // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): the one small
+  // addition this stage needed here — every real Edge Function already gets the calling
+  // admin's identity server-side via getClaims(jwt), but a purely client-side domain (the
+  // local Security Log, engine-core.js's appendSecurityLogEntry()) has no JWT to read and
+  // needs the real signed-in admin's own email directly. Resolves whichever client
+  // getSupabaseClient()/useAdminClient() currently point at, so this works identically for
+  // an admin page (after useAdminClient()) and would work for a client-facing page too if a
+  // future need ever arose. Returns null rather than throwing if no session exists — callers
+  // decide what an absent identity means for them (this project's own established "an
+  // honest gap, not a fabricated placeholder" precedent).
+  function getCurrentUserEmail() {
+    return getSupabaseClient().then(function (client) {
+      return client.auth.getSession();
+    }).then(function (res) {
+      return (res && res.data && res.data.session && res.data.session.user && res.data.session.user.email) || null;
+    }).catch(function () { return null; });
+  }
+
   // Normalizes a failed supabase-js call (Edge Function or direct table query) into a
   // consistent Error shape every page's error UI can branch on via `.kind`, without each page
   // re-deriving its own classification logic. `realMessage`, when given, wins over the raw
@@ -458,6 +476,7 @@
   window.MarketswaveData = {
     getSupabaseClient: getSupabaseClient,
     useAdminClient: useAdminClient,
+    getCurrentUserEmail: getCurrentUserEmail,
     callFunction: callFunction,
     selectTable: selectTable,
     insertRow: insertRow,

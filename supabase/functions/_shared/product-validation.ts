@@ -83,6 +83,10 @@ export function toProductClientShape(row: Record<string, unknown>) {
     lastTickDate: row.last_tick_date,
     description: row.description,
     extendedDescription: row.extended_description,
-    logoUrl: row.logo_url
+    logoUrl: row.logo_url,
+    createdBy: row.created_by,
+    createdByEmail: row.created_by_email,
+    updatedBy: row.updated_by,
+    updatedByEmail: row.updated_by_email
   };
 }

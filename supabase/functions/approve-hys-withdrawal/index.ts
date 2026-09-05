@@ -43,6 +43,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This action requires Portfolio Manager access.' }, 403);
     }
 
+    // Real per-PM attribution (Backend Migration Phase C — Stage 1, 2026-09-06): captured
+    // directly from the caller's own already-verified JWT claims computed above — zero extra
+    // DB round trip. Written into the resolved/created/updated row below.
+    const adminId = claimsData.claims.sub as string;
+    const adminEmail = claimsData.claims.email as string;
+
     const body = await req.json();
     const requestId = body && body.requestId;
     if (!requestId) return jsonResponse({ error: 'requestId is required.' }, 400);
@@ -112,7 +118,9 @@ Deno.serve(async (req) => {
       .update({
         status: 'approved',
         resolved_at: new Date().toISOString(),
-        transaction_id: txn.id
+        transaction_id: txn.id,
+        resolved_by: adminId,
+        resolved_by_email: adminEmail
       })
       .eq('id', requestId)
       .select()
@@ -139,6 +147,8 @@ function toClientShape(row: Record<string, unknown>) {
     status: row.status,
     requestedAt: row.requested_at,
     resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
+    resolvedByEmail: row.resolved_by_email,
     transactionId: row.transaction_id,
     reason: row.reason
   };
