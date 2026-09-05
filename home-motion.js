@@ -70,6 +70,15 @@
       });
     }, { threshold: 0.4 });
     statsObs.observe(statsBar);
+
+    // Homepage Visual Redesign, Stage 1 (2026-09-05): the 4 stat cards now get the same
+    // staggered-group entrance reveal already established for other homepage sections
+    // (e.g. .values-grid below) — purely additive, does not touch animateStatCounters()
+    // or its own IntersectionObserver above; both fire independently off the same
+    // .stats-bar entering view.
+    var statCards = statsBar.querySelectorAll('.stat');
+    statCards.forEach(function (el) { markReveal(el); });
+    observeStaggeredGroup(statsBar, statCards, 100, 0.3);
   }
 
   function animateStatCounters(container) {

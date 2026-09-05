@@ -16,6 +16,21 @@
   --white: #FFFFFF;
   --accent: #1B3A4B;              /* Same as primary for consistency with locked palette */
 
+  /* Homepage Visual Redesign — Stage 1 (2026-09-05): a deliberate, SCOPED palette
+     expansion — same category as risk-management.html's own gold/mahogany + deep-green
+     accent moment, not a change to the locked navy/cream system above. Used ONLY for
+     the .blob and .gradient-text utilities below (glass card backgrounds, blurred
+     accent shapes, headline gradient text) — never as a flat UI background, never on
+     buttons/cards/text elsewhere. See CLAUDE.md's Tech Stack entry for the full writeup. */
+  --accent-teal: #16815F;         /* deep teal — gradient-text stop, eyebrow badge text/dot */
+  --accent-teal-soft: #7FD4B4;    /* soft pastel teal — blob backgrounds only */
+  --accent-gold-soft: #F0C878;    /* soft pastel gold — blob backgrounds only. NOTE: the
+                                      DEEP gold used in gradient-text is NOT a new color —
+                                      it reuses the already-locked #C8860A risk-meter/
+                                      service-tag gold (see styles.css's own comment near
+                                      that exception), deliberately not duplicated as a
+                                      second token here. */
+
   /* Layout & effects */
   --radius: 12px;
   --radius-sm: 8px;
@@ -224,13 +239,172 @@ img {
 }
 
 /* =====================================================
-   5. HERO
+   4A. SHARED VISUAL PRIMITIVES — Homepage Visual Redesign, Stage 1 (2026-09-05)
+   Four reusable primitives, built once here against the approved "liquid glass, light
+   background" reference preview and applied for the first time to the Hero + Stats Bar
+   below. Every later redesign stage should reuse these four classes directly — point at
+   them, don't re-derive the recipe. See CLAUDE.md's Tech Stack entry for the full
+   design rationale and the reference preview this was built against.
+===================================================== */
+
+/* ---- .glass — the liquid-glass card recipe: layered translucency gradient,
+   light-catching border (brighter top/left, darker bottom/right — the "light hitting an
+   edge" cue), inset + outer shadow for real depth, and a top-left sheen highlight via
+   ::before. Works on any element — badges, buttons, cards. The rgba(27,58,75,*) values
+   below are --primary's own RGB channels (27,58,75); kept literal rather than composed
+   from var(--primary) since CSS custom properties can't be decomposed into R/G/B
+   channels for reuse inside rgba(). ---- */
+.glass {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.22) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-bottom-color: rgba(27,58,75,0.12);
+  border-right-color: rgba(27,58,75,0.08);
+  box-shadow:
+    0 20px 40px -12px rgba(27,58,75,0.18),
+    inset 0 1px 1px rgba(255,255,255,0.9),
+    inset 0 -1px 1px rgba(27,58,75,0.06);
+  overflow: hidden;
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -30%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ---- .gradient-text — navy -> teal -> gold headline accent. Apply to an inline
+   element (a <span>) wrapping the text to be gradient-filled, not a block-level
+   heading itself. ---- */
+.gradient-text {
+  color: var(--primary); /* fallback if background-clip:text isn't supported anywhere —
+                             solid navy, never invisible text */
+  background: linear-gradient(135deg, var(--primary) 15%, var(--accent-teal) 55%, #C8860A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---- .blob — a blurred, softly-glowing gradient accent shape, meant to sit behind
+   glass content on a light background. Composed from a base class plus a size modifier
+   (--sm/--md/--lg) plus a color modifier (--teal/--gold/--blue/--rose/--violet):
+     <div class="blob blob--lg blob--teal"></div>
+   POSITION is deliberately NOT part of this shared utility — where a blob sits is
+   inherently specific to whatever section it's decorating, so each section defines its
+   own small set of position classes (see .hero's own .blob-1..5 below) that pair with
+   these shared size/color modifiers. Only --teal/--gold draw from the new documented
+   accent tokens above; --blue/--rose/--violet are decorative, blob-only accent hues
+   (matching the approved reference preview) — NOT promoted to named palette tokens,
+   since the documented palette expansion is deliberately scoped to teal + gold only. ---- */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.blob--lg { width: 560px; height: 560px; filter: blur(100px); }
+.blob--md { width: 420px; height: 420px; filter: blur(100px); }
+.blob--sm { width: 180px; height: 180px; filter: blur(50px); }
+
+.blob--teal   { background: radial-gradient(circle, var(--accent-teal-soft) 0%, transparent 70%); }
+.blob--gold   { background: radial-gradient(circle, var(--accent-gold-soft) 0%, transparent 70%); }
+.blob--blue   { background: radial-gradient(circle, #A8C8E8 0%, transparent 70%); }
+.blob--rose   { background: radial-gradient(circle, #F5A5B8 0%, transparent 70%); }
+.blob--violet { background: radial-gradient(circle, #C9B8F0 0%, transparent 70%); }
+
+/* ---- .grid-overlay — a faint architectural grid texture, radially masked so it fades
+   toward the edges of its container rather than cutting off hard. Absolutely positioned
+   to fill whatever ancestor establishes position:relative (typically the section itself).
+   rgba(27,58,75,*) = --primary's own RGB, see the .glass comment above for why literal. ---- */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(27,58,75,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27,58,75,0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* ---- .glass-subtle — Homepage Visual Redesign, Stage 2 (2026-09-05). A deliberately
+   calmer sibling of .glass: half the blur, a much lighter background/shadow, and no
+   sheen ::before at all. Added as a genuine, documented, reusable SECOND intensity level
+   for the same primitive family — not a per-page fork — for exactly the situation Stage
+   2 first needed it for: several small items sitting side by side (e.g. a 4-across grid),
+   where the full .glass recipe's strong blur+sheen would compound into visual noise at
+   that density. Reach for this whenever a later stage hits the same "too many strong
+   glass panels close together" problem, rather than inventing another one-off variant. ---- */
+.glass-subtle {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.15) 100%);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.45);
+  box-shadow: 0 10px 24px -10px rgba(27,58,75,0.12);
+}
+
+/* ---- .blob-field — Homepage Visual Redesign, Stage 2 (2026-09-05). A plain, reusable
+   marker for "this section hosts background blobs" — just position:relative + a real
+   overflow:hidden, so any section can drop 1-3 .blob children into itself for page-wide
+   atmosphere (Platform Pitch, What Makes Us Different, and every remaining page's own
+   "subtle background blobs behind the page overall") without those blobs' own negative
+   offsets ever contributing to horizontal page scroll — the same overflow-containment
+   discipline the Hero/Stats Bar already established in Stage 1, generalized into its own
+   reusable name rather than repeated as a one-off `position:relative;overflow:hidden;`
+   inline wherever it's next needed. Deliberately does NOT set a background color itself —
+   it's a pure blob host, layered over whatever the section's own background already is. ---- */
+.blob-field {
+  position: relative;
+  overflow: hidden;
+}
+/* Keeps real content above the blobs — a descendant selector (not just direct child) so
+   this also reaches .container instances nested one level deeper, e.g. services.html's
+   own .service-section > .container structure inside a .blob-field wrapper. Scoped to
+   blob-field context only, since .container itself is shared far too widely to change
+   generally. */
+.blob-field .container {
+  position: relative;
+  z-index: 2;
+}
+
+/* =====================================================
+   5. HERO — Homepage Visual Redesign, Stage 1 (2026-09-05)
+   Liquid-glass, light background — replaces the previous dark navy-gradient/
+   photographic hero entirely (see the removed second .hero rule this used to be
+   overridden by, further down this file, now deleted along with it). Built against the
+   approved "final, liquid glass, light background" reference preview. Reuses the four
+   shared primitives above: .grid-overlay, .blob, .glass (eyebrow badge + secondary
+   button), .gradient-text (second headline line).
 ===================================================== */
 .hero {
-  background: linear-gradient(145deg, #1B3A4B 0%, #122A38 100%);
-  color: white;
-  padding: 100px 0 90px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #FDFCFA 0%, var(--bg) 100%);
+  color: var(--text);
+  padding: 140px 0 100px;
   text-align: center;
+}
+
+/* Position classes for this section's own 5 blobs — 3 main (teal/gold/soft-blue) + 2
+   smaller accent blobs (rose/violet), matching the reference preview's exact layout.
+   Position is section-specific by design (see the shared .blob comment above); size and
+   color come from the shared modifiers applied alongside these in the HTML. */
+.hero .blob-1 { top: -140px; left: -100px; opacity: 0.5; }
+.hero .blob-2 { bottom: -180px; right: -100px; opacity: 0.55; }
+.hero .blob-3 { top: 25%; right: 10%; opacity: 0.45; }
+.hero .blob-4 { top: 12%; left: 18%; opacity: 0.4; }
+.hero .blob-5 { bottom: 18%; left: 8%; opacity: 0.4; }
+
+.hero .container {
+  position: relative;
+  z-index: 2;
 }
 
 .hero h1 {
@@ -239,13 +413,14 @@ img {
   line-height: 1.15;
   margin-bottom: 24px;
   letter-spacing: -0.9px;
+  color: var(--primary);
 }
 
 .hero-lead {
   font-size: 1.2rem;
   max-width: 700px;
   margin: 0 auto 42px;
-  opacity: 0.92;
+  color: var(--text-muted);
   line-height: 1.7;
 }
 
@@ -256,36 +431,111 @@ img {
   flex-wrap: wrap;
 }
 
-/* =====================================================
-   6. STATS BAR
-===================================================== */
-.stats-bar {
-  background: var(--white);
-  padding: 40px 0;
-  border-bottom: 1px solid var(--border);
+.hero-btn-primary {
+  padding: 15px 30px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: var(--white);
+  box-shadow: 0 14px 28px rgba(27,58,75,0.28), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.hero-btn-primary:hover {
+  box-shadow: 0 18px 34px rgba(27,58,75,0.34), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
+.hero-btn-secondary {
+  padding: 14px 29px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: var(--primary);
+}
+.hero-btn-secondary span {
+  position: relative;
+  z-index: 1;
+}
+.hero-btn-secondary:hover {
+  filter: brightness(1.03);
+}
+
+/* =====================================================
+   6. STATS BAR — Homepage Visual Redesign, Stage 1 (2026-09-05)
+   Converted from 4 plain text stats into 4 real liquid-glass stat cards, reusing the
+   same .glass/.grid-overlay/.blob primitives as the Hero above, at a deliberately
+   lighter touch (2 small blobs, not 5) so the card itself stays the visual focus. The
+   .stat/.value/.label class names and their text-node structure are UNCHANGED — the
+   real count-up animation (home-motion.js's animateStatCounters(), which queries
+   `.stats-bar .stat .value` and regex-parses each one's numeric prefix/value/suffix)
+   keeps working with zero changes to that script, confirmed by direct testing.
+===================================================== */
+.stats-bar {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 60px 0 80px;
+}
+
+.stats-bar .blob-1 { top: -80px; left: 10%; opacity: 0.35; }
+.stats-bar .blob-2 { bottom: -100px; right: 12%; opacity: 0.4; }
+
 .stats-bar .container {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  text-align: center;
+  gap: 20px;
+}
+
+.stat {
+  position: relative;
+  text-align: left;
+  border-radius: 18px;
+  padding: 22px 26px;
+}
+
+.stat-icon {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, rgba(27,58,75,0.1), rgba(27,58,75,0.04));
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stat .label {
+  position: relative;
+  z-index: 1;
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.7px;
-  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+  margin-bottom: 0;
   font-weight: 500;
 }
 
 .stat .value {
-  font-size: 1.65rem;
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-size: 1.55rem;
   font-weight: 700;
   color: var(--primary);
+  margin-bottom: 3px;
+}
+
+.stat .trend {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-size: 0.75rem;
+  color: var(--accent-teal);
+  font-weight: 600;
+  margin-top: 6px;
 }
 
 /* =====================================================
@@ -331,19 +581,20 @@ img {
   gap: 28px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/box-shadow moved to
+   .glass (applied in the HTML alongside this class); the hover lift is kept but its
+   shadow is redefined below to something that reads correctly on top of .glass's own
+   translucent surface, rather than var(--shadow-hover), which was tuned for an opaque
+   white card. */
 .account-card {
-  background: var(--white);
   border-radius: var(--radius);
   padding: 40px 32px;
-  box-shadow: var(--shadow);
   text-align: center;
   transition: transform 0.2s, box-shadow 0.2s;
-  border: 1px solid transparent;
 }
 .account-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
-  border-color: var(--border);
+  box-shadow: 0 24px 44px -14px rgba(27,58,75,0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(27,58,75,0.06);
 }
 
 .account-card .icon {
@@ -385,19 +636,21 @@ img {
   gap: 28px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/box-shadow moved to
+   .glass (applied in the HTML alongside this class, on every .service-card everywhere it
+   appears — Core Services on index.html, and the Blog/Help Center teaser cards on
+   resources.html, since all three share this one class); hover shadow redefined for a
+   translucent surface. */
 .service-card {
-  background: var(--white);
   border-radius: var(--radius);
   padding: 40px 34px;
-  box-shadow: var(--shadow);
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
-  border: 1px solid transparent;
 }
 .service-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: 0 24px 44px -14px rgba(27,58,75,0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(27,58,75,0.06);
 }
 
 .service-card .icon {
@@ -500,9 +753,10 @@ img {
   line-height: 1.65;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background moved to .glass (applied in
+   the HTML alongside this class). */
 .service-stat {
   display: inline-block;
-  background: var(--surface);
   border-radius: var(--radius);
   padding: 20px 28px;
   margin-bottom: 36px;
@@ -580,17 +834,17 @@ img {
   gap: 28px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border moved to .glass
+   (applied in the HTML alongside this class); hover redefined as a shadow boost, since
+   .glass's own border is no longer a plain color this rule could swap on :hover. */
 .strategy-card {
-  background: var(--white);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 36px 32px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
   height: 100%;
 }
 .strategy-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 36px -12px rgba(27,58,75,0.2);
 }
 
 .strategy-card .tag {
@@ -766,9 +1020,16 @@ img {
   gap: 32px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): gains a real, subtle glass treatment
+   (.glass-subtle, applied in the HTML) explicitly requested for this section — the
+   border-top navy accent is deliberately KEPT alongside it (its own longhand
+   border-top-* declarations, defined here, later in the cascade than .glass-subtle's own
+   shorthand border, correctly win for that one side), so each item reads as a light glass
+   card with the site's own established top-accent language, not a plain box. */
 .value-item {
   border-top: 2px solid var(--primary);
-  padding-top: 20px;
+  padding: 20px 18px 22px;
+  border-radius: 0 8px 8px 0;
 }
 
 .value-item h4 {
@@ -784,13 +1045,14 @@ img {
   line-height: 1.6;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/border-radius moved
+   to .glass (applied in the HTML alongside this class) — kept here only as a comment so
+   it's clear why they're gone, rather than silently missing. */
 .approach-visual {
-  background: var(--surface);
-  border-radius: 16px;
   height: 360px;
   color: var(--text-muted);
   font-size: 1.05rem;
-  border: 1px solid var(--border);
+  border-radius: 20px;
 }
 
 .process-steps {
@@ -852,6 +1114,52 @@ img {
   opacity: 0.92;
   font-size: 1.12rem;
   line-height: 1.7;
+}
+
+/* ---- .philosophy-featured — Homepage Visual Redesign, Stage 2 (2026-09-05). Scoped to
+   index.html's own Philosophy CTA ONLY, via this additional class alongside the shared
+   .philosophy — .philosophy itself (background/color/padding above) is deliberately left
+   completely untouched, since services.html and about.html each have their own closing
+   CTA sharing that same base class, and neither was asked to change. Gives this one
+   closing moment "similar visual weight to the Hero," per instruction: blobs behind a
+   still-dark backdrop, plus a genuine light .glass panel wrapping the actual message. ----
+   A real contrast decision, not an oversight: .glass's own recipe assumes a light
+   backdrop and reads as a light, near-white surface — the section's own default white
+   text (from .philosophy above) would be nearly unreadable sitting on top of it. Every
+   text/button element inside .philosophy-panel therefore explicitly switches to the same
+   dark-on-light pairing already proven throughout this project's own glass surfaces
+   (Hero's eyebrow/stat cards): navy headline, muted-grey body copy, a real dark button —
+   never white-on-light. */
+.philosophy-featured {
+  position: relative;
+  overflow: hidden;
+}
+
+.philosophy-panel {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 48px;
+  border-radius: 24px;
+  /* A real contrast bug found via browser verification, not a cosmetic choice: .glass's
+     own default background (55%/22% white) is tuned for sitting on a LIGHT Hero
+     background, where even the more-transparent 22% corner still reads against a pale
+     backdrop. This panel sits on a vivid, busy DARK background instead — at .glass's
+     default opacity, the body paragraph (positioned over the gradient's more-transparent
+     lower-right, per .glass's own 135deg direction) was measurably unreadable, muted-grey
+     text nearly disappearing into the dark backdrop showing through. Overridden here to a
+     substantially more opaque white gradient — still visibly translucent/glass at the
+     edges and under the sheen highlight, but solid enough that text contrast no longer
+     depends on what happens to be behind it. */
+  background: linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.86) 100%);
+}
+.philosophy-panel h2 {
+  color: var(--primary);
+}
+.philosophy-panel p {
+  color: var(--text);
+  opacity: 1;
 }
 
 /* =====================================================
@@ -938,13 +1246,14 @@ img {
   margin-top: 40px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/box-shadow moved to
+   .glass (applied in the HTML alongside this class); overflow:hidden was already here
+   (needed to clip .photo's own square corners to the card's rounded ones) and is kept —
+   redundant with .glass's own overflow:hidden, but harmless. */
 .team-card {
-  background: var(--white);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
   text-align: center;
-  border: 1px solid var(--border);
 }
 
 .team-card .photo {
@@ -1512,117 +1821,14 @@ img {
   }
 }
 
-/* =====================================================
-   19. CONTACT PAGE
-===================================================== */
-.contact-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 48px;
-  align-items: start;
-}
-
-.contact-details-title,
-.contact-form-title {
-  font-size: 1.45rem;
-  color: var(--primary);
-  margin-bottom: 8px;
-  letter-spacing: -0.3px;
-}
-
-.contact-form-lead {
-  color: var(--text-muted);
-  font-size: 0.98rem;
-  margin-bottom: 28px;
-}
-
-.contact-card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 24px;
-  margin-bottom: 16px;
-}
-
-.contact-card-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.contact-card-value {
-  font-size: 1.02rem;
-  color: var(--text);
-  line-height: 1.55;
-}
-
-.contact-card-value a {
-  color: var(--primary);
-  font-weight: 500;
-}
-.contact-card-value a:hover {
-  text-decoration: underline;
-}
-
-.contact-form-wrap {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 36px 36px 32px;
-  box-shadow: var(--shadow);
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text);
-  margin-bottom: 7px;
-}
-
-.form-group .required {
-  color: #b45309;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-family: var(--font);
-  font-size: 0.95rem;
-  color: var(--text);
-  background: var(--white);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.12);
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 120px;
-}
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): the original "19. CONTACT PAGE" block
+   that used to live here is deleted outright — confirmed genuinely dead, not just
+   overridden by luck: a second, later "CONTACT PAGE – Restored Styles" block (further
+   down this file) defines the exact same selectors and, being later in the file at equal
+   specificity, is the one that actually rendered. Same duplicate-rule pattern already
+   found and fixed once for .hero (Stage 1) — the later block is now the sole, real
+   source of Contact page styling, and is itself updated in place below to use the real
+   .glass primitive instead of its own prior ad-hoc translucency. */
 
 .form-actions {
   margin-top: 8px;
@@ -1655,14 +1861,13 @@ img {
     padding: 28px 20px 24px;
   }
 }
-.hero {
-  background:
-    linear-gradient(145deg, rgba(27, 58, 75, 0.55) 0%, rgba(18, 42, 56, 0.62) 100%),
-    url('hero-bg.jpg') center center / cover no-repeat;
-  color: white;
-  padding: 100px 0 90px;
-  text-align: center;
-}
+/* Homepage Visual Redesign, Stage 1 (2026-09-05): this second, later .hero rule — a
+   dark-tinted overlay on hero-bg.jpg, which won the cascade over the first .hero rule
+   above (identical specificity, later in the file) and was therefore the one actually
+   rendering — is deleted outright, confirmed orphaned via grep (hero-bg.jpg is no longer
+   referenced anywhere in the project). The new light-glass hero design lives in the
+   single, consolidated .hero rule in section 5 above. The image file itself is left on
+   disk, unused rather than deleted, in case it's wanted again later. */
 /* Keep Get Access + Contact the same size */
 .header-actions .btn {
   width: 132px;
@@ -1702,20 +1907,20 @@ img {
   margin-bottom: 24px;
 }
 
+/* Homepage Visual Redesign, Stage 2 (2026-09-05): upgraded from this file's own prior
+   ad-hoc translucency (a plain rgba background + blur, predating Stage 1) to the real,
+   shared .glass primitive (applied in the HTML alongside this class) — consolidating
+   onto one consistent recipe site-wide instead of leaving two different "glass-ish"
+   treatments coexisting. Hover redefined as a shadow boost to suit a translucent surface. */
 .contact-card {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius);
   padding: 24px 26px;
   margin-bottom: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
 }
 
 .contact-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 36px -12px rgba(27,58,75,0.2);
 }
 
 .contact-card-label {
@@ -1743,14 +1948,10 @@ img {
   color: var(--primary);
 }
 
+/* Same upgrade as .contact-card just above — real .glass, applied in the HTML. */
 .contact-form-wrap {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius);
   padding: 36px 36px 32px;
-  box-shadow: var(--shadow);
 }
 
 .form-row {

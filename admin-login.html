@@ -27,62 +27,118 @@
 
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <p class="text-lg font-semibold text-slate-900 mb-1">Portfolio Manager Access</p>
-        <p class="text-sm text-slate-500 mb-5">Enter the shared passphrase to continue.</p>
+        <p class="text-sm text-slate-500 mb-5" id="admin-login-subtitle">Sign in with your Portfolio Manager account.</p>
 
-        <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-passphrase-input">Passphrase</label>
-        <input type="password" id="admin-passphrase-input" autocomplete="off" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
-        <p class="text-xs text-red-500 hidden mt-2" id="admin-passphrase-error">Incorrect passphrase.</p>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-email-input">Email</label>
+        <input type="email" id="admin-email-input" autocomplete="username" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-3" />
 
-        <button type="button" id="admin-passphrase-submit" class="mt-4 w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Continue</button>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5" for="admin-password-input">Password</label>
+        <input type="password" id="admin-password-input" autocomplete="current-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+        <p class="text-xs text-red-500 hidden mt-2" id="admin-login-error">Invalid email or password.</p>
+
+        <button type="button" id="admin-login-submit" class="mt-4 w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed">
+          <span id="admin-login-submit-label">Sign In</span>
+        </button>
+
+        <!-- Local-stack convenience hint (2026-09-05) — shown ONLY when NOT targeting real
+             staging, filled in by JS below. Same "not actually a secret, well-known local-only
+             credential" disclosure already used throughout this project for local bootstrap
+             accounts (see scripts/supabase-bootstrap-admin.js's own header) — a real dev
+             convenience, not a security risk, since this account only exists on a developer's
+             own local Supabase stack. -->
+        <p class="text-xs text-slate-400 mt-3 hidden" id="admin-login-local-hint"></p>
       </div>
 
-      <!-- Honesty callout (Aug 21, 2026): this gate is explicitly not real authentication —
-           a single shared client-side passphrase, no backend, no real PM accounts. Shown
-           plainly rather than dressed up as something stronger than it is. -->
-      <p class="text-xs text-slate-400 text-center mt-4">This is a UI-level access gate for this preview build, not a real authentication system.</p>
+      <!-- Real authentication (2026-09-05) — this used to say the opposite. See
+           engine-core.js's own ★ RETIRED comment above ADMIN_PASSPHRASE, and
+           admin-supabase-config.js's own ★ Admin Auth Consolidation comment, for the full
+           "what changed and why" writeup. -->
+      <p class="text-xs text-slate-400 text-center mt-4">Real Supabase Auth session — access is enforced by Row-Level Security and Edge Function checks server-side, not by this page.</p>
     </div>
   </div>
 
-  <script src="engine-core.js"></script>
-  <script>
-    (function () {
-      var input = document.getElementById('admin-passphrase-input');
-      var error = document.getElementById('admin-passphrase-error');
-      var submitBtn = document.getElementById('admin-passphrase-submit');
+  <script type="module">
+    import { supabase, WANTS_STAGING, LOCAL_ADMIN_EMAIL, LOCAL_ADMIN_PASSWORD } from './admin-supabase-config.js';
 
-      function attemptLogin() {
-        if (typeof checkAdminPassphrase !== 'function') return; // engine-core.js failed to load — bail defensively
+    // Bug fix (Aug 27, 2026), carried forward unchanged: preserves ?env=staging across this
+    // redirect — this file doesn't load admin-sidebar.js (no sidebar until authenticated), so
+    // it can't reuse that file's shared currentEnvQuery() helper — duplicated here as the same
+    // small, self-contained one-liner rather than adding a new shared module for a single call
+    // site.
+    function currentEnvQuery() {
+      try {
+        return new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+      } catch (e) { return ''; }
+    }
 
-        // Deliberately generic — never distinguishes "wrong passphrase" from any other
-        // failure mode, since there's no real backend check to differ from in the first
-        // place; a single, uninformative error is the honest response here.
-        if (checkAdminPassphrase(input.value)) {
-          error.classList.add('hidden');
-          setAdminAuthenticated();
-          // Bug fix (Aug 27, 2026): preserves ?env=staging across this redirect — previously
-          // dropped it unconditionally, so a real login attempt at
-          // admin-login.html?env=staging landed on plain admin.html (silently back on the
-          // emulator), reproducing the exact auth/network-request-failed error already
-          // diagnosed twice. This file doesn't load admin-sidebar.js (no sidebar until
-          // authenticated), so it can't reuse that file's shared currentEnvQuery() helper —
-          // duplicated here as the same small, self-contained one-liner rather than adding a
-          // new shared module for a single call site.
-          var envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
-          location.replace('admin.html' + envQuery);
-        } else {
-          error.classList.remove('hidden');
-          input.value = '';
-          input.focus();
-        }
+    var emailInput = document.getElementById('admin-email-input');
+    var passwordInput = document.getElementById('admin-password-input');
+    var errorEl = document.getElementById('admin-login-error');
+    var submitBtn = document.getElementById('admin-login-submit');
+    var submitLabel = document.getElementById('admin-login-submit-label');
+    var subtitle = document.getElementById('admin-login-subtitle');
+    var localHint = document.getElementById('admin-login-local-hint');
+
+    if (!WANTS_STAGING) {
+      subtitle.textContent = 'Sign in with your Portfolio Manager account (local stack).';
+      localHint.textContent = 'Local stack: ' + LOCAL_ADMIN_EMAIL + ' / ' + LOCAL_ADMIN_PASSWORD;
+      localHint.classList.remove('hidden');
+    }
+
+    // Already-signed-in convenience (2026-09-05, new): a PM who already has a real, valid
+    // session (e.g. navigated back here manually, or opened this URL in a second tab while
+    // already logged in elsewhere) shouldn't be made to sign in again — redirect straight
+    // through. Mirrors the real check every other admin page's own gate performs.
+    supabase.auth.getSession().then(function (res) {
+      if (res.data.session) {
+        location.replace('admin.html' + currentEnvQuery());
       }
+    });
 
-      submitBtn.addEventListener('click', attemptLogin);
-      input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') attemptLogin();
+    function setBusy(busy) {
+      submitBtn.disabled = busy;
+      submitLabel.textContent = busy ? 'Signing in…' : 'Sign In';
+    }
+
+    function attemptLogin() {
+      errorEl.classList.add('hidden');
+      var email = emailInput.value.trim();
+      var password = passwordInput.value;
+      if (!email || !password) {
+        errorEl.textContent = 'Email and password are both required.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      setBusy(true);
+      supabase.auth.signInWithPassword({ email: email, password: password }).then(function (result) {
+        setBusy(false);
+        if (result.error) {
+          // Deliberately generic — never distinguishes "unknown email" from "wrong password",
+          // the same email-enumeration-avoidance principle login.html's own real Supabase
+          // check already uses.
+          errorEl.textContent = 'Invalid email or password.';
+          errorEl.classList.remove('hidden');
+          passwordInput.value = '';
+          passwordInput.focus();
+          return;
+        }
+        location.replace('admin.html' + currentEnvQuery());
+      }).catch(function () {
+        setBusy(false);
+        errorEl.textContent = 'Something went wrong. Please try again.';
+        errorEl.classList.remove('hidden');
       });
+    }
 
-      input.focus();
-    })();
+    submitBtn.addEventListener('click', attemptLogin);
+    passwordInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') attemptLogin();
+    });
+    emailInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') passwordInput.focus();
+    });
+
+    emailInput.focus();
   </script>
 
 </body>

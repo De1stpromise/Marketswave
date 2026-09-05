@@ -45,7 +45,11 @@
   </section>
 
   <!-- ========== STRATEGIES ========== -->
-  <section class="strategies" id="strategies">
+  <!-- Homepage Visual Redesign, Stage 2 (2026-09-05): Core Strategies cards get the full
+       .glass treatment; 2 subtle background blobs added for page-wide atmosphere. -->
+  <section class="strategies blob-field" id="strategies">
+    <div class="blob blob--md blob--teal" style="top:-80px; right:-80px; opacity:0.2;"></div>
+    <div class="blob blob--sm blob--gold" style="bottom:0; left:4%; opacity:0.18;"></div>
     <div class="container">
       <div class="section-header">
         <h2>Core Strategies</h2>
@@ -54,37 +58,37 @@
 
       <div class="strategy-grid">
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">1 · Foundation</span>
           <h3>Asset Allocation</h3>
           <p>A cornerstone of our client service model, our asset management capabilities are enriched by the exhaustive view of the GP universe provided by our large-scale primary fund deployment on behalf of clients. As a trusted partner to fund managers, we have preferred access to investment opportunities, enabling the creation of more selective, bespoke solutions across sectors, strategies and structures. When the strategy is conducive to a multi-manager solutions approach, we design commingled vehicles that empower clients to invest in a range of strategies while gaining exposure to quality assets.</p>
         </article>
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">2 · Risk Control</span>
           <h3>Diversification</h3>
           <p>Multi-Asset Class Expertise. Spanning private equity, infrastructure, private debt and real estate, our expert teams of sector specialists give clients a significant edge in shaping and sustaining single- or multi-asset class exposures to meet their investment goals. Our reach and expertise across asset classes, investment strategies, commercial structures and geographies help drive and define the customized solutions at the heart of our offering. Whatever the scale of involvement or exposure, we build relationships that are mutually respectful and rewarding.</p>
         </article>
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">3 · Active</span>
           <h3>Active Management</h3>
           <p>With deeper dimension of data, Marketswave consistently produces a peerless wealth of insights through SPI, our proprietary data and technology platform. Drawn and delivered from all parts of the business, we openly share our intelligence with each other and our clients and partners to provide sharper views that inform more confident strategic decisions.</p>
         </article>
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">4 · Efficient</span>
           <h3>Passive Management</h3>
           <p>Marketswave's sourcing advantage is now yours. We invest selectively with some of the best-in-class managers. These deep relationships afford us preferred access: meaning you get best-in-class opportunities in products that can help build diverse, resilient portfolios and your practice. As one of the pioneers in designing the individual client experience in private markets, we focus on easy onboarding, expert support and consistent updates. Institutional-caliber products offering regular liquidity opportunities, frequent valuations and transparent reporting. All so you can focus on what you do best.</p>
         </article>
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">5 · Discipline</span>
           <h3>Risk Management</h3>
           <p>After we complete the analysis of the risks and project the potential losses and gains, we can prioritize the risks. We base this prioritization on the potential impact and the likelihood of each risk materializing. Using this prioritized list, we allocate our resources to minimize the risks that could cause the most damage. Once we implement our risk management plans and document all results, we review our records carefully and apply any necessary changes. By continuously improving, we stay flexible and strong as we encounter and identify new risks.</p>
         </article>
 
-        <article class="strategy-card">
+        <article class="strategy-card glass">
           <span class="tag">6 · Expansion</span>
           <h3>Alternative Investments</h3>
           <p>What our alternative investments have in common is that they have less restricted investment rules than traditional funds and aim for absolute returns, that is to achieve positive returns regardless of how the underlying markets develop. Marketswave has built deep expertise in alternatives over the years, refining our approach across hedge funds, private equity, real estate, and specialized private strategies.</p>
@@ -191,6 +195,12 @@
   </section>
 
   <!-- ========== BLOG / PRESS TEASER ========== -->
+  <!-- Not explicitly named in the Stage 2 task, which named Help Center specifically —
+       but .service-card is one shared class with Help Center and index.html's Core
+       Services, and Stage 2 removed that class's own background/border/shadow in favor
+       of .glass supplying them (applied in the HTML) — leaving these 2 cards without
+       .glass would render them with no visible boundary at all, a real regression, not a
+       neutral "leave as-is". Glassed here too for that reason, flagged per instruction. -->
   <section class="section" id="blog">
     <div class="container">
       <div class="section-header">
@@ -199,11 +209,11 @@
       </div>
 
       <div class="service-grid" style="max-width:960px; margin:0 auto 32px;">
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Article Coming Soon</h3>
           <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
         </article>
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Article Coming Soon</h3>
           <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
         </article>
@@ -217,7 +227,10 @@
   </section>
 
   <!-- ========== HELP CENTER ========== -->
-  <section class="section section-alt" id="help">
+  <!-- Homepage Visual Redesign, Stage 2 (2026-09-05): cards get the full .glass treatment
+       (explicitly requested); 1 subtle background blob added. -->
+  <section class="section section-alt blob-field" id="help">
+    <div class="blob blob--md blob--gold" style="top:-60px; right:-100px; opacity:0.18;"></div>
     <div class="container">
       <div class="section-header">
         <h2>Help Center</h2>
@@ -225,19 +238,19 @@
       </div>
 
       <div class="service-grid" style="max-width:960px; margin:0 auto;">
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Get started</h3>
           <p>Everything you need to get going. Learn about Marketswave and set up your profile.</p>
         </article>
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Investing with Us</h3>
           <p>Learn what you need to know about investing on our platform to leverage the best service that we provide.</p>
         </article>
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Security and Privacy</h3>
           <p>Explore how to keep your account safe and the policies we use for your credentials.</p>
         </article>
-        <article class="service-card">
+        <article class="service-card glass">
           <h3>Promotion and referrals</h3>
           <p>Get a friend to sign up and receive a bonus and repeat.</p>
         </article>

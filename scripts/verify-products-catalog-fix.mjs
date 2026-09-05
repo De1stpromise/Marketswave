@@ -119,6 +119,19 @@ async function main() {
   const CLIENT_CTX = await createIndependentContext('CLIENT');
   check('two genuinely separate supabase-data.js instances were created (ADMIN !== CLIENT)', ADMIN_CTX.MarketswaveData !== CLIENT_CTX.MarketswaveData);
 
+  // Admin Auth Consolidation (2026-09-05): useAdminClient()'s own ensureSupabaseAdminSignedIn()
+  // no longer signs in on its own — it now only confirms a real session already exists,
+  // mirroring a real admin page (only ever reachable AFTER a real sign-in already happened on
+  // admin-login.html). This test must perform that real sign-in itself first, exactly once —
+  // admin-supabase-config.js is a plain, unmodified relative import (no query-busting) both
+  // here and from inside supabase-data.js's own useAdminClient(), so both resolve to the SAME
+  // cached module instance/session, exactly mirroring how one real login on a real browser tab
+  // is what every later privileged call on that same tab depends on.
+  globalThis.window = { location: { hostname: '127.0.0.1', search: '' } };
+  const adminConfigMod = await import('../admin-supabase-config.js');
+  const { error: adminSignInErr } = await adminConfigMod.supabase.auth.signInWithPassword({ email: adminConfigMod.LOCAL_ADMIN_EMAIL, password: adminConfigMod.LOCAL_ADMIN_PASSWORD });
+  if (adminSignInErr) throw new Error('Real admin sign-in failed: ' + adminSignInErr.message);
+
   await withContext(ADMIN_CTX, function () { ADMIN_CTX.MarketswaveData.useAdminClient(); });
   const adminClient = await withContext(ADMIN_CTX, function () { return ADMIN_CTX.MarketswaveData.getSupabaseClient(); });
   const { data: adminUser } = await adminClient.auth.getUser();

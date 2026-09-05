@@ -88,14 +88,21 @@
   // any change at all. Admin pages call this ONCE, as the very first thing their own inline
   // script does, before any other MarketswaveData call.
   //
-  // Reuses admin-supabase-config.js (Stage 3) — extended by this same stage to add a LOCAL-
-  // stack branch (auto-sign-in with the known local bootstrap PM credential, no prompt,
-  // mirroring admin-firebase-config.js's own emulator branch) alongside its pre-existing real
-  // Marketswave Staging branch (still prompt-based, unchanged) — rather than building a
-  // second, parallel admin-Supabase-auth module. ensureSupabaseAdminSignedIn() is awaited
-  // before resolving, so every subsequent call through this shared client is guaranteed to
-  // already carry a real admin-claimed JWT — no caller of selectTable()/callFunction() needs
-  // its own "is the admin session ready yet" check.
+  // Reuses admin-supabase-config.js — rather than building a second, parallel
+  // admin-Supabase-auth module. ensureSupabaseAdminSignedIn() is awaited before resolving, so
+  // every subsequent call through this shared client is guaranteed to already carry a real
+  // admin-claimed JWT — no caller of selectTable()/callFunction() needs its own "is the admin
+  // session ready yet" check.
+  //
+  // ★ Admin Auth Consolidation (2026-09-05): ensureSupabaseAdminSignedIn() used to actively
+  // SIGN IN here (local: silently, with a hardcoded credential; staging: a password-prompt
+  // modal), since a real session wasn't otherwise guaranteed to exist yet. Now that a real
+  // email/password sign-in on admin-login.html is the ONLY way to reach any admin page at all
+  // (admin-sidebar.js's own gate redirects immediately otherwise), a real session already
+  // exists by the time this function is ever called — ensureSupabaseAdminSignedIn() is now a
+  // pure defense-in-depth confirmation, never an attempt to establish one itself. This
+  // function's own call site/contract didn't need to change at all — see
+  // admin-supabase-config.js's own header for the full writeup.
   function useAdminClient() {
     clientPromise = import('./admin-supabase-config.js').then(function (mod) {
       return mod.ensureSupabaseAdminSignedIn().then(function () {

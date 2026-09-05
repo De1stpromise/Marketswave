@@ -1596,6 +1596,127 @@ passed with zero further regressions: `verify-supabase-schema.js` 16/16,
 38/38, `verify-documents-storage-integration.mjs` 46/46, and
 `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
 
+### ★ Admin Auth Consolidation (2026-09-05): one real login, not two overlapping layers
+
+**What changed**: the admin tool used to have TWO access layers stacked on top of each
+other — a client-side shared passphrase (`admin-login.html`/`admin-sidebar.js`, zero real
+backend, anyone with dev tools could read the passphrase straight out of `engine-core.js`)
+gating navigation, and a SEPARATE real Supabase Auth session (Stage 3, above —
+`persistSession: false`, re-established or re-prompted lazily the first time a privileged
+call needed one) gating the actual data calls underneath it. Those are now consolidated into
+ONE real layer: a real email/password sign-in on `admin-login.html` establishes a real,
+persisted Supabase Auth session, and that session alone is what every admin page checks
+before rendering anything and before every privileged call.
+
+**How to sign in now**: open `admin-login.html` (add `?env=staging` to target real cloud
+staging instead of the local stack). On the local stack, the page shows a convenience hint
+with the known bootstrap credential (`pm@marketswave.local` / see
+`scripts/supabase-bootstrap-admin.js`'s own header for the password) — type it in, same as a
+real PM would type their own real credential; nothing auto-fills or auto-submits. On staging,
+sign in as `pm@marketswave-staging.internal` with its real (rotated, not committed) password.
+A correct sign-in lands on `admin.html` and stays valid across every admin page you navigate
+to afterward, exactly like the client-facing login already does — no more "Staging Admin
+Sign-In" prompt appearing mid-page the first time you click into a privileged action.
+
+**The passphrase mechanism is retired, not deleted** — `engine-core.js`'s
+`checkAdminPassphrase()`/`setAdminAuthenticated()`/`isAdminAuthenticated()`/
+`clearAdminAuthenticated()`/`ADMIN_PASSPHRASE` remain in the file, marked with a ★ RETIRED
+comment banner, the same treatment already applied to the Firebase integration — kept as a
+historical/reference record, confirmed via project-wide grep to have zero remaining live
+callers.
+
+**A real, investigated consideration this specific change introduced, not assumed away**:
+flipping `admin-supabase-config.js`'s session persistence from `persistSession: false` to
+`true` (necessary now that this session is the tool's only gate) meant its session would
+start actually persisting to `localStorage` for the first time — and the installed SDK's own
+source (`scripts/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:326-327`) derives
+its DEFAULT storage key purely from the target project's own URL hostname, with nothing
+distinguishing which file/persona constructed the client. Since the admin and client-facing
+clients point at the exact same project URLs (both local-stack, both staging), leaving the
+storage key at its default would have meant both personas silently sharing (and clobbering)
+the same `localStorage` key on the same origin — a PM's admin session and a client's own
+session could overwrite each other. Fixed with an explicit, distinct
+`storageKey: 'sb-marketswave-admin-auth-token'` on the admin client only — verified directly
+via a real two-session test signing into both a real client account and the real admin
+account in the same shared `localStorage`, confirming both distinct keys exist side by side
+and neither session clobbers the other.
+
+**The lazy mid-page "Staging Admin Sign-In" modal is gone** — confirmed no longer necessary,
+not just removed on assumption: since a real session now always already exists by the time
+any admin page's own script runs (the page is simply unreachable otherwise),
+`ensureSupabaseAdminSignedIn()` (still called by `admin-client-applications.html` directly,
+and transparently by every other admin page via `supabase-data.js`'s `useAdminClient()`) is
+now a pure defense-in-depth check — confirm a real session exists, redirect to the real login
+if not — never an attempt to establish one itself.
+
+**Logout was investigated and found to be genuinely missing, not "already wired" as first
+assumed**: no real admin-side `signOut()` call existed anywhere before this fix — the old
+Logout button only ever cleared the local passphrase flag, since there was no durable session
+to end. Built from scratch, mirroring `dashboard-sidebar.js`'s own `signOutOfSupabaseAuth()`
+exactly, including its investigated conclusion that this exact SDK/persistence combination
+(`persistSession: true` + `localStorage`, this SDK version's own constructor-time
+`initializePromise`) needs neither of the two races Firebase's own sign-out had to work
+around by hand.
+
+**Verified**: `npm run verify-admin-real-login` (from `scripts/`) — **31/31 assertions
+passed**, against the real, unmodified production files (`admin-sidebar.js`,
+`admin-supabase-config.js`, and `admin-login.html`'s own inline module script, extracted
+verbatim into a real temp `.mjs` file), executed via genuinely fresh Node module instances
+per simulated "page load" — a fresh temp directory holding fresh copies of the real files
+every time, mirroring this project's own established "genuinely separate contexts"
+technique — sharing only a real `localStorage` polyfill object across simulated reloads,
+never the same in-memory client object (which would have falsely "proven" persistence via
+JS-object continuity rather than the real storage-read-on-init path a genuine static-
+multi-page navigation actually depends on). Covers: a wrong password rejected with the
+generic "Invalid email or password" message and no session created; a correct sign-in
+through the real form succeeds and redirects; visiting any admin page while logged out
+redirects immediately with the sidebar never rendered; navigating Deposits → Allocations →
+Overview → Deposits (four genuinely fresh module instances, same shared storage) needs no
+re-authentication and genuinely renders the sidebar each time; clicking the real Logout
+button ends the session and redirects; a GENUINELY FRESH page load afterward (not an in-page
+synchronous read — the same rigor as every prior logout verification in this project) is
+independently confirmed denied, both through the real gate's own redirect and through a
+separate, direct `getSession()` call; and the storageKey isolation fix itself, proven by
+signing into a real client session and a real admin session in the same shared `localStorage`
+and confirming neither clobbers the other.
+
+**Two real regressions found and fixed in 5 pre-existing test files** — a direct, correct
+consequence of retiring the old local-stack auto-sign-in behavior, not a false failure:
+1. `admin-supabase-config.js`'s new redirect-on-no-session path used a bare
+   `location.replace(...)`, which crashed with `ReferenceError: location is not defined` in
+   two test harnesses (`verify-products-catalog-fix.mjs`, `verify-documents-storage-
+   integration.mjs`) that stub `window` without a separate bare `location` global. Fixed by
+   switching to `window.location.replace(...)`, consistent with this file's own existing
+   `window.location.search`/`.hostname` reads elsewhere.
+2. Five test files (the two above, plus `verify-cross-role-sync-bugfix.mjs`,
+   `verify-admin-approval-gate-ui-wiring.mjs`, `verify-admin-final-wiring.mjs`) had genuinely
+   relied on the OLD, now-retired local-stack auto-sign-in — two of them had a header comment
+   explicitly documenting it as the reason no manual sign-in was needed. Each now performs
+   one real, explicit `signInWithPassword()` call as the local bootstrap PM before calling
+   `useAdminClient()`, exactly mirroring how a real admin page is only ever reachable after a
+   real login already happened on `admin-login.html`. The stale header comments were
+   corrected in place.
+
+The full existing Supabase suite was re-run alongside with zero further regressions:
+`verify-supabase-schema.js` 16/16, `verify-supabase-portfolio-engine.js` 40/40,
+`verify-supabase-deposits-withdrawals.js` 76/76, `verify-supabase-allocations-sells.js`
+88/88, `verify-supabase-hys.js` 112/112, `verify-supabase-final-approval-gate.js` 69/69,
+`verify-supabase-documents-support.js` 67/67, `verify-dashboard-ui-wiring.mjs` 27/27,
+`verify-asset-pages-ui-wiring.mjs` 36/36, `verify-funding-transactions-ui-wiring.mjs` 54/54,
+`verify-hys-documents-ui-wiring.mjs` 69/69, `verify-cross-role-sync-bugfix.mjs` 34/34,
+`verify-settings-risk-support-ui-wiring.mjs` 33/33,
+`verify-admin-approval-gate-ui-wiring.mjs` 102/102, `verify-admin-final-wiring.mjs` 39/39,
+`verify-products-catalog-fix.mjs` 35/35, `verify-dashboard-real-data-fixes.mjs` 38/38,
+`verify-documents-storage-integration.mjs` 46/46, `verify-hosting-default-fix.mjs` 18/18,
+and `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+
+**Real cloud "Marketswave Staging" was deliberately NOT touched this task.** The real
+staging PM account (`pm@marketswave-staging.internal`) still authenticates exactly as it
+already did — `admin-login.html`'s real form now IS the only way to establish that session
+too, but this same consolidation (retiring any remaining lazy-establishment path, confirming
+the gate/logout behavior against the real cloud project) needs applying to staging as an
+explicit follow-up task before it can be considered fully complete there.
+
 ### Step 9 — Stop the stack when you're done
 
 ```

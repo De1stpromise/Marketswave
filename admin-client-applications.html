@@ -131,12 +131,16 @@
     import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-functions.js';
     // Supabase Migration Stage 3 (Aug 30, 2026): a real third source, alongside local and
     // Firebase — mirrors this page's own established merge pattern (see refreshAndRenderAll()
-    // below) rather than inventing a new one. ensureSupabaseAdminSignedIn() transparently
-    // signs into the real staging PM account; the deployed Edge Functions
+    // below) rather than inventing a new one. The deployed Edge Functions
     // (approve-client-application/reject-client-application) are called directly via
     // supabase.functions.invoke(), which automatically forwards the signed-in admin's own
     // Authorization Bearer token — the exact token the functions' own getClaims(jwt) check
     // (see supabase/functions/approve-client-application/index.ts) re-verifies server-side.
+    // ★ Admin Auth Consolidation (2026-09-05): ensureSupabaseAdminSignedIn() no longer signs
+    // in on its own — a real admin session already exists by the time this page is reachable
+    // at all (admin-sidebar.js's own gate redirects otherwise), so this call is now a pure
+    // defense-in-depth confirmation before each privileged invoke — see
+    // admin-supabase-config.js's own header for the full writeup.
     import { supabase, ensureSupabaseAdminSignedIn } from './admin-supabase-config.js';
 
     // Same 'YYYY-MM-DD' conversion login.html's own copy uses — see that file's comment for

@@ -45,7 +45,16 @@
   </section>
 
   <!-- ========== CONTACT CONTENT ========== -->
-  <section class="section">
+  <!-- Homepage Visual Redesign, Stage 2 (2026-09-05): investigated per instruction —
+       .contact-card/.contact-form-wrap already had a bespoke, ad-hoc translucent-blur
+       treatment predating Stage 1 (a plain rgba background + blur, not the real .glass
+       recipe). Upgraded to the real, shared .glass primitive for consistency, matching
+       the user's own instinct that Contact could take a light version of this treatment.
+       2 subtle background blobs added — kept modest, since the priority here is the
+       form staying genuinely readable/usable, not visual flourish. -->
+  <section class="section blob-field">
+    <div class="blob blob--md blob--teal" style="top:-60px; left:-90px; opacity:0.16;"></div>
+    <div class="blob blob--sm blob--gold" style="bottom:-40px; right:-40px; opacity:0.16;"></div>
     <div class="container">
       <div class="contact-layout">
 
@@ -53,7 +62,7 @@
         <div class="contact-details">
           <h2 class="contact-details-title">Company Details</h2>
 
-          <div class="contact-card">
+          <div class="contact-card glass">
             <div class="contact-card-label">Address</div>
             <div class="contact-card-value">
               Marketswave<br>
@@ -62,21 +71,21 @@
             </div>
           </div>
 
-          <div class="contact-card">
+          <div class="contact-card glass">
             <div class="contact-card-label">Phone</div>
             <div class="contact-card-value">
               <a href="tel:+46800000000">+46 8 000 00 00</a>
             </div>
           </div>
 
-          <div class="contact-card">
+          <div class="contact-card glass">
             <div class="contact-card-label">Email</div>
             <div class="contact-card-value">
               <a href="mailto:contact@marketswave.com">contact@marketswave.com</a>
             </div>
           </div>
 
-          <div class="contact-card">
+          <div class="contact-card glass">
             <div class="contact-card-label">Response Time</div>
             <div class="contact-card-value">
               We aim to respond within 1 business day.<br>
@@ -86,7 +95,7 @@
         </div>
 
         <!-- Contact Form -->
-        <div class="contact-form-wrap">
+        <div class="contact-form-wrap glass">
           <h2 class="contact-form-title">Send a Message</h2>
           <p class="contact-form-lead">Complete the form below and our team will get back to you.</p>
 

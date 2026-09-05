@@ -11,10 +11,14 @@
 // The one genuinely new wrinkle for THIS stage: the caller here is an ADMIN session, not a
 // client session. Each of the five real page scripts calls MarketswaveData.useAdminClient()
 // as its own first statement — the small, clearly-scoped extension added to supabase-data.js
-// this stage (see that file's own header comment for the investigation/design). No manual
-// admin sign-in is performed by this script itself; each page's own real script does it,
-// exactly as a real PM's browser would, via the local-stack branch added to
-// admin-supabase-config.js this stage (auto-signs in as pm@marketswave.local, no prompt).
+// this stage (see that file's own header comment for the investigation/design).
+//
+// ★ Admin Auth Consolidation (2026-09-05) update: this paragraph originally said no manual
+// admin sign-in was needed here, since admin-supabase-config.js's local-stack branch used to
+// auto-sign in on its own. That auto-sign-in is retired — a real admin session is now
+// established exactly once via a real sign-in on admin-login.html, before any admin page is
+// reachable at all — so this script now performs that same real sign-in itself, once, at the
+// top of main(), before any of the five page simulations below.
 //
 // LOCAL STACK ONLY. Usage:
 //   node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-admin-approval-gate-ui-wiring.mjs
@@ -112,6 +116,18 @@ async function main() {
   const MarketswaveData = globalThis.window.MarketswaveData;
   check('supabase-data.js loaded for real and defined window.MarketswaveData', !!MarketswaveData);
   check('useAdminClient() is defined (the Stage-1 extension under test)', typeof MarketswaveData.useAdminClient === 'function');
+
+  // Admin Auth Consolidation (2026-09-05): useAdminClient()'s own ensureSupabaseAdminSignedIn()
+  // no longer auto-signs in on the local stack (the header comment above described the OLD,
+  // now-retired behavior — real admin sessions are now established exactly once, via a real
+  // sign-in on admin-login.html, before any admin page is ever reachable at all). This test
+  // performs that same real sign-in here, ONCE, before any of the five page simulations below
+  // — admin-supabase-config.js is a real, un-duplicated singleton, so this one sign-in is seen
+  // by every subsequent useAdminClient() call across all five domains, exactly mirroring how
+  // one real PM login persists across every real page they navigate to afterward.
+  const adminConfigMod = await import('../admin-supabase-config.js');
+  const { error: adminSignInErr } = await adminConfigMod.supabase.auth.signInWithPassword({ email: adminConfigMod.LOCAL_ADMIN_EMAIL, password: adminConfigMod.LOCAL_ADMIN_PASSWORD });
+  if (adminSignInErr) throw new Error('Real admin sign-in failed: ' + adminSignInErr.message);
 
   const suffix = crypto.randomBytes(4).toString('hex');
   const clientA = await createTestClient(admin, 'A', suffix, 50000);

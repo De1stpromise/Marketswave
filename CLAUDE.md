@@ -1826,6 +1826,12 @@ correctly requires re-entering the passphrase. See the Tech Stack entry above an
 row 48. **This closes the "completely wide open" gap only — a real authentication system
 (real PM accounts, real backend-verified credentials) remains a genuine, unresolved future
 requirement, not superseded by this stub.**
+**Superseded, 2026-09-05**: the exact future requirement flagged above is now genuinely
+resolved — see the "Admin Auth Consolidation" entry near the end of this section. The
+passphrase mechanism described above (`checkAdminPassphrase()`/`setAdminAuthenticated()`/
+`isAdminAuthenticated()`/`clearAdminAuthenticated()`) is retired, not deleted (marked with a
+★ RETIRED comment in `engine-core.js`), and replaced by a real Supabase Auth session as the
+tool's sole access layer.
 
 **Asset Collection extraction + admin product management — COMPLETE** (Aug 21, 2026):
 the product-browsing grid moved from `asset-performance.html` into new
@@ -5148,6 +5154,309 @@ row 74.
   `PASS (16/16 steps)`. Both edited config files' own header comments were rewritten in place
   to describe the new scheme; README.md's top-of-file summary (which had gone stale, still
   describing the old unconditional-local default) and a new dated section were both updated.
+- **★ Admin Auth Consolidation (2026-09-05) — the admin tool moves from two overlapping
+  access layers to one real login, LOCAL STACK ONLY, staging deliberately not touched this
+  task.** Retires the client-side passphrase gate (`checkAdminPassphrase()`/
+  `setAdminAuthenticated()`/`isAdminAuthenticated()`/`clearAdminAuthenticated()`/
+  `ADMIN_PASSPHRASE`, Aug 21, 2026) and the SEPARATE, previously `persistSession: false`,
+  lazily-re-established real Supabase admin session (Stage 3, Aug 30, 2026) that sat
+  underneath it — a real Supabase Auth session, established once via a real email/password
+  sign-in, is now the tool's sole access layer. **Retired, not deleted**: `engine-core.js`'s
+  passphrase functions/constant are marked with a ★ RETIRED comment banner (same treatment as
+  the Firebase integration) and left byte-for-byte functionally unchanged, confirmed via
+  project-wide grep to have zero remaining live callers. `admin-login.html` is rebuilt as a
+  real email/password form calling `supabase.auth.signInWithPassword()` directly (one
+  deliberately generic "Invalid email or password" error either way, the same
+  email-enumeration-avoidance principle `login.html`'s own real check already uses); a local-
+  stack convenience hint shows the known, already-disclosed local bootstrap credential
+  (`pm@marketswave.local`) without pre-filling it — the PM still explicitly signs in on both
+  environments, deliberately not special-cased per environment. A real "already signed in?"
+  check on load redirects straight through if a valid session already exists. **Session
+  persistence flipped `persistSession: false` → `true`** in `admin-supabase-config.js` (matching
+  `supabase-config.js`'s own client-facing decision) — genuinely necessary now that this
+  session is the tool's only gate, since "a page refresh should re-prompt" no longer makes
+  sense once refreshing IS how a PM keeps working across pages. **A real, investigated
+  consideration this specific change introduces, not assumed away**: checked directly against
+  the installed SDK source (`scripts/node_modules/@supabase/supabase-js/src/SupabaseClient.ts:
+  326-327`) — the DEFAULT `storageKey` is derived purely from the target project's own URL
+  hostname (`sb-<hostname>-auth-token`), with nothing distinguishing which file/role
+  constructed the client; both the admin and client-facing clients point at the exact same
+  local-stack/staging URLs, so the moment the admin client's session started persisting to
+  `localStorage` on the same origin, it would have silently shared (and could clobber, or be
+  clobbered by, or worse, be misread as) the client-facing session's own storage key. Fixed
+  with an explicit, distinct `storageKey: 'sb-marketswave-admin-auth-token'` — verified
+  directly, not just reasoned about (see Verified below), and confirmed as a genuine
+  correctness win beyond the collision itself: it also gives the admin session its own
+  BroadcastChannel, so cross-tab session-change notifications for the two personas can never
+  cross into each other. **Every admin page's gate check** (`admin-sidebar.js`) now calls the
+  real `supabase.auth.getSession()` instead of reading a raw passphrase flag — necessarily
+  async (a real session check cannot be synchronous), so "before anything else" now means
+  firing the check as the very first statement the file executes and gating both
+  `initAdminSidebar()`'s own rendering (split into a new `renderAdminSidebar()` the check
+  gates) and the logout handler on its result; a brief render of the static page shell before
+  a redirect resolves is disclosed as a cosmetic timing question, not a security one, since
+  every real privileged call is independently enforced server-side by RLS/an Edge Function's
+  own admin-claim check regardless of how fast the client-side redirect fires. **The lazy
+  mid-page "Staging Admin Sign-In" modal is removed** — confirmed no longer necessary, not
+  just deleted on assumption: `ensureSupabaseAdminSignedIn()` (still called by
+  `admin-client-applications.html` directly and transparently by every other admin page via
+  `supabase-data.js`'s `useAdminClient()`) is rewritten from "sign in, prompting if needed" to
+  a pure defense-in-depth "confirm a real session exists, redirect to the real login if not"
+  check — there is nothing left for a lazy prompt to lazily establish, since a real session
+  already exists by the time any of this code runs on any page other than admin-login.html
+  itself. **Logout, investigated and found genuinely missing, not just "confirmed already
+  wired" as the task assumed**: no admin-side `signOut()` call existed anywhere before this —
+  the old Logout handler only ever cleared the local passphrase flag, since there was no
+  durable session to end (`persistSession: false` never touched `localStorage`). Built fresh,
+  mirroring `dashboard-sidebar.js`'s own `signOutOfSupabaseAuth()` exactly (same dynamic-
+  import + 3-second-timeout-race shape) — and the SAME investigated conclusion applies
+  identically here (same SDK, same `persistSession: true` + `localStorage` combination): this
+  SDK/config pairing needs neither of the two races Firebase's own `signOut()` had to work
+  around by hand, confirmed by reading the exact same source lines that conclusion was
+  originally verified against. **Verified**: new `scripts/verify-admin-real-login.mjs`, 31
+  assertions, **31/31 passing**, against the REAL, unmodified production files (not a
+  reimplementation) — `admin-sidebar.js`, `admin-supabase-config.js`, and `admin-login.html`'s
+  own inline module script (extracted verbatim into a real temp `.mjs` file, not hand-
+  retyped), executed via genuinely fresh Node module instances per simulated "page load"
+  (temp-copy technique, mirroring this project's own established "genuinely separate
+  contexts" precedent) sharing only a real `localStorage` polyfill — never the same in-memory
+  client object across "reloads," which would have falsely "proven" persistence via JS-object
+  continuity instead of the real storage-read-on-init path a genuine static-multi-page
+  navigation actually depends on. Covers, end to end: a wrong password rejected with the
+  generic message and no session created; a correct sign-in through the real form succeeds;
+  visiting any admin page while logged out redirects immediately to the real login with the
+  sidebar never rendered; navigating Deposits → Allocations → Overview → Deposits (four
+  genuinely fresh module instances) needs no re-authentication and genuinely renders each
+  time; clicking Logout ends the session and redirects; and — the same rigor as every prior
+  logout verification in this project — a GENUINELY FRESH page load afterward (not an
+  in-page synchronous read) is independently confirmed denied, both through the real gate and
+  through a direct, separate `getSession()` call; plus the storageKey isolation fix itself,
+  proven by signing into a real client session and a real admin session in the SAME shared
+  `localStorage` and confirming neither clobbers the other, with both distinct keys present
+  side by side. **Two real, disclosed regressions found and fixed in 5 pre-existing test
+  files, a direct and correct consequence of retiring the old auto-sign-in behavior, not a
+  false failure**: (1) `admin-supabase-config.js`'s new redirect-on-no-session path used a
+  bare `location.replace(...)`, crashing with `ReferenceError: location is not defined` in
+  two test harnesses (`verify-products-catalog-fix.mjs`, `verify-documents-storage-
+  integration.mjs`) that stub `window` without a separate bare `location` global — fixed by
+  using `window.location.replace(...)` instead, consistent with this file's own existing
+  `window.location.search`/`.hostname` reads elsewhere, closing the gap without needing to
+  touch either test file's own stub shape; (2) five test files
+  (`verify-products-catalog-fix.mjs`, `verify-documents-storage-integration.mjs`,
+  `verify-cross-role-sync-bugfix.mjs`, `verify-admin-approval-gate-ui-wiring.mjs`,
+  `verify-admin-final-wiring.mjs`) had genuinely relied on the OLD, now-retired local-stack
+  auto-sign-in behavior — two of them even had a header comment explicitly describing it as
+  the reason no manual sign-in was needed — so each now performs one real, explicit
+  `signInWithPassword()` call as the local bootstrap PM before calling `useAdminClient()`,
+  exactly mirroring how a real admin page is only ever reachable after a real login already
+  happened on `admin-login.html`; the stale header comments were corrected in place rather
+  than left describing removed behavior. The full existing Supabase suite was re-run
+  alongside with zero further regressions: `verify-supabase-schema.js` 16/16,
+  `verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-withdrawals.js`
+  76/76, `verify-supabase-allocations-sells.js` 88/88, `verify-supabase-hys.js` 112/112,
+  `verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-documents-support.js`
+  67/67, `verify-dashboard-ui-wiring.mjs` 27/27, `verify-asset-pages-ui-wiring.mjs` 36/36,
+  `verify-funding-transactions-ui-wiring.mjs` 54/54, `verify-hys-documents-ui-wiring.mjs`
+  69/69, `verify-cross-role-sync-bugfix.mjs` 34/34,
+  `verify-settings-risk-support-ui-wiring.mjs` 33/33,
+  `verify-admin-approval-gate-ui-wiring.mjs` 102/102, `verify-admin-final-wiring.mjs` 39/39,
+  `verify-products-catalog-fix.mjs` 35/35, `verify-dashboard-real-data-fixes.mjs` 38/38,
+  `verify-documents-storage-integration.mjs` 46/46, `verify-hosting-default-fix.mjs` 18/18,
+  and `supabase-golden-path-regression.js` `PASS (16/16 steps)`. README.md updated in place
+  with a new dated runbook section covering the real login flow. **Real cloud "Marketswave
+  Staging" was deliberately NOT touched this task** — the real staging PM account
+  (`pm@marketswave-staging.internal`) still authenticates exactly as it already did (unchanged
+  by this task), but `admin-login.html`'s real form now IS the only way to establish that
+  session too, on staging, once this same change is applied there in a following task, per
+  instruction. Backend Requirements Register row 134.
+- **★ Homepage Visual Redesign — Stage 1: shared glass/gradient primitives + Hero + Stats
+  Bar (2026-09-05).** First real application of a newly-approved visual direction for the
+  public marketing site — "liquid glass, light background" — built against a real reference
+  preview (3 iterations reviewed; built against the final, approved one specifically, not the
+  earlier dark or flat-glass versions). Scope was deliberately narrow, per instruction: the
+  persistent site header/nav (shared across every page, a separate future decision) and
+  everything below the Stats Bar are both untouched.
+  **1. Four reusable primitives, extracted into `styles.css` first** (a new "4A. SHARED
+  VISUAL PRIMITIVES" section, positioned right before the Hero section it's first applied
+  to), meant to be pointed at directly by every later redesign stage rather than
+  re-derived: `.glass` (layered-translucency gradient background, a light-catching border —
+  brighter top/left, darker bottom/right — inset+outer shadow, and a top-left sheen via
+  `::before`); `.gradient-text` (navy → teal → gold headline accent, via
+  `background-clip:text`, with a real solid-navy fallback color declared first for browsers
+  that don't support it — never invisible text); `.blob` (a blurred gradient accent shape,
+  composed from a base class + a size modifier `--sm/--md/--lg` + a color modifier
+  `--teal/--gold/--blue/--rose/--violet` — position deliberately left OUT of the shared
+  utility, since where a blob sits is inherently section-specific, so each section defines
+  its own small set of position classes that pair with the shared size/color modifiers); and
+  `.grid-overlay` (a faint, radially-masked architectural grid texture). All four are real,
+  literal CSS ported from the approved reference preview's own recipe, not reinterpreted —
+  the `rgba(27,58,75,*)` values throughout are `--primary`'s own decomposed RGB channels,
+  documented as such since a CSS custom property can't be decomposed into R/G/B channels for
+  reuse inside `rgba()`.
+  **2. A deliberate, scoped palette expansion, documented per instruction** — two new root
+  tokens, `--accent-teal` (`#16815F`, deep — gradient-text stop, eyebrow badge text/dot) and
+  `--accent-teal-soft`/`--accent-gold-soft` (`#7FD4B4`/`#F0C878`, soft/pastel — blob
+  backgrounds only), same category as `risk-management.html`'s own gold/mahogany +
+  deep-green accent exception: used ONLY for blobs and gradient-text, never as a flat UI
+  background, never anywhere else on the site. The gradient-text gold stop deliberately
+  reuses the ALREADY-LOCKED `#C8860A` risk-meter/service-tag gold rather than introducing a
+  second, redundant gold token. The blob utility's `--blue`/`--rose`/`--violet` modifiers
+  (matching the reference preview's own extra accent hues) are decorative, blob-only
+  literals — NOT promoted to named palette tokens, since the documented expansion is
+  deliberately scoped to teal + gold only.
+  **3. Hero**: fully rebuilt to the new light-glass treatment — grid overlay + 5 blobs
+  (teal/gold/soft-blue main, rose/violet smaller accents, matching the reference preview's
+  exact layout) behind the REAL existing headline/subheading/CTA copy, completely
+  unchanged text, only the second `<h1>` line now carries `.gradient-text`. **A real,
+  necessary consolidation found and fixed while doing this**: `.hero`'s CSS rule was
+  DUPLICATED — a second, later `.hero` rule (a dark-tinted overlay on `hero-bg.jpg`) won
+  the cascade over the first one and was the one actually rendering, meaning the real
+  pre-existing hero was dark navy + a photographic background, not the plain flat-gradient
+  the first (dead) rule implied. The second rule is deleted outright, confirmed orphaned via
+  grep (`hero-bg.jpg` is no longer referenced anywhere); the image file itself is left on
+  disk, unused, rather than deleted. New eyebrow badge (didn't exist before): real, accurate
+  copy — **"Now Accepting New Applications," chosen and reported per instruction** — matches
+  this site's own actual signup + PM-review flow (a real client application queue exists in
+  the backend), deliberately NOT the reference preview's own placeholder ("Now live on real
+  infrastructure," backend-infrastructure language inappropriate for client-facing marketing
+  copy). New `.hero-btn-primary`/`.hero-btn-secondary` classes were added rather than
+  restyling the existing `.btn-white`/`.btn-ghost` utility classes in place — both of those
+  are used elsewhere on the site (`about.html`, `services.html`) and were designed for the
+  OLD dark hero (`.btn-ghost` is literally a white-text-on-dark-background recipe), so
+  redefining them would have silently broken those other pages and made no visual sense on
+  the new light background regardless.
+  **4. Stats Bar**: converted to 4 real liquid-glass stat cards (icon badge, value, label,
+  trend line, matching the reference preview's card treatment) — **the `.stat`/`.value`/
+  `.label` class names and text-node structure are completely UNCHANGED**, specifically so
+  `home-motion.js`'s existing count-up animation (`animateStatCounters()`, which queries
+  `.stats-bar .stat .value` and regex-parses each one's real numeric prefix/value/suffix out
+  of its own textContent) needed zero code changes — confirmed working via a real headless-
+  Chrome screenshot catching the animation mid-flight (`$899m` a frame before its final
+  `$900m`). Real values only, all 4 of the site's real existing stats kept (the reference
+  preview showed only 3 — a design reference, not a content spec to trim to). Each card's
+  `.trend` line is honest supporting text, never a fabricated growth percentage: "Actively
+  managed," "Since 2004" (a real fact, matching `about.html`'s own Founded 2004),
+  "Across global markets," and "6 core services" (a real, verified count of
+  `services.html`'s own service sections) — chosen specifically because the reference
+  preview's own "↑ 12.4% YoY" trend text was invented flavor copy for the mockup, and this
+  project has a standing, hard-won discipline against presenting fabricated figures as if
+  real (see the Support/Settings fake-data fixes, §4.75).
+  **5. `home-motion.js`**: two small, additive changes — the new `.hero-eyebrow` was added to
+  the front of the existing hero fade-in stagger list (so it animates in first, ahead of
+  `h1`, instead of appearing instantly); the 4 stat cards get the same staggered-group
+  entrance reveal already established for other homepage sections (`.values-grid`, etc.),
+  firing independently alongside (not instead of) the existing count-up
+  `IntersectionObserver`.
+  **★ Browser-verified live — no browser automation tool was available in this session
+  (checked directly, not assumed), substituted with a real, disclosed alternative**: Chrome
+  is installed locally but its CLI `--window-size` flag was found NOT to be honored below
+  ~504px on this machine (confirmed directly — 320/375/390px requests all rendered an actual
+  504px viewport, a genuine environment quirk, not a CSS bug — this false signal briefly
+  looked like a real responsive-grid bug before being root-caused). Fixed by driving headless
+  Chrome directly via the Chrome DevTools Protocol (`Emulation.setDeviceMetricsOverride`,
+  Chrome's own real mobile-viewport-emulation mechanism, the same one Playwright/Puppeteer
+  wrap) through a small custom Node script using Node's built-in `WebSocket`/`fetch` — no new
+  dependencies installed. Verified at a real 1440px, a real 600px, and a real, properly-
+  emulated 390px viewport: the glass sheen/border/shadow, the grid overlay, all 5 blobs, and
+  the gradient text all render correctly; the Hero's own content reflows cleanly with zero
+  overflow at every width (headline/paragraph wrap correctly, CTAs stack via the pre-existing
+  `@media (max-width:480px)` rule); the Stats Bar correctly collapses 4→2→1 columns via the
+  pre-existing responsive rules, confirmed genuinely at each breakpoint once the viewport
+  emulation was fixed. **One real, pre-existing, explicitly out-of-scope issue confirmed, not
+  newly introduced**: the site's own shared header (`.nav-toggle`/`.header-actions`) overflows
+  a genuine 390px viewport — already documented as a known, cross-page issue unrelated to any
+  one page's own content (see row 101/§4.95's own identical finding on `services.html`) — and
+  confirmed via a direct 600px-vs-390px comparison that Hero/Stats content introduces zero
+  ADDITIONAL overflow beyond what the header already causes on its own. Zero console errors
+  or warnings (checked directly via CDP `Runtime`/`Log` events, not assumed). All temporary
+  screenshots/scripts/Chrome profiles were cleaned up afterward; the specific headless Chrome
+  process PIDs (confirmed via their own command line, not a broad kill) were closed, leaving
+  the user's own real, already-running Chrome browser and its many tabs completely untouched.
+  Backend Requirements Register row 135.
+  **Same-day follow-up**: the eyebrow badge ("Now Accepting New Applications") was removed
+  entirely per direct feedback — the Hero now opens straight into the eyebrow-free layout,
+  `h1` first. Removed cleanly, not just hidden: the `<div class="hero-eyebrow glass">` markup
+  is gone from `index.html`; the now-unused `.hero-eyebrow`/`.hero-eyebrow .dot`/
+  `.hero-eyebrow .label` CSS rules are deleted from `styles.css` (confirmed via grep no other
+  page references them); `home-motion.js`'s hero fade-in selector list is reverted to exactly
+  its pre-Stage-1 form (`.hero h1, .hero .hero-lead, .hero .hero-ctas`, dropping
+  `.hero-eyebrow`). The `--accent-teal` token is untouched and still genuinely in use
+  elsewhere (the Stats Bar's own `.trend` line color) — this removal didn't orphan it. The
+  three other shared primitives (`.glass`, `.gradient-text`, `.blob`/`.grid-overlay`) and
+  their two other real applications in this same Hero (the `.hero-btn-secondary.glass`
+  button) and the Stats Bar (all 4 `.stat.glass` cards) are unaffected — this was narrowly
+  the one eyebrow-badge element, not a rollback of Stage 1 itself.
+- **★ Homepage Visual Redesign — Stage 2: glass/gradient treatment extended across every
+  remaining public-facing page** (2026-09-05): reuses Stage 1's shared primitives exactly —
+  `.glass`, `.gradient-text`, `.blob`/blob modifiers, `.grid-overlay` — with two small,
+  genuinely necessary additions, not forked per-page variants: **`.glass-subtle`** (half the
+  blur, lighter background, no sheen `::before`, lighter shadow — for dense side-by-side item
+  grids where full `.glass` would overdo translucency) and **`.blob-field`** (a reusable
+  `position:relative;overflow:hidden` marker for hosting page-wide atmospheric blobs, plus a
+  `.blob-field .container { position:relative; z-index:2 }` descendant rule so nested
+  containers stay above the blobs). Every card-style class that needed the treatment
+  (`.value-item`, `.account-card`, `.service-card`, `.strategy-card`, `.team-card`,
+  `.service-stat`, `.contact-card`, `.contact-form-wrap`, `.approach-visual.process-steps`,
+  `.philosophy-panel`) had its own hardcoded `background`/`border`/`box-shadow` removed so the
+  `.glass`/`.glass-subtle` class (added via HTML) can supply them without fighting cascade
+  order — the same technique Stage 1 already established for `.stat-card`.
+  **index.html — remaining sections**: process-steps box gets full `.glass`; all 4 Our Values
+  items get `.glass-subtle` (deliberately calmer at that density, per instruction); all 3
+  Account Type cards get full `.glass`; Platform Pitch and What Makes Us Different both keep
+  their deliberate anti-card typography untouched (3-column grouped list, numeral editorial
+  treatment) and instead get a `.blob-field` + 2 subtle background blobs each for atmospheric
+  consistency, per instruction; all 6 Core Services cards get full `.glass`; the Philosophy
+  CTA (closing, high-impact moment) was rebuilt with a real `.glass` panel plus 2 large
+  background blobs, matching the Hero's own visual weight. **A real contrast bug found and
+  fixed, not an artifact**: `.glass`'s default background opacity (tuned for the light Hero)
+  left the Philosophy panel's muted-grey body text nearly unreadable against the dark
+  Philosophy section background, especially in the more-transparent lower-right corner of the
+  135deg gradient — fixed by overriding `.philosophy-panel`'s own background to a much more
+  opaque white gradient (94%/86%) and bumping the paragraph color to full-strength
+  `var(--text)`; re-verified via screenshot as fully legible. Footer left completely
+  untouched, per instruction. **services.html**: a task-framing discrepancy was found and
+  corrected before building anything — this page is NOT a nav-list/detail-panel architecture
+  (that was true once, per row 99-100, but was fully replaced by row 101's full-width
+  scrolling-sections redesign) — confirmed by reading the live file directly. All 6
+  `.service-stat` divs got `.glass`; a `.blob-field` + 3 blobs (teal/gold/blue) were added to
+  the `.services-full` wrapper; checklist icons were deliberately left plain, per instruction
+  (glass-ifying every bullet would be too dense). **resources.html**: all 6 Core Strategies
+  cards and all 4 Help Center cards got full `.glass`; the 2 Blog & Press cards (not
+  explicitly named by the task, but sharing the same base class that lost its background) got
+  `.glass` too, for consistency; the How It Works workflow steps were deliberately left as
+  plain typography, per instruction; `.blob-field` + subtle blobs added behind Core
+  Strategies and Help Center. **about.html**: investigated and found the Vision/Mission cards
+  and the Background & History facts block were ALREADY de-carded into a deliberate editorial
+  pattern (row 108) — the exact same "protect a deliberate anti-card decision" principle the
+  task itself named for Platform Pitch/What Makes Us Different — so these were deliberately
+  left untouched (a `.blob-field` + 2 blobs added to the section instead, for atmospheric
+  consistency only); all 3 team cards got full `.glass`. **contact.html**: a duplicate/dead
+  CSS block was found (a second, later "CONTACT PAGE" rule set silently winning the cascade
+  over an earlier, already-current-looking one — the same class of bug already found once in
+  Stage 1's own `.hero` rule) — the dead block was deleted outright and the winning
+  `.contact-card`/`.contact-form-wrap` rules were upgraded from ad-hoc rgba/blur to real
+  `.glass`; a `.blob-field` + 2 blobs added behind the Contact Content section.
+  **legal.html**: investigated and left completely untouched, confirming the user's own
+  stated instinct — legal content earns trust through clarity, not visual flourish, the same
+  reasoning already applied to this page's deliberate lack of animation; documented via a
+  comment only, no visual change. **Verified, browser-first as instructed**: every touched
+  page confirmed rendering correctly at both normal (1440px) and narrow (390px, via CDP
+  `Emulation.setDeviceMetricsOverride`) viewports, with zero console errors on any page.
+  Functional elements re-confirmed unbroken after the visual changes: contact.html's custom
+  `.custom-select` dropdowns (open/select/close, hidden-input value all correct) and the Get
+  Access modal (opens correctly on click) both tested via real DOM event dispatch, not
+  assumed from markup; services.html's 6 real section anchor ids (`#trading`,
+  `#discretionary`, etc.) confirmed structurally correct via `scrollIntoView` (a genuine,
+  disclosed headless-tab scroll-throttling artifact — the same one already documented in row
+  101 — meant a plain hash-driven scroll couldn't be timed reliably in this environment, so
+  the anchor TARGET's correctness was confirmed directly instead of the native scroll
+  animation itself). Color contrast was checked deliberately wherever glass/blur sits over
+  varying background content, not just glanced at — this is what caught the real Philosophy
+  panel bug above; every other glass surface on every page was confirmed to keep full text
+  legibility. All temporary screenshots/scripts/the headless Chrome profile were cleaned up
+  afterward, the specific Chrome PIDs (confirmed via their own command line, not a broad
+  kill) closed, leaving the user's own real browser session untouched. Backend Requirements
+  Register row 136.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

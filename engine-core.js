@@ -264,6 +264,10 @@
 //   checkAdminPassphrase(input), setAdminAuthenticated(), isAdminAuthenticated(),
 //   clearAdminAuthenticated() — sessionStorage-backed, same pattern as
 //   getCurrentClientId()/setCurrentClientId()
+//   ★ RETIRED, 2026-09-05: consolidated to one real Supabase Auth admin login, replacing this
+//   passphrase stub entirely — see the ★ RETIRED comment above ADMIN_PASSPHRASE for the full
+//   writeup, and admin-sidebar.js/admin-login.html/admin-supabase-config.js for the real
+//   mechanism now in place. Kept below, unmodified, as a historical/reference record.
 //   ---- New Client Application Review (Aug 22, 2026): see the phase-log entry above.
 //   approveClientApplication(clientId), rejectClientApplication(clientId, reason),
 //   getPendingClientApplications() — no ambient/cross-client split needed, the Client
@@ -494,7 +498,44 @@
     sessionStorage.setItem(CURRENT_CLIENT_SESSION_KEY, id);
   }
 
-  // ---- Admin Login Gate (Aug 21, 2026) -----------------------------------------------------
+  // ============================================================================================
+  // ★ RETIRED, 2026-09-05 — read this before touching or relying on anything below.
+  // ============================================================================================
+  // The Admin Login Gate (Aug 21, 2026, described in the original comment preserved below) is
+  // RETIRED. The admin tool now has exactly ONE authentication layer: a real Supabase Auth
+  // session, established once via a real email/password sign-in on admin-login.html and
+  // checked directly (supabase.auth.getSession()) by admin-sidebar.js on every admin page —
+  // see that file's own header comment for the full replacement mechanism, and
+  // admin-supabase-config.js for the real client/session configuration (persistSession: true,
+  // a distinct storageKey so it can never collide with the client-facing session — see that
+  // file's own header for why that distinction is load-bearing, not cosmetic).
+  //
+  // WHY: this passphrase stub and the real Supabase admin session (already established
+  // separately, Stage 3 of the Supabase migration, for calling admin-authorized Edge
+  // Functions) were TWO OVERLAPPING ACCESS LAYERS doing the same conceptual job — "is this
+  // visitor allowed to see the admin tool" — with the passphrase gating navigation and the
+  // real Supabase session (previously in-memory-only, re-established or re-prompted on nearly
+  // every page/refresh) gating the actual privileged data calls underneath it. Consolidating
+  // to one real layer is a genuine simplification, not a feature cut: it removes an entire
+  // class of "which of the two gates is actually protecting this page" confusion, and the one
+  // real layer left is materially stronger than the passphrase it replaces (a real,
+  // server-verified credential + Row-Level Security, instead of a client-side string compare
+  // anyone with dev tools could read and bypass).
+  //
+  // KEPT, NOT DELETED: this function/constant block remains exactly as it was, fully
+  // functional in isolation, as a historical/reference record — the same "mark as retired,
+  // don't delete" treatment already applied to the Firebase integration (see firebase-config.js
+  // and CLAUDE.md's "Firebase — RETIRED" Tech Stack entry for that precedent). Confirmed via
+  // grep before retiring: no admin page calls checkAdminPassphrase()/setAdminAuthenticated()/
+  // isAdminAuthenticated()/clearAdminAuthenticated() any more — admin-login.html no longer
+  // loads engine-core.js at all (it never needed anything else from this file), and
+  // admin-sidebar.js's gate + logout handler were rewritten to use the real Supabase session
+  // instead. The window.* exports below are left in place for the same reference-record
+  // reason, not because anything still calls them.
+  //
+  // Original comment, describing this as it was designed and shipped on Aug 21, 2026, kept for
+  // the historical record:
+  //
   // Explicitly a UI-level stub, not real authentication — same honesty standard as the forced
   // password-reset gate (§4.61). There is no backend, no real PM account roster, no verified
   // credential of any kind; ADMIN_PASSPHRASE is a single shared constant living in this
@@ -502,7 +543,8 @@
   // wide open with zero friction" gap only — it does NOT close the "properly secured" gap,
   // which needs a real backend, real PM accounts, and real credential verification (tracked
   // in the Backend Requirements Register as a genuine future requirement, not superseded by
-  // this). sessionStorage-backed, same pattern as getCurrentClientId()/setCurrentClientId()
+  // this — and now genuinely CLOSED by the real Supabase Auth admin login, see above).
+  // sessionStorage-backed, same pattern as getCurrentClientId()/setCurrentClientId()
   // (CURRENT_CLIENT_SESSION_KEY above) — resets per browser session rather than persisting
   // forever, so a fresh session (or a cleared sessionStorage) always requires re-entering the
   // passphrase.

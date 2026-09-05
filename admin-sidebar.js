@@ -4,31 +4,48 @@
 // the internal Portfolio Manager tool, not the client dashboard. Do not merge this into
 // dashboard-sidebar.js or its NAV_ITEMS — client and admin navigation must never mix.
 
-// ---- Admin Login Gate (Aug 21, 2026) — the very first thing that runs on every admin page,
-// before anything else, including before engine-core.js has even loaded (this file is always
-// the first <script> tag on every admin page — confirmed by checking every admin page's
-// script tag order). Raw sessionStorage key used directly, not via isAdminAuthenticated() —
-// engine-core.js, which defines that function, hasn't loaded yet at this point. Mirrors
-// dashboard-sidebar.js's own file-load-time CLIENT-0001 reset precedent exactly, including
-// the reason: the literal key string ('marketswave_admin_authenticated') must stay in sync
-// with engine-core.js's own ADMIN_AUTH_SESSION_KEY constant. admin-login.html itself does
-// NOT load this file at all (it has no sidebar/nav until authenticated), so there is no
-// redirect loop to guard against here. This is explicitly a UI-level stub, not real
-// authentication — see the ADMIN_PASSPHRASE comment in engine-core.js for the full honesty
-// callout; a determined visitor can bypass this via dev tools, same as the forced
-// password-reset gate on settings.html.
-// Bug fix (Aug 27, 2026): preserves the real-vs-emulator `?env=staging` URL param across
-// every internal admin-tool navigation, not just the one login->landing redirect the report
-// named. Same class of bug as the CLIENT-0001 identity pin and the emulator-credential gap
-// two fixes ago — a mechanism (IS_STAGING, read fresh from window.location.search on every
-// page load, per firebase-config.js's own design) that works correctly wherever the param is
-// actually present, but nothing had ever propagated it forward through this file's own
-// redirects or the sidebar's own rendered <a href> links, so it silently reverted to the
-// emulator (and reproduced the exact auth/invalid-credential/network-request-failed error
-// already diagnosed twice) the moment a PM clicked anywhere. Deliberately reads the RAW query
-// string directly (not IS_STAGING itself, which lives in firebase-config.js — a module this
-// plain, non-module script can't import, and which admin-login.html/most admin pages never
-// even load) — keeps this fix self-contained and needing nothing from the Firebase layer.
+// ============================================================================================
+// ★ Admin Auth Consolidation (2026-09-05) — the gate below REPLACES the retired passphrase
+// stub. Read this before changing anything in this section.
+// ============================================================================================
+// Previously (Aug 21, 2026): a raw sessionStorage flag ('marketswave_admin_authenticated'),
+// set by admin-login.html after a client-side passphrase compare with zero real backend —
+// explicitly a UI-level stub, never real authentication (see engine-core.js's own ★ RETIRED
+// comment above ADMIN_PASSPHRASE for the full historical writeup).
+//
+// Now: a real Supabase Auth session, established once via a real email/password sign-in on
+// admin-login.html, is the SOLE access layer for the entire admin tool — no second, separate
+// "real Supabase session" layer underneath it either (that used to exist too, previously
+// re-established or re-prompted lazily the first time a privileged call needed one; see
+// admin-supabase-config.js's own header for that consolidation). This check calls the real
+// `supabase.auth.getSession()` — reads the persisted session from this admin client's own
+// distinct storageKey (never the client-facing session's key — see admin-supabase-config.js
+// for why that distinction matters) and, in the common case, resolves without any network
+// round trip at all (the SDK only reaches the network if the token needs a refresh).
+//
+// Necessarily async (a real session check cannot be synchronous the way a raw sessionStorage
+// flag read could), so "before anything else" now means: fire this check as the very first
+// statement this file executes, and gate BOTH initAdminSidebar()'s own rendering AND the
+// logout handler on its result — the closest a classic (non-module) script loaded first on
+// the page can get to the original's "before anything else" discipline. This does not weaken
+// real protection: every privileged read/write this admin tool ever makes is independently
+// enforced server-side by Row-Level Security or an Edge Function's own admin-claim check
+// (confirmed throughout this project's own Supabase migration) — a brief client-side render
+// of the static page shell before this check resolves and redirects is a cosmetic timing
+// question, not a data-exposure one, since no real data call succeeds without a real
+// admin-claimed session regardless of how fast this redirect fires.
+//
+// Uses a dynamic import() — valid in this classic, non-module script, the identical technique
+// dashboard-sidebar.js's own signOutOfFirebaseAuth()/signOutOfSupabaseAuth() already
+// established — rather than adding a page-level <script type="module"> tag to every admin
+// page. admin-login.html itself does NOT load this file at all (it has no sidebar/nav until
+// authenticated), so there is no redirect loop to guard against here.
+//
+// Bug fix (Aug 27, 2026), carried forward unchanged: preserves the real-vs-emulator
+// `?env=staging` URL param across every internal admin-tool navigation, not just the one
+// login->landing redirect the report named. currentEnvQuery() reads the RAW query string
+// directly rather than importing IS_STAGING from any config module, keeping this fix
+// self-contained.
 function currentEnvQuery() {
   try {
     return new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
@@ -56,11 +73,26 @@ function preserveEnvParamInPageLinks() {
   }
 }
 
-var __adminAuthenticated = false;
-try { __adminAuthenticated = sessionStorage.getItem('marketswave_admin_authenticated') === 'true'; } catch (e) { /* sessionStorage unavailable — non-fatal, fails closed (redirects) */ }
-if (!__adminAuthenticated) {
+// Shared promise so initAdminSidebar()'s own check below reuses this exact same real
+// getSession() call/result rather than firing a second, redundant one a few milliseconds
+// later — both still exist (mirroring the original's file-load-time-check +
+// defense-in-depth-inside-initAdminSidebar() two-layer shape) because they serve two
+// different callers (this top-level IIFE runs unconditionally on file load; initAdminSidebar()
+// is called explicitly by each page's own script and must not render if this resolves false).
+var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mod) {
+  return mod.supabase.auth.getSession();
+}).then(function (res) {
+  var authenticated = !!(res && res.data && res.data.session);
+  if (!authenticated) {
+    location.replace('admin-login.html' + currentEnvQuery());
+  }
+  return authenticated;
+}).catch(function () {
+  // A real failure here (e.g. the local stack isn't running) is treated the same as "no
+  // session" — fails closed, never fails open into rendering admin content.
   location.replace('admin-login.html' + currentEnvQuery());
-}
+  return false;
+});
 
 (function () {
   // Nav groups (Aug 21, 2026) — the fixed categorization every admin tool's nav item is
@@ -269,15 +301,21 @@ if (!__adminAuthenticated) {
   }
 
   function initAdminSidebar(activePage) {
-    // Defense in depth on top of the file-load-time redirect above: if that check somehow
-    // didn't fire in time (or this function is ever called in a context that skipped it),
-    // don't render real nav/data regardless. Uses the real engine-core.js function here
-    // (already loaded by the time initAdminSidebar() runs, unlike the top-of-file check).
-    if (typeof isAdminAuthenticated === 'function' && !isAdminAuthenticated()) {
-      location.replace('admin-login.html' + currentEnvQuery());
-      return;
-    }
+    // Defense in depth on top of the file-load-time check above: awaits that SAME real
+    // getSession() result (not a second independent call) before rendering anything — if it
+    // resolves false, the redirect has already been issued by the check above; this function
+    // simply must not render the sidebar mount in that case. Necessarily async (a real session
+    // check cannot be synchronous) — nothing in this file or any admin page's own script
+    // depends on initAdminSidebar() completing synchronously (confirmed by reading every
+    // admin page's own script-tag order: each page's data-loading logic lives in its own,
+    // separate <script> block after the one that calls this function, never inline after it).
+    __adminSessionCheck.then(function (authenticated) {
+      if (!authenticated) return;
+      renderAdminSidebar(activePage);
+    });
+  }
 
+  function renderAdminSidebar(activePage) {
     var mount = document.getElementById('admin-sidebar-mount');
     if (!mount) return;
 
@@ -310,10 +348,11 @@ if (!__adminAuthenticated) {
               '<p class="text-sm font-medium truncate">Portfolio Manager</p>' +
               '<p class="text-xs text-white/50 truncate">Internal access</p>' +
             '</div>' +
-            // Admin-tool logout (Aug 21, 2026) — distinct from any client-facing logout
-            // (dashboard-sidebar.js's own, which navigates to login.html): this one clears
-            // ONLY the admin session flag and returns to admin-login.html, never touching
-            // getCurrentClientId()/the client-scoped session state client pages depend on.
+            // Admin-tool logout — distinct from any client-facing logout (dashboard-sidebar.js's
+            // own, which navigates to login.html): this one ends the real admin Supabase
+            // session (see the click handler below) and returns to admin-login.html, never
+            // touching getCurrentClientId()/the client-scoped session state client pages
+            // depend on.
             '<button type="button" id="admin-logout-btn" class="text-xs font-medium text-white/50 hover:text-white transition shrink-0" title="Log Out">Log Out</button>' +
           '</div>' +
         '</div>' +
@@ -328,11 +367,30 @@ if (!__adminAuthenticated) {
       if (e.key === 'Escape') toggleSidebar(false);
     });
     document.getElementById('admin-logout-btn').addEventListener('click', function () {
-      if (typeof clearAdminAuthenticated === 'function') clearAdminAuthenticated();
-      // Preserves env across logout too — a PM deliberately testing staging shouldn't have
-      // that context silently dropped the moment they log back out, only to have their next
-      // login attempt quietly land back on the emulator with no indication why.
-      location.replace('admin-login.html' + currentEnvQuery());
+      // Rewritten, 2026-09-05: previously cleared only the local passphrase-gate flag — there
+      // was no real Supabase session to end (it was persistSession: false, so nothing durable
+      // to sign out of). Now that a real, persisted admin session is the sole access layer,
+      // Logout must genuinely end it, not just navigate away and leave a real, still-valid
+      // session sitting in localStorage under this file's own distinct storageKey (see
+      // admin-supabase-config.js's own header for why that key is distinct in the first
+      // place). Mirrors dashboard-sidebar.js's own signOutOfSupabaseAuth() exactly — same
+      // dynamic-import technique, same "best-effort, wrapped in a timeout race" shape, and
+      // the SAME investigated conclusion that this SDK/config combination (persistSession:
+      // true + localStorage, GoTrueClient's own constructor-time initializePromise) needs
+      // neither of the two races Firebase's own signOut() had to work around by hand — see
+      // that file's own comment for the full source-level verification, which applies
+      // identically here since this is the same SDK version and the same persistence
+      // category, just a different storageKey.
+      var attempt = import('./admin-supabase-config.js').then(function (mod) {
+        return mod.supabase.auth.signOut();
+      }).catch(function () { /* non-fatal — best-effort, see comment above */ });
+      var timeout = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+      Promise.race([attempt, timeout]).then(function () {
+        // Preserves env across logout too — a PM deliberately testing staging shouldn't have
+        // that context silently dropped the moment they log back out, only to have their next
+        // login attempt quietly land back on the local stack with no indication why.
+        location.replace('admin-login.html' + currentEnvQuery());
+      });
     });
 
     preserveEnvParamInPageLinks();

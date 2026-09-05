@@ -47,8 +47,17 @@
   <!-- ========== SERVICES: full-width scrolling sections ========== -->
   <!-- One full-width section per service, stacked vertically in the locked order. Each
        section keeps its own anchor id directly (no client-side panel-swapping) so every
-       existing footer/external link to #trading etc. still jumps straight to it. -->
-  <div class="services-full">
+       existing footer/external link to #trading etc. still jumps straight to it.
+       Homepage Visual Redesign, Stage 2 (2026-09-05): 3 subtle background blobs added
+       across this long, single-background container for page-wide atmosphere, positioned
+       away from the left-aligned text column so they never sit directly behind dense
+       copy; each .service-stat callout above also now carries .glass. Icon badges on
+       every checklist bullet keep their existing plain style, per instruction — not
+       glassed, to avoid density. -->
+  <div class="services-full blob-field">
+    <div class="blob blob--md blob--teal" style="top:0; right:-100px; opacity:0.18;"></div>
+    <div class="blob blob--md blob--gold" style="top:45%; left:-100px; opacity:0.16;"></div>
+    <div class="blob blob--md blob--blue" style="bottom:0; right:-80px; opacity:0.16;"></div>
 
     <!-- Trading -->
     <section class="service-section" id="trading">
@@ -59,7 +68,7 @@
           <p class="service-intro">In a world that's always changing, there's always an angle. Trade stocks and more with advanced tools, data, and low commissions.</p>
           <p class="service-secondary">Our trading offering covers the full spectrum of liquid markets, enabling clients to participate with institutional-grade tools and oversight.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-number">170+</span>
           <span class="service-stat-label">tradable cryptocurrencies</span>
         </div>
@@ -101,7 +110,7 @@
           <p class="service-intro">Strengthen your investments beyond public markets with a mix of private credit, private equity, and private infrastructure.</p>
           <p class="service-secondary">Discretionary management lets a qualified team handle the full investment process so you can focus on your life and business rather than day-to-day markets.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-number">$10,000</span>
           <span class="service-stat-label">minimum investment</span>
         </div>
@@ -139,7 +148,7 @@
           <p class="service-intro">A simple way to draw down your retirement savings.</p>
           <p class="service-secondary">Effective retirement planning begins with clear targets and then builds the investment and savings framework required to support them.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-number">$25,000</span>
           <span class="service-stat-label">transfer-fee reimbursement</span>
         </div>
@@ -177,7 +186,7 @@
           <p class="service-intro">End-to-end coordination of planning, sourcing, production, delivery, and returns as one integrated system.</p>
           <p class="service-secondary">A supply chain is a complex logistics system that consists of facilities that convert raw materials into finished products and distribute them to end consumers or end customers, while supply chain management focuses on the optimization of the flow of goods within the supply chain's distribution channels to ensure efficiency.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-text">One integrated system</span>
         </div>
         <ul class="service-checklist">
@@ -214,7 +223,7 @@
           <p class="service-intro">Accounts designed to pay substantially more interest than conventional savings while keeping cash accessible.</p>
           <p class="service-secondary">Need an emergency fund? Waiting on a market moment? Park your savings in an account that grows your cash faster than at any of the big banks.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-number">$250,000</span>
           <span class="service-stat-label">FDIC protection</span>
         </div>
@@ -252,7 +261,7 @@
           <p class="service-intro">We help turn ambitious ideas into structured, scalable, and real-world results, with the right strategy, the right partners, and the right next steps to achieve sustainable growth and lasting business value.</p>
           <p class="service-secondary">Our investment professionals specialize by asset class, geography, and investment strategy, producing the research, the precise due diligence and the analysis that realize each client opportunity. They're part of a service team we dedicate to each client, offering a full suite of capabilities or customized selections to complement the client's strengths and coverage.</p>
         </div>
-        <div class="service-stat">
+        <div class="service-stat glass">
           <span class="service-stat-text">Dedicated sector expertise</span>
         </div>
         <ul class="service-checklist">

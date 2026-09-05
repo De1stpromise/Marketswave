@@ -116,6 +116,17 @@ async function main() {
   const MarketswaveData = globalThis.window.MarketswaveData;
   check('supabase-data.js loaded for real and defined window.MarketswaveData', !!MarketswaveData);
 
+  // Admin Auth Consolidation (2026-09-05): useAdminClient()'s own ensureSupabaseAdminSignedIn()
+  // no longer auto-signs in on its own — a real admin session is now established exactly once
+  // via a real sign-in on admin-login.html, before any admin page is reachable at all. This
+  // test performs that same real sign-in here, ONCE, before any of the page simulations below
+  // — admin-supabase-config.js is a real, un-duplicated singleton, so this one sign-in is seen
+  // by every subsequent useAdminClient() call, exactly mirroring how one real PM login
+  // persists across every real page they navigate to afterward.
+  const adminConfigMod = await import('../admin-supabase-config.js');
+  const { error: adminSignInErr } = await adminConfigMod.supabase.auth.signInWithPassword({ email: adminConfigMod.LOCAL_ADMIN_EMAIL, password: adminConfigMod.LOCAL_ADMIN_PASSWORD });
+  if (adminSignInErr) throw new Error('Real admin sign-in failed: ' + adminSignInErr.message);
+
   const suffix = crypto.randomBytes(4).toString('hex');
   const clientA = await createTestClient(admin, 'A', suffix, 5000);
   const clientB = await createTestClient(admin, 'B', suffix, 5000);

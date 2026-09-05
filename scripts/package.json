@@ -28,7 +28,8 @@
     "verify-products-catalog-fix": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-catalog-fix.mjs",
     "verify-dashboard-real-data-fixes": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-real-data-fixes.mjs",
     "verify-documents-storage-integration": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-storage-integration.mjs",
-    "verify-hosting-default-fix": "node verify-hosting-default-fix.mjs"
+    "verify-hosting-default-fix": "node verify-hosting-default-fix.mjs",
+    "verify-admin-real-login": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-admin-real-login.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
