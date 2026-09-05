@@ -5528,6 +5528,133 @@ row 74.
   See the Backend Requirements Register row 137 for the closed/open items — the diagnosis
   itself is not a separate register row, since diagnosis-only tasks aren't stubs to track;
   this row covers the real fix.
+- **★ Backend Migration Phase C — Stage 1: real per-PM accounts, replacing the single shared
+  admin login (2026-09-06).** Closes the "single shared PM identity" limitation flagged back
+  at the original Admin Login Gate (Aug 21, 2026) and reaffirmed unresolved at Admin Auth
+  Consolidation (2026-09-05) — the admin tool now supports genuinely distinct real PM
+  identities, each producing genuinely distinguishable audit attribution. Verified locally
+  first, per the new standing Cloud Staging Parity convention, then deployed to real cloud
+  staging after local verification passed clean — the first task to exercise that convention
+  end to end since it was created. **Investigated first, per instruction**: `user_roles`
+  (`user_id primary key`, Supabase Migration Stage 1) was ALREADY schema-capable of multiple
+  distinct admin identities from day one — a second row for a different real user
+  immediately grants that person admin, zero migration needed for that alone; "single shared
+  PM" was always an operational choice (only one row was ever inserted), never a schema
+  limitation. `admin-login.html` was found to ALREADY accept any real email/password —
+  confirmed via direct code read, not modified, since it already calls
+  `signInWithPassword({email, password})` with whatever the form fields contain; the
+  local-stack credential hint text is informational only, not a hardcoded target.
+  **What genuinely was missing, confirmed by grep, not assumed**: attribution. The literal
+  string `'Portfolio Manager'` as a generic actor existed in exactly ONE place in the entire
+  project — `engine-core.js`'s local (100%-localStorage, no real Supabase backend, confirmed
+  directly) `appendSecurityLogEntry()`. Every real Supabase Edge Function's own admin-write
+  path recorded NO actor at all, not even a generic placeholder — the task's own framing
+  ("replacing a generic label") turned out to undersell the real gap: this was mostly
+  ADDING attribution that never existed, not replacing a wrong value. New migration
+  (`20260906090000_add_pm_attribution.sql`) adds a `<verb>_by uuid references auth.users(id)`
+  + `<verb>_by_email text` pair to every real admin-write table — `clients`
+  (`application_resolved_by`), the 7 request-queue tables (`resolved_by`, shared by their own
+  approve/reject pair), `documents` (`reviewed_by` for Mark Reviewed, `published_by` for a
+  new firm-authored document — two distinct real actions, never conflated), `products`
+  (`created_by`/`updated_by`), and `advisory_fee_rate` (`updated_by`) — all nullable, no
+  default, so every pre-existing row correctly shows NULL/"unknown" rather than a fabricated
+  placeholder, the same "don't manufacture history that never happened" precedent this
+  project has followed since the `dateOfBirth` field removal. Deliberately denormalizes
+  BOTH the real uuid AND the email captured directly from the calling admin's own
+  already-verified JWT at write time (`claimsData.claims.sub`/`.email`, both already
+  standard, already-used-elsewhere claims — confirmed by decoding a real issued JWT before
+  relying on the shape) — mirrors `clients.name`/`clients.email`'s own established
+  denormalization-over-join precedent, since PostgREST doesn't expose `auth.users` to any
+  client-facing role anyway. **22 Edge Functions edited** (every approve-*/reject-*/credit-*
+  function across every Approval Gate domain, plus `add-product`/`edit-product`/
+  `update-advisory-fee-rate`/`update-document`/`publish-document`/`update-support-ticket`) —
+  each gets exactly two new lines capturing `adminId`/`adminEmail` immediately after its
+  EXISTING, UNTOUCHED admin-check block, then two new fields on its existing write call;
+  the 403 authorization check itself was deliberately left byte-for-byte unmodified in every
+  one, proven via a dedicated static-diff assertion (not just claimed) rather than relying
+  on the live-call tests alone to notice a subtle authorization regression. `toClientShape()`
+  (or equivalent) in each function extended to surface the new fields in the real API
+  response too, so attribution is visible without a raw DB query. **The local Security
+  Log**: `appendSecurityLogEntry()`'s hardcoded literal replaced with a new
+  `performedByEmail` parameter threaded through `resetClientPassword()`/`resetClient2FA()`,
+  falling back to an honest `'Unknown PM'` (never the old fictional-reading default) if a
+  future caller forgets to pass it. New `MarketswaveData.getCurrentUserEmail()` in
+  `supabase-data.js` (resolves whichever client `useAdminClient()` currently points at,
+  returns `null` rather than throwing if no session exists) is the one small addition this
+  needed — `admin-clients.html`'s Reset Password/Reset 2FA submit handler now fetches the
+  real signed-in admin's own email this way before calling either function, since this
+  domain has no JWT to read server-side. **Bootstrap tooling, new, additive, deliberately
+  NOT a modification of the existing single-PM bootstrap scripts** (those two remain exactly
+  what they were — "the first bootstrap account," referenced by name throughout this
+  project's own history): `scripts/supabase-bootstrap-additional-pm.js` (local stack) and
+  `scripts/supabase-staging-bootstrap-additional-pm.js` (real cloud staging, same
+  service_role-key-from-file/never-hardcoded-password discipline as every other real-staging
+  script) both take `<email> <password>` as arguments — "a script is fine, consistent with
+  how the very first admin account was bootstrapped," per instruction, no dedicated UI was
+  built. **A real mistake made and disclosed mid-task, not hidden**: an initial attempt to
+  verify the new migration locally via `supabase db reset` was interrupted mid-command after
+  realizing this project's own documented precedent (Phase B Stage 4) explicitly avoids that
+  command to protect pre-existing local data — but the interruption landed AFTER the reset
+  had already dropped the local database and BEFORE it re-applied migrations, leaving the
+  local stack's `auth.users`/`public` schema genuinely empty; a `stop`/`start` cycle did not
+  recover it (the backup that mechanism relies on already reflected the post-wipe state).
+  Real cloud staging was independently confirmed completely unaffected throughout (a
+  separate project, a separate credential, never touched by any local-stack command). Root-
+  caused, disclosed to the user immediately, and — since the auto-mode classifier correctly
+  blocked a second `db reset` as a destructive action — explicit user approval was obtained
+  before rebuilding the local schema from scratch (structure only; by that point there was
+  nothing left to lose). Local demo/test data (the bootstrap PM account, seeded portfolio
+  products/demo client) was re-created via the existing bootstrap/seed scripts afterward.
+  **Verified**: new `scripts/verify-supabase-pm-attribution.js`, 52 assertions, **52/52
+  passing** — real distinguishable attribution proven with TWO GENUINELY DIFFERENT real PM
+  accounts (`pm@marketswave.local`/`pm2@marketswave.local`) resolving SEPARATE real rows
+  across Client Applications/Allocations/Deposits/Products/Advisory Fee Rate/Support
+  Tickets, each correctly showing its own real id+email, never the other PM's and never the
+  old generic string; a non-admin authenticated caller confirmed blocked (403) from every
+  one of those same functions, with the blocked attempt confirmed to leave the real row
+  genuinely untouched; the local Security Log's own two real distinguishable entries via the
+  real `engine-core.js` source loaded through `scripts/lib/engine-harness.js`; and the
+  static proof that all 22 functions' own admin-check blocks are byte-identical to before.
+  Full existing Supabase suite re-run for zero regression: `verify-supabase-schema.js`
+  16/16, `verify-supabase-portfolio-engine.js` 40/40, `verify-supabase-deposits-
+  withdrawals.js` 76/76, `verify-supabase-allocations-sells.js` 88/88, `verify-supabase-
+  hys.js` 112/112, `verify-supabase-final-approval-gate.js` 69/69, `verify-supabase-
+  documents-support.js` 67/67, `verify-documents-storage-integration.mjs` 46/46,
+  `verify-hys-documents-ui-wiring.mjs` 69/69, `verify-admin-approval-gate-ui-wiring.mjs`
+  102/102, `verify-admin-final-wiring.mjs` 39/39, `verify-products-catalog-fix.mjs` 35/35
+  (759 total, unaffected), plus `supabase-golden-path-regression.js` `PASS (16/16 steps)`.
+  **Deployed to real cloud staging after local verification passed clean**: the migration
+  pushed for real (confirmed via dry-run first, confirmed no `DROP`/`TRUNCATE`/`DELETE`/
+  `ALTER TABLE clients` in the migration, confirmed the real pre-existing `clients` rows for
+  robert greene/elliot john were byte-identical before and after) and all 22 modified
+  functions redeployed; `verify-cloud-staging-parity.js` confirmed clean afterward (11/11
+  migrations, 37/37 functions). **Real end-to-end proof against real cloud staging itself**,
+  not just the local stack: bootstrapped a genuine second real staging PM account
+  (`pm2@marketswave-staging.internal`, alongside the existing `pm@marketswave-staging.
+  internal`), then ran the same two-PM distinguishability proof directly against the real
+  deployed functions — a real applicant approved by real PM #1 and a separate real applicant
+  rejected by real PM #2, each row confirmed to carry that PM's own real id+email, genuinely
+  distinguishable from the other. All real test artifacts (both throwaway applicants, the
+  temporary verification script) deleted afterward; the real `clients` rows for robert
+  greene and elliot john reconfirmed present and untouched. **A real, disclosed limitation
+  found in the Cloud Staging Parity script itself while using it for the first time on a
+  MODIFIED-not-just-NEW change**: it only checks that a function slug exists and is
+  `ACTIVE` on the real remote, never diffing deployed code against local source — editing an
+  already-deployed function and forgetting to redeploy it would still report clean. Disclosed
+  in the script's own header and in this file's Working Conventions section rather than
+  silently left as an implied guarantee the tool doesn't actually provide. **What remains in
+  Phase C after this stage, reported per instruction**: (1) real Admin APIs behind password/
+  2FA reset for a PM'S OWN account — this stage gave PMs distinct identities and
+  attribution, but did not build any self-service credential-management flow for a PM to
+  reset their own password/2FA (the existing Reset Password/2FA buttons on
+  `admin-clients.html` act on a CLIENT's credentials, an entirely different, already-built
+  feature, not a PM's own); (2) the "View as Client must not leak PM session" test — the
+  real admin tool has no "View as this Client" mechanism for a Supabase-sourced client at
+  all (confirmed absent, `verify-admin-final-wiring.mjs`'s own test), and the one that DOES
+  exist (`admin-clients.html`'s local-client-only "View as this Client",
+  `setCurrentClientId()`) was never re-examined THIS stage for whether a multi-PM admin
+  session could leak into a client session or vice versa — both genuinely untested here, not
+  silently assumed safe.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -5736,6 +5863,11 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   to silently drift into — say so in the task's own writeup if that's the intent, the same
   "local stack only" language every stage above already uses, but treat it as a live
   decision to revisit, not a fact to forget.
+  **A real limitation found 2026-09-06 (Phase C — Stage 1), disclosed in the script's own
+  header too**: the Edge Functions check only confirms a function slug exists and is
+  `ACTIVE` on the real remote — it does NOT diff deployed code against local source, so
+  editing an already-deployed function and forgetting to redeploy it still reports clean.
+  Redeploying an edited function remains the operator's own responsibility to remember.
 
 ## Verification
 

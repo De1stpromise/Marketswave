@@ -21,6 +21,20 @@
 // Requires: `supabase` CLI logged in and linked to the real project (same discipline as
 // every other real-cloud-staging script in this project — confirms the linked project
 // matches supabase-config.js's own hardcoded STAGING_CONFIG.url before trusting anything).
+//
+// A REAL, DISCLOSED LIMITATION (found 2026-09-06, Backend Migration Phase C — Stage 1):
+// the Edge Functions check only confirms a function SLUG exists and is ACTIVE on the real
+// remote — it does NOT diff the deployed function's actual CODE against the local source.
+// Editing an already-deployed function (e.g. adding a new field to its write, exactly what
+// Phase C — Stage 1 did to 22 already-deployed functions) leaves this check reporting
+// "37/37 deployed" even while the real remote is running STALE code, since the slug never
+// changed. This script therefore only catches a NEWLY ADDED, never-deployed function or
+// migration — not a MODIFIED one going stale. Redeploying an edited function (`supabase
+// functions deploy <name>`) is still the operator's own responsibility to remember; this
+// gap is reported rather than silently left implied-covered. A future improvement worth
+// tracking: hash-compare deployed bundle content (functions list's own response includes no
+// content hash reliably comparable to local source today) or track a "last deployed" marker
+// per function file.
 
 const { execSync } = require('child_process');
 const fs = require('fs');
