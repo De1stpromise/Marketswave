@@ -5457,6 +5457,77 @@ row 74.
   afterward, the specific Chrome PIDs (confirmed via their own command line, not a broad
   kill) closed, leaving the user's own real browser session untouched. Backend Requirements
   Register row 136.
+- **★★★ INCIDENT + FIX: real cloud staging deployed real Phase B schema/functions for the
+  first time since Supabase Migration Stage 3 (2026-09-05, row 137) — the live public site
+  was broken for real users until this closed.** A real user (robert greene) hit "Could not
+  reach the server" on the real, live, hosted `dashboard.html`. **Diagnosis (separate task,
+  same day, fully reported before any fix per instruction)** confirmed the root cause
+  directly against the real remote project, not assumed: every one of Phase B's 9 migrations
+  (Stages 1-6, Aug 30 - Sep 4) and 34 of 36 Edge Functions had only ever been applied to the
+  LOCAL Docker stack — each stage's own "local stack only, real cloud staging untouched"
+  scope note was accurate and deliberate at the time it was written, but nothing ever tracked
+  when cloud staging needed to catch up, so the gap silently grew for ~10 days until a real
+  visitor hit it. Confirmed via direct REST probes against the real remote (`PGRST205 Could
+  not find the table` on every Phase B table) and `supabase functions list` (only
+  `approve-client-application`/`reject-client-application`, from Stage 3, were `ACTIVE`).
+  Three other candidate causes were investigated and ruled out: the project was not paused
+  (`ACTIVE_HEALTHY`, real 200s from REST/Auth); Admin Auth Consolidation (same day) was
+  confirmed unrelated by diffing every file it touched — the only shared-file change was
+  inside `useAdminClient()`, confirmed via grep to be admin-only, never reached by
+  `dashboard.html`'s own code path; no genuine Supabase platform incident (status page
+  confirmed all core services operational, no active incidents). **Fix**: a safety-net commit
+  first (`ea78a7f`, the standing high-risk-change convention, since this was the first real
+  touch of cloud staging since Stage 3) — confirmed clean of secrets before committing. Then,
+  after confirming the linked CLI project (`ujnmlwbpginplfnofhhv`) matches
+  `supabase-config.js`'s own hardcoded `STAGING_CONFIG.url` exactly (the same discipline
+  every prior real-cloud-staging task in this project has used) and confirming via
+  `--dry-run`/direct grep that none of the 9 pending migrations contain a `DROP`/`TRUNCATE`/
+  `DELETE`/`ALTER TABLE clients` that could touch the real, genuine existing signups already
+  in the real `clients` table (robert greene, elliot john — both confirmed present, both
+  `status: active`, queried directly via `service_role` before touching anything): ran
+  `supabase db push` for real (all 9 migrations applied cleanly) and `supabase functions
+  deploy` for real (all 35 missing functions deployed, 37 total now `ACTIVE`). **Verified,
+  exactly as instructed, real cloud staging only, never the local stack**: re-ran the
+  identical REST probe from the diagnosis against all 19 tables — every one now returns a
+  real `200 []` (RLS-filtered, not missing); called the real `get-account-state` function as
+  a real authenticated test user and confirmed a real, correctly-handled `404 "No account
+  state found for client..."` (the documented, graceful empty-account case from UI Wiring
+  Stage 1 — genuinely different from the `kind: 'network'`/"Could not reach the server"
+  failure this fix closes, not a lingering symptom of it). **Real end-to-end proof on the
+  actual live hosted site** (`https://de1stpromise.github.io/Marketswave/`, not localhost, per
+  instruction that this is the only verification that actually matters here): drove the real
+  9-step `signup.html` form via genuine DOM events + real CDP file-upload injection for the
+  document steps against the live site; confirmed a real `pending_review` client row created
+  via the real signup code path; approved it by calling the real, already-deployed
+  `approve-client-application` function directly with a real admin JWT (the live site's own
+  `admin-login.html` hadn't been redeployed yet at push time — a separate, already-diagnosed-
+  unrelated fact, so approval was done against the real function directly rather than waiting
+  on an unrelated deploy); logged in through the real live `login.html` and confirmed
+  `dashboard.html`, `transactions.html`, `settings.html`, `asset-collection.html`, and
+  `high-yield-savings.html` ALL render correctly — real name/initials ("Verify Fix
+  Testuser"/"VT"), real computed $0/empty-state figures, zero "Could not reach the server"
+  anywhere, zero real console errors (one benign, already-expected `get-account-state` 404
+  confirmed via its own response body to be the documented graceful case, not a new
+  problem). `asset-collection.html` correctly shows "No assets match your search/filter" —
+  expected and disclosed, not a bug: the fresh migration created empty schema with no seed
+  product data, a separate, known consequence of this fix, not part of the diagnosed issue.
+  All real test artifacts (the throwaway client row, both throwaway Auth users) deleted
+  afterward; the real pre-existing `clients` rows for robert greene and elliot john
+  reconfirmed byte-identical, untouched throughout. **Safeguard against recurrence, built,
+  not just proposed**: new `scripts/verify-cloud-staging-parity.js`
+  (`npm run verify-cloud-staging-parity` from `scripts/`) — checks, directly against the real
+  remote project every time it's run, whether every local migration file and every local
+  Edge Function directory is actually applied/deployed there; exits 1 with a clear per-item
+  list on any gap, exits 0 only when real cloud staging genuinely matches local. Confirmed
+  working both ways: passes cleanly post-fix (10/10 migrations, 37/37 functions), and
+  correctly fails when a synthetic gap is introduced (tested directly, not assumed). **New
+  standing rule, added to this file's own Working Conventions section below**: run this
+  script before any push that touches `supabase/migrations/`, `supabase/functions/`, or any
+  Supabase-calling page — this is now the answer to "did I forget to deploy something to real
+  cloud staging," replacing the informal per-stage scope notes that let this gap go unnoticed.
+  See the Backend Requirements Register row 137 for the closed/open items — the diagnosis
+  itself is not a separate register row, since diagnosis-only tasks aren't stubs to track;
+  this row covers the real fix.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -5649,6 +5720,22 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   sessions of undocumented work until the copies were noticed and deleted (Aug 20, 2026). If
   an edit to either file fails, report the failure and stop — do not fall back to writing a
   new file as a workaround.
+- **Cloud Staging Parity — run `npm run verify-cloud-staging-parity` (from `scripts/`)
+  before any push that touches `supabase/migrations/`, `supabase/functions/`, or any page
+  that calls Supabase.** Added 2026-09-05 after a real incident (row 137): every Phase B/UI-
+  Wiring stage's own "local stack only, real cloud staging untouched" scope note was
+  accurate and deliberate when written, but nothing tracked WHEN cloud staging needed to
+  catch up — the gap grew silently for ~10 days until a real user hit "Could not reach the
+  server" on the real live hosted site, because 9 migrations and 34 of 36 Edge Functions had
+  only ever been applied locally. This script checks the real remote project directly
+  (never a memory of what "should" be deployed) and exits non-zero the moment local and
+  real-cloud-staging genuinely diverge — that failure is the signal to run `supabase db
+  push`/`supabase functions deploy` for real BEFORE pushing app code that depends on them,
+  not after a live user finds the gap. A stage that is genuinely meant to stay local-only
+  (not yet ready for real users) is a deliberate decision to make explicitly, not a default
+  to silently drift into — say so in the task's own writeup if that's the intent, the same
+  "local stack only" language every stage above already uses, but treat it as a live
+  decision to revisit, not a fact to forget.
 
 ## Verification
 
