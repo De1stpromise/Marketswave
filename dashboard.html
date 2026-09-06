@@ -491,8 +491,7 @@
                     g.addColorStop(1, darkenHex(colors[ctx.dataIndex], 0.15));
                     return g;
                   },
-                  borderColor: '#ffffff',
-                  borderWidth: 3
+                  borderWidth: 0
                 }]
               },
               options: {
@@ -517,9 +516,9 @@
                 beforeDatasetsDraw: function (chart) {
                   var ctx = chart.ctx;
                   ctx.save();
-                  ctx.shadowColor = 'rgba(27,58,75,0.28)';
-                  ctx.shadowBlur = 14;
-                  ctx.shadowOffsetY = 5;
+                  ctx.shadowColor = 'rgba(27,58,75,0.18)';
+                  ctx.shadowBlur = 9;
+                  ctx.shadowOffsetY = 3;
                 },
                 afterDatasetsDraw: function (chart) {
                   chart.ctx.restore();
