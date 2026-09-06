@@ -18,6 +18,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
     @keyframes rowFlash {
@@ -47,14 +48,22 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): one restrained
+             atmospheric blob in top-right whitespace — see dashboard.html's own Stage 1
+             comment for why `relative overflow-x-hidden` on <main> substitutes for
+             .blob-field here. -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8 flex items-start justify-between flex-wrap gap-4">
           <div>
             <h2 class="text-2xl font-semibold text-navy">Documents & Reporting</h2>
             <p class="text-slate-500 mt-1">Two-way document exchange between you and Marketswave.</p>
           </div>
-          <div class="flex flex-wrap gap-2" id="notification-chips">
+          <!-- The notification chip AREA (this wrapper) now reads as one cohesive glass
+               strip; each individual chip keeps its own colored pill styling unchanged. -->
+          <div class="flex flex-wrap gap-2 glass-subtle rounded-xl p-2.5" id="notification-chips">
             <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition" data-target="new">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
               <span id="chip-new-count"><span class="inline-block h-3 w-3 bg-blue-200 rounded animate-pulse"></span></span> New Documents
@@ -105,7 +114,7 @@
         </div>
 
         <!-- From Marketswave -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8" id="from-section">
+        <div class="glass rounded-2xl overflow-hidden mb-8" id="from-section">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
@@ -119,7 +128,7 @@
         </div>
 
         <!-- Upload to Marketswave -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden" id="upload-section">
+        <div class="glass rounded-2xl overflow-hidden" id="upload-section">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 3m0 0L7.5 7.5M12 3v13.5"/></svg>

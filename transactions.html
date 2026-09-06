@@ -402,14 +402,59 @@
         var sellsData = monthKeys.map(function (k) { return Math.round(monthly[k].sells); });
         var netData = monthKeys.map(function (k) { return Math.round(monthly[k].sells + monthly[k].deposits - monthly[k].buys - monthly[k].withdrawals); });
 
+        // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): a shared vertical
+        // gradient-fill helper (top lighter, bottom the real dataset color) — resolved
+        // once real chartArea dimensions exist (null on the first internal call, before
+        // layout; the plain flat color returned then is a harmless one-frame fallback).
+        // Reused by both the bar and the line chart below for a consistent glossy/
+        // dimensional look across every real chart on this page, per instruction.
+        function verticalGradientFill(baseColor, topAlphaOverride) {
+          return function (ctx) {
+            var chart = ctx.chart;
+            var area = chart.chartArea;
+            if (!area) return baseColor;
+            var g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            if (topAlphaOverride) {
+              g.addColorStop(0, topAlphaOverride);
+              g.addColorStop(1, 'rgba(27,58,75,0)');
+            } else {
+              g.addColorStop(0, lightenHex(baseColor, 0.35));
+              g.addColorStop(1, baseColor);
+            }
+            return g;
+          };
+        }
+        function lightenHex(hex, amt) {
+          var n = parseInt(hex.slice(1), 16);
+          var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+          r = Math.round(r + (255 - r) * amt);
+          g = Math.round(g + (255 - g) * amt);
+          b = Math.round(b + (255 - b) * amt);
+          return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
+        // Subtle drop shadow "for lift" — Chart.js's own public beforeDatasetsDraw/
+        // afterDatasetsDraw plugin hooks, no new library, reused identically on both
+        // charts below (and mirrors dashboard.html's own pie-chart shadow technique).
+        var barShadowPlugin = {
+          id: 'barShadowLift',
+          beforeDatasetsDraw: function (chart) {
+            var ctx = chart.ctx;
+            ctx.save();
+            ctx.shadowColor = 'rgba(27,58,75,0.18)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 3;
+          },
+          afterDatasetsDraw: function (chart) { chart.ctx.restore(); }
+        };
+
         if (volumeCanvas) {
           new Chart(volumeCanvas.getContext('2d'), {
             type: 'bar',
             data: {
               labels: labels,
               datasets: [
-                { label: 'Buys', data: buysData, backgroundColor: '#1B3A4B', borderRadius: 6 },
-                { label: 'Sells', data: sellsData, backgroundColor: '#C8A857', borderRadius: 6 }
+                { label: 'Buys', data: buysData, backgroundColor: verticalGradientFill('#1B3A4B'), borderRadius: 6 },
+                { label: 'Sells', data: sellsData, backgroundColor: verticalGradientFill('#C8A857'), borderRadius: 6 }
               ]
             },
             options: {
@@ -417,7 +462,8 @@
               maintainAspectRatio: false,
               scales: { x: { grid: { display: false } }, y: { display: false } },
               plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
-            }
+            },
+            plugins: [barShadowPlugin]
           });
         }
 
@@ -430,7 +476,14 @@
                 label: 'Net Cash Flow',
                 data: netData,
                 borderColor: '#1B3A4B',
-                backgroundColor: 'rgba(27,58,75,0.08)',
+                // Consistency pass, per instruction ("any other real chart... apply
+                // consistently"): the flat rgba(27,58,75,0.08) area fill becomes a real
+                // vertical gradient (a more opaque navy tint near the line, fading to
+                // fully transparent at the bottom) — the standard "glassy" area-chart
+                // treatment, matching the glossy/dimensional language applied to the
+                // pie and bar charts above without inventing a different effect for this
+                // one chart.
+                backgroundColor: verticalGradientFill(null, 'rgba(27,58,75,0.22)'),
                 fill: true,
                 tension: 0.35,
                 pointRadius: 3

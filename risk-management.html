@@ -18,6 +18,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
 
@@ -125,7 +126,14 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): one restrained
+             atmospheric blob in top-right whitespace — see dashboard.html's own Stage 1
+             comment for why `relative overflow-x-hidden` on <main> substitutes for
+             .blob-field here (a scrollable <main> can't use that marker's own symmetric
+             overflow:hidden without breaking vertical scroll). -->
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">Risk Management</h2>
@@ -182,7 +190,12 @@
                 <span id="capacity-suitability-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium">—</span>
               </div>
             </div>
-            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
+            <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): glass-subtle here
+                 only, per instruction — the Risk Meter card itself and its own locked
+                 gold/mahogany/deep-green accent control (rm-track/rm-pill/rm-segment
+                 above) are deliberately left untouched; Risk Tolerance/Risk Capacity
+                 (its own two direct siblings) were not named and are left as-is too. -->
+            <div class="glass-subtle rounded-xl p-4">
               <p class="text-xs text-slate-500 mb-1">Portfolio Diversification Score</p>
               <p class="text-lg font-semibold text-navy" id="diversification-score">—</p>
               <p class="text-xs text-slate-500 mt-1" id="diversification-concentration">—</p>
@@ -195,8 +208,10 @@
           </p>
         </div>
 
-        <!-- Regulatory Heatmap -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <!-- Regulatory Heatmap — the outer card carries glass; the 4 individual
+             compliance-status sub-cards inside it stay clean (same "container gets glass,
+             rows/items stay clean" philosophy applied to documents.html's own lists). -->
+        <div class="glass rounded-2xl p-6">
           <div class="flex items-center justify-between mb-6">
             <h3 class="font-semibold text-navy">Regulatory Heatmap</h3>
             <span class="text-xs text-slate-400">Account-level compliance standing</span>

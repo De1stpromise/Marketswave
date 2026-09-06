@@ -243,7 +243,15 @@
       // leaving the cream body background visible below the navy panel. #sidebar-mount
       // itself does stretch to the outer h-screen row's height (default flex align-items
       // stretch), but that stretch doesn't cascade down through it to a plain block child.
-      '<aside id="sidebar-aside" class="w-64 h-screen bg-navy text-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
+      // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): bg-navy (solid, opaque)
+      // replaced with .glass-dark (glass-primitives.css) — a restrained frosted-glass
+      // treatment for this fixed nav chrome. Genuinely visible where content actually
+      // scrolls behind it (the off-canvas drawer overlay, below the `lg` breakpoint,
+      // real content sits underneath while it's open); at `lg:static` desktop width the
+      // sidebar sits beside content with nothing behind it to blur, so the effect there
+      // is just the translucent navy tone + soft edge highlight, which is intentional —
+      // not a bug, there's genuinely nothing to show through at that width.
+      '<aside id="sidebar-aside" class="w-64 h-screen glass-dark text-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
         '<div class="h-16 flex items-center justify-between px-6 border-b border-white/10">' +
           '<span class="text-lg font-bold tracking-tight">MARKETSWAVE</span>' +
           '<button type="button" id="sidebar-close-btn" class="lg:hidden text-white/70 hover:text-white transition" aria-label="Close menu">' +

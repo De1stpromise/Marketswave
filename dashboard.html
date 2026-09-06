@@ -301,6 +301,27 @@
       var UNALLOCATED_COLOR = '#E8D5A8';
       var ASSET_CLASS_ORDER = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto'];
 
+      // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): plain hex lighten/darken
+      // helpers for the pie chart's per-segment gradient fills below — mixes toward white
+      // (lighten) or black (darken) by the given amount (0-1), each asset class's own real
+      // locked color as the base, never a new/different color introduced.
+      function lightenHex(hex, amt) {
+        var n = parseInt(hex.slice(1), 16);
+        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        r = Math.round(r + (255 - r) * amt);
+        g = Math.round(g + (255 - g) * amt);
+        b = Math.round(b + (255 - b) * amt);
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+      function darkenHex(hex, amt) {
+        var n = parseInt(hex.slice(1), 16);
+        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        r = Math.round(r * (1 - amt));
+        g = Math.round(g * (1 - amt));
+        b = Math.round(b * (1 - amt));
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
         var abs = Math.abs(n);
@@ -450,9 +471,28 @@
                 labels: labels,
                 datasets: [{
                   data: percentages.map(function (p) { return Math.round(p * 10) / 10; }),
-                  backgroundColor: colors,
+                  // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): per-segment
+                  // radial gradient (each asset class's own real color, light center to
+                  // its own darker tone at the edge) instead of a flat fill — a scriptable
+                  // option, resolved once real layout dimensions exist (chartArea is null
+                  // on the very first internal call, before sizing; the plain flat color
+                  // is returned then as a harmless one-frame fallback, invisible in
+                  // practice). Same center point for every segment's own gradient is what
+                  // makes them read as one coherent glossy dome, not five unrelated ones.
+                  backgroundColor: function (ctx) {
+                    var chart = ctx.chart;
+                    var area = chart.chartArea;
+                    if (!area) return colors[ctx.dataIndex];
+                    var cx = (area.left + area.right) / 2;
+                    var cy = (area.top + area.bottom) / 2;
+                    var radius = Math.min(area.right - area.left, area.bottom - area.top) / 2;
+                    var g = chart.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    g.addColorStop(0, lightenHex(colors[ctx.dataIndex], 0.35));
+                    g.addColorStop(1, darkenHex(colors[ctx.dataIndex], 0.15));
+                    return g;
+                  },
                   borderColor: '#ffffff',
-                  borderWidth: 2
+                  borderWidth: 3
                 }]
               },
               options: {
@@ -466,7 +506,42 @@
                     }
                   }
                 }
-              }
+              },
+              // Soft drop shadow (beforeDatasetsDraw, reset in afterDatasetsDraw so it never
+              // bleeds into anything drawn later) + a glossy highlight sheen (afterDatasetsDraw,
+              // a clipped radial gradient positioned toward the upper portion of the pie,
+              // mimicking light catching a glass dome) — both done via Chart.js's own public
+              // plugin hooks, no new library, no fork of Chart.js itself.
+              plugins: [{
+                id: 'pieGlossyDepth',
+                beforeDatasetsDraw: function (chart) {
+                  var ctx = chart.ctx;
+                  ctx.save();
+                  ctx.shadowColor = 'rgba(27,58,75,0.28)';
+                  ctx.shadowBlur = 14;
+                  ctx.shadowOffsetY = 5;
+                },
+                afterDatasetsDraw: function (chart) {
+                  chart.ctx.restore();
+                  var area = chart.chartArea;
+                  if (!area) return;
+                  var ctx = chart.ctx;
+                  var cx = (area.left + area.right) / 2;
+                  var cy = (area.top + area.bottom) / 2;
+                  var radius = Math.min(area.right - area.left, area.bottom - area.top) / 2;
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                  ctx.clip();
+                  var sheen = ctx.createRadialGradient(cx, cy - radius * 0.35, 0, cx, cy - radius * 0.35, radius * 1.15);
+                  sheen.addColorStop(0, 'rgba(255,255,255,0.32)');
+                  sheen.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+                  sheen.addColorStop(1, 'rgba(255,255,255,0)');
+                  ctx.fillStyle = sheen;
+                  ctx.fillRect(area.left, area.top, area.right - area.left, area.bottom - area.top);
+                  ctx.restore();
+                }
+              }]
             });
           }
 

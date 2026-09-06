@@ -6148,6 +6148,56 @@ row 74.
   wiring.mjs` failure reproduced its own already-documented flaky-retry pattern, confirmed
   clean on an immediate re-run. No cloud staging deployment needed. Backend Requirements
   Register row 147.
+- **★ Client Dashboard Visual Treatment — Stage 2 (amplified) (2026-09-06).** Reuses
+  `glass-primitives.css` exactly. **1. Sidebar** (`dashboard-sidebar.js`, all 10 client
+  pages): added a THIRD formal variant, `.glass-dark` — the same precedent `.glass-subtle`
+  itself set, not a fork — since `.glass`/`.glass-subtle` are light-toned and would wash the
+  sidebar's own dark navy identity into an illegible pale wash; `.glass-dark` keeps the same
+  structural language (backdrop blur, soft edge highlight) in navy tones, deliberately
+  gentler (16px blur, no sheen) per the task's own warning that heavy blur on fixed nav
+  chrome reads as noisy. Replaces `bg-navy` on `#sidebar-aside`; `glass-primitives.css` now
+  linked on all 10 pages. Verified by actually opening the real off-canvas drawer and
+  scrolling real content behind it — confirmed via screenshot the content genuinely blurs
+  through, calm not shimmering, nav text staying fully legible. **2. Charts**: only 2 files
+  in the project have a real Chart.js instance — `dashboard.html`'s pie and
+  `transactions.html`'s bar + line. Pie: a real scriptable `backgroundColor` builds a
+  per-segment radial gradient (each asset class's own locked color, light center to darker
+  edge, one shared center point) plus a `pieGlossyDepth` plugin (Chart.js's own public
+  `beforeDatasetsDraw`/`afterDatasetsDraw` hooks) for a soft shadow + glossy sheen; border
+  2→3. Bar: a shared `verticalGradientFill()` helper on both Buys/Sells plus a
+  `barShadowLift` plugin, `borderRadius: 6` kept. Line (the un-named third chart, found by
+  investigating rather than assuming the task's list was complete): the flat area fill
+  became a real gradient via the same helper, for consistency. Verified every chart's
+  `backgroundColor` is genuinely a function via the live `Chart.getChart()` instance, real
+  data unchanged, and a real simulated pointer event still resolves the correct pie segment
+  (a first attempt at the exact geometric center failed — a genuine degenerate hit-test
+  point, not a bug, fixed by offsetting it). **3. risk-management.html**: the Risk Meter's
+  own locked gold/mahogany/deep-green control confirmed completely untouched (a direct
+  negative assertion). Glass applied only to what was named: the Diversification Score box
+  (`.glass-subtle`; its two siblings deliberately left plain) and the Regulatory Heatmap's
+  outer card (`.glass`; its 4 status sub-cards stay clean). One blob added. **4.
+  documents.html**: `#from-section`/`#upload-section` → `.glass`; rows confirmed to carry no
+  glass class. `#notification-chips` (previously backgroundless) now reads as one
+  `.glass-subtle` strip; individual chip pills unchanged. One blob added. **5.
+  settings.html — investigated first**: confirmed Password Change/2FA/Active Sessions sat in
+  ONE flat card differentiated only by hairline dividers, no icon/heading hierarchy at all.
+  Restructured into 3 independently-bounded `.glass-subtle` sub-cards with icon+title
+  headers and real gaps — every element id kept byte-identical, confirmed via a real
+  functional test that the strength meter still fires after restructuring. Profile/KYC card
+  got full `.glass`. One blob added. **6. deploy-capital.html**: all 4 form-panel containers
+  → `.glass`; option-selector buttons deliberately left untouched (action tiles); every
+  input confirmed still plain/opaque via computed style. One blob added. **Verified**: a
+  real seeded test client browser-verified live via headless Chrome over CDP — 53/53
+  assertions on the second pass (fixed 2 test-script bugs, neither a real product bug).
+  Contrast measured directly on 2 new surfaces, matching Stage 1's discipline. Skeleton
+  states re-confirmed inside 2 of the new glass surfaces via a real throttled-network
+  mid-load screenshot. Zero horizontal overflow at normal and a real 390px viewport across
+  all 6 touched pages. **A real, pre-existing data-pollution bug found and fixed during the
+  regression run, not caused by this task**: `verify-asset-pages-ui-wiring.mjs` crashed —
+  traced to 6 leftover test products from an earlier, untidied session pushing the real
+  seeded products off the grid's first page; cleaned up (confirmed none were referenced
+  elsewhere), re-ran clean. Full existing Supabase suite re-run for zero regression after
+  the cleanup. No cloud staging deployment needed. Backend Requirements Register row 148.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

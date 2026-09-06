@@ -18,6 +18,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -42,7 +43,13 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): one restrained
+             atmospheric blob in top-right whitespace — see dashboard.html's own Stage 1
+             comment for why `relative overflow-x-hidden` on <main> substitutes for
+             .blob-field here. -->
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <!-- ========== FORCED PASSWORD RESET GATE (Password Reset + 2FA Rework, Aug 21, 2026) ==========
              There is no real login/session system in this project, so this is a client-side
@@ -87,7 +94,7 @@
         </div>
 
         <!-- ========== PROFILE / KYC CARD ========== -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+        <div class="glass rounded-2xl p-6 mb-8">
           <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div class="flex items-center gap-4">
               <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0 animate-pulse" id="profile-avatar-initials"></div>
@@ -177,100 +184,122 @@
           </div>
         </div>
 
-        <!-- ========== SECURITY ========== -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
-          <h3 class="font-semibold text-navy mb-5">Security</h3>
+        <!-- ========== SECURITY ==========
+             Client Dashboard Visual Treatment, Stage 2 (2026-09-06): investigated first,
+             per instruction. What was actually weak: Password Change, 2FA, and Active
+             Sessions all sat inside ONE flat bg-white card, differentiated only by a thin
+             border-b/border-t hairline and identical-weight inline <p> labels — no real
+             visual grouping, no icon/heading hierarchy distinguishing which section was
+             which, confirmed by reading the live markup before touching it (not assumed
+             from the task's own framing). Restructured into 3 clearly separated,
+             independently-bounded glass-subtle sections (a real vertical gap between them,
+             not a hairline divider), each with its own icon+title header row — the exact
+             same "container gets glass, real content inside stays clean" split already
+             applied to every other page this stage. Every id below is byte-identical to
+             before; only the wrapping structure/classes changed, so no JS needed updating. -->
+        <div class="mb-8">
+          <h3 class="font-semibold text-navy text-lg mb-4">Security</h3>
+          <div class="space-y-5">
 
-          <!-- Password Change -->
-          <div class="pb-6 border-b border-slate-100">
-            <p class="text-sm font-medium text-navy mb-4">Change Password</p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
-                <input type="password" id="current-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <!-- Password Change -->
+            <div class="glass-subtle rounded-2xl p-6">
+              <div class="flex items-center gap-2 mb-4">
+                <svg class="w-4 h-4 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <p class="text-sm font-semibold text-navy">Change Password</p>
               </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
-                <input type="password" id="new-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
-                <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
-                  <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
+                  <input type="password" id="current-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
                 </div>
-                <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
-                <input type="password" id="confirm-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
-              </div>
-            </div>
-            <p class="text-xs text-red-500 hidden mt-3" id="password-error"></p>
-            <button type="button" id="password-submit" class="mt-4 px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Update Password</button>
-          </div>
-
-          <!-- 2FA -->
-          <div class="py-6 border-b border-slate-100">
-            <div class="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <p class="text-sm font-medium text-navy">Two-Factor Authentication</p>
-                <p class="text-xs text-slate-500 mt-0.5">Add an extra layer of security to your account.</p>
-              </div>
-              <div class="flex items-center gap-3">
-                <span id="twofa-status-badge" class="hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Enabled</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="twofa-toggle" class="sr-only peer">
-                  <div class="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
-                    <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+                  <input type="password" id="new-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                  <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
+                    <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
                   </div>
-                </label>
+                  <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
+                  <input type="password" id="confirm-password" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                </div>
+              </div>
+              <p class="text-xs text-red-500 hidden mt-3" id="password-error"></p>
+              <button type="button" id="password-submit" class="mt-4 px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Update Password</button>
+            </div>
+
+            <!-- 2FA -->
+            <div class="glass-subtle rounded-2xl p-6">
+              <div class="flex items-center justify-between flex-wrap gap-3 mb-1">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                  <p class="text-sm font-semibold text-navy">Two-Factor Authentication</p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span id="twofa-status-badge" class="hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Enabled</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="twofa-toggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
+                      <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mb-1">Add an extra layer of security to your account.</p>
+
+              <!-- Email-code flow (Password Reset + 2FA Rework, Aug 21, 2026) — replaces the
+                   previous QR code + authenticator app setup entirely. No real email backend
+                   exists in this project, so the "sent" code is generated client-side and
+                   shown directly on screen, same simulated-delivery pattern as every other
+                   stub in this project that can't actually deliver anything (deposit
+                   confirmations, dispute ids, etc.) — the client must type back the exact
+                   code shown, not just any 6 digits, so this isn't just accept-anything either. -->
+              <div class="hidden bg-slate-50 rounded-xl border border-slate-100 p-5 mt-4" id="twofa-setup-panel">
+                <p class="text-sm font-medium text-navy mb-3">Set Up Two-Factor Authentication</p>
+                <div class="flex flex-col sm:flex-row items-center gap-5">
+                  <div class="w-28 h-28 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-white shrink-0">
+                    <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+                  </div>
+                  <div class="flex-1 w-full">
+                    <p class="text-xs text-slate-500 mb-1">A 6-digit code has been "sent" to your email. This project has no real email backend, so it's shown here instead:</p>
+                    <p class="text-lg font-semibold tracking-widest text-navy mb-3" id="twofa-demo-code">000000</p>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmation Code</label>
+                    <div class="flex flex-wrap gap-2">
+                      <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="w-32 px-4 py-2.5 rounded-lg border border-slate-200 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+                      <button type="button" id="twofa-confirm" class="px-4 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm</button>
+                    </div>
+                    <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code shown above.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Email-code flow (Password Reset + 2FA Rework, Aug 21, 2026) — replaces the
-                 previous QR code + authenticator app setup entirely. No real email backend
-                 exists in this project, so the "sent" code is generated client-side and
-                 shown directly on screen, same simulated-delivery pattern as every other
-                 stub in this project that can't actually deliver anything (deposit
-                 confirmations, dispute ids, etc.) — the client must type back the exact
-                 code shown, not just any 6 digits, so this isn't just accept-anything either. -->
-            <div class="hidden bg-slate-50 rounded-xl border border-slate-100 p-5 mt-4" id="twofa-setup-panel">
-              <p class="text-sm font-medium text-navy mb-3">Set Up Two-Factor Authentication</p>
-              <div class="flex flex-col sm:flex-row items-center gap-5">
-                <div class="w-28 h-28 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-white shrink-0">
-                  <svg class="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-                </div>
-                <div class="flex-1 w-full">
-                  <p class="text-xs text-slate-500 mb-1">A 6-digit code has been "sent" to your email. This project has no real email backend, so it's shown here instead:</p>
-                  <p class="text-lg font-semibold tracking-widest text-navy mb-3" id="twofa-demo-code">000000</p>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmation Code</label>
-                  <div class="flex flex-wrap gap-2">
-                    <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="w-32 px-4 py-2.5 rounded-lg border border-slate-200 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
-                    <button type="button" id="twofa-confirm" class="px-4 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm</button>
-                  </div>
-                  <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code shown above.</p>
+            <!-- Active Sessions -->
+            <div class="glass-subtle rounded-2xl p-6">
+              <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  <p class="text-sm font-semibold text-navy">Active Sessions & Linked Devices</p>
                 </div>
               </div>
+              <div class="space-y-2" id="sessions-list">
+                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-navy truncate" id="session-device-label">Loading…<span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span></p>
+                      <p class="text-xs text-slate-500" id="session-status-label">Active now</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 mt-3">
+                This shows only your current session, derived from your real sign-in. Tracking
+                and managing sessions across other devices isn't available yet.
+              </p>
             </div>
-          </div>
 
-          <!-- Active Sessions -->
-          <div class="pt-6">
-            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <p class="text-sm font-medium text-navy">Active Sessions & Linked Devices</p>
-            </div>
-            <div class="space-y-2" id="sessions-list">
-              <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
-                <div class="flex items-center gap-3 min-w-0">
-                  <svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-navy truncate" id="session-device-label">Loading…<span class="ml-1 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-navy/10 text-navy align-middle">This device</span></p>
-                    <p class="text-xs text-slate-500" id="session-status-label">Active now</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p class="text-xs text-slate-400 mt-3">
-              This shows only your current session, derived from your real sign-in. Tracking
-              and managing sessions across other devices isn't available yet.
-            </p>
           </div>
         </div>
 

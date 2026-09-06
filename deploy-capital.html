@@ -26,6 +26,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
     .option-card { transition: all 0.2s ease; }
@@ -63,7 +64,14 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): one restrained
+             atmospheric blob in top-right whitespace — see dashboard.html's own Stage 1
+             comment for why `relative overflow-x-hidden` on <main> substitutes for
+             .blob-field here. -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">Deploy Capital</h2>
           <p class="text-slate-500 mt-1">Choose how you would like to add funds to your account.</p>
@@ -106,7 +114,7 @@
         </div>
 
         <!-- Crypto Form -->
-        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-6 max-w-xl" id="form-crypto">
+        <div class="form-panel glass rounded-2xl p-6 max-w-xl" id="form-crypto">
           <h3 class="font-semibold text-navy mb-1">Crypto Deposit</h3>
           <p class="text-sm text-slate-500 mb-6">Select asset and amount. You will receive wallet details after submission.</p>
 
@@ -143,7 +151,7 @@
         </div>
 
         <!-- Bank Form -->
-        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-8 max-w-4xl" id="form-bank">
+        <div class="form-panel glass rounded-2xl p-8 max-w-4xl" id="form-bank">
           <h3 class="font-semibold text-navy mb-1">Bank Transfer</h3>
           <p class="text-sm text-slate-500 mb-8">Provide your sender and bank details. We will email you the recipient account information once your request is reviewed.</p>
 
@@ -227,7 +235,7 @@
              pattern already used on high-yield-savings.html/asset-performance.html's Sell
              modal) so the option-cards grid above stays at 3 cards instead of 4. Genuinely
              wired to requestWithdrawal() — this is a real request, not a UI stub. -->
-        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-6 max-w-xl" id="form-withdraw">
+        <div class="form-panel glass rounded-2xl p-6 max-w-xl" id="form-withdraw">
           <h3 class="font-semibold text-navy mb-1">Withdraw Funds</h3>
           <p class="text-sm text-slate-500 mb-4">Request a withdrawal from your available unallocated capital. A Portfolio Manager will review and approve before funds are sent.</p>
           <p class="text-sm text-navy bg-navy/5 rounded-lg px-4 py-2.5 mb-6" id="withdraw-available-line">Available to withdraw: —</p>
@@ -321,7 +329,7 @@
         </div>
 
         <!-- Success State -->
-        <div class="form-panel bg-white rounded-2xl border border-slate-200 p-8 max-w-xl text-center" id="form-success">
+        <div class="form-panel glass rounded-2xl p-8 max-w-xl text-center" id="form-success">
           <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <svg class="w-7 h-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
           </div>
