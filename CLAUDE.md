@@ -5822,6 +5822,101 @@ row 74.
   incomplete Phase C task; it is a genuinely separate, explicitly out-of-scope item blocked
   on a real Supabase Pro plan upgrade, logged in the Backend Requirements Register as its
   own row rather than left implied-covered by Phase C's own closure.
+- **★ Backend Migration Phase D — Stage 1: real market data + first real email
+  notifications (2026-09-06).** The first Phase D task — starts closing the last two
+  "Genuinely external" register items (rows 22-23, Market Snapshot/Currency Converter) and
+  builds this project's first-ever outbound email. Local stack first, then deployed to real
+  cloud staging after local verification passed clean, per the standing Cloud Staging Parity
+  convention.
+  **Part A — real market data.** New `market_data_cache` table (`symbol` primary key,
+  `value`/`change_percent`/`source`/`last_updated`, admin+authenticated-read RLS). New
+  `get-market-snapshot` Edge Function fetches SPY/QQQ from Finnhub and BTC/ETH from
+  CoinGecko, caching results for 15 minutes so a client refreshing their dashboard doesn't
+  hammer either real external API. **A real, disclosed finding, not silently worked
+  around**: Finnhub's free tier does NOT support direct S&P 500/NASDAQ index quotes
+  (`^GSPC`/`^IXIC` return `"Market data subscription required for CFD indices."`, confirmed
+  directly) — used the standard real-world proxy instead, SPY/QQQ ETFs, labeled honestly as
+  "SPY (S&P 500 ETF)"/"QQQ (NASDAQ-100 ETF)" rather than fabricating an index-equivalent
+  number via an approximate multiplier, the same "never look more real than it is"
+  discipline Phase C — Stage 3's own 2FA finding already established. New
+  `convert-currency` Edge Function uses Frankfurter (ECB-backed, no key needed), queried
+  live on every real conversion request — deliberately NOT cached the way the snapshot is,
+  since a converter's whole point is "convert THIS amount right now," not a periodic poll.
+  Both wired into `dashboard.html`'s Market Snapshot and Currency Converter cards, replacing
+  the static hardcoded figures (5,248 / 16,742 / $67,420 / $3,418) that had been there since
+  the engine was first built.
+  **Part B — first real email notifications.** New `email_log` audit table (`recipient`/
+  `subject`/`sent_at`/`related_entity_type`/`related_entity_id`/`status`/`resend_id`/
+  `error_message`, admin-only read RLS, no client-side INSERT for any role). New shared
+  `_shared/send-email.ts` (mirrors `hys-engine.ts`'s own "one shared module, every caller
+  imports from here" discipline) wraps the Resend API and logs every attempt. **A
+  deliberate design decision, stated in the module's own header**: a failed send (Resend
+  rejects, network error, missing key) is caught and logged `status: 'failed'` — it never
+  throws back to the caller, since the two real trigger points wired this stage are money/
+  identity-moving actions whose own success must never depend on whether the follow-up
+  email happened to send. Wired into exactly 3 real trigger points as a proof of pattern,
+  each a minimal, additive diff to the function's existing logic/return shape:
+  `approve-client-application` ("Your Marketswave application has been approved"),
+  `reject-client-application` ("An update on your Marketswave application," includes the
+  reason if given), and `credit-deposit` ("Your Marketswave deposit has been credited," the
+  PM-confirmed amount).
+  **Real third-party keys, handled per this project's established secret discipline**: both
+  `FINNHUB_API_KEY`/`RESEND_API_KEY` were already set on real cloud staging (via
+  `supabase secrets set`) but had no local-stack equivalent — added to a new, gitignored
+  `supabase/functions/.env` (the standard Supabase-documented location the local edge-
+  runtime reads automatically), never committed, never printed after initial setup. **A
+  real, disclosed mistake made and self-corrected during setup**: a throwaway
+  `test-env-check` function was accidentally deployed to REAL cloud staging while confirming
+  the keys were readable (there is no local-only `functions deploy`) — caught immediately via
+  `supabase functions list` and deleted from both environments before any further work. **A
+  second real finding**: the Finnhub key already set on real cloud staging turned out to be
+  stale/invalid (a live call returned a real `401`) — re-set with the confirmed-working value
+  before the real cloud-staging proof could succeed.
+  **Resend's real sandbox restriction, confirmed empirically, not assumed**: without a
+  verified sending domain, `onboarding@resend.dev` can only deliver to Resend's own fixed
+  test address or the EXACT email address registered to the account — a `+alias` variant of
+  that address is genuinely rejected (`"You can only send testing emails to your own email
+  address"`), confirmed via a real attempt that landed correctly in `email_log` as a real,
+  honest `failed` row before the exact registered address was used instead.
+  **Verified, local stack**: 3 new scripts, 47 new assertions —
+  `verify-supabase-market-data.js` (22, including **the critical "not cached forever"
+  proof**: manually backdating a cache row's `last_updated` to 20 minutes ago forces a
+  genuine re-fetch, and an independent direct Frankfurter call cross-checks the Edge
+  Function's own conversion result), `verify-supabase-email-notifications.js` (14, using a
+  deliberately unreachable `@invalid.test` domain to prove the real failure-logging path
+  without spamming a real inbox on every regression run), and
+  `verify-dashboard-market-currency-ui.mjs` (11, the established jsdom real-DOM harness,
+  including two real bugs caught and fixed in the test itself — polling for the async
+  skeleton's own intermediate state instead of final content, and an innerHTML-vs-textContent
+  HTML-entity-encoding mismatch). Full existing suite re-run for zero regression (595 prior
+  assertions unaffected, plus the golden-path script).
+  **Real end-to-end proof, both locally and against real cloud staging itself**: three real
+  emails sent to a real inbox the user controls during local verification (approval,
+  rejection, deposit credit — each with a real Resend message id, `status: "sent"` in
+  `email_log`); then, after deploying the migration and all 5 new/modified functions to real
+  cloud staging (dry-run first, `verify-cloud-staging-parity.js` confirmed clean before and
+  after) and fixing the stale Finnhub key found there, a complete real signup → approve
+  round trip run directly against real cloud staging (not a script simulating it) produced a
+  real, delivered email with a real Resend message id, confirmed via a direct `email_log`
+  read — proving the pattern survives the move from local to real infrastructure, not just
+  passing in isolation. All real test artifacts (the temporary staging test client, its auth
+  user, and one orphaned auth user from a mid-test correction) were fully cleaned up
+  afterward, confirmed via a direct re-query.
+  **Report requested per instruction — which of the remaining ~20 admin-write functions
+  could similarly trigger email in a future stage**: high-value client-facing outcome
+  events not yet wired — `reject-deposit`, `approve-withdrawal`/`reject-withdrawal`,
+  `approve-allocation`/`reject-allocation`, `approve-sell`/`reject-sell`,
+  `credit-hys-deposit`/`reject-hys-deposit`, `approve-hys-withdrawal`/
+  `reject-hys-withdrawal`, `approve-profile-change`/`reject-profile-change` (13 functions,
+  each a single-recipient, single-outcome event exactly like the 3 already wired); lower-
+  urgency but still plausible — `update-support-ticket` (a PM responded), `publish-document`
+  (a new document needs review/signature); NOT good candidates for this same single-
+  recipient pattern — `add-product`/`edit-product`/`update-advisory-fee-rate` (platform-wide,
+  no single client recipient; a rate change would need a bulk/broadcast send, a different
+  shape entirely) and `execute-buy`/`execute-sell` (internal-only, called BY
+  `approve-allocation`/`approve-sell` — wiring email there directly would duplicate whatever
+  the caller already sends).
+  CLAUDE.md updated in place.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -5968,7 +6063,17 @@ starting-price typo" override for the Product Catalog, if that turns out to be a
 operational need — flagged, not built, per the Edit Product judgment call in §4.63. See the
 handover doc §5, §9 for the fuller forward-path discussion (note: §9's table predates both
 this phase and Admin Tool Phase B, and is stale in places — the Tech Stack log here,
-§4.41-§4.71, and the new §12 are the current source of truth).
+§4.41-§4.71, and the new §12 are the current source of truth). **Backend Migration Phase D
+— Stage 1 (2026-09-06, row 142)** started the genuinely-external register items: Market
+Snapshot and Currency Converter (rows 22-23) are now real, live data, not stubs — only
+crypto on-chain confirmation (row 24) remains a genuine external-data gap in that group.
+The same stage also shipped this project's first real outbound email (approve/reject-
+client-application, credit-deposit) and reported which of the remaining admin-write
+functions are good candidates to wire next — see that Tech Stack entry above for the
+itemized list rather than re-deriving it. Three more "did I break X" checks now exist:
+`node scripts/verify-supabase-market-data.js` (market data/currency), `node
+scripts/verify-supabase-email-notifications.js` (email logging), and `npm run
+verify-dashboard-market-currency-ui` (from `scripts/`, dashboard.html's own UI).
 
 ## Known structural debt
 
