@@ -6030,6 +6030,33 @@ row 74.
   project is now wired**; `add-product`/`edit-product`/`update-advisory-fee-rate` and
   `execute-buy`/`execute-sell` stay excluded, reaffirmed from Stage 1's own original report.
   Backend Requirements Register row 144.
+- **★ Real end-to-end verification against the LIVE hosted site (2026-09-06) — the first
+  time this whole accumulated batch (Admin Auth Consolidation through Phase D Stage 2) was
+  tested against real production hosting conditions.** Verification-only, no code changes.
+  **No real browser automation tool was available in this session — confirmed before
+  starting, disclosed rather than silently substituted.** Instead, the exact real requests
+  the live site's own deployed JS makes were replayed in order, using config values SCRAPED
+  LIVE from the real deployed `supabase-config.js` (not the local repo) and call sequences
+  read directly from the real deployed `signup.html`/`login.html`/`dashboard.html`/
+  `deploy-capital.html`/`admin-login.html`/`admin-deposits.html` — proving the real
+  deployment → real backend → real CORS → real data chain end to end, but NOT independently
+  proving the rendered HTML/CSS/click-handlers are bug-free in an actual browser, a
+  limitation stated plainly. **Pre-flight**: confirmed via direct `curl` that GitHub Pages
+  had actually redeployed the latest push (the real live `admin-login.html` serves the new
+  email/password form; the real live `dashboard.html` serves the new
+  `market-snapshot-grid`; the real live `supabase-config.js` defaults to real Supabase
+  staging on a non-localhost domain with zero query params); confirmed `_shared/cors.ts`'s
+  `Access-Control-Allow-Origin: '*'` rules out a real CORS-rejection risk against the actual
+  `github.io` origin. **All 6 requested steps run for real, in sequence, against real cloud
+  staging, using a real client identity at the user's own real inbox**: real signup → real
+  Supabase confirmation via direct query → real PM approval → a real approval email logged
+  `sent` → real client login loading real dashboard data (a genuine graceful 404 for a new
+  client's account state, $0 TPV, real live Market Snapshot figures — BTC $79,984, not the
+  old hardcoded $67,420 — and a real live currency conversion) → a real $4,200 deposit
+  request, credited, producing a real transaction id and a second real email. **Human-
+  confirmed, not just a script's success response**: both real emails (approval + deposit
+  credit) confirmed received in the user's own real inbox. All real test artifacts deleted
+  afterward. Zero failures across all 6 steps. Backend Requirements Register row 145.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
