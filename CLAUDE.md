@@ -5992,6 +5992,44 @@ row 74.
   account produced a real updated price, a real `nav_publications` row with real attribution,
   and `last_tick_date` correctly advanced to the real `effective_date`. CLAUDE.md updated in
   place. Backend Requirements Register row 143.
+- **★ Backend Migration Phase D — Stage 2: all 15 remaining real email triggers wired —
+  closes the full Phase D email line item (2026-09-06).** Wires the 13 high-value candidates
+  Stage 1's own report named (`reject-deposit`, `approve/reject-withdrawal`, `approve/reject-
+  allocation`, `approve/reject-sell`, `credit/reject-hys-deposit`, `approve/reject-hys-
+  withdrawal`, `approve/reject-profile-change`) plus the 2 lower-urgency ones from that same
+  list (`update-support-ticket`, `publish-document`), using the exact non-blocking
+  `_shared/send-email.ts` pattern Stage 1 proved. **Each domain gets genuinely distinct, real
+  content, not one template reused everywhere**: rejections quote the real requested amount
+  and reason; approvals quote the real approved/executed amount and (for allocation/sell) the
+  real product name via a small parallel `products` lookup; HYS deposit emails describe the
+  real pocket type and term label; HYS withdrawal approvals mention a forfeiture note only
+  when `forfeit` is genuinely true; profile-change emails reuse the exact same human-readable
+  field labels `admin-profile-updates.html` already uses, so client and PM wording never
+  disagree; `update-support-ticket` composes a genuinely different subject for a `Resolved`
+  move versus any other status change; `publish-document` composes different content for a
+  signature-required document versus a plain one. **Verified**: new `scripts/verify-
+  supabase-email-triggers-stage2.js`, 85/85 assertions (one real bug caught in the test's own
+  `support_requests` category value — `'General'` isn't valid per that table's own CHECK
+  constraint, fixed to `'Other'`) — covers all 15 trigger points against a deliberately
+  unreachable domain, mirroring Stage 1's own regression-safe technique. **The explicitly-
+  required human-confirmed real-inbox proof, a representative sample across every domain, not
+  a re-test of Stage 1's same 3**: 9 real emails sent to a real inbox the user controls, one
+  per domain, mixing approve/reject content — a genuine mid-run test-setup bug (a missing
+  `account_state` row in the throwaway sample script, confirmed NOT present in the real
+  85-assertion regression script) was caught, fixed, and that one email resent successfully.
+  Full existing Supabase suite re-run for zero regression (1014 prior assertions unaffected)
+  — this run also caught and fixed a real test-SCOPE bug in `verify-supabase-nav-
+  publications.js`'s own migration-backfill check (row 143): it asserted every CURRENT
+  PE/Real Assets product has NAV history, which broke against real leftover test products a
+  different, unrelated script leaves behind — narrowed to check only the two originally-
+  seeded products the one-time backfill actually covered. **Deployed to real cloud staging**:
+  all 15 modified functions redeployed, parity confirmed clean afterward, and a real
+  end-to-end proof (`reject-deposit`) produced a real delivered email with a real Resend
+  message id directly against real cloud staging. CLAUDE.md updated in place. **This closes
+  the full Phase D email line item — every real trigger point across every domain in this
+  project is now wired**; `add-product`/`edit-product`/`update-advisory-fee-rate` and
+  `execute-buy`/`execute-sell` stay excluded, reaffirmed from Stage 1's own original report.
+  Backend Requirements Register row 144.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -6154,6 +6192,10 @@ data/NAV line item — Private Equity/Real Assets products now move only via a r
 NAV, never the simulated tick. A fourth "did I break X" check: `node
 scripts/verify-supabase-nav-publications.js` (the settlement carve-out, `publish-nav`, and
 the Stocks & ETFs/Crypto regression it depends on staying unaffected).
+**Phase D — Stage 2 (2026-09-06, row 144)** closed the full Phase D email line item — all 15
+remaining real trigger points (deposits/withdrawals/allocations/sells/HYS/profile-changes/
+support/documents) are now wired, alongside Stage 1's original 3. A fifth "did I break X"
+check: `node scripts/verify-supabase-email-triggers-stage2.js`.
 
 ## Known structural debt
 
