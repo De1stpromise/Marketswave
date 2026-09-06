@@ -5655,6 +5655,90 @@ row 74.
   `setCurrentClientId()`) was never re-examined THIS stage for whether a multi-PM admin
   session could leak into a client session or vice versa — both genuinely untested here, not
   silently assumed safe.
+- **★ Backend Migration Phase C — Stage 2: "View as Client" session isolation — CLOSED,
+  no leak found, proven with the same rigor as a real fix (2026-09-06).** Closes the risk
+  flagged at the end of Stage 1. Investigated first, per instruction, before writing any
+  test: read admin-clients.html's real "View as this Client" mechanism end to end. It calls
+  exactly one function, setCurrentClientId(id) (engine-core.js:494-498), a plain
+  sessionStorage.setItem('marketswave_current_client_id', id) — nothing more. This function
+  never reads, writes, or references the real Supabase Auth session in any way; that session
+  lives entirely inside the Supabase JS SDK's own GoTrueClient instance, under a completely
+  different storage key (sb-marketswave-admin-auth-token for the admin — Admin Auth
+  Consolidation's own explicit, distinct storageKey — or the SDK's own default
+  sb-<hostname>-auth-token for a client-facing page), a wholly separate subsystem
+  setCurrentClientId() has no reference to at all. The button is also structurally gated off
+  for exactly the scenario the task describes: confirmed via the render logic (isSupabase =
+  c._source === 'supabase') that "View as this Client" never renders at all for a real
+  Supabase-authenticated client — only for a local/legacy one — already partially confirmed
+  by verify-admin-final-wiring.mjs's own test 4c, but that only proved the UI gate, not the
+  underlying primitive. This stage tests one level deeper: calling setCurrentClientId()
+  DIRECTLY against a real Supabase client's real uid, bypassing the UI gate entirely, to
+  prove the raw mechanism itself cannot leak — not merely that the button happens to be
+  hidden today.
+
+  New scripts/verify-view-as-client-isolation.mjs, using ONE real jsdom window (real Storage
+  implementations, not stubs) as the shared browser tab both a REAL admin Supabase session
+  (admin-supabase-config.js, unmodified) and REAL engine-core.js execute against — the same
+  faithful "one page, one shared storage, two subsystems" reproduction of the real production
+  page. PART A: signed in as a real admin, called setCurrentClientId(a real Supabase client's
+  real uid) directly, then proved: the admin's real session token in localStorage is
+  byte-identical before/after; the admin Supabase client's own live session (getSession())
+  still resolves to the real admin's own id, never the viewed client's; a real
+  admin-authorized Edge Function call made immediately afterward
+  (approve-client-application) still succeeds AS THE REAL ADMIN, with the resulting real
+  attribution (Phase C Stage 1's own new columns) correctly showing the real admin's
+  id+email, never the viewed client's — the concrete, observable consequence that would
+  exist if any contamination had occurred; the window's entire real localStorage is
+  completely unchanged (only sessionStorage's plain ambient key ever moves); the real UI gate
+  re-confirmed absent for this exact client via the real admin-clients.html page itself.
+  PART B: a second, genuinely independent real client session — its own separate new JSDOM()
+  window with its own separate real localStorage object, sharing nothing with Part A's window
+  — signed in as the real client being "viewed" in Part A, and proved: their own session
+  (re-fetched AFTER every Part A action) is still genuinely valid and still their own; their
+  own access token is byte-identical before/after everything Part A did; their own
+  localStorage is completely unchanged; nothing resembling the admin's own local ambient
+  variable ever appears in it, confirming no leak in the reverse direction either.
+
+  A real environment finding made and fixed while building this test, not a production bug:
+  the test's own localStorage-persistence checks initially found the admin session token
+  genuinely never landed in the jsdom window's real localStorage at all — traced directly to
+  a missing bare document global (confirmed against the installed SDK source,
+  @supabase/auth-js's supportsLocalStorage() calls isBrowser():
+  typeof window !== 'undefined' && typeof document !== 'undefined' — the same finding
+  verify-admin-real-login.mjs's own header already documented once before, re-discovered
+  here because this test's global setup only set window/localStorage, not bare document);
+  without it the SDK silently falls back to an in-memory adapter regardless of
+  persistSession's own value, which would have made the whole test pass for the wrong reason
+  (proving nothing about real persisted-session isolation). Fixed by setting
+  globalThis.document = adminDom.window.document alongside window/localStorage. A second,
+  cosmetic-only SDK warning ("Multiple GoTrueClient instances detected in the same browser
+  context") was investigated and confirmed harmless — a diagnostic artifact of running two
+  independent createClient() instances in one Node process (this test harness's own
+  reality), never evidence of actual cross-contamination, since every identity/token
+  comparison still passed and two real, separate browser tabs would never share a JS process
+  at all.
+
+  Verified: 18/18 assertions passing. Full existing Supabase suite re-run for zero regression
+  (no application code was changed this stage — no leak was found to fix):
+  verify-supabase-schema.js 16/16, verify-supabase-portfolio-engine.js 40/40,
+  verify-supabase-deposits-withdrawals.js 76/76, verify-supabase-allocations-sells.js 88/88,
+  verify-supabase-hys.js 112/112, verify-supabase-final-approval-gate.js 69/69,
+  verify-supabase-documents-support.js 67/67, verify-admin-final-wiring.mjs 39/39,
+  verify-supabase-pm-attribution.js 52/52 (559 total, unaffected), plus
+  supabase-golden-path-regression.js PASS (16/16 steps). Real cloud staging untouched —
+  nothing to deploy, since no migration or Edge Function changed this stage;
+  verify-cloud-staging-parity.js re-confirmed clean regardless (11/11, 37/37).
+
+  The conclusive mechanism-level answer, not just an absence of symptoms: "View as this
+  Client" structurally cannot affect any real Supabase session in either direction, for two
+  independent, both-confirmed reasons — (a) it is gated off entirely for the one identity
+  type (a real Supabase client) the risk could ever apply to, and (b) even the underlying
+  primitive it uses for the case it IS gated on for (a local client) touches a single
+  sessionStorage key that no part of the Supabase JS SDK, on either the admin's or any
+  client's side, ever reads or writes. This closes the risk that had been sitting flagged,
+  untested, since the original migration plan was written — the real Admin APIs behind
+  password/2FA reset for a PM's own account (Stage 1's other remaining item) is still the
+  one open item in Phase C.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

@@ -33,7 +33,8 @@
     "verify-cloud-staging-parity": "node verify-cloud-staging-parity.js",
     "supabase-bootstrap-additional-pm": "node supabase-bootstrap-additional-pm.js",
     "supabase-staging-bootstrap-additional-pm": "node supabase-staging-bootstrap-additional-pm.js",
-    "supabase-verify-pm-attribution": "node verify-supabase-pm-attribution.js"
+    "supabase-verify-pm-attribution": "node verify-supabase-pm-attribution.js",
+    "verify-view-as-client-isolation": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-view-as-client-isolation.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
