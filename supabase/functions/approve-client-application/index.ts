@@ -41,6 +41,7 @@
 //      Bypasses RLS entirely, the exact same role the Admin SDK plays on the Firebase side.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
 
     const { data: existing, error: fetchError } = await adminClient
       .from('clients')
-      .select('status')
+      .select('status, name, email')
       .eq('id', clientId)
       .single();
     if (fetchError || !existing) {
@@ -104,6 +105,21 @@ Deno.serve(async (req) => {
     if (updateError) {
       return jsonResponse({ error: 'Update failed: ' + updateError.message }, 500);
     }
+
+    // Backend Migration Phase D — Stage 1 (2026-09-06): a real client's very first real
+    // signal from the platform. Best-effort — see send-email.ts's own header for why a
+    // failed/misconfigured send never fails this already-successful approval. Genuinely
+    // awaited (not fire-and-forget) since a Deno Edge Function can be torn down the moment
+    // its response is sent — an un-awaited send risks being cut off mid-flight. The
+    // response shape below is completely unchanged either way: exactly the same
+    // { id, status } this function has always returned.
+    await sendEmail(adminClient, {
+      to: existing.email,
+      subject: 'Your Marketswave application has been approved',
+      html: '<p>Hi ' + existing.name + ',</p><p>Your Marketswave account application has been approved. You can now sign in and access your dashboard.</p>',
+      relatedEntityType: 'client_application',
+      relatedEntityId: clientId
+    });
 
     return jsonResponse({ id: clientId, status: 'active' }, 200);
   } catch (err) {

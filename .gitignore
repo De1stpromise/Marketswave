@@ -11,3 +11,10 @@ emulator-data/
 
 # Backend Migration Phase 0 (Aug 26, 2026) — dev-only tooling in scripts/, not deployed
 scripts/node_modules/
+
+# Backend Migration Phase D — Stage 1 (2026-09-06) — real third-party API keys for the
+# LOCAL Supabase stack (real cloud staging's own copies live in its Vault, set via
+# `supabase secrets set`, never in a file at all). This is the standard Supabase-documented
+# location the local edge-runtime reads automatically — must never be committed.
+supabase/functions/.env
+supabase/functions/.env.*

@@ -143,30 +143,16 @@
         <!-- Third Row: Market Prices + Currency Converter -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          <!-- Market Price Cards -->
+          <!-- Market Price Cards — Backend Migration Phase D, Stage 1 (2026-09-06): real
+               data from get-market-snapshot, replacing the static figures that were here
+               since the engine was first built. SPY/QQQ are real, honest labels — Finnhub's
+               free tier has no direct S&P 500/NASDAQ index quote (a real, disclosed
+               constraint — see get-market-snapshot's own header) — the SAME 4 grid slots are
+               reused, no layout change. -->
           <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
             <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p class="text-xs text-slate-500 mb-1">S&P 500</p>
-                <p class="text-lg font-semibold text-navy">5,248</p>
-                <p class="text-xs text-emerald-600 mt-1">+0.8%</p>
-              </div>
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p class="text-xs text-slate-500 mb-1">NASDAQ</p>
-                <p class="text-lg font-semibold text-navy">16,742</p>
-                <p class="text-xs text-emerald-600 mt-1">+1.2%</p>
-              </div>
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p class="text-xs text-slate-500 mb-1">BTC</p>
-                <p class="text-lg font-semibold text-navy">$67,420</p>
-                <p class="text-xs text-red-500 mt-1">-1.4%</p>
-              </div>
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                <p class="text-xs text-slate-500 mb-1">ETH</p>
-                <p class="text-lg font-semibold text-navy">$3,418</p>
-                <p class="text-xs text-emerald-600 mt-1">+0.6%</p>
-              </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="market-snapshot-grid">
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-4 text-center text-sm text-slate-400" id="market-snapshot-loading">Loading real market data…</div>
             </div>
           </div>
 
@@ -200,7 +186,8 @@
               </div>
               <div class="pt-2">
                 <p class="text-xs text-slate-500">Result</p>
-                <p class="text-xl font-semibold text-navy" id="convert-result">€920.00</p>
+                <p class="text-xl font-semibold text-navy" id="convert-result">—</p>
+                <p class="text-xs text-slate-400 mt-1 hidden" id="convert-rate-note"></p>
               </div>
             </div>
           </div>
@@ -227,8 +214,10 @@
     // B, Stage 1's get-account-state/get-holdings/get-transaction-ledger/
     // get-total-portfolio-value, plus a direct authorized read of the `products` table) —
     // this is the FIRST page in the project wired to any real Supabase backend logic.
-    // Market Snapshot and Currency Converter remain deliberately untouched — both need real
-    // external market/FX data, tracked separately in the Backend Requirements Register.
+    // Market Snapshot and Currency Converter were deliberately left untouched at the time this
+    // comment was written — both needed real external market/FX data. Closed by Backend
+    // Migration Phase D, Stage 1 (2026-09-06): see the separate script block below this one,
+    // wired to the new get-market-snapshot/convert-currency Edge Functions.
     //
     // ---- IDENTITY, investigated before changing anything, per instruction ----
     // This page does NOT need to start reading the real Supabase session directly for
@@ -630,6 +619,87 @@
           }).join('');
         }
       });
+    })();
+  </script>
+
+  <script>
+    // Backend Migration Phase D — Stage 1 (2026-09-06): Market Snapshot + Currency Converter,
+    // the two cards deliberately left untouched by every prior UI Wiring stage (see this
+    // page's own comment above, "both need real external market/FX data, tracked separately
+    // in the Backend Requirements Register") — closed now via get-market-snapshot/
+    // convert-currency. A separate, self-contained script block rather than folded into the
+    // existing IIFE above, since these two cards have no dependency on this page's own
+    // portfolio-data loading and don't need to share any of its state.
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+
+      var CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', SEK: 'kr' };
+
+      function loadMarketSnapshot() {
+        return MarketswaveData.renderAsyncBundle(document.getElementById('market-snapshot-grid'), {
+          load: function () { return MarketswaveData.callFunction('get-market-snapshot'); },
+          render: function (result) {
+            var grid = document.getElementById('market-snapshot-grid');
+            grid.innerHTML = result.data.map(function (item) {
+              var isUp = item.changePercent >= 0;
+              var displayValue = item.symbol === 'BTC' || item.symbol === 'ETH'
+                ? '$' + Math.round(item.value).toLocaleString()
+                : Math.round(item.value * 100) / 100;
+              return '<div class="p-4 rounded-xl bg-slate-50 border border-slate-100">' +
+                '<p class="text-xs text-slate-500 mb-1">' + item.label + '</p>' +
+                '<p class="text-lg font-semibold text-navy">' + displayValue + '</p>' +
+                '<p class="text-xs mt-1 ' + (isUp ? 'text-emerald-600' : 'text-red-500') + '">' +
+                (isUp ? '+' : '') + item.changePercent.toFixed(2) + '%</p>' +
+                '</div>';
+            }).join('');
+          }
+        });
+      }
+
+      loadMarketSnapshot();
+
+      // Currency Converter — live, auto-updating on any input change (this card has never
+      // had a dedicated "Convert" button, only a static result) rather than adding a new UI
+      // element for what's already framed as a "Simple Currency Converter."
+      var amountInput = document.getElementById('convert-amount');
+      var fromSelect = document.getElementById('convert-from');
+      var toSelect = document.getElementById('convert-to');
+      var resultEl = document.getElementById('convert-result');
+      var rateNoteEl = document.getElementById('convert-rate-note');
+      var convertTimer = null;
+
+      function runConversion() {
+        var amount = parseFloat(amountInput.value);
+        if (!isFinite(amount) || amount < 0) {
+          resultEl.textContent = '—';
+          rateNoteEl.classList.add('hidden');
+          return;
+        }
+        MarketswaveData.callFunction('convert-currency', { amount: amount, from: fromSelect.value, to: toSelect.value }).then(function (result) {
+          var symbol = CURRENCY_SYMBOLS[result.to] || '';
+          resultEl.textContent = symbol + result.result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          if (result.rate !== null && result.from !== result.to) {
+            rateNoteEl.textContent = '1 ' + result.from + ' = ' + result.rate.toFixed(4) + ' ' + result.to + (result.asOf ? ' (as of ' + result.asOf + ')' : '');
+            rateNoteEl.classList.remove('hidden');
+          } else {
+            rateNoteEl.classList.add('hidden');
+          }
+        }).catch(function () {
+          resultEl.textContent = 'Unavailable';
+          rateNoteEl.classList.add('hidden');
+        });
+      }
+
+      function debouncedConvert() {
+        clearTimeout(convertTimer);
+        convertTimer = setTimeout(runConversion, 400);
+      }
+
+      amountInput.addEventListener('input', debouncedConvert);
+      fromSelect.addEventListener('change', runConversion);
+      toSelect.addEventListener('change', runConversion);
+
+      runConversion();
     })();
   </script>
 </body>

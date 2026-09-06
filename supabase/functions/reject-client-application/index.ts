@@ -10,6 +10,7 @@
 // applicationReason, PM-supplied, optional.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
 
     const { data: existing, error: fetchError } = await adminClient
       .from('clients')
-      .select('status')
+      .select('status, name, email')
       .eq('id', clientId)
       .single();
     if (fetchError || !existing) {
@@ -82,6 +83,17 @@ Deno.serve(async (req) => {
     if (updateError) {
       return jsonResponse({ error: 'Update failed: ' + updateError.message }, 500);
     }
+
+    // Backend Migration Phase D — Stage 1 (2026-09-06). Best-effort, genuinely awaited (not
+    // fire-and-forget) — see approve-client-application/index.ts's own identical comment for
+    // the full "why." Response shape unchanged.
+    await sendEmail(adminClient, {
+      to: existing.email,
+      subject: 'An update on your Marketswave application',
+      html: '<p>Hi ' + existing.name + ',</p><p>We were unable to approve your Marketswave account application' + (reason ? ': ' + reason : '.') + ' Please contact support if you have any questions.</p>',
+      relatedEntityType: 'client_application',
+      relatedEntityId: clientId
+    });
 
     return jsonResponse({ id: clientId, status: 'rejected' }, 200);
   } catch (err) {

@@ -23,6 +23,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -125,6 +126,23 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 1 (2026-09-06): a common, high-value real event.
+    // Best-effort, genuinely awaited (not fire-and-forget) — see
+    // approve-client-application/index.ts's own identical comment for the full "why." A
+    // failed client lookup here (should never happen — clientId came from the request's own
+    // real client_id) degrades to skipping the email rather than failing an already-credited
+    // deposit; response shape unchanged either way.
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'Your Marketswave deposit has been credited',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>A deposit of $' + round2(confirmedAmount).toLocaleString() + ' has been credited to your account and is now available as unallocated capital.</p>',
+        relatedEntityType: 'deposit_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {
