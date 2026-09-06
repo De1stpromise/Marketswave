@@ -7,6 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -30,14 +31,20 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
+             in top-right whitespace -- same restraint/technique as the client dashboard
+             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
+             would break this scrollable container's own vertical scroll). -->
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-slate-900">Product Catalog</h2>
           <p class="text-slate-500 mt-1">Every product available for client allocation — global across all clients, not scoped to one.</p>
         </div>
 
-        <div class="bg-white rounded-2xl border border-slate-200">
+        <div class="glass rounded-2xl">
 
           <!-- Search + Add Product -->
           <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
@@ -434,7 +441,7 @@
             '<div id="nav-history-' + p.id + '"></div>' +
           '</div>';
         return '<tr class="expand-row">' +
-          '<td colspan="6" class="px-6 pb-5 pt-0 bg-slate-50/60">' +
+          '<td colspan="6" class="px-6 pb-5 pt-0 glass-subtle">' +
             '<div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">' +
               '<div>' +
                 '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Created</p>' +

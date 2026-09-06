@@ -331,7 +331,12 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       // ".flex h-screen" wrapper doesn't cascade down to here (same root cause documented
       // for dashboard-sidebar.js's own aside — see CLAUDE.md's sidebar-height bug note).
       // Explicit h-screen is the proven fix, reused as-is.
-      '<aside id="admin-sidebar-aside" class="w-64 h-screen bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
+      // Admin/PM Tool Visual Treatment (2026-09-06): bg-slate-900 (solid, opaque) replaced
+      // with .glass-slate (glass-primitives.css) — the same restrained frosted-glass
+      // treatment just proven on the client sidebar, for consistency across both tools, but
+      // using slate tones (not .glass-dark's navy) so this sidebar keeps its own real
+      // wholesale-distinct identity. See glass-primitives.css's own .glass-slate comment.
+      '<aside id="admin-sidebar-aside" class="w-64 h-screen glass-slate text-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
         '<div class="h-16 flex items-center justify-between px-6 border-b border-white/10">' +
           '<span class="text-lg font-bold tracking-tight">MARKETSWAVE <span class="text-amber-400">PM</span></span>' +
           '<button type="button" id="admin-sidebar-close-btn" class="lg:hidden text-white/70 hover:text-white transition" aria-label="Close menu">' +

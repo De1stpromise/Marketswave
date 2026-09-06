@@ -7,6 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -19,13 +20,22 @@
     Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
   </div>
 
-  <div class="flex-1 flex items-center justify-center p-4">
-    <div class="w-full max-w-sm">
+  <!-- Admin/PM Tool Visual Treatment (2026-09-06): the one admin page given a richer,
+       public-site-closer treatment, per instruction -- a full-page login screen with no
+       dense data at all, nothing here competes with legibility. .blob-field is used
+       directly (not the overflow-x-hidden workaround every scrollable <main> elsewhere in
+       the admin tool needs) since this page has no vertical scroll to protect -- a plain
+       min-h-screen flex layout, confirmed by reading the real markup before choosing this. -->
+  <div class="flex-1 flex items-center justify-center p-4 blob-field">
+    <div class="blob blob--lg blob--gold -z-10" style="top:-140px; left:-120px;" aria-hidden="true"></div>
+    <div class="blob blob--md blob--blue -z-10" style="bottom:-100px; right:-80px;" aria-hidden="true"></div>
+    <div class="grid-overlay -z-10"></div>
+    <div class="w-full max-w-sm container">
       <div class="text-center mb-6">
         <span class="text-2xl font-bold tracking-tight text-slate-900">MARKETSWAVE <span class="text-amber-500">PM</span></span>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div class="glass rounded-2xl p-6">
         <p class="text-lg font-semibold text-slate-900 mb-1">Portfolio Manager Access</p>
         <p class="text-sm text-slate-500 mb-5" id="admin-login-subtitle">Sign in with your Portfolio Manager account.</p>
 

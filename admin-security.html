@@ -7,6 +7,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -30,7 +31,13 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
+             in top-right whitespace -- same restraint/technique as the client dashboard
+             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
+             would break this scrollable container's own vertical scroll). -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-slate-900">Account Security</h2>
@@ -40,7 +47,7 @@
         <!-- ========== MY ACCOUNT (Backend Migration Phase C — Stage 3, 2026-09-06) ==========
              Distinct from the client-reset actions logged below: this section is a PM
              resetting their OWN real Supabase Auth credentials, not a client's. -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
+        <div class="glass rounded-2xl p-6 mb-8">
           <h3 class="font-semibold text-slate-900 mb-1">My Account</h3>
           <p class="text-sm text-slate-500 mb-5">Signed in as <span id="my-account-email" class="font-medium text-slate-700">—</span>.</p>
 
@@ -85,7 +92,7 @@
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl border border-slate-200">
+        <div class="glass rounded-2xl">
           <div class="px-6 py-4 border-b border-slate-100">
             <h3 class="font-semibold text-slate-900">Security Actions Log <span id="log-count" class="text-slate-400 font-normal"></span></h3>
           </div>

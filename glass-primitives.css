@@ -153,6 +153,28 @@
   box-shadow: 4px 0 24px -8px rgba(0,0,0,0.25), inset -1px 0 0 rgba(255,255,255,0.04);
 }
 
+/* ---- .glass-slate — Admin/PM Tool Visual Treatment (2026-09-06). A FOURTH formal variant,
+   added the exact same way .glass-dark itself was: a genuine, reusable recipe for a
+   different context, not a per-page one-off. Built specifically for the admin tool's own
+   sidebar, which is DELIBERATELY a wholesale distinct color scheme from the client tool
+   (slate-900 + amber accents, never navy/cream — see CLAUDE.md's Admin/PM Tool Tech Stack
+   entry: "so the two can never be visually confused"). Reusing .glass-dark as-is here would
+   defeat that on purpose: its background is ~90%+ opaque navy, meaning the sidebar would
+   visibly read as navy-tinted rather than slate, blurring the exact distinction the whole
+   admin tool exists to keep unambiguous. .glass-slate is byte-for-byte .glass-dark's own
+   structure (same blur amount, same border/shadow language, same lack of ::before sheen) —
+   ONLY the two background color stops are swapped from navy to Tailwind's own slate-900/
+   slate-950 RGB values (15,23,42 / 2,6,23), so the admin sidebar keeps its own real slate
+   identity under the glass effect instead of borrowing the client tool's. ---- */
+.glass-slate {
+  position: relative;
+  background: linear-gradient(180deg, rgba(15,23,42,0.90) 0%, rgba(2,6,23,0.94) 100%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 4px 0 24px -8px rgba(0,0,0,0.25), inset -1px 0 0 rgba(255,255,255,0.04);
+}
+
 /* ---- .blob-field — a plain, reusable marker for "this section hosts background blobs" —
    just position:relative + a real overflow:hidden, so any section can drop 1-3 .blob
    children into itself for page-wide atmosphere without those blobs' own negative offsets

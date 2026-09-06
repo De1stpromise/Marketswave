@@ -6198,6 +6198,44 @@ row 74.
   seeded products off the grid's first page; cleaned up (confirmed none were referenced
   elsewhere), re-ran clean. Full existing Supabase suite re-run for zero regression after
   the cleanup. No cloud staging deployment needed. Backend Requirements Register row 148.
+- **★ Admin/PM Tool Visual Treatment — every admin page (2026-09-06).** Reuses
+  `glass-primitives.css` exactly. **Investigated all 15 admin pages first**: confirmed the
+  expected enumeration is complete. One real finding: none of the 7 Approval Gate queue
+  pages actually have a top "summary/stat surface" — each is purely a header + Pending +
+  History — reported rather than inventing one. A second judgment call: `admin-documents.
+  html`/`admin-support.html` aren't under the sidebar's own "Approval Gate" group but
+  structurally match the same Pending/History-container pattern — treated identically for
+  consistency. **A fourth formal primitive, `.glass-slate`**, added the same way
+  `.glass-dark` was: reusing `.glass-dark` (navy-toned) directly on the admin sidebar would
+  have visibly tinted it toward the client tool's own navy identity, defeating the project's
+  own locked "wholesale distinct color scheme... never visually confused" principle —
+  `.glass-slate` is byte-for-byte the same recipe with the two background stops swapped to
+  real slate-900/slate-950 RGB values, confirmed via computed style. Replaces `bg-slate-900`
+  on `#admin-sidebar-aside`; linked on all 15 pages. **admin.html**: all 13 pending-count
+  cards → `.glass-subtle`; all-clear banner → `.glass`; hover states re-confirmed still
+  fire. **Every queue page**: Pending/History outer containers → `.glass` (14 containers
+  across 7 pages, plus 3 more on `admin-documents.html`/`admin-support.html` —
+  `admin-documents.html`'s own "Publish to Client" form deliberately excluded, the one real
+  exception among these siblings). Rows confirmed via negative assertion to carry no glass
+  class. Approve/Reject/Credit buttons and PM-editable amount fields verified via real
+  computed style (opacity 1, pointer-events not none, plain white inputs) inside 4 real
+  opened modals. **admin-clients.html**: outer container → `.glass`; expanded-row detail
+  (`bg-slate-50/60`) → `.glass-subtle`, confirmed by actually clicking a real row.
+  **admin-products.html/admin-advisory-fee.html/admin-security.html**: card surfaces →
+  `.glass` (including the identical expanded-row pattern on admin-products.html); Add/Edit
+  Product modals left untouched. **admin-login.html — the one richer treatment**: confirmed
+  via markup it has no scrolling `<main>` at all, so `.blob-field` was used directly (2
+  blobs + `.grid-overlay`); the login card became a real `.glass` panel. **Blobs**: 1
+  restrained `blob--sm` per touched scrollable page (14 pages). **Verified**: a real seeded
+  test client with a real pending item in all 7 queues, browser-verified live via headless
+  Chrome over CDP — 57/57 assertions across two passes (one test-timing false negative on
+  an expand-row check, independently reconfirmed correct). Zero horizontal overflow at a
+  real 390px viewport across all 15 pages; a real throttled-network mid-load check; a real
+  contrast check on a page header. Full existing Supabase suite re-run for zero regression.
+  A second instance of the same leftover-test-product pollution already found once in the
+  prior task reappeared (from `verify-products-catalog-fix.mjs`'s own unreliable cleanup)
+  and was cleaned up again — flagged as worth a dedicated fix to that script's own teardown
+  logic. No cloud staging deployment needed. Backend Requirements Register row 149.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
