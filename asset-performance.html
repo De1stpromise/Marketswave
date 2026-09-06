@@ -26,6 +26,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -53,26 +54,31 @@
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment (2026-09-06): one restrained atmospheric
+             blob in top-right whitespace — see dashboard.html's own comment for why
+             `relative overflow-x-hidden` on <main> substitutes for .blob-field here. -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">Asset & Performance</h2>
           <p class="text-slate-500 mt-1">Allocation and performance across your portfolio.</p>
         </div>
 
-        <!-- Summary cards -->
+        <!-- Summary cards — .glass-subtle: a dense 3-card row. -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-sm text-slate-500 mb-1">Total Allocated Capital</p>
             <p class="text-2xl font-semibold text-navy" id="total-allocated-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-xs text-slate-400 mt-1" id="total-allocated-pct"><span class="inline-block h-3 w-20 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-sm text-slate-500 mb-1">Unallocated Capital</p>
             <p class="text-2xl font-semibold text-navy" id="unallocated-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-xs text-slate-400 mt-1" id="unallocated-pct"><span class="inline-block h-3 w-20 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-sm text-slate-500 mb-1">Total Asset Returns
               <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle ml-1">Unrealized</span>
             </p>

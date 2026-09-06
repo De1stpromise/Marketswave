@@ -28,6 +28,7 @@
   </script>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -59,7 +60,17 @@
 
       <!-- Page content -->
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment (2026-09-06): two very restrained atmospheric
+             blobs, positioned in whitespace (top-right margin, bottom-left past the last
+             row) rather than behind any card/text. `relative overflow-x-hidden` on <main>
+             (added above) is a deliberate substitute for the public site's own .blob-field
+             marker — that class's symmetric overflow:hidden would also kill this page's own
+             vertical scrolling, so containment is done asymmetrically via Tailwind utilities
+             instead. See glass-primitives.css's own .blob-field comment for the same note. -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-70px; right:-50px;" aria-hidden="true"></div>
+        <div class="blob blob--sm blob--gold -z-10" style="bottom:40px; left:-60px;" aria-hidden="true"></div>
 
         <!-- Welcome -->
         <div class="mb-8">
@@ -70,27 +81,42 @@
         <!-- Top Stats Row -->
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
 
-          <!-- Total Portfolio Value - Prominent -->
-          <div class="md:col-span-2 bg-gradient-to-br from-navy to-navy-dark rounded-2xl p-6 text-white shadow-lg">
-            <p class="text-sm text-white/70 mb-1">Total Portfolio Value</p>
-            <p class="text-3xl font-bold tracking-tight" id="tpv-amount"><span class="inline-block h-8 w-48 bg-white/20 rounded animate-pulse"></span></p>
+          <!-- Total Portfolio Value - Prominent. Client Dashboard Visual Treatment
+               (2026-09-06): the dark navy gradient card became a light .glass card,
+               matching the restrained public-site language rather than a forked "dark
+               glass" variant — its own hero distinctiveness now comes from size
+               (md:col-span-2), position, and text-3xl weight, not a color inversion.
+               .gradient-text was tried on the dollar figure itself and DELIBERATELY
+               REVERTED, per instruction to prioritize legibility over decorative
+               richness for a real financial figure: measured contrast at the gradient's
+               gold stop (#C8860A) against this card's light glass background comes out
+               to ~2.8:1, below WCAG's 4.5:1 minimum for text — a real, disclosed
+               legibility risk on this page's single most important number, not a
+               subjective taste call. Solid navy (matching every other card's own
+               dollar-figure treatment) is used instead. Every OTHER text color below was
+               still updated from white/white-on-navy to navy/slate for legibility on the
+               new light surface. -->
+          <div class="md:col-span-2 glass rounded-2xl p-6">
+            <p class="text-sm text-slate-500 mb-1">Total Portfolio Value</p>
+            <p class="text-3xl font-bold tracking-tight text-navy" id="tpv-amount"><span class="inline-block h-8 w-48 bg-slate-200 rounded animate-pulse"></span></p>
             <div class="flex items-center gap-2 mt-3">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300" id="tpv-monthly-change">
-                <span class="inline-block h-4 w-20 bg-white/20 rounded animate-pulse"></span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500" id="tpv-monthly-change">
+                <span class="inline-block h-4 w-20 bg-slate-200 rounded animate-pulse"></span>
               </span>
-              <span class="text-sm text-white/50">Updated just now</span>
+              <span class="text-sm text-slate-400">Updated just now</span>
             </div>
           </div>
 
-          <!-- Returns from Capital -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <!-- Returns from Capital — .glass-subtle: a dense 3-card row, matching the
+               calmer-sibling precedent already established for this density elsewhere. -->
+          <div class="glass-subtle rounded-2xl p-6">
             <p class="text-sm text-slate-500 mb-1">Asset Returns</p>
             <p class="text-2xl font-semibold text-navy" id="asset-returns-amount"><span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-sm text-emerald-600 mt-2">From initial capital</p>
           </div>
 
           <!-- Best Performing -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="glass-subtle rounded-2xl p-6">
             <p class="text-sm text-slate-500 mb-1">Best Performing Class</p>
             <p class="text-2xl font-semibold text-navy" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-sm text-emerald-600 mt-2" id="best-performing-return"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
@@ -113,8 +139,9 @@
 
           <!-- Risk Metrics + Recent Activity -->
           <div class="space-y-6">
-            <!-- Risk Metrics -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <!-- Risk Metrics — standalone card (not part of a dense multi-card row), so
+                 it gets the fuller .glass treatment rather than .glass-subtle. -->
+            <div class="glass rounded-2xl p-6">
               <h3 class="font-semibold text-navy mb-4">Risk Metrics</h3>
               <div class="space-y-3">
                 <div class="flex items-center justify-between gap-2 flex-wrap">
@@ -155,7 +182,7 @@
                (MarketswaveData.skeleton) shaped like the real final grid, replacing the old
                literal "Loading real market data…" TEXT this task's own item 2/3 flagged as
                an anti-pattern. -->
-          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="lg:col-span-2 glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="market-snapshot-grid"></div>
           </div>
@@ -339,7 +366,7 @@
       // ---- Total Portfolio Value ----
       var tpvEl = document.getElementById('tpv-amount');
       MarketswaveData.renderAsyncBundle(tpvEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-48', { dark: true, height: 'h-8' }),
+        skeletonHTML: MarketswaveData.skeleton.text('w-48', { height: 'h-8' }),
         load: loadDashboardData,
         render: function (data) {
           tpvEl.textContent = formatUSD(Math.round(data.tpv));
@@ -510,14 +537,14 @@
       // part of the account_state/holdings/products/transactions bundle above. ----
       var monthlyChangeEl = document.getElementById('tpv-monthly-change');
       MarketswaveData.renderAsyncBundle(monthlyChangeEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-20', { dark: true }),
+        skeletonHTML: MarketswaveData.skeleton.text('w-20'),
         load: function () {
           return MarketswaveData.callFunction('get-portfolio-monthly-change');
         },
         render: function (result) {
           if (result.changePercent === null) {
             monthlyChangeEl.textContent = 'New this month';
-            monthlyChangeEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/70';
+            monthlyChangeEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500';
             return;
           }
           var isUp = result.changePercent > 0;
@@ -525,7 +552,7 @@
           var sign = isUp ? '+' : '';
           monthlyChangeEl.textContent = sign + result.changePercent.toFixed(1) + '% this month';
           monthlyChangeEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' +
-            (isFlat ? 'bg-white/10 text-white/70' : (isUp ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'));
+            (isFlat ? 'bg-slate-100 text-slate-500' : (isUp ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'));
         }
       });
 

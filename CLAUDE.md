@@ -6101,6 +6101,53 @@ row 74.
   re-asserting the old fake-chip-count bug as a baseline, 67→69). Deployed
   `get-market-snapshot` to real cloud staging; `verify-cloud-staging-parity.js` confirmed
   clean before and after. Backend Requirements Register row 146.
+- **★ Client Dashboard Visual Treatment — the restrained public-site glass language applied
+  to real financial summary cards (2026-09-06).** Reuses the exact shared CSS primitives
+  already built for the public site (Homepage Visual Redesign, Stages 1-2) — `.glass`/
+  `.glass-subtle`/`.gradient-text`/`.blob`(+modifiers)/`.grid-overlay`/`.blob-field` —
+  extracted verbatim out of `styles.css` into a new `glass-primitives.css` (plus a small,
+  disclosed 4-token `:root` block, since dashboard pages define navy/cream as Tailwind
+  config JS, not CSS custom properties); `styles.css` now `@import`s it instead of defining
+  the rules itself. **Investigated all 10 client-facing pages, not just the task's named
+  list**: 4 had a qualifying top-level summary surface (`dashboard.html`'s TPV hero/Asset
+  Returns/Best Performing Class/Risk Metrics/Market Snapshot, `asset-performance.html`'s 3
+  summary cards, `high-yield-savings.html`'s 3 aggregate Summary Cards — explicitly not the
+  individual pocket cards, a data listing, `transactions.html`'s 4 summary cards) — exactly
+  the task's own list, confirmed rather than assumed. **6 pages reported as having no
+  qualifying card**: `asset-collection.html` (search/browse container), `documents.html`
+  (chips are inline badges, not cards), `deploy-capital.html` (action-selector buttons and
+  actual forms), `risk-management.html` (the Risk Meter card is dominated by an interactive
+  control carrying its own explicitly LOCKED gold/mahogany/deep-green palette — glass
+  deliberately not applied there to avoid disturbing it), `settings.html` (identity/edit
+  forms), `support.html` (action tiles). **Intensity scheme**: TPV hero alone gets full
+  `.glass` (true standalone hero); every other targeted card sits in a dense 3-4-across row
+  and gets `.glass-subtle`, reusing the exact calmer-sibling precedent Stage 2 already
+  established; `dashboard.html`'s standalone Risk Metrics/Market Snapshot cards get full
+  `.glass`. **A real reversal, reported not hidden**: `.gradient-text` was tried on the TPV
+  dollar figure, then reverted after measuring its gold stop at ~2.8:1 contrast against the
+  light glass card — below WCAG's 4.5:1 — a real legibility risk on the page's single most
+  important number; solid navy is used instead, hero distinctiveness now carried by size/
+  position only. The dark navy TPV card became a light `.glass` card (not a forked "dark
+  glass" variant) — every white/white-on-navy text color and skeleton option on it updated
+  to navy/slate. **Blobs tuned down after a real over-strong first pass**: `blob--md` on
+  dashboard.html washed a visible tint across much of the page (caught via screenshot);
+  reduced to `blob--sm` uniformly across all 4 pages. A scrollable `<main
+  class="overflow-y-auto">` can't use `.blob-field` (its symmetric `overflow:hidden` would
+  kill vertical scroll) — each page instead adds `relative overflow-x-hidden` directly to
+  `<main>`, achieving the same containment asymmetrically without forking the primitive.
+  **Verified**: a real seeded test client, browser-verified live via headless Chrome over
+  CDP (no browser tool available this session) — 30/30 assertions on the second pass (after
+  fixing the blob-intensity and gradient-text issues found on the first), covering every
+  named card's class, `.glass`'s real computed `backdrop-filter`, every table/form/filter
+  confirmed NOT glass, real dollar figures rendering in solid navy (not white/transparent),
+  zero horizontal overflow at normal and a real CDP-emulated 390px viewport, and — the
+  specific interaction the task flagged as worth checking — a real throttled-network
+  mid-load screenshot confirming the unified skeleton states render correctly as real gray
+  blocks inside the new glass cards. Full existing Supabase suite re-run for zero regression
+  (pure CSS/HTML, zero schema/function changes) — one transient `verify-admin-final-
+  wiring.mjs` failure reproduced its own already-documented flaky-retry pattern, confirmed
+  clean on an immediate re-run. No cloud staging deployment needed. Backend Requirements
+  Register row 147.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

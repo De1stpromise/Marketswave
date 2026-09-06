@@ -1,0 +1,153 @@
+/* =====================================================
+   MARKETSWAVE — Shared Glass/Gradient Primitives
+   Extracted from styles.css (Client Dashboard Visual Treatment, 2026-09-06) so the
+   Tailwind-based dashboard family (which never loads styles.css — see CLAUDE.md's Tech
+   Stack boundary) can reuse the EXACT SAME .glass/.glass-subtle/.gradient-text/.blob/
+   .grid-overlay/.blob-field rules the public site already established (Homepage Visual
+   Redesign, Stages 1-2, 2026-09-05), rather than forking a second copy of them.
+
+   This file is now the single source of truth for these six primitives. styles.css
+   @imports it at the very top (see styles.css's own "4A" section, which now just points
+   here) instead of defining them itself; every dashboard page that uses glass loads this
+   file directly via its own <link> tag.
+===================================================== */
+
+/* ---- Token block, self-contained on purpose ----
+   Dashboard pages define their navy/cream tokens as Tailwind config JS, not CSS custom
+   properties, so the four tokens these primitives depend on (--primary, --accent-teal,
+   --accent-teal-soft, --accent-gold-soft) are declared here too, values copied verbatim
+   from styles.css's own :root. This is a small, disclosed duplication of four color
+   VALUES only (not logic/rules) — the same tolerated-duplication category already
+   established for this project's locked color tokens and rate tables (see CLAUDE.md's
+   Known Structural Debt section) — kept deliberately minimal rather than pulling in
+   styles.css's much larger :root block (--bg/--surface/--text/etc.), which dashboard
+   pages have no use for and which could shadow their own Tailwind-driven styling. */
+:root {
+  --primary: #1B3A4B;             /* Institutional Navy — matches both families' locked navy */
+  --accent-teal: #16815F;
+  --accent-teal-soft: #7FD4B4;
+  --accent-gold-soft: #F0C878;
+}
+
+/* ---- .glass — the liquid-glass card recipe: layered translucency gradient,
+   light-catching border (brighter top/left, darker bottom/right — the "light hitting an
+   edge" cue), inset + outer shadow for real depth, and a top-left sheen highlight via
+   ::before. Works on any element — badges, buttons, cards. The rgba(27,58,75,*) values
+   below are --primary's own RGB channels (27,58,75); kept literal rather than composed
+   from var(--primary) since CSS custom properties can't be decomposed into R/G/B
+   channels for reuse inside rgba(). ---- */
+.glass {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.22) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-bottom-color: rgba(27,58,75,0.12);
+  border-right-color: rgba(27,58,75,0.08);
+  box-shadow:
+    0 20px 40px -12px rgba(27,58,75,0.18),
+    inset 0 1px 1px rgba(255,255,255,0.9),
+    inset 0 -1px 1px rgba(27,58,75,0.06);
+  overflow: hidden;
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -30%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ---- .gradient-text — navy -> teal -> gold headline accent. Apply to an inline
+   element (a <span>) wrapping the text to be gradient-filled, not a block-level
+   heading itself. ---- */
+.gradient-text {
+  color: var(--primary); /* fallback if background-clip:text isn't supported anywhere —
+                             solid navy, never invisible text */
+  background: linear-gradient(135deg, var(--primary) 15%, var(--accent-teal) 55%, #C8860A 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---- .blob — a blurred, softly-glowing gradient accent shape, meant to sit behind
+   glass content on a light background. Composed from a base class plus a size modifier
+   (--sm/--md/--lg) plus a color modifier (--teal/--gold/--blue/--rose/--violet):
+     <div class="blob blob--lg blob--teal"></div>
+   POSITION is deliberately NOT part of this shared utility — where a blob sits is
+   inherently specific to whatever section it's decorating, so each section defines its
+   own small set of position classes/inline styles that pair with these shared size/color
+   modifiers. Only --teal/--gold draw from the documented accent tokens above;
+   --blue/--rose/--violet are decorative, blob-only accent hues — NOT promoted to named
+   palette tokens, since the documented palette expansion is deliberately scoped to
+   teal + gold only. ---- */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.blob--lg { width: 560px; height: 560px; filter: blur(100px); }
+.blob--md { width: 420px; height: 420px; filter: blur(100px); }
+.blob--sm { width: 180px; height: 180px; filter: blur(50px); }
+
+.blob--teal   { background: radial-gradient(circle, var(--accent-teal-soft) 0%, transparent 70%); }
+.blob--gold   { background: radial-gradient(circle, var(--accent-gold-soft) 0%, transparent 70%); }
+.blob--blue   { background: radial-gradient(circle, #A8C8E8 0%, transparent 70%); }
+.blob--rose   { background: radial-gradient(circle, #F5A5B8 0%, transparent 70%); }
+.blob--violet { background: radial-gradient(circle, #C9B8F0 0%, transparent 70%); }
+
+/* ---- .grid-overlay — a faint architectural grid texture, radially masked so it fades
+   toward the edges of its container rather than cutting off hard. Absolutely positioned
+   to fill whatever ancestor establishes position:relative (typically the section itself).
+   rgba(27,58,75,*) = --primary's own RGB, see the .glass comment above for why literal. ---- */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(27,58,75,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27,58,75,0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, black 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* ---- .glass-subtle — a deliberately calmer sibling of .glass: half the blur, a much
+   lighter background/shadow, and no sheen ::before at all. A genuine, documented,
+   reusable SECOND intensity level for the same primitive family — not a per-page fork —
+   for the situation this was first built for: several small items sitting side by side
+   (e.g. a 4-across grid), where the full .glass recipe's strong blur+sheen would compound
+   into visual noise at that density. ---- */
+.glass-subtle {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.15) 100%);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.45);
+  box-shadow: 0 10px 24px -10px rgba(27,58,75,0.12);
+}
+
+/* ---- .blob-field — a plain, reusable marker for "this section hosts background blobs" —
+   just position:relative + a real overflow:hidden, so any section can drop 1-3 .blob
+   children into itself for page-wide atmosphere without those blobs' own negative offsets
+   ever contributing to horizontal page scroll. Deliberately does NOT set a background
+   color itself — it's a pure blob host, layered over whatever the section's own
+   background already is. NOTE for dashboard pages: a scrollable <main
+   class="overflow-y-auto"> cannot use this marker directly — its symmetric
+   overflow:hidden would also kill vertical scrolling. Those pages instead add
+   `relative overflow-x-hidden` (Tailwind utilities) directly to <main>, achieving the
+   same "contain blob bleed" goal asymmetrically without forking this rule. ---- */
+.blob-field {
+  position: relative;
+  overflow: hidden;
+}
+/* Keeps real content above the blobs — a descendant selector (not just direct child) so
+   this also reaches .container instances nested one level deeper. Scoped to blob-field
+   context only, since .container itself is shared far too widely to change generally. */
+.blob-field .container {
+  position: relative;
+  z-index: 2;
+}

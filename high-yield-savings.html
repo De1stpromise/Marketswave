@@ -18,6 +18,7 @@
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -42,25 +43,30 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Client Dashboard Visual Treatment (2026-09-06): one restrained atmospheric
+             blob in top-right whitespace — see dashboard.html's own comment for why
+             `relative overflow-x-hidden` on <main> substitutes for .blob-field here. -->
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">High Yield Savings</h2>
           <p class="text-slate-500 mt-1">A separate savings pool, held apart from your main portfolio.</p>
         </div>
 
-        <!-- Summary Cards -->
+        <!-- Summary Cards — .glass-subtle: a dense 3-card row. -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-xs text-slate-500 mb-1">HYS Total Balance</p>
             <p class="text-2xl font-semibold text-navy" id="hys-total-balance">$0.00</p>
             <p class="text-xs text-slate-400 mt-2">Held separately — not included in your Total Portfolio Value.</p>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-xs text-slate-500 mb-1">Active Pockets</p>
             <p class="text-2xl font-semibold text-navy" id="hys-active-count">0</p>
           </div>
-          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="glass-subtle rounded-2xl p-5">
             <p class="text-xs text-slate-500 mb-1">Total Projected Interest</p>
             <p class="text-2xl font-semibold text-emerald-600" id="hys-total-interest">$0.00</p>
           </div>
