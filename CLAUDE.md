@@ -5917,6 +5917,81 @@ row 74.
   `approve-allocation`/`approve-sell` — wiring email there directly would duplicate whatever
   the caller already sends).
   CLAUDE.md updated in place.
+- **★ Real PM-Published NAV for Private Equity / Real Assets (2026-09-06) — closes the full
+  original Phase D market-data/NAV line item.** Investigated first: read `_shared/
+  portfolio-engine.ts`'s `settleProduct()`/`settleAllProducts()`/`settleOneProduct()` in
+  full — confirmed exactly one existing early return (`'Unallocated / Cash'` never ticks) and
+  every real caller (`get-account-state`, `get-holdings`, `computeTotalPortfolioValue()`
+  shared by `get-total-portfolio-value`/`get-portfolio-monthly-change`, and
+  `settleOneProduct()` via `execute-buy`/`execute-sell`) calls through `settleProduct()`
+  itself — a second, symmetric early return is inherited by every caller for free, zero call
+  sites needed to change. Also confirmed via project-wide grep that `engine-core.js`'s own
+  local `settleProduct()` has ZERO remaining callers on any live HTML page — every page now
+  reads pricing via the real Supabase functions — so the carve-out was built ONLY in the real
+  backend, correctly leaving the local copy untouched.
+  **Schema**: new `nav_publications` table (`product_id`, `published_unit_price`,
+  `published_by`/`published_by_email` per Phase C's real attribution pattern, `published_at`,
+  `effective_date`, optional `note`) — admin-only read RLS, no client-side write for any role,
+  mirroring `hys_pockets`' own "service_role only" precedent.
+  **Transition, recommended and implemented per the user's own stated instinct, confirmed
+  correct and reported**: existing PE/Real Assets products are FROZEN at their current
+  simulated price as a system-recorded initial publication (`published_by` NULL, a real
+  disclosed system event, not a fabricated PM action) rather than reset to inception price —
+  a client's real unrealized-return figure is computed against the CURRENT price, so
+  resetting to inception the moment this shipped would have produced a real, unexplained jump
+  with zero real-world event to justify it; freezing changes nothing visible at the moment
+  this ships.
+  **Carve-out**: `settleProduct()` gets one new early return, byte-for-byte the same shape as
+  the existing Cash one, for `asset_class in ('Private Equity','Real Assets')`.
+  `products.last_tick_date` is deliberately REUSED (not a new parallel column) to mean "date
+  of last real valuation" for these two classes — `publish-nav` updates it to the real
+  `effective_date` on every publish, powering both `admin-products.html`'s relabeled
+  "Last Valued (NAV)" field and the new client-facing indicator with no extra join needed.
+  **Edge Function**: new admin-only `publish-nav` — validates the product is genuinely
+  PE/Real Assets server-side (never trusting the UI's own scoping), validates a positive
+  price and a well-formed `effectiveDate`, records real PM attribution, updates the product
+  atomically. **Admin UI**: `admin-products.html` gets a lazy-loaded NAV History table
+  (mirroring `admin-clients.html`'s own lazy per-client pending-count fetch) and a "Publish
+  New NAV" action, both rendered only for eligible products. **Client-facing, investigated
+  and recommended per instruction**: yes — a small, honest "Last valued: [date]" line was
+  added under the asset class on `asset-performance.html`'s Return Table for PE/Real Assets
+  holdings only, reusing data the page already fetches, no new backend read needed.
+  **A real regression found and fixed BEFORE it could ship**: `verify-supabase-portfolio-
+  engine.js`'s own determinism cross-check used `PROD-0001` (Nordic Growth Fund, Private
+  Equity) as its target — forcing it backward in time and expecting it to tick forward, a
+  scenario the carve-out makes permanently false. Swapped to `PROD-0003` (Global Equity ETF,
+  genuinely unaffected) — the determinism PROPERTY under test is unchanged for any product
+  the tick still applies to, a like-for-like swap, not a weakened test; also fixed the test's
+  own hardcoded "restore to 118.40" cleanup to capture-and-restore the real pre-test price
+  instead, since that hardcoded value only ever worked by coincidence for the old target.
+  **Verified**: new `scripts/verify-supabase-nav-publications.js`, 42/42 assertions on the
+  first run — the carve-out proven directly; the regression proven in the same run
+  (Stocks & ETFs/Crypto still tick normally); full `publish-nav` validation including
+  explicit rejection of ineligible asset classes with the real server error message; a real
+  successful publish with two genuinely different real PM accounts producing distinguishable
+  attribution (mirroring Phase C — Stage 1's own rigor); a real published price proven to NOT
+  drift on a subsequent settlement call; cross-client correctness (one real publication
+  against a shared product identically updates Total Portfolio Value for two different real
+  clients holding it); authorization (401/403, plus RLS confirming no client-side role can
+  read or write `nav_publications`); and the migration backfill (every real pre-existing
+  PE/Real Assets product carries a real system-recorded initial NAV row). Full existing
+  Supabase suite re-run for zero regression (932 prior assertions unaffected, plus the
+  golden-path script). **Deployed to real cloud staging, with a real deployment-mechanics
+  finding acted on, not just disclosed**: confirmed via grep that 12 OTHER already-deployed
+  functions import the now-changed `_shared/portfolio-engine.ts` — since Deno bundles
+  imports at deploy time, deploying only `publish-nav` would have left all 12 with a STALE,
+  pre-carve-out bundled copy on real cloud staging even though local behavior was already
+  correct; all 12 were redeployed alongside `publish-nav` and the new migration.
+  `verify-cloud-staging-parity.js` confirmed clean afterward (13/13, 40/40) — though, per
+  that script's own documented limitation, presence/ACTIVE status alone would NOT have caught
+  the stale-bundle risk; this was caught by reading the real dependency graph directly.
+  **Real end-to-end proof run directly against real cloud staging** (zero seeded products
+  there, confirmed, so a real temporary test product was inserted, exercised, and fully
+  cleaned up afterward): a real settlement call left a real PE test product's price and
+  `last_tick_date` completely unchanged; a real `publish-nav` call from the real staging PM
+  account produced a real updated price, a real `nav_publications` row with real attribution,
+  and `last_tick_date` correctly advanced to the real `effective_date`. CLAUDE.md updated in
+  place. Backend Requirements Register row 143.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -6074,6 +6149,11 @@ itemized list rather than re-deriving it. Three more "did I break X" checks now 
 `node scripts/verify-supabase-market-data.js` (market data/currency), `node
 scripts/verify-supabase-email-notifications.js` (email logging), and `npm run
 verify-dashboard-market-currency-ui` (from `scripts/`, dashboard.html's own UI).
+**Real PM-Published NAV (2026-09-06, row 143)** closed the full original Phase D market-
+data/NAV line item — Private Equity/Real Assets products now move only via a real published
+NAV, never the simulated tick. A fourth "did I break X" check: `node
+scripts/verify-supabase-nav-publications.js` (the settlement carve-out, `publish-nav`, and
+the Stocks & ETFs/Crypto regression it depends on staying unaffected).
 
 ## Known structural debt
 
