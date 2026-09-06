@@ -22,6 +22,7 @@
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -148,6 +149,23 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const pocketLabel = request.pocket_type === 'fixed'
+        ? 'Fixed Deposit pocket' + (request.term_label ? ' (' + request.term_label + ')' : '')
+        : 'As You Want pocket';
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'Your Marketswave High Yield Savings deposit has been credited',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>Your deposit of $' + round2(confirmedAmount).toLocaleString() + ' has been credited to a new ' +
+          pocketLabel + '.</p>',
+        relatedEntityType: 'hys_deposit_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {

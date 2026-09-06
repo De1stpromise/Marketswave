@@ -29,6 +29,7 @@
 // other real multi-step write sequences.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 const BUCKET = 'documents';
 
@@ -124,6 +125,26 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const subject = signatureRequired
+        ? 'A document requires your signature'
+        : 'A new document is available in your Marketswave account';
+      const bodyLine = signatureRequired
+        ? '<p>A new document, "' + filename + '" (' + category + '), has been added to your account and requires your signature' +
+          (deadlineLabel ? ' — ' + deadlineLabel + '.' : '.') + '</p>'
+        : '<p>A new document, "' + filename + '" (' + category + '), has been added to your account.</p>';
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: subject,
+        html: '<p>Hi ' + clientRow.name + ',</p>' + bodyLine + '<p>Log in to your account to review it.</p>',
+        relatedEntityType: 'document',
+        relatedEntityId: docId
+      });
+    }
 
     return jsonResponse(toClientShape(doc), 200);
   } catch (err) {

@@ -13,6 +13,11 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as approve-profile-change.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
+
+// Mirrors admin-profile-updates.html's own FIELD_LABELS exactly, so a client's email uses
+// the identical human-readable label a PM sees in the admin UI.
+const FIELD_LABELS: Record<string, string> = { legalName: 'Legal Name', address: 'Address', idDocument: 'ID / Document' };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,7 +59,7 @@ Deno.serve(async (req) => {
 
     const { data: request, error: fetchErr } = await admin
       .from('profile_change_requests')
-      .select('status')
+      .select('status, client_id, field')
       .eq('id', requestId)
       .maybeSingle();
     if (fetchErr) return jsonResponse({ error: fetchErr.message }, 500);
@@ -70,6 +75,20 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', request.client_id).maybeSingle();
+    if (clientRow) {
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'An update on your Marketswave profile update request',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>Your requested change to your ' + (FIELD_LABELS[request.field] || request.field) +
+          ' could not be approved' + (resolutionNote ? ': ' + resolutionNote : '.') + ' Please contact support if you have any questions.</p>',
+        relatedEntityType: 'profile_change_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {

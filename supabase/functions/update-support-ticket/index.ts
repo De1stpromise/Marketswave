@@ -16,6 +16,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
@@ -80,6 +81,27 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why." A ticket
+    // update is not an approve/reject action, but the same "clear content per action type"
+    // principle applies: Resolved reads differently from a plain in-progress status move.
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const subject = status === 'Resolved'
+        ? 'Your Marketswave support request has been resolved'
+        : 'An update on your Marketswave support request';
+      const statusLine = status === 'Resolved'
+        ? '<p>Your support request ' + requestId + ' has been marked resolved.</p>'
+        : '<p>Your support request ' + requestId + ' has been updated to: ' + status + '.</p>';
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: subject,
+        html: '<p>Hi ' + clientRow.name + ',</p>' + statusLine + (pmNote ? '<p>' + pmNote + '</p>' : ''),
+        relatedEntityType: 'support_request',
+        relatedEntityId: existing.id
+      });
+    }
 
     return jsonResponse(toClientShape(updated), 200);
   } catch (err) {

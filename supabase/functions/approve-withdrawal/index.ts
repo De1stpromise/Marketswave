@@ -23,6 +23,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -132,6 +133,19 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'Your Marketswave withdrawal has been approved',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>Your withdrawal request of $' + round2(approvedAmount).toLocaleString() + ' has been approved and processed.</p>',
+        relatedEntityType: 'withdrawal_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {

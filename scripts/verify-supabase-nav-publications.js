@@ -262,15 +262,22 @@ async function main() {
   })();
 
   // ===========================================================================================
-  // 7. Migration backfill sanity check — every pre-existing PE/Real Assets product has a real
-  //    system-recorded initial publication (published_by null, a real frozen price).
+  // 7. Migration backfill sanity check — every PE/Real Assets product that existed AT THE TIME
+  //    the migration ran has a real system-recorded initial publication (published_by null, a
+  //    real frozen price). Deliberately scoped to the two originally-seeded products
+  //    (PROD-0001/PROD-0002) rather than "every PE/Real Assets product currently in the
+  //    table" — a real, disclosed environment finding, not assumed: other unrelated test
+  //    scripts (verify-products-catalog-fix.mjs) create their own real, uncleaned-up test
+  //    products, including Real Assets ones, on a machine that's run this project's full
+  //    regression history — those legitimately have NO NAV history, since the one-time
+  //    backfill only ever ran once, before they existed; checking "every current product"
+  //    was a test bug, not a real NAV-feature gap.
   // ===========================================================================================
-  console.log('\n7. Migration backfill — every existing PE/Real Assets product has a real system NAV record\n');
+  console.log('\n7. Migration backfill — the two originally-seeded PE/Real Assets products have a real system NAV record\n');
   await (async function () {
-    const { data: eligibleProducts } = await admin.from('products').select('id').in('asset_class', ['Private Equity', 'Real Assets']);
-    for (const p of eligibleProducts) {
-      const { data: history } = await admin.from('nav_publications').select('*').eq('product_id', p.id);
-      check('product ' + p.id + ' has at least one real NAV publication record', history.length >= 1, 'found ' + history.length);
+    for (const id of [PE_PRODUCT, RA_PRODUCT]) {
+      const { data: history } = await admin.from('nav_publications').select('*').eq('product_id', id);
+      check('product ' + id + ' has at least one real NAV publication record', history.length >= 1, 'found ' + history.length);
     }
     const { data: systemRow } = await admin.from('nav_publications').select('*').is('published_by', null).limit(1).maybeSingle();
     check('at least one real backfilled row is honestly attributed to no real PM (a system/migration event)', !!systemRow);

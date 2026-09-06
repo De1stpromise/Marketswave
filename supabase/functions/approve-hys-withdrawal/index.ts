@@ -17,6 +17,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -126,6 +127,21 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const forfeitNote = request.forfeit ? ' Since this pocket was withdrawn before maturity, projected interest was forfeited.' : '';
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'Your Marketswave High Yield Savings withdrawal has been approved',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>Your withdrawal from your ' + (request.term_label || 'High Yield Savings') +
+          ' pocket has been approved — $' + request.receive_amount.toLocaleString() + ' is being sent to you.' + forfeitNote + '</p>',
+        relatedEntityType: 'hys_withdrawal_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {

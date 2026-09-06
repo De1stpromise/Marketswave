@@ -32,6 +32,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -124,6 +125,23 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+
+    // Backend Migration Phase D — Stage 2 (2026-09-06): best-effort, genuinely awaited — see
+    // approve-client-application/index.ts's own identical comment for the full "why."
+    const [{ data: clientRow }, { data: productRow }] = await Promise.all([
+      admin.from('clients').select('name, email').eq('id', clientId).maybeSingle(),
+      admin.from('products').select('name').eq('id', request.product_id).maybeSingle()
+    ]);
+    if (clientRow) {
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'Your Marketswave allocation request has been approved',
+        html: '<p>Hi ' + clientRow.name + ',</p><p>Your allocation of $' + request.requested_amount.toLocaleString() + ' into ' +
+          (productRow ? productRow.name : request.product_id) + ' has been approved and executed.</p>',
+        relatedEntityType: 'allocation_request',
+        relatedEntityId: requestId
+      });
+    }
 
     return jsonResponse(toClientShape(updatedRequest), 200);
   } catch (err) {
