@@ -6057,6 +6057,50 @@ row 74.
   confirmed, not just a script's success response**: both real emails (approval + deposit
   credit) confirmed received in the user's own real inbox. All real test artifacts deleted
   afterward. Zero failures across all 6 steps. Backend Requirements Register row 145.
+- **★ Client Dashboard Polish — 5-item batch (2026-09-06).** **1. Market Snapshot
+  expansion**: `get-market-snapshot` extended from 4 to 6 real symbols — DIA (Dow Jones ETF
+  proxy, Finnhub) and SOL (CoinGecko) added, both confirmed working on the free tier via
+  direct API calls before adding; GLD (Gold) also confirmed working but deliberately left
+  out — 7 items doesn't grid cleanly, 6 does as a clean 2×3. `dashboard.html`'s grid
+  rebalanced `grid-cols-2 sm:grid-cols-4` → `grid-cols-2 sm:grid-cols-3`; browser-confirmed
+  the Market Snapshot and Currency Converter cards stay aligned at the same top Y, no
+  misalignment. **2. Unified loading mechanism**: investigated and found ~25 genuinely
+  different one-off `skeletonHTML` implementations across all 10 client-facing pages, several
+  literal placeholder text or bare spinners rather than real layout-matching shapes. Replaced
+  every one with a new shared `skeleton` object in `supabase-data.js`
+  (`.text()`/`.block()`/`.lines()`/`.card()`/`.tableRow()`/`.tableRows()`) producing real
+  gray placeholder blocks sized to each real element (real skeleton table rows, a composed
+  4-line pocket-card skeleton, etc.) — never literal text — now the one shared vocabulary
+  every page calls. **3. The "John Doe" flash bug — investigated, found to be a much larger
+  real bug class, not a regression**: "John Doe" itself no longer appears anywhere in
+  rendered markup (the earlier identity-display fix held) — the real bug was
+  `dashboard.html`'s/`settings.html`'s STATIC HTML still containing real-looking hardcoded
+  fake values (profile name/avatar, the entire pre-migration TPV/monthly-change/asset-
+  returns/best-performing-class figures, email/phone) that a real page load could flash
+  before the async Supabase fetch overwrote them. Also found and fixed the identical pattern
+  in `documents.html`'s 3 header chip counts (still baked into static HTML as the literal
+  fake `"2"`/`"1"`/`"1"` from before the engine migration — Backend Requirements Register row
+  78 had only ever fixed the JS-side computation, never the static markup it was
+  overwriting) and `asset-performance.html`'s 5 summary figures. All replaced with real
+  skeletons from item 2's shared vocabulary — a flash of fake content is now structurally
+  impossible, confirmed explicitly rather than patched at only the one reported instance.
+  **4. "null has been approved" string bugs — audited, one real gap found and fixed**: all
+  15 email templates and every admin toast/resolution string and the notification bell
+  confirmed clean. The one real gap: `admin-security.html`'s log rendering interpolated
+  `e.reason` with no fallback — fixed to `(e.reason || '—')`, confirmed correct with both a
+  real present reason (renders verbatim) and a genuinely missing one (`null` and an absent
+  key both render `—`, never `"null"`). **5. Bar chart rounded corners**: `transactions.html`'s
+  Buys/Sells datasets both gained `borderRadius: 6`, confirmed on the real live Chart.js
+  instance. **Verified**: browser-verified live via headless Chrome over CDP (no browser
+  tool available this session) against a real seeded test client — 27/27 assertions,
+  including a genuine throttled-network mid-load screenshot proving the skeleton state (never
+  fake content) during a real slow load. Full existing Supabase suite re-run for zero
+  regression, including 2 pre-existing test files corrected to match the fixed (not broken)
+  behavior rather than left failing: `verify-supabase-market-data.js` (4→6 symbols, 22→24
+  assertions) and `verify-hys-documents-ui-wiring.mjs` (2 assertions had been unknowingly
+  re-asserting the old fake-chip-count bug as a baseline, 67→69). Deployed
+  `get-market-snapshot` to real cloud staging; `verify-cloud-staging-parity.js` confirmed
+  clean before and after. Backend Requirements Register row 146.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
