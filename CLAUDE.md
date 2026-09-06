@@ -5739,6 +5739,89 @@ row 74.
   untested, since the original migration plan was written — the real Admin APIs behind
   password/2FA reset for a PM's own account (Stage 1's other remaining item) is still the
   one open item in Phase C.
+- **★ Backend Migration Phase C — Stage 3 (final stage of Phase C): PM self-service
+  password change — PHASE C COMPLETE, 2FA logged as its own deferred item, not a leftover
+  Phase C task (2026-09-06).** Investigated first, per instruction: read admin-security.html
+  and every other admin page directly, confirmed no self-service PM credential path existed
+  anywhere — the existing Reset Password/Reset 2FA buttons (admin-clients.html) act on a
+  CLIENT's credentials, a real, already-shipped, but entirely different feature; a
+  project-wide grep for updateUser()/"My Account"/"Change Password" in any admin*.html file
+  found nothing else. The gap was real, not assumed.
+
+  Password change: a new "My Account" section on admin-security.html mirrors
+  settings.html's own real client-facing flow exactly (same strength-meter thresholds, same
+  genuine re-authentication discipline) — Supabase's updateUser() trusts the
+  already-authenticated session outright and has no "current password" parameter of its
+  own, so this re-verifies the real current password first via a real
+  signInWithPassword() call against the session's own real email, then calls updateUser().
+  Uses MarketswaveData.getSupabaseClient() — once useAdminClient() (already called at page
+  load) has redirected the shared client promise to the real admin-authenticated session,
+  this resolves to THAT session, so the flow works for whichever real PM is currently
+  signed in, not a hardcoded account — confirmed with two genuinely different real PM
+  accounts, not just the original shared one.
+
+  2FA: investigated and reported plainly, not built as a stub. supabase/config.toml's own
+  comment states outright: "Multi-factor-authentication is available to Supabase Pro
+  plan" — confirmed live against the real local Auth server too, a real
+  auth.mfa.enroll({factorType:'totp'}) call returns a real 422
+  mfa_totp_enroll_not_enabled, not a client-side limitation. This project has deliberately
+  stayed on Supabase's free tier throughout its entire migration — the same category of
+  real, external constraint that already blocked Firebase's own Cloud Functions on the
+  Blaze plan and was the whole reason this project moved to Supabase in the first place.
+  Building real PM 2FA now would mean reintroducing exactly that kind of paid-plan
+  dependency. No toggle, no QR code, no fake "enabled" state was built — admin-security.html
+  shows only an honest note explaining the real constraint, confirmed via the test script
+  itself asserting no interactive 2FA control exists in the real markup at all.
+
+  Attribution: a genuinely new local log-entry type, PM_PASSWORD_CHANGE, via a new
+  appendSelfSecurityLogEntry(type, reason, performedByEmail) in engine-core.js —
+  deliberately a SEPARATE function from the existing appendSecurityLogEntry(), since a
+  self-action has no clientId at all (the actor and the subject are the same person);
+  overloading the existing function with a nullable clientId would have rendered a bare
+  `null` in admin-security.html's own Client column, the same kind of confusing half-real
+  display this project avoids elsewhere. Reuses the SAME SECURITY_LOG_KEY store so the
+  existing log table picks it up with zero extra plumbing — rendering was extended to show
+  "(Own Account)" for these entries instead.
+
+  **Verified**: new scripts/verify-pm-self-service-security.mjs, 18/18 assertions — two
+  genuinely different real PM accounts, each: a wrong current password genuinely rejected
+  (and confirmed to leave the real password unchanged — a real sign-in with the OLD
+  password still succeeds afterward); a real successful change; THE REAL PROOF per
+  instruction, not just a success message — signing in with the NEW real password in a
+  genuinely fresh client instance succeeds, and the OLD password no longer works; a real
+  PM_PASSWORD_CHANGE log entry with this exact PM's own real email as performedBy, correctly
+  carrying no clientId/clientName; and the two PMs' own entries confirmed genuinely
+  distinguishable from each other. **Two real bugs found and fixed while building this test
+  itself, not the app**: (1) signing in via a query-param-suffixed copy of
+  admin-supabase-config.js left the REAL singleton useAdminClient() itself resolves to still
+  unauthenticated — fixed by signing in via the exact same bare specifier that function
+  internally imports; (2) a fresh JSDOM window per PM call meant fresh, empty localStorage,
+  so PM #1's own log write was invisible from PM #2's separate window — fixed by reusing ONE
+  shared jsdom window across both PM turns (resetting only the page body between them,
+  mirroring a real page reload) so the real, genuinely global SECURITY_LOG_KEY correctly
+  carries forward exactly as a real browser tab's localStorage would. Full existing Supabase
+  suite re-run for zero regression: verify-supabase-schema.js 16/16,
+  verify-supabase-portfolio-engine.js 40/40, verify-supabase-deposits-withdrawals.js 76/76,
+  verify-supabase-allocations-sells.js 88/88, verify-supabase-hys.js 112/112,
+  verify-supabase-final-approval-gate.js 69/69, verify-supabase-documents-support.js 67/67,
+  verify-admin-final-wiring.mjs 39/39, verify-supabase-pm-attribution.js 52/52,
+  verify-view-as-client-isolation.mjs 18/18 (577 total, unaffected), plus
+  supabase-golden-path-regression.js PASS (16/16 steps). Real cloud staging: no migration or
+  Edge Function changed this stage (updateUser()/signInWithPassword() are pure Supabase Auth
+  SDK calls, identical against local stack or real cloud staging with no deployment needed);
+  verify-cloud-staging-parity.js re-confirmed clean regardless (11/11, 37/37). Deliberately
+  NOT tested against the real staging PM accounts specifically — doing so would mean
+  changing pm@marketswave-staging.internal's/pm2@marketswave-staging.internal's own real,
+  currently-relied-upon passwords, which this task did not ask for and this stage did not
+  need in order to prove the underlying mechanism correct (already proven locally with the
+  same rigor, against the same GoTrue software real cloud staging also runs).
+
+  **PHASE C IS NOW COMPLETE.** All three of its stages closed: Stage 1 (real per-PM
+  accounts + attribution), Stage 2 ("View as Client" proven safe), Stage 3 (PM self-service
+  password change). The one deferred item — real 2FA for PM accounts — is NOT an
+  incomplete Phase C task; it is a genuinely separate, explicitly out-of-scope item blocked
+  on a real Supabase Pro plan upgrade, logged in the Backend Requirements Register as its
+  own row rather than left implied-covered by Phase C's own closure.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
