@@ -34,7 +34,8 @@
     "supabase-bootstrap-additional-pm": "node supabase-bootstrap-additional-pm.js",
     "supabase-staging-bootstrap-additional-pm": "node supabase-staging-bootstrap-additional-pm.js",
     "supabase-verify-pm-attribution": "node verify-supabase-pm-attribution.js",
-    "verify-view-as-client-isolation": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-view-as-client-isolation.mjs"
+    "verify-view-as-client-isolation": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-view-as-client-isolation.mjs",
+    "verify-pm-self-service-security": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-self-service-security.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

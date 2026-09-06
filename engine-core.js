@@ -2463,6 +2463,32 @@
     return log.map(function (e) { return Object.assign({}, e); });
   }
 
+  // Backend Migration Phase C — Stage 3 (2026-09-06): a PM changing their OWN Supabase Auth
+  // password/2FA is a genuinely different action from resetClientPassword()/resetClient2FA()
+  // above — there's no clientId at all here, the "who" and the "whom" are the same person.
+  // Deliberately a SEPARATE small function rather than overloading appendSecurityLogEntry()
+  // with a nullable clientId: that function's own clientName lookup
+  // (`client ? client.name : clientId`) would render a bare `null` if simply passed
+  // `clientId: null`, which is exactly the kind of confusing half-real display this project
+  // avoids elsewhere. Reuses the SAME SECURITY_LOG_KEY store (so admin-security.html's
+  // existing render loop picks this up with zero extra plumbing) but with its own honest
+  // shape: clientId/clientName are both explicitly null, never a fabricated stand-in value.
+  function appendSelfSecurityLogEntry(type, reason, performedByEmail) {
+    const log = safeParse(localStorage.getItem(SECURITY_LOG_KEY)) || [];
+    const entry = {
+      id: nextSequentialId(log, 'SEC'),
+      clientId: null,
+      clientName: null,
+      type: type,
+      reason: reason,
+      performedAt: todayStrUTC(),
+      performedBy: (performedByEmail && performedByEmail.trim()) || 'Unknown PM'
+    };
+    log.push(entry);
+    localStorage.setItem(SECURITY_LOG_KEY, JSON.stringify(log));
+    return entry;
+  }
+
   // Explicit clientId, admin-triggered. "Force new password" approach, given there's no real
   // login/session system yet (flagged per instruction, not silently decided): this sets a
   // per-client flag (forcePasswordReset) under SECURITY_STATE_KEY that settings.html reads on
@@ -3412,6 +3438,7 @@
   window.resetClientPassword = resetClientPassword;
   window.resetClient2FA = resetClient2FA;
   window.getSecurityActionsLog = getSecurityActionsLog;
+  window.appendSelfSecurityLogEntry = appendSelfSecurityLogEntry;
   window.getClientSecurityState = getClientSecurityState;
   window.clearForcePasswordReset = clearForcePasswordReset;
   window.getClientPendingApprovalCount = getClientPendingApprovalCount;
