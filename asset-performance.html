@@ -219,6 +219,25 @@
       // plain date strings, so display needs an explicit conversion to keep the same output.
       function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
       function round2ish(n) { return Math.round(n * 100) / 100; }
+      function formatDisplayDate(isoDate) {
+        var d = new Date(isoDate + 'T00:00:00Z');
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
+      }
+
+      // Backend Migration Phase D — NAV feature (2026-09-06): Private Equity / Real Assets
+      // holdings don't reprice on a simulated daily basis the way a Stocks & ETFs/Crypto
+      // holding does — their price only moves when a Portfolio Manager publishes a real new
+      // NAV, and stays exactly flat in between. A client holding one of these should
+      // reasonably understand that, rather than wonder why an illiquid asset's price "hasn't
+      // moved in weeks" the way a real-time-quoted one would — recommended and implemented as
+      // a small, honest addition: a "Last valued" line under the asset class/type, reading the
+      // same products.last_tick_date column publish-nav itself keeps current (see that
+      // function's own header for why this column is reused rather than a new one added).
+      var NAV_VALUED_CLASSES = ['Private Equity', 'Real Assets'];
+      function lastValuedLineHTML(product) {
+        if (NAV_VALUED_CLASSES.indexOf(product.assetClass) === -1 || !product.lastTickDate) return '';
+        return '<p class="text-xs text-slate-400 mt-0.5">Last valued: ' + formatDisplayDate(product.lastTickDate) + '</p>';
+      }
 
       // Real data, populated once the async loads below resolve.
       var account = { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
@@ -334,7 +353,7 @@
 
           return '<tr class="hover:bg-slate-50/50">' +
             '<td class="px-6 py-4 font-medium text-navy">' + product.name + '</td>' +
-            '<td class="px-6 py-4 text-slate-600">' + product.assetClass + '</td>' +
+            '<td class="px-6 py-4 text-slate-600">' + product.assetClass + lastValuedLineHTML(product) + '</td>' +
             '<td class="px-6 py-4 text-slate-600">' + product.investmentType + '</td>' +
             '<td class="px-6 py-4 text-right">' + formatUSD(Math.round(h.costBasis)) + '</td>' +
             '<td class="px-6 py-4 text-right font-medium ' + pctColor + '">' + pctSign + pct.toFixed(1) + '%</td>' +
@@ -438,7 +457,7 @@
             ledger: results[2],
             tpv: results[3].totalPortfolioValue,
             products: results[4].map(function (p) {
-              return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price };
+              return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price, lastTickDate: p.last_tick_date };
             }),
             allocationRequests: results[5].map(function (r) {
               return { id: r.id, productId: r.product_id, requestedAmount: r.requested_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };

@@ -223,6 +223,42 @@
     </div>
   </div>
 
+  <!-- Publish NAV modal (Backend Migration Phase D — NAV feature, 2026-09-06). Scoped, at the
+       UI level, to Private Equity / Real Assets products only — the button that opens this is
+       rendered only inside expandedRowHTML() when p.assetClass is one of those two; publish-nav
+       itself re-validates this server-side regardless, so this scoping is a UX convenience, not
+       the real security boundary. -->
+  <div id="nav-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="nav-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Publish New NAV</p>
+        <button type="button" id="nav-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4" id="nav-modal-product-name"></p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">New Unit Price (USD)</label>
+          <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="105.00" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Effective Date</label>
+          <input type="date" id="nav-effective-date" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+          <p class="text-xs text-slate-400 mt-1">The real-world date this valuation is effective as of — may be earlier than today (e.g. a quarter-end appraisal published later).</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Note (optional)</label>
+          <input type="text" id="nav-note" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Q3 2026 appraisal" />
+        </div>
+      </div>
+      <p class="text-xs text-red-500 hidden mt-3" id="nav-error"></p>
+      <div class="flex gap-3 mt-5">
+        <button type="button" id="nav-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="nav-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Publish NAV</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
     <p class="font-medium text-sm" id="admin-toast-title">Done</p>
@@ -329,7 +365,74 @@
         });
       }
 
+      // ---- Real PM-Published NAV (Backend Migration Phase D — NAV feature, 2026-09-06) ----
+      // A Private Equity / Real Assets product's price never moves via the simulated tick —
+      // it only changes when a real NAV is published (publish-nav), and the "Last Price Tick"
+      // field's real meaning becomes "date of last real valuation" for these two classes,
+      // relabeled here to say so honestly rather than implying a simulated event that no
+      // longer happens for them.
+      var NAV_ELIGIBLE_CLASSES = ['Private Equity', 'Real Assets'];
+      function isNavEligible(p) { return NAV_ELIGIBLE_CLASSES.indexOf(p.assetClass) !== -1; }
+
+      // Lazy per-product NAV history cache — mirrors admin-clients.html's own lazy
+      // per-client pending-count fetch precedent (fetched only when a row is expanded, not
+      // for every product on every list load).
+      var navHistoryCache = {};
+      function loadNavHistory(productId, forceReload) {
+        if (forceReload) delete navHistoryCache[productId];
+        if (navHistoryCache[productId]) return navHistoryCache[productId];
+        navHistoryCache[productId] = MarketswaveData.selectTable('nav_publications', function (q) {
+          return q.eq('product_id', productId).order('effective_date', { ascending: false }).order('published_at', { ascending: false });
+        }).catch(function (err) {
+          delete navHistoryCache[productId];
+          throw err;
+        });
+        return navHistoryCache[productId];
+      }
+
+      function renderNavHistoryInto(productId) {
+        var el = document.getElementById('nav-history-' + productId);
+        if (!el) return;
+        el.innerHTML = '<p class="text-xs text-slate-400 px-1 py-2">Loading NAV history…</p>';
+        loadNavHistory(productId).then(function (rows) {
+          el = document.getElementById('nav-history-' + productId);
+          if (!el) return; // row may have been collapsed before this resolved
+          if (rows.length === 0) {
+            el.innerHTML = '<p class="text-xs text-slate-400 px-1 py-2">No NAV published yet.</p>';
+            return;
+          }
+          el.innerHTML = '<table class="w-full text-xs"><thead class="text-slate-400"><tr>' +
+            '<th class="text-left font-medium px-3 py-1.5">Effective Date</th>' +
+            '<th class="text-right font-medium px-3 py-1.5">Unit Price</th>' +
+            '<th class="text-left font-medium px-3 py-1.5">Published By</th>' +
+            '<th class="text-left font-medium px-3 py-1.5">Note</th>' +
+            '</tr></thead><tbody class="divide-y divide-slate-100">' +
+            rows.map(function (r) {
+              var by = r.published_by_email || 'System (migration)';
+              return '<tr>' +
+                '<td class="px-3 py-1.5 text-slate-700">' + formatDisplayDate(r.effective_date) + '</td>' +
+                '<td class="px-3 py-1.5 text-right font-medium text-slate-900">' + formatUSD2(r.published_unit_price) + '</td>' +
+                '<td class="px-3 py-1.5 text-slate-600">' + by + '</td>' +
+                '<td class="px-3 py-1.5 text-slate-500">' + (r.note || '—') + '</td>' +
+              '</tr>';
+            }).join('') + '</tbody></table>';
+        }).catch(function (err) {
+          el = document.getElementById('nav-history-' + productId);
+          if (el) el.innerHTML = '<p class="text-xs text-red-500 px-1 py-2">Could not load NAV history: ' + MarketswaveData.writeErrorMessage(err) + '</p>';
+        });
+      }
+
       function expandedRowHTML(p) {
+        var eligible = isNavEligible(p);
+        var lastPriceLabel = eligible ? 'Last Valued (NAV)' : 'Last Price Tick';
+        var navSection = !eligible ? '' :
+          '<div class="mt-5 pt-4 border-t border-slate-200">' +
+            '<div class="flex items-center justify-between mb-2">' +
+              '<p class="text-xs text-slate-400 uppercase tracking-wide">NAV History</p>' +
+              '<button type="button" class="publish-nav-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition" data-id="' + p.id + '" data-name="' + p.name + '">Publish New NAV</button>' +
+            '</div>' +
+            '<div id="nav-history-' + p.id + '"></div>' +
+          '</div>';
         return '<tr class="expand-row">' +
           '<td colspan="6" class="px-6 pb-5 pt-0 bg-slate-50/60">' +
             '<div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">' +
@@ -342,13 +445,14 @@
                 '<p class="text-slate-700">' + formatUSD2(p.inceptionUnitPrice) + '</p>' +
               '</div>' +
               '<div>' +
-                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Last Price Tick</p>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">' + lastPriceLabel + '</p>' +
                 '<p class="text-slate-700">' + formatDisplayDate(p.lastTickDate) + '</p>' +
               '</div>' +
             '</div>' +
             '<div class="mt-4">' +
               '<button type="button" class="edit-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + p.id + '">Edit</button>' +
             '</div>' +
+            navSection +
           '</td>' +
         '</tr>';
       }
@@ -425,6 +529,13 @@
             '</tr>';
             return summaryRow + (isExpanded ? expandedRowHTML(p) : '');
           }).join('') + '</tbody></table>';
+
+        // NAV History is fetched async, after the DOM above (including its own placeholder
+        // div) already exists — mirrors admin-clients.html's own lazy per-client pending-count
+        // fetch, triggered only for rows that are both expanded AND NAV-eligible.
+        filtered.forEach(function (p) {
+          if (expandedIds[p.id] && isNavEligible(p)) renderNavHistoryInto(p.id);
+        });
       }
 
       document.getElementById('product-search').addEventListener('input', function (e) {
@@ -455,6 +566,11 @@
         var editBtn = e.target.closest('.edit-btn');
         if (editBtn) {
           openEditModal(editBtn.dataset.id);
+          return;
+        }
+        var navBtn = e.target.closest('.publish-nav-btn');
+        if (navBtn) {
+          openNavModal(navBtn.dataset.id, navBtn.dataset.name);
           return;
         }
         var row = e.target.closest('.product-row');
@@ -604,6 +720,56 @@
         }).catch(function (err) {
           editError.textContent = MarketswaveData.writeErrorMessage(err);
           editError.classList.remove('hidden');
+        });
+      });
+
+      // ---- Publish NAV modal ----
+      var navModal = document.getElementById('nav-modal');
+      var navError = document.getElementById('nav-error');
+      var activeNavProductId = null;
+
+      function todayStrUTC() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function openNavModal(id, name) {
+        activeNavProductId = id;
+        document.getElementById('nav-modal-product-name').textContent = name;
+        document.getElementById('nav-unit-price').value = '';
+        document.getElementById('nav-effective-date').value = todayStrUTC();
+        document.getElementById('nav-note').value = '';
+        navError.classList.add('hidden');
+        navModal.classList.remove('hidden');
+      }
+      function closeNavModal() { navModal.classList.add('hidden'); activeNavProductId = null; }
+
+      document.getElementById('nav-modal-close').addEventListener('click', closeNavModal);
+      document.getElementById('nav-modal-backdrop').addEventListener('click', closeNavModal);
+      document.getElementById('nav-cancel').addEventListener('click', closeNavModal);
+
+      document.getElementById('nav-submit').addEventListener('click', function () {
+        navError.classList.add('hidden');
+        var newUnitPrice = parseFloat(document.getElementById('nav-unit-price').value);
+        var effectiveDate = document.getElementById('nav-effective-date').value;
+        var note = document.getElementById('nav-note').value.trim();
+        var id = activeNavProductId;
+        var btn = document.getElementById('nav-submit');
+
+        MarketswaveData.withButtonBusy(btn, 'Publishing...', function () {
+          return MarketswaveData.callFunction('publish-nav', {
+            productId: id,
+            newUnitPrice: newUnitPrice,
+            effectiveDate: effectiveDate,
+            note: note
+          });
+        }).then(function (result) {
+          closeNavModal();
+          showToast('NAV Published', result.product.name + ' is now valued at ' + formatUSD2(result.product.unitPrice) + ' as of ' + formatDisplayDate(result.publication.effectiveDate) + '.');
+          delete navHistoryCache[id];
+          reloadProducts(true);
+        }).catch(function (err) {
+          navError.textContent = MarketswaveData.writeErrorMessage(err);
+          navError.classList.remove('hidden');
         });
       });
 

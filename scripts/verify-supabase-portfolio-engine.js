@@ -75,15 +75,31 @@ async function main() {
   // ===========================================================================================
   console.log('1. Settlement determinism (cross-checked against real engine-core.js)');
 
-  const testProductId = 'PROD-0001'; // Nordic Growth Fund, aggressive tier
+  // Backend Migration Phase D — NAV feature (2026-09-06): swapped from PROD-0001 (Nordic
+  // Growth Fund, Private Equity) to PROD-0003 (Global Equity ETF, Stocks & ETFs) — PROD-0001
+  // is now one of the two asset classes carved OUT of the simulated tick entirely (its price
+  // only moves via a real published NAV, never this mechanic), so forcing it backward in time
+  // and expecting it to tick forward would no longer hold; the determinism PROPERTY under
+  // test — same product + same lastTickDate + same starting price -> same settled price on
+  // both the real engine-core.js source and the real deployed Edge Function stack — is
+  // completely unaffected by the carve-out for any product the tick mechanic still applies
+  // to, so this is a like-for-like swap, not a weakened test.
+  const testProductId = 'PROD-0003'; // Global Equity ETF, Stocks & ETFs, balanced tier
   const pastDate = '2026-08-20'; // several real days before "today" in this environment
-  const startingPrice = 118.40; // Nordic Growth Fund's real seeded unit price
+  const startingPrice = 118.40; // an arbitrary, manufactured test starting price
 
   await (async function () {
+    // Capture PROD-0003's REAL pre-test state so it can be restored exactly afterward —
+    // deliberately not a hardcoded guess (the prior version of this test hardcoded PROD-0001's
+    // own price back, which only worked because that value happened to match its real seeded
+    // state at authoring time; a genuine real product's live price drifts day to day via its
+    // own real tick, so capture-then-restore is the only correct approach here).
+    const { data: originalRow } = await admin.from('products').select('unit_price, last_tick_date').eq('id', testProductId).single();
+
     // ---- Side A: the REAL, unmodified engine-core.js, sandboxed -----------------------------
     const storages = createSharedStorage();
     const engine = loadEngine(storages); // seeds its own local catalog/account/holdings normally
-    // Force PROD-0001's stored lastTickDate/unitPrice to the exact controlled scenario —
+    // Force the test product's stored lastTickDate/unitPrice to the exact controlled scenario —
     // engine-core.js's own settleProduct() reads from its module-level `catalog` array, so we
     // rewrite the underlying localStorage-polyfill catalog key directly, then reload so the
     // engine picks up the rewritten data.
@@ -101,14 +117,14 @@ async function main() {
     if (setErr) throw new Error('Failed to set up Postgres product for determinism test: ' + setErr.message);
 
     // get-total-portfolio-value triggers settleAllProducts() internally, which settles
-    // PROD-0001 among every other product — the real code path a real client call takes.
+    // the test product among every other product — the real code path a real client call takes.
     const demoSignIn = await signIn(url, anonKey, 'demo-portfolio@marketswave.local', 'DemoPortfolio-Local-2026!');
     await demoSignIn.client.functions.invoke('get-total-portfolio-value', { body: {} });
 
     const { data: settledPg } = await admin.from('products').select('unit_price, last_tick_date').eq('id', testProductId).single();
 
     check(
-      'Real engine-core.js and the real deployed Edge Function stack settle PROD-0001 to the IDENTICAL price for the identical (productId, lastTickDate, startingPrice) scenario',
+      'Real engine-core.js and the real deployed Edge Function stack settle PROD-0003 to the IDENTICAL price for the identical (productId, lastTickDate, startingPrice) scenario',
       settledReal.unitPrice === settledPg.unit_price,
       'engine-core.js=' + settledReal.unitPrice + ', Edge Function stack=' + settledPg.unit_price
     );
@@ -130,15 +146,15 @@ async function main() {
       'before=' + priceBeforeSecondCall + ', after=' + settledPgAgain.unit_price
     );
 
-    // Restore PROD-0001 to its real seeded state, THEN force a fresh recompute of the demo
-    // client's own allocated_capital against the restored price — this test deliberately
-    // ticked PROD-0001 forward across several real days to prove determinism, and
-    // recomputeAllocatedCapital() ran against that TEMPORARILY-ticked price during the calls
-    // above; without this second recompute, the demo client's stored allocated_capital would
-    // stay stale at the ticked value even after the product's own price is restored. A
-    // real, disclosed test-hygiene detail, not a port bug — the determinism assertions above
-    // already passed correctly before this cleanup runs.
-    await admin.from('products').update({ unit_price: 118.40, last_tick_date: new Date().toISOString().slice(0, 10) }).eq('id', testProductId);
+    // Restore PROD-0003 to its REAL captured pre-test state, THEN force a fresh recompute of
+    // the demo client's own allocated_capital against the restored price — this test
+    // deliberately ticked the test product forward across several real days to prove
+    // determinism, and recomputeAllocatedCapital() ran against that TEMPORARILY-ticked price
+    // during the calls above; without this second recompute, the demo client's stored
+    // allocated_capital would stay stale at the ticked value even after the product's own
+    // price is restored. A real, disclosed test-hygiene detail, not a port bug — the
+    // determinism assertions above already passed correctly before this cleanup runs.
+    await admin.from('products').update({ unit_price: originalRow.unit_price, last_tick_date: originalRow.last_tick_date }).eq('id', testProductId);
     await demoSignIn.client.functions.invoke('get-total-portfolio-value', { body: {} });
   })();
 

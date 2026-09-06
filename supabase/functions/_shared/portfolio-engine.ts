@@ -99,6 +99,16 @@ export function settleProduct(product: ProductRow): { unitPrice: number; lastTic
   if (product.asset_class === 'Unallocated / Cash') {
     return { unitPrice: product.unit_price, lastTickDate: product.last_tick_date, changed: false };
   }
+  // Backend Migration Phase D — NAV feature (2026-09-06): Private Equity / Real Assets are
+  // carved out of the simulated tick entirely — their unit price only ever changes via a
+  // real published NAV (see publish-nav), never this deterministic GBM mechanic, modeling
+  // the real-world fact that an illiquid valuation stays flat between periodic appraisals.
+  // Symmetric with the 'Unallocated / Cash' early return directly above — same shape, not a
+  // new mechanism. Every caller of settleProduct() (settleAllProducts(), settleOneProduct())
+  // inherits this for free; no call site needed to change.
+  if (product.asset_class === 'Private Equity' || product.asset_class === 'Real Assets') {
+    return { unitPrice: product.unit_price, lastTickDate: product.last_tick_date, changed: false };
+  }
   const config = RISK_TIER_RETURN_CONFIG[product.risk_tier];
   if (!config) {
     return { unitPrice: product.unit_price, lastTickDate: product.last_tick_date, changed: false };
