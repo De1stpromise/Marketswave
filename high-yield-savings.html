@@ -1096,7 +1096,7 @@
       MarketswaveData.renderAsyncBundle(
         [document.getElementById('hys-total-balance'), document.getElementById('hys-active-count'), document.getElementById('hys-total-interest')],
         {
-          skeletonHTML: '<span class="inline-block h-6 w-20 bg-slate-200 rounded animate-pulse"></span>',
+          skeletonHTML: MarketswaveData.skeleton.text('w-20', { height: 'h-6' }),
           load: loadHysData,
           render: (data) => { applyHysData(data); renderSummary(); }
         }
@@ -1105,12 +1105,17 @@
       MarketswaveData.renderAsyncBundle(
         document.getElementById('pockets-grid'),
         {
-          skeletonHTML: '<div class="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse space-y-3">' +
-            '<div class="h-4 bg-slate-200 rounded w-2/3"></div><div class="h-6 bg-slate-200 rounded w-1/2"></div>' +
-            '<div class="h-3 bg-slate-200 rounded"></div><div class="h-3 bg-slate-200 rounded w-3/4"></div></div>' +
-            '<div class="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse space-y-3 hidden md:block">' +
-            '<div class="h-4 bg-slate-200 rounded w-2/3"></div><div class="h-6 bg-slate-200 rounded w-1/2"></div>' +
-            '<div class="h-3 bg-slate-200 rounded"></div><div class="h-3 bg-slate-200 rounded w-3/4"></div></div>',
+          skeletonHTML: (function () {
+            var pocketCard = function (hiddenOnMobile) {
+              return '<div class="bg-white rounded-2xl border border-slate-200 p-5 space-y-3' + (hiddenOnMobile ? ' hidden md:block' : '') + '">' +
+                MarketswaveData.skeleton.block('w-2/3') +
+                MarketswaveData.skeleton.block('w-1/2', { height: 'h-6' }) +
+                MarketswaveData.skeleton.block('w-full', { height: 'h-3' }) +
+                MarketswaveData.skeleton.block('w-3/4', { height: 'h-3' }) +
+                '</div>';
+            };
+            return pocketCard(false) + pocketCard(true);
+          })(),
           load: loadHysData,
           render: (data) => { applyHysData(data); renderPockets(); }
         }

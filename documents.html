@@ -57,15 +57,15 @@
           <div class="flex flex-wrap gap-2" id="notification-chips">
             <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition" data-target="new">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-              <span id="chip-new-count">2</span> New Documents
+              <span id="chip-new-count"><span class="inline-block h-3 w-3 bg-blue-200 rounded animate-pulse"></span></span> New Documents
             </button>
             <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition" data-target="signature">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              <span id="chip-signature-count">1</span> Signature Required
+              <span id="chip-signature-count"><span class="inline-block h-3 w-3 bg-amber-200 rounded animate-pulse"></span></span> Signature Required
             </button>
             <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition" data-target="deadline">
               <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-              <span id="chip-deadline-count">1</span> Deadline This Week
+              <span id="chip-deadline-count"><span class="inline-block h-3 w-3 bg-red-200 rounded animate-pulse"></span></span> Deadline This Week
             </button>
           </div>
         </div>
@@ -623,24 +623,26 @@
       // ---- Init — UI Wiring Stage 4 (2026-09-03): one renderAsyncBundle call spanning both
       // list containers, since they're genuinely fed by one shared `documents` table fetch with
       // no meaningful independent retry granularity (mirrors deploy-capital.html's own single
-      // combined "My Funding Requests" call from UI Wiring Stage 3). The 3 header chip spans are
-      // set to a neutral placeholder immediately, before the real async load even starts, so no
-      // fake nonzero count (the old static HTML's hardcoded "2"/"1"/"1") is ever shown — the
-      // same "never show a fake value" discipline the sidebar-doc-badge fix (Backend
-      // Requirements Register row 78) already established. `forceReload` behaves the same as
-      // every other write-action stage: reset the cache so a write's own reload genuinely
-      // re-fetches. pendingFlashDocId is consumed once, right after a genuinely fresh render, to
-      // flash the row a just-uploaded document landed in. ----
-      document.getElementById('chip-new-count').textContent = '—';
-      document.getElementById('chip-signature-count').textContent = '—';
-      document.getElementById('chip-deadline-count').textContent = '—';
+      // combined "My Funding Requests" call from UI Wiring Stage 3). `forceReload` behaves the
+      // same as every other write-action stage: reset the cache so a write's own reload
+      // genuinely re-fetches. pendingFlashDocId is consumed once, right after a genuinely fresh
+      // render, to flash the row a just-uploaded document landed in.
+      //
+      // Client Dashboard Polish (2026-09-06): the old synchronous "—" reset that used to live
+      // here is REMOVED, not kept — investigated and found genuinely redundant now, not
+      // merely harmless: this comment's own prior claim that the static HTML chip spans were
+      // "set to a neutral placeholder immediately, before the real async load even starts" was
+      // never actually true — the raw HTML in <body> still hardcoded "2"/"1"/"1" the whole
+      // time (a real flash bug, now fixed at its actual source: each chip's own static markup
+      // is a real skeleton shape from the start, per this project's new unified loading
+      // mechanism — see supabase-data.js's own `skeleton` object). Re-adding this reset now
+      // would just insert an extra "skeleton -> dash -> real count" step where "skeleton ->
+      // real count" already works correctly. ----
 
       function reloadDocuments(forceReload) {
         if (forceReload) dataPromise = null;
         MarketswaveData.renderAsyncBundle([document.getElementById('from-list'), document.getElementById('upload-list')], {
-          skeletonHTML: '<div class="animate-pulse space-y-3 px-6 py-5">' +
-            '<div class="h-4 bg-slate-200 rounded"></div><div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
-            '</div>',
+          skeletonHTML: '<div class="px-6 py-5">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6']) + '</div>',
           load: loadDocuments,
           render: function (docs) {
             allDocs = docs;

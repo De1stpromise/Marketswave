@@ -63,7 +63,7 @@
 
         <!-- Welcome -->
         <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-navy" id="welcome-heading">Welcome Back, John</h2>
+          <h2 class="text-2xl font-semibold text-navy" id="welcome-heading">Welcome Back, <span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse align-middle"></span></h2>
           <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
         </div>
 
@@ -73,10 +73,10 @@
           <!-- Total Portfolio Value - Prominent -->
           <div class="md:col-span-2 bg-gradient-to-br from-navy to-navy-dark rounded-2xl p-6 text-white shadow-lg">
             <p class="text-sm text-white/70 mb-1">Total Portfolio Value</p>
-            <p class="text-3xl font-bold tracking-tight" id="tpv-amount">$1,284,500</p>
+            <p class="text-3xl font-bold tracking-tight" id="tpv-amount"><span class="inline-block h-8 w-48 bg-white/20 rounded animate-pulse"></span></p>
             <div class="flex items-center gap-2 mt-3">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300" id="tpv-monthly-change">
-                +4.2% this month
+                <span class="inline-block h-4 w-20 bg-white/20 rounded animate-pulse"></span>
               </span>
               <span class="text-sm text-white/50">Updated just now</span>
             </div>
@@ -85,15 +85,15 @@
           <!-- Returns from Capital -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6">
             <p class="text-sm text-slate-500 mb-1">Asset Returns</p>
-            <p class="text-2xl font-semibold text-navy" id="asset-returns-amount">$142,800</p>
+            <p class="text-2xl font-semibold text-navy" id="asset-returns-amount"><span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-sm text-emerald-600 mt-2">From initial capital</p>
           </div>
 
           <!-- Best Performing -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6">
             <p class="text-sm text-slate-500 mb-1">Best Performing Class</p>
-            <p class="text-2xl font-semibold text-navy" id="best-performing-class">Private Equity</p>
-            <p class="text-sm text-emerald-600 mt-2" id="best-performing-return">+18.4% YTD</p>
+            <p class="text-2xl font-semibold text-navy" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="text-sm text-emerald-600 mt-2" id="best-performing-return"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
         </div>
 
@@ -147,13 +147,17 @@
                data from get-market-snapshot, replacing the static figures that were here
                since the engine was first built. SPY/QQQ are real, honest labels — Finnhub's
                free tier has no direct S&P 500/NASDAQ index quote (a real, disclosed
-               constraint — see get-market-snapshot's own header) — the SAME 4 grid slots are
-               reused, no layout change. -->
+               constraint — see get-market-snapshot's own header). Expanded to 6 real data
+               points (Client Dashboard Polish, 2026-09-06: + DIA, + SOL) — grid moved from
+               2x4 to 2x3 (sm:grid-cols-3) specifically because 6 divides cleanly into that
+               shape while 4 doesn't (a genuine, deliberate reflow, not a leftover from the
+               old 4-item count). The loading placeholder is now a real 6-card skeleton
+               (MarketswaveData.skeleton) shaped like the real final grid, replacing the old
+               literal "Loading real market data…" TEXT this task's own item 2/3 flagged as
+               an anti-pattern. -->
           <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
             <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="market-snapshot-grid">
-              <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-4 text-center text-sm text-slate-400" id="market-snapshot-loading">Loading real market data…</div>
-            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="market-snapshot-grid"></div>
           </div>
 
           <!-- Simple Currency Converter -->
@@ -335,7 +339,7 @@
       // ---- Total Portfolio Value ----
       var tpvEl = document.getElementById('tpv-amount');
       MarketswaveData.renderAsyncBundle(tpvEl, {
-        skeletonHTML: '<span class="inline-block h-8 w-48 bg-white/20 rounded animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-48', { dark: true, height: 'h-8' }),
         load: loadDashboardData,
         render: function (data) {
           tpvEl.textContent = formatUSD(Math.round(data.tpv));
@@ -371,13 +375,7 @@
       var canvas = document.getElementById('allocation-chart');
       var chartWrapper = document.getElementById('allocation-chart-wrapper');
       MarketswaveData.renderAsyncBundle(legendEl, {
-        skeletonHTML: '<div class="animate-pulse space-y-3">' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '</div>',
+        skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-full', 'w-4/5', 'w-full'], { gap: 'space-y-3' }),
         load: loadDashboardData,
         render: function (data) {
           // Genuinely $0 Total Portfolio Value (nothing deposited at all) — an honest empty
@@ -461,7 +459,7 @@
       // realized/unrealized distinction this project has enforced since Phase 2. ----
       var assetReturnsEl = document.getElementById('asset-returns-amount');
       MarketswaveData.renderAsyncBundle(assetReturnsEl, {
-        skeletonHTML: '<span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-24', { height: 'h-7' }),
         load: loadDashboardData,
         render: function (data) {
           assetReturnsEl.textContent = formatUSD(Math.round(data.account.assetReturns));
@@ -478,7 +476,7 @@
       var bestClassEl = document.getElementById('best-performing-class');
       var bestClassReturnEl = document.getElementById('best-performing-return');
       MarketswaveData.renderAsyncBundle([bestClassEl, bestClassReturnEl], {
-        skeletonHTML: '<span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-28', { height: 'h-6' }),
         load: loadDashboardData,
         render: function (data) {
           var breakdown = computeClassBreakdown(data);
@@ -512,7 +510,7 @@
       // part of the account_state/holdings/products/transactions bundle above. ----
       var monthlyChangeEl = document.getElementById('tpv-monthly-change');
       MarketswaveData.renderAsyncBundle(monthlyChangeEl, {
-        skeletonHTML: '<span class="inline-block h-4 w-20 bg-white/20 rounded animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-20', { dark: true }),
         load: function () {
           return MarketswaveData.callFunction('get-portfolio-monthly-change');
         },
@@ -536,7 +534,7 @@
       var cashReserveEl = document.getElementById('risk-cash-reserve');
       var utilEl = document.getElementById('risk-allocation-util');
       MarketswaveData.renderAsyncBundle([cashReserveEl, utilEl], {
-        skeletonHTML: '<span class="inline-block h-5 w-20 bg-slate-200 rounded-full animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-20', { height: 'h-5', pill: true }),
         load: loadDashboardData,
         render: function (data) {
           var cashReservePct = data.tpv > 0 ? (data.account.unallocatedCapital / data.tpv) * 100 : 0;
@@ -563,11 +561,7 @@
       // real query's own real ordering. ----
       var activityEl = document.getElementById('recent-activity-list');
       MarketswaveData.renderAsyncBundle(activityEl, {
-        skeletonHTML: '<div class="animate-pulse space-y-4">' +
-          '<div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
-          '<div class="h-4 bg-slate-200 rounded w-2/3"></div>' +
-          '<div class="h-4 bg-slate-200 rounded w-3/4"></div>' +
-          '</div>',
+        skeletonHTML: MarketswaveData.skeleton.lines(['w-5/6', 'w-2/3', 'w-3/4'], { gap: 'space-y-4' }),
         load: loadDashboardData,
         render: function (data) {
           var recent = data.transactions.slice(0, 3);
@@ -635,14 +629,28 @@
 
       var CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', SEK: 'kr' };
 
+      function marketCardSkeleton() {
+        return '<div class="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">' +
+          MarketswaveData.skeleton.block('w-16', { height: 'h-3' }) +
+          MarketswaveData.skeleton.block('w-20', { height: 'h-5' }) +
+          MarketswaveData.skeleton.block('w-12', { height: 'h-3' }) +
+          '</div>';
+      }
+
       function loadMarketSnapshot() {
         return MarketswaveData.renderAsyncBundle(document.getElementById('market-snapshot-grid'), {
+          skeletonHTML: new Array(6).fill(marketCardSkeleton()).join(''),
           load: function () { return MarketswaveData.callFunction('get-market-snapshot'); },
           render: function (result) {
             var grid = document.getElementById('market-snapshot-grid');
             grid.innerHTML = result.data.map(function (item) {
               var isUp = item.changePercent >= 0;
-              var displayValue = item.symbol === 'BTC' || item.symbol === 'ETH'
+              // Crypto (source: coingecko) gets a $ prefix + thousands separator; ETF/stock
+              // quotes (source: finnhub) show a plain rounded price, matching this card's own
+              // pre-existing SPY/QQQ convention — checking `source` rather than a hardcoded
+              // symbol list means a future coin (e.g. SOL, added this task) or ETF needs no
+              // change here.
+              var displayValue = item.source === 'coingecko'
                 ? '$' + Math.round(item.value).toLocaleString()
                 : Math.round(item.value * 100) / 100;
               return '<div class="p-4 rounded-xl bg-slate-50 border border-slate-100">' +

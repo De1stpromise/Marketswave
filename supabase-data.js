@@ -212,11 +212,80 @@
     return 'Something went wrong loading this data.';
   }
 
+  // ---- Unified Loading Skeleton (Client Dashboard Polish, 2026-09-06) ----
+  // Investigated first, per instruction: all 10 client-facing pages were grepped for their
+  // own loading-state implementations. Every one already used renderAsyncBundle() below, but
+  // ~25 separate call sites across those 10 pages each hand-wrote their own animate-pulse
+  // markup inline — genuinely different shapes/sizes with no shared definition, not a single
+  // reusable pattern. Two real, separate flash bugs were also found this way, neither a
+  // renderAsyncBundle skeleton at all: dashboard.html's "Welcome Back, John" greeting and
+  // settings.html's "John Doe"/"JD"/"Individual Account" profile header are literal,
+  // real-sounding placeholder TEXT baked into static HTML markup with NO loading treatment —
+  // painted before any script runs, then silently overwritten once a later synchronous
+  // script tag executes. And dashboard.html's old Market Snapshot region used literal text
+  // ("Loading real market data…") as its own loading state, the exact anti-pattern this
+  // module exists to close off. `skeleton` below is the one shared vocabulary every one of
+  // those call sites — and both flash-bug sites' own static markup — now composes from,
+  // instead of writing new one-off animate-pulse HTML.
+  var skeleton = {
+    // A single inline placeholder standing in for one short value (a number, a label, a
+    // date) — the single most common shape across this project's own skeletons.
+    // `widthClass` is any Tailwind width utility; pass `{ dark: true }` on a navy/colored
+    // card background (a translucent white block instead of slate gray, matching this
+    // project's own pre-existing dark-card skeletons), `{ height: 'h-6' }` to match a
+    // larger real value, `{ pill: true }` for a rounded-full badge/pill shape.
+    text: function (widthClass, opts) {
+      opts = opts || {};
+      var bg = opts.dark ? 'bg-white/20' : 'bg-slate-200';
+      var height = opts.height || 'h-4';
+      var radius = opts.pill ? 'rounded-full' : 'rounded';
+      return '<span class="inline-block ' + height + ' ' + (widthClass || 'w-20') + ' ' + bg + ' ' + radius + ' animate-pulse"></span>';
+    },
+    // A block-level placeholder (its own line) — for a value that isn't inline text, e.g. a
+    // full-width card body line.
+    block: function (widthClass, opts) {
+      opts = opts || {};
+      var bg = opts.dark ? 'bg-white/20' : 'bg-slate-200';
+      var height = opts.height || 'h-4';
+      return '<div class="' + height + ' ' + (widthClass || 'w-full') + ' ' + bg + ' rounded animate-pulse"></div>';
+    },
+    // A stack of independently-sized block lines — the common "2-3 line paragraph/summary"
+    // shape. `widths` is an array of Tailwind width utilities, one per line.
+    lines: function (widths, opts) {
+      opts = opts || {};
+      return '<div class="' + (opts.gap || 'space-y-2') + '">' +
+        widths.map(function (w) { return skeleton.block(w, opts); }).join('') +
+        '</div>';
+    },
+    // A bordered card matching this project's own real product/pocket card shape — a
+    // title-height line followed by a couple of narrower body lines.
+    card: function (opts) {
+      opts = opts || {};
+      var widths = opts.widths || ['w-1/2', 'w-3/4', 'w-1/3'];
+      return '<div class="border border-slate-200 rounded-xl p-5 space-y-3">' +
+        widths.map(function (w, i) { return skeleton.block(w, { height: i === 0 ? 'h-5' : 'h-4' }); }).join('') +
+        '</div>';
+    },
+    // One `<tr>` shaped like a real N-column data row (Return Table, ledger table, etc.) —
+    // the first cell's placeholder is wider, matching that a name/description column is
+    // usually the longest.
+    tableRow: function (cols) {
+      var cells = '';
+      for (var i = 0; i < cols; i++) {
+        cells += '<td class="px-6 py-4">' + skeleton.text(i === 0 ? 'w-32' : 'w-16') + '</td>';
+      }
+      return '<tr>' + cells + '</tr>';
+    },
+    // `count` stacked table rows, each via tableRow() above.
+    tableRows: function (count, cols) {
+      var rows = '';
+      for (var i = 0; i < count; i++) rows += skeleton.tableRow(cols);
+      return rows;
+    }
+  };
+
   function defaultSkeletonHTML() {
-    return '<div class="animate-pulse space-y-2">' +
-      '<div class="h-4 bg-slate-200 rounded w-3/4"></div>' +
-      '<div class="h-4 bg-slate-200 rounded w-1/2"></div>' +
-      '</div>';
+    return skeleton.lines(['w-3/4', 'w-1/2']);
   }
 
   function errorCardHTML(err) {
@@ -486,6 +555,7 @@
     getSignedDownloadUrl: getSignedDownloadUrl,
     deleteFile: deleteFile,
     renderAsyncBundle: renderAsyncBundle,
+    skeleton: skeleton,
     withButtonBusy: withButtonBusy,
     classifyError: classifyError,
     friendlyMessage: friendlyMessage,

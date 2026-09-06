@@ -306,13 +306,13 @@
       // ---- Async load: product catalog + holdings, the real replacement for the old
       // synchronous getAllProducts()/getHoldings() reads. ----
       MarketswaveData.renderAsyncBundle(cardsGrid, {
-        skeletonHTML: [1, 2, 3].map(function () {
-          return '<div class="border border-slate-200 rounded-xl p-5 animate-pulse space-y-3">' +
-            '<div class="h-5 bg-slate-200 rounded w-3/4"></div>' +
-            '<div class="h-4 bg-slate-200 rounded w-1/2"></div>' +
-            '<div class="h-10 bg-slate-200 rounded"></div>' +
-            '</div>';
-        }).join(''),
+        skeletonHTML: new Array(3).fill(
+          '<div class="border border-slate-200 rounded-xl p-5 space-y-3">' +
+            MarketswaveData.skeleton.block('w-3/4', { height: 'h-5' }) +
+            MarketswaveData.skeleton.block('w-1/2') +
+            MarketswaveData.skeleton.block('w-full', { height: 'h-10' }) +
+            '</div>'
+        ).join(''),
         load: function () {
           return Promise.all([
             MarketswaveData.selectTable('products'),

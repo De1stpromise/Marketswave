@@ -401,8 +401,8 @@
             data: {
               labels: labels,
               datasets: [
-                { label: 'Buys', data: buysData, backgroundColor: '#1B3A4B' },
-                { label: 'Sells', data: sellsData, backgroundColor: '#C8A857' }
+                { label: 'Buys', data: buysData, backgroundColor: '#1B3A4B', borderRadius: 6 },
+                { label: 'Sells', data: sellsData, backgroundColor: '#C8A857', borderRadius: 6 }
               ]
             },
             options: {
@@ -579,7 +579,7 @@
       }
 
       MarketswaveData.renderAsyncBundle([totalBuysEl, totalBuysCountEl, totalSellsEl, totalSellsCountEl, netInvestedEl, advisoryFeeAmountEl, advisoryFeeRateEl], {
-        skeletonHTML: '<span class="inline-block h-5 w-16 bg-slate-200 rounded animate-pulse"></span>',
+        skeletonHTML: MarketswaveData.skeleton.text('w-16', { height: 'h-5' }),
         load: loadPageData,
         render: function (data) {
           applyPageData(data);
@@ -588,11 +588,7 @@
       });
 
       MarketswaveData.renderAsyncBundle(activityEl, {
-        skeletonHTML: '<div class="animate-pulse space-y-3">' +
-          '<div class="h-4 bg-slate-200 rounded"></div>' +
-          '<div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
-          '<div class="h-4 bg-slate-200 rounded w-2/3"></div>' +
-          '</div>',
+        skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }),
         load: loadPageData,
         render: function (data) {
           applyPageData(data);
@@ -601,9 +597,7 @@
       });
 
       MarketswaveData.renderAsyncBundle(tbody, {
-        skeletonHTML: '<tr><td colspan="7" class="px-6 py-6"><div class="animate-pulse space-y-2">' +
-          '<div class="h-4 bg-slate-200 rounded"></div><div class="h-4 bg-slate-200 rounded w-2/3 mx-auto"></div>' +
-          '</div></td></tr>',
+        skeletonHTML: MarketswaveData.skeleton.tableRows(3, 7),
         load: loadPageData,
         render: function (data) {
           applyPageData(data);

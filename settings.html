@@ -90,11 +90,11 @@
         <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
           <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
             <div class="flex items-center gap-4">
-              <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0" id="profile-avatar-initials">JD</div>
+              <div class="w-14 h-14 rounded-full bg-navy/10 flex items-center justify-center text-navy text-lg font-semibold shrink-0 animate-pulse" id="profile-avatar-initials"></div>
               <div>
-                <p class="text-lg font-semibold text-navy" id="profile-name">John Doe</p>
+                <p class="text-lg font-semibold text-navy" id="profile-name"><span class="inline-block h-5 w-32 bg-slate-200 rounded animate-pulse"></span></p>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
-                  <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-navy/10 text-navy" id="profile-account-type">Individual Account</span>
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-navy/10 text-navy" id="profile-account-type"><span class="inline-block h-3 w-24 bg-navy/20 rounded-full animate-pulse"></span></span>
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>KYC Verified</span>
                 </div>
               </div>
@@ -106,7 +106,7 @@
             <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100">
               <div class="flex-1 min-w-0">
                 <p class="text-xs text-slate-500">Email</p>
-                <p class="text-sm font-medium text-navy mt-0.5" id="email-view">john.doe@example.com</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="email-view"><span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span></p>
                 <div class="hidden mt-2" id="email-edit">
                   <input type="email" id="email-input" class="w-full max-w-xs px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
                   <p class="text-xs text-red-500 hidden mt-1" id="email-error">Enter a valid email address.</p>
@@ -122,7 +122,7 @@
             <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100">
               <div class="flex-1 min-w-0">
                 <p class="text-xs text-slate-500">Phone</p>
-                <p class="text-sm font-medium text-navy mt-0.5" id="phone-view">+1 (415) 555-0182</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="phone-view"><span class="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse"></span></p>
                 <div class="hidden mt-2" id="phone-edit">
                   <input type="tel" id="phone-input" class="w-full max-w-xs px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
                   <p class="text-xs text-red-500 hidden mt-1" id="phone-error">Enter a valid phone number.</p>
@@ -584,7 +584,7 @@
       MarketswaveData.renderAsyncBundle(
         [document.getElementById('email-view'), document.getElementById('phone-view')],
         {
-          skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+          skeletonHTML: MarketswaveData.skeleton.text('w-40'),
           load: loadClientRow,
           render: function (client) {
             realEmail = client ? client.email : null;
@@ -606,7 +606,9 @@
         if (!client) return;
         document.getElementById('profile-name').textContent = client.name;
         document.getElementById('profile-account-type').textContent = client.accountType;
-        document.getElementById('profile-avatar-initials').textContent = typeof getClientInitials === 'function' ? getClientInitials(client.name) : '';
+        var avatarEl = document.getElementById('profile-avatar-initials');
+        avatarEl.textContent = typeof getClientInitials === 'function' ? getClientInitials(client.name) : '';
+        avatarEl.classList.remove('animate-pulse');
       })();
 
       function enterEdit(field) {
@@ -732,7 +734,7 @@
         MarketswaveData.renderAsyncBundle(
           FIELDS.map(f => document.getElementById(`${f}-display`)),
           {
-            skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+            skeletonHTML: MarketswaveData.skeleton.text('w-40'),
             load: loadProfileChangeData,
             render: function (data) {
               profile = data.profile;

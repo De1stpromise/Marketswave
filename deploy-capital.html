@@ -572,11 +572,7 @@
       function reloadFundingRequests(forceReload) {
         if (forceReload) dataPromise = null;
         MarketswaveData.renderAsyncBundle(document.getElementById('my-funding-requests-list'), {
-          skeletonHTML: '<div class="animate-pulse p-6 space-y-3">' +
-            '<div class="h-4 bg-slate-200 rounded"></div>' +
-            '<div class="h-4 bg-slate-200 rounded w-5/6"></div>' +
-            '<div class="h-4 bg-slate-200 rounded w-2/3"></div>' +
-            '</div>',
+          skeletonHTML: '<div class="p-6">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }) + '</div>',
           load: loadFundingData,
           render: function (data) {
             applyFundingData(data);

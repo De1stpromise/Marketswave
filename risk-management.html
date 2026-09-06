@@ -557,7 +557,7 @@
       MarketswaveData.renderAsyncBundle(
         [document.getElementById('diversification-score'), document.getElementById('diversification-concentration')],
         {
-          skeletonHTML: '<span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span>',
+          skeletonHTML: MarketswaveData.skeleton.text('w-40'),
           load: loadDiversificationData,
           render: function (result) {
             realCurrentDiversification = result;

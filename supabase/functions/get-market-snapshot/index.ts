@@ -21,7 +21,17 @@
 // finding). Flagged in CLAUDE.md for the user to weigh in on if a different data source or
 // presentation is preferred.
 //
-// BTC/ETH come from CoinGecko's public API — no key needed, confirmed directly.
+// BTC/ETH/SOL come from CoinGecko's public API — no key needed, confirmed directly.
+//
+// ---- Client Dashboard Polish (2026-09-06): expanded from 4 to 6 real data points ----
+// DIA (SPDR Dow Jones Industrial Average ETF Trust) and SOL (Solana) both confirmed directly
+// against the real free-tier APIs before adding — DIA via a real Finnhub quote call, SOL via
+// a real CoinGecko simple/price call — neither needed a plan upgrade or a new key. GLD
+// (SPDR Gold Shares, a common wealth-management client interest) was ALSO confirmed working
+// on the same free Finnhub tier, but deliberately NOT added this round — 6 items grids
+// cleanly (2x3 on the client dashboard); 7 does not, on any of the grid's own breakpoints.
+// Reported, not silently added or silently dropped, per instruction — a genuine future
+// candidate if the grid layout is ever revisited.
 //
 // AUTHORIZATION: any authenticated caller (client or admin) — this is genuinely public
 // market data, not scoped per client at all, matching market_data_cache's own RLS policy.
@@ -30,12 +40,23 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const CACHE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
-const SYMBOLS: Record<string, { label: string; source: string }> = {
-  SPY: { label: 'SPY (S&P 500 ETF)', source: 'finnhub' },
-  QQQ: { label: 'QQQ (NASDAQ-100 ETF)', source: 'finnhub' },
-  BTC: { label: 'BTC', source: 'coingecko' },
-  ETH: { label: 'ETH', source: 'coingecko' }
+const FINNHUB_SYMBOLS: Record<string, string> = {
+  SPY: 'SPY (S&P 500 ETF)',
+  QQQ: 'QQQ (NASDAQ-100 ETF)',
+  DIA: 'DIA (Dow Jones ETF)'
 };
+
+const COINGECKO_IDS: Record<string, { symbol: string; label: string }> = {
+  bitcoin: { symbol: 'BTC', label: 'BTC' },
+  ethereum: { symbol: 'ETH', label: 'ETH' },
+  solana: { symbol: 'SOL', label: 'SOL' }
+};
+
+const SYMBOLS: Record<string, { label: string; source: string }> = Object.assign(
+  {},
+  ...Object.entries(FINNHUB_SYMBOLS).map(([symbol, label]) => ({ [symbol]: { label, source: 'finnhub' } })),
+  ...Object.values(COINGECKO_IDS).map(({ symbol, label }) => ({ [symbol]: { label, source: 'coingecko' } }))
+);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -88,17 +109,28 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'FINNHUB_API_KEY is not configured on this server.' }, 500);
       }
 
-      const [spyQuote, qqqQuote, coinGeckoData] = await Promise.all([
-        fetchFinnhubQuote('SPY', finnhubKey),
-        fetchFinnhubQuote('QQQ', finnhubKey),
-        fetchCoinGeckoPrices()
+      const finnhubSymbols = Object.keys(FINNHUB_SYMBOLS);
+      const [finnhubQuotes, coinGeckoData] = await Promise.all([
+        Promise.all(finnhubSymbols.map((symbol) => fetchFinnhubQuote(symbol, finnhubKey))),
+        fetchCoinGeckoPrices(Object.keys(COINGECKO_IDS))
       ]);
 
+      const nowIso = new Date().toISOString();
       const fresh = [
-        { symbol: 'SPY', value: spyQuote.c, change_percent: spyQuote.dp, source: 'finnhub', last_updated: new Date().toISOString() },
-        { symbol: 'QQQ', value: qqqQuote.c, change_percent: qqqQuote.dp, source: 'finnhub', last_updated: new Date().toISOString() },
-        { symbol: 'BTC', value: coinGeckoData.bitcoin.usd, change_percent: coinGeckoData.bitcoin.usd_24h_change, source: 'coingecko', last_updated: new Date().toISOString() },
-        { symbol: 'ETH', value: coinGeckoData.ethereum.usd, change_percent: coinGeckoData.ethereum.usd_24h_change, source: 'coingecko', last_updated: new Date().toISOString() }
+        ...finnhubSymbols.map((symbol, i) => ({
+          symbol,
+          value: finnhubQuotes[i].c,
+          change_percent: finnhubQuotes[i].dp,
+          source: 'finnhub',
+          last_updated: nowIso
+        })),
+        ...Object.entries(COINGECKO_IDS).map(([coinGeckoId, { symbol }]) => ({
+          symbol,
+          value: coinGeckoData[coinGeckoId].usd,
+          change_percent: coinGeckoData[coinGeckoId].usd_24h_change,
+          source: 'coingecko',
+          last_updated: nowIso
+        }))
       ];
 
       const { data: upserted, error: upsertErr } = await admin
@@ -134,11 +166,13 @@ async function fetchFinnhubQuote(symbol: string, apiKey: string): Promise<{ c: n
   return data;
 }
 
-async function fetchCoinGeckoPrices(): Promise<{ bitcoin: { usd: number; usd_24h_change: number }; ethereum: { usd: number; usd_24h_change: number } }> {
-  const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+async function fetchCoinGeckoPrices(ids: string[]): Promise<Record<string, { usd: number; usd_24h_change: number }>> {
+  const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + ids.join(',') + '&vs_currencies=usd&include_24hr_change=true');
   if (!res.ok) throw new Error('CoinGecko request failed: HTTP ' + res.status);
   const data = await res.json();
-  if (!data.bitcoin || !data.ethereum) throw new Error('CoinGecko returned an unexpected shape: ' + JSON.stringify(data));
+  for (const id of ids) {
+    if (!data[id]) throw new Error('CoinGecko returned an unexpected shape (missing ' + id + '): ' + JSON.stringify(data));
+  }
   return data;
 }
 

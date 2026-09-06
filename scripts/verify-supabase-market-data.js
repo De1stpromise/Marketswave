@@ -47,21 +47,24 @@ async function main() {
 
   // Clear any pre-existing cache rows so the first call below is guaranteed to be a real
   // fresh fetch, not an accidental cache hit from an earlier manual test.
-  await admin.from('market_data_cache').delete().in('symbol', ['SPY', 'QQQ', 'BTC', 'ETH']);
+  const ALL_SYMBOLS = ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'];
+  await admin.from('market_data_cache').delete().in('symbol', ALL_SYMBOLS);
 
   console.log('1. get-market-snapshot — a real, live, uncached fetch\n');
   const { data: first, error: firstErr } = await client.functions.invoke('get-market-snapshot');
   check('the real function call succeeds', !firstErr, firstErr && firstErr.message);
   check('the first call (cache cleared) genuinely hit the real external APIs, not the cache', first && first.cacheHit === false, JSON.stringify(first));
-  check('all 4 real symbols are present (SPY, QQQ, BTC, ETH)', first && first.data.length === 4 && ['SPY', 'QQQ', 'BTC', 'ETH'].every((s) => first.data.some((d) => d.symbol === s)));
+  check('all 6 real symbols are present (SPY, QQQ, DIA, BTC, ETH, SOL — expanded from the original 4, Client Dashboard Polish item 1)', first && first.data.length === 6 && ALL_SYMBOLS.every((s) => first.data.some((d) => d.symbol === s)));
   check('SPY (S&P 500 ETF proxy) has a real, plausible positive price (not a fabricated placeholder)', first && first.data.find((d) => d.symbol === 'SPY').value > 0);
   check('QQQ (NASDAQ-100 ETF proxy) has a real, plausible positive price', first && first.data.find((d) => d.symbol === 'QQQ').value > 0);
+  check('DIA (Dow Jones ETF proxy) has a real, plausible positive price', first && first.data.find((d) => d.symbol === 'DIA').value > 0);
   check('BTC has a real, plausible price (four or five digits, not a hardcoded $67,420)', first && first.data.find((d) => d.symbol === 'BTC').value > 1000 && first.data.find((d) => d.symbol === 'BTC').value !== 67420);
   check('ETH has a real, plausible price (not the hardcoded $3,418)', first && first.data.find((d) => d.symbol === 'ETH').value !== 3418);
+  check('SOL has a real, plausible positive price', first && first.data.find((d) => d.symbol === 'SOL').value > 0);
   check('the real market_data_cache table was actually populated by this call', true); // confirmed below
 
   const { data: cacheRows } = await admin.from('market_data_cache').select('*');
-  check('exactly 4 real rows now exist in market_data_cache', cacheRows && cacheRows.length === 4, JSON.stringify(cacheRows));
+  check('exactly 6 real rows now exist in market_data_cache', cacheRows && cacheRows.length === 6, JSON.stringify(cacheRows));
 
   console.log('\n2. A second call within 15 minutes correctly hits the cache (no repeat external API call)\n');
   const { data: second, error: secondErr } = await client.functions.invoke('get-market-snapshot');
@@ -71,7 +74,7 @@ async function main() {
 
   console.log('\n3. THE REAL "not cached forever" PROOF — a genuinely stale cache forces a real re-fetch\n');
   const staleTimestamp = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 minutes ago, older than the 15-minute threshold
-  await admin.from('market_data_cache').update({ last_updated: staleTimestamp }).in('symbol', ['SPY', 'QQQ', 'BTC', 'ETH']);
+  await admin.from('market_data_cache').update({ last_updated: staleTimestamp }).in('symbol', ALL_SYMBOLS);
   const { data: third, error: thirdErr } = await client.functions.invoke('get-market-snapshot');
   check('the third call succeeds', !thirdErr);
   check('a genuinely stale (20-minute-old) cache correctly triggers a real re-fetch, not a stale-forever read', third && third.cacheHit === false, JSON.stringify(third));

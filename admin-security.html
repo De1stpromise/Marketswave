@@ -169,7 +169,7 @@
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-900 font-medium">' + clientCell + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeInfo.cls + '">' + typeInfo.label + '</span></td>' +
-              '<td class="px-6 py-4 text-slate-600 max-w-md">' + e.reason + '</td>' +
+              '<td class="px-6 py-4 text-slate-600 max-w-md">' + (e.reason || '—') + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + e.performedBy + '</td>' +
               '<td class="px-6 py-4 text-slate-500">' + e.performedAt + '</td>' +
             '</tr>';

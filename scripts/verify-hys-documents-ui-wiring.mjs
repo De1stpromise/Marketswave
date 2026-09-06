@@ -360,10 +360,15 @@ async function main() {
   // put in place by the time this page's own inline script runs on a real page load.
   D.body.insertAdjacentHTML('beforeend', '<span id="sidebar-doc-badge" class="hidden">0</span>');
 
-  check('before the script even runs, the chips still show the OLD static HTML defaults (sanity check that the next assertion is real)', D.getElementById('chip-new-count').textContent === '2');
+  // Client Dashboard Polish (2026-09-06) replaced the chips' old static fake "2"/"1"/"1"
+  // defaults — a real flash-of-fake-content bug — with real skeleton markup baked directly
+  // into documents.html's own static HTML, and removed the now-redundant synchronous "—"
+  // reset JS ever ran to correct it. Updated these two checks to match the corrected,
+  // structurally-honest behavior instead of re-asserting the old bug as a baseline.
+  check('before the script even runs, the chips show a real skeleton shape in the static HTML — never the old fake "2" default (the flash-of-fake-content bug fixed by Client Dashboard Polish)', /animate-pulse/.test(D.getElementById('chip-new-count').innerHTML) && D.getElementById('chip-new-count').textContent.trim() === '');
 
   docsDom.window.eval(docsScript);
-  check('the 3 header chips are set to a neutral placeholder ("—") synchronously, before the real async load resolves — never a fake hardcoded count', D.getElementById('chip-new-count').textContent === '—' && D.getElementById('chip-signature-count').textContent === '—' && D.getElementById('chip-deadline-count').textContent === '—');
+  check('the 3 header chips still show a real skeleton immediately after the script runs, before the real async load resolves — never a fake hardcoded count, never bare placeholder text', /animate-pulse/.test(D.getElementById('chip-new-count').innerHTML) && /animate-pulse/.test(D.getElementById('chip-signature-count').innerHTML) && /animate-pulse/.test(D.getElementById('chip-deadline-count').innerHTML));
   check('the loading skeleton genuinely appears immediately (From Marketswave)', /animate-pulse/.test(fromListEl.innerHTML));
   check('the loading skeleton genuinely appears immediately (Uploads)', /animate-pulse/.test(uploadListEl.innerHTML));
 
