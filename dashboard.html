@@ -487,8 +487,8 @@
                     var cy = (area.top + area.bottom) / 2;
                     var radius = Math.min(area.right - area.left, area.bottom - area.top) / 2;
                     var g = chart.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-                    g.addColorStop(0, lightenHex(colors[ctx.dataIndex], 0.35));
-                    g.addColorStop(1, darkenHex(colors[ctx.dataIndex], 0.15));
+                    g.addColorStop(0, lightenHex(colors[ctx.dataIndex], 0.55));
+                    g.addColorStop(1, lightenHex(colors[ctx.dataIndex], 0.05));
                     return g;
                   },
                   borderWidth: 0
@@ -516,9 +516,9 @@
                 beforeDatasetsDraw: function (chart) {
                   var ctx = chart.ctx;
                   ctx.save();
-                  ctx.shadowColor = 'rgba(27,58,75,0.18)';
-                  ctx.shadowBlur = 9;
-                  ctx.shadowOffsetY = 3;
+                  ctx.shadowColor = 'rgba(27,58,75,0.10)';
+                  ctx.shadowBlur = 6;
+                  ctx.shadowOffsetY = 2;
                 },
                 afterDatasetsDraw: function (chart) {
                   chart.ctx.restore();
