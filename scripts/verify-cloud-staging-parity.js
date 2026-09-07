@@ -49,6 +49,19 @@ function run(cmd) {
   return execSync(cmd, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 10 });
 }
 
+// ★ Real, disclosed fix (2026-09-07): the CLI's own "A new version of Supabase CLI is
+// available..." update-nag banner started appearing on stdout AFTER whatever JSON a command
+// prints, once a newer CLI version became available mid-session — a real, unrelated
+// environment change (this session's own installed CLI is 2.116.0; the nag itself names
+// 2.117.0), not a regression from anything this project did. It breaks every JSON.parse()
+// in this file that trusted a command's full output to be clean JSON. Stripping everything
+// from this banner's own first line onward, before parsing, fixes all of them at the source
+// rather than patching each call site's own JSON-boundary logic individually.
+function stripCliNagBanner(raw) {
+  const idx = raw.indexOf('A new version of Supabase CLI is available');
+  return idx === -1 ? raw : raw.slice(0, idx).trimEnd();
+}
+
 function fail(msg) {
   console.error('FAIL: ' + msg);
   process.exitCode = 1;
@@ -71,7 +84,8 @@ try {
   fail('Could not run `supabase projects list` — is the CLI installed and logged in? ' + e.message);
   process.exit(1);
 }
-const projects = JSON.parse(linkedRef).projects || JSON.parse(linkedRef);
+const linkedRefClean = stripCliNagBanner(linkedRef);
+const projects = JSON.parse(linkedRefClean).projects || JSON.parse(linkedRefClean);
 const linked = (Array.isArray(projects) ? projects : projects.projects).find(p => p.linked);
 if (!linked || !EXPECTED_STAGING_URL.includes(linked.ref)) {
   fail(`The linked Supabase project (${linked && linked.ref}) does not match the expected real staging project ref embedded in ${EXPECTED_STAGING_URL}.`);
@@ -98,9 +112,10 @@ try {
 }
 
 let rows = [];
-const jsonStartIdx = migrationListRaw.indexOf('{"migrations":');
+const migrationListClean = stripCliNagBanner(migrationListRaw);
+const jsonStartIdx = migrationListClean.indexOf('{"migrations":');
 if (jsonStartIdx !== -1) {
-  const candidate = migrationListRaw.slice(jsonStartIdx).trim();
+  const candidate = migrationListClean.slice(jsonStartIdx).trim();
   const parsed = JSON.parse(candidate);
   rows = parsed.migrations.map(m => ({ local: m.local, remote: m.remote }));
 } else {
@@ -141,7 +156,7 @@ try {
   fail('Could not run `supabase functions list`: ' + e.message);
   process.exit(1);
 }
-const remoteFunctions = JSON.parse(remoteFunctionsRaw);
+const remoteFunctions = JSON.parse(stripCliNagBanner(remoteFunctionsRaw));
 const remoteSlugs = new Set((remoteFunctions.functions || remoteFunctions).map(f => f.slug).filter(Boolean));
 if (remoteFunctions.functions === undefined && Array.isArray(remoteFunctions)) {
   remoteFunctions.forEach(f => remoteSlugs.add(f.slug));

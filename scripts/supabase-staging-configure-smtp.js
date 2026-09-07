@@ -91,6 +91,31 @@ async function main() {
   const tempConfigPath = path.join(tempDir, 'supabase', 'config.toml');
   let config = fs.readFileSync(tempConfigPath, 'utf8');
 
+  // ★ Real, confirmed finding (2026-09-07): the shared config.toml already carries a real,
+  // enabled [auth.email.template.recovery] block (from the earlier, deliberately-deferred
+  // template-branding task). Pushing SMTP and the template together in ONE `config push`
+  // call was tried first and genuinely rejected by the real server — "Email template
+  // modification is not available for free tier projects... configure a custom SMTP
+  // provider" — even though this exact push WAS enabling SMTP, because the platform
+  // validates the template change against the project's CURRENT (pre-push) plan state, not
+  // the incoming one in the same request. SMTP must land as its own committed change first;
+  // the template push is a genuinely separate second step (this script does NOT attempt
+  // it — see the caller's own next step).
+  //
+  // ★ A SECOND real finding, via `--debug`, after the first fix (removing the
+  // [auth.email.template.recovery] section header) alone did NOT work: the CLI's config
+  // diff still showed the full branded HTML being pushed even with that header gone —
+  // confirming the CLI auto-discovers `supabase/templates/<name>.html` by convention,
+  // independent of whether config.toml declares a matching section. Removing the section
+  // header alone is not enough; the actual template FILE must also be absent from this
+  // temp copy for this one SMTP-only push to genuinely exclude the template change.
+  config = config.replace(/\[auth\.email\.template\.recovery\][^[]*/, '# (neutralized for this SMTP-only push -- pushed separately once SMTP is live)\n');
+  const tempRecoveryTemplatePath = path.join(tempDir, 'supabase', 'templates', 'recovery.html');
+  if (fs.existsSync(tempRecoveryTemplatePath)) {
+    fs.unlinkSync(tempRecoveryTemplatePath);
+    console.log('Removed the temp copy\'s own supabase/templates/recovery.html (the CLI auto-discovers this file by convention regardless of config.toml — confirmed via --debug) so this push genuinely excludes the template change.\n');
+  }
+
   // Real Resend SMTP relay settings — host/port/user are Resend's own fixed, documented
   // values; the password IS the real Resend API key (read above, never hardcoded here).
   // Deliberately appended (not replacing the existing commented example block above it) so a
@@ -109,13 +134,19 @@ async function main() {
   console.log('Temp config.toml updated with a real [auth.email.smtp] block (real cloud staging only — this temp copy is deleted at the end, never committed).\n');
 
   try {
-    // --workdir expects the PARENT directory containing supabase/ (confirmed directly via a
-    // real, harmless `supabase status --workdir <dir>` test before trusting this — passing
-    // the supabase/ subdirectory itself, the first natural guess, is wrong and produces a
-    // confusing "config file not found"-style error instead).
-    console.log('Running: supabase config push --project-ref ' + PROJECT_REF + ' --workdir <temp>\n');
-    const out = execSync('supabase config push --project-ref ' + PROJECT_REF + ' --workdir "' + tempDir + '"', {
-      cwd: PROJECT_ROOT,
+    // ★ A THIRD real finding, confirmed directly (2026-09-07): `--workdir <dir>` (passed as a
+    // flag while `cwd` stays the real project root) does NOT reliably redirect the CLI's own
+    // config.toml discovery for `config push` the way `supabase status --workdir <dir>`
+    // (this project's own earlier, already-verified precedent) does — a real `--debug` run
+    // proved the diff kept including the OLD committed template content regardless of what
+    // the temp copy's config.toml/templates/ actually held. The invocation that genuinely
+    // works: run the command with `cwd` set DIRECTLY to the temp copy's own project root (the
+    // parent of its `supabase/` folder) and DROP `--workdir` entirely — the temp copy already
+    // carries a real, working `supabase/.temp/project-ref` link (copied along with everything
+    // else), so the project ref is still resolved correctly with no separate linking step.
+    console.log('Running: supabase config push --project-ref ' + PROJECT_REF + ' (cwd = the temp copy\'s own project root)\n');
+    const out = execSync('supabase config push --project-ref ' + PROJECT_REF, {
+      cwd: tempDir,
       encoding: 'utf8',
       stdio: 'pipe'
     });

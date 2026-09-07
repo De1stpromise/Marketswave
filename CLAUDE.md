@@ -6723,6 +6723,30 @@ row 74.
   migration would apply first); `verify-cloud-staging-parity.js` re-confirmed clean
   afterward (14/14 migrations, 47/47 functions). Backend Requirements Register row 159 added.
 
+- **★★★ Resend upgraded to paid — SMTP + branded recovery template genuinely live on real
+  cloud staging, all 3 deferred email checks re-verified, quota-blocked constraint lifted
+  (2026-09-07).** Closes rows 156-158's own deferred work — see Backend Requirements
+  Register row 160 for the full writeup, including two real config-push traps found and
+  fixed in `scripts/supabase-staging-configure-smtp.js` (pushing SMTP + the template
+  together in one call fails on this platform; removing the template's config.toml section
+  alone doesn't exclude it — the CLI auto-discovers `supabase/templates/recovery.html` by
+  file-path convention regardless) and a third CLI-invocation finding (`--workdir` didn't
+  reliably redirect config discovery for this command; running with `cwd` set directly to
+  the temp copy's own root did). **Genuinely confirmed, not just an accepted API response**:
+  a real throwaway staging user's real `resetPasswordForEmail()` produced a real email the
+  user directly confirmed showed the full branded design, not Supabase's stock template.
+  `verify-branded-emails.js` (219/219, all 3 target `getAdminEmails()` checks passing),
+  `verify-supabase-email-notifications.js` (14/14), `verify-supabase-email-triggers-
+  stage2.js` (85/85) — zero quota-blocked skips anywhere. A fourth, unrelated finding fixed
+  along the way: the CLI's own update-nag banner started corrupting
+  `verify-cloud-staging-parity.js`'s `JSON.parse()` calls (fixed with a shared
+  `stripCliNagBanner()` helper, re-confirmed 14/14 migrations, 47/47 functions clean).
+  **Resend's exact plan/ceiling could not be determined via API** — the project's
+  `RESEND_API_KEY` is genuinely restricted to sending only; `x-resend-monthly-quota` was
+  confirmed (by sending twice and watching it increment) to be a used-so-far counter, not a
+  remaining/ceiling value. **The standing "do not send real test emails" constraint is now
+  lifted** — future tasks may send real verification emails again where genuinely needed.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
