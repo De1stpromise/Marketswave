@@ -196,3 +196,42 @@
   position: relative;
   z-index: 2;
 }
+
+/* ---- Contrast Audit fix (2026-09-06) — real, measured, systemic finding: Tailwind's
+   text-slate-400/text-slate-500 utility classes are used as body/label copy in 83 real
+   instances across 22 client-dashboard and admin-tool files, and every one of them sits
+   inside a .glass or .glass-subtle card. On a genuinely SOLID bg-white card these colors
+   are marginal-but-passing (text-slate-500 measures 4.759:1 on pure white — itself close
+   to the WCAG floor, a pre-existing Tailwind-palette characteristic, not new); .glass's own
+   translucent white-over-page-background composite is very slightly dimmer than pure white
+   at its low-alpha corner (roughly 248,248,246 on this project's real cream/slate-100 page
+   backgrounds, computed directly, not assumed), and that small drop is enough to tip
+   text-slate-500 to 4.48:1-4.43:1 and text-slate-400 to ~2.4:1 — both genuinely below
+   4.5:1, a real regression the glass treatment itself introduced, not present before glass
+   was added to these cards. Fixed the same way the TPV gradient-text issue was resolved —
+   by changing the treatment at the point of failure, not by re-tuning the shared .glass/
+   .glass-subtle background recipe itself (which would have required nearly doubling its
+   low-alpha stop, visibly changing the "glassiness" of every already-verified-good surface
+   project-wide, just to accommodate one marginal Tailwind color choice). A scoped
+   descendant override — real specificity (0,2,0) beats Tailwind's own bare utility class
+   (0,1,0), so no !important needed — bumps both colors to slate-600 (#475569) specifically
+   when they appear inside any of the four glass variants: slate-600 measures 7.06:1-7.13:1
+   against these same real backgrounds, clearing 4.5:1 with genuine margin, not another
+   marginal pass. .glass-dark/.glass-slate included defensively (grepped and confirmed
+   zero real text-slate-400/500 usage inside either today, both being white-text-on-dark-
+   navy/slate contexts already verified separately at 7-12:1) — closes this off for any
+   future addition, not just today's known instances. Every OTHER real slate-400/500 use
+   outside a glass container (the vast majority of the 267 total project-wide occurrences —
+   plain bg-white cards, table rows, form labels) is deliberately untouched — it was never
+   failing and this override cannot reach it, since the descendant selector only matches
+   inside an actual glass ancestor. */
+.glass .text-slate-400,
+.glass-subtle .text-slate-400,
+.glass-dark .text-slate-400,
+.glass-slate .text-slate-400,
+.glass .text-slate-500,
+.glass-subtle .text-slate-500,
+.glass-dark .text-slate-500,
+.glass-slate .text-slate-500 {
+  color: #475569;
+}

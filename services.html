@@ -360,29 +360,71 @@
   <!-- ========== GET ACCESS MODAL ========== -->
   <div class="access-modal" id="access-modal" role="dialog" aria-modal="true" aria-labelledby="access-modal-title" hidden>
     <div class="access-modal-backdrop" data-close-modal></div>
-    <div class="access-modal-panel glass">
+        <div class="access-modal-panel">
       <button type="button" class="access-modal-close" data-close-modal aria-label="Close">&times;</button>
-      <h2 id="access-modal-title" class="access-modal-title">Get Access</h2>
-      <p class="access-modal-lead">Choose how you would like to continue.</p>
+      <div class="access-modal-columns">
+        <div class="access-value-panel">
+          <div class="blob blob--sm blob--teal" style="top:-50px; right:-40px;"></div>
+          <div class="blob blob--sm blob--gold" style="bottom:-50px; left:-30px;"></div>
+          <span class="access-value-eyebrow">Why Marketswave</span>
+          <h3 class="access-value-heading">Discretionary wealth management, built around your goals</h3>
+          <div class="access-value-benefits">
+            <div class="access-value-benefit">
+              <div class="access-value-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+              </div>
+              <div>
+                <h4>Broader diversification</h4>
+                <p>Private Equity, Real Assets, Stocks &amp; ETFs, and Crypto — built into one portfolio.</p>
+              </div>
+            </div>
+            <div class="access-value-benefit">
+              <div class="access-value-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+              <div>
+                <h4>Professionally managed</h4>
+                <p>A dedicated Portfolio Manager reviews and approves every allocation before it moves.</p>
+              </div>
+            </div>
+            <div class="access-value-benefit">
+              <div class="access-value-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              </div>
+              <div>
+                <h4>Track your performance</h4>
+                <p>Real-time dashboard access to your holdings, returns, and full transaction history.</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div class="access-cards">
-        <article class="access-card">
-          <div class="access-card-icon">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-</div>
-          <h3>Login</h3>
-          <p>Already have an account? Sign in to your client portal to view portfolios, statements, and reports.</p>
-          <a href="login.html" class="btn btn-outline btn-full">Login to Portal</a>
-        </article>
+        <div class="access-options">
+          <h2 id="access-modal-title" class="access-modal-title">Get Access</h2>
+          <p class="access-modal-lead">Choose how you would like to continue.</p>
 
-        <article class="access-card">
-          <div class="access-card-icon">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          <a href="login.html" class="access-option-row">
+            <div class="access-option-icon">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
 </div>
-          <h3>Sign Up</h3>
-          <p>New to Marketswave? Start the process to open an Individual, Joint, or Entity account.</p>
-          <a href="signup.html" class="btn btn-outline btn-full">Create Account</a>
-        </article>
+            <div class="access-option-text">
+              <h3>Login</h3>
+              <p>Sign in to your client portal to view portfolios, statements, and reports.</p>
+            </div>
+            <span class="access-option-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </a>
+
+          <a href="signup.html" class="access-option-row">
+            <div class="access-option-icon">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+</div>
+            <div class="access-option-text">
+              <h3>Sign Up</h3>
+              <p>New to Marketswave? Start the process to open an Individual, Joint, or Entity account.</p>
+            </div>
+            <span class="access-option-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </a>
+        </div>
       </div>
     </div>
   </div>

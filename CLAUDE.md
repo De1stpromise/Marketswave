@@ -6275,7 +6275,67 @@ row 74.
   of the known `verify-products-catalog-fix.mjs` test-pollution issue found and cleaned up**
   (2 stray test products, confirmed unreferenced, removed) — now surfaced three separate
   times across three separate tasks, strengthening the case for a dedicated fix to that
-  script's own teardown logic in a future session. Backend Requirements Register row 150.
+- **★★ Get Access Modal redesign + terminology consistency + project-wide contrast audit
+  (2026-09-06) — the largest single-task contrast finding in the whole glass-treatment
+  series.** **1. Get Access Modal**: `.glass` removed from the panel entirely — a real,
+  measured failure: the old panel sat over its OWN blurred backdrop
+  (`rgba(18,42,56,0.55)` + `blur(4px)`), and that double-transparency stack computed to
+  1.86:1–2.93:1 for body text, a marginal 4.51:1 even for navy titles. Rebuilt as a solid
+  white panel, two columns — LEFT (`.access-options`, compact horizontal Login/Sign Up
+  rows) and RIGHT (`.access-value-panel`, a genuinely opaque navy gradient — nothing sits
+  behind it worth seeing through, so no glass at all) with 3 real benefit rows grounded in
+  the actual platform (5-asset-class diversification, PM-approval workflow, the live
+  dashboard). Mobile-first: value panel first in DOM (stacks above on narrow viewports with
+  zero media query), reordered to the right only via CSS `order` at `min-width:640px`.
+  `--accent-teal-soft`'s doc comment updated to record a real, measured second use as
+  accent text on this dark panel — `--accent-teal` itself was tested and failed (2.47:1–
+  3.07:1) there. **2. Terminology**: 8 "Create Account" instances (byte-identical Get Access
+  button, all 8 marketing pages) standardized to "Sign Up" as part of the modal rebuild;
+  confirmed zero live instances remain via a second grep. Reported, not fixed, per
+  instruction: "Login" (client-facing) vs "Sign In" (`admin-login.html`), and "Logout"
+  (client-facing, one word) vs "Log Out" (`admin-sidebar.js`, two words). **3 & 4.** AUM
+  figure and dashboard reorder already correct from the same-day prior task — re-verified
+  live, not redone. **CRITICAL contrast audit — where the real scope grew far past the
+  modal**: re-measured real computed contrast everywhere the modal's own failure mode could
+  recur. Found and fixed three genuinely separate issues. **(a)** The identical double-
+  transparency bug in `high-yield-savings.html`'s New Pocket and Withdraw modals (both
+  glassed in an earlier same-day task, both sitting over their own `bg-navy-dark/60`
+  backdrop) — measured 1.62:1–3.53:1, reverted to plain `bg-white`. **(b)** A systemic
+  finding: Tailwind's `text-slate-400`/`text-slate-500` used as real body/label copy inside
+  a `.glass`/`.glass-subtle` card in 83 real instances across 22 client-dashboard/admin
+  files — found via a purpose-built script walking real HTML to attribute each occurrence to
+  its actual glass ancestor. `text-slate-500` is already marginal on plain white (4.759:1);
+  glass's own low-alpha corner over this project's real cream/slate-100 backgrounds tips it
+  to 4.480:1/4.433:1, and `text-slate-400` to ~2.4:1 — both genuinely below 4.5:1. Fixed the
+  same way the TPV gradient-text issue was resolved — changing the treatment at the point of
+  failure, not re-tuning the shared `.glass` recipe (which would need nearly doubling its
+  low-alpha stop, visibly changing every already-verified surface project-wide) — via one
+  scoped descendant-selector override in `glass-primitives.css` bumping both to slate-600
+  (`#475569`, 7.06:1–7.13:1) specifically inside any glass variant; every other real use
+  outside a glass container is untouched, structurally unreachable by the override.
+  **(c)** Low-opacity white text inside the two dark sidebars: `admin-sidebar.js`'s nav
+  group labels (`text-white/40`, 2.86:1–3.82:1) and footer text (`text-white/50`, a marginal
+  4.39:1), `dashboard-sidebar.js`'s footer account-type text (`text-white/60`, a marginal
+  4.42:1) — all 4 bumped to `/70` (5.37:1–9.26:1 across the real gradient, regardless of
+  exact position). **Verified genuinely safe, with real recomputed numbers, not assumed**:
+  public-site `.glass` on the plain page bg (16.09:1/11.28:1), `.page-hero`'s `.glass-dark`
+  (8.95:1), the Philosophy CTA's earlier-fixed override (9.13:1/13.02:1), every other real
+  modal with a translucent backdrop confirmed to correctly carry no glass class at all.
+  Decorative-only `text-slate-300` icon strokes confirmed exempt (no icon-only controls
+  among the 14 real instances). **Verified live, headless Chrome over CDP (no browser tool
+  available this session)**: 31/31 assertions on the second pass (2 test-script bugs fixed —
+  a background-detection bug reading a transparent ancestor instead of the real white panel,
+  and a stray test-only localStorage write that corrupted the real session needed later in
+  the run; neither was a real product bug) — covering the modal's structure/no-glass/
+  responsive-stacking, real measured contrast on both columns, "Sign Up" wording, both HYS
+  modals confirmed reverted, the slate-500 override resolving correctly via a real synthetic
+  DOM test, and all 3 sidebar fixes confirmed on real rendered `admin.html`/`dashboard.html`
+  content through real admin and client logins. Full existing regression suite re-run for
+  zero regression — a pure CSS/HTML/JS-string task, no schema/function changes, no cloud
+  staging deployment needed; parity re-confirmed clean regardless. **A fourth instance of
+  the known `verify-products-catalog-fix.mjs` test-pollution issue found and cleaned up**
+  (1 stray test product, confirmed unreferenced, removed) — now found four separate times
+  across four separate tasks. Backend Requirements Register row 151.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

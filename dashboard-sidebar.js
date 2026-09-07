@@ -274,7 +274,13 @@
             '<div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold">' + footerInitials + '</div>' +
             '<div class="flex-1 min-w-0">' +
               '<p class="text-sm font-medium truncate">' + footerName + '</p>' +
-              '<p class="text-xs text-white/60 truncate">' + footerAccountType + '</p>' +
+              // Contrast Audit (2026-09-06): text-white/60 measured 4.42:1 against this
+              // sidebar's own real .glass-dark background at its lighter (top) stop -- the
+              // footer sits nearer the darker bottom stop in practice (5.60:1, a real pass),
+              // but bumped to /70 anyway for a genuine, position-independent margin (5.37:1
+              // even at the theoretical worst case, 7.02:1 where it actually renders),
+              // matching the identical fix just made to admin-sidebar.js's own footer text.
+              '<p class="text-xs text-white/70 truncate">' + footerAccountType + '</p>' +
             '</div>' +
           '</div>' +
         '</div>' +

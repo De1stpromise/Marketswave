@@ -99,13 +99,19 @@
   <!-- ========== NEW POCKET MODAL ========== -->
   <div id="new-pocket-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-navy-dark/60" id="np-backdrop"></div>
-    <!-- Client Dashboard Visual Treatment, Stage 3 (2026-09-06): glass on this modal panel
-         specifically, per instruction for the "Open a New Pocket" flow -- a deliberate
-         departure from this project's general "modals stay clean" precedent used elsewhere
-         (Credit/Approve modals, Add Client/Product modals), not a blanket policy change.
-         The type/funding-method selector buttons inside stay clean (action tiles, same
-         excluded category as deploy-capital.html's own option-cards). -->
-    <div class="relative glass rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+    <!-- Client Dashboard Visual Treatment, Stage 3 (2026-09-06) added .glass here, then
+         REVERTED (Contrast Audit, 2026-09-06) -- a real, measured failure, the same failure
+         mode the Get Access modal had: this panel sits over its OWN translucent backdrop
+         (#np-backdrop, bg-navy-dark/60), so layering .glass's light gradient on top of that
+         composites into a genuinely low-contrast surface -- text-slate-500 measured 1.62:1,
+         text-slate-600 2.58:1, text-slate-700 3.53:1, even text-navy only 4.08:1 at the low-
+         alpha corner of the glass gradient, all real numbers computed against the real
+         composited background, none passing WCAG's 4.5:1 floor for body text. Same fix as
+         the Get Access modal: plain bg-white, full-contrast text, no glass on a panel that
+         already floats over its own translucent backdrop. The type/funding-method selector
+         buttons inside stay clean regardless (action tiles, same excluded category as
+         deploy-capital.html's own option-cards) -- unaffected by this reversal. -->
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-start justify-between mb-5">
         <h3 class="font-semibold text-navy text-lg">Open a New Pocket</h3>
         <button type="button" id="np-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>
@@ -273,13 +279,15 @@
   </div>
 
   <!-- ========== WITHDRAW MODAL ==========
-       Client Dashboard Visual Treatment, Stage 3 (2026-09-06): glass applied here too, for
-       consistency with its sibling New Pocket modal above -- same page, same category of
-       HYS pocket-management panel; leaving one glass and the other plain would read as an
-       inconsistency, not a deliberate choice. -->
+       Client Dashboard Visual Treatment, Stage 3 (2026-09-06) applied glass here too, for
+       consistency with its sibling New Pocket modal above. REVERTED (Contrast Audit,
+       2026-09-06) for the identical reason as that sibling -- see its own comment above for
+       the full measured numbers; the same bg-navy-dark/60 backdrop sits behind this panel
+       too, so the same real contrast failure applies here unchanged. Both modals stay
+       consistent with each other, now on plain bg-white instead. -->
   <div id="withdraw-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-navy-dark/60" id="wd-backdrop"></div>
-    <div class="relative glass rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-start justify-between mb-5">
         <h3 class="font-semibold text-navy text-lg">Withdraw Pocket</h3>
         <button type="button" id="wd-close" class="text-slate-400 hover:text-navy transition text-xl leading-none">&times;</button>

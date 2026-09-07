@@ -277,7 +277,11 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       var itemsInGroup = NAV_ITEMS.filter(function (item) { return item.group === group.id; });
       if (itemsInGroup.length === 0) return '';
       return '<div class="mt-5 first:mt-0">' +
-        '<p class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/40">' + group.label + '</p>' +
+        // Contrast Audit (2026-09-06): text-white/40 measured 2.86:1-3.82:1 against the
+        // sidebar's own real .glass-slate background, well under 4.5:1 and this text is
+        // 11px (not "large text" under WCAG, so 4.5:1 applies in full) -- bumped to /70,
+        // which measures 7.53:1-9.26:1 against the same real background, comfortable margin.
+        '<p class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/70">' + group.label + '</p>' +
         '<div class="space-y-1">' +
           itemsInGroup.map(function (item) { return navLinkHTML(item, activePage); }).join('') +
         '</div>' +
@@ -351,14 +355,20 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
             '<div class="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-sm font-semibold text-amber-400">PM</div>' +
             '<div class="flex-1 min-w-0">' +
               '<p class="text-sm font-medium truncate">Portfolio Manager</p>' +
-              '<p class="text-xs text-white/50 truncate">Internal access</p>' +
+              // Contrast Audit (2026-09-06): text-white/50 measured 4.39:1 against the
+              // sidebar's own real .glass-slate background (footer sits near its darker,
+              // more-opaque bottom stop, still under 4.5:1) -- bumped to /70, which measures
+              // 9.26:1 there, comfortable margin.
+              '<p class="text-xs text-white/70 truncate">Internal access</p>' +
             '</div>' +
             // Admin-tool logout — distinct from any client-facing logout (dashboard-sidebar.js's
             // own, which navigates to login.html): this one ends the real admin Supabase
             // session (see the click handler below) and returns to admin-login.html, never
             // touching getCurrentClientId()/the client-scoped session state client pages
             // depend on.
-            '<button type="button" id="admin-logout-btn" class="text-xs font-medium text-white/50 hover:text-white transition shrink-0" title="Log Out">Log Out</button>' +
+            // Contrast Audit (2026-09-06): same real finding and fix as "Internal access"
+            // directly above -- text-white/50 measured 4.39:1 here too, bumped to /70 (9.26:1).
+            '<button type="button" id="admin-logout-btn" class="text-xs font-medium text-white/70 hover:text-white transition shrink-0" title="Log Out">Log Out</button>' +
           '</div>' +
         '</div>' +
       '</aside>';
