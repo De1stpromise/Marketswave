@@ -43,6 +43,7 @@
     .withdraw-method-tab { border-color: #E2E8F0; color: #64748B; }
     .withdraw-method-tab.is-active { border-color: #1B3A4B; color: #1B3A4B; background: rgba(27, 58, 75, 0.06); }
   </style>
+  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 
@@ -374,14 +375,17 @@
     <p class="text-xs text-white/70 mt-1" id="funding-toast-body"></p>
   </div>
 
+  <div id="chat-widget-mount"></div>
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="chat-widget.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     initDashboardSidebar('deploy-capital');
     initDashboardNotifications();
+    initChatWidget();
   </script>
 
   <script>

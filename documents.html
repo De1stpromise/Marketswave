@@ -27,6 +27,7 @@
     }
     .row-flash { animation: rowFlash 1.6s ease; }
   </style>
+  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 
@@ -188,11 +189,13 @@
     </div>
   </div>
 
+  <div id="chat-widget-mount"></div>
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="chat-widget.js"></script>
   <script>
     // Sidebar must be mounted before the notification-count logic below runs, since that
     // logic looks up #sidebar-doc-badge (rendered inside the sidebar) and re-confirms its
@@ -211,6 +214,7 @@
     // dashboard-sidebar.js itself would close this fully; not done here.
     initDashboardSidebar('documents');
     initDashboardNotifications();
+    initChatWidget();
   </script>
 
   <script>

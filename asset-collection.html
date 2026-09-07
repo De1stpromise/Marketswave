@@ -30,6 +30,7 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
+  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 
@@ -130,10 +131,12 @@
     </div>
   </div>
 
+  <div id="chat-widget-mount"></div>
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="chat-widget.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     // No dedicated nav item for this page (the locked sidebar menu order is fixed — see
@@ -143,6 +146,7 @@
     // from there, not a standalone destination in its own right.
     initDashboardSidebar('asset-performance');
     initDashboardNotifications();
+    initChatWidget();
   </script>
 
   <script>

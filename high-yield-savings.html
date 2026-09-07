@@ -22,6 +22,7 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
+  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 
@@ -405,14 +406,17 @@
     <p class="text-xs text-white/70 mt-1" id="hys-toast-body"></p>
   </div>
 
+  <div id="chat-widget-mount"></div>
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="chat-widget.js"></script>
   <script>
     initDashboardSidebar('high-yield-savings');
     initDashboardNotifications();
+    initChatWidget();
   </script>
 
   <script>

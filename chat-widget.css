@@ -1,0 +1,232 @@
+/* Unified Communications Inbox — Stage 1 (2026-09-07). Shared live-chat widget styles,
+   loaded on both the public marketing site (custom CSS, no Tailwind — CLAUDE.md's own
+   documented boundary) and the Tailwind-based client dashboard family. Plain CSS + inline
+   styles are safe on top of Tailwind too (no conflict), so this ONE stylesheet — not a
+   Tailwind-only version and a custom-CSS-only version — covers both without blurring that
+   boundary: it never assumes Tailwind's reset/utilities are present, and never fights them
+   when they are. Colors are this project's own locked navy/cream tokens, hardcoded here
+   (not var(--primary) etc.) since the public site's own custom-CSS tokens and the dashboard
+   family's Tailwind config are two separate systems with no shared CSS variable between
+   them. */
+
+#chat-widget-root {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+#chat-widget-bubble {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #1B3A4B;
+  color: #F7F6F3;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(27, 58, 75, 0.35);
+  transition: transform 0.15s ease;
+}
+#chat-widget-bubble:hover {
+  transform: scale(1.06);
+}
+#chat-widget-bubble svg {
+  width: 26px;
+  height: 26px;
+}
+
+#chat-widget-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #C8860A;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+#chat-widget-panel {
+  position: absolute;
+  bottom: 72px;
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  height: 480px;
+  max-height: calc(100vh - 120px);
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(27, 58, 75, 0.28);
+  border: 1px solid #EDE8E1;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+#chat-widget-panel.is-open {
+  display: flex;
+}
+
+#chat-widget-header {
+  background: #1B3A4B;
+  color: #F7F6F3;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+#chat-widget-header .title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+#chat-widget-header .status {
+  font-size: 11.5px;
+  color: rgba(247, 246, 243, 0.65);
+  margin: 2px 0 0;
+}
+#chat-widget-close {
+  background: none;
+  border: none;
+  color: rgba(247, 246, 243, 0.8);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+#chat-widget-close:hover { color: #F7F6F3; }
+
+#chat-widget-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #FCFBF9;
+}
+
+.chat-widget-msg-row {
+  display: flex;
+}
+.chat-widget-msg-row.is-outbound {
+  justify-content: flex-start;
+}
+.chat-widget-msg-row.is-inbound {
+  justify-content: flex-end;
+}
+.chat-widget-msg-bubble {
+  max-width: 80%;
+  padding: 9px 13px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+.chat-widget-msg-row.is-inbound .chat-widget-msg-bubble {
+  background: #1B3A4B;
+  color: #F7F6F3;
+  border-bottom-right-radius: 4px;
+}
+.chat-widget-msg-row.is-outbound .chat-widget-msg-bubble {
+  background: #EDE8E1;
+  color: #1A1C1E;
+  border-bottom-left-radius: 4px;
+}
+.chat-widget-system-msg {
+  text-align: center;
+  font-size: 11.5px;
+  color: #6B7178;
+  font-style: italic;
+  margin: 4px 0;
+}
+
+#chat-widget-precontact {
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#chat-widget-precontact p {
+  font-size: 13px;
+  color: #6B7178;
+  margin: 0 0 4px;
+}
+#chat-widget-precontact input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid #D8D4CD;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+#chat-widget-precontact input:focus {
+  outline: none;
+  border-color: #1B3A4B;
+}
+#chat-widget-precontact-error {
+  display: none;
+  font-size: 12px;
+  color: #A32424;
+}
+#chat-widget-precontact-error.is-visible { display: block; }
+#chat-widget-start-btn {
+  background: #1B3A4B;
+  color: #F7F6F3;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#chat-widget-start-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+#chat-widget-footer {
+  border-top: 1px solid #EDE8E1;
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+#chat-widget-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid #D8D4CD;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+#chat-widget-input:focus {
+  outline: none;
+  border-color: #1B3A4B;
+}
+#chat-widget-send {
+  background: #1B3A4B;
+  color: #F7F6F3;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#chat-widget-send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 420px) {
+  #chat-widget-panel {
+    width: calc(100vw - 32px);
+    right: -8px;
+  }
+}

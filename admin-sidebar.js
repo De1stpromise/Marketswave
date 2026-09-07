@@ -205,6 +205,19 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       group: 'approval-gate'
     },
     {
+      // Unified Communications Inbox — Stage 1 (2026-09-07). Positioned first in this group,
+      // ahead of Documents/Support — a real-time, high-frequency PM tool (live chat now,
+      // two-way email in Stage 2) reads closer to a daily-use inbox than a queue/log, but
+      // isn't a money-approval action either, so 'user-admin-relations' (not
+      // 'approval-gate') is where it belongs, matching Documents/Support's own existing
+      // placement logic.
+      key: 'inbox',
+      href: 'admin-inbox.html',
+      label: 'Inbox',
+      icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+      group: 'user-admin-relations'
+    },
+    {
       key: 'documents',
       href: 'admin-documents.html',
       label: 'Documents',

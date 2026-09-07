@@ -22,6 +22,7 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
+  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 
@@ -196,47 +197,23 @@
     </div>
   </div>
 
-  <!-- ========== CHAT PANEL ==========
-       Glass Language Extension (2026-09-07): investigated and deliberately left solid, not
-       an oversight. Unlike the confirm modals above, this has no darkened backdrop -- it
-       floats directly over whatever real page content happens to be scrolled behind it at
-       the moment it opens (fixed position, no dimming overlay). .glass's own recipe was
-       tuned and verified for cards sitting in NORMAL document flow over a known, static
-       page background -- it has never been proven safe against arbitrary, unpredictable
-       content behind a floating overlay the way .glass-dark was specifically tuned and
-       verified for the sidebar's own off-canvas-over-scrolling-content case (~90%+ opaque,
-       by design). Treating this as an "overlay" per the task's own framing, not a "card,"
-       and keeping it solid rather than risking exactly the kind of contrast the audit just
-       spent an entire task finding and fixing. -->
-  <div id="chat-panel" class="hidden fixed bottom-6 right-6 w-full max-w-sm h-[520px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-navy rounded-t-2xl shrink-0">
-      <div>
-        <p class="text-sm font-semibold text-white">Marketswave Support</p>
-        <p class="text-xs text-white/60" id="chat-status">Connecting...</p>
-      </div>
-      <button type="button" id="chat-close" class="text-white/70 hover:text-white transition text-xl leading-none">&times;</button>
-    </div>
-    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3" id="chat-messages"></div>
-    <div class="border-t border-slate-100 p-3 flex gap-2 shrink-0">
-      <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
-      <button type="button" id="chat-send" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Send</button>
-    </div>
-  </div>
-
   <!-- Toast -->
   <div id="support-toast" class="hidden fixed bottom-6 right-6 bg-navy text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
     <p class="font-medium text-sm" id="support-toast-title">Done</p>
     <p class="text-xs text-white/70 mt-1" id="support-toast-body"></p>
   </div>
 
+  <div id="chat-widget-mount"></div>
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="chat-widget.js"></script>
   <script>
     initDashboardSidebar('support');
     initDashboardNotifications();
+    initChatWidget();
   </script>
 
   <script>
@@ -349,73 +326,20 @@
       });
     })();
 
-    // ---- Chat with Us — frontend-only stub, canned replies, no real chat backend ----
+    // ---- Chat with Us — Unified Communications Inbox, Stage 1 (2026-09-07) — was a
+    // frontend-only stub (canned replies, a fake "Sarah from Marketswave Support" persona,
+    // no real backend at all); this Quick Contact card's own "Start Chat" button now simply
+    // opens the real, shared chat-widget.js panel (mounted once, site-wide, via
+    // #chat-widget-mount below) instead of a second, separate chat UI living on this page
+    // alone.
     (function () {
-      const panel = document.getElementById('chat-panel');
-      const statusEl = document.getElementById('chat-status');
-      const messagesEl = document.getElementById('chat-messages');
-      const input = document.getElementById('chat-input');
-
-      const CANNED_REPLIES = [
-        "Thanks for the details — let me look into that for you.",
-        "Got it. I'm checking your account now, one moment.",
-        "I've made a note of this for the team. Is there anything else I can help with?"
-      ];
-      let replyIndex = 0;
-      let started = false;
-
-      function addMessage(text, sender) {
-        const row = document.createElement('div');
-        if (sender === 'system') {
-          row.className = 'text-center text-xs text-slate-400 italic';
-          row.textContent = text;
-        } else {
-          const isClient = sender === 'client';
-          row.className = `flex ${isClient ? 'justify-end' : 'justify-start'}`;
-          const bubble = document.createElement('div');
-          bubble.className = isClient
-            ? 'max-w-[80%] bg-navy text-white text-sm rounded-2xl rounded-br-sm px-3.5 py-2'
-            : 'max-w-[80%] bg-slate-100 text-slate-700 text-sm rounded-2xl rounded-bl-sm px-3.5 py-2';
-          bubble.textContent = text;
-          row.appendChild(bubble);
-        }
-        messagesEl.appendChild(row);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+      const openBtn = document.getElementById('open-chat-btn');
+      if (openBtn) {
+        openBtn.addEventListener('click', function () {
+          const bubble = document.getElementById('chat-widget-bubble');
+          if (bubble) bubble.click();
+        });
       }
-
-      function openChat() {
-        panel.classList.remove('hidden');
-        if (started) return;
-        started = true;
-        statusEl.textContent = 'Connecting...';
-        addMessage('Connecting you to an agent...', 'system');
-        setTimeout(() => {
-          statusEl.textContent = 'Online';
-          const firstName = CURRENT_CLIENT_NAME.split(' ')[0];
-          addMessage(`Hi ${firstName}, this is Sarah from Marketswave Support. How can I help you today?`, 'agent');
-        }, 1500);
-      }
-      function closeChat() { panel.classList.add('hidden'); }
-
-      function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-        addMessage(text, 'client');
-        input.value = '';
-        const reply = CANNED_REPLIES[replyIndex % CANNED_REPLIES.length];
-        replyIndex++;
-        setTimeout(() => addMessage(reply, 'agent'), 900 + Math.random() * 600);
-      }
-
-      document.getElementById('open-chat-btn').addEventListener('click', openChat);
-      document.getElementById('chat-close').addEventListener('click', closeChat);
-      document.getElementById('chat-send').addEventListener('click', sendMessage);
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendMessage();
-      });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !panel.classList.contains('hidden')) closeChat();
-      });
     })();
 
     // ---- My Requests + Open a Dispute — UI Wiring Stage 5 (2026-09-03): wired to the real

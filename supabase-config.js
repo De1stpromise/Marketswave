@@ -1,9 +1,17 @@
 // Supabase Migration — Stage 2 (Aug 30, 2026), Stage 3 (Aug 30, 2026), Firebase Retirement
-// (Aug 30, 2026) — shared Supabase client bootstrap for signup.html and login.html ONLY,
-// mirroring firebase-config.js's exact shape/role for the (now-retired) Firebase side. Plain
-// ES module, loaded via <script type="module" src="supabase-config.js"> — no bundler,
-// matching this project's "no build step" convention; @supabase/supabase-js ships a real ES
-// module build from a CDN, loaded the same way the Firebase SDK already is.
+// (Aug 30, 2026) — shared Supabase client bootstrap. Originally scoped as "signup.html and
+// login.html ONLY" (mirroring firebase-config.js's exact shape/role for the now-retired
+// Firebase side) — that comment went stale without ever being corrected: `supabase-data.js`'s
+// own `getSupabaseClient()` has always reached this file via a dynamic `import()`, meaning
+// every one of the 10 client dashboard pages effectively already depended on it. Unified
+// Communications Inbox — Stage 1 (2026-09-07) adds a second, genuinely NEW real consumer
+// beyond that pre-existing indirect one: `chat-widget.js`, loaded on the public marketing
+// site too (a real, disclosed, narrowly-scoped exception to that site's own "no backend SDK"
+// boundary — see that file's own header for the full reasoning). Plain ES module, loaded via
+// <script type="module" src="supabase-config.js"> on signup.html/login.html directly, or via
+// dynamic `import()` everywhere else — no bundler, matching this project's "no build step"
+// convention; @supabase/supabase-js ships a real ES module build from a CDN, loaded the same
+// way the Firebase SDK already is.
 //
 // ---- SUPABASE IS NOW THE SOLE ACTIVE BACKEND — read this before assuming the old scheme
 // still applies. Firebase is RETIRED as of Aug 30, 2026 (see firebase-config.js's own header

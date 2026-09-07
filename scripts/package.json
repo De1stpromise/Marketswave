@@ -38,7 +38,9 @@
     "verify-pm-self-service-security": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-self-service-security.mjs",
     "supabase-verify-market-data": "node verify-supabase-market-data.js",
     "supabase-verify-email-notifications": "node verify-supabase-email-notifications.js",
-    "verify-dashboard-market-currency-ui": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-market-currency-ui.mjs"
+    "verify-dashboard-market-currency-ui": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-market-currency-ui.mjs",
+    "supabase-verify-unified-inbox": "node verify-supabase-unified-inbox.js",
+    "verify-unified-inbox-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-unified-inbox-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

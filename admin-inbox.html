@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inbox — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .convo-row.is-active { background: #F1F5F9; }
+    .convo-row:hover { background: #F8FAFC; }
+    .filter-pill { cursor: pointer; user-select: none; }
+    .filter-pill.is-active { background: #0F172A; color: #fff; }
+    .inbox-msg-row { display: flex; }
+    .inbox-msg-row.is-inbound { justify-content: flex-start; }
+    .inbox-msg-row.is-outbound { justify-content: flex-end; }
+    .inbox-msg-bubble { max-width: 75%; padding: 9px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; word-wrap: break-word; }
+    .inbox-msg-row.is-inbound .inbox-msg-bubble { background: #F1F5F9; color: #0F172A; border-bottom-left-radius: 4px; }
+    .inbox-msg-row.is-outbound .inbox-msg-bubble { background: #1B3A4B; color: #F7F6F3; border-bottom-right-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8 shrink-0">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <p class="text-xs text-slate-400" id="realtime-status">Connecting…</p>
+      </header>
+
+      <main class="flex-1 overflow-hidden flex">
+
+        <!-- ========== LEFT: conversation list ========== -->
+        <div class="w-full max-w-sm border-r border-slate-200 bg-white flex flex-col overflow-hidden shrink-0">
+          <div class="p-4 border-b border-slate-100 space-y-3">
+            <input type="text" id="inbox-search" placeholder="Search name, email, or message…" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-slate-400">
+            <div class="flex flex-wrap gap-1.5 text-xs font-medium" id="status-filters">
+              <span class="filter-pill is-active px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="all">All</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="unread">Unread</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="open">Open</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="resolved">Resolved</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="archived">Archived</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 text-xs font-medium" id="channel-filters">
+              <span class="filter-pill is-active px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="all">All Channels</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="chat">Chat</span>
+              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="email">Email</span>
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto" id="convo-list"></div>
+        </div>
+
+        <!-- ========== RIGHT: thread ========== -->
+        <div class="flex-1 flex flex-col overflow-hidden relative">
+          <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
+          <div id="thread-empty-state" class="flex-1 flex items-center justify-center text-slate-400 text-sm">
+            Select a conversation to view the thread.
+          </div>
+
+          <div id="thread-view" class="flex-1 flex flex-col overflow-hidden hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+              <div class="min-w-0">
+                <p class="font-semibold text-slate-900" id="thread-contact-name"></p>
+                <p class="text-xs text-slate-500" id="thread-contact-email"></p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-xs font-medium px-2.5 py-1 rounded-full" id="thread-status-badge"></span>
+                <button type="button" id="thread-resolve-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition">Resolve</button>
+                <button type="button" id="thread-archive-btn" class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition">Archive</button>
+                <button type="button" id="thread-reopen-btn" class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition hidden">Reopen</button>
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-3" id="thread-messages"></div>
+            <div class="border-t border-slate-200 bg-white p-4 flex gap-2 shrink-0">
+              <input type="text" id="thread-reply-input" placeholder="Reply…" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-slate-400">
+              <button type="button" id="thread-reply-send" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Send</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
+  <script>
+    initAdminSidebar('inbox');
+  </script>
+
+  <script>
+    // Unified Communications Inbox — Stage 1 (2026-09-07). A genuinely live PM inbox: real
+    // Supabase Realtime subscriptions on both conversations and messages (no polling), real
+    // search across contact name/email/message body, real status actions and unread
+    // tracking. All conversations + all messages are held in memory (fetched once via
+    // MarketswaveData.selectTable(), which already routes through useAdminClient()'s
+    // cross-client-RLS admin session) and kept live by the two Realtime subscriptions below
+    // — the same "fetch once, keep live via Realtime, filter/search client-side" shape this
+    // project's own Client List already established for its own search/filter, extended here
+    // with a genuine live feed on top.
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function timeAgo(iso) {
+        if (!iso) return '';
+        var diffMs = Date.now() - new Date(iso).getTime();
+        var mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + 'm ago';
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h ago';
+        var days = Math.floor(hours / 24);
+        return days + 'd ago';
+      }
+
+      var conversations = []; // in-memory, kept live by Realtime
+      var messages = [];      // in-memory, kept live by Realtime
+      var conversationsById = {};
+      var activeConversationId = null;
+      var statusFilter = 'all';
+      var channelFilter = 'all';
+      var searchTerm = '';
+
+      function reindexConversations() {
+        conversationsById = {};
+        conversations.forEach(function (c) { conversationsById[c.id] = c; });
+      }
+
+      function lastMessageFor(conversationId) {
+        var own = messages.filter(function (m) { return m.conversation_id === conversationId; });
+        if (!own.length) return null;
+        return own.reduce(function (a, b) { return new Date(a.sent_at) > new Date(b.sent_at) ? a : b; });
+      }
+
+      function matchesSearch(convo) {
+        if (!searchTerm) return true;
+        var term = searchTerm.toLowerCase();
+        if ((convo.contact_name || '').toLowerCase().indexOf(term) !== -1) return true;
+        if ((convo.contact_email || '').toLowerCase().indexOf(term) !== -1) return true;
+        var ownMessages = messages.filter(function (m) { return m.conversation_id === convo.id; });
+        return ownMessages.some(function (m) { return (m.body || '').toLowerCase().indexOf(term) !== -1; });
+      }
+
+      function matchesStatusFilter(convo) {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'unread') return convo.unread_by_pm === true;
+        return convo.status === statusFilter;
+      }
+
+      function matchesChannelFilter(convo) {
+        if (channelFilter === 'all') return true;
+        var ownMessages = messages.filter(function (m) { return m.conversation_id === convo.id; });
+        return ownMessages.some(function (m) { return m.channel === channelFilter; });
+      }
+
+      function renderConvoList() {
+        var listEl = document.getElementById('convo-list');
+        var filtered = conversations
+          .filter(matchesStatusFilter)
+          .filter(matchesChannelFilter)
+          .filter(matchesSearch)
+          .sort(function (a, b) {
+            var at = a.last_message_at || a.created_at;
+            var bt = b.last_message_at || b.created_at;
+            return new Date(bt) - new Date(at);
+          });
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-10 text-center">No conversations match.</p>';
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(function (c) {
+          var last = lastMessageFor(c.id);
+          var preview = last ? escapeHtml(last.body).slice(0, 64) : 'No messages yet';
+          var isActive = c.id === activeConversationId;
+          var unreadDot = c.unread_by_pm ? '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>' : '';
+          var statusClass = c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : (c.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700');
+          return '<div class="convo-row cursor-pointer px-4 py-3.5 border-b border-slate-50 ' + (isActive ? 'is-active' : '') + '" data-convo-id="' + c.id + '">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<p class="text-sm font-medium text-slate-900 truncate">' + escapeHtml(c.contact_name || c.contact_email) + '</p>' +
+              unreadDot +
+            '</div>' +
+            '<p class="text-xs text-slate-400 truncate">' + escapeHtml(c.contact_email) + '</p>' +
+            '<p class="text-xs text-slate-500 truncate mt-1">' + preview + '</p>' +
+            '<div class="flex items-center gap-2 mt-1.5">' +
+              '<span class="text-[10px] font-medium px-2 py-0.5 rounded-full ' + statusClass + '">' + c.status + '</span>' +
+              '<span class="text-[10px] text-slate-400">' + timeAgo(c.last_message_at || c.created_at) + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        listEl.querySelectorAll('.convo-row').forEach(function (row) {
+          row.addEventListener('click', function () {
+            openConversation(row.getAttribute('data-convo-id'));
+          });
+        });
+      }
+
+      function escapeHtml(value) {
+        var div = document.createElement('div');
+        div.textContent = String(value == null ? '' : value);
+        return div.innerHTML;
+      }
+
+      function renderThread() {
+        var convo = conversationsById[activeConversationId];
+        if (!convo) return;
+        document.getElementById('thread-empty-state').classList.add('hidden');
+        document.getElementById('thread-view').classList.remove('hidden');
+        document.getElementById('thread-contact-name').textContent = convo.contact_name || convo.contact_email;
+        document.getElementById('thread-contact-email').textContent = convo.contact_email;
+
+        var badge = document.getElementById('thread-status-badge');
+        var statusClass = convo.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : (convo.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700');
+        badge.className = 'text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass;
+        badge.textContent = convo.status;
+
+        document.getElementById('thread-resolve-btn').classList.toggle('hidden', convo.status === 'resolved');
+        document.getElementById('thread-archive-btn').classList.toggle('hidden', convo.status === 'archived');
+        document.getElementById('thread-reopen-btn').classList.toggle('hidden', convo.status === 'open');
+
+        var ownMessages = messages.filter(function (m) { return m.conversation_id === activeConversationId; }).sort(function (a, b) { return new Date(a.sent_at) - new Date(b.sent_at); });
+        var threadEl = document.getElementById('thread-messages');
+        threadEl.innerHTML = ownMessages.map(function (m) {
+          return '<div class="inbox-msg-row is-' + m.direction + '"><div class="inbox-msg-bubble">' + escapeHtml(m.body) + '</div></div>';
+        }).join('');
+        threadEl.scrollTop = threadEl.scrollHeight;
+      }
+
+      function openConversation(id) {
+        activeConversationId = id;
+        renderConvoList();
+        renderThread();
+        var convo = conversationsById[id];
+        if (convo && convo.unread_by_pm) {
+          MarketswaveData.callFunction('admin-update-conversation', { conversationId: id, markRead: true }).then(function (updated) {
+            convo.unread_by_pm = updated.unread_by_pm;
+            renderConvoList();
+          }).catch(function () {});
+        }
+      }
+
+      function updateStatus(status) {
+        if (!activeConversationId) return;
+        MarketswaveData.callFunction('admin-update-conversation', { conversationId: activeConversationId, status: status }).then(function (updated) {
+          var convo = conversationsById[activeConversationId];
+          if (convo) {
+            convo.status = updated.status;
+            convo.resolved_by = updated.resolved_by;
+            convo.resolved_by_email = updated.resolved_by_email;
+          }
+          renderConvoList();
+          renderThread();
+          showToast('Conversation Updated', 'Marked as ' + status + '.');
+        }).catch(function (err) {
+          showToast('Update Failed', MarketswaveData.writeErrorMessage(err), true);
+        });
+      }
+
+      function sendReply() {
+        var input = document.getElementById('thread-reply-input');
+        var text = input.value.trim();
+        if (!text || !activeConversationId) return;
+        input.value = '';
+        var sendBtn = document.getElementById('thread-reply-send');
+        MarketswaveData.withButtonBusy(sendBtn, 'Sending…', function () {
+          return MarketswaveData.getSupabaseClient().then(function (client) {
+            return client.auth.getSession().then(function (sessionResult) {
+              var email = sessionResult.data.session && sessionResult.data.session.user && sessionResult.data.session.user.email;
+              return client.from('messages').insert({
+                conversation_id: activeConversationId,
+                channel: 'chat',
+                direction: 'outbound',
+                body: text,
+                sender_name: 'Portfolio Manager',
+                sender_email: email || null
+              });
+            });
+          });
+        }).catch(function (err) {
+          showToast('Reply Failed', MarketswaveData.writeErrorMessage(err), true);
+        });
+      }
+
+      document.getElementById('inbox-search').addEventListener('input', function (e) {
+        searchTerm = e.target.value.trim();
+        renderConvoList();
+      });
+      document.querySelectorAll('#status-filters .filter-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          document.querySelectorAll('#status-filters .filter-pill').forEach(function (p) { p.classList.remove('is-active'); });
+          pill.classList.add('is-active');
+          statusFilter = pill.getAttribute('data-status-filter');
+          renderConvoList();
+        });
+      });
+      document.querySelectorAll('#channel-filters .filter-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          document.querySelectorAll('#channel-filters .filter-pill').forEach(function (p) { p.classList.remove('is-active'); });
+          pill.classList.add('is-active');
+          channelFilter = pill.getAttribute('data-channel-filter');
+          renderConvoList();
+        });
+      });
+      document.getElementById('thread-resolve-btn').addEventListener('click', function () { updateStatus('resolved'); });
+      document.getElementById('thread-archive-btn').addEventListener('click', function () { updateStatus('archived'); });
+      document.getElementById('thread-reopen-btn').addEventListener('click', function () { updateStatus('open'); });
+      document.getElementById('thread-reply-send').addEventListener('click', sendReply);
+      document.getElementById('thread-reply-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') sendReply();
+      });
+
+      function loadAndSubscribe() {
+        Promise.all([
+          MarketswaveData.selectTable('conversations'),
+          MarketswaveData.selectTable('messages')
+        ]).then(function (results) {
+          conversations = results[0];
+          messages = results[1];
+          reindexConversations();
+          renderConvoList();
+
+          return MarketswaveData.getSupabaseClient();
+        }).then(function (client) {
+          var statusEl = document.getElementById('realtime-status');
+          client
+            .channel('admin-inbox-live')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function (payload) {
+              messages.push(payload.new);
+              renderConvoList();
+              if (payload.new.conversation_id === activeConversationId) renderThread();
+            })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, function (payload) {
+              conversations.push(payload.new);
+              reindexConversations();
+              renderConvoList();
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, function (payload) {
+              var idx = conversations.findIndex(function (c) { return c.id === payload.new.id; });
+              if (idx !== -1) conversations[idx] = payload.new;
+              reindexConversations();
+              renderConvoList();
+              if (payload.new.id === activeConversationId) renderThread();
+            })
+            .subscribe(function (status) {
+              statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status;
+            });
+        }).catch(function (err) {
+          showToast('Could Not Load Inbox', MarketswaveData.writeErrorMessage(err), true);
+        });
+      }
+
+      loadAndSubscribe();
+    })();
+  </script>
+
+</body>
+</html>

@@ -6605,6 +6605,124 @@ row 74.
   version of that exact email; enabling Supabase's native one too would double-send. Backend
   Requirements Register rows 155-158.
 
+- **★★★ Unified Communications Inbox — Stage 1: data model + live chat (2026-09-07).** The
+  foundation for a unified inbox handling BOTH live chat (this stage) and two-way email
+  (Stage 2, not built) — the schema was deliberately designed for both from the start rather
+  than a chat-only model needing a later reshape. Local stack only.
+  **Schema**: new `conversations` (`client_id`/`visitor_auth_id` both nullable references to
+  `auth.users`, `contact_email`/`contact_name`, `status` open|resolved|archived,
+  `last_message_at`, `unread_by_pm`, PM attribution columns per Phase C's established
+  convention, `last_notified_at` for the debounce below) and `messages` (`channel`
+  chat|email, `direction` inbound|outbound, `body`, `sender_name`/`sender_email`, plus
+  nullable `message_id`/`in_reply_to` — unused by this stage, reserved for Stage 2's real
+  email threading so that later work needs no new columns). **Grouping rule**: a unique
+  index on `lower(contact_email)` in `conversations` — one conversation per contact, across
+  channels, enforced at the database level, not just application logic. **Retroactive
+  linking, investigated and decided per instruction**: a `SECURITY DEFINER` trigger on
+  `clients` AFTER INSERT (`link_conversations_to_new_client()`) was chosen over a
+  signup-flow client-side check — it fires for every real client-creation path (signup,
+  admin-created) rather than one, and bypasses the RLS gymnastics a freshly-signed-up client
+  would otherwise need to update a conversation row they don't yet own.
+  **RLS, the anonymous-visitor identity question investigated and decided per
+  instruction**: real Supabase Anonymous Sign-ins (`signInAnonymously()`) were chosen over a
+  hand-rolled session-token scheme — a real JWT with `is_anonymous: true`, `authenticated`
+  role, integrates natively with both RLS and Realtime with zero custom plumbing.
+  `enable_anonymous_sign_ins` flipped to `true` in `config.toml` (safe to share between
+  local/staging — no email cost, already rate-limited). **A real, disclosed security design
+  decision, not a compromise silently accepted**: `visitor_auth_id` is set once and never
+  reassigned — a later anonymous session with the same email can still WRITE into the
+  grouped thread (satisfying the grouping rule, matching real-world email's own trust model)
+  but is never granted READ access to prior history, protecting against information
+  disclosure from anyone who merely knows/guesses an email address. Conversations carry NO
+  client-side INSERT/UPDATE policy for any role, including admin — every write goes through
+  `start-chat-conversation` (creates/links, service-role) or `admin-update-conversation`
+  (status/read-state, admin-only); messages allow a direct client-side INSERT scoped to the
+  caller's own conversation and `direction = 'inbound'` only — an admin's own outbound
+  reply/the visitor's own message both insert directly via RLS, no Edge Function needed for
+  sending itself. **A real, load-bearing bug found and fixed during UI verification, not
+  assumed correct from the schema alone**: neither table had `REPLICA IDENTITY FULL` set —
+  Realtime evaluates each subscriber's RLS policies against the row data carried in the WAL
+  change record itself, and Postgres's default replica identity only includes the primary
+  key, nowhere near enough data (`client_id`/`visitor_auth_id`, the exact columns the SELECT
+  policies key off) for that evaluation to succeed — without it, `postgres_changes` events
+  were silently never delivered to ANY subscriber at all, confirmed directly (the admin
+  inbox's own conversation list never updated in real time until this was added). Fixed with
+  `alter table ... replica identity full` on both tables, in the migration and applied live.
+  **Live chat, client side**: new `chat-widget.js`/`chat-widget.css` (plain CSS, matching the
+  public site's own no-Tailwind convention — safe on top of Tailwind too) mounted via
+  `#chat-widget-mount` on all 10 client-dashboard pages AND all 8 public marketing pages — a
+  second, deliberate, disclosed exception to the public site's "no backend SDK" boundary
+  (the first was `signup.html`/`login.html`). Anonymous visitors get a pre-chat name+email
+  capture form; an authenticated dashboard client is auto-identified (their real
+  `clients` row's own name/email, server-resolved, never a client-supplied override — the
+  same spoofing prevention `start-chat-conversation` already enforces). Real-time via a
+  `postgres_changes` subscription on `messages`, filtered by `conversation_id` — never
+  polling. `support.html`'s old fake canned-reply chat panel ("Sarah from Marketswave
+  Support," hardcoded replies) was removed outright and repointed to trigger the real widget.
+  **Live chat, PM side**: new `admin-inbox.html` — real search (contact name, email, AND
+  message body — a genuine full-text reach, not just header fields), status filter pills
+  (all/unread/open/resolved/archived), channel filter pills (all/chat/email), a threaded
+  view, real Resolve/Archive/Reopen actions (via `admin-update-conversation`, PM attribution
+  recorded on resolve/archive), and real unread indicators — all held in one in-memory
+  array fetched once via `MarketswaveData.selectTable()` and kept live by two Realtime
+  subscriptions (INSERT on `messages`; INSERT+UPDATE on `conversations`) — the same
+  "fetch once, keep live via Realtime, filter/search client-side" shape this project's own
+  Client List already established, extended with a genuine live feed. Nav entry added to
+  `admin-sidebar.js` under User/Admin Relations, positioned first.
+  **Email notification, the debounce approach investigated and decided per instruction**: a
+  simple `last_notified_at` time-window check (5 minutes) in `notify-new-chat-message` was
+  chosen over Realtime-Presence-based "is a PM actively viewing" detection — simpler, more
+  robust (no reliance on a PM's tab staying connected), and sufficient to avoid spamming
+  during active back-and-forth. Called client-side, self-only (verifies the caller owns the
+  conversation via `client_id`/`visitor_auth_id`), best-effort — `last_notified_at` updates
+  regardless of whether the real send succeeds, matching `_shared/send-email.ts`'s own
+  established non-blocking discipline. **Resend quota handled per the standing project
+  constraint**: the function's own header comment and this stage's verification both treat a
+  quota/rate-limit rejection as blocked-on-quota, never a code failure — verified the real
+  debounce LOGIC independently of whether a send actually succeeds.
+  **Verified**: two dedicated scripts. `scripts/verify-supabase-unified-inbox.js` (backend/
+  API level), **39/39 assertions** — anonymous visitor start+resume, RLS isolation via a
+  direct SELECT probe, the critical second-anonymous-session-same-email edge case (same
+  conversation, `authorizedForHistory: false`, empty history, cannot even send — since
+  `visitor_auth_id` was never granted, confirmed as a real, correct consequence of the
+  design decision above, not a bug), mixed-channel grouping (an admin-inserted `'email'`
+  message joins the same thread — proving Stage 2 needs no schema change), real client
+  identity resolution (spoofing prevented), retroactive linking firing automatically on a
+  real signup, admin read/resolve/reject actions with attribution, the full RLS negative
+  matrix (a blocked UPDATE returns a silent no-op per real PostgREST/RLS behavior, not an
+  error — proven by checking the row is provably unchanged rather than expecting a thrown
+  error), the debounce itself, and a real Realtime subscription reaching genuine
+  `SUBSCRIBED` status (not the unreliable `channel.state === 'joined'`) before a message
+  insert is expected to arrive. `scripts/verify-unified-inbox-ui-wiring.mjs` (the real
+  end-to-end UI proof, reusing `verify-cross-role-sync-bugfix.mjs`'s own established
+  "genuinely separate contexts" technique — real jsdom windows, a real temp-file copy of
+  `supabase-data.js` for the PM side since `chat-widget.js`'s own internal dynamic
+  `import('./supabase-config.js')` needed the same temp-copy-at-the-real-path fix to resolve
+  correctly when run via `window.eval()`), **28/28 assertions**: a genuinely separate
+  anonymous visitor jsdom context and a genuinely separate real PM-session jsdom context,
+  both running their REAL, unmodified widget/page code — a real visitor message appears in
+  the real PM inbox via Realtime with zero manual re-fetch triggered by the test, a real PM
+  reply appears back in the real visitor's own widget the same way, resolving a conversation
+  updates both sides; search/filters proven against a realistic 5-conversation seeded volume
+  (name, email, AND message-body search each independently proven to narrow correctly; every
+  status and channel filter pill proven individually) — including a real test-authoring
+  finding, not a product bug: seeding `unread_by_pm` directly at conversation-insert time
+  doesn't stick, since `handle_new_message()` always sets it `true` on any inbound message
+  insert (correct, real behavior — any new message should flag PM review) — fixed by
+  marking specific seeded rows "already read" AFTER their message insert, not by changing
+  the trigger; and real RLS isolation proven through the actual widget UI a second time (a
+  genuinely different anonymous visitor's own widget starts a fresh, empty thread — zero
+  history leakage from the first visitor or any seeded conversation). Full existing
+  regression suite re-run for zero regression — one pre-existing, unrelated gap found and
+  disclosed rather than fixed here: `verify-password-reset-flow.mjs`'s own temp-dir
+  page-loading helper never copies `firebase-config.js` alongside `supabase-config.js`, so
+  `login.html`'s static import of it fails when that script runs standalone (confirmed via
+  `git status` that neither `login.html` nor `firebase-config.js` was touched this session —
+  not a regression from this task). **Deployed to real cloud staging the same session**: the
+  migration and all 3 Edge Functions pushed for real (dry-run confirmed only this one
+  migration would apply first); `verify-cloud-staging-parity.js` re-confirmed clean
+  afterward (14/14 migrations, 47/47 functions). Backend Requirements Register row 159 added.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
