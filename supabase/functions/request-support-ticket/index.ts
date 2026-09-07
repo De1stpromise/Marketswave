@@ -22,6 +22,7 @@
 // silently reusing a number, which a retry would resolve).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendEmail, renderEmail, getAdminEmails, siteLink } from '../_shared/send-email.ts';
 
 const CATEGORIES = ['Transaction Issue', 'Account Access', 'Billing/Fees', 'Document/Signature Issue', 'Other'];
 
@@ -92,6 +93,35 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
+
+    // Branded HTML Emails (2026-09-07): the first PM-facing email in this domain — notifies
+    // every currently-registered PM (see getAdminEmails()'s own header comment for why "every
+    // PM," not a single hardcoded address, is the correct real-world behavior now that this
+    // project has genuine per-PM accounts). Best-effort, genuinely awaited — a real ticket
+    // already exists by this point regardless of whether this notification arrives.
+    const adminEmails = await getAdminEmails(admin);
+    if (adminEmails.length > 0) {
+      const { data: clientRow } = await admin.from('clients').select('name').eq('id', clientId).maybeSingle();
+      const { html, text } = renderEmail({
+        heading: 'New support ticket filed',
+        introParagraphs: [(clientRow ? clientRow.name : 'A client') + ' has filed a new support ticket.'],
+        detailRows: [
+          { label: 'Reference', value: displayId },
+          { label: 'Category', value: category },
+          { label: 'Description', value: description }
+        ],
+        cta: { text: 'Review in the admin tool', href: siteLink('admin-support.html') },
+        footerType: 'general'
+      });
+      await sendEmail(admin, {
+        to: adminEmails,
+        subject: 'New Marketswave support ticket: ' + displayId,
+        html,
+        text,
+        relatedEntityType: 'support_request',
+        relatedEntityId: request.id
+      });
+    }
 
     return jsonResponse(toClientShape(request), 200);
   } catch (err) {

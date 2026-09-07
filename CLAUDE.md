@@ -6391,6 +6391,103 @@ row 74.
   regression suite re-run for zero regression — no schema/function changes, no cloud staging
   deployment needed. **A fifth instance of the known `verify-products-catalog-fix.mjs`
   test-pollution issue found and cleaned up.** Backend Requirements Register row 152.
+- **★★ Branded HTML Emails — recovery, first real execution, and two real infrastructure
+  fixes (2026-09-07).** Closes out a task that was left uncommitted and never once run when
+  this machine froze mid-session (a separate recovery task confirmed the state: `_shared/
+  send-email.ts`'s full `renderEmail()` HTML/plain-text template, 22 converted trigger
+  functions, and 4 brand-new functions — `notify-new-client-application`, `notify-new-
+  document-upload`, `notify-password-changed`, `sync-hys-pocket-status` — all sat structurally
+  complete but unverified, since the local Docker/Supabase stack wasn't even running). Docker
+  Desktop + `supabase start` brought the stack back up; the edge-runtime container had exited
+  on its own first boot (`Exited (255)`, no error in its logs — a transient cold-start
+  artifact) and needed one `docker start` to come up clean. **First real run of the new
+  `scripts/verify-branded-emails.js`: 196 passed, 23 failed — every single failure was the
+  identical assertion**, "a real send failure (unreachable domain) is honestly logged as
+  failed," across every domain. **Root-caused before touching anything, not assumed a fluke**:
+  the same-day context this task started from — marketswave.net is now a verified Resend
+  sending domain — silently invalidated the whole test technique both this new script and two
+  PRE-EXISTING scripts (`verify-supabase-email-notifications.js`,
+  `verify-supabase-email-triggers-stage2.js`) relied on. All three used a syntactically-VALID
+  `@invalid.test` recipient, which only ever failed because the OLD unverified
+  `onboarding@resend.dev` sandbox sender enforced "deliver only to the account's own
+  registered address" — confirmed directly by querying the real `email_log` rows this run
+  produced (`status: "sent"`, real `resend_id`s) and by a direct `curl` against the real
+  Resend API showing `@invalid.test` now gets synchronously QUEUED, not rejected, once the
+  sender domain is verified (Resend never validates deliverability synchronously, only
+  request format). **Fix, applied to all three scripts**: a genuinely malformed recipient (no
+  `@`, e.g. `branded-email-verify-malformed-<suffix>`) DOES still trigger a real, synchronous
+  422 regardless of sender-domain verification — confirmed directly via `curl` before relying
+  on it. Since the notification recipient is `clients.email` (a column fully decoupled from
+  the Auth account's own login email, already established by an earlier fix), every test
+  client's `clients.email` was set to the malformed value via `createTestClient()`'s existing
+  `opts` override while its real Auth email stayed valid (a malformed Auth email would have
+  broken signup/sign-in itself, a different concern) — zero changes needed to any application
+  code, only the three test scripts. **Re-run clean: 219/219**, and — since the two
+  pre-existing scripts shared the identical latent bug and would have silently started failing
+  the next time either ran — fixed proactively rather than left for a future surprise:
+  `verify-supabase-email-notifications.js` 14/14, `verify-supabase-email-triggers-stage2.js`
+  85/85. **Domain-verification judgment call, asked of the user rather than guessed**: the
+  FROM sender address was switched to `Marketswave <noreply@marketswave.net>` (via a new
+  `getFromAddress()`, `EMAIL_FROM_ADDRESS`-overridable, mirroring `SITE_URL`'s own pattern) —
+  safe, since it's purely a deliverability improvement and a `noreply@` address makes no
+  implicit promise about a monitored inbox. The footer's displayed `support@marketswave.com`
+  contact address was confirmed with the user to have NO real monitored `support@
+  marketswave.net` inbox yet, so it was deliberately left as its existing, already-flagged
+  placeholder rather than switched to a real-looking address on a real domain nobody reads —
+  logged as its own follow-up register row rather than left silently implied-resolved by the
+  sender-address fix. **Mid-task, a second real piece of context arrived**: the project's
+  custom domain, `marketswave.net`, is now fully live with HTTPS enforced, and a `CNAME` file
+  had already been pushed directly to `origin/main` (pulled in via a clean fast-forward, no
+  conflict with the uncommitted work). Grepped the whole project for the old GitHub Pages URL
+  and found exactly ONE live-code reference — `send-email.ts`'s `getSiteUrl()` default —
+  updated to `https://marketswave.net`; two historical, dated narrative mentions in `CLAUDE.md`
+  itself and the handover doc were deliberately left untouched, per this project's own
+  "don't rewrite history" convention. `admin-supabase-config.js`/`supabase-config.js`'s own
+  hostname-detection logic was confirmed to need zero changes — it was already written
+  generically ("any non-localhost hostname"), never hardcoded to the old domain. **A real,
+  previously-undiscovered deployment gap found while checking real cloud staging parity, not
+  assumed clean**: `verify-cloud-staging-parity.js` reported only 2 missing functions
+  (`notify-password-changed`, `sync-hys-pocket-status`), which on direct investigation via
+  `supabase functions list`'s own real timestamps revealed something bigger — the INTERRUPTED
+  prior session had already deployed the other 22 touched functions to real cloud staging
+  before the machine froze (all clustered within one ~8-minute window, `11:08-11:16 UTC`,
+  ending right where the 2 missing ones would have come next alphabetically/by creation
+  order). Those 22 were carrying a STALE bundled `_shared/send-email.ts` — Deno bundles shared
+  imports at deploy time, a lesson this project already learned once for `_shared/portfolio-
+  engine.ts` — meaning real cloud staging was, until this fix, still sending from the old
+  `onboarding@resend.dev` sandbox address with no domain-verification or `SITE_URL` fixes
+  applied at all. **Fixed**: all 25 real functions that import `_shared/send-email.ts`
+  (confirmed via a project-wide grep, not assumed to match the git diff's own 24-function
+  count) redeployed together in one `supabase functions deploy` call; `verify-cloud-staging-
+  parity.js` re-confirmed clean afterward (13/13 migrations, 44/44 functions). **Full
+  regression suite re-run end to end after all fixes**: every one of the ~30 `verify-*`
+  scripts plus `supabase-golden-path-regression.js`, all green (one script,
+  `verify-dashboard-real-data-fixes.mjs`, showed 37/37 instead of its historical 38/38 — a
+  genuinely benign, already-documented conditional skip, not a regression: a specific named
+  real test client from an earlier session no longer exists on this since-rebuilt local
+  stack, and the script itself reports this as informational rather than asserting failure).
+  **Step 5, the real human-confirmed proof — the "send-representative-sample-emails.js" step
+  `verify-branded-emails.js`'s own header comment had referenced but which had never been
+  written**: built new `scripts/send-representative-sample-emails.js`, confirmed the target
+  real inbox with the user directly before sending anything real and externally visible
+  (never guessed). Creates two genuinely separate temp identities against the LOCAL stack — a
+  temp PM account whose real Auth email IS the target inbox (since `getAdminEmails()` resolves
+  real Auth emails, not a decoupled column) and a temp client account with a synthetic Auth
+  email but `clients.email` set to the real target inbox (mirroring the exact decoupling
+  technique the regression-script fix above established) — then triggers 9 real function
+  calls covering every dimension the task named: existing conversions in both footer types
+  (`approve-allocation`/`reject-withdrawal` investment, `reject-profile-change` general), new
+  client-side triggers (`request-deposit`, `notify-password-changed`, `sync-hys-pocket-
+  status`), and new PM-side triggers (`notify-new-client-application` — which alone produces 2
+  real emails, a client receipt AND a PM notify — `notify-new-document-upload`,
+  `request-support-ticket`). **Confirmed genuinely delivered, not just "the call didn't
+  error"**: a direct `email_log` query after the run showed all 10 real emails logged
+  `status: "sent"` with real, distinct Resend message ids. All temp accounts and test data
+  cleaned up afterward. Real cloud staging was deliberately NOT used for this step — the same
+  real, shared Resend account backs both environments, so a local send is an equally real
+  proof of actual delivery without touching real cloud staging's own test data. Backend
+  Requirements Register rows 153-154 (154 being the still-open `support@marketswave.net`
+  monitored-inbox follow-up).
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

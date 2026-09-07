@@ -66,12 +66,25 @@ async function main() {
   const suffix = crypto.randomBytes(4).toString('hex');
   const password = 'Stage2EmailVerify2026!';
   const unreachableDomain = 'stage2-email-verify-' + suffix + '@invalid.test';
+  // Real-failure recipient (2026-09-07 fix, Branded HTML Emails task): marketswave.net is now
+  // a verified Resend sending domain, which lifted the old onboarding@resend.dev sandbox's
+  // "only deliver to the account's own registered address" restriction — that restriction,
+  // not real DNS/domain unreachability, was what made unreachableDomain synchronously fail
+  // before. Confirmed directly against the real Resend API: a verified-domain sender now
+  // genuinely queues a send to @invalid.test as 'sent' (a real resend_id, no synchronous
+  // rejection) — Resend does not validate deliverability synchronously, only request format.
+  // A malformed (no "@") recipient DOES still trigger a real, synchronous 422 regardless of
+  // sender-domain verification, so every createTestClient() call below now overrides
+  // clients.email to this value via its own opts param, decoupled from unreachableDomain
+  // (which stays the real, valid-format email used for Auth signup — a malformed address
+  // there would break signup itself, a different concern).
+  const malformedRecipient = 'stage2-email-verify-malformed-' + suffix;
 
   async function checkLogged(label, relatedEntityType, relatedEntityId, subjectPattern, since) {
     const { data: logRows } = await admin.from('email_log').select('*').eq('related_entity_type', relatedEntityType).eq('related_entity_id', relatedEntityId).gte('sent_at', since);
     check(label + ' — a real email_log row was written', logRows && logRows.length === 1, JSON.stringify(logRows));
     if (logRows && logRows.length === 1) {
-      check(label + ' — recipient is genuinely this client\'s own email', logRows[0].recipient === unreachableDomain);
+      check(label + ' — recipient is genuinely this client\'s own email', logRows[0].recipient === malformedRecipient);
       check(label + ' — subject matches the expected real content', subjectPattern.test(logRows[0].subject), logRows[0].subject);
       check(label + ' — a real send failure (unreachable domain) is honestly logged as failed', logRows[0].status === 'failed' && !!logRows[0].error_message);
     }
@@ -82,7 +95,7 @@ async function main() {
   // ===========================================================================================
   console.log('1. reject-deposit\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: req } = await admin.from('deposit_requests').insert({ client_id: user.id, method: 'bank', requested_amount: 2000, currency: 'USD', status: 'pending', details: {} }).select().single();
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('reject-deposit', { body: { requestId: req.id, reason: 'Unable to verify source of funds.' } });
@@ -98,7 +111,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n2. approve-withdrawal\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('account_state').insert({ client_id: user.id, unallocated_capital: 5000, allocated_capital: 0, asset_returns: 0 });
     const { data: req } = await admin.from('withdrawal_requests').insert({ client_id: user.id, method: 'bank', requested_amount: 1000, currency: 'USD', destination_details: {}, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -114,7 +127,7 @@ async function main() {
 
   console.log('\n3. reject-withdrawal\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('account_state').insert({ client_id: user.id, unallocated_capital: 5000, allocated_capital: 0, asset_returns: 0 });
     const { data: req } = await admin.from('withdrawal_requests').insert({ client_id: user.id, method: 'bank', requested_amount: 1000, currency: 'USD', destination_details: {}, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -132,7 +145,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n4. approve-allocation\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('account_state').insert({ client_id: user.id, unallocated_capital: 20000, allocated_capital: 0, asset_returns: 0 });
     const { data: req } = await admin.from('allocation_requests').insert({ client_id: user.id, product_id: 'PROD-0003', requested_amount: 5000, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -149,7 +162,7 @@ async function main() {
 
   console.log('\n5. reject-allocation\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('account_state').insert({ client_id: user.id, unallocated_capital: 20000, allocated_capital: 0, asset_returns: 0 });
     const { data: req } = await admin.from('allocation_requests').insert({ client_id: user.id, product_id: 'PROD-0003', requested_amount: 5000, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -167,7 +180,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n6. approve-sell\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('account_state').insert({ client_id: user.id, unallocated_capital: 0, allocated_capital: 0, asset_returns: 0 });
     await admin.from('holdings').insert({ client_id: user.id, product_id: 'PROD-0003', units: 20, cost_basis: 2000 });
     const { data: req } = await admin.from('sell_requests').insert({ client_id: user.id, product_id: 'PROD-0003', units_to_sell: 5, status: 'pending' }).select().single();
@@ -185,7 +198,7 @@ async function main() {
 
   console.log('\n7. reject-sell\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     await admin.from('holdings').insert({ client_id: user.id, product_id: 'PROD-0003', units: 20, cost_basis: 2000 });
     const { data: req } = await admin.from('sell_requests').insert({ client_id: user.id, product_id: 'PROD-0003', units_to_sell: 5, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -203,7 +216,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n8. credit-hys-deposit\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: req } = await admin.from('hys_deposit_requests').insert({ client_id: user.id, pocket_type: 'ayw', requested_amount: 1000, method: 'bank', currency: 'USD', status: 'pending' }).select().single();
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('credit-hys-deposit', { body: { requestId: req.id, confirmedAmount: 1000 } });
@@ -218,7 +231,7 @@ async function main() {
 
   console.log('\n9. reject-hys-deposit\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: req } = await admin.from('hys_deposit_requests').insert({ client_id: user.id, pocket_type: 'fixed', term_mode: 'short', term_months: 6, term_label: '6-Month Fixed Deposit', rate: 8.5, term_in_years: 0.5, requested_amount: 6000, method: 'bank', currency: 'USD', status: 'pending' }).select().single();
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('reject-hys-deposit', { body: { requestId: req.id, reason: 'Minimum funding period not met.' } });
@@ -234,7 +247,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n10. approve-hys-withdrawal\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: pocket } = await admin.from('hys_pockets').insert({ client_id: user.id, pocket_type: 'ayw', amount: 1000, status: 'active', funding_method: 'bank account' }).select().single();
     const { data: req } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'bank', destination_details: {}, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -250,7 +263,7 @@ async function main() {
 
   console.log('\n11. reject-hys-withdrawal\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: pocket } = await admin.from('hys_pockets').insert({ client_id: user.id, pocket_type: 'ayw', amount: 1000, status: 'active', funding_method: 'bank account' }).select().single();
     const { data: req } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'bank', destination_details: {}, status: 'pending' }).select().single();
     const before = new Date().toISOString();
@@ -268,7 +281,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n12. approve-profile-change\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: req } = await admin.from('profile_change_requests').insert({ client_id: user.id, field: 'legalName', current_value: 'Old Name', requested_value: 'New Name', reason: 'Legal name change.', status: 'pending' }).select().single();
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('approve-profile-change', { body: { requestId: req.id } });
@@ -282,7 +295,7 @@ async function main() {
 
   console.log('\n13. reject-profile-change\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: req } = await admin.from('profile_change_requests').insert({ client_id: user.id, field: 'address', current_value: 'Old Address', requested_value: 'New Address', reason: 'Moved recently.', status: 'pending' }).select().single();
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('reject-profile-change', { body: { requestId: req.id, resolutionNote: 'Please provide a recent proof of address.' } });
@@ -298,7 +311,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n14. update-support-ticket\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: ticket } = await admin.from('support_requests').insert({ client_id: user.id, display_id: 'DISP-STAGE2TEST', category: 'Other', description: 'Test ticket.', status: 'Open', date_opened: new Date().toISOString().slice(0, 10) }).select().single();
 
     const before1 = new Date().toISOString();
@@ -321,7 +334,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n15. publish-document\n');
   await (async function () {
-    const user = await createTestClient(admin, unreachableDomain, password);
+    const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const fileBase64 = Buffer.from('Stage 2 email trigger test document content.').toString('base64');
 
     const before1 = new Date().toISOString();

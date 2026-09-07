@@ -32,7 +32,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -133,11 +133,22 @@ Deno.serve(async (req) => {
       admin.from('products').select('name').eq('id', request.product_id).maybeSingle()
     ]);
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'Your allocation request has been approved',
+        introParagraphs: ['Hi ' + clientRow.name + ', your allocation request has been reviewed and executed. The position now appears in your portfolio.'],
+        detailRows: [
+          { label: 'Product', value: productRow ? productRow.name : request.product_id },
+          { label: 'Amount allocated', value: '$' + request.requested_amount.toLocaleString() },
+          { label: 'Reference', value: executeBuyResult.id }
+        ],
+        cta: { text: 'View your portfolio', href: siteLink('dashboard.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave allocation request has been approved',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your allocation of $' + request.requested_amount.toLocaleString() + ' into ' +
-          (productRow ? productRow.name : request.product_id) + ' has been approved and executed.</p>',
+        html,
+        text,
         relatedEntityType: 'allocation_request',
         relatedEntityId: requestId
       });

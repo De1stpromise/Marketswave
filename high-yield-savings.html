@@ -508,11 +508,22 @@
 
     function loadHysData() {
       if (dataPromise) return dataPromise;
-      dataPromise = Promise.all([
-        MarketswaveData.selectTable('hys_pockets'),
-        MarketswaveData.selectTable('hys_deposit_requests'),
-        MarketswaveData.selectTable('hys_withdrawal_requests')
-      ]).then(function (results) {
+      // Branded HTML Emails (2026-09-07): syncs the real maturity self-heal + "pocket
+      // matured" email BEFORE reading pockets below, so a transition that just happened is
+      // already reflected in the real stored status this page then reads — see
+      // sync-hys-pocket-status/index.ts's own header for the full "why this couldn't just
+      // be resolveEffectivePocketStatus() called client-side" reasoning. Best-effort: a
+      // failure here degrades to the page's own pre-existing behavior (matched lazily by
+      // request-hys-withdrawal instead), never blocks the real data load below.
+      dataPromise = MarketswaveData.callFunction('sync-hys-pocket-status').catch(function (err) {
+        console.warn('sync-hys-pocket-status failed (non-fatal):', err);
+      }).then(function () {
+        return Promise.all([
+          MarketswaveData.selectTable('hys_pockets'),
+          MarketswaveData.selectTable('hys_deposit_requests'),
+          MarketswaveData.selectTable('hys_withdrawal_requests')
+        ]);
+      }).then(function (results) {
         return {
           pockets: results[0].map(mapPocketRow),
           depositRequests: results[1].map(mapDepositRequestRow),

@@ -41,7 +41,7 @@
 //      Bypasses RLS entirely, the exact same role the Admin SDK plays on the Firebase side.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -113,13 +113,22 @@ Deno.serve(async (req) => {
     // its response is sent — an un-awaited send risks being cut off mid-flight. The
     // response shape below is completely unchanged either way: exactly the same
     // { id, status } this function has always returned.
-    await sendEmail(adminClient, {
-      to: existing.email,
-      subject: 'Your Marketswave application has been approved',
-      html: '<p>Hi ' + existing.name + ',</p><p>Your Marketswave account application has been approved. You can now sign in and access your dashboard.</p>',
-      relatedEntityType: 'client_application',
-      relatedEntityId: clientId
-    });
+    {
+      const { html, text } = renderEmail({
+        heading: 'Your application has been approved',
+        introParagraphs: ['Hi ' + existing.name + ', your Marketswave account application has been approved. You can now sign in and access your dashboard.'],
+        cta: { text: 'Sign in to your account', href: siteLink('login.html') },
+        footerType: 'general'
+      });
+      await sendEmail(adminClient, {
+        to: existing.email,
+        subject: 'Your Marketswave application has been approved',
+        html,
+        text,
+        relatedEntityType: 'client_application',
+        relatedEntityId: clientId
+      });
+    }
 
     return jsonResponse({ id: clientId, status: 'active' }, 200);
   } catch (err) {

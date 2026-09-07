@@ -29,7 +29,7 @@
 // other real multi-step write sequences.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 const BUCKET = 'documents';
 
@@ -134,13 +134,25 @@ Deno.serve(async (req) => {
         ? 'A document requires your signature'
         : 'A new document is available in your Marketswave account';
       const bodyLine = signatureRequired
-        ? '<p>A new document, "' + filename + '" (' + category + '), has been added to your account and requires your signature' +
-          (deadlineLabel ? ' — ' + deadlineLabel + '.' : '.') + '</p>'
-        : '<p>A new document, "' + filename + '" (' + category + '), has been added to your account.</p>';
+        ? 'A new document has been added to your account and requires your signature' + (deadlineLabel ? ' — ' + deadlineLabel + '.' : '.')
+        : 'A new document has been added to your account. Log in to review it.';
+      const detailRows = [
+        { label: 'Document', value: filename },
+        { label: 'Category', value: category }
+      ];
+      if (deadlineLabel) detailRows.push({ label: 'Signature deadline', value: deadlineLabel });
+      const { html, text } = renderEmail({
+        heading: signatureRequired ? 'A document requires your signature' : 'A new document is available',
+        introParagraphs: ['Hi ' + clientRow.name + ', ' + bodyLine.charAt(0).toLowerCase() + bodyLine.slice(1)],
+        detailRows,
+        cta: { text: 'Review the document', href: siteLink('documents.html') },
+        footerType: 'general'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: subject,
-        html: '<p>Hi ' + clientRow.name + ',</p>' + bodyLine + '<p>Log in to your account to review it.</p>',
+        html,
+        text,
         relatedEntityType: 'document',
         relatedEntityId: docId
       });

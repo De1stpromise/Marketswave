@@ -61,21 +61,33 @@ async function main() {
 
   const suffix = crypto.randomBytes(4).toString('hex');
   const password = 'EmailVerify2026!';
-  // Resend genuinely rejects this domain (no real mail server, no verified domain match) —
-  // this is what lets this suite prove the REAL failure-logging path without spamming a
-  // real inbox on every run.
   const unreachableDomain = 'email-verify-' + suffix + '@invalid.test';
+  // Real-failure recipient (2026-09-07 fix, Branded HTML Emails task): marketswave.net is now
+  // a verified Resend sending domain, which lifted the old onboarding@resend.dev sandbox's
+  // "only deliver to the account's own registered address" restriction — that restriction,
+  // not real DNS/domain unreachability, was what made unreachableDomain synchronously fail
+  // before. Confirmed directly against the real Resend API: a verified-domain sender now
+  // genuinely queues a send to @invalid.test as 'sent' (a real resend_id, no synchronous
+  // rejection) — Resend does not validate deliverability synchronously, only request format.
+  // A malformed (no "@") recipient DOES still trigger a real, synchronous 422 regardless of
+  // sender-domain verification. Test 1 below now corrupts clients.email to this malformed
+  // value (via a direct update, AFTER the real Auth account is created with the valid
+  // unreachableDomain — a malformed Auth email would break signup/sign-in itself, a different
+  // concern) so the real send genuinely fails, while unreachableDomain keeps being used
+  // everywhere else in this file exactly as before.
+  const malformedRecipient = 'email-verify-malformed-' + suffix;
 
   console.log('1. approve-client-application — a real send attempt is genuinely logged\n');
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, 'pending_review');
+    await admin.from('clients').update({ email: malformedRecipient }).eq('id', user.id);
     const before = new Date().toISOString();
     const { data: approved, error: approveErr } = await adminSignIn.functions.invoke('approve-client-application', { body: { clientId: user.id } });
     check('the approval itself succeeds regardless of email outcome — a real client is genuinely activated', !approveErr && approved.status === 'active', approveErr && approveErr.message);
 
     const { data: logRows } = await admin.from('email_log').select('*').eq('related_entity_id', user.id).eq('related_entity_type', 'client_application').gte('sent_at', before);
     check('a real email_log row was written for this real approval', logRows && logRows.length === 1, JSON.stringify(logRows));
-    check('the log row correctly targets this exact client\'s own real email', logRows && logRows[0].recipient === unreachableDomain);
+    check('the log row correctly targets this exact client\'s own real (corrupted-for-this-test) email', logRows && logRows[0].recipient === malformedRecipient);
     check('the log row\'s subject matches the real approval email', logRows && /approved/i.test(logRows[0].subject));
     check('a real send failure (unreachable domain) is honestly logged as failed, with a real error message — never a fabricated success', logRows && logRows[0].status === 'failed' && !!logRows[0].error_message, JSON.stringify(logRows && logRows[0]));
 

@@ -20,6 +20,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -88,6 +89,30 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
+
+    // Branded HTML Emails (2026-09-07): a receipt confirming the request was received — see
+    // request-deposit/index.ts's own identical addition and comment for the full "why."
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'We received your withdrawal request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your withdrawal request has been received and is awaiting review by your Portfolio Manager. You will receive another email once it has been processed.'],
+        detailRows: [
+          { label: 'Amount requested', value: currency + ' ' + round2(amount).toLocaleString() },
+          { label: 'Method', value: method === 'crypto' ? 'Crypto' : 'Bank Transfer' }
+        ],
+        cta: { text: 'View your requests', href: siteLink('deploy-capital.html') },
+        footerType: 'investment'
+      });
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'We received your Marketswave withdrawal request',
+        html,
+        text,
+        relatedEntityType: 'withdrawal_request',
+        relatedEntityId: request.id
+      });
+    }
 
     return jsonResponse(toClientShape(request), 200);
   } catch (err) {

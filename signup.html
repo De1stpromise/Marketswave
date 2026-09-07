@@ -1371,6 +1371,20 @@
             });
             if (insertError) throw insertError;
 
+            // Branded HTML Emails (2026-09-07): a real client-facing receipt + the first
+            // PM-facing "new application" notification — see notify-new-client-application/
+            // index.ts's own header for the full "why this is a separate notify call, not a
+            // database trigger" reasoning. MUST run BEFORE the signOut() below — this
+            // function is self-only, authenticated via the caller's own real JWT, which
+            // signOut() would otherwise destroy first. Best-effort: a real client was just
+            // genuinely created regardless of whether this notification call succeeds, so a
+            // failure here is caught and swallowed, never surfaced as a signup error.
+            try {
+              await supabase.functions.invoke('notify-new-client-application');
+            } catch (notifyErr) {
+              console.warn('notify-new-client-application failed (non-fatal):', notifyErr);
+            }
+
             // Mirrors the Firebase branch's own signOut(auth) immediately after signup —
             // signup has never authenticated a client straight into the dashboard in this
             // project, on either backend; that only happens through a real login.html

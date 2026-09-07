@@ -8,7 +8,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -74,12 +74,22 @@ Deno.serve(async (req) => {
       admin.from('products').select('name').eq('id', request.product_id).maybeSingle()
     ]);
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'An update on your Marketswave sell request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your sell request could not be approved. Please contact support if you have any questions.'],
+        detailRows: [
+          { label: 'Product', value: productRow ? productRow.name : request.product_id },
+          { label: 'Units requested', value: String(request.units_to_sell) }
+        ],
+        callout: reason ? { text: reason } : undefined,
+        cta: { text: 'View your requests', href: siteLink('asset-performance.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'An update on your Marketswave sell request',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your request to sell ' + request.units_to_sell + ' units of ' +
-          (productRow ? productRow.name : request.product_id) + ' could not be approved' + (reason ? ': ' + reason : '.') +
-          ' Please contact support if you have any questions.</p>',
+        html,
+        text,
         relatedEntityType: 'sell_request',
         relatedEntityId: requestId
       });

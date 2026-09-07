@@ -16,7 +16,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
@@ -92,12 +92,21 @@ Deno.serve(async (req) => {
         ? 'Your Marketswave support request has been resolved'
         : 'An update on your Marketswave support request';
       const statusLine = status === 'Resolved'
-        ? '<p>Your support request ' + requestId + ' has been marked resolved.</p>'
-        : '<p>Your support request ' + requestId + ' has been updated to: ' + status + '.</p>';
+        ? 'Your support request has been marked resolved.'
+        : 'Your support request has been updated to: ' + status + '.';
+      const { html, text } = renderEmail({
+        heading: status === 'Resolved' ? 'Your support request has been resolved' : 'An update on your support request',
+        introParagraphs: ['Hi ' + clientRow.name + ', ' + statusLine.charAt(0).toLowerCase() + statusLine.slice(1)],
+        detailRows: [{ label: 'Reference', value: requestId }],
+        callout: pmNote ? { label: 'Note from your Portfolio Manager', text: pmNote } : undefined,
+        cta: { text: 'View your request', href: siteLink('support.html') },
+        footerType: 'general'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: subject,
-        html: '<p>Hi ' + clientRow.name + ',</p>' + statusLine + (pmNote ? '<p>' + pmNote + '</p>' : ''),
+        html,
+        text,
         relatedEntityType: 'support_request',
         relatedEntityId: existing.id
       });

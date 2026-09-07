@@ -677,3 +677,27 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/get-portfolio-monthly-change/deno.json"
 entrypoint = "./functions/get-portfolio-monthly-change/index.ts"
+
+[functions.notify-new-client-application]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-new-client-application/deno.json"
+entrypoint = "./functions/notify-new-client-application/index.ts"
+
+[functions.notify-new-document-upload]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-new-document-upload/deno.json"
+entrypoint = "./functions/notify-new-document-upload/index.ts"
+
+[functions.notify-password-changed]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-password-changed/deno.json"
+entrypoint = "./functions/notify-password-changed/index.ts"
+
+[functions.sync-hys-pocket-status]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sync-hys-pocket-status/deno.json"
+entrypoint = "./functions/sync-hys-pocket-status/index.ts"

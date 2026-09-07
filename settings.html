@@ -968,6 +968,12 @@
           document.getElementById('confirm-password').value = '';
           applyLevel(levels[0]);
           showToast('Password Updated', 'Your password has been changed successfully.');
+          // Branded HTML Emails (2026-09-07): a real security notification — see
+          // notify-password-changed/index.ts's own header for the full reasoning.
+          // Best-effort, fire-and-forget: the real password change already succeeded above.
+          MarketswaveData.callFunction('notify-password-changed').catch(function (err) {
+            console.warn('notify-password-changed failed (non-fatal):', err);
+          });
         }).catch(function (err) {
           errorEl.textContent = (err && err.message) || 'Something went wrong. Please try again.';
           errorEl.classList.remove('hidden');

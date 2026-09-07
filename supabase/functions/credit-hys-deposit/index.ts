@@ -22,7 +22,7 @@
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -157,11 +157,23 @@ Deno.serve(async (req) => {
       const pocketLabel = request.pocket_type === 'fixed'
         ? 'Fixed Deposit pocket' + (request.term_label ? ' (' + request.term_label + ')' : '')
         : 'As You Want pocket';
+      const detailRows = [
+        { label: 'Pocket type', value: pocketLabel },
+        { label: 'Amount credited', value: '$' + round2(confirmedAmount).toLocaleString() }
+      ];
+      if (maturityDate) detailRows.push({ label: 'Maturity date', value: new Date(maturityDate).toISOString().slice(0, 10) });
+      const { html, text } = renderEmail({
+        heading: 'Your High Yield Savings deposit has been credited',
+        introParagraphs: ['Hi ' + clientRow.name + ', your deposit has been credited to a new savings pocket, held separately from your main portfolio.'],
+        detailRows,
+        cta: { text: 'View your pocket', href: siteLink('high-yield-savings.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave High Yield Savings deposit has been credited',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your deposit of $' + round2(confirmedAmount).toLocaleString() + ' has been credited to a new ' +
-          pocketLabel + '.</p>',
+        html,
+        text,
         relatedEntityType: 'hys_deposit_request',
         relatedEntityId: requestId
       });

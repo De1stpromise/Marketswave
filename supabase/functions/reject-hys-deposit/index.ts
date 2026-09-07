@@ -8,7 +8,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as credit-hys-deposit.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -74,11 +74,19 @@ Deno.serve(async (req) => {
       const pocketLabel = request.pocket_type === 'fixed'
         ? 'Fixed Deposit request' + (request.term_label ? ' (' + request.term_label + ')' : '')
         : 'As You Want deposit request';
+      const { html, text } = renderEmail({
+        heading: 'An update on your Marketswave High Yield Savings request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your ' + pocketLabel + ' could not be approved. Please contact support if you have any questions.'],
+        detailRows: [{ label: 'Amount requested', value: '$' + request.requested_amount.toLocaleString() }],
+        callout: reason ? { text: reason } : undefined,
+        cta: { text: 'View your requests', href: siteLink('high-yield-savings.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'An update on your Marketswave High Yield Savings request',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your ' + pocketLabel + ' of $' + request.requested_amount.toLocaleString() +
-          ' could not be approved' + (reason ? ': ' + reason : '.') + ' Please contact support if you have any questions.</p>',
+        html,
+        text,
         relatedEntityType: 'hys_deposit_request',
         relatedEntityId: requestId
       });

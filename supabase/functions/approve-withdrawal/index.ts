@@ -23,7 +23,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -138,10 +138,21 @@ Deno.serve(async (req) => {
     // approve-client-application/index.ts's own identical comment for the full "why."
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'Your withdrawal has been approved',
+        introParagraphs: ['Hi ' + clientRow.name + ', your withdrawal request has been approved and processed.'],
+        detailRows: [
+          { label: 'Amount', value: '$' + round2(approvedAmount).toLocaleString() },
+          { label: 'Reference', value: txn.id }
+        ],
+        cta: { text: 'View your account', href: siteLink('deploy-capital.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave withdrawal has been approved',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your withdrawal request of $' + round2(approvedAmount).toLocaleString() + ' has been approved and processed.</p>',
+        html,
+        text,
         relatedEntityType: 'withdrawal_request',
         relatedEntityId: requestId
       });

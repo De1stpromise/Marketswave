@@ -13,7 +13,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as approve-profile-change.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 // Mirrors admin-profile-updates.html's own FIELD_LABELS exactly, so a client's email uses
 // the identical human-readable label a PM sees in the admin UI.
@@ -80,11 +80,19 @@ Deno.serve(async (req) => {
     // approve-client-application/index.ts's own identical comment for the full "why."
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', request.client_id).maybeSingle();
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'An update on your Marketswave profile update request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your requested change could not be approved. Please contact support if you have any questions.'],
+        detailRows: [{ label: 'Field', value: FIELD_LABELS[request.field] || request.field }],
+        callout: resolutionNote ? { text: resolutionNote } : undefined,
+        cta: { text: 'Go to Settings', href: siteLink('settings.html') },
+        footerType: 'general'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'An update on your Marketswave profile update request',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your requested change to your ' + (FIELD_LABELS[request.field] || request.field) +
-          ' could not be approved' + (resolutionNote ? ': ' + resolutionNote : '.') + ' Please contact support if you have any questions.</p>',
+        html,
+        text,
         relatedEntityType: 'profile_change_request',
         relatedEntityId: requestId
       });

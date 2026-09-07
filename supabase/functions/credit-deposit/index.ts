@@ -23,7 +23,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -135,10 +135,21 @@ Deno.serve(async (req) => {
     // deposit; response shape unchanged either way.
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'Your deposit has been credited',
+        introParagraphs: ['Hi ' + clientRow.name + ', your deposit has been credited to your account and is now available as unallocated capital.'],
+        detailRows: [
+          { label: 'Amount credited', value: '$' + round2(confirmedAmount).toLocaleString() },
+          { label: 'Reference', value: txn.id }
+        ],
+        cta: { text: 'View your account', href: siteLink('deploy-capital.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave deposit has been credited',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>A deposit of $' + round2(confirmedAmount).toLocaleString() + ' has been credited to your account and is now available as unallocated capital.</p>',
+        html,
+        text,
         relatedEntityType: 'deposit_request',
         relatedEntityId: requestId
       });

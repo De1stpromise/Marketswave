@@ -17,7 +17,7 @@
 // function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -133,11 +133,18 @@ Deno.serve(async (req) => {
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
     if (clientRow) {
       const forfeitNote = request.forfeit ? ' Since this pocket was withdrawn before maturity, projected interest was forfeited.' : '';
+      const { html, text } = renderEmail({
+        heading: 'Your High Yield Savings withdrawal has been approved',
+        introParagraphs: ['Hi ' + clientRow.name + ', your withdrawal from your ' + (request.term_label || 'High Yield Savings') + ' pocket has been approved and is being sent to you.' + forfeitNote],
+        detailRows: [{ label: 'Amount', value: '$' + request.receive_amount.toLocaleString() }],
+        cta: { text: 'View your account', href: siteLink('high-yield-savings.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave High Yield Savings withdrawal has been approved',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your withdrawal from your ' + (request.term_label || 'High Yield Savings') +
-          ' pocket has been approved — $' + request.receive_amount.toLocaleString() + ' is being sent to you.' + forfeitNote + '</p>',
+        html,
+        text,
         relatedEntityType: 'hys_withdrawal_request',
         relatedEntityId: requestId
       });

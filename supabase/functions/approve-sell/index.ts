@@ -20,7 +20,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -121,11 +121,22 @@ Deno.serve(async (req) => {
       admin.from('products').select('name').eq('id', request.product_id).maybeSingle()
     ]);
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'Your sell request has been approved',
+        introParagraphs: ['Hi ' + clientRow.name + ', your request to sell units of this holding has been reviewed and executed.'],
+        detailRows: [
+          { label: 'Product', value: productRow ? productRow.name : request.product_id },
+          { label: 'Units sold', value: String(request.units_to_sell) },
+          { label: 'Reference', value: executeSellResult.id }
+        ],
+        cta: { text: 'View your portfolio', href: siteLink('dashboard.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'Your Marketswave sell request has been approved',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your request to sell ' + request.units_to_sell + ' units of ' +
-          (productRow ? productRow.name : request.product_id) + ' has been approved and executed.</p>',
+        html,
+        text,
         relatedEntityType: 'sell_request',
         relatedEntityId: requestId
       });

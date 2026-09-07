@@ -8,7 +8,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as approve-hys-withdrawal.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -71,11 +71,18 @@ Deno.serve(async (req) => {
     // approve-client-application/index.ts's own identical comment for the full "why."
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', request.client_id).maybeSingle();
     if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'An update on your Marketswave High Yield Savings withdrawal request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your withdrawal request from your ' + (request.term_label || 'High Yield Savings') + ' pocket could not be approved. Please contact support if you have any questions.'],
+        callout: reason ? { text: reason } : undefined,
+        cta: { text: 'View your requests', href: siteLink('high-yield-savings.html') },
+        footerType: 'investment'
+      });
       await sendEmail(admin, {
         to: clientRow.email,
         subject: 'An update on your Marketswave High Yield Savings withdrawal request',
-        html: '<p>Hi ' + clientRow.name + ',</p><p>Your withdrawal request from your ' + (request.term_label || 'High Yield Savings') +
-          ' pocket could not be approved' + (reason ? ': ' + reason : '.') + ' Please contact support if you have any questions.</p>',
+        html,
+        text,
         relatedEntityType: 'hys_withdrawal_request',
         relatedEntityId: requestId
       });

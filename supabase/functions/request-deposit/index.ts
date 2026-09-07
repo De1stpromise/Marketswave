@@ -20,6 +20,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
+import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -75,6 +76,34 @@ Deno.serve(async (req) => {
       .select()
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
+
+    // Branded HTML Emails (2026-09-07): a receipt confirming the request was received —
+    // closes the "submit and hear nothing back" gap this task's own instruction named for
+    // deposit/withdrawal requests specifically. Best-effort, genuinely awaited — see
+    // send-email.ts's own header for the full "why a failed send never fails the real
+    // primary action" reasoning; a client's real pending deposit request already exists by
+    // this point regardless of whether this receipt email arrives.
+    const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', clientId).maybeSingle();
+    if (clientRow) {
+      const { html, text } = renderEmail({
+        heading: 'We received your deposit request',
+        introParagraphs: ['Hi ' + clientRow.name + ', your deposit request has been received and is awaiting review by your Portfolio Manager. You will receive another email once it has been credited.'],
+        detailRows: [
+          { label: 'Amount requested', value: currency + ' ' + round2(amount).toLocaleString() },
+          { label: 'Method', value: method === 'crypto' ? 'Crypto' : 'Bank Transfer' }
+        ],
+        cta: { text: 'View your requests', href: siteLink('deploy-capital.html') },
+        footerType: 'investment'
+      });
+      await sendEmail(admin, {
+        to: clientRow.email,
+        subject: 'We received your Marketswave deposit request',
+        html,
+        text,
+        relatedEntityType: 'deposit_request',
+        relatedEntityId: request.id
+      });
+    }
 
     return jsonResponse(toClientShape(request), 200);
   } catch (err) {

@@ -556,6 +556,14 @@
           pendingFlashDocId = newDoc.id;
           reloadDocuments(true);
           showToast('Document Uploaded', file.name + ' was sent to Marketswave and is pending review.');
+          // Branded HTML Emails (2026-09-07): notifies every current PM that a new document
+          // is awaiting review — see notify-new-document-upload/index.ts's own header for
+          // the full "why this is a separate notify call, not a database trigger" reasoning.
+          // Best-effort, fire-and-forget: the real upload already succeeded above regardless
+          // of whether this notification call succeeds.
+          MarketswaveData.callFunction('notify-new-document-upload', { documentId: newDoc.id }).catch(function (err) {
+            console.warn('notify-new-document-upload failed (non-fatal):', err);
+          });
         }).catch(function (err) {
           showToast('Upload Failed', MarketswaveData.writeErrorMessage(err));
         });

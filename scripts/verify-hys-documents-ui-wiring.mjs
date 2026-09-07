@@ -198,6 +198,12 @@ async function main() {
 
   console.log('\n4. Withdraw — the matured/no-warning path (real status genuinely "matured" in Postgres)');
   await (async function () {
+    // Section 3's own successful submission triggers reloadHysData(true), a real background
+    // re-fetch (now also calling the real sync-hys-pocket-status function first, added
+    // 2026-09-07 for HYS pocket-maturity email notifications) that briefly empties/skeletons
+    // #pockets-grid before repopulating it — wait for the real re-render to land before
+    // querying it again, rather than racing it.
+    await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + maturedShortId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + maturedShortId + '"]').click();
     check('the modal genuinely SKIPS the warning step (real stored status is matured, not active)', H.querySelector('.wd-step[data-step="warning"]').classList.contains('hidden') && !H.querySelector('.wd-step[data-step="destination"]').classList.contains('hidden'));
     check('the destination step shows the real, non-forfeited receive amount ($7,350.00 = principal $7,000 + interest $350)', H.getElementById('wd-receive-amount').textContent === '$7,350.00', H.getElementById('wd-receive-amount').textContent);
@@ -218,6 +224,9 @@ async function main() {
 
   console.log('\n5. Withdraw — a real server-side rejection via the actual UI: a second pending request on the same pocket');
   await (async function () {
+    // Same real reload-race as Section 4 — Section 4's own submission triggers another
+    // background reloadHysData(true)/sync-hys-pocket-status re-fetch; wait for it to land.
+    await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]').click();
     check('AYW pocket also skips the warning step (no fixed term, never forfeits)', !H.querySelector('.wd-step[data-step="destination"]').classList.contains('hidden'));
     check('the AYW destination step shows the real full balance ($2,000.00)', H.getElementById('wd-receive-amount').textContent === '$2,000.00');
@@ -234,6 +243,7 @@ async function main() {
     // in this page's own UI is aware a request is already pending, so this genuinely reaches
     // the server, which must reject it — a real rejection this stage's client-side code does
     // NOT already independently guard against, unlike the locked-before-maturity case above.
+    await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]').click();
     H.querySelector('.wd-method-card[data-method="crypto"]').click();
     H.getElementById('wd-crypto-address').value = '0xAywSecond';
