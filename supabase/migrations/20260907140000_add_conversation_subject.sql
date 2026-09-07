@@ -1,0 +1,26 @@
+-- Unified Communications Inbox — Stage 2 (2026-09-07). A real, minimal, additive reshape —
+-- reported per this stage's own instruction ("No schema reshape should be needed; if you
+-- find one is, report why before proceeding") rather than silently added.
+--
+-- WHY: investigated Gmail's own real conversation-threading algorithm directly before
+-- building outbound replies. Confirmed (not assumed): Gmail requires BOTH real References/
+-- In-Reply-To headers (already fully supported by Stage 1's `messages.message_id`/
+-- `in_reply_to` columns — no change needed there) AND a matching Subject line (tolerant of
+-- a "Re:"/"Fwd:" prefix) for two messages to thread together in its UI. Stage 1's schema has
+-- nowhere to store the subject a real email thread started with, on either table — without
+-- it, a PM's real reply would carry a made-up subject line, and Gmail's own threading would
+-- genuinely fail to group it with the original message even though In-Reply-To/References
+-- are both set correctly. This is the one thing standing between "the email threads
+-- correctly" and "it doesn't," confirmed against real, documented Gmail behavior, not a
+-- guess.
+--
+-- WHERE: on `conversations`, not `messages` — a real email thread conventionally keeps ONE
+-- subject for its whole life (prefixed with Re:/Fwd: as it goes back and forth), so storing
+-- it once at the conversation level is the right granularity; a `messages.subject` column
+-- would be redundant for every reply and answers a question ("did the subject ever change
+-- mid-thread") this project has no real need to track.
+--
+-- Nullable, no default, no backfill needed — every existing conversation (all chat-only, at
+-- this stage) simply has no subject, which is correct: a chat-only conversation never had one
+-- and this column is unused/irrelevant for the chat channel entirely.
+alter table public.conversations add column subject text;

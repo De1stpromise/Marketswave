@@ -77,6 +77,7 @@
               <div class="min-w-0">
                 <p class="font-semibold text-slate-900" id="thread-contact-name"></p>
                 <p class="text-xs text-slate-500" id="thread-contact-email"></p>
+                <p class="text-xs text-slate-400 truncate hidden" id="thread-subject"></p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="text-xs font-medium px-2.5 py-1 rounded-full" id="thread-status-badge"></span>
@@ -248,6 +249,9 @@
         document.getElementById('thread-view').classList.remove('hidden');
         document.getElementById('thread-contact-name').textContent = convo.contact_name || convo.contact_email;
         document.getElementById('thread-contact-email').textContent = convo.contact_email;
+        var subjectEl = document.getElementById('thread-subject');
+        subjectEl.textContent = convo.subject ? 'Subject: ' + convo.subject : '';
+        subjectEl.classList.toggle('hidden', !convo.subject);
 
         var badge = document.getElementById('thread-status-badge');
         var statusClass = convo.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : (convo.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700');
@@ -261,7 +265,8 @@
         var ownMessages = messages.filter(function (m) { return m.conversation_id === activeConversationId; }).sort(function (a, b) { return new Date(a.sent_at) - new Date(b.sent_at); });
         var threadEl = document.getElementById('thread-messages');
         threadEl.innerHTML = ownMessages.map(function (m) {
-          return '<div class="inbox-msg-row is-' + m.direction + '"><div class="inbox-msg-bubble">' + escapeHtml(m.body) + '</div></div>';
+          var channelTag = '<span class="text-[9px] uppercase tracking-wide font-semibold opacity-60">' + (m.channel === 'email' ? 'Email' : 'Chat') + '</span><br>';
+          return '<div class="inbox-msg-row is-' + m.direction + '"><div class="inbox-msg-bubble">' + channelTag + escapeHtml(m.body) + '</div></div>';
         }).join('');
         threadEl.scrollTop = threadEl.scrollHeight;
       }
@@ -296,6 +301,14 @@
         });
       }
 
+      // Unified Communications Inbox — Stage 2 (2026-09-07). Routes through the real
+      // send-conversation-reply Edge Function instead of a direct client-side insert — a real
+      // email reply needs a real server-side round trip to Resend (to capture the real
+      // RFC822 message_id for threading) before the row can even be written, which a
+      // client-side insert can't do; the function decides chat-vs-email automatically from
+      // the conversation's own most recent message, so the PM never has to choose. The
+      // resulting row arrives back into this page's own real-time subscription exactly like
+      // any other new message — no local insert/re-render needed here.
       function sendReply() {
         var input = document.getElementById('thread-reply-input');
         var text = input.value.trim();
@@ -303,19 +316,7 @@
         input.value = '';
         var sendBtn = document.getElementById('thread-reply-send');
         MarketswaveData.withButtonBusy(sendBtn, 'Sending…', function () {
-          return MarketswaveData.getSupabaseClient().then(function (client) {
-            return client.auth.getSession().then(function (sessionResult) {
-              var email = sessionResult.data.session && sessionResult.data.session.user && sessionResult.data.session.user.email;
-              return client.from('messages').insert({
-                conversation_id: activeConversationId,
-                channel: 'chat',
-                direction: 'outbound',
-                body: text,
-                sender_name: 'Portfolio Manager',
-                sender_email: email || null
-              });
-            });
-          });
+          return MarketswaveData.callFunction('send-conversation-reply', { conversationId: activeConversationId, body: text });
         }).catch(function (err) {
           showToast('Reply Failed', MarketswaveData.writeErrorMessage(err), true);
         });

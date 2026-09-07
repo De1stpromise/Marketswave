@@ -32,6 +32,11 @@ export async function sendEmail(
     text?: string;
     relatedEntityType?: string;
     relatedEntityId?: string;
+    // ★ Unified Communications Inbox — Stage 2 (2026-09-07). Real RFC822 threading headers
+    // (In-Reply-To/References) for a PM reply inside an email-channel conversation — confirmed
+    // via Resend's own API reference that POST /emails accepts a generic `headers` object of
+    // arbitrary header-name/value pairs, passed straight through here unmodified.
+    headers?: Record<string, string>;
   }
 ): Promise<{ sent: boolean; resendId: string | null; error: string | null }> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
@@ -58,7 +63,8 @@ export async function sendEmail(
         // genuinely text-only mail clients. Optional here only because a handful of very old
         // call sites might not have migrated yet mid-refactor; every real call site in this
         // project passes it via renderEmail()'s own { html, text } pair.
-        ...(params.text ? { text: params.text } : {})
+        ...(params.text ? { text: params.text } : {}),
+        ...(params.headers ? { headers: params.headers } : {})
       })
     });
 
@@ -232,6 +238,13 @@ export interface EmailTemplateInput {
   callout?: EmailCallout;
   cta?: EmailCta;
   footerType: 'investment' | 'general';
+  // ★ Unified Communications Inbox — Stage 2 (2026-09-07). Every prior email in this project
+  // was a one-way transactional notification, so the footer's own closing line has always
+  // unconditionally read "...Please do not reply to this email." — genuinely false for a PM's
+  // own reply inside a real two-way conversation thread, where a reply is not just possible
+  // but the entire point. Defaults to false (preserves every existing call site's real,
+  // correct behavior unchanged) — set true only for genuine two-way correspondence.
+  allowsReply?: boolean;
 }
 
 const RISK_PARAGRAPH =
@@ -245,6 +258,9 @@ const NO_BINDING_AGREEMENT_PARAGRAPH =
 
 const AUTOMATED_MESSAGE_LINE =
   'This is an automated message about your Marketswave account. Please do not reply to this email.';
+
+const REPLY_INVITE_LINE =
+  'This message is part of an ongoing conversation with your Marketswave Portfolio Manager — you can reply directly to this email.';
 
 function buildDetailRowsHtml(rows: EmailDetailRow[]): string {
   return rows
@@ -283,7 +299,7 @@ function buildCtaHtml(cta: EmailCta): string {
   );
 }
 
-function buildFooterHtml(footerType: 'investment' | 'general'): string {
+function buildFooterHtml(footerType: 'investment' | 'general', allowsReply?: boolean): string {
   const legalBlocks: string[] = [];
   if (footerType === 'investment') {
     legalBlocks.push('<p style="margin:0 0 12px; font-size:10.5px; color:' + COLORS.legalText + '; line-height:1.65;">' + RISK_PARAGRAPH + '</p>');
@@ -292,7 +308,7 @@ function buildFooterHtml(footerType: 'investment' | 'general'): string {
     '<p style="margin:0 0 12px; font-size:10.5px; color:' + COLORS.legalText + '; line-height:1.65;"><strong style="color:' + COLORS.mutedLabel + ';">Disclaimer:</strong> ' + DISCLAIMER_PARAGRAPH + '</p>'
   );
   legalBlocks.push('<p style="margin:0 0 14px; font-size:10.5px; color:' + COLORS.legalText + '; line-height:1.65;">' + NO_BINDING_AGREEMENT_PARAGRAPH + '</p>');
-  legalBlocks.push('<p style="margin:0; font-size:10.5px; color:' + COLORS.legalTextLight + '; line-height:1.6;">' + AUTOMATED_MESSAGE_LINE + '</p>');
+  legalBlocks.push('<p style="margin:0; font-size:10.5px; color:' + COLORS.legalTextLight + '; line-height:1.6;">' + (allowsReply ? REPLY_INVITE_LINE : AUTOMATED_MESSAGE_LINE) + '</p>');
 
   return (
     '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' + COLORS.cream + '; border-top:1px solid ' + COLORS.border + '; margin-top:26px;">' +
@@ -342,7 +358,7 @@ export function renderEmail(input: EmailTemplateInput): { html: string; text: st
     '</td></tr></table>' +
     '</td></tr>' +
     // Footer
-    '<tr><td>' + buildFooterHtml(input.footerType) + '</td></tr>' +
+    '<tr><td>' + buildFooterHtml(input.footerType, input.allowsReply) + '</td></tr>' +
     '</table>' +
     '</td></tr></table>' +
     '</body></html>';
@@ -375,7 +391,7 @@ export function renderEmail(input: EmailTemplateInput): { html: string; text: st
   textLines.push('');
   textLines.push(NO_BINDING_AGREEMENT_PARAGRAPH);
   textLines.push('');
-  textLines.push(AUTOMATED_MESSAGE_LINE);
+  textLines.push(input.allowsReply ? REPLY_INVITE_LINE : AUTOMATED_MESSAGE_LINE);
 
   return { html, text: textLines.join('\n') };
 }

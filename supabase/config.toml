@@ -767,3 +767,19 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/notify-new-chat-message/deno.json"
 entrypoint = "./functions/notify-new-chat-message/index.ts"
+
+[functions.receive-inbound-email]
+enabled = true
+# A real, unauthenticated public webhook by necessity (Resend has no Supabase session) — this
+# function's own Svix signature verification (_shared/webhook-verify.ts) is the real security
+# boundary, not this platform-level flag, matching every other function's own established
+# "verify_jwt = false is unrelated to the in-function auth check" convention in this project.
+verify_jwt = false
+import_map = "./functions/receive-inbound-email/deno.json"
+entrypoint = "./functions/receive-inbound-email/index.ts"
+
+[functions.send-conversation-reply]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-conversation-reply/deno.json"
+entrypoint = "./functions/send-conversation-reply/index.ts"
