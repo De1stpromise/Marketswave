@@ -7,11 +7,18 @@
   <link rel="stylesheet" href="styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    /* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): the old dark navy body +
+       photographic background (thankyou-bg.jpg) + heavy blur overlay is replaced with the
+       same light-background liquid-glass language established everywhere else in this
+       project (see admin-login.html's own identical judgment call, applied here per
+       instruction — a full-page flow with no dense data, so the richer treatment fits).
+       thankyou-bg.jpg is left unused on disk rather than deleted, matching this project's
+       own established convention for retired image assets. */
     body {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #1B3A4B;
+      background: var(--bg);
     }
     .ty-section {
       flex: 1;
@@ -22,32 +29,15 @@
       position: relative;
       overflow: hidden;
     }
-    .ty-section::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: url('thankyou-bg.jpg') center center / cover no-repeat;
-      z-index: 0;
-    }
-    .ty-section::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      background: rgba(18, 42, 56, 0.45);
-      z-index: 0;
-    }
     .ty-card {
       position: relative;
       z-index: 1;
       max-width: 520px;
       width: 100%;
-      background: rgba(255,255,255,0.95);
       border-radius: 16px;
       padding: 48px 40px;
       text-align: center;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+      box-shadow: 0 24px 64px rgba(27,58,75,0.18);
     }
     .ty-card h1 {
       font-size: 1.7rem;
@@ -73,7 +63,10 @@
 </head>
 <body>
   <div class="ty-section">
-    <div class="ty-card">
+    <div class="grid-overlay"></div>
+    <div class="blob blob--lg blob--teal" style="top:-140px; left:-120px;"></div>
+    <div class="blob blob--md blob--gold" style="bottom:-100px; right:-80px;"></div>
+    <div class="ty-card glass">
       <h1>Thank You for choosing Marketswave</h1>
       <p>Your application has been successfully submitted.</p>
       <div class="ty-note">

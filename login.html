@@ -11,12 +11,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="engine-core.js"></script>
   <style>
-    /* Login page specific */
+    /* Login page specific.
+       Client Dashboard Visual Treatment, Stage 3 (2026-09-06): the old dark navy body +
+       photographic background (login-bg.jpg) + heavy blur overlay + hand-rolled glass card
+       recipe (predating the shared .glass primitive) is replaced with the real shared
+       language — a light background, real blobs/grid-overlay, and the actual .glass class
+       (added to the real markup below) instead of a bespoke duplicate recipe. login-bg.jpg
+       is left unused on disk rather than deleted, matching this project's own convention
+       for retired image assets. Every inner form/text color below was ALREADY designed for
+       a light card (navy titles, muted-gray leads, opaque #FCFBF9 inputs) since the card
+       itself was already near-white — confirmed by reading this file before changing
+       anything, so none of that needed to change, only the outer chrome. */
     body.login-page {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #1B3A4B;
+      background: var(--bg);
     }
 
     .login-section {
@@ -29,37 +39,14 @@
       overflow: hidden;
     }
 
-    /* Frosted background */
-    .login-section::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: url('login-bg.jpg') center center / cover no-repeat;
-      z-index: 0;
-    }
-
-    .login-section::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      background: rgba(18, 42, 56, 0.45);
-      z-index: 0;
-    }
-
     .login-card {
       position: relative;
       z-index: 1;
       width: 100%;
       max-width: 420px;
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.5);
       border-radius: 16px;
       padding: 44px 40px 40px;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 24px 64px rgba(27, 58, 75, 0.18);
     }
 
     .login-logo {
@@ -223,18 +210,9 @@
     }
 
     .login-topbar .logo {
-      color: white;
+      color: var(--primary);
       font-size: 1.3rem;
-    }
-
-    .login-topbar a.back-link {
-      color: rgba(255,255,255,0.75);
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: color 0.15s;
-    }
-    .login-topbar a.back-link:hover {
-      color: white;
+      font-weight: 700;
     }
 
     /* Forgot password steps */
@@ -288,7 +266,10 @@
   </div>
 
   <section class="login-section">
-    <div class="login-card">
+    <div class="grid-overlay"></div>
+    <div class="blob blob--lg blob--teal" style="top:-140px; left:-120px;"></div>
+    <div class="blob blob--md blob--gold" style="bottom:-100px; right:-80px;"></div>
+    <div class="login-card glass">
       <h1 class="login-title">Welcome Back</h1>
       <p class="login-lead">Sign in to your client portal</p>
 
@@ -317,7 +298,7 @@
     </div>
 
     <!-- ========== FORGOT PASSWORD PANEL ========== -->
-    <div class="login-card" id="forgot-panel" style="display: none;">
+    <div class="login-card glass" id="forgot-panel" style="display: none;">
       <!-- Step 1: Enter Email -->
       <div class="forgot-step is-active" data-forgot-step="1">
         <h1 class="login-title">Reset Password</h1>

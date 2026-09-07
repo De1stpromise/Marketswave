@@ -10,11 +10,24 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    /* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): the old dark navy body +
+       photographic background (signup-bg.jpg) + heavy blur overlay + hand-rolled glass
+       card recipe (predating the shared .glass primitive) is replaced with the real shared
+       language — a light background, real blobs/grid-overlay, and the actual .glass class
+       (added to the real markup below). This page's own local .back-link-panel override
+       (a byte-for-byte duplicate of the same rule login.html relied on) is removed entirely
+       — both pages now share the ONE global rule in styles.css, already updated for a
+       light background there, closing a real duplication found while reading this file.
+       signup-bg.jpg is left unused on disk rather than deleted, matching this project's own
+       convention for retired image assets. Every inner step's own form/text styling further
+       down this file was already designed for light content sitting on a near-white card
+       (confirmed by reading the file before changing anything) — none of that needed to
+       change, and no JS/step-navigation logic below was touched at all. */
     body.signup-page {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #1B3A4B;
+      background: var(--bg);
     }
 
     .signup-topbar {
@@ -27,28 +40,10 @@
     }
 
     .signup-topbar .logo {
-      color: white;
+      color: var(--primary);
       font-size: 1.3rem;
       font-weight: 700;
       letter-spacing: -0.3px;
-    }
-
-    .back-link-panel {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      border-radius: 8px;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: background 0.2s, border-color 0.2s, color 0.2s;
-    }
-    .back-link-panel:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.35);
-      color: #ffffff;
     }
 
     .signup-section {
@@ -61,24 +56,6 @@
       overflow: hidden;
     }
 
-    .signup-section::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: url('signup-bg.jpg') center center / cover no-repeat;
-      z-index: 0;
-    }
-
-    .signup-section::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      background: rgba(18, 42, 56, 0.3);
-      z-index: 0;
-    }
-
     .signup-card {
       position: relative;
       z-index: 1;
@@ -87,13 +64,9 @@
       min-height: 580px;
       max-height: 78vh;
       overflow-y: auto;
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.5);
       border-radius: 16px;
       padding: 28px 40px 26px;
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 24px 64px rgba(27, 58, 75, 0.18);
 
       /* Hide scrollbar but keep scrolling */
       scrollbar-width: none; /* Firefox */
@@ -535,7 +508,10 @@
   </div>
 
   <section class="signup-section">
-    <div class="signup-card">
+    <div class="grid-overlay"></div>
+    <div class="blob blob--lg blob--teal" style="top:-140px; left:-120px;"></div>
+    <div class="blob blob--md blob--gold" style="bottom:-100px; right:-80px;"></div>
+    <div class="signup-card glass">
 
       <!-- Progress -->
       <div class="progress-wrap">

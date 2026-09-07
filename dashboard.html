@@ -167,25 +167,14 @@
           </div>
         </div>
 
-        <!-- Third Row: Market Prices + Currency Converter -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          <!-- Market Price Cards — Backend Migration Phase D, Stage 1 (2026-09-06): real
-               data from get-market-snapshot, replacing the static figures that were here
-               since the engine was first built. SPY/QQQ are real, honest labels — Finnhub's
-               free tier has no direct S&P 500/NASDAQ index quote (a real, disclosed
-               constraint — see get-market-snapshot's own header). Expanded to 6 real data
-               points (Client Dashboard Polish, 2026-09-06: + DIA, + SOL) — grid moved from
-               2x4 to 2x3 (sm:grid-cols-3) specifically because 6 divides cleanly into that
-               shape while 4 doesn't (a genuine, deliberate reflow, not a leftover from the
-               old 4-item count). The loading placeholder is now a real 6-card skeleton
-               (MarketswaveData.skeleton) shaped like the real final grid, replacing the old
-               literal "Loading real market data…" TEXT this task's own item 2/3 flagged as
-               an anti-pattern. -->
-          <div class="lg:col-span-2 glass rounded-2xl p-6">
-            <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="market-snapshot-grid"></div>
-          </div>
+        <!-- Third Row: Currency Converter — moved above Market Snapshot (2026-09-06) so
+             Market Snapshot (below) can sit full-width, with room to grow into a larger
+             20-30 symbol grid in a later batch, instead of sharing a 2/3 split with this
+             card. Currency Converter keeps its original compact width by staying the lone
+             occupant of a lg:grid-cols-3 row (1 of 3 columns) rather than being stretched
+             full-width itself — it's a small form, not a data surface that benefits from
+             extra width. -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
           <!-- Simple Currency Converter -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6">
@@ -223,6 +212,19 @@
             </div>
           </div>
 
+        </div>
+
+        <!-- Fourth Row: Market Snapshot — now full-width (see the comment above), with real
+             data from get-market-snapshot. SPY/QQQ are real, honest labels — Finnhub's free
+             tier has no direct S&P 500/NASDAQ index quote (a real, disclosed constraint —
+             see get-market-snapshot's own header). 6 real data points as of Client Dashboard
+             Polish (2026-09-06); grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 now that this
+             card owns the full row width, so all 6 sit in one line at desktop width instead
+             of wrapping to 2 rows. The loading placeholder is a real 6-card skeleton
+             (MarketswaveData.skeleton) shaped like the real final grid. -->
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" id="market-snapshot-grid"></div>
         </div>
       </main>
     </div>

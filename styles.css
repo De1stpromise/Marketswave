@@ -1298,8 +1298,18 @@ img {
 /* =====================================================
    16. PAGE HERO (inner pages)
 ===================================================== */
+/* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): a real, project-wide gap found
+   during investigation, not previously flagged — this banner (shared across 7 inner pages:
+   about, blog-press, contact, help-center, legal, resources, services) never received any
+   glass treatment while every one of those pages' own content BELOW it did (Homepage Visual
+   Redesign, Stage 2). Its own solid gradient (#1B3A4B -> #122A38) is near-identical to
+   .glass-dark's own navy tones, making that the natural, zero-risk fit here — unlike the
+   admin sidebar, no new variant was needed. background removed from this rule; `glass-dark
+   blob-field` is added to the real `<section class="page-hero">` markup on all 7 pages
+   instead, with `.blob-field`'s own position:relative + overflow:hidden hosting 1-2 blobs
+   safely (this section has no scroll to protect, unlike a dashboard <main>, so the plain
+   .blob-field marker applies directly with no workaround needed). */
 .page-hero {
-  background: linear-gradient(145deg, #1B3A4B 0%, #122A38 100%);
   color: white;
   padding: 70px 0 60px;
   text-align: center;
@@ -1586,9 +1596,15 @@ img {
   backdrop-filter: blur(4px);
 }
 
+/* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): background removed from this
+   rule -- the .glass class (added to the real markup in every page using this modal) now
+   supplies it, so its translucent gradient shows through instead of a flat white fill.
+   box-shadow is deliberately KEPT here rather than left to .glass's own (lighter) shadow —
+   a modal floating above a real backdrop needs the stronger separation this specific value
+   already provides, and since this rule is declared after glass-primitives.css's own
+   @import, it naturally wins the cascade for this one property at equal specificity. */
 .access-modal-panel {
   position: relative;
-  background: var(--white);
   border-radius: 16px;
   padding: 40px 36px 36px;
   max-width: 640px;
@@ -2057,21 +2073,26 @@ img {
 .custom-select-option:last-child {
   border-radius: 0 0 10px 10px;
 }
+/* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): this was a white-translucent
+   pill, designed for the dark photographic backgrounds login.html/signup.html used to have
+   — its only two real usages, confirmed via a project-wide grep before changing it. Both
+   pages now have a light background, so the colors are inverted to navy-on-light instead
+   of white-on-dark; the shape/sizing is unchanged. */
 .back-link-panel {
   display: inline-flex;
   align-items: center;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(27, 58, 75, 0.06);
+  border: 1px solid rgba(27, 58, 75, 0.14);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--primary);
   font-size: 0.9rem;
   font-weight: 500;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .back-link-panel:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.35);
-  color: #ffffff;
+  background: rgba(27, 58, 75, 0.1);
+  border-color: rgba(27, 58, 75, 0.25);
+  color: var(--primary-dark);
 }

@@ -85,7 +85,7 @@
     var values = container.querySelectorAll('.stat .value');
     values.forEach(function (el) {
       var text = el.textContent.trim();
-      // Only numeric stats ($900m, 10+) count up — text-only stats (International,
+      // Only numeric stats ($350m, 20+) count up — text-only stats (International,
       // Multi Asset Class) have nothing to count, so they're left exactly as-is.
       var match = text.match(/^([^\d]*)(\d+)(.*)$/);
       if (!match) return;

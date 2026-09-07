@@ -6235,7 +6235,47 @@ row 74.
   A second instance of the same leftover-test-product pollution already found once in the
   prior task reappeared (from `verify-products-catalog-fix.mjs`'s own unreliable cleanup)
   and was cleaned up again — flagged as worth a dedicated fix to that script's own teardown
-  logic. No cloud staging deployment needed. Backend Requirements Register row 149.
+- **★ Three-item polish batch: AUM figure, dashboard card reorder, remaining glass
+  treatment (2026-09-06).** **1.** `$900m` -> `$350m` project-wide — 2 real code references
+  (`index.html`'s Stats Bar card, a `home-motion.js` comment), 2 historical `.md` mentions
+  deliberately left untouched. **2.** `dashboard.html`: Currency Converter moved above
+  Market Snapshot (kept its own compact 1-of-3-column width); Market Snapshot now sits
+  full-width below it (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`), room to grow into a
+  future 20-30 symbol batch. Confirmed via real DOM order + width comparison the grid
+  reflows cleanly, nothing else misaligned. **3.** Remaining glass treatment, investigated
+  project-wide rather than trusting the task's own list as complete: `signup.html`/
+  `login.html`/`thank-you.html` each had their OWN bespoke pre-existing "glass on dark
+  photo background" implementation (predating the shared primitive system) — replaced with
+  the real shared `.glass`/`.blob`/`.blob-field`/`.grid-overlay` primitives, bodies switched
+  to the light `var(--bg)` page background; the old background images left unused on disk,
+  not deleted. The Get Access modal panel (shared identically across all 8 marketing pages)
+  got `.glass`. All 7 `.page-hero`-sharing marketing pages got `.glass-dark` + `.blob-field`
+  + 2 blobs (a safe, zero-new-primitive reuse — the hero's own pre-existing navy gradient is
+  nearly the same hue). `high-yield-savings.html`'s New Pocket + Withdraw modal panels got
+  `.glass` per the task's own explicit, narrow exception to the standing "modals stay clean"
+  precedent — inputs/selector tiles confirmed to stay completely clean. `deploy-capital.html`
+  investigated and confirmed already fully covered from an earlier task, no changes needed.
+  16 admin/client files with the standard plain-modal pattern were confirmed intentionally
+  left unconverted, outside this task's narrow HYS-specific exception. **Two real pre-existing
+  bugs found and fixed as a byproduct**: `login.html` had dead CSS
+  (`.login-topbar a.back-link`, never matched the real `back-link-panel` markup) — deleted;
+  `signup.html` had its own byte-identical local duplicate of the global `.back-link-panel`
+  rule — deleted, consolidating to the one shared rule. **Verified, browser-first, headless
+  Chrome over CDP (no browser tool available this session)**: a full functional 9-step
+  signup walkthrough (Individual path, correctly skipping steps 3/4) driving every real
+  field/radio/select via real DOM events, ending in a real Supabase `signUp()` + `clients`
+  insert and a real redirect to `thank-you.html` — zero console errors throughout; real
+  computed-style contrast measurements (not eyeballed) — 8.95:1 for white hero text on the
+  composited `.glass-dark` background, 16.25:1 for body text on `.glass` — both far exceeding
+  WCAG AAA; narrow-viewport (390px, real CDP device-metrics override) checks confirmed the
+  touched cards introduce zero additional overflow beyond the already-documented,
+  out-of-scope shared-header overflow (rows 101/135/136). Full existing regression suite
+  re-run for zero regression — a pure CSS/HTML/comment task, confirmed via `git status`, no
+  cloud staging deployment needed; parity re-confirmed clean regardless. **A third instance
+  of the known `verify-products-catalog-fix.mjs` test-pollution issue found and cleaned up**
+  (2 stray test products, confirmed unreferenced, removed) — now surfaced three separate
+  times across three separate tasks, strengthening the case for a dedicated fix to that
+  script's own teardown logic in a future session. Backend Requirements Register row 150.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
