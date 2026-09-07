@@ -54,7 +54,15 @@
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Glass Language Extension (2026-09-07): one restrained atmospheric blob in
+             top-right whitespace, matching every other client-dashboard page's own
+             established treatment (dashboard.html's own comment explains why `relative
+             overflow-x-hidden` on <main> substitutes for .blob-field here). This page was
+             genuinely never touched by either prior Client Dashboard Visual Treatment
+             stage -- confirmed by grep before this task, not assumed. -->
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <a href="asset-performance.html" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-navy transition mb-3">
@@ -65,7 +73,12 @@
           <p class="text-slate-500 mt-1">Browse available assets. Requests are sent for Portfolio Manager approval.</p>
         </div>
 
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <!-- Glass Language Extension (2026-09-07): the browse/search/filter container,
+             directly analogous to documents.html's own list containers -- a static
+             page card, not a modal/overlay, sitting over the plain page. The dynamically-
+             rendered product cards inside it (#asset-cards-grid) stay clean, matching the
+             established "container gets glass, individual items stay clean" split. -->
+        <div class="glass rounded-2xl p-6">
 
           <!-- Search -->
           <div class="relative max-w-sm mb-5">

@@ -283,6 +283,14 @@
           '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + BELL_ICON + '"/></svg>' +
           '<span id="notif-bell-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-[1.125rem] text-center">0</span>' +
         '</button>' +
+        // Glass Language Extension (2026-09-07): investigated and deliberately left solid,
+        // not overlooked -- this dropdown is a floating popover (position:absolute, z-50,
+        // no darkened backdrop), not a static card in the page's own document flow. It can
+        // open over whatever real content happens to sit beneath it at that scroll position
+        // on any of the 10 client-facing pages that mount it, which .glass's own recipe was
+        // never tuned or verified against (unlike .glass-dark, specifically built and
+        // measured for the sidebar's own scrolling-content-behind-it case). Treating this as
+        // an "overlay" per the Contrast Audit's own framing (row 151), not a "card."
         '<div id="notif-bell-panel" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] bg-white rounded-xl shadow-xl border border-slate-200 z-50">' +
           '<div class="px-4 py-3 border-b border-slate-100">' +
             '<p class="text-sm font-semibold text-navy">Notifications</p>' +

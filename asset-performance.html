@@ -87,7 +87,10 @@
           </div>
         </div>
 
-        <!-- Return Table -->
+        <!-- Return Table
+             Glass Language Extension (2026-09-07): deliberately left plain -- a real, dense
+             <table> of financial data, matching this project's own standing "tables — must
+             stay clean/legible" principle. -->
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h3 class="font-semibold text-navy">Return Table</h3>
@@ -117,7 +120,11 @@
              grid on this page. Return Table and My Requests below are UNCHANGED — this page
              still owns current-holdings performance and the full allocation+sell request
              history, neither of which belongs on a pure browse-and-request catalog page. -->
-        <a href="asset-collection.html" class="block bg-white rounded-2xl border border-slate-200 p-6 hover:border-navy/30 transition group">
+        <!-- Glass Language Extension (2026-09-07): a plain navigational teaser card (no
+             data, no table, no form) -- glass-eligible under the same "standalone
+             informational/decorative surface" category as dashboard.html's own Risk
+             Metrics/Market Snapshot cards. Genuinely missed in the earlier pass. -->
+        <a href="asset-collection.html" class="block glass rounded-2xl p-6 hover:border-navy/30 transition group">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="font-semibold text-navy">Browse Asset Collection</h3>
@@ -127,7 +134,11 @@
           </div>
         </a>
 
-        <!-- My Requests -->
+        <!-- My Requests
+             Glass Language Extension (2026-09-07): deliberately left plain -- renders a real
+             <table> internally (renderMyRequests()), matching the same "tables stay clean"
+             reasoning as the Return Table above and high-yield-savings.html's own My Pocket
+             Requests. -->
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-8">
           <div class="px-6 py-4 border-b border-slate-100">
             <h3 class="font-semibold text-navy">My Requests</h3>

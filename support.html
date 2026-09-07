@@ -43,14 +43,23 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <!-- Glass Language Extension (2026-09-07): one restrained atmospheric blob in
+             top-right whitespace, matching every other client-dashboard page's own
+             established treatment. This page was genuinely never touched by either prior
+             Client Dashboard Visual Treatment stage -- confirmed by grep before this task. -->
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
         <div class="mb-8">
           <h2 class="text-2xl font-semibold text-navy">Support</h2>
           <p class="text-slate-500 mt-1">Get help from our team or track your open requests.</p>
         </div>
 
-        <!-- ========== QUICK CONTACT OPTIONS ========== -->
+        <!-- ========== QUICK CONTACT OPTIONS ==========
+             Deliberately left plain -- action tiles ending in a button, the same excluded
+             category confirmed in the original Client Dashboard Visual Treatment Stage 1
+             investigation (row 147). -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <!-- Call Us -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col">
@@ -92,7 +101,13 @@
           </div>
         </div>
 
-        <!-- ========== OPEN A DISPUTE ========== -->
+        <!-- ========== OPEN A DISPUTE ==========
+             Glass Language Extension (2026-09-07): deliberately left plain -- a real,
+             always-visible form (matching admin-documents.html's own explicit "every
+             form, input, filter... stay clean" precedent, and correcting an initial pass
+             here that had glassed it under a mistaken analogy to deploy-capital.html's own
+             forms, which are conditionally-revealed single-focus action panels, not
+             permanent page furniture the way this one is). -->
         <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-8">
           <h3 class="font-semibold text-navy mb-1">Open a Dispute</h3>
           <p class="text-sm text-slate-500 mb-5">Report an issue with a transaction, your account, billing, or a document — we'll investigate and follow up.</p>
@@ -123,8 +138,12 @@
           </div>
         </div>
 
-        <!-- ========== MY REQUESTS ========== -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <!-- ========== MY REQUESTS ==========
+             Glass Language Extension (2026-09-07): the outer list container, directly
+             analogous to documents.html's own #from-section/#upload-section and
+             high-yield-savings.html's own My Pocket Requests container -- individual
+             request rows inside stay clean, matching the established split. -->
+        <div class="glass rounded-2xl p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-navy">My Requests</h3>
             <span class="text-xs text-slate-400" id="requests-count">—</span>
@@ -139,7 +158,11 @@
     </div>
   </div>
 
-  <!-- ========== CALLBACK MODAL ========== -->
+  <!-- ========== CALLBACK MODAL ==========
+       Glass Language Extension (2026-09-07): deliberately left solid, per the Contrast
+       Audit's own lesson (row 151) -- this panel sits over its own translucent
+       #callback-modal-backdrop (bg-navy-dark/60), the exact double-transparency stack that
+       produced 3 real failures elsewhere. Confirmed already correct, not fixed here. -->
   <div id="callback-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-navy-dark/60" id="callback-modal-backdrop"></div>
     <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
@@ -173,7 +196,18 @@
     </div>
   </div>
 
-  <!-- ========== CHAT PANEL ========== -->
+  <!-- ========== CHAT PANEL ==========
+       Glass Language Extension (2026-09-07): investigated and deliberately left solid, not
+       an oversight. Unlike the confirm modals above, this has no darkened backdrop -- it
+       floats directly over whatever real page content happens to be scrolled behind it at
+       the moment it opens (fixed position, no dimming overlay). .glass's own recipe was
+       tuned and verified for cards sitting in NORMAL document flow over a known, static
+       page background -- it has never been proven safe against arbitrary, unpredictable
+       content behind a floating overlay the way .glass-dark was specifically tuned and
+       verified for the sidebar's own off-canvas-over-scrolling-content case (~90%+ opaque,
+       by design). Treating this as an "overlay" per the task's own framing, not a "card,"
+       and keeping it solid rather than risking exactly the kind of contrast the audit just
+       spent an entire task finding and fixing. -->
   <div id="chat-panel" class="hidden fixed bottom-6 right-6 w-full max-w-sm h-[520px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50">
     <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-navy rounded-t-2xl shrink-0">
       <div>

@@ -59,7 +59,11 @@
              client completes this form, which clears the flag via clearForcePasswordReset().
              Real enforcement (actually invalidating a session/credential) needs the login gate
              + backend session work already tracked as deferred in the Backend Requirements
-             Register — this gate is buildable now only as a client-facing UI convenience. -->
+             Register — this gate is buildable now only as a client-facing UI convenience.
+             Glass Language Extension (2026-09-07): deliberately left plain -- a security
+             alert banner with its own intentionally urgent `border-2 border-red-200`
+             treatment; glass would soften a warning that's designed to demand attention,
+             working against its own purpose. -->
         <div id="force-password-banner" class="hidden bg-white rounded-2xl border-2 border-red-200 p-6 mb-8">
           <div class="flex items-start gap-3 mb-4">
             <svg class="w-6 h-6 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
@@ -303,7 +307,9 @@
           </div>
         </div>
 
-        <!-- ========== NOTIFICATION PREFERENCES ========== -->
+        <!-- ========== NOTIFICATION PREFERENCES ==========
+             Glass Language Extension (2026-09-07): deliberately left plain -- wraps a real
+             <table>, matching this project's own standing "tables stay clean" principle. -->
         <div class="bg-white rounded-2xl border border-slate-200 p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-semibold text-navy">Notification Preferences</h3>

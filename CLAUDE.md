@@ -6335,7 +6335,62 @@ row 74.
   staging deployment needed; parity re-confirmed clean regardless. **A fourth instance of
   the known `verify-products-catalog-fix.mjs` test-pollution issue found and cleaned up**
   (1 stray test product, confirmed unreferenced, removed) — now found four separate times
-  across four separate tasks. Backend Requirements Register row 151.
+- **★★ Glass Language Extension — every remaining page, modal, panel, and overlay
+  investigated project-wide, real gaps closed (2026-09-07).** Reuses `glass-primitives.css`
+  exactly, no new primitives needed. **Item 1** (signup/login/thank-you): confirmed already
+  fully treated from a same-day prior task — re-verified rather than redone, including a
+  full, real, functional 9-step signup walkthrough that genuinely completed end to end.
+  **Item 2** (HYS "Open a New Pocket"): both modals confirmed correctly solid (reverted by
+  the Contrast Audit, row 151); the one remaining candidate, "My Pocket Requests," renders a
+  real `<table>` internally, so it correctly stays plain. **Item 3** (deploy-capital.html):
+  its 4 forms were fully covered earlier, but "My Funding Requests" — added by a LATER task
+  (Deposit Wiring fix, Aug 22, 2026) — was genuinely missed; investigated and correctly left
+  plain, also a real `<table>`. **Item 4, the comprehensive project-wide investigation,
+  where most of this task's real work landed**: grepped all 36 HTML pages for un-glassed
+  `bg-white` containers. Found and closed 2 real, clean gaps never touched by any prior
+  task — `asset-collection.html` (linked the stylesheet but had zero applied classes; its
+  browse container got `.glass` + a blob + `relative overflow-x-hidden` on `<main>`) and
+  `support.html` (same situation; its div-based "My Requests" list got `.glass` + the same
+  blob/main treatment). Found and closed 4 more gaps on already-partially-treated pages,
+  each confirmed via direct source inspection to be newer content or a genuinely overlooked
+  standalone display card: `dashboard.html`'s Portfolio Allocation chart + Recent Activity;
+  `transactions.html`'s Recent Activity + both chart cards; `asset-performance.html`'s
+  "Browse Asset Collection" teaser card. **A real rule discovered and corrected mid-task,
+  disclosed not smoothed over**: an initial pass glassed FORMS (Currency Converter, "Open a
+  Dispute") by analogy to deploy-capital.html's own glassed forms — WRONG, caught by finding
+  `admin-documents.html`'s own pre-existing comment: "deliberately left clean (not glass):
+  this is a form, matching the 'every form, input, filter... stay clean' instruction."
+  Investigated further: deploy-capital.html's forms are CONDITIONALLY-REVEALED single-focus
+  action panels (`.form-panel { display: none }` until picked, a quasi-modal moment), not
+  permanent page furniture like the two just-reverted forms. **A second rule, also caught
+  mid-task**: "My Pocket Requests"/"My Funding Requests" were initially glassed by analogy
+  to documents.html's div-based lists, then found to render real `<table>`s — reverted,
+  matching this project's own standing "tables — must stay clean" principle (also confirmed,
+  on inspection, for the Filters bars on transactions.html/documents.html, the Return Table/
+  My Requests table on asset-performance.html, and Notification Preferences on
+  settings.html). **Other deliberate exclusions confirmed and documented**: settings.html's
+  forced-password-reset banner (an intentionally urgent security alert); risk-management.html's
+  locked Risk Meter card (re-confirmed, not re-litigated); the notification bell dropdown
+  (shared across all 10 client pages) and support.html's Chat Panel — both investigated and
+  left solid as OVERLAYS (floating popovers with no darkened backdrop that can open over
+  arbitrary real page content, a case `.glass` was never tuned or verified against, unlike
+  `.glass-dark`'s own specific tuning for the sidebar). **The critical double-transparency
+  lesson from row 151 was applied throughout**: every modal sitting over its own translucent
+  backdrop project-wide re-confirmed via direct source inspection to correctly carry no
+  glass class — zero new risk introduced anywhere. The admin tool was independently re-swept
+  and found to have no further gaps. **Verified live, headless Chrome over CDP (no browser
+  tool available this session)**: 47/47 assertions on the final pass (2 test-script bugs
+  fixed — a timing flake reconfirmed on a clean re-run, and a DOM-structure assumption where
+  a heading turned out to be a SIBLING of its card div, not a descendant) — covering every
+  new surface's real computed contrast (all comfortably above 4.5:1), every deliberately-
+  plain surface confirmed genuinely plain, the full real 9-step signup flow, and real
+  page-level overflow via `document.body.scrollWidth` (a third correction: `<main>`'s own
+  `scrollWidth` legitimately reports larger due to its own off-screen blob elements while
+  still correctly preventing real visible overflow, confirmed identical on an already-
+  established, unrelated page before trusting it) at normal and 390px. Full existing
+  regression suite re-run for zero regression — no schema/function changes, no cloud staging
+  deployment needed. **A fifth instance of the known `verify-products-catalog-fix.mjs`
+  test-pollution issue found and cleaned up.** Backend Requirements Register row 152.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

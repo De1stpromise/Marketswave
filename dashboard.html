@@ -126,8 +126,12 @@
         <!-- Second Row: Allocation + Risk + Activity -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-          <!-- Portfolio Allocation (5 classes) -->
-          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+          <!-- Portfolio Allocation (5 classes)
+               Glass Language Extension (2026-09-07): a standalone informational/visual
+               display card, matching the exact category Risk Metrics/Market Snapshot were
+               already treated under on this same page -- genuinely missed in that earlier
+               pass (confirmed via direct read), not deliberately excluded. -->
+          <div class="lg:col-span-2 glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-5">Portfolio Allocation</h3>
             <div class="flex flex-wrap items-center gap-6">
               <div class="w-full max-w-[13rem] sm:max-w-[14rem] md:max-w-[15rem] lg:max-w-[18rem] xl:max-w-[20rem] 2xl:max-w-[22rem] aspect-square flex-shrink-0 mx-auto" id="allocation-chart-wrapper">
@@ -159,8 +163,12 @@
               </div>
             </div>
 
-            <!-- Recent Activity -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <!-- Recent Activity
+                 Glass Language Extension (2026-09-07): a div-based activity feed (confirmed
+                 via direct read of its own render function, not a <table>), matching
+                 documents.html's own list-container precedent -- genuinely missed earlier,
+                 not deliberately excluded. -->
+            <div class="glass rounded-2xl p-6">
               <h3 class="font-semibold text-navy mb-4">Recent Activity</h3>
               <div class="space-y-4" id="recent-activity-list"></div>
             </div>
@@ -176,7 +184,13 @@
              extra width. -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-          <!-- Simple Currency Converter -->
+          <!-- Simple Currency Converter
+               Glass Language Extension (2026-09-07): deliberately left plain -- a real,
+               always-visible form (matching admin-documents.html's own explicit "every
+               form, input, filter... stay clean" precedent). Distinct from deploy-
+               capital.html's own glassed forms, which are conditionally-revealed,
+               single-focus action panels (`.form-panel { display: none }` until an option
+               is picked), not permanent page furniture the way this one is. -->
           <div class="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 class="font-semibold text-navy mb-4">Currency Converter</h3>
             <div class="space-y-3">

@@ -83,26 +83,36 @@
 
         <!-- Recent Activity + Visual Insights -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <!-- Recent Activity Quick Card -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <!-- Recent Activity Quick Card
+               Glass Language Extension (2026-09-07): a div-based activity feed (confirmed,
+               not a <table>), the same category as dashboard.html's own Recent Activity --
+               genuinely missed earlier, not deliberately excluded. -->
+          <div class="glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-4">Recent Activity</h3>
             <div class="space-y-3" id="recent-activity-list"></div>
           </div>
 
-          <!-- Transaction Volume Chart -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <!-- Transaction Volume Chart
+               Glass Language Extension (2026-09-07): a standalone visual display card, same
+               category as dashboard.html's own Portfolio Allocation/Risk Metrics/Market
+               Snapshot precedent -- not raw tabular data. -->
+          <div class="glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-4">Transaction Volume</h3>
             <div class="h-40"><canvas id="volume-chart"></canvas></div>
           </div>
 
           <!-- Net Cash Flow Chart -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-4">Net Cash Flow</h3>
             <div class="h-40"><canvas id="cashflow-chart"></canvas></div>
           </div>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters
+             Glass Language Extension (2026-09-07): deliberately left plain, matching
+             documents.html's own identical Filters bar (never glassed there either) -- a
+             secondary utility control strip narrowing the table below, not a primary
+             featured card in its own right. -->
         <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
           <div class="flex flex-wrap gap-3 items-end">
             <div>
@@ -136,7 +146,11 @@
           </div>
         </div>
 
-        <!-- Transaction Ledger -->
+        <!-- Transaction Ledger
+             Glass Language Extension (2026-09-07): deliberately left plain -- a real,
+             dense <table> of financial data, matching this project's own standing "tables —
+             must stay clean/legible" principle, same reasoning as asset-performance.html's
+             Return Table and high-yield-savings.html's My Pocket Requests. -->
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h3 class="font-semibold text-navy">Transaction Ledger</h3>

@@ -346,7 +346,13 @@
              genuinely exists (previously withdrawal-only, since deposits weren't wired to
              a real request flow yet). Named "Funding Requests" rather than "Deposit &
              Withdrawal Requests" — shorter, and matches this page's own "capital movement,
-             both directions" framing already used in the option-card comment above. -->
+             both directions" framing already used in the option-card comment above.
+             Glass Language Extension (2026-09-07): investigated and deliberately left
+             plain -- unlike documents.html's own div-based row list (which correctly got
+             .glass), this section renders a real <table> internally, a dense tabular
+             request ledger matching this project's own standing "tables — real financial
+             data, must stay clean/legible" principle, not the "summary/decorative surface"
+             category glass is for. -->
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-8">
           <div class="px-6 py-4 border-b border-slate-100">
             <h3 class="font-semibold text-navy">My Funding Requests</h3>

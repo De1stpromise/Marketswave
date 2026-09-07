@@ -84,7 +84,13 @@
         <div id="pockets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
 
         <!-- My Pocket Requests — "show everything" principle, same as asset-performance.html's
-             own My Requests section: every request, every status, newest first. -->
+             own My Requests section: every request, every status, newest first.
+             Glass Language Extension (2026-09-07): investigated and deliberately left plain
+             -- unlike documents.html's own div-based row list (which correctly got .glass),
+             this section renders a real <table> internally (renderPocketRequests(), a dense
+             tabular request ledger), matching this project's own standing "tables — real
+             financial data, must stay clean/legible" principle, not the "summary/decorative
+             surface" category glass is for. -->
         <div class="mt-8">
           <h3 class="text-lg font-semibold text-navy mb-4">My Pocket Requests</h3>
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
