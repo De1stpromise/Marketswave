@@ -6893,6 +6893,44 @@ row 74.
   pre-task `null` state first. All real test artifacts reconfirmed genuinely deleted, not
   assumed; the real staging `clients` table reconfirmed back to its exact 4 production rows.
   Backend Requirements Register row 164 added.
+- **★★★ Real bug found and fixed on the live site: invisible admin-inbox.html buttons
+  (2026-09-07, same day as row 164, found by the user immediately after that push).**
+  Investigated before fixing, per instruction. Deployment was confirmed NOT the cause (the
+  live `admin-inbox.html` was byte-identical to local, freshly served). The real cause,
+  confirmed live in the actual browser: `#new-message-btn` genuinely existed, was laid out
+  correctly, and was the real topmost element at its own coordinates — yet its real computed
+  `background-color` was `rgba(0, 0, 0, 0)`, fully transparent, with white text — invisible,
+  not absent. `bg-navy`/`hover:bg-navy-dark`/`focus:ring-navy` are custom Tailwind colors that
+  only exist where a page's own inline `tailwind.config` defines them (every client-facing
+  dashboard page does; no admin page ever has, per the locked distinct-palette rule) — the
+  Tailwind CDN's JIT compiler doesn't error on an unrecognized color, it silently emits no CSS
+  at all, making this bug class genuinely silent. **Confirmed pre-existing, not introduced by
+  this task's own compose modal**: the original Stage 1 `#thread-reply-send` ("Send") button
+  used the identical pattern and showed the identical transparent background — this bug
+  predates row 164, which simply copied the same already-broken pattern into 2 more buttons.
+  **Fix scope confirmed via a project-wide grep, not assumed limited to one button**:
+  `admin-inbox.html` was the only file among all 16 admin pages + `admin-sidebar.js`
+  referencing navy/cream in a real class position — all 8 real occurrences fixed to the admin
+  tool's own real, working scheme (`bg-slate-900`/`hover:bg-slate-800` matching the
+  already-correct Resolve button; `focus:ring-amber-500/30 focus:border-amber-500` matching
+  the exact pattern already used 30 times across `admin-clients.html`/`admin-deposits.html`/
+  `admin-products.html`). **The reverse direction investigated and confirmed structurally
+  safe, not just asserted**: every client-facing page's own `tailwind.config` consistently
+  uses the safe `theme.extend.colors` form (adds navy/cream on top of the default palette),
+  never a destructive bare `theme.colors` that would strip slate/amber/etc. — confirmed via
+  grep across all 10 pages, not currently a real risk anywhere in the project. **Preventative
+  measure, built not proposed**: new `scripts/verify-tailwind-color-scoping.js` — a standing,
+  zero-dependency static check for both directions, verified to genuinely catch the exact
+  regression (reintroduced `bg-navy` into a throwaway copy, confirmed a real FAIL, reverted,
+  confirmed clean PASS) — added as a new standing convention alongside
+  `verify-cloud-staging-parity.js` in the Working Conventions section below. **Browser-verified
+  live on marketswave.net after pushing**, with a fresh real temporary staging PM account:
+  every fixed button's real computed background is now `rgb(15, 23, 42)` (real slate-900,
+  matching Resolve byte-for-byte), and the Subject input's real focus ring genuinely paints
+  amber (`rgba(245, 158, 11, 0.3)` box-shadow, confirmed via the actual injected Tailwind
+  stylesheet rule firing, not assumed from the class name). A real screenshot confirmed every
+  affected button as solid and legible for the first time. Backend Requirements Register row
+  165 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
