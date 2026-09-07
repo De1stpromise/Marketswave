@@ -153,13 +153,36 @@ max_indexes = 5
 
 [auth]
 enabled = true
+# Client-Facing Password Reset flow (2026-09-07): these two settings were still the CLI's own
+# scaffold defaults from `supabase init` (port 3000 — never this project's real local dev
+# server, which is 8765 per README.md — and never referencing the real production domain at
+# all), never customized because nothing in this project used a redirect-based auth flow
+# before now. This file is also what `supabase config push` pushes to REAL cloud staging, so
+# both fields are set here to values correct for BOTH contexts, not just local dev — verified
+# by NOT relying on a local-only value for `site_url` (which config push would otherwise
+# silently overwrite the real project's Site URL with) and by adding entries for BOTH real
+# environments to `additional_redirect_urls` (safe to combine in one list) rather than one.
+#
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+site_url = "https://marketswave.net"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# ★ Real, disclosed finding (2026-09-07): a first attempt to add ONLY reset-password.html's
+# own two URLs here was caught by `config push`'s own diff BEFORE it applied — real cloud
+# staging's actual current list already carries 4 entries (https://127.0.0.1:3000,
+# https://marketswave.net/**, https://de1stpromise.github.io/Marketswave/**,
+# http://127.0.0.1:5500/**) that this repo's config.toml never tracked, evidently added
+# directly via the Supabase Dashboard at some point and never synced back into version
+# control. A blind push would have REPLACED that real list with just the two new entries,
+# silently breaking whatever legitimately still relies on the other three. Fixed by unioning
+# with what's actually live rather than guessing/overwriting: the existing
+# https://marketswave.net/** wildcard already covers reset-password.html on production (no
+# new production entry needed at all); only http://127.0.0.1:8765/reset-password.html
+# (this project's own real local dev server, per README.md — not covered by the existing
+# :3000/:5500 entries) is genuinely new.
+additional_redirect_urls = ["https://127.0.0.1:3000", "https://marketswave.net/**", "https://de1stpromise.github.io/Marketswave/**", "http://127.0.0.1:5500/**", "http://127.0.0.1:8765/reset-password.html"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -247,11 +270,30 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Supabase Auth Email Branding (2026-09-07) — the "recovery" template is the ONLY one this
+# project actively uses (Client-Facing Password Reset flow, built same day); enable_signup's
+# own confirmation email is disabled (enable_confirmations = false, above), and no other real
+# flow in this app (magic link, invite, reauthentication) is ever triggered — so only this one
+# template was authored, not all six Supabase supports, matching this project's own standing
+# "don't build for hypothetical flows" discipline. Content matches _shared/send-email.ts's own
+# renderEmail() shell (same colors/layout/footer legal text) as closely as a static Go-template
+# HTML file can — see that file's own header for the full template writeup this mirrors.
+[auth.email.template.recovery]
+subject = "Reset your Marketswave password"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
 # subject = "Your password has been changed"
 # content_path = "./supabase/templates/password_changed_notification.html"
+# ★ Deliberately left DISABLED/commented out — this project's own real notify-password-changed
+# Edge Function (via _shared/send-email.ts) already sends a real, branded "your password was
+# changed" email on every real password change (both the in-session Change Password flow and
+# the new recovery flow). Enabling Supabase's OWN native equivalent here would send a SECOND,
+# unbranded, duplicate notification for the exact same event — confirmed by reading this
+# project's own real reset-password.html/settings.html call sites before writing this comment,
+# not assumed.
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

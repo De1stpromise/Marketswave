@@ -402,12 +402,31 @@ export async function getAdminEmails(admin: any): Promise<string[]> {
     if (rolesErr || !roles || roles.length === 0) return [];
     const adminIds = new Set(roles.map((r: { user_id: string }) => r.user_id));
 
-    const { data: usersPage, error: usersErr } = await admin.auth.admin.listUsers();
-    if (usersErr || !usersPage || !usersPage.users) return [];
-
-    return usersPage.users
-      .filter((u: { id: string; email?: string }) => adminIds.has(u.id) && !!u.email)
-      .map((u: { email: string }) => u.email);
+    // ★ Real bug found and fixed (2026-09-07): listUsers() with no params defaults to
+    // page 1 / 50 users per page, newest-first — this project's own real Auth store has
+    // accumulated well over 50 real users (mostly leftover test accounts from this project's
+    // own verify-* scripts across many sessions), which silently pushed the real, EARLIEST-
+    // created bootstrap PM account (pm@marketswave.local) onto page 2, making
+    // getAdminEmails() genuinely return [] the moment total real users crossed 50 — every
+    // PM-facing notification in the app depends on this function, so this was a real,
+    // user-facing regression waiting to happen at scale, not a hypothetical. Confirmed
+    // directly against the real local stack (54 total users, pm@marketswave.local absent
+    // from a bare listUsers() call, present once paginated through). Fixed by paging through
+    // every page rather than assuming one call covers every real user, present or future —
+    // the number of real PMs (adminIds) is always small, but the total user count is not
+    // bounded, and never should have been assumed to be.
+    const emails: string[] = [];
+    let page = 1;
+    for (;;) {
+      const { data: usersPage, error: usersErr } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+      if (usersErr || !usersPage || !usersPage.users) break;
+      for (const u of usersPage.users as { id: string; email?: string }[]) {
+        if (adminIds.has(u.id) && u.email) emails.push(u.email);
+      }
+      if (!usersPage.nextPage) break;
+      page = usersPage.nextPage;
+    }
+    return emails;
   } catch (_err) {
     return [];
   }

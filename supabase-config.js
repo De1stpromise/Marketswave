@@ -163,4 +163,11 @@ const supabase = createClient(ACTIVE_CONFIG.url, ACTIVE_CONFIG.anonKey, {
   }
 });
 
-export { supabase, IS_SUPABASE_BACKEND, WANTS_SUPABASE_STAGING };
+// ACTIVE_CONFIG exported (Password Reset flow, 2026-09-07) so reset-password.html — the one
+// page in this project that genuinely needs detectSessionInUrl: true, to auto-process a
+// Supabase recovery-link token on load — can build its OWN client instance with that one
+// differing auth option, without duplicating LOCAL_CONFIG/STAGING_CONFIG's own url/anonKey
+// literal values in a second file (which would create a real drift risk if either ever
+// rotates). Every other consumer of this module should keep using the shared `supabase`
+// client above, not construct a second one.
+export { supabase, IS_SUPABASE_BACKEND, WANTS_SUPABASE_STAGING, ACTIVE_CONFIG };

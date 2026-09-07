@@ -158,3 +158,10 @@ if (missingFunctions.length > 0) {
 }
 
 console.log('=== ' + (process.exitCode === 1 ? 'PARITY GAP FOUND — see FAIL lines above' : 'PARITY OK — real cloud staging matches local') + ' ===');
+// Explicit exit (2026-09-07, project-wide hang-fix audit) — this script itself never
+// establishes a real Supabase Auth session (only shells out to the `supabase` CLI), so it
+// isn't actually at risk of the lingering-autoRefreshToken-timer hang other verify scripts
+// were found to have; added anyway for consistency and defense-in-depth, matching the new
+// project-wide convention (see CLAUDE.md's Working Conventions). process.exitCode is
+// preserved, not overridden.
+process.exit(process.exitCode || 0);

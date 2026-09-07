@@ -6488,6 +6488,122 @@ row 74.
   proof of actual delivery without touching real cloud staging's own test data. Backend
   Requirements Register rows 153-154 (154 being the still-open `support@marketswave.net`
   monitored-inbox follow-up).
+- **★★★ Client-Facing Password Reset flow + a real production bug found and fixed + a
+  project-wide test-hang audit + Supabase Auth Email Branding investigation and partial
+  implementation (2026-09-07).** Four connected pieces of work from the same session,
+  triggered by a real broken password-reset attempt on the live site.
+  **1. The real reset flow, built from scratch.** Investigated first: `login.html`'s
+  "Forgot Password" panel was a complete, non-functional 4-step stub simulating a 6-digit
+  verification code — literal `// Later: call backend here` comments at every step, never
+  once calling Supabase. Supabase's REAL reset mechanism is link-based, not code-based, so
+  the fake code-entry steps were removed entirely, replaced with a real 2-step flow (enter
+  email → real `resetPasswordForEmail()` call → "Check Your Email" confirmation, identical
+  regardless of whether the email is real — no enumeration signal, matching this project's
+  own established login-check discipline). New `reset-password.html` is the real destination
+  `redirectTo` points at: builds its OWN Supabase client (the shared `supabase-config.js`
+  client explicitly sets `detectSessionInUrl: false` project-wide, since no page had ever
+  needed URL-based recovery-token detection before now — `ACTIVE_CONFIG` was exported from
+  that file so this one page can build its own client with `detectSessionInUrl: true` without
+  duplicating the local/staging URL+key literals in a second file), listens for the real
+  `PASSWORD_RECOVERY` auth event, shows a real "Set New Password" form (reusing settings.html's
+  own strength-meter scale), calls `updateUser({password})`, fires the existing
+  `notify-password-changed` best-effort email, and signs the recovery session back out so the
+  client re-authenticates fresh with their new password — matching this project's standing
+  rule that no flow silently drops a client into the dashboard without a real login step. A
+  real, necessary `additional_redirect_urls`/`site_url` fix was required for the real
+  `redirectTo` to be accepted at all (Supabase Auth's own server-side allowlist) — see item 4
+  below for how this was done safely. **Verified end to end with real Mailpit-captured
+  emails** (`scripts/verify-password-reset-flow.mjs`, reusing `verify-admin-real-login.mjs`'s
+  own "extract the real `<script type="module">`, run it against a real jsdom window" 
+  technique, extended with a new `lib/esm-loader-reset-flow-test.mjs` stubbing login.html's
+  still-statically-present RETIRED Firebase imports): the happy path (real recovery link →
+  real session → real password change → a genuinely fresh sign-in with the new password
+  succeeds, the old one no longer works), an unknown email (identical confirmation, no
+  enumeration signal), a direct navigation with no token at all (honest "invalid/expired"
+  state, not a stuck spinner), and a real reused/already-consumed link (genuinely refused by
+  the real server) — 16/16 assertions, run before the day's Resend quota was exhausted.
+  **2. A real, previously-undiscovered production bug found while verifying, not assumed
+  a fluke.** `verify-branded-emails.js` started failing 3 checks — "PM notification never
+  logged" — for the first time. Root cause: `getAdminEmails()` (`_shared/send-email.ts`)
+  called `listUsers()` with no pagination, defaulting to 50-per-page, newest-first; this
+  project's own accumulated test-account cruft across many sessions pushed real total users
+  past 50, silently bumping the real bootstrap PM (`pm@marketswave.local`, earliest-created)
+  onto page 2 — **every PM-facing notification in the entire app had been returning zero
+  recipients since real user count crossed 50, confirmed directly** (54 total users at the
+  time, `pm@marketswave.local` absent from a bare `listUsers()` call, present once paginated
+  through). Fixed by paging through every page rather than assuming one call covers every
+  real user, present or future; deployed to real cloud staging (config-only, no email
+  involved). Re-verifying via the full email test suite is deferred until Resend quota resets
+  (confirmed via direct query that the underlying fix logic now finds both real PM accounts).
+  **3. Project-wide verify-script hang-bug audit (a second, separate request, same session).**
+  This new script hung indefinitely after printing a full 16/16 PASS result — the identical
+  class already diagnosed and fixed once, hours earlier, in `verify-admin-real-login.mjs`
+  (confirmed via the same CPU-time-vs-wall-clock method: ~7s actual work against 10+ minutes
+  wall clock, required a manual kill): real Supabase clients with `autoRefreshToken: true`
+  schedule a live refresh timer never explicitly stopped, so Node's natural
+  exit-when-event-loop-empty never fires. Audited all 30 `verify-*.js`/`.mjs` scripts: 24
+  lacked an explicit success-path `process.exit(0)` and were patched (a uniform, mechanical
+  one-line addition, syntax-checked and spot-verified against 3 representative files — one
+  confirmed to genuinely have been hanging, two confirmed already-fine but now robust against
+  ever silently regressing). **Preventative measure, not just a one-off patch**: new
+  `scripts/lib/run-verify.mjs` exports `runVerifyMain(main)` — a shared wrapper handling the
+  exit(0)-on-success + watchdog pattern so a NEW script inherits the fix by construction;
+  `verify-password-reset-flow.mjs` itself was rewritten to use it as the first real adopter,
+  re-confirmed still 16/16 passing at ~22s (down from a 10+-minute hang requiring a manual
+  kill) after the swap.
+  **4. Supabase Auth Email Branding — investigated, partially implemented, the SMTP half
+  deliberately held.** Confirmed both paths are achievable via `config.toml`
+  (`[auth.email.template.*]` for branded HTML, `[auth.email.smtp]` for routing through
+  Resend) — no Dashboard UI clicking needed, both are `config push`-able to the real project.
+  **A real, load-bearing design tension found and resolved**: `config.toml` is shared between
+  local `supabase start` and `config push` to real cloud staging; this project's own
+  regression suite triggers real Supabase-native signup/reset emails constantly during normal
+  local development, so putting live Resend SMTP in the shared file would burn real quota on
+  every routine local test run, forever — not just today's already-exhausted case. Resolved
+  by keeping `[auth.email.smtp]` OUT of the shared config.toml entirely: new
+  `scripts/supabase-staging-configure-smtp.js` builds a throwaway temp copy of the real
+  `supabase/` directory (confirmed via a real, harmless `supabase status --workdir <dir>`
+  test that `--workdir` expects the PARENT directory, not the `supabase/` subdirectory itself
+  — the natural first guess, wrong), appends a real `[auth.email.smtp]` block there only
+  (Resend's real relay: `smtp.resend.com`, user `resend`, password = the already-configured
+  `RESEND_API_KEY` read live from `supabase/functions/.env`, never hardcoded or copied as a
+  file — confirmed via a dry run that `.env` itself is explicitly excluded from the temp
+  copy), and pushes FROM that temp copy via `--project-ref` — so local dev's own `config.toml`
+  never carries a live SMTP block and can never accidentally drift into using it. **A second
+  real finding, discovered attempting the template push**: Supabase's free tier rejects ANY
+  email template customization outright until custom SMTP is configured — "Email template
+  modification is not available for free tier projects using the default email provider.
+  Please upgrade your plan or configure a custom SMTP provider." Templates and SMTP are not
+  independent rollout steps on this project's real plan tier. **A third real finding, caught
+  by `config push`'s own diff before it applied, not after**: a first attempt at
+  `additional_redirect_urls` (needed for the reset flow's own `redirectTo` to be accepted)
+  would have REPLACED real cloud staging's actual current 4-entry list — carrying entries
+  this repo's own `config.toml` never tracked (evidently added directly via the Dashboard at
+  some point, never synced back) — with just 2 new ones, silently breaking whatever
+  legitimately depends on the other three. Fixed by unioning with what's actually live rather
+  than guessing; the existing `https://marketswave.net/**` wildcard already covers
+  `reset-password.html` on production, so only the genuinely-new local dev entry
+  (`http://127.0.0.1:8765/reset-password.html`) needed adding. Pushed successfully, confirmed
+  via the diff showing exactly the intended addition. **What's genuinely done vs. deliberately
+  held, reported plainly, not blurred**: a real branded `supabase/templates/recovery.html`
+  (matching `renderEmail()`'s own navy/cream shell, MARKETSWAVE wordmark, real footer legal
+  text) is written, wired into `config.toml`, and **verified live via a real local
+  `resetPasswordForEmail()` call captured in Mailpit** — real substituted
+  `{{ .Email }}`/`{{ .ConfirmationURL }}` values, correct subject ("Reset your Marketswave
+  password"), zero Resend cost since local dev never touches Resend. This template is
+  **NOT YET pushed to real cloud staging** — blocked by the free-tier SMTP requirement above,
+  and deliberately not unblocked by rushing SMTP live while quota is exhausted (a real user's
+  real password-reset attempt on staging right now would rather use the current, working,
+  unbranded default mailer than silently fail to deliver through a freshly-enabled, unverified
+  SMTP relay). `scripts/supabase-staging-configure-smtp.js` is written, syntax-checked, and
+  dry-run-verified (temp-copy structure, `.env` exclusion) but **deliberately not executed
+  against real cloud staging** — per direct instruction, held until Resend quota is confirmed
+  reset and a real end-to-end send can be verified, matching every other real-email feature in
+  this project's own verification discipline. Also deliberately left commented out in
+  `config.toml`: Supabase's own native "password changed" notification template — this
+  project's own real `notify-password-changed` Edge Function already sends a real, branded
+  version of that exact email; enabling Supabase's native one too would double-send. Backend
+  Requirements Register rows 155-158.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

@@ -413,6 +413,7 @@ async function main() {
     process.exit(1);
   }
   console.log('\nVERIFY: PASS');
+  process.exit(0);
 }
 
 main().catch(function (err) {

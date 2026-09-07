@@ -298,11 +298,21 @@
     </div>
 
     <!-- ========== FORGOT PASSWORD PANEL ========== -->
+    <!-- Real password reset (2026-09-07), replacing a complete non-functional stub — the
+         original 4-step UI simulated a 6-digit-code flow that never once called Supabase and
+         had literal "// Later: call backend here" comments at every step. Supabase's real
+         reset mechanism is link-based, not code-based: a client requests a reset, receives a
+         real emailed link with a one-time recovery token embedded in it, and clicks through
+         to reset-password.html (the real destination this page's own resetPasswordForEmail()
+         call below points at) to actually set a new password — so there is nothing to verify
+         in-page here beyond collecting the email address. Two real steps only. -->
     <div class="login-card glass" id="forgot-panel" style="display: none;">
       <!-- Step 1: Enter Email -->
       <div class="forgot-step is-active" data-forgot-step="1">
         <h1 class="login-title">Reset Password</h1>
-        <p class="login-lead">Enter the email associated with your account. We’ll send you a verification code.</p>
+        <p class="login-lead">Enter the email associated with your account. We’ll send you a link to reset your password.</p>
+
+        <p class="login-error" id="forgot-error"></p>
 
         <div class="form-group">
           <label for="reset-email">Email Address</label>
@@ -310,60 +320,20 @@
         </div>
 
         <div class="form-actions" style="margin-top: 24px;">
-          <button type="button" class="btn btn-primary" id="btn-send-code" style="width:100%;">Send Code</button>
+          <button type="button" class="btn btn-primary" id="btn-send-reset" style="width:100%;">Send Reset Link</button>
         </div>
         <div class="login-links" style="margin-top: 20px;">
           <a href="#" id="back-to-login-1">← Back to Login</a>
         </div>
       </div>
 
-      <!-- Step 2: Enter Code -->
+      <!-- Step 2: Check your email -->
       <div class="forgot-step" data-forgot-step="2">
-        <h1 class="login-title">Enter Verification Code</h1>
-        <p class="login-lead">We’ve sent a 6-digit code to your email. Enter it below.</p>
+        <h1 class="login-title">Check Your Email</h1>
+        <p class="login-lead">If an account exists for that email address, a password reset link has been sent. Follow the link to set a new password — it expires after a period of time and can only be used once.</p>
 
-        <div class="form-group">
-          <label for="reset-code">Verification Code</label>
-          <input type="text" id="reset-code" placeholder="Enter 6-digit code" maxlength="6" required>
-        </div>
-
-        <div class="form-actions" style="margin-top: 24px;">
-          <button type="button" class="btn btn-primary" id="btn-verify-code" style="width:100%;">Verify Code</button>
-        </div>
-        <div class="login-links" style="margin-top: 20px;">
+        <div class="login-links" style="margin-top: 8px;">
           <a href="#" id="back-to-login-2">← Back to Login</a>
-        </div>
-      </div>
-
-      <!-- Step 3: New Password -->
-      <div class="forgot-step" data-forgot-step="3">
-        <h1 class="login-title">Set New Password</h1>
-        <p class="login-lead">Create a strong new password for your account.</p>
-
-        <div class="form-group">
-          <label for="new-password">New Password</label>
-          <input type="password" id="new-password" placeholder="New password" required minlength="8">
-        </div>
-        <div class="form-group">
-          <label for="confirm-new-password">Confirm New Password</label>
-          <input type="password" id="confirm-new-password" placeholder="Confirm new password" required minlength="8">
-        </div>
-
-        <div class="form-actions" style="margin-top: 24px;">
-          <button type="button" class="btn btn-primary" id="btn-update-password" style="width:100%;">Update Password</button>
-        </div>
-        <div class="login-links" style="margin-top: 20px;">
-          <a href="#" id="back-to-login-3">← Back to Login</a>
-        </div>
-      </div>
-
-      <!-- Step 4: Success -->
-      <div class="forgot-step" data-forgot-step="4">
-        <h1 class="login-title">Password Updated</h1>
-        <p class="login-lead">Your password has been successfully updated. You can now log in with your new password.</p>
-
-        <div class="form-actions" style="margin-top: 28px;">
-          <button type="button" class="btn btn-primary" id="btn-go-login" style="width:100%;">Go to Login</button>
         </div>
       </div>
     </div>
@@ -674,7 +644,7 @@
       }
 
       // Back to login links
-      ['back-to-login-1', 'back-to-login-2', 'back-to-login-3'].forEach(id => {
+      ['back-to-login-1', 'back-to-login-2'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', function (e) {
           e.preventDefault();
@@ -682,59 +652,47 @@
         });
       });
 
-      // Step 1 → Send Code
-      const btnSendCode = document.getElementById('btn-send-code');
-      if (btnSendCode) {
-        btnSendCode.addEventListener('click', function () {
+      // Step 1 → real resetPasswordForEmail() call. redirectTo points at reset-password.html
+      // — the real page that catches Supabase's recovery token — carrying the same
+      // ?env=staging preservation this file's own login-submit handler already uses (line
+      // ~598), so a staging reset genuinely redirects back into staging, not local.
+      const btnSendReset = document.getElementById('btn-send-reset');
+      const forgotError = document.getElementById('forgot-error');
+      if (btnSendReset) {
+        btnSendReset.addEventListener('click', async function () {
           const email = document.getElementById('reset-email').value.trim();
+          forgotError.classList.remove('is-visible');
           if (!email) {
-            alert('Please enter your email address.');
+            forgotError.textContent = 'Please enter your email address.';
+            forgotError.classList.add('is-visible');
             return;
           }
-          // Later: call backend here
+          if (!IS_SUPABASE_BACKEND) {
+            forgotError.textContent = 'Password reset is unavailable on this backend.';
+            forgotError.classList.add('is-visible');
+            return;
+          }
+          btnSendReset.disabled = true;
+          btnSendReset.textContent = 'Sending…';
+          const envQuery = new URLSearchParams(window.location.search).get('env') === 'staging' ? '?env=staging' : '';
+          const redirectTo = window.location.origin + '/reset-password.html' + envQuery;
+          try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
+            // Supabase's own resetPasswordForEmail() deliberately never reveals whether the
+            // email exists (the same email-enumeration-avoidance discipline this project's
+            // own real login check already follows) — a genuine transport/rate-limit error is
+            // still surfaced, just never "that email isn't registered."
+            if (error) throw error;
+          } catch (err) {
+            btnSendReset.disabled = false;
+            btnSendReset.textContent = 'Send Reset Link';
+            forgotError.textContent = (err && err.message) || 'Something went wrong. Please try again.';
+            forgotError.classList.add('is-visible');
+            return;
+          }
+          btnSendReset.disabled = false;
+          btnSendReset.textContent = 'Send Reset Link';
           showForgotStep(2);
-        });
-      }
-
-      // Step 2 → Verify Code
-      const btnVerifyCode = document.getElementById('btn-verify-code');
-      if (btnVerifyCode) {
-        btnVerifyCode.addEventListener('click', function () {
-          const code = document.getElementById('reset-code').value.trim();
-          if (!code || code.length < 4) {
-            alert('Please enter the verification code.');
-            return;
-          }
-          // Later: call backend to verify code
-          showForgotStep(3);
-        });
-      }
-
-      // Step 3 → Update Password
-      const btnUpdatePassword = document.getElementById('btn-update-password');
-      if (btnUpdatePassword) {
-        btnUpdatePassword.addEventListener('click', function () {
-          const pass = document.getElementById('new-password').value;
-          const confirm = document.getElementById('confirm-new-password').value;
-
-          if (!pass || pass.length < 8) {
-            alert('Password must be at least 8 characters.');
-            return;
-          }
-          if (pass !== confirm) {
-            alert('Passwords do not match.');
-            return;
-          }
-          // Later: call backend to update password
-          showForgotStep(4);
-        });
-      }
-
-      // Step 4 → Go to Login
-      const btnGoLogin = document.getElementById('btn-go-login');
-      if (btnGoLogin) {
-        btnGoLogin.addEventListener('click', function () {
-          showLoginPanel();
         });
       }
     })();
