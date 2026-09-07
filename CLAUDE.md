@@ -6785,6 +6785,42 @@ row 74.
   the real live-site verification stands on its own regardless. Backend Requirements
   Register row 162 added.
 
+- **★★★ Unified Communications Inbox — Stage 2: two-way email, built and verified end to
+  end on the LIVE site (2026-09-07).** Real inbound receiving via a real Resend webhook
+  (Svix-signature verified, hand-implemented via Web Crypto in a new
+  `_shared/webhook-verify.ts`) and real outbound replies threaded via In-Reply-To/
+  References, routed automatically by the conversation's own most recent message's channel
+  — a new `send-conversation-reply` function now owns both channels (replacing Stage 1's
+  chat-only direct insert), since a real email reply needs a real server round trip to
+  Resend before the row can even be written. **A real, reported schema addition**: Gmail's
+  own threading requires subject continuity alongside References/In-Reply-To — a single
+  nullable `conversations.subject` column was added, captured once from the real inbound
+  email that starts a thread. **Security check (point 4) confirmed**: `receive-inbound-
+  email` runs entirely as `service_role`, never through RLS, so Stage 1's
+  `visitor_auth_id` read-access asymmetry is structurally irrelevant to this path — a
+  spoofed inbound sender can get a message written into an existing thread (the same
+  generic property email has everywhere) but gains zero read access, proven directly with
+  a real victim/attacker session pair. **Two real, disclosed findings along the way**: (1)
+  the live site's own new UI/reply-flow additions were completely missing on first test —
+  root-caused directly to the static-site changes never having been committed/pushed (Edge
+  Function deploys and a git push to the static site are two separate deployment paths);
+  (2) the existing `RESEND_API_KEY` turned out to be send-only and can't read received
+  emails — the user created a real "Full access" key and set it as the Supabase secret
+  directly, never sharing the raw value. **The complete real round trip verified live,
+  exactly per this stage's VERIFY criteria**: a real cold email to `support@marketswave.net`
+  created a new real conversation and genuinely appeared in the real `admin-inbox.html`; a
+  real PM reply genuinely sent via Resend and arrived back in the real Gmail inbox,
+  correctly grouped into the SAME thread ("me, Marketswave — 2") — real, direct proof of
+  correct threading in an actual email client. Verified first at the backend/DB level, local
+  stack: `scripts/verify-inbound-webhook-signature.mjs` (11/11) and
+  `scripts/verify-supabase-inbound-outbound-email.mjs` (18/18, including the full security-
+  check proof) — inbound delivery itself is categorically untestable locally without a real,
+  publicly-reachable webhook endpoint. Full existing regression suite re-run for zero
+  regression (one pre-existing, already-observed intermittent real-time-timing flake in
+  `verify-supabase-unified-inbox.js`, clean on immediate retry, not a Stage 2 regression).
+  `verify-cloud-staging-parity.js` re-confirmed clean (15/15 migrations, 49/49 functions).
+  All real test artifacts deleted afterward. Backend Requirements Register row 163 added.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
