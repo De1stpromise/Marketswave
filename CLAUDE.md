@@ -6760,6 +6760,31 @@ row 74.
   re-confirmed clean (14/14 migrations, 47/47 functions). Backend Requirements Register
   row 161 added, superseding row 154.
 
+- **★★★ CRITICAL: full real password-reset round trip verified end to end on the live site
+  via real browser + Gmail access, plus the real Resend plan confirmed and two real bugs
+  found and fixed (2026-09-07).** Real Chrome tools became available this pass; the user's
+  own profile was already signed into Resend and Gmail, so every step was driven and
+  confirmed directly. **Real plan, confirmed from the dashboard**: Pro, 50,000 emails/mo,
+  unlimited daily, $20/mo, 230/50,000 used this cycle (renews Oct 7) — corroborating the
+  earlier `x-resend-monthly-quota` finding as a used-so-far counter, not a ceiling. **Full
+  round trip driven live**: real reset request → real branded email found in Gmail → real
+  link clicked → real `reset-password.html` on marketswave.net detected the recovery
+  session → new password set → login → real dashboard. **Two real bugs found**: (1) the
+  first login attempt failed — isolated via a direct `signInWithPassword()` API call
+  (succeeded immediately) to a gap in this task's OWN test setup, not a product bug — a raw
+  Admin-SDK-created user has no matching `clients` row, which `login.html` requires; (2) a
+  genuine product bug — `reset-password.html`'s two "Go to Login" links dropped
+  `?env=staging` (the exact param-loss class already fixed once in `admin-sidebar.js`/
+  `dashboard-sidebar.js`, never applied to this newer page); fixed with a mirrored inline
+  `currentEnvQuery()`. The 3 deferred `getAdminEmails()` checks and the Unified Inbox's own
+  notification check were freshly re-run (219/219 + 14/14 + 85/85, and confirmed the chat
+  notification was never actually quota-blocked at any point this session).
+  `verify-cloud-staging-parity.js` re-confirmed clean. One pre-existing gap from row 159
+  re-encountered and left open (bigger than originally scoped): `firebase-config.js`
+  statically imports 4 real `gstatic.com` specifiers the CDN loader doesn't redirect —
+  the real live-site verification stands on its own regardless. Backend Requirements
+  Register row 162 added.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
