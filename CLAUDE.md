@@ -6747,6 +6747,19 @@ row 74.
   remaining/ceiling value. **The standing "do not send real test emails" constraint is now
   lifted** — future tasks may send real verification emails again where genuinely needed.
 
+- **Real monitored support inbox confirmed — `support@marketswave.com` (placeholder) →
+  `support@marketswave.net` (real) everywhere (2026-09-07).** Updated all 4 real code
+  locations: `_shared/send-email.ts`'s `FOOTER_SUPPORT_EMAIL` constant (comment rewritten
+  from "PLACEHOLDER — STILL OPEN" to "RESOLVED"), `supabase/templates/recovery.html`'s
+  footer, and `support.html`'s contact card + mailto link + copy-button JS. Verified
+  locally first (219/219 + 14/14 + 85/85, zero regressions), then redeployed all 26 real
+  Edge Functions importing `_shared/send-email.ts` (Deno bundles shared imports at deploy
+  time — a partial redeploy would leave some running a stale bundle) and pushed the
+  recovery template separately via a plain `supabase config push` (its own diff showed
+  exactly the `.com`→`.net` substitution, nothing else). `verify-cloud-staging-parity.js`
+  re-confirmed clean (14/14 migrations, 47/47 functions). Backend Requirements Register
+  row 161 added, superseding row 154.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

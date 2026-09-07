@@ -142,15 +142,12 @@ async function logEmail(
 // similar — this project has no real monitored inbox on marketswave.net yet (see the next
 // paragraph), and a `noreply@` sender makes that honest rather than implying repliability.
 //
-// ★ PLACEHOLDER DOMAIN — STILL OPEN, a separate, distinct decision, confirmed directly rather
-// than assumed: the footer's own displayed "support@marketswave.com" remains a placeholder,
-// NOT a real, monitored inbox, even though marketswave.net itself is now real and verified.
-// support@marketswave.net does not exist as a monitored mailbox yet — deliberately NOT
-// switched to it, since doing so would point real clients at a real-looking address on a real
-// domain that nobody reads, which is a worse failure mode than an already-obviously-fake
-// .com placeholder. Logged as its own follow-up item (Backend Requirements Register) rather
-// than silently left implied-resolved by the sender-address fix above — set up and confirm a
-// real, monitored support@marketswave.net inbox, then update FOOTER_SUPPORT_EMAIL below.
+// ★ FOOTER SUPPORT ADDRESS — RESOLVED (2026-09-07): the placeholder "support@marketswave.com"
+// (an already-obviously-fake .com address, deliberately not the real .net domain, precisely
+// to avoid pointing real clients at a real-looking address nobody read) has been replaced
+// with the real, confirmed-monitored support@marketswave.net inbox, per direct confirmation
+// from the user that it now exists and is watched. Updated in FOOTER_SUPPORT_EMAIL below, and
+// consistently in `support.html`'s own contact card/mailto link/copy-to-clipboard JS.
 //
 // ★ SITE_URL — RESOLVED (2026-09-07, same day as the sender-address fix above): the project's
 // custom domain, marketswave.net, is now fully live with HTTPS enforced (a real CNAME record
@@ -178,10 +175,9 @@ const COLORS = {
   goldCalloutBorder: '#E9C77A'
 };
 
-// ★ Placeholder — STILL OPEN, deliberately not updated to the now-verified marketswave.net
-// domain. See this file's own header comment above ("PLACEHOLDER DOMAIN — STILL OPEN") for
-// why: no monitored support@marketswave.net inbox exists yet.
-const FOOTER_SUPPORT_EMAIL = 'support@marketswave.com';
+// ★ Resolved 2026-09-07 — see this file's own header comment above ("FOOTER SUPPORT ADDRESS
+// — RESOLVED"). A real, confirmed-monitored inbox on the now-verified marketswave.net domain.
+const FOOTER_SUPPORT_EMAIL = 'support@marketswave.net';
 
 // ★ Resolved 2026-09-07 — see this file's own header comment above ("SENDER ADDRESS —
 // RESOLVED"). Override per environment via an EMAIL_FROM_ADDRESS secret if this domain's own
