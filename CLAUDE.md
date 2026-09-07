@@ -7125,6 +7125,26 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   `ACTIVE` on the real remote — it does NOT diff deployed code against local source, so
   editing an already-deployed function and forgetting to redeploy it still reports clean.
   Redeploying an edited function remains the operator's own responsibility to remember.
+- **Tailwind Color Scoping — run `npm run verify-tailwind-color-scoping` (from `scripts/`)
+  before any push that adds/edits Tailwind classes on an admin page, or touches any page's
+  own inline `tailwind.config` block.** Added 2026-09-07 after a real incident: `admin-
+  inbox.html`'s "New Message" button (and, it turned out, the pre-existing Stage 1 "Send"
+  button too) used `bg-navy`/`hover:bg-navy-dark`/`focus:ring-navy` — but `navy`/`cream` are
+  CUSTOM colors that only exist where a page's own inline `tailwind.config` defines them via
+  `theme.extend.colors` (every client-facing dashboard page does; no admin page ever has, by
+  the locked "wholesale distinct color scheme" rule). The Tailwind CDN's JIT compiler doesn't
+  error on an unrecognized color utility — it silently emits no CSS for it, so the button
+  stayed fully present, correctly laid out, and clickable (confirmed live: `getComputedStyle`,
+  `elementFromPoint`, `display`/`visibility`/`opacity` all read normal) while its real
+  `background-color` computed to `rgba(0,0,0,0)` — invisible, not absent. Genuinely silent:
+  no console error, no warning, easy to miss even on a direct screenshot. Confirmed via a
+  project-wide grep that this was isolated to `admin-inbox.html` (the only admin file ever
+  referencing navy/cream) and that the reverse direction — a client page's own custom-color
+  `tailwind.config` accidentally stripping the Tailwind DEFAULT palette (slate/amber/etc.) —
+  isn't currently happening, since every client page consistently uses the safe `extend` form,
+  not a destructive bare `theme.colors` override. `scripts/verify-tailwind-color-scoping.js`
+  is the standing, automatable check for both directions — checked directly (not assumed) to
+  actually catch the exact regression by reintroducing it in a throwaway copy first.
 
 ## Verification
 

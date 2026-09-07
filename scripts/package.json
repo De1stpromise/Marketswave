@@ -44,7 +44,8 @@
     "verify-inbound-webhook-signature": "node verify-inbound-webhook-signature.mjs",
     "verify-supabase-inbound-outbound-email": "node verify-supabase-inbound-outbound-email.mjs",
     "verify-pm-compose-announcements": "node verify-pm-compose-announcements.mjs",
-    "verify-pm-compose-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-compose-ui-wiring.mjs"
+    "verify-pm-compose-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-compose-ui-wiring.mjs",
+    "verify-tailwind-color-scoping": "node verify-tailwind-color-scoping.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
