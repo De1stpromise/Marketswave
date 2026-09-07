@@ -43,6 +43,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { verifySvixWebhook } from '../_shared/webhook-verify.ts';
+import { findOrCreateConversation } from '../_shared/conversations.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -130,53 +131,18 @@ Deno.serve(async (req) => {
       ? fullEmail.text.trim()
       : stripHtmlToText(fullEmail.html || '');
 
-    // A real client on file for this email, if one exists — mirrors start-chat-conversation's
-    // own realClientId concept, derived here from the real sender address instead of an
-    // authenticated caller (there is no Supabase session behind a real inbound email).
-    const { data: matchingClient } = await admin
-      .from('clients')
-      .select('id')
-      .ilike('email', fromEmail)
-      .maybeSingle();
-    const realClientId: string | null = matchingClient ? matchingClient.id : null;
-
     const rawSubject: string | null = typeof fullEmail.subject === 'string' && fullEmail.subject.trim() ? fullEmail.subject.trim() : null;
 
-    const { data: existing, error: findErr } = await admin
-      .from('conversations')
-      .select('id, client_id, subject')
-      .ilike('contact_email', fromEmail)
-      .maybeSingle();
-    if (findErr) return jsonResponse({ error: findErr.message }, 500);
-
+    // A cold email from an unknown sender starts a real thread, per this stage's own
+    // instruction — never dropped. clientId deliberately omitted (not null) so
+    // findOrCreateConversation() resolves it by looking up the real sender's email — there
+    // is no authenticated caller here to already know it from, unlike the compose flow.
     let conversationId: string;
-    if (existing) {
-      conversationId = existing.id;
-      const patch: Record<string, unknown> = {};
-      if (realClientId && !existing.client_id) patch.client_id = realClientId;
-      // A chat-started (or otherwise subject-less) conversation receiving its first real
-      // email — capture the real subject now, so a PM's later reply can thread correctly
-      // (see this migration's own header for why Gmail specifically requires this).
-      if (rawSubject && !existing.subject) patch.subject = rawSubject;
-      if (Object.keys(patch).length) {
-        await admin.from('conversations').update(patch).eq('id', existing.id);
-      }
-    } else {
-      // A cold email from an unknown sender starts a real thread, per this stage's own
-      // instruction — never dropped.
-      const { data: created, error: createErr } = await admin
-        .from('conversations')
-        .insert({
-          client_id: realClientId,
-          contact_email: fromEmail,
-          contact_name: fromName || fromEmail,
-          subject: rawSubject,
-          status: 'open'
-        })
-        .select('id')
-        .single();
-      if (createErr) return jsonResponse({ error: createErr.message }, 500);
-      conversationId = created.id;
+    try {
+      const result = await findOrCreateConversation(admin, { email: fromEmail, name: fromName, subject: rawSubject });
+      conversationId = result.conversationId;
+    } catch (err) {
+      return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
     }
 
     // unread_by_pm/last_message_at are updated automatically by handle_new_message() — no

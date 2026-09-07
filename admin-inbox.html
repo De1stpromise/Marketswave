@@ -39,7 +39,10 @@
           <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
           <p class="text-xs text-slate-500" id="live-date-time"></p>
         </div>
-        <p class="text-xs text-slate-400" id="realtime-status">Connecting…</p>
+        <div class="flex items-center gap-4">
+          <p class="text-xs text-slate-400" id="realtime-status">Connecting…</p>
+          <button type="button" id="new-message-btn" class="px-3 py-1.5 rounded-lg bg-navy text-white text-xs font-medium hover:bg-navy-dark transition">+ New Message</button>
+        </div>
       </header>
 
       <main class="flex-1 overflow-hidden flex">
@@ -95,6 +98,98 @@
         </div>
 
       </main>
+    </div>
+  </div>
+
+  <!-- ========================================================================================
+       PM Compose Email + Company Announcements (2026-09-07). One "New Message" surface,
+       inside this same inbox page rather than a separate page — per instruction, mirroring
+       the reasoning already given for Part A ("a composed email genuinely IS the start of a
+       thread and should appear there afterward... a separate page would create a second
+       place PM-to-client email lives") and extended here to Part B: this inbox is where ALL
+       outbound PM email intent lives, whether or not the result becomes a conversation. Two
+       tabs inside one modal — "To One Client" (a real compose, resolving via
+       send-conversation-reply's own new compose mode; the resulting conversation/message
+       arrive back into the list automatically via this page's existing Realtime
+       subscription, no extra code needed here) and "Company Announcement" (a real bulk send
+       via send-announcement — deliberately never touches conversations/messages at all, per
+       instruction, so nothing here pushes it into the list either). A real recipient-count
+       preview + an explicit two-step confirm gate the bulk send, since it can reach many
+       real people at once. ======================================================================================== -->
+  <div id="compose-modal-backdrop" class="hidden fixed inset-0 bg-slate-900/50 z-40 flex items-center justify-center p-4">
+    <div class="glass bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm">
+        <p class="font-semibold text-slate-900">New Message</p>
+        <button type="button" id="compose-modal-close" class="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="px-6 pt-4">
+        <div class="flex gap-1.5 text-xs font-medium mb-4" id="compose-mode-tabs">
+          <span class="filter-pill is-active px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 cursor-pointer" data-compose-mode="single">To One Client</span>
+          <span class="filter-pill px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 cursor-pointer" data-compose-mode="announcement">Company Announcement</span>
+        </div>
+      </div>
+
+      <div class="px-6 pb-6 space-y-4">
+
+        <!-- SINGLE-CLIENT PANEL -->
+        <div id="compose-panel-single">
+          <label class="block text-xs font-medium text-slate-500 mb-1">Recipient</label>
+          <div class="relative">
+            <input type="text" id="compose-client-search" placeholder="Search real clients by name or email…" autocomplete="off" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-slate-400">
+            <div id="compose-client-results" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+          </div>
+          <div id="compose-client-selected" class="hidden mt-2 flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+            <span class="flex-1 truncate" id="compose-client-selected-label"></span>
+            <button type="button" id="compose-client-clear" class="text-slate-400 hover:text-slate-600 text-xs font-medium shrink-0">Change</button>
+          </div>
+        </div>
+
+        <!-- ANNOUNCEMENT PANEL — recipients are always real, registered clients; no manual
+             address entry, per instruction. -->
+        <div id="compose-panel-announcement" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
+            <select id="announce-status-filter" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm">
+              <option value="active" selected>Active clients only</option>
+              <option value="all">All clients (any status, including pending/rejected)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Account Type</label>
+            <select id="announce-account-type-filter" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm">
+              <option value="all" selected>All account types</option>
+              <option value="Individual Account">Individual Account</option>
+              <option value="Joint Account">Joint Account</option>
+              <option value="Business Account">Business Account</option>
+            </select>
+          </div>
+          <p class="text-xs text-slate-500" id="announce-recipient-count">Loading real client list…</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Subject</label>
+          <input type="text" id="compose-subject" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-slate-400">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1">Message</label>
+          <textarea id="compose-body" rows="6" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-slate-400"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 mb-1.5">Footer Type — an explicit choice at send time, not a guess</label>
+          <div class="flex gap-4 text-sm">
+            <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="compose-footer-type" value="general" checked> General</label>
+            <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="compose-footer-type" value="investment"> Investment (includes the risk disclosure)</label>
+          </div>
+        </div>
+
+        <div id="compose-confirm-panel" class="hidden bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800"></div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="compose-cancel-btn" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition hidden">Cancel</button>
+          <button type="button" id="compose-send-btn" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Send</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -391,6 +486,213 @@
       }
 
       loadAndSubscribe();
+
+      // =======================================================================================
+      // PM Compose Email + Company Announcements (2026-09-07). Reuses this same IIFE's real
+      // Supabase session (MarketswaveData.useAdminClient(), already called above) — no second
+      // client instance. The composed conversation/message (single-client mode) needs no
+      // manual local-array push/re-render here at all: it lands via the exact same Realtime
+      // subscription already wired in loadAndSubscribe() above, since RLS already allows this
+      // admin session to read every real conversation/message. Announcement mode deliberately
+      // never touches conversations/messages, so nothing here does either.
+      var realClients = [];
+      var realClientsLoadedPromise = null;
+      var composeMode = 'single';
+      var selectedClient = null;
+      var announcementConfirming = false;
+
+      function loadRealClients() {
+        if (!realClientsLoadedPromise) {
+          realClientsLoadedPromise = MarketswaveData.selectTable('clients').then(function (rows) {
+            realClients = rows || [];
+            updateAnnouncementCount();
+            return realClients;
+          }).catch(function (err) {
+            document.getElementById('announce-recipient-count').textContent = 'Could not load the real client list.';
+            throw err;
+          });
+        }
+        return realClientsLoadedPromise;
+      }
+
+      function matchesAnnouncementFilter(client) {
+        var statusFilter = document.getElementById('announce-status-filter').value;
+        var accountTypeFilter = document.getElementById('announce-account-type-filter').value;
+        if (statusFilter !== 'all' && client.status !== statusFilter) return false;
+        if (accountTypeFilter !== 'all' && client.account_type !== accountTypeFilter) return false;
+        return !!(client.email && client.email.trim());
+      }
+
+      function updateAnnouncementCount() {
+        var el = document.getElementById('announce-recipient-count');
+        if (!realClients.length && realClientsLoadedPromise) { el.textContent = 'Loading real client list…'; return; }
+        var matching = realClients.filter(matchesAnnouncementFilter);
+        el.textContent = matching.length === 0
+          ? 'No real clients match this filter — nothing would be sent.'
+          : matching.length + ' real client' + (matching.length === 1 ? '' : 's') + ' will receive this announcement.';
+        resetAnnouncementConfirm();
+      }
+
+      function resetAnnouncementConfirm() {
+        announcementConfirming = false;
+        document.getElementById('compose-confirm-panel').classList.add('hidden');
+        document.getElementById('compose-cancel-btn').classList.add('hidden');
+        document.getElementById('compose-send-btn').textContent = 'Send';
+      }
+
+      function renderClientResults(query) {
+        var resultsEl = document.getElementById('compose-client-results');
+        var term = query.trim().toLowerCase();
+        if (!term) { resultsEl.classList.add('hidden'); resultsEl.innerHTML = ''; return; }
+        var matches = realClients.filter(function (c) {
+          return (c.name || '').toLowerCase().indexOf(term) !== -1 || (c.email || '').toLowerCase().indexOf(term) !== -1;
+        }).slice(0, 20);
+        if (!matches.length) {
+          resultsEl.innerHTML = '<p class="px-3 py-2.5 text-sm text-slate-400">No matching real clients.</p>';
+        } else {
+          resultsEl.innerHTML = matches.map(function (c) {
+            return '<div class="compose-client-option px-3 py-2.5 text-sm hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-b-0" data-client-id="' + c.id + '">' +
+              '<p class="font-medium text-slate-900 truncate">' + escapeHtml(c.name) + '</p>' +
+              '<p class="text-xs text-slate-400 truncate">' + escapeHtml(c.email) + '</p>' +
+            '</div>';
+          }).join('');
+          resultsEl.querySelectorAll('.compose-client-option').forEach(function (row) {
+            row.addEventListener('click', function () {
+              var client = realClients.filter(function (c) { return c.id === row.getAttribute('data-client-id'); })[0];
+              if (client) selectClient(client);
+            });
+          });
+        }
+        resultsEl.classList.remove('hidden');
+      }
+
+      function selectClient(client) {
+        selectedClient = client;
+        document.getElementById('compose-client-search').value = '';
+        document.getElementById('compose-client-results').classList.add('hidden');
+        document.getElementById('compose-client-results').innerHTML = '';
+        document.getElementById('compose-client-search').classList.add('hidden');
+        var chip = document.getElementById('compose-client-selected');
+        chip.classList.remove('hidden');
+        document.getElementById('compose-client-selected-label').textContent = client.name + ' — ' + client.email;
+      }
+
+      function clearSelectedClient() {
+        selectedClient = null;
+        document.getElementById('compose-client-selected').classList.add('hidden');
+        document.getElementById('compose-client-search').classList.remove('hidden');
+        document.getElementById('compose-client-search').focus();
+      }
+
+      function setComposeMode(mode) {
+        composeMode = mode;
+        document.querySelectorAll('#compose-mode-tabs .filter-pill').forEach(function (p) { p.classList.toggle('is-active', p.getAttribute('data-compose-mode') === mode); });
+        document.getElementById('compose-panel-single').classList.toggle('hidden', mode !== 'single');
+        document.getElementById('compose-panel-announcement').classList.toggle('hidden', mode !== 'announcement');
+        resetAnnouncementConfirm();
+        if (mode === 'announcement') updateAnnouncementCount();
+      }
+
+      function resetComposeForm() {
+        document.getElementById('compose-subject').value = '';
+        document.getElementById('compose-body').value = '';
+        document.querySelector('input[name="compose-footer-type"][value="general"]').checked = true;
+        clearSelectedClient();
+        setComposeMode('single');
+      }
+
+      function openComposeModal() {
+        document.getElementById('compose-modal-backdrop').classList.remove('hidden');
+        loadRealClients();
+      }
+
+      function closeComposeModal() {
+        document.getElementById('compose-modal-backdrop').classList.add('hidden');
+        resetComposeForm();
+      }
+
+      function getFooterType() {
+        var checked = document.querySelector('input[name="compose-footer-type"]:checked');
+        return checked ? checked.value : 'general';
+      }
+
+      function handleComposeSend() {
+        var subject = document.getElementById('compose-subject').value.trim();
+        var body = document.getElementById('compose-body').value.trim();
+        var footerType = getFooterType();
+
+        if (composeMode === 'single') {
+          if (!selectedClient) { showToast('A Recipient Is Required', 'Search for and select a real client first.', true); return; }
+          if (!subject) { showToast('A Subject Is Required', 'Enter a subject for this message.', true); return; }
+          if (!body) { showToast('A Message Is Required', 'Enter a message to send.', true); return; }
+          var sendBtn = document.getElementById('compose-send-btn');
+          MarketswaveData.withButtonBusy(sendBtn, 'Sending…', function () {
+            return MarketswaveData.callFunction('send-conversation-reply', { clientId: selectedClient.id, subject: subject, body: body, footerType: footerType });
+          }).then(function () {
+            showToast('Message Sent', 'Your email to ' + selectedClient.name + ' was sent — it now appears in the inbox as a real conversation.');
+            closeComposeModal();
+          }).catch(function (err) {
+            showToast('Send Failed', MarketswaveData.writeErrorMessage(err), true);
+          });
+          return;
+        }
+
+        // composeMode === 'announcement'
+        if (!subject) { showToast('A Subject Is Required', 'Enter a subject for this announcement.', true); return; }
+        if (!body) { showToast('A Message Is Required', 'Enter a message to send.', true); return; }
+        var matching = realClients.filter(matchesAnnouncementFilter);
+        if (matching.length === 0) { showToast('No Recipients', 'No real clients match this filter — nothing to send.', true); return; }
+
+        if (!announcementConfirming) {
+          // Two-step confirm — a real bulk send reaching many real people, deliberately not
+          // one click away, mirroring this project's own established custom-confirm pattern
+          // for any broad or hard-to-reverse action.
+          announcementConfirming = true;
+          var confirmPanel = document.getElementById('compose-confirm-panel');
+          confirmPanel.textContent = 'This will send a real email to ' + matching.length + ' real client' + (matching.length === 1 ? '' : 's') + '. This cannot be undone. Click "Confirm & Send" to proceed.';
+          confirmPanel.classList.remove('hidden');
+          document.getElementById('compose-cancel-btn').classList.remove('hidden');
+          document.getElementById('compose-send-btn').textContent = 'Confirm & Send';
+          return;
+        }
+
+        var announceBtn = document.getElementById('compose-send-btn');
+        MarketswaveData.withButtonBusy(announceBtn, 'Sending…', function () {
+          return MarketswaveData.callFunction('send-announcement', {
+            subject: subject, body: body, footerType: footerType,
+            recipientFilter: {
+              status: document.getElementById('announce-status-filter').value,
+              accountType: document.getElementById('announce-account-type-filter').value
+            }
+          });
+        }).then(function (result) {
+          var summary = result.sentCount + ' of ' + result.totalRecipients + ' delivered' + (result.failedCount ? ', ' + result.failedCount + ' failed' : '') + '.';
+          showToast('Announcement Sent', summary);
+          closeComposeModal();
+        }).catch(function (err) {
+          announcementConfirming = false;
+          showToast('Send Failed', MarketswaveData.writeErrorMessage(err), true);
+        });
+      }
+
+      document.getElementById('new-message-btn').addEventListener('click', openComposeModal);
+      document.getElementById('compose-modal-close').addEventListener('click', closeComposeModal);
+      document.getElementById('compose-modal-backdrop').addEventListener('click', function (e) {
+        if (e.target === this) closeComposeModal();
+      });
+      document.querySelectorAll('#compose-mode-tabs .filter-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () { setComposeMode(pill.getAttribute('data-compose-mode')); });
+      });
+      document.getElementById('compose-client-search').addEventListener('input', function (e) {
+        renderClientResults(e.target.value);
+      });
+      document.getElementById('compose-client-clear').addEventListener('click', clearSelectedClient);
+      document.getElementById('announce-status-filter').addEventListener('change', updateAnnouncementCount);
+      document.getElementById('announce-account-type-filter').addEventListener('change', updateAnnouncementCount);
+      document.getElementById('compose-send-btn').addEventListener('click', handleComposeSend);
+      document.getElementById('compose-cancel-btn').addEventListener('click', function () {
+        resetAnnouncementConfirm();
+      });
     })();
   </script>
 

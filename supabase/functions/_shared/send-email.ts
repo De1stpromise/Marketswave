@@ -85,7 +85,14 @@ export async function sendEmail(
   }
 }
 
-async function logEmail(
+// ★ Exported (PM Compose Email + Company Announcements, 2026-09-07) — send-announcement uses
+// Resend's real Batch Send API (POST /emails/batch, up to 100 recipients per call) rather than
+// sendEmail()'s own one-recipient-per-call POST /emails, since a real announcement to many
+// clients must not make one real HTTP round trip per recipient (see that function's own header
+// comment for the real rate-limit reasoning). Reusing this exact logger — rather than a second,
+// parallel insert implementation — keeps every email_log row shaped identically regardless of
+// which code path produced it, per this task's own "extend what's there" instruction.
+export async function logEmail(
   admin: any,
   params: { to: string | string[]; subject: string; relatedEntityType?: string; relatedEntityId?: string },
   status: 'sent' | 'failed',

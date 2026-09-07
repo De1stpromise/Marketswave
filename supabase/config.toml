@@ -783,3 +783,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/send-conversation-reply/deno.json"
 entrypoint = "./functions/send-conversation-reply/index.ts"
+
+[functions.send-announcement]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-announcement/deno.json"
+entrypoint = "./functions/send-announcement/index.ts"

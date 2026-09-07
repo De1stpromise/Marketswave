@@ -6820,6 +6820,79 @@ row 74.
   `verify-supabase-unified-inbox.js`, clean on immediate retry, not a Stage 2 regression).
   `verify-cloud-staging-parity.js` re-confirmed clean (15/15 migrations, 49/49 functions).
   All real test artifacts deleted afterward. Backend Requirements Register row 163 added.
+- **★★★ PM Compose Email + Company Announcements, built on Stage 1-2's own conversation
+  model (2026-09-07).** Extends `send-conversation-reply` (never a parallel function) with a
+  real compose mode (`clientId`+`subject` in place of `conversationId`) and adds a new,
+  deliberately separate `send-announcement` for bulk sends — an announcement genuinely isn't
+  a conversation, per instruction, so it never touches `conversations`/`messages` at all.
+  **Both UI-location judgments landed inside `admin-inbox.html`**, not a separate page —
+  compose agreeing with the user's own stated instinct (this inbox already handles exactly
+  this, and a composed email genuinely IS the start of a thread that should appear there);
+  announcements as a second tab in the SAME "New Message" modal, the agent's own call, since
+  this inbox is where ALL outbound PM email intent lives, whether or not the result becomes
+  a conversation. New shared `_shared/conversations.ts` (`findOrCreateConversation()`)
+  extracted from `receive-inbound-email`'s own original inline logic, reused by both that
+  function and compose. `footerType` is an explicit parameter on both functions (defaulting
+  to `general`, an explicit UI radio choice at send time, never inferred) — recommended and
+  built as a real override for announcements too, since a genuine investment-related
+  announcement needs the real risk paragraph exactly like any other investment
+  communication. **Real recipient filters** (status/accountType, mirroring
+  `admin-clients.html`'s own pattern) — no manual address entry anywhere. **Real batching**:
+  Resend's Batch Send API (100/call) with a 400ms inter-chunk delay, comfortably under the
+  real confirmed 10 req/s account-wide limit, plus a real retry-once-after-`retry-after` path
+  on an actual 429. **Reply-to-announcement confirmed, not assumed**: a reply has no prior
+  conversation (announcements create none), so `findOrCreateConversation()` correctly falls
+  through to its CREATE branch — the identical path a cold sender takes, zero
+  announcement-specific logic anywhere. **A real bug found and fixed live during the
+  human-confirmed real-inbox verification step, disclosed not silently patched**: composing
+  to a contact with an ALREADY-EXISTING conversation (grouping correctly reused the thread)
+  silently sent the real email under the conversation's OLD stored subject instead of what
+  the PM had just typed — `findOrCreateConversation()`'s own "backfill subject only if
+  missing" rule is correct and unchanged, but the subject-for-the-real-email computation was
+  reading `conversation.subject` instead of the PM's fresh `composeSubject`; the earlier
+  local regression run never caught this since no test both composed twice to an
+  already-grouped contact AND checked the real `email_log.subject`. Fixed by hoisting
+  `composeSubject` to the real subject-for-email computation unconditionally in compose mode
+  — confirmed via a real second live send against staging showing the correct subject, and
+  permanently locked in as a new regression assertion. **Verified**:
+  `scripts/verify-pm-compose-announcements.mjs` (48/48 — validation/auth on both functions,
+  real `@invalid.test`-safe sends, footerType propagation proven via a real static-code
+  assertion since the local `RESEND_API_KEY` turned out send-only (a real 401 from
+  `GET /emails/{id}`), real grouping + the subject-line regression lock, a real DB-level
+  reply-threading proof mirroring Stage 2's own technique, real filter inclusion/exclusion
+  via `email_log`, the no-conversation-for-announcements guarantee, and a real >100-recipient
+  chunk-boundary batching proof — 105 real synthetic clients, a real elapsed-time proof that
+  2 real `/batch` calls genuinely fired, 105 real `email_log` rows each with its own distinct
+  real `resend_id`) and a new `scripts/verify-pm-compose-ui-wiring.mjs` (22/22 — the REAL,
+  unmodified `admin-inbox.html` inline script driven through real jsdom DOM events: modal
+  open, real async client search/select, a real send producing a real "Message Sent" toast
+  and a real Postgres row; the Announcement tab's real filter-driven recipient-count preview,
+  the real two-step Send-then-Confirm-and-Send gate including a real Cancel, and a real send
+  producing a real "Announcement Sent" toast with real per-recipient inclusion/exclusion). Full
+  existing regression suite re-run for zero regression. Deployed to real cloud staging:
+  `send-announcement` plus every one of the 25 already-deployed functions importing the
+  changed `_shared/send-email.ts`/`_shared/conversations.ts` (avoiding the same stale-bundle
+  risk already learned once for `_shared/portfolio-engine.ts`), then a second redeploy of
+  `send-conversation-reply` alone after the live-caught subject-line fix —
+  `verify-cloud-staging-parity.js` reconfirmed clean both times (15/15 migrations, 50/50
+  functions). **Real end-to-end proof, human-deliverable**: two real composes (footerType
+  investment, then general after the fix) genuinely delivered to the user's own real Gmail
+  inbox, correctly grouped into a real pre-existing conversation from an earlier Stage 2
+  session; a real 3-recipient announcement sent to 3 genuinely distinct real addresses under
+  the user's own control (Gmail plus-aliasing, disclosed as the technique used), all 3
+  delivered with distinct real `resend_id`s. **A real production-safety step taken before
+  sending**: the real staging `clients` table was queried first and found to hold 4 real
+  production users, all `Individual Account` — the 3 real test recipients were deliberately
+  set to `Business Account` first, confirmed as the only clients with that type, guaranteeing
+  the test could never reach a real production user by filter overlap. **A second real bug
+  found and fixed during cleanup, in the verification script's own logic, not the app**:
+  `deleteUser()` resolves `{data, error}` rather than rejecting, so a `.catch()`-only cleanup
+  silently "succeeded" while a real FK reference (from the pre-existing conversation's
+  `client_id`, legitimately set by the compose calls) actually blocked the delete — caught by
+  an explicit post-delete existence check, fixed by resetting that FK to its real, correct
+  pre-task `null` state first. All real test artifacts reconfirmed genuinely deleted, not
+  assumed; the real staging `clients` table reconfirmed back to its exact 4 production rows.
+  Backend Requirements Register row 164 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

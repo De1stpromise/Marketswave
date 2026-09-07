@@ -42,7 +42,9 @@
     "supabase-verify-unified-inbox": "node verify-supabase-unified-inbox.js",
     "verify-unified-inbox-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-unified-inbox-ui-wiring.mjs",
     "verify-inbound-webhook-signature": "node verify-inbound-webhook-signature.mjs",
-    "verify-supabase-inbound-outbound-email": "node verify-supabase-inbound-outbound-email.mjs"
+    "verify-supabase-inbound-outbound-email": "node verify-supabase-inbound-outbound-email.mjs",
+    "verify-pm-compose-announcements": "node verify-pm-compose-announcements.mjs",
+    "verify-pm-compose-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-compose-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

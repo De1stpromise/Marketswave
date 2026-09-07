@@ -19,9 +19,25 @@
 // you. A conversation with zero messages yet (should not really happen in practice — a
 // conversation is only ever created alongside its first message) defaults to 'chat', the
 // original Stage 1 behavior, as a safe fallback.
+//
+// ★ PM Compose Email (2026-09-07) — extended, not forked into a second function, per
+// instruction ("do not build a parallel system, extend what's there"). Now accepts EITHER
+// `conversationId` (the original Stage 2 reply mode, unchanged) OR `clientId` + `subject`
+// (compose mode: a PM starting a brand-new thread with a real registered client, picked from
+// the real client list — see admin-inbox.html's own new "New Message" panel). Compose mode
+// always sends as `channel: 'email'` — unlike a reply, which infers its channel from
+// whatever the conversation's own history already shows, a freshly-composed message from the
+// PM's own explicit "PM Compose Email" feature IS an email by definition, so the usual
+// most-recent-message inference (which would otherwise default an empty conversation to
+// 'chat') is skipped entirely for this path. `footerType` ('investment' | 'general') is now
+// an explicit optional parameter, defaulting to 'general' — the exact prior, unchanged
+// behavior for every existing reply caller that doesn't pass it; compose mode's own UI
+// surfaces this as a real selector at send time, per instruction ("an explicit choice, not a
+// guess").
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { sendEmail, renderEmail } from '../_shared/send-email.ts';
+import { findOrCreateConversation } from '../_shared/conversations.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -50,31 +66,90 @@ Deno.serve(async (req) => {
     const adminEmail = claimsData.claims.email as string;
 
     const body = await req.json();
-    const conversationId = body && body.conversationId;
+    let conversationId: string | undefined = body && body.conversationId;
+    const clientId: string | undefined = body && body.clientId;
     const replyText = body && typeof body.body === 'string' ? body.body.trim() : '';
+    const footerType: 'investment' | 'general' = body && body.footerType === 'investment' ? 'investment' : 'general';
+    const isCompose = !conversationId && !!clientId;
 
-    if (!conversationId) return jsonResponse({ error: 'conversationId is required.' }, 400);
-    if (!replyText) return jsonResponse({ error: 'A reply message is required.' }, 400);
+    if (!conversationId && !clientId) return jsonResponse({ error: 'Either conversationId or clientId is required.' }, 400);
+    if (!replyText) return jsonResponse({ error: 'A message is required.' }, 400);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: conversation, error: convoErr } = await admin
-      .from('conversations')
-      .select('id, contact_email, contact_name, subject')
-      .eq('id', conversationId)
-      .maybeSingle();
-    if (convoErr) return jsonResponse({ error: convoErr.message }, 500);
-    if (!conversation) return jsonResponse({ error: 'Unknown conversation.' }, 404);
+    let conversation: { id: string; contact_email: string; contact_name: string | null; subject: string | null };
+    // ★ Real bug found and fixed during real-inbox live verification (2026-09-07), disclosed
+    // not silently patched: hoisted to the outer function scope (was previously declared
+    // inside the `if (isCompose)` block only, unreachable at the real subject-computation
+    // site below) — Grouping (findOrCreateConversation()'s own "backfill subject only if
+    // missing" rule) means a compose to a client with an ALREADY-EXISTING conversation
+    // reuses that conversation's OLD stored subject; without this hoist, the real SENT EMAIL
+    // silently used that stale old subject instead of what the PM just typed for THIS
+    // message — confirmed live: a real compose with subject "Real Verification: PM Compose
+    // Email Test" against a contact who already had a conversation actually went out under
+    // the old conversation's original subject line instead. The conversation ROW's own
+    // `subject` (used for the inbox list display) still only backfills-if-missing, per
+    // findOrCreateConversation()'s existing, unchanged design — this fix is scoped
+    // specifically to what the real EMAIL's own subject line uses, which must always be
+    // exactly what the PM explicitly typed for THIS send, the same "an explicit choice, never
+    // a guess" discipline already applied to footerType.
+    let composeSubject = '';
 
-    const { data: recentMessage, error: recentErr } = await admin
-      .from('messages')
-      .select('channel')
-      .eq('conversation_id', conversationId)
-      .order('sent_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (recentErr) return jsonResponse({ error: recentErr.message }, 500);
-    const channel: 'chat' | 'email' = recentMessage ? (recentMessage.channel as 'chat' | 'email') : 'chat';
+    if (isCompose) {
+      composeSubject = body && typeof body.subject === 'string' ? body.subject.trim() : '';
+      if (!composeSubject) return jsonResponse({ error: 'A subject is required to start a new conversation.' }, 400);
+
+      const { data: clientRow, error: clientErr } = await admin.from('clients').select('id, email, name').eq('id', clientId).maybeSingle();
+      if (clientErr) return jsonResponse({ error: clientErr.message }, 500);
+      if (!clientRow) return jsonResponse({ error: 'Unknown client.' }, 404);
+
+      let result: { conversationId: string; isNew: boolean };
+      try {
+        result = await findOrCreateConversation(admin, {
+          email: clientRow.email,
+          name: clientRow.name,
+          subject: composeSubject,
+          clientId: clientRow.id
+        });
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
+      }
+      conversationId = result.conversationId;
+
+      const { data: freshConvo, error: freshErr } = await admin
+        .from('conversations')
+        .select('id, contact_email, contact_name, subject')
+        .eq('id', conversationId)
+        .single();
+      if (freshErr) return jsonResponse({ error: freshErr.message }, 500);
+      conversation = freshConvo;
+    } else {
+      const { data: existingConvo, error: convoErr } = await admin
+        .from('conversations')
+        .select('id, contact_email, contact_name, subject')
+        .eq('id', conversationId)
+        .maybeSingle();
+      if (convoErr) return jsonResponse({ error: convoErr.message }, 500);
+      if (!existingConvo) return jsonResponse({ error: 'Unknown conversation.' }, 404);
+      conversation = existingConvo;
+    }
+
+    // Compose mode is always email by definition — a PM explicitly using "PM Compose Email"
+    // is not asking this function to infer a channel, unlike a reply on an existing thread.
+    let channel: 'chat' | 'email';
+    if (isCompose) {
+      channel = 'email';
+    } else {
+      const { data: recentMessage, error: recentErr } = await admin
+        .from('messages')
+        .select('channel')
+        .eq('conversation_id', conversationId)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (recentErr) return jsonResponse({ error: recentErr.message }, 500);
+      channel = recentMessage ? (recentMessage.channel as 'chat' | 'email') : 'chat';
+    }
 
     if (channel === 'chat') {
       const { data: inserted, error: insertErr } = await admin
@@ -90,7 +165,7 @@ Deno.serve(async (req) => {
         .select('id')
         .single();
       if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
-      return jsonResponse({ channel: 'chat', messageId: inserted.id }, 200);
+      return jsonResponse({ channel: 'chat', messageId: inserted.id, conversationId: conversationId }, 200);
     }
 
     // channel === 'email' — real threading headers, built from every prior real email
@@ -108,14 +183,20 @@ Deno.serve(async (req) => {
     const inReplyTo = priorMessageIds.length ? priorMessageIds[priorMessageIds.length - 1] : null;
     const references = priorMessageIds.length ? priorMessageIds.join(' ') : null;
 
-    const subject = conversation.subject
-      ? (/^re:/i.test(conversation.subject) ? conversation.subject : 'Re: ' + conversation.subject)
-      : 'Re: Your message to Marketswave';
+    // Compose mode's own subject is ALWAYS the real, exact one the PM just typed for THIS
+    // send — never conversation.subject, which grouping can leave stale on a reused thread
+    // (see the real bug fixed above). A reply reuses the conversation's own real subject with
+    // a real "Re:" prefix, as before — unaffected by this fix.
+    const subject = isCompose
+      ? composeSubject
+      : (conversation.subject
+        ? (/^re:/i.test(conversation.subject) ? conversation.subject : 'Re: ' + conversation.subject)
+        : 'Re: Your message to Marketswave');
 
     const { html, text } = renderEmail({
-      heading: 'A reply from your Portfolio Manager',
+      heading: isCompose ? 'A message from your Portfolio Manager' : 'A reply from your Portfolio Manager',
       introParagraphs: replyText.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean),
-      footerType: 'general',
+      footerType: footerType,
       allowsReply: true
     });
 
@@ -177,7 +258,7 @@ Deno.serve(async (req) => {
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
 
-    return jsonResponse({ channel: 'email', messageId: inserted.id }, 200);
+    return jsonResponse({ channel: 'email', messageId: inserted.id, conversationId: conversationId }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
