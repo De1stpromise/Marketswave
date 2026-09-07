@@ -368,10 +368,44 @@ async function main() {
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed.');
+  // ★ Hang fix (2026-09-07): this script had been silently hanging for 80+ minutes after
+  // printing its own final summary, on a run whose real assertions (all 31 of them) had
+  // genuinely completed within ~17 seconds — confirmed directly by killing a hung process
+  // and reading back its own already-printed "31 passed, 0 failed" line, timestamped
+  // ~17 seconds after process start. Root cause: every Section above imports the REAL,
+  // unmodified admin-supabase-config.js / supabase-config.js (by design — this script tests
+  // the real production files, not a mock) at least 10 separate times across Sections
+  // A/B/C/D(x4)/E(x2)/F(x2); each real createClient() call legitimately sets
+  // `autoRefreshToken: true` (correct, required production behavior for a real PM/client
+  // browser session) and, once a real sign-in succeeds, schedules a live setTimeout to
+  // refresh the access token before it expires. None of those ~10+ client instances are
+  // ever explicitly stopped, and several (Section B/D/E, loaded through admin-sidebar.js's
+  // own internal relative import inside a temp directory) aren't even directly reachable
+  // from this script to call .auth.stopAutoRefresh() on. The script previously had NO
+  // explicit process.exit() on its success path at all — only the `failed > 0` branch below
+  // called exit(1) — so it relied entirely on Node's natural "exit once the event loop is
+  // empty" behavior, which cannot happen while any of those real, correctly-scheduled
+  // refresh timers remain pending. An explicit exit here bypasses that reliance entirely,
+  // the same way the failure branch already did. ----
   if (failed > 0) process.exit(1);
+  process.exit(0);
 }
 
+// ★ Watchdog (2026-09-07, same hang fix): defense-in-depth beyond the explicit process.exit()
+// calls inside main() above — if a FUTURE change ever reintroduces a genuine stuck await
+// inside main() itself (a real network call with no timeout, not just a lingering background
+// timer), this ensures the script fails loudly within a bounded time instead of silently
+// consuming resources for 80+ minutes the way this exact script just did. 90 seconds is a
+// generous multiple of the ~17-second real runtime observed directly. Deliberately NOT
+// unref()'d — an unref()'d timer wouldn't keep the process alive on its own, which would
+// defeat the point of a safety net that needs to fire even if nothing else is scheduled.
+const watchdog = setTimeout(function () {
+  console.error('\nFATAL: script did not complete within 90s -- forcing exit. This should never happen after the 2026-09-07 hang fix; if it does, something inside main() is now genuinely stuck (a real network call with no timeout), not the previously-diagnosed lingering-auto-refresh-timer issue.');
+  process.exit(1);
+}, 90000);
+
 main().catch(function (err) {
+  clearTimeout(watchdog);
   console.error('FATAL: ' + (err && err.stack || err));
   process.exit(1);
 });
