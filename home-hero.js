@@ -97,27 +97,139 @@
   })();
 
   // -------------------------------------------------------------------------------------
-  // L6 — ticker tape.
+  // L6 — segmented ticker tape.
   //
-  // ★ IMPORTANT, and a correction to this task's own original plan: the tape shows REFERENCE
-  // values, not live ones, and says so in the markup ("Indicative levels").
+  // ★ This replaces the earlier note here saying live data was out of scope. It no longer is:
+  // get-public-market-snapshot was built for exactly this (design round 2, commit 1). The
+  // authenticated get-market-snapshot genuinely returns 401 to an anonymous homepage visitor —
+  // that finding stands — so a separate PUBLIC, read-only endpoint now serves the same cached
+  // values without ever refreshing them, which is what makes an open endpoint safe here.
   //
-  // The plan was to wire it to the real get-market-snapshot Edge Function. That function is
-  // AUTH-GATED — verified directly, not inferred: calling it with only the public anon key
-  // returns `401 {"error":"You must be signed in to perform this action."}`. It was built for
-  // the signed-in dashboard's Market Snapshot card, and a homepage visitor is by definition
-  // anonymous. Serving live data here would need a NEW public, unauthenticated Edge Function,
-  // which is real backend work plus a deployment, and adds a public endpoint that reaches
-  // third-party market APIs — out of scope for a visual pass without agreeing it first.
+  // Two segments alternate roughly every 25 seconds:
+  //   MARKETSWAVE — real company facts, static in the markup, so it is present with no JS,
+  //                 no network, or a failed fetch.
+  //   MARKETS     — real cached prices, added only if the fetch actually succeeds. It is
+  //                 labelled "delayed" rather than live: the endpoint serves a cache that
+  //                 only the signed-in dashboard's own call ever refreshes, so claiming a
+  //                 live feed would be untrue.
   //
-  // So the values are honest about what they are, and the LABELS are the real ETF proxies
-  // (SPY / QQQ / DIA) that get-market-snapshot itself returns — never "S&P 500" against an
-  // index number this project already decided it cannot legitimately source. See that
-  // function's own header comment for why the proxies exist.
-  //
-  // No fetch is attempted. Shipping a call that is guaranteed to 401 on every homepage load
-  // would be pure waste and would put a recurring error in every visitor's console.
+  // If the fetch fails the tape simply keeps showing the MARKETSWAVE segment. Fabricated
+  // market numbers are never used as a fallback — that was the whole problem with the values
+  // this replaced.
   // -------------------------------------------------------------------------------------
+  (function heroTape() {
+    var track = document.getElementById('hero-tape-track');
+    if (!track) return;
+
+    var firmSegment = track.innerHTML;   // captured before anything is swapped in
+    var marketSegment = null;
+    var showingMarkets = false;
+    var ROTATE_MS = 25000;
+
+    function restartScroll() {
+      // A CSS animation does not restart on a content change; force a reflow between clearing
+      // and restoring it so each segment scrolls from its own beginning.
+      track.style.animation = 'none';
+      void track.offsetWidth;
+      track.style.animation = '';
+    }
+
+    function swapTo(html, name) {
+      track.classList.add('is-swapping');
+      window.setTimeout(function () {
+        track.innerHTML = html;
+        track.setAttribute('data-segment', name);
+        restartScroll();
+        track.classList.remove('is-swapping');
+      }, 400);
+    }
+
+    function rotate() {
+      if (!marketSegment) return;              // nothing to rotate between
+      showingMarkets = !showingMarkets;
+      swapTo(showingMarkets ? marketSegment : firmSegment,
+             showingMarkets ? 'markets' : 'marketswave');
+    }
+
+    function esc(v) {
+      return String(v).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    function num(v, dp) {
+      var n = Number(v);
+      if (!isFinite(n)) return null;
+      return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+    }
+
+    function buildMarkets(payload) {
+      var parts = ['<span class="tape-label">Markets</span>',
+                   '<span class="tape-note">delayed</span>'];
+
+      (payload.markets || []).forEach(function (m) {
+        var value = num(m.value, Math.abs(Number(m.value)) >= 1000 ? 2 : 2);
+        if (value === null) return;
+        var cp = Number(m.changePercent);
+        var change = '';
+        if (isFinite(cp)) {
+          // A real minus sign, matching the typography the tape already used.
+          change = ' <em class="' + (cp < 0 ? 'dn' : 'up') + '">' +
+                   (cp < 0 ? '\u2212' : '+') + Math.abs(cp).toFixed(2) + '%</em>';
+        }
+        parts.push('<span>' + esc(m.symbol) + ' <b>' + value + '</b>' + change + '</span>');
+      });
+
+      // Real PM-published fund values, when there are any. These are genuine published NAVs,
+      // not simulated prices — the endpoint only ever returns product, price and as-of date.
+      (payload.navs || []).forEach(function (n) {
+        var price = num(n.price, 2);
+        if (price === null) return;
+        parts.push('<span>' + esc(n.product) + ' <b>' + price + '</b>' +
+                   (n.asOf ? ' <em class="tape-note">as of ' + esc(n.asOf) + '</em>' : '') + '</span>');
+      });
+
+      if (parts.length < 4) return null;       // label + note + at least two real rows
+      var html = '        ' + parts.join('\n        ') + '\n';
+      return html + html;                      // duplicated, same as the static segment
+    }
+
+    // The endpoint's URL and public anon key come from supabase-endpoint.js, which was split
+    // out of supabase-config.js for exactly this call: that file constructs a real Supabase
+    // client at module scope, so importing it here would pull the whole @supabase/supabase-js
+    // bundle from a third-party CDN onto a marketing page for a decorative tape.
+    // supabase-endpoint.js imports nothing, so this costs one small file and no SDK.
+    //
+    // It is an ES module and home-hero.js is a classic script, hence the dynamic import —
+    // the same technique dashboard-sidebar.js already uses for its own sign-out call. A plain
+    // fetch is enough: this is one unauthenticated POST to a public endpoint.
+    import('./supabase-endpoint.js').then(function (mod) {
+      var cfg = mod.ACTIVE_CONFIG;
+      if (!cfg || !cfg.url) return;
+      return fetch(cfg.url + '/functions/v1/get-public-market-snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.anonKey },
+        body: '{}'
+      }).then(function (res) {
+        return res.ok ? res.json() : null;
+      }).then(function (payload) {
+        if (!payload) return;
+        marketSegment = buildMarkets(payload);
+        if (!marketSegment) return;
+        // Show the real market data straight away — a visitor should not have to wait 25s to
+        // see the segment that actually needed a network call.
+        showingMarkets = true;
+        swapTo(marketSegment, 'markets');
+      });
+    }).catch(function () {
+      // Offline, blocked, endpoint down, config missing — the static MARKETSWAVE segment is
+      // already on screen and stays there. Deliberately silent: a marketing page should not
+      // put an error in a visitor's console over a decorative tape.
+    });
+
+    window.setInterval(rotate, ROTATE_MS);
+  })();
+
 
   // -------------------------------------------------------------------------------------
   // BEAT 4 — "What Makes Us Different" background video.
@@ -161,5 +273,39 @@
         v.remove();
       });
     }
+  })();
+  // -------------------------------------------------------------------------------------
+  // Hero card hover tilt (design round 2).
+  //
+  // Applied to .hero-card-inner, never the card itself: the card carries a running float
+  // keyframe animation, and a running animation beats an inline style, so a transform set on
+  // the card would be silently ignored. Never attached under reduced motion — the CSS gives
+  // those visitors a plain static lift on hover instead.
+  // -------------------------------------------------------------------------------------
+  (function heroCardTilt() {
+    if (reduce) return;
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+    var MAX_DEG = 9;
+    [].forEach.call(document.querySelectorAll('.hero-card'), function (card) {
+      var inner = card.querySelector('.hero-card-inner');
+      if (!inner) return;
+
+      card.addEventListener('pointermove', function (e) {
+        var b = card.getBoundingClientRect();
+        var px = (e.clientX - b.left) / b.width - 0.5;   // -0.5 .. 0.5
+        var py = (e.clientY - b.top) / b.height - 0.5;
+        card.classList.add('is-tilting');
+        inner.style.transform =
+          'rotateX(' + (-py * MAX_DEG).toFixed(2) + 'deg) ' +
+          'rotateY(' + (px * MAX_DEG).toFixed(2) + 'deg) ' +
+          'translateZ(10px)';
+      });
+
+      card.addEventListener('pointerleave', function () {
+        card.classList.remove('is-tilting');   // back to the slow easing for the settle
+        inner.style.transform = '';
+      });
+    });
   })();
 })();

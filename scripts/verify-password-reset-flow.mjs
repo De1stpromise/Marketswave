@@ -101,6 +101,11 @@ async function loadPage(htmlPath, url, supabaseConfigTempPath) {
   const moduleCode = extractModuleScript(htmlPath);
   const tempDir = mkdtempSync(path.join(tmpdir(), 'ms-reset-flow-test-'));
   writeFileSync(path.join(tempDir, 'supabase-config.js'), readFileSync(supabaseConfigTempPath, 'utf8'));
+  // supabase-endpoint.js (homepage design round 2, 2026-09-08) holds the environment
+  // resolution and both project configs, which supabase-config.js now imports and
+  // re-exports. It has to come along or the temp copy cannot resolve its own import.
+  writeFileSync(path.join(tempDir, 'supabase-endpoint.js'),
+                readFileSync(path.join(PROJECT_ROOT, 'supabase-endpoint.js'), 'utf8'));
   const modulePath = path.join(tempDir, 'page-script-' + crypto.randomBytes(4).toString('hex') + '.mjs');
   writeFileSync(modulePath, moduleCode);
   await import('file://' + modulePath.replace(/\\/g, '/'));

@@ -7474,6 +7474,49 @@ row 74.
   derived assets are committed, with the exact ffmpeg/Pillow settings recorded here so the
   derivation is reproducible.
 
+- **★★★ Homepage design round 2 — nav, seam artifacts, structure, ticker and footer
+  (2026-09-08, row 174)**: built from an approved mockup and landed as five logically-grouped
+  commits — backend, structure, nav, artifacts, ticker/polish.
+  **New public endpoint**: `get-public-market-snapshot` is this project's FIRST genuinely open,
+  unauthenticated read endpoint. It exists because the homepage ticker cannot call the
+  authenticated `get-market-snapshot` — that function genuinely returns 401 to an anonymous
+  visitor (verified directly, correcting the Depth Pass's own recommendation, which had checked
+  the symbols but not the auth). What makes it safe is architectural: it is READ-ONLY against
+  `market_data_cache` and **never refreshes it**, so no volume of traffic can reach, bill or
+  rate-limit Finnhub/CoinGecko. It exposes only product/price/as-of for published NAVs — a
+  deliberate, flagged widening of previously admin-gated data, with no publisher identity.
+  Deployed to real cloud staging.
+  **New shared module**: `supabase-endpoint.js` holds the environment resolution and both
+  project configs (`LOCAL_CONFIG`/`STAGING_CONFIG`/`ACTIVE_CONFIG`), moved verbatim out of
+  `supabase-config.js`, which now imports and re-exports them — so a caller that only needs the
+  endpoint does not pull the whole `@supabase/supabase-js` bundle onto a marketing page.
+  **Any future code needing only the project URL/anon key should import this file, not
+  `supabase-config.js`.** Confirmed by real resource timing: zero esm.sh requests on the
+  homepage. `verify-cloud-staging-parity.js` now reads `STAGING_CONFIG.url` from here.
+  **Homepage rhythm** is now hero / stats(light) -> DARK(photo) -> light -> light ->
+  DARK(video) -> light -> quiet-light -> DARK(footer). The photo moved up from the Philosophy
+  CTA to the Company Pitch, so the two pieces of media ARE the dark beats rather than being
+  extra to them; Philosophy is deliberately quiet (no background, panel or blobs).
+  **Header** (`site-nav.js`, shared by all 8 marketing pages): transparent over the hero and
+  glass past 60px, a liquid nav indicator built with NO SVG filters (an overshooting curve plus
+  a travel-distance-derived stretch), and magnetic buttons. **The transparent-at-rest overlay is
+  HOMEPAGE ONLY** — `.hero` exists on `index.html` alone; the other seven open with a dark
+  `.page-hero` where a transparent bar would put navy links on navy. Those pages keep an opaque
+  bar and gain only the scrolled glass.
+  **Seven seam artifacts** (VAULT, FINGERPRINT, PLINKO, CANDLESTICK, RADAR, SNOWBALL, CHEQUE)
+  each live in a zero-height `.seam-rail` BETWEEN two sections, never inside one: every
+  candidate host carries `.blob-field` or `.media-section`, both of which set `overflow:hidden`,
+  so anything hung off a section's own bottom edge is clipped. **Add a future artifact the same
+  way** — a rail between the two sections, not a child of either. They carry no text at all; the
+  mockup's illustrative figures had no source and were not carried over.
+  **Ticker** alternates MARKETSWAVE (real company facts, static in the markup) and MARKETS (real
+  cached prices, labelled *delayed*) roughly every 25s. Every fabricated market number the
+  mockup shipped is gone, and fabricated values are never a fallback — with the endpoint blocked
+  the tape shows no market symbol at all.
+  Verified: 15/15 endpoint, 30/30 and 33/33 real composited-contrast probes, 55/55 header,
+  57/57 artifacts, 34/34 ticker/footer/tilt. Page weight +40.6 KB against the round's own
+  baseline, entirely text, no new media. See `Marketswave_Project_Handover.md` register row 174.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

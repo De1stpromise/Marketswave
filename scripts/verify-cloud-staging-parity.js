@@ -20,7 +20,9 @@
 //
 // Requires: `supabase` CLI logged in and linked to the real project (same discipline as
 // every other real-cloud-staging script in this project — confirms the linked project
-// matches supabase-config.js's own hardcoded STAGING_CONFIG.url before trusting anything).
+// matches supabase-endpoint.js's own hardcoded STAGING_CONFIG.url before trusting anything —
+// that constant moved out of supabase-config.js in the homepage design round 2, 2026-09-08, so
+// the marketing homepage could reach the project URL without pulling the whole Supabase SDK).
 //
 // A REAL, DISCLOSED LIMITATION (found 2026-09-06, Backend Migration Phase C — Stage 1):
 // the Edge Functions check only confirms a function SLUG exists and is ACTIVE on the real
@@ -70,11 +72,11 @@ function fail(msg) {
 console.log('=== Cloud Staging Parity Check ===\n');
 
 // ---- 0. Confirm we're actually targeting the right real project ----
-const supabaseConfigSrc = fs.readFileSync(path.join(REPO_ROOT, 'supabase-config.js'), 'utf8');
+const supabaseConfigSrc = fs.readFileSync(path.join(REPO_ROOT, 'supabase-endpoint.js'), 'utf8');
 const stagingBlockMatch = supabaseConfigSrc.match(/const STAGING_CONFIG = \{[\s\S]*?\};/);
 const urlMatch = stagingBlockMatch && stagingBlockMatch[0].match(/url:\s*'([^']+)'/);
 if (!urlMatch || urlMatch[1] !== EXPECTED_STAGING_URL) {
-  fail(`supabase-config.js's STAGING_CONFIG.url does not match the expected real project URL (${EXPECTED_STAGING_URL}) — refusing to check parity against a possibly-wrong project. Found: ${urlMatch && urlMatch[1]}`);
+  fail(`supabase-endpoint.js's STAGING_CONFIG.url does not match the expected real project URL (${EXPECTED_STAGING_URL}) — refusing to check parity against a possibly-wrong project. Found: ${urlMatch && urlMatch[1]}`);
   process.exit(1);
 }
 let linkedRef;

@@ -1361,6 +1361,38 @@ body.has-overlay-header .hero {
   background: var(--primary-dark);
   color: #94a3b8;
   padding: 80px 0 40px;
+  /* Design round 2 (2026-09-08): two decorative layers, both pseudo-elements so the shared
+     footer markup on all eight marketing pages needs no change at all. ::before is a faint
+     radial light rising from behind the brand column; ::after is an SVG-turbulence grain over
+     it, the same technique .hero-grain already uses (a data-URI background, not a live filter
+     in the DOM — nothing for the compositor to re-evaluate). The grain is screened rather
+     than multiplied here because the surface is dark: multiply would simply disappear. */
+  position: relative;
+  overflow: hidden;
+}
+.site-footer > * { position: relative; z-index: 2; }
+.site-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(58% 62% at 22% 0%, rgba(22, 129, 95, 0.12) 0%, transparent 62%),
+    radial-gradient(48% 55% at 82% 18%, rgba(200, 134, 10, 0.08) 0%, transparent 66%);
+}
+.site-footer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  /* Measured, not eyeballed: at .5 with a stronger radial light beneath it, the footer link
+     colour composited at 4.88:1 — still over 4.5:1 but a real, avoidable drop from 5.79:1 for
+     a purely decorative layer. Dialled back until the margin came most of the way back. */
+  opacity: .34;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='fg'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23fg)' opacity='.28'/%3E%3C/svg%3E");
 }
 
 .footer-grid {
@@ -1693,6 +1725,18 @@ body.has-overlay-header .hero {
 @keyframes heroFloat2 { to { transform: translateY(14px)  rotate(1deg); } }
 @keyframes heroFloat3 { to { transform: translateY(-12px) rotate(1.4deg); } }
 @keyframes heroFloat4 { to { transform: translateY(16px)  rotate(-1deg); } }
+/* Design round 2 (2026-09-08): hover tilt.
+   The float animation lives on .hero-card and a running CSS animation beats an inline style,
+   so a JS-set transform on the card itself would simply be ignored. The tilt therefore goes
+   on an inner wrapper: the card keeps floating, the inner tilts inside it. .hero-planes sets
+   pointer-events:none for the layer as a whole, so the cards opt back in individually. */
+.hero-card { perspective: 720px; pointer-events: auto; }
+.hero-card-inner {
+  transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+.hero-card.is-tilting .hero-card-inner { transition: transform .08s linear; }
+
 .hero-spark { display: block; margin-top: 8px; width: 100%; height: 22px; overflow: visible; }
 
 /* L5 — allocation ring */
@@ -1727,6 +1771,22 @@ body.has-overlay-header .hero {
 .hero-tape .up { color: var(--accent-teal); font-style: normal; }
 .hero-tape .dn { color: #B4553F; font-style: normal; }
 @keyframes heroTape { to { transform: translateX(-100%); } }
+
+/* Design round 2 (2026-09-08): the tape is now SEGMENTED — a MARKETSWAVE segment of real
+   company facts and a MARKETS segment of real cached prices, alternating every ~25s
+   (home-hero.js). The label prefixes each segment so a visitor always knows which they are
+   looking at, and the markets one says "delayed" rather than implying a live feed: the
+   endpoint serves a cache that only the signed-in dashboard's own call ever refreshes. */
+.hero-tape-track { transition: opacity .38s ease; }
+.hero-tape-track.is-swapping { opacity: 0; }
+.hero-tape .tape-label {
+  color: var(--primary);
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.hero-tape .tape-note { color: #7A848C; font-style: normal; }
 
 /* L7 — streaks, grain, vignette */
 .hero-streak { position: absolute; top: -30%; width: 1px; height: 160%; transform: rotate(16deg); pointer-events: none; }
@@ -2077,6 +2137,11 @@ body.has-overlay-header .hero {
   .hero-badge i {
     animation: none !important;
   }
+  /* Design round 2: the hover tilt is never attached by JS under reduced motion. The cards
+     still respond to hover, but with a plain static lift and no transition — a state change
+     rather than motion, the same line drawn for the header's glass-on-scroll. */
+  .hero-card-inner { transition: none; }
+  .hero-card:hover .hero-card-inner { transform: translateY(-4px); }
   /* Only the VIDEO is motion. An earlier draft hid every .media-bg, which also removed the
      static philosophy photograph — measured: under reduced motion that section fetched only
      the poster and lost its background image entirely. A photo is not motion, so it stays. */
