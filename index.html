@@ -102,7 +102,6 @@
     <div class="hero-vig" aria-hidden="true"></div>
     <div class="hero-grain" aria-hidden="true"></div>
     <div class="container">
-      <span class="hero-badge"><i aria-hidden="true"></i> Institutional discipline, private capital</span>
       <h1>Capital with Clarity.<br><span class="gradient-text">Partnerships with Patience.</span></h1>
       <p class="hero-lead">
         Marketswave is a global competitor in active fixed income with deep expertise across public and private markets.
@@ -182,6 +181,7 @@
         <span class="trend">6 core services</span>
       </div>
     </div>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#1B3A4B"/></svg>
   </section>
 
   <!-- Homepage Visual Redesign, Stage 2 (2026-09-05): the glass/gradient/blob treatment
@@ -196,92 +196,85 @@
        Agreed sequence: light / DARK / light / DARK(video) / light / DARK(photo).
        The video and photo sections COUNT AS the dark beats rather than being additional to
        them, so the page never stacks two dark moments back to back. -->
-  <section class="section section-light blob-field">
-    <div class="section-grid-tex" aria-hidden="true"></div>
-    <div class="blob blob--xl blob--teal" style="top:-300px; left:-220px; opacity:0.5;"></div>
-    <div class="blob blob--lg blob--gold" style="bottom:-260px; right:-160px; opacity:0.45;"></div>
+  <!-- Design round 2 (2026-09-08) — BEAT 1 is now DARK and carries the office photograph,
+       moved here from the Philosophy CTA. New rhythm:
+       hero -> DARK(photo) -> light -> light -> DARK(video) -> light -> light -> DARK(footer).
+       The photo and video remain the dark beats rather than being extra to them. -->
+  <section class="section media-section" id="company-pitch">
+    <picture>
+      <source type="image/webp" sizes="100vw"
+              srcset="assets/philosophy-768.webp 768w, assets/philosophy-1280.webp 1280w, assets/philosophy-1920.webp 1920w" />
+      <source type="image/jpeg" sizes="100vw"
+              srcset="assets/philosophy-768.jpg 768w, assets/philosophy-1280.jpg 1280w, assets/philosophy-1920.jpg 1920w" />
+      <img class="media-bg" src="assets/philosophy-1280.jpg" alt="" aria-hidden="true" decoding="async" />
+    </picture>
+    <div class="media-scrim media-scrim--photo" aria-hidden="true"></div>
     <div class="container">
       <div class="section-header">
+        <span class="eyebrow">Our approach</span>
         <h2>20+ year Empirically validated strategies, aimed to deliver quality performance throughout varied market cycles.</h2>
         <p>Clients with us rely on an investment process that has been test and trusted in various markets, honed over two decades, our process takes an integrated approach to employ our best ideas across public and private markets.</p>
       </div>
 
-      <div class="two-col">
+      <div class="pitch-prose">
         <div>
-          <h2 style="font-size:1.7rem; margin-bottom:18px; color:var(--primary);">Marketswave provides seamless access to a quality investment procedure</h2>
+          <h2 style="font-size:1.7rem; margin-bottom:18px;">Marketswave provides seamless access to a quality investment procedure</h2>
           <p>Our principles for responsible investment are based on the belief that companies who act responsibly and work in accordance with sustainable principles are better investment projects in the long term, as the risks and opportunities related to the environment, society and governance (ESG factors) are more extensively analyzed. Therefore, it is essential to integrate ESG related aspects when performing a company analysis.</p>
           <p>We strive to always act responsibly and consider sustainable development in all our investment decisions and our daily operations. Responsibility is grounded in our employees' values. In our principles for responsible investment, sustainability risk assessments and business operations, we consider the most common international agreements and standards for leading society and business.</p>
         </div>
-        <div class="approach-visual process-steps glass">
-          <div class="process-step">
-            <div class="process-step-num">1</div>
-            <div class="process-step-text">
-              <h4>Discover</h4>
-              <p>Understand your objectives, time horizon, and risk tolerance.</p>
-            </div>
-          </div>
-          <div class="process-step">
-            <div class="process-step-num">2</div>
-            <div class="process-step-text">
-              <h4>Construct</h4>
-              <p>Build portfolios and structures aligned to those goals.</p>
-            </div>
-          </div>
-          <div class="process-step">
-            <div class="process-step-num">3</div>
-            <div class="process-step-text">
-              <h4>Monitor</h4>
-              <p>Track performance and rebalance as conditions change.</p>
-            </div>
-          </div>
-          <div class="process-step">
-            <div class="process-step-num">4</div>
-            <div class="process-step-text">
-              <h4>Report</h4>
-              <p>Communicate results and decisions with consistency.</p>
-            </div>
-          </div>
-        </div>
       </div>
+
+      <!-- The four process steps, freed from the card they used to sit in and spread across
+           the section over the photograph. Large staggered numerals rather than a horizontal
+           timeline: it echoes the numeral treatment already used by "What Makes Us Different"
+           so the page stays coherent, it collapses to one column at 375px without a
+           horizontal-scroll problem, and a timeline's connecting line would fight the
+           photograph's own composition instead of sitting over it. -->
+      <ol class="process-flow">
+        <li class="process-flow-step"><span class="process-flow-num">01</span>
+          <div><h4>Discover</h4><p>Understand your objectives, time horizon, and risk tolerance.</p></div></li>
+        <li class="process-flow-step"><span class="process-flow-num">02</span>
+          <div><h4>Construct</h4><p>Build portfolios and structures aligned to those goals.</p></div></li>
+        <li class="process-flow-step"><span class="process-flow-num">03</span>
+          <div><h4>Monitor</h4><p>Track performance and rebalance as conditions change.</p></div></li>
+        <li class="process-flow-step"><span class="process-flow-num">04</span>
+          <div><h4>Report</h4><p>Communicate results and decisions with consistency.</p></div></li>
+      </ol>
 
       <div class="values-block">
         <p class="values-label">Our Values</p>
         <div class="values-grid">
-          <div class="value-item glass-subtle">
+          <div class="value-item glass-on-dark">
             <h4>One Team</h4>
             <p>We operate as a cohesive unit, embracing diversity and collaboration, which fuels our shared commitment to achieving our mission and upholding our values.</p>
           </div>
-          <div class="value-item glass-subtle">
+          <div class="value-item glass-on-dark">
             <h4>Champion the Investor</h4>
             <p>We prioritize the needs and interests of investors in everything we do, aiming to empower them whether they engage with us directly or indirectly.</p>
           </div>
-          <div class="value-item glass-subtle">
+          <div class="value-item glass-on-dark">
             <h4>Dream Big, Drive Change</h4>
             <p>We embrace bold visions and actively pursue innovations that improve our services, benefit the communities we operate in, and make a positive impact on the wider world.</p>
           </div>
-          <div class="value-item glass-subtle">
+          <div class="value-item glass-on-dark">
             <h4>Growth Mindset</h4>
             <p>We encourage continuous personal and professional development, knowing that our collective growth drives the company's success.</p>
           </div>
         </div>
       </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#1B3A4B"/></svg>
-    <!-- The intersecting artifact: sits half in this light section and half in the dark one
-         below, bridging the boundary instead of respecting it. -->
-    <div class="section-artifact" aria-hidden="true">
-      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#1B3A4B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>
-    </div>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,20 L1440,90 L0,90 Z" fill="#F7F6F3"/></svg>
   </section>
 
   <!-- ========== ACCOUNT TYPES ========== -->
 
   <!-- BEAT 2: DARK. A 3-card grid, which is exactly the shape the approved rhythm mockup
        uses for its own dark-section cards — so .glass-on-dark drops straight in. -->
-  <section class="account-types section-dark blob-field">
-    <div class="blob blob--xl blob--teal" style="top:-220px; right:-240px; opacity:0.42;"></div>
-    <div class="blob blob--lg blob--gold" style="bottom:-200px; left:-140px; opacity:0.3;"></div>
-    <div class="blob blob--md blob--violet" style="top:38%; left:30%; opacity:0.24;"></div>
+  <!-- BEAT 2: LIGHT (was dark; the photo beat above now carries that weight) -->
+  <section class="account-types section-light blob-field">
+    <div class="section-grid-tex" aria-hidden="true"></div>
+    <div class="blob blob--xl blob--teal" style="top:-260px; right:-240px; opacity:0.45;"></div>
+    <div class="blob blob--lg blob--gold" style="bottom:-220px; left:-160px; opacity:0.4;"></div>
     <div class="container">
       <div class="section-header">
         <span class="eyebrow">Ways to invest</span>
@@ -290,26 +283,25 @@
       </div>
 
       <div class="account-grid">
-        <article class="account-card glass-on-dark">
+        <article class="account-card glass">
           <div class="icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
           <h3>Individual</h3>
           <p>Personal investment accounts tailored to your goals, time horizon, and risk preferences. Suitable for most private investors seeking professional management or self directed access.</p>
         </article>
 
-        <article class="account-card glass-on-dark">
+        <article class="account-card glass">
           <div class="icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           <h3>Joint Option</h3>
           <p>Shared ownership structures for couples or partners. Joint accounts provide coordinated management while maintaining clear ownership and beneficiary arrangements.</p>
         </article>
 
-        <article class="account-card glass-on-dark">
+        <article class="account-card glass">
           <div class="icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-5h6v5"/><path d="M9 8h1"/><path d="M14 8h1"/><path d="M9 12h1"/><path d="M14 12h1"/></svg></div>
           <h3>Entity / Business</h3>
           <p>Corporate, partnership, and institutional accounts. Designed for businesses, family offices, and organizations requiring formal governance, reporting, and multi signatory controls.</p>
         </article>
       </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,20 L1440,90 L0,90 Z" fill="#F7F6F3"/></svg>
   </section>
 
   <!-- ========== PLATFORM PITCH ========== -->
@@ -501,7 +493,6 @@
         <a href="services.html" class="btn btn-outline">View all 6 services</a>
       </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#1B3A4B"/></svg>
   </section>
 
   <!-- ========== PHILOSOPHY CTA ========== -->
@@ -515,26 +506,20 @@
 
   <!-- BEAT 6: DARK — carried by the real photograph. Responsive sources; the browser picks
        one file, so a phone never downloads the 1920px asset. -->
-  <section class="philosophy philosophy-featured media-section">
-    <picture>
-      <source type="image/webp" sizes="100vw"
-              srcset="assets/philosophy-768.webp 768w, assets/philosophy-1280.webp 1280w, assets/philosophy-1920.webp 1920w" />
-      <source type="image/jpeg" sizes="100vw"
-              srcset="assets/philosophy-768.jpg 768w, assets/philosophy-1280.jpg 1280w, assets/philosophy-1920.jpg 1920w" />
-      <img class="media-bg" src="assets/philosophy-1280.jpg" alt="" aria-hidden="true" loading="lazy" decoding="async" />
-    </picture>
-    <div class="media-scrim media-scrim--photo" aria-hidden="true"></div>
+  <!-- BEAT 6: LIGHT and deliberately quiet. Its photograph moved up to the Company Pitch,
+       and nothing replaced it: no background, no panel, no blobs. Big serif type and a lot of
+       whitespace, so the page exhales before the footer. -->
+  <section class="philosophy philosophy-quiet">
     <div class="container">
-      <div class="philosophy-panel glass-on-dark">
-        <span class="eyebrow">Our philosophy</span>
-          <h2>Stewardship over speculation.</h2>
-        <p>
-          We exist to protect and grow capital with care. Our role is not to impress with complexity,
-          but to deliver thoughtful, durable outcomes for the people and institutions who entrust us with their wealth.
-        </p>
-        <a href="contact.html" class="btn hero-btn-primary">Start a Conversation</a>
-      </div>
+      <span class="eyebrow">Our philosophy</span>
+      <h2>Stewardship over speculation.</h2>
+      <p>
+        We exist to protect and grow capital with care. Our role is not to impress with complexity,
+        but to deliver thoughtful, durable outcomes for the people and institutions who entrust us with their wealth.
+      </p>
+      <a href="contact.html" class="btn hero-btn-primary">Start a Conversation</a>
     </div>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#122A38"/></svg>
   </section>
 
   <!-- ========== FOOTER ========== -->

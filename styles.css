@@ -1706,8 +1706,10 @@ img {
    has no background-color to read. */
 .section-dark h2,
 .section-dark h3,
+.section-dark h4,
 .media-section h2,
-.media-section h3 { color: var(--bg); }
+.media-section h3,
+.media-section h4 { color: var(--bg); }
 .section-dark p,
 .section-dark .text-muted,
 .media-section p,
@@ -1719,6 +1721,16 @@ img {
 .media-section .philosophy-panel p { color: inherit; }
 .media-section .philosophy-panel h2 { color: var(--bg); }
 .media-section .philosophy-panel p { color: rgba(247, 246, 243, 0.78); }
+
+/* Design round 2 (2026-09-08): "Our Values" moved onto a dark beat with the Company Pitch.
+   .value-item h4 sets navy at the same (0,1,1) specificity as the heading rule above and is
+   defined earlier in the file, so it would win on order alone — it needs an explicit
+   dark-context override rather than relying on the general rule. The 2px navy top accent
+   goes invisible on navy for the same reason and is re-tinted to cream. */
+.media-section .value-item,
+.section-dark .value-item { border-top-color: rgba(247, 246, 243, 0.55); }
+.media-section .value-item h4,
+.section-dark .value-item h4 { color: var(--bg); }
 
 /* Eyebrow labels — teal on light, mint on dark (the .section-dark rule above overrides). */
 .eyebrow {
@@ -1752,6 +1764,97 @@ img {
 .media-scrim--video { background: linear-gradient(165deg, rgba(27,58,75,0.86) 0%, rgba(18,40,58,0.90) 60%, rgba(14,33,48,0.93) 100%); }
 .media-scrim--photo { background: linear-gradient(160deg, rgba(27,58,75,0.90) 0%, rgba(18,40,58,0.93) 55%, rgba(14,33,48,0.95) 100%); }
 .media-section .container { position: relative; z-index: 2; }
+
+/* -------------------------------------------------------------------------------------
+   18C-2. DESIGN ROUND 2 (2026-09-08) — Company Pitch process flow + quiet Philosophy
+------------------------------------------------------------------------------------- */
+
+/* The prose column that used to be half of a .two-col pair. Its sibling (the boxed process
+   steps) has been freed into .process-flow below, so this is single-column now. */
+.pitch-prose { max-width: 760px; }
+
+/* The four steps, spread across the section over the photograph. Large staggered numerals
+   rather than a horizontal timeline — see the note in index.html for why. */
+.process-flow {
+  list-style: none;
+  margin: 64px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
+.process-flow-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* The stagger: each step sits a little lower than the last, so the row reads as a descent
+     through the process rather than four equal boxes. */
+  padding-top: calc(var(--step-offset, 0) * 26px);
+}
+.process-flow-step:nth-child(2) { --step-offset: 1; }
+.process-flow-step:nth-child(3) { --step-offset: 2; }
+.process-flow-step:nth-child(4) { --step-offset: 3; }
+.process-flow-num {
+  font-size: 3.2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Recessive, but still legible. 0.28 alpha measured 2.37:1 against the scrim — and these
+     numerals do carry meaning (they sequence the process), so "decorative" was not a defence.
+     0.62 keeps them clearly subordinate to the step titles while clearing 4.5:1. */
+  color: rgba(247, 246, 243, 0.62);
+}
+.process-flow-step h4 {
+  font-size: 1.05rem;
+  color: var(--bg);
+  margin-bottom: 6px;
+}
+.process-flow-step p {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: rgba(247, 246, 243, 0.78);
+}
+
+/* Philosophy CTA — deliberately quiet. No background, no panel, no blobs: the page exhales
+   here before the footer. Big serif type is the only weight it carries. */
+.philosophy-quiet {
+  position: relative;
+  /* Same gradient the other light sections use, not flat --bg: on flat #F7F6F3 the teal
+     eyebrow measured 4.48:1, just under the line, where the gradient's lighter top clears it. */
+  background: linear-gradient(180deg, #FDFCFA 0%, var(--bg) 100%);
+  padding: 150px 24px 170px;
+  text-align: center;
+}
+.philosophy-quiet .container { max-width: 760px; }
+.philosophy-quiet h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: 2.7rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--primary);
+  margin: 0 auto 26px;
+}
+.philosophy-quiet p {
+  font-size: 1.08rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  max-width: 620px;
+  margin: 0 auto 38px;
+}
+
+@media (max-width: 960px) {
+  .process-flow { grid-template-columns: repeat(2, 1fr); gap: 28px; }
+  /* The stagger is a wide-screen device; at two columns it just makes ragged holes. */
+  .process-flow-step { padding-top: 0; }
+  .philosophy-quiet h2 { font-size: 2.1rem; }
+  .philosophy-quiet { padding: 110px 24px 120px; }
+}
+@media (max-width: 620px) {
+  .process-flow { grid-template-columns: 1fr; gap: 22px; }
+  .process-flow-num { font-size: 2.6rem; }
+  .philosophy-quiet h2 { font-size: 1.8rem; }
+}
 
 /* -------------------------------------------------------------------------------------
    18D. REDUCED MOTION — suppress every moving layer, including canvas and ticker.
