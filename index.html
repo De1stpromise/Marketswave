@@ -12,10 +12,14 @@
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="chat-widget.css" />
 </head>
-<body>
+<body class="has-overlay-header">
 
   <!-- ========== HEADER ========== -->
-  <header class="site-header">
+  <!-- Design round 2 (2026-09-08): --overlay is homepage-only. The bar floats transparently
+       over the light hero here and becomes glass past 60px of scroll (site-nav.js). The other
+       seven marketing pages open with a DARK .page-hero, where a transparent bar would leave
+       navy links on navy — they keep their opaque bar and gain only the scrolled glass. -->
+  <header class="site-header site-header--overlay">
     <div class="container">
       <a href="index.html" class="logo">Marketswave</a>
 

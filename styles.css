@@ -229,6 +229,99 @@ img {
   min-width: 118px;
 }
 
+/* -------------------------------------------------------------------------------------
+   4B. HEADER — DESIGN ROUND 2 (2026-09-08)
+   Transparent-over-hero, glass once scrolled, a liquid nav indicator and magnetic buttons.
+
+   ★ Scope, decided rather than assumed: the OVERLAY (genuinely transparent at rest) is
+   homepage-only. .hero exists on index.html alone — confirmed by grep; the other seven
+   marketing pages open with .page-hero, which is DARK NAVY, and a transparent bar over it
+   would leave the navy nav links sitting on navy at roughly 1:1. Those pages keep their
+   opaque bar at rest and gain only the scrolled glass state, which is a near-identical
+   look to what they already had.
+------------------------------------------------------------------------------------- */
+.site-header {
+  transition: background-color .3s ease, border-color .3s ease,
+              box-shadow .3s ease, backdrop-filter .3s ease;
+}
+
+/* Homepage: the bar floats over the hero rather than sitting above it, so the hero's own
+   gradient, grid and light fields run underneath it. Going position:fixed removes 72px from
+   the flow, which .hero gets back as padding — its min-height also returns to a full 100vh,
+   since the calc() it used existed only to account for a bar that took layout space. */
+.site-header.site-header--overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  background: transparent;
+  border-bottom-color: transparent;
+}
+body.has-overlay-header .hero {
+  min-height: 100vh;
+  padding-top: 72px;
+}
+
+/* Past ~60px of scroll (set in site-nav.js) the bar detaches and becomes glass. Placed AFTER
+   the overlay rule deliberately: both are (0,2,0), so this one has to come later to win for
+   the homepage as well as the other seven pages. */
+.site-header.is-stuck {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  border-bottom-color: rgba(27, 58, 75, 0.10);
+  box-shadow: 0 10px 30px -18px rgba(27, 58, 75, 0.45);
+}
+
+/* ---- Liquid indicator ---------------------------------------------------------------
+   A single pill that travels between nav items, built with transform and width only —
+   NO SVG filters (no feGaussianBlur/feColorMatrix goo), which are expensive to composite
+   and paint unpredictably across browsers. The "liquid" read comes from two cheap tricks
+   instead: an overshooting easing curve, and a brief horizontal stretch while the pill is
+   in flight (site-nav.js sets --pill-stretch from the real travel distance), so it appears
+   to elongate and settle rather than slide rigidly. */
+.main-nav { position: relative; }
+
+.nav-pill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 34px;
+  margin-top: -17px;
+  border-radius: 999px;
+  background: rgba(27, 58, 75, 0.085);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transform: translateX(0) scaleX(1);
+  transform-origin: center;
+  transition: transform .42s cubic-bezier(.34, 1.4, .5, 1),
+              width .42s cubic-bezier(.34, 1.4, .5, 1),
+              opacity .25s ease;
+}
+.nav-pill.is-visible { opacity: 1; }
+.nav-pill.is-travelling { transform: translateX(var(--pill-x, 0)) scaleX(var(--pill-stretch, 1)); }
+
+/* The links must sit above the pill, and the active underline stands down while the pill
+   is doing that job — but only once the pill actually exists, so a no-JS or reduced-motion
+   visitor keeps the underline rather than losing the active marker entirely. */
+.main-nav a { z-index: 1; }
+.main-nav.has-pill a.active::after { opacity: 0; }
+
+/* ---- Magnetic buttons ---------------------------------------------------------------
+   Header actions lean a few pixels toward the cursor. Applied by site-nav.js only for a
+   fine pointer with real hover, and never under prefers-reduced-motion. */
+.header-actions .btn {
+  transition: transform .18s cubic-bezier(.22, 1, .36, 1),
+              background-color .2s, color .2s, border-color .2s;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header,
+  .nav-pill,
+  .header-actions .btn { transition: none; }
+}
+
 /* Mobile fixes, Batch 1 (2026-09-08), Finding S1: below 960px "Contact" moves out of the
    header bar and into the mobile nav drawer (see the @media block further down) rather than
    sitting alongside "Get Access" — the pair together (276px) never fit a real phone width
