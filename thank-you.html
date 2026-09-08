@@ -4,24 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Application Received — Marketswave</title>
+  <meta name="description" content="Your Marketswave application has been received." />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    /* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): the old dark navy body +
-       photographic background (thankyou-bg.jpg) + heavy blur overlay is replaced with the
-       same light-background liquid-glass language established everywhere else in this
-       project (see admin-login.html's own identical judgment call, applied here per
-       instruction — a full-page flow with no dense data, so the richer treatment fits).
-       thankyou-bg.jpg is left unused on disk rather than deleted, matching this project's
-       own established convention for retired image assets. */
+    /* Thank-you page redesign (2026-09-08): matches signup.html's just-rebuilt visual
+       language (same .glass panel, grid-overlay + blob atmosphere, and typography scale —
+       .ty-kicker/.ty-title/.ty-lead mirror signup.html's own .step-kicker/.step-title/
+       .step-lead font-sizes/colors exactly) rather than the plain single-paragraph
+       confirmation this page carried before. This page is reachable directly by URL with no
+       session behind it, so it renders NO personal data and needs none — everything below is
+       static copy, safe for anyone to land on. No real SLA exists anywhere in this project
+       for Client Application Review (a manual, PM-triggered action with no tracked queue
+       metric or automated timer — confirmed by grep across engine-core.js and every Edge
+       Function before writing this copy) — the old "usually takes 1–2 business days" line
+       was an invented figure, never backed by anything real, and is not carried forward;
+       the honest replacement below promises only that an email will follow, never a
+       timeframe. */
     body {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
       background: var(--bg);
     }
     .ty-section {
-      flex: 1;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -29,51 +36,275 @@
       position: relative;
       overflow: hidden;
     }
-    .ty-card {
+    .ty-panel {
       position: relative;
       z-index: 1;
-      max-width: 520px;
+      max-width: 600px;
       width: 100%;
       border-radius: 16px;
-      padding: 48px 40px;
+      padding: 48px clamp(28px, 5vw, 52px);
       text-align: center;
-      box-shadow: 0 24px 64px rgba(27,58,75,0.18);
     }
-    .ty-card h1 {
-      font-size: 1.7rem;
+
+    /* ===== Success checkmark ===== */
+    .ty-check-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .ty-check-badge {
+      width: 72px;
+      height: 72px;
+    }
+    .ty-check-circle {
+      fill: none;
+      stroke: var(--accent-teal);
+      stroke-width: 3;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .ty-check-mark {
+      fill: none;
+      stroke: var(--accent-teal);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    /* ===== Typography — mirrors signup.html's .step-kicker/.step-title/.step-lead ===== */
+    .ty-kicker {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-teal);
+      margin-bottom: 10px;
+    }
+    .ty-title {
+      font-size: 1.65rem;
       color: var(--primary);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
+      letter-spacing: -0.4px;
     }
-    .ty-card p {
+    .ty-lead {
       color: var(--text-muted);
-      font-size: 1.05rem;
-      line-height: 1.65;
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    /* ===== What happens next ===== */
+    .ty-next {
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
       margin-bottom: 28px;
     }
-    .ty-note {
-      background: #F7F6F3;
-      border-radius: 10px;
+    .ty-next-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
       padding: 16px 18px;
-      font-size: 0.95rem;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .ty-next-icon {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+    .ty-next-item h3 {
+      font-size: 0.98rem;
       color: var(--text);
-      margin-bottom: 32px;
+      margin-bottom: 3px;
+    }
+    .ty-next-item p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .ty-email-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      text-align: left;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.86rem;
+      color: var(--text-muted);
       line-height: 1.55;
+      margin-bottom: 32px;
+    }
+    .ty-email-note svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--primary);
+    }
+
+    /* ===== Actions ===== */
+    .ty-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+    }
+    .ty-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 50px;
+      min-width: 180px;
+      padding: 0 24px;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s, box-shadow 0.18s;
+    }
+    .ty-btn svg {
+      transition: transform 0.15s;
+    }
+    .ty-btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(27, 58, 75, 0.18);
+    }
+    .ty-btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+    .ty-btn-primary:hover svg {
+      transform: translateX(2px);
+    }
+    .ty-btn-secondary {
+      background: transparent;
+      border: 1.5px solid #D8D4CD;
+      color: var(--text-muted);
+    }
+    .ty-btn-secondary:hover {
+      background: #F5F3EF;
+      border-color: #C4BFB6;
+      color: var(--text);
+    }
+
+    @media (max-width: 600px) {
+      .ty-panel {
+        padding: 36px 22px;
+      }
+      .ty-actions {
+        flex-direction: column-reverse;
+      }
+      .ty-btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="ty-section">
+  <section class="ty-section">
     <div class="grid-overlay"></div>
     <div class="blob blob--lg blob--teal" style="top:-140px; left:-120px;"></div>
     <div class="blob blob--md blob--gold" style="bottom:-100px; right:-80px;"></div>
-    <div class="ty-card glass">
-      <h1>Thank You for choosing Marketswave</h1>
-      <p>Your application has been successfully submitted.</p>
-      <div class="ty-note">
-        Please check your email for a confirmation message. Our team will carefully review your information and contact you with the next steps of the onboarding process. This usually takes 1–2 business days.
+
+    <div class="ty-panel glass">
+      <div class="ty-check-wrap">
+        <svg class="ty-check-badge" id="ty-check-badge" viewBox="0 0 64 64" aria-hidden="true">
+          <circle class="ty-check-circle" id="ty-check-circle" cx="32" cy="32" r="28"></circle>
+          <path class="ty-check-mark" id="ty-check-mark" d="M19 33 L28 42 L46 22"></path>
+        </svg>
       </div>
-      <a href="index.html" class="btn btn-primary">Return to Website</a>
+
+      <p class="ty-kicker">Application Received</p>
+      <h1 class="ty-title">Your application is on its way to our team</h1>
+      <p class="ty-lead">Thank you for choosing Marketswave. We've successfully received your application, and your information is now securely on file.</p>
+
+      <div class="ty-next">
+        <div class="ty-next-item">
+          <div class="ty-next-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6M9 16h4M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg>
+          </div>
+          <div>
+            <h3>Reviewed by our Portfolio Management team</h3>
+            <p>A member of our team personally reviews every application, along with the documents you provided.</p>
+          </div>
+        </div>
+        <div class="ty-next-item">
+          <div class="ty-next-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          </div>
+          <div>
+            <h3>You'll hear from us by email</h3>
+            <p>As soon as a decision has been made — approved or otherwise — we'll send you an email with the outcome.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ty-email-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>We don't have a fixed timeframe to share — our team reviews applications carefully rather than on a fixed schedule. Email is the only way we'll reach you, so please keep an eye on your inbox (and spam folder).</span>
+      </div>
+
+      <div class="ty-actions">
+        <a href="index.html" class="ty-btn ty-btn-primary">
+          Return to Homepage
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="resources.html" class="ty-btn ty-btn-secondary">Learn How It Works</a>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Motion UI Components (2026-09-08): a subtle, one-time success reveal on load — the
+       circle and checkmark pop in with a soft fade+scale, gently, rather than a celebratory
+       bounce/spring. Falls back to the fully-visible static end state (no animation at all)
+       when Motion is unavailable or prefers-reduced-motion is set, matching the established
+       convention. A real stroke-dashoffset "drawing" animation was tried first and
+       confirmed, via direct instrumentation, to silently no-op on this Motion build's
+       SVG-attribute handling (opacity/scale animate correctly on the same elements; the
+       identical strokeDashoffset call never progresses and getAnimations() stays empty) —
+       not a tab-visibility throttling artifact, a real capability limit of this animate()
+       call for that specific property, so a proven, correctly-working fade+scale reveal is
+       used instead. -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
+  <script src="motion-helpers.js"></script>
+  <script>
+    (function () {
+      var circle = document.getElementById('ty-check-circle');
+      var mark = document.getElementById('ty-check-mark');
+      var badge = document.getElementById('ty-check-badge');
+      if (!circle || !mark || !badge) return;
+
+      if (!window.MotionHelpers || !window.MotionHelpers.available()) {
+        // Reduced motion (or Motion failed to load): leave the badge in its normal,
+        // fully-visible default state — no animation, nothing left half-shown.
+        return;
+      }
+
+      badge.style.opacity = '0';
+      badge.style.transform = 'scale(0.85)';
+      mark.style.opacity = '0';
+      mark.style.transform = 'scale(0.5)';
+
+      window.Motion.animate(badge, { opacity: [0, 1], scale: [0.85, 1] }, { duration: 0.35, ease: 'easeOut' });
+      window.Motion.animate(mark, { opacity: [0, 1], scale: [0.5, 1] }, { duration: 0.3, delay: 0.3, ease: 'easeOut' });
+    })();
+  </script>
 </body>
 </html>

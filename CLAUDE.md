@@ -7064,6 +7064,56 @@ row 74.
   zero schema/functions, and were not run — disclosed rather than silently claimed. All real
   test artifacts deleted afterward, confirmed via re-query. Backend Requirements Register row
   167 added.
+- **★★★ `thank-you.html` redesigned to match the rebuilt signup page — reassuring final
+  screen, real gentle success animation, honest content with zero invented SLA
+  (2026-09-08).** Read the real, live pre-redesign file fully first (already a small
+  `.glass`/blob/grid-overlay page from an earlier visual-treatment task). **Investigated the
+  existing "1–2 business days" claim, per instruction, before writing new copy**: grepped
+  the whole project for any real stated SLA — found exactly two, both for the unrelated
+  Support-ticket domain (`contact.html`/`support.html`'s own "reply within 1 business day"),
+  and confirmed via `engine-core.js`/every Edge Function that Client Application Review has
+  no tracked queue metric or automated timer at all — a manual, PM-triggered action, no real
+  SLA behind it. The old figure was invented and dropped, replaced with honest,
+  timeframe-free language ("We don't have a fixed timeframe to share..."). **Visual**:
+  reuses the exact `.glass`/`.grid-overlay`/`.blob` primitives already on the page; new
+  `.ty-kicker`/`.ty-title`/`.ty-lead` mirror signup.html's `.step-kicker`/`.step-title`/
+  `.step-lead` font-size/color values exactly (each file keeps its own locally-scoped
+  `<style>` block, matching this project's established per-page-duplication convention);
+  new `.ty-btn`/`.ty-btn-primary`/`.ty-btn-secondary` mirror signup.html's own button recipe
+  rather than touching the shared global `.btn`/`.btn-primary` used by 11 other pages.
+  **Content, no personal data**: confirmed the page reads zero session/localStorage/
+  query-param state — a confident headline, a genuine two-item "what happens next"
+  (PM review, then an email either way), an explicit "email is the only notification
+  channel" note, and two real CTAs ("Return to Homepage" → index.html, "Learn How It Works"
+  → resources.html, confirmed to exist). **A real bug found and fixed during verification,
+  not shipped broken**: the first checkmark implementation used an SVG `stroke-dashoffset`
+  "drawing" animation — direct instrumentation (`getAnimations().length`, awaiting
+  `controls.finished`, comparing against a proven-working `opacity` animation on the same
+  element) confirmed this Motion CDN build silently no-ops on `strokeDashoffset`
+  specifically (no error, promise resolves, but the value never actually changes) — a real
+  capability limit of this build for that property, separate from the tab-visibility
+  throttling this project has hit before (also genuinely present here, `document.hidden`
+  confirmed `true` at one point, but not what was actually blocking this specific
+  animation). Rebuilt using a proven-working `opacity`/`scale` fade+pop instead (confirmed
+  via a genuine mid-transition read at 120ms showing partial progress, not an instant
+  snap), gentle rather than celebratory. Reduced-motion/Motion-unavailable path leaves both
+  elements with zero inline style overrides (confirmed via `getAttribute('style') === null`)
+  — their normal, fully-visible default state, never a half-drawn artifact. **Verified,
+  browser-first**: normal viewport, a real 390px narrow viewport via injected iframe (zero
+  overflow, CTAs stack full-width), and a REAL complete signup flow driven end to end
+  landing on the redesigned page with the correct new content, cross-checked via a direct
+  Postgres query showing the genuine new `clients` row. **A real, disclosed local-dev-server
+  caching artifact hit during verification, not a product bug**: the first end-to-end
+  attempt landed on a stale cached copy from an earlier same-session test load
+  (`http-server -s`'s own `Cache-Control: max-age=3600`) — re-run against a freshly-started
+  server with caching disabled confirmed the real redirect and content are both correct;
+  specific to repeated same-session local testing, no bearing on a real first-time visitor
+  or production hosting. Direct-URL access re-confirmed to render identically, since the
+  page depends on no session state. Regression: `npm run verify-tailwind-color-scoping`
+  clean; `supabase-golden-path-regression.js` `PASS (16/16 steps)`, unaffected (no schema/
+  function changes). All real test artifacts (two `clients` rows across both verification
+  passes, their Auth users, email_log rows) deleted afterward. Backend Requirements
+  Register row 168 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
