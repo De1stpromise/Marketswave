@@ -7378,6 +7378,102 @@ row 74.
   `supabase-verify-unified-inbox`) recurred and were clean on retry. All test data removed
   afterward, conversations row included.
 
+- **★★ Homepage Depth Pass — hero v2, section rhythm, and the project's first real media
+  (2026-09-08, row 173).** Built from two approved mockups (`hero_v2.html`,
+  `section_rhythm_preview.html`), matching their structure and reasoning rather than their
+  pixel values, and reusing this project's own locked tokens and shared primitives wherever
+  an equivalent already existed.
+  **HERO** — all seven layers ported: perspective grid, three drifting light fields, a live
+  seeded-random-walk canvas of market curves, four floating glass data cards with SVG
+  sparklines, the allocation ring, the scrolling ticker tape, SVG-turbulence grain, vignette,
+  streaks, trust markers, a pulsing status dot, and JetBrains Mono on every data element.
+  **The real headline / subheading / CTAs were kept** — the mockup's own placeholder copy was
+  deliberately NOT carried over.
+  **★ TWO HONESTY CORRECTIONS TO THE MOCKUP, both investigated rather than assumed.**
+  (1) The mockup's ticker shows index values (`S&P 500 5,248.31`, `DOW 39,118.44`) that this
+  project ALREADY decided it cannot legitimately source — `get-market-snapshot`'s own header
+  records that Finnhub's free tier refuses index quotes, which is why it returns SPY/QQQ/DIA
+  ETF proxies under honest labels. The tape now uses those real proxy labels and is captioned
+  "Indicative levels". (2) The mockup's data cards carry invented performance figures
+  ("+18.4% YTD Private Equity", "+9.2% Real Assets") with no data source anywhere in this
+  project. On a public financial site those read as performance claims, so they were replaced
+  with facts the site already states elsewhere: $350m+ AUM, 5 asset classes, 20+ years since
+  2004, 6 core services.
+  **★ A REAL CORRECTION TO MY OWN EARLIER RECOMMENDATION, made mid-task**: the plan (and the
+  option the user picked) was to wire the ticker to live `get-market-snapshot` data. I had
+  verified that function's SYMBOLS but not its auth — it is auth-gated, confirmed directly by
+  calling it with only the public anon key and getting `401 {"error":"You must be signed in
+  to perform this action."}`. A homepage visitor is by definition anonymous, so live data
+  would need a NEW public unauthenticated Edge Function: real backend work, a deployment, and
+  a public endpoint reaching third-party market APIs. Out of scope for a visual pass without
+  agreeing it, so the tape ships as clearly-labelled reference data and NO fetch is attempted
+  (shipping a guaranteed-401 call would waste a request and put an error in every visitor's
+  console on every load). Flagged as a follow-up rather than silently dropped.
+  **SECTION RHYTHM** — the agreed sequence, confirmed with the user before building because
+  their sketch had 5 beats and the page has 6 content sections:
+  `light → DARK → light → DARK(video) → light → DARK(photo) → footer`. Account Types became
+  the extra dark beat (it is a 3-card grid — exactly the shape the mockup's own dark section
+  uses — so `.glass-on-dark` drops straight in). **The video and photo sections COUNT AS the
+  dark beats rather than being additional to them**, which is what keeps the page from
+  stacking consecutive dark moments. Also adopted: angled SVG transitions between every beat
+  (5 of them), an artifact straddling a section boundary (verified to genuinely intersect
+  both), deliberately larger blobs cropped by section edges, teal eyebrows on light and mint
+  on dark.
+  **TWO NEW SHARED PRIMITIVES, added formally to `glass-primitives.css`** the same way
+  `.glass-dark` and `.glass-slate` were, not forked: **`.glass-on-dark`** (the fifth variant —
+  a low-alpha white lifted OFF a dark background; none of the existing four work, since
+  `.glass`/`.glass-subtle` are light-toned with dark text and `.glass-dark`/`.glass-slate` are
+  ~90% opaque sidebar panels, not translucent cards) and **`.blob--xl`** (720px, so blobs are
+  genuinely cropped by section edges rather than politely contained).
+  **MEDIA** — the project's first real video and photograph. ffmpeg was not installed; it was
+  added via winget with the user's agreement. Video: 2048×1080 30fps .mov → 1280 wide, 24fps,
+  audio stripped, H.264 CRF 26 + VP9 CRF 34. **8,408 KB → 1,503 KB MP4 / 1,432 KB WebM (82%
+  smaller, well under the ~2MB target)** — the first pass at CRF 30 came in at 920KB, and the
+  headroom was deliberately spent on quality because abstract gradient footage bands badly
+  when over-compressed. Photo: 5442×2958 → responsive 768/1280/1920 in WebP + JPEG,
+  **6,576 KB → 210 KB at the largest WebP (96.8% smaller**, target was under 400KB).
+  **REAL PAGE WEIGHT, measured from the Performance API's `transferSize`** (not
+  `encodedDataLength`, which reports only headers and read ~0.2KB for everything on the first
+  attempt): **desktop 1,940 KB · mobile 390px 358 KB · desktop + reduced-motion 507 KB.** The
+  video is genuinely never fetched on mobile or under reduced motion — the `<video>` ships
+  with no `<source>` at all and JS only attaches one above 900px with motion allowed — and the
+  responsive photo correctly serves the 768px WebP (60.8 KB) to a phone rather than the 1920.
+  **CONTRAST — 19/19, every text-over-media and text-on-dark surface, measured on REAL
+  COMPOSITED PIXELS.** This needed a new technique and the first two attempts were both
+  wrong, which is worth recording: a `getComputedStyle` composite is meaningless on this page
+  because every dark surface paints with a gradient or real media and has NO
+  `background-color` to read — it produced impossible 1:1 readings. The working method hides
+  the glyphs, screenshots the page, and samples the actual rendered pixels behind the text.
+  **Three real bugs in that harness had to be fixed before the numbers could be trusted**, and
+  each one had silently produced plausible-looking output: CDP's `Page.captureScreenshot`
+  `clip` is in PAGE coordinates, not viewport ones, so every sample after a scroll was reading
+  the top of the document; `visibility: hidden` also removes the element's OWN background, so
+  a card or pill sampled whatever sat behind it instead of its own surface; and the canvas
+  paint check sampled the masked-out top-left corner rather than the band the curves occupy.
+  **★ FOUR REAL DEFECTS THE MEASUREMENTS CAUGHT, none visible from reading the code.** (1)
+  **Navy text on navy scrims at 1.05:1** — I wrote light-text rules for `.section-dark` but
+  not `.media-section`, so the video and photo sections had unreadable headings; a
+  background-colour-based check could never have caught it, because a scrim over a video has
+  no background-colour. (2) Four hero elements between 3.86:1 and 4.26:1 — `--text-muted`
+  clears 4.5:1 on plain white but not on the hero's tinted glass; darkened to #5B6670 scoped
+  to the hero, leaving the token itself and every other page untouched. (3) **The
+  reduced-motion rule hid the static photograph too** — `.media-bg { display: none }` matched
+  the `<img>` as well as the `<video>`, so that section lost its background entirely for
+  reduced-motion users; a photo is not motion, so it is now `video.media-bg`. (4) The hero's
+  `min-height: 100vh` ignored the 72px sticky header the mockup did not have, pushing the
+  ticker below the fold, and the site's 1180px container left only 130px of gutter so the
+  badge genuinely overlapped the $350m+ card — both measured, both fixed.
+  **Verified**: 33/33 structural, 19/19 contrast, 17/17 motion+video. Reduced motion
+  suppresses EVERYTHING including the canvas (confirmed drawn once and never repainted —
+  identical pixels sampled 1.5s apart, no rAF loop) and the ticker (0 running CSS animations
+  on the whole page). Autoplay refusal was simulated by forcing `play()` to reject, and the
+  section stays a real 1112px dark beat with the poster loaded. No horizontal overflow at
+  320/375/390 — the recent mobile-fix batches are not regressed. Full regression suite green,
+  `verify-tailwind-color-scoping` PASS, golden path 16/16, cloud staging parity OK (no
+  migration or Edge Function touched). The two 14.6MB source masters are gitignored; the
+  derived assets are committed, with the exact ffmpeg/Pillow settings recorded here so the
+  derivation is reproducible.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

@@ -89,6 +89,11 @@
   border-radius: 50%;
   pointer-events: none;
 }
+/* --xl added by the Homepage Depth Pass (2026-09-08): the section-rhythm design calls for
+   deliberately larger, more confident blobs that are CROPPED by their section edges rather
+   than politely contained inside them. --lg at 560px reads as contained at section scale;
+   720px genuinely overflows and gets cut, which is the intended effect. */
+.blob--xl { width: 720px; height: 720px; filter: blur(120px); }
 .blob--lg { width: 560px; height: 560px; filter: blur(100px); }
 .blob--md { width: 420px; height: 420px; filter: blur(100px); }
 .blob--sm { width: 180px; height: 180px; filter: blur(50px); }
@@ -173,6 +178,34 @@
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-right: 1px solid rgba(255,255,255,0.08);
   box-shadow: 4px 0 24px -8px rgba(0,0,0,0.25), inset -1px 0 0 rgba(255,255,255,0.04);
+}
+
+/* ---- .glass-on-dark — Homepage Depth Pass (2026-09-08). A FIFTH formal variant, added the
+   same way .glass-dark and .glass-slate were: a genuine reusable recipe for a context the
+   existing four do not serve.
+
+   Why none of the existing four work for a card sitting ON a dark section:
+   - .glass / .glass-subtle are LIGHT-toned (white-ish backgrounds, dark text). On a navy
+     gradient they read as opaque white plates, and their own dark body text is exactly the
+     illegibility this variant exists to prevent.
+   - .glass-dark / .glass-slate are ~90% OPAQUE panels built for a sidebar — they are the
+     dark surface itself, not a translucent card floating on top of one. Using them here
+     would produce a navy card on a navy background with almost no separation.
+
+   This is the inverse of .glass: instead of white translucency over light content, it is a
+   whisper of white lifted OFF a dark background — a very low-alpha white gradient, a soft
+   white hairline border, and an inset top highlight, so the card reads as a lit pane of
+   glass rather than a painted box. Text placed on it must be light (the section's own dark
+   context already implies that). Contrast on this surface was measured, not eyeballed —
+   see the Homepage Depth Pass entry in CLAUDE.md for the real figures. ---- */
+.glass-on-dark {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.18), 0 18px 36px -18px rgba(0,0,0,0.45);
 }
 
 /* ---- .blob-field — a plain, reusable marker for "this section hosts background blobs" —

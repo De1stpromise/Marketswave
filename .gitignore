@@ -18,3 +18,12 @@ scripts/node_modules/
 # location the local edge-runtime reads automatically — must never be committed.
 supabase/functions/.env
 supabase/functions/.env.*
+
+# Homepage Depth Pass (2026-09-08) — original media masters.
+# These are the 8.2MB .mov and 6.4MB .jpeg the optimised files in assets/ were derived from.
+# The derived files ARE committed (GitHub Pages serves them); the masters are not, because
+# nothing at runtime reads them and they would add ~14.6MB to every clone. The exact ffmpeg
+# and Pillow settings used to produce assets/ are recorded in CLAUDE.md, so the derivation is
+# reproducible from a fresh copy of the masters.
+AdobeStock_263939359.mov
+AdobeStock_81432616.jpeg
