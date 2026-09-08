@@ -274,4 +274,75 @@
       });
     }
   })();
+  // -------------------------------------------------------------------------------------
+  // Seam artifact 4 — GROW. The candlestick chart, ported from nav_artifacts_v8.html.
+  //
+  // Built here rather than baked into the markup, unlike the Core Services terrains: this is
+  // 16 candles x 3 elements each with per-element transform origins and stagger delays, and
+  // the seed is fixed, so the same chart is produced on every load. Sixteen <line>/<rect>
+  // pairs of inline SVG with individual style attributes would be a great deal of markup for
+  // something a dozen lines of code reproduces exactly.
+  //
+  // Skipped entirely under reduced motion — the CSS pins the candles to a visible resting
+  // state, and there is no reason to build a chart nobody will see animate. It is still built
+  // so the scene is not empty; only the animation is suppressed, by the stylesheet.
+  // -------------------------------------------------------------------------------------
+  (function seamCandles() {
+    var svg = document.querySelector('.sa-candles');
+    if (!svg) return;
+
+    var NS = 'http://www.w3.org/2000/svg';
+    var seed = 11;
+    var rnd = function () { seed = Math.sin(seed) * 10000; return seed - Math.floor(seed); };
+
+    var n = 16, gap = 1300 / n, close = 150, pts = [];
+    for (var i = 0; i < n; i++) {
+      var open = close;
+      var up = rnd() < 0.72;
+      var mv = 6 + rnd() * 18;
+      close = up ? open - mv : open + mv * 0.55;
+      close = Math.max(18, Math.min(165, close));
+      var hi = Math.min(open, close) - rnd() * 8;
+      var lo = Math.max(open, close) + rnd() * 8;
+      var x = gap * i + gap / 2;
+      var col = up ? '#16815F' : '#C8542F';
+      var delay = (i * 0.34) + 's';
+
+      var wick = document.createElementNS(NS, 'line');
+      wick.setAttribute('x1', x); wick.setAttribute('x2', x);
+      wick.setAttribute('y1', hi); wick.setAttribute('y2', lo);
+      wick.setAttribute('stroke', col); wick.setAttribute('stroke-width', '1.5');
+      wick.setAttribute('class', 'sa-cd');
+      wick.style.transformOrigin = x + 'px ' + ((hi + lo) / 2) + 'px';
+      wick.style.animationDelay = delay;
+      svg.appendChild(wick);
+
+      var body = document.createElementNS(NS, 'rect');
+      body.setAttribute('x', x - gap * 0.28); body.setAttribute('width', gap * 0.56);
+      body.setAttribute('y', Math.min(open, close));
+      body.setAttribute('height', Math.max(2, Math.abs(close - open)));
+      body.setAttribute('rx', '1.5'); body.setAttribute('fill', col);
+      body.setAttribute('class', 'sa-cd');
+      body.style.transformOrigin = x + 'px ' + ((open + close) / 2) + 'px';
+      body.style.animationDelay = delay;
+      svg.appendChild(body);
+
+      var vh = 6 + rnd() * 16;
+      var vol = document.createElementNS(NS, 'rect');
+      vol.setAttribute('x', x - gap * 0.28); vol.setAttribute('width', gap * 0.56);
+      vol.setAttribute('y', 200 - vh); vol.setAttribute('height', vh);
+      vol.setAttribute('fill', col); vol.setAttribute('opacity', '.28');
+      vol.setAttribute('class', 'sa-vol');
+      vol.style.transformOrigin = x + 'px 200px';
+      vol.style.animationDelay = delay;
+      svg.appendChild(vol);
+
+      pts.push(x + ',' + close);
+    }
+
+    var trend = document.createElementNS(NS, 'polyline');
+    trend.setAttribute('points', pts.join(' '));
+    trend.setAttribute('class', 'sa-trendl');
+    svg.appendChild(trend);
+  })();
 })();
