@@ -915,6 +915,10 @@
      dashboard family — only the data layer, which onboarding genuinely needs now that
      completing signup creates a real client record instead of just navigating to
      thank-you.html. -->
+<!-- Motion UI Components (2026-09-08): see motion-helpers.js's own header for the CDN/
+     bundle-size investigation. Loaded here for the Step Player only. -->
+<script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
+<script src="motion-helpers.js"></script>
 <script src="engine-core.js"></script>
 <!-- Backend Migration Phase 1 (Aug 22, 2026): this script is now type="module" specifically
      so it can `import` the Firebase Auth/Functions SDK and firebase-config.js's shared,
@@ -977,13 +981,32 @@
       document.getElementById("progress-fill").style.width = percent + "%";
     }
 
-    function showStep(step) {
+    // Motion UI Components (2026-09-08): Step Player — a directional fade+slide entrance on
+    // the newly-active step panel only. The class toggle itself (what actually shows/hides
+    // each step) is completely unchanged from before, at the exact same point in the
+    // function — this only adds an animation on top of an element that was already about to
+    // become visible; it cannot change WHICH step ends up shown, only how it visually
+    // arrives. Falls back to nothing (the step simply appears instantly, exactly as it
+    // always has) when Motion is unavailable or prefers-reduced-motion is set.
+    function showStep(step, direction) {
+      var activeEl = null;
       document.querySelectorAll(".signup-step").forEach(el => {
-        el.classList.toggle("is-active", Number(el.dataset.step) === step);
+        var isTarget = Number(el.dataset.step) === step;
+        el.classList.toggle("is-active", isTarget);
+        if (isTarget) activeEl = el;
       });
       currentStep = step;
       updateProgress();
       window.scrollTo({ top: 0, behavior: "smooth" });
+
+      if (activeEl && window.MotionHelpers && window.MotionHelpers.available()) {
+        var offsetX = direction === "back" ? -16 : 16;
+        window.Motion.animate(
+          activeEl,
+          { opacity: [0, 1], x: [offsetX, 0] },
+          { duration: 0.3, ease: "easeOut" }
+        );
+      }
     }
 
     function clearErrors(stepElement) {
@@ -1176,7 +1199,7 @@
       const visible = getVisibleSteps();
       const idx = visible.indexOf(currentStep);
       if (idx < visible.length - 1) {
-        showStep(visible[idx + 1]);
+        showStep(visible[idx + 1], "forward");
       }
     }
 
@@ -1184,7 +1207,7 @@
       const visible = getVisibleSteps();
       const idx = visible.indexOf(currentStep);
       if (idx > 0) {
-        showStep(visible[idx - 1]);
+        showStep(visible[idx - 1], "back");
       }
     }
 

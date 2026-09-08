@@ -81,6 +81,14 @@
     observeStaggeredGroup(statsBar, statCards, 100, 0.3);
   }
 
+  // Motion UI Components (2026-09-08): the count-up itself now runs through
+  // MotionHelpers.countUp() (Motion's own animate(from, to, {onUpdate}) plain-number
+  // overload) instead of this function's own original hand-rolled requestAnimationFrame
+  // loop — a smoother, spring-adjacent cubic-bezier ease rather than a manually coded cubic
+  // ease-out, with the identical 900ms duration and prefix/suffix formatting preserved
+  // exactly. Falls back to the exact old un-animated end state (just the final number) if
+  // Motion isn't loaded or prefers-reduced-motion is set — MotionHelpers.countUp()'s own
+  // job, not duplicated here.
   function animateStatCounters(container) {
     var values = container.querySelectorAll('.stat .value');
     values.forEach(function (el) {
@@ -90,18 +98,15 @@
       var match = text.match(/^([^\d]*)(\d+)(.*)$/);
       if (!match) return;
       var prefix = match[1], target = parseInt(match[2], 10), suffix = match[3];
-      var duration = 900; // deliberately longer than the 200-500ms general range —
-      // a count-up needs to be legible as counting, not just a quick fade
-      var start = null;
-      function step(ts) {
-        if (start === null) start = ts;
-        var progress = Math.min((ts - start) / duration, 1);
-        var eased = 1 - Math.pow(1 - progress, 3);
-        el.textContent = prefix + Math.round(eased * target) + suffix;
-        if (progress < 1) requestAnimationFrame(step);
-        else el.textContent = prefix + target + suffix;
+      if (window.MotionHelpers) {
+        window.MotionHelpers.countUp(el, {
+          to: target,
+          duration: 900,
+          format: function (n) { return prefix + Math.round(n) + suffix; }
+        });
+      } else {
+        el.textContent = prefix + target + suffix;
       }
-      requestAnimationFrame(step);
     });
   }
 

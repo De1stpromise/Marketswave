@@ -35,6 +35,15 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   moment on that single control. Do not reuse that palette anywhere else.
 - **Charts**: Chart.js 4.4.0 via CDN (jsdelivr) — already used in `dashboard.html` and
   `transactions.html`. Use it for any new charts rather than introducing another library.
+- **Animation**: Motion (formerly bundled under "Framer Motion" — the vanilla-JS core is now
+  independently named "Motion," motion.dev; not the React library) via CDN (jsdelivr),
+  pinned to `motion@13.2.0`, global `<script>` build (`window.Motion`). Loaded only on the
+  pages that actually use `motion-helpers.js` (the shared wrapper — `countUp`/`wiggle`/
+  `panelOpen`/`panelClose`/`mountScrollProgress` — that centralizes the project's
+  `prefers-reduced-motion`-suppresses-entirely convention), never globally. Use it for any
+  new JS-driven animation rather than introducing another library; the existing hand-rolled
+  `[data-reveal]`/`IntersectionObserver` pattern in `home-motion.js`/`services-motion.js`
+  stays as-is for simple scroll reveals, no need to migrate it.
 - Interactivity is vanilla JS throughout (no framework). Keep it that way for now.
 - **Shared sidebar + live clock** (`dashboard-sidebar.js`, `dashboard-common.js`): every
   dashboard page mounts an empty `<div id="sidebar-mount"></div>` in place of the old inline
@@ -6931,6 +6940,59 @@ row 74.
   stylesheet rule firing, not assumed from the class name). A real screenshot confirmed every
   affected button as solid and legible for the first time. Backend Requirements Register row
   165 added.
+- **★★★ Five RareUI-referenced animated components adopted via Motion (2026-09-08).**
+  Motion is the vanilla-JS core formerly bundled under "Framer Motion" — the React library
+  kept that name, the framework-agnostic core is now just "Motion" (motion.dev). **Investigated
+  first, per instruction**: confirmed the real current CDN build via a live jsDelivr fetch —
+  `https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js` (pinned), a real global UMD
+  build exposing `window.Motion = { animate, scroll, stagger, inView, hover, press, ... }`
+  (confirmed by reading the real bundle's own UMD header/exports directly). Real bundle size:
+  140,491 bytes uncompressed / 46,763 bytes gzipped — smaller than Chart.js (69,693 bytes
+  gzipped, already accepted on 2 pages) — loaded only on the ~15 pages that actually use one
+  of the 5 components, never globally. Coexists cleanly with Tailwind CDN + Chart.js (three
+  independent UMD builds, no shared globals). New shared `motion-helpers.js` reuses
+  `home-motion.js`/`services-motion.js`'s own established convention exactly, per instruction
+  — check `prefers-reduced-motion` once, suppress ENTIRELY when set (never a degraded
+  motion), 200-500ms general range (the pre-existing 900ms stat-counter exception carried
+  forward, plus one new reported exception below). **1. Counter**: `animateStatCounters()`
+  now delegates to `MotionHelpers.countUp()` (Motion's own `animate(from,to,{onUpdate})`
+  plain-number overload) instead of a hand-rolled rAF loop; applied to `dashboard.html`'s
+  Total Portfolio Value/Asset Returns (genuine one-time-per-load reveals) — **Market
+  Snapshot's real quotes were deliberately excluded** (periodically-cached, not truly live;
+  counting up on every load would misleadingly imply real-time updates — the exact "gimmicky
+  on live data" case flagged in the task). **2. Notification Bell**: the real aggregation
+  logic in `dashboard-notifications.js` is completely untouched — only `openPanel()`/
+  `closePanel()` (a real Motion fade+scale, gated on a real `.finished` promise before hiding)
+  and a one-time attention wiggle fired only when the very first mount-time fetch discovers
+  genuinely unread items. **3. Scroll Progress**: the canonical `scroll(animate(el,
+  {scaleX:[0,1]}))` pattern on `index.html`/`services.html`/`resources.html`/`about.html`
+  only — the dashboard's own fixed-height internally-scrolling `<main>` was investigated and
+  excluded as a poor fit. **4. Step Player**: `signup.html`'s `showStep(step, direction)`
+  animates the newly-active panel's entrance (direction-aware ±16px slide + fade) — the real
+  class-toggle logic that decides WHICH step shows is byte-for-byte unchanged, confirmed via
+  direct instrumentation of the exact `x` offset per direction. Drove the REAL, complete
+  7-step signup flow end to end (including the Entity/Joint step-skip logic, real file
+  uploads, real validation) to a genuine `thank-you.html` landing and a real new `clients` row
+  — a real, disclosed environment incident along the way (the tab froze on a pre-existing,
+  unrelated `alert()` in `showError()`, triggered by two agreement checkboxes not actually
+  registering at a stale zoom level — root-caused, not a Motion bug, resolved by re-driving
+  the flow correctly). **5. Delete Button**: investigated first — a project-wide grep found
+  `documents.html`'s own "Remove" is the ONLY genuinely destructive action anywhere in the
+  project (the entire admin tool has zero delete capability; every "Reject" keeps its record
+  per the locked "never silently delete" principle, so it doesn't qualify). Rebuilt
+  `#remove-confirm-submit` as a real press-and-hold (a 1200ms progress-fill overlay — a
+  deliberate, reported exception to the 200-500ms range, since a shorter hold would be
+  indistinguishable from an accidental click) with full keyboard support (Enter/Space) and a
+  clean early-release cancel; falls back to the exact original single-click behavior when
+  Motion/reduced-motion say no, checked fresh on every click. **Verified live for all 4 real
+  scenarios with direct Postgres confirmation each time**: quick click doesn't delete, a full
+  hold does (caught mid-progress in a real screenshot), early release cancels cleanly, and the
+  reduced-motion fallback deletes on a single click. Full existing regression suite re-run for
+  zero regressions across every affected area (documents/HYS/dashboard/inbox/asset/funding/
+  settings/admin suites, golden-path), plus `npm run verify-tailwind-color-scoping` reconfirmed
+  clean both mid-task (at the user's own request, since Motion work touches interactive
+  elements across both tools) and at the end. All real test artifacts deleted afterward.
+  Backend Requirements Register row 166 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

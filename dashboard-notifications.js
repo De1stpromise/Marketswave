@@ -307,10 +307,27 @@
 
     // Fire-and-forget at mount time — the badge stays at its honest hidden/0 default until
     // this first real fetch resolves, never a fabricated interim count.
-    renderPanel();
+    //
+    // ★ Motion UI Components (2026-09-08): a one-time attention wiggle on the bell icon,
+    // fired only if this VERY FIRST real fetch discovers genuinely unread items — never on
+    // every page load regardless of count, and never again after this (opening the panel
+    // marks everything read, so there is no later point where the count could newly
+    // increase without a full page reload starting this same one-time check over). The real
+    // aggregation logic below (getAllNotifications/renderPanel/the read-state store) is
+    // completely untouched — this only reacts to what renderPanel() already computes.
+    renderPanel().then(function (state) {
+      if (window.MotionHelpers && state.items.length) {
+        var unread = state.items.filter(function (it) { return !state.readMap[it.key]; });
+        if (unread.length > 0) {
+          var iconEl = document.querySelector('#notif-bell-btn svg');
+          window.MotionHelpers.wiggle(iconEl);
+        }
+      }
+    });
 
     function openPanel() {
       panel.classList.remove('hidden');
+      if (window.MotionHelpers) window.MotionHelpers.panelOpen(panel);
       btn.setAttribute('aria-expanded', 'true');
       // Re-fetch fresh on every open, not just at mount time — this is what actually makes
       // "live counts after a real action elsewhere" true, since a client could have taken an
@@ -326,8 +343,13 @@
       });
     }
     function closePanel() {
-      panel.classList.add('hidden');
+      if (panel.classList.contains('hidden')) return;
       btn.setAttribute('aria-expanded', 'false');
+      if (window.MotionHelpers) {
+        window.MotionHelpers.panelClose(panel).then(function () { panel.classList.add('hidden'); });
+      } else {
+        panel.classList.add('hidden');
+      }
     }
 
     btn.addEventListener('click', function (e) {

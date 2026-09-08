@@ -184,7 +184,17 @@
       <p class="text-sm text-slate-500 mb-6">Remove <span class="font-medium text-navy" id="remove-confirm-filename">this document</span> from your uploads?</p>
       <div class="flex gap-3">
         <button type="button" id="remove-confirm-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="remove-confirm-submit" class="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition">Remove</button>
+        <!-- Motion UI Components (2026-09-08): Delete Button — a real press-and-hold
+             confirmation on the one genuinely destructive action in this project (see
+             documents.html's own inline script for the full investigation of why no other
+             page qualifies). #remove-confirm-fill is the progress overlay Motion animates
+             (scaleX 0->1) while held; the button's own text swaps to reflect hold state. If
+             Motion/reduced-motion say no, the inline script falls back to the exact original
+             single-click behavior — no visual fill, this span simply never animates. -->
+        <button type="button" id="remove-confirm-submit" class="relative flex-1 py-2.5 rounded-lg bg-red-500 text-white text-sm font-medium overflow-hidden select-none hover:bg-red-600 transition-colors">
+          <span id="remove-confirm-fill" class="absolute inset-y-0 left-0 w-full bg-red-700" style="transform: scaleX(0); transform-origin: left;" aria-hidden="true"></span>
+          <span id="remove-confirm-label" class="relative">Press &amp; Hold to Remove</span>
+        </button>
       </div>
     </div>
   </div>
@@ -193,6 +203,11 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
+       bundle-size investigation. Loaded here for the Notification Bell (all 10 client
+       pages) -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
+  <script src="motion-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
   <script src="chat-widget.js"></script>
@@ -578,11 +593,35 @@
       // below, on the actual submit handler. ----
       var removeConfirmModal = document.getElementById('remove-confirm-modal');
       var removeConfirmFilename = document.getElementById('remove-confirm-filename');
+      var removeConfirmSubmitBtn = document.getElementById('remove-confirm-submit');
+      var removeConfirmFillEl = document.getElementById('remove-confirm-fill');
+      var removeConfirmLabelEl = document.getElementById('remove-confirm-label');
       var pendingRemoveDocId = null;
+
+      // Motion UI Components (2026-09-08): a real press-and-hold, investigated as the one
+      // genuinely destructive action in this project — a project-wide grep found zero
+      // Remove/Delete buttons anywhere in the entire 16-page admin tool (every admin
+      // "Reject" action keeps its record, per the locked "show everything, never silently
+      // delete" principle documented project-wide — rejecting is a status change, not data
+      // loss, so it does not qualify), leaving this Remove button as the sole target.
+      // HOLD_DURATION_MS is a deliberate, reported exception to the 200-500ms general range
+      // (see motion-helpers.js's own header) — a hold this short would be indistinguishable
+      // from an accidental click, defeating the entire point of the gesture.
+      var REMOVE_HOLD_DURATION_MS = 1200;
+      var removeHoldActive = false;
+      var removeHoldControls = null;
+
+      function resetRemoveHoldVisual() {
+        removeHoldActive = false;
+        if (removeConfirmFillEl) removeConfirmFillEl.style.transform = 'scaleX(0)';
+        if (removeConfirmLabelEl) removeConfirmLabelEl.textContent = 'Press & Hold to Remove';
+      }
 
       function closeRemoveConfirmModal() {
         removeConfirmModal.classList.add('hidden');
         pendingRemoveDocId = null;
+        if (removeHoldControls) { removeHoldControls.stop(); removeHoldControls = null; }
+        resetRemoveHoldVisual();
       }
 
       document.getElementById('upload-list').addEventListener('click', function (e) {
@@ -618,13 +657,12 @@
       // swallowed here deliberately — the row is already genuinely gone, which is what the user
       // asked for and what the toast/UI reflects; an orphaned or already-missing storage object
       // is a harmless, invisible resource leak, not a user-facing failure worth surfacing as one. ----
-      document.getElementById('remove-confirm-submit').addEventListener('click', function () {
+      function performDocumentRemoval() {
         if (!pendingRemoveDocId) return;
         var doc = allDocs.find(function (d) { return d.id === pendingRemoveDocId; });
         if (!doc) { closeRemoveConfirmModal(); return; }
         var docId = pendingRemoveDocId;
-        var btn = document.getElementById('remove-confirm-submit');
-        MarketswaveData.withButtonBusy(btn, 'Removing...', function () {
+        MarketswaveData.withButtonBusy(removeConfirmSubmitBtn, 'Removing...', function () {
           return MarketswaveData.deleteRow('documents', { id: docId });
         }).then(function () {
           closeRemoveConfirmModal();
@@ -641,6 +679,68 @@
           closeRemoveConfirmModal();
           showToast('Remove Failed', MarketswaveData.writeErrorMessage(err));
         });
+      }
+
+      // ---- Delete Button hold-to-confirm interaction (Motion UI Components, 2026-09-08).
+      // Real destructive action stays gated behind a sustained press, not a single click —
+      // the fill overlay (#remove-confirm-fill, animated via Motion's scaleX transform) is
+      // the real visual confirmation the hold registered, growing left-to-right over
+      // REMOVE_HOLD_DURATION_MS. Releasing early (pointerup/pointerleave/pointercancel, or
+      // releasing Enter/Space) cancels and resets — only a hold that completes in full
+      // triggers performDocumentRemoval(). Falls back to the exact original single-click
+      // behavior when Motion/prefers-reduced-motion say no (checked fresh on every click,
+      // not decided once at page load) — see the 'click' listener below. ----
+      function cancelRemoveHold() {
+        if (!removeHoldActive) return;
+        if (removeHoldControls) { removeHoldControls.stop(); removeHoldControls = null; }
+        if (window.MotionHelpers && window.MotionHelpers.available() && removeConfirmFillEl) {
+          window.Motion.animate(removeConfirmFillEl, { scaleX: 0 }, { duration: 0.15, ease: 'easeOut' });
+        }
+        removeHoldActive = false;
+        if (removeConfirmLabelEl) removeConfirmLabelEl.textContent = 'Press & Hold to Remove';
+      }
+
+      function startRemoveHold() {
+        if (removeHoldActive || !pendingRemoveDocId) return;
+        if (!window.MotionHelpers || !window.MotionHelpers.available()) return; // fallback path uses 'click' instead
+        removeHoldActive = true;
+        if (removeConfirmLabelEl) removeConfirmLabelEl.textContent = 'Keep holding…';
+        removeHoldControls = window.Motion.animate(
+          removeConfirmFillEl,
+          { scaleX: [0, 1] },
+          { duration: REMOVE_HOLD_DURATION_MS / 1000, ease: 'linear' }
+        );
+        removeHoldControls.finished.then(function () {
+          if (!removeHoldActive) return; // cancelled before completion — stop()'s own rejection also lands here in some browsers
+          removeHoldActive = false;
+          performDocumentRemoval();
+        }).catch(function () { /* a genuine early cancel via stop() — not a real error */ });
+      }
+
+      removeConfirmSubmitBtn.addEventListener('pointerdown', function (e) {
+        if (window.MotionHelpers && window.MotionHelpers.available()) e.preventDefault();
+        startRemoveHold();
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (evt) {
+        removeConfirmSubmitBtn.addEventListener(evt, cancelRemoveHold);
+      });
+      removeConfirmSubmitBtn.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+          e.preventDefault();
+          startRemoveHold();
+        }
+      });
+      removeConfirmSubmitBtn.addEventListener('keyup', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') cancelRemoveHold();
+      });
+      // Fallback path — Motion unavailable or prefers-reduced-motion set: a bare click
+      // performs the removal immediately, exactly as this button always worked before this
+      // task. When Motion IS active, the pointerdown+pointerup pair above will also fire this
+      // same 'click' event afterward (standard browser behavior) — explicitly no-op'd then,
+      // since the hold's own completion (not a click) is what's allowed to trigger removal.
+      removeConfirmSubmitBtn.addEventListener('click', function (e) {
+        if (window.MotionHelpers && window.MotionHelpers.available()) { e.preventDefault(); return; }
+        performDocumentRemoval();
       });
 
       // ---- Init — UI Wiring Stage 4 (2026-09-03): one renderAsyncBundle call spanning both

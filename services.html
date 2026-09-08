@@ -465,6 +465,11 @@
     })();
   </script>
 
+  <!-- Motion UI Components (2026-09-08): see motion-helpers.js's own header for the CDN/
+       bundle-size investigation. Loaded here for Scroll Progress only. -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
+  <script src="motion-helpers.js"></script>
+  <script>if (window.MotionHelpers) window.MotionHelpers.mountScrollProgress();</script>
   <script src="services-motion.js"></script>
 
   <div id="chat-widget-mount"></div>
