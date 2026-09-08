@@ -18,20 +18,21 @@
     <div class="container">
       <a href="index.html" class="logo">Marketswave</a>
 
-      <nav class="main-nav">
+      <nav class="main-nav" id="main-nav">
         <a href="index.html">Home</a>
         <a href="services.html">Service</a>
         <a href="resources.html">Resources</a>
         <a href="about.html">About</a>
         <a href="legal.html">Legal</a>
+        <a href="contact.html" class="mobile-nav-contact active">Contact</a>
       </nav>
 
       <div class="header-actions">
         <button type="button" class="btn btn-outline btn-sm get-access-trigger" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
-        <a href="contact.html" class="btn btn-primary btn-sm">Contact</a>
+        <a href="contact.html" class="btn btn-primary btn-sm site-header-contact">Contact</a>
       </div>
 
-      <button class="nav-toggle" aria-label="Toggle navigation">
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-haspopup="true" aria-expanded="false" aria-controls="main-nav">
         <span></span><span></span><span></span>
       </button>
     </div>
@@ -404,6 +405,7 @@
   })();
 </script>
   <div id="chat-widget-mount"></div>
+  <script src="site-nav.js"></script>
   <script src="chat-widget.js"></script>
   <script>initChatWidget();</script>
 </body>

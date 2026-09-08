@@ -1,0 +1,138 @@
+/* =====================================================================================
+   TAP TARGETS — Mobile fixes, Batch 2 (2026-09-08)
+   Closes MOBILE_AUDIT.md findings S2, S4, S5 and S7 for the Tailwind-based page family:
+   the 10 client dashboard pages + the 16 admin pages (exactly the 26 pages that already
+   load glass-primitives.css). The public marketing site keeps its own equivalents in
+   styles.css, and the chat widget's own close button in chat-widget.css, because those two
+   are loaded on pages this file is not.
+
+   ── Why this is a real .css file and not Tailwind utilities ────────────────────────────
+   This project has a documented, SILENT failure mode: the Tailwind CDN emits no CSS at all
+   for a utility it does not recognise in that page's own inline config, so a class can look
+   correct and do nothing (register row 165 — the invisible admin-inbox buttons). Plain CSS
+   cannot fail that way, and it keeps the whole convention greppable in one place instead of
+   spread across ~40 repeated utility strings.
+
+   ── Why element selectors rather than "the shared class" ───────────────────────────────
+   S4's write-up hypothesises "a single shared Tailwind sizing convention". Investigated
+   directly, and that is NOT what is there: the 36/38/40px cluster comes from ~40 DISTINCT,
+   repeated utility strings (`px-3 py-1.5 text-xs`, `px-4 py-2 text-sm`, …) on unrelated
+   elements across unrelated pages. There is no shared class to fix at. The only honest
+   "fix it at that level" is a rule keyed on what these controls genuinely share — being
+   buttons and form controls — rather than hand-tuning ~40 signatures individually.
+
+   ── Why everything is scoped to <= 1023.98px ───────────────────────────────────────────
+   That is this app's own `lg` breakpoint (where it switches to the desktop layout), so this
+   reuses the existing responsive system rather than inventing one. Scoping it this way makes
+   "no desktop regression" a STRUCTURAL guarantee rather than something to re-check whenever
+   one of these controls moves: above `lg`, not a single declaration in this file applies.
+   The section-1 drawer buttons are `lg:hidden` and so only ever exist inside this range.
+
+   ── Two traps deliberately avoided ─────────────────────────────────────────────────────
+   1. `min-height` is IGNORED on a non-replaced inline box. The header "Logout" control is a
+      plain inline <a>, so it gets an explicit inline-flex display alongside the minimum —
+      never a bare min-height, which would match and silently do nothing (the exact class of
+      failure Batch 1 hit with a losing cascade).
+   2. `display` is deliberately NOT overridden on <button>. Browsers already centre a
+      button's content vertically, so a larger min-height keeps the label centred on its own;
+      forcing a display here would instead fight the `flex` / `w-full` / `hidden` utilities
+      these buttons already carry, and there is no way to hand a Tailwind value back
+      afterwards (`revert` returns the user-agent default, not the utility's value).
+   ===================================================================================== */
+
+/* ---------------------------------------------------------------------------------------
+   1. S2 — off-canvas drawer toggle + close, client and admin (dashboard-sidebar.js /
+   admin-sidebar.js, shared by all 26 pages). Toggle was 40x40; close was 20x20 — the worst
+   instance found anywhere in the audit, under half the minimum on both axes.
+   Both controls are `lg:hidden`, so these rules can only ever apply below the breakpoint
+   and need no media query of their own.
+   The negative margin lets the close button's new 44px box grow OUTWARD into the drawer
+   header's own px-6 padding, so the visible glyph stays optically where it already sat
+   rather than being pushed ~12px inboard by its own new width.
+--------------------------------------------------------------------------------------- */
+#sidebar-toggle-btn,
+#admin-sidebar-toggle-btn {
+  width: 44px;
+  height: 44px;
+}
+
+#sidebar-close-btn,
+#admin-sidebar-close-btn {
+  min-width: 44px;
+  min-height: 44px;
+  margin-right: -12px;
+}
+
+@media (max-width: 1023.98px) {
+  /* -------------------------------------------------------------------------------------
+     2. S4 — filter bars, row actions, card buttons and form controls.
+     One rule for every control, rather than ~40 hand-tuned signatures. A `min-height` wins
+     over a Tailwind `h-*` utility regardless of selector specificity: a minimum constrains
+     the USED value after `height` resolves, so this is not a specificity contest and cannot
+     be silently out-cascaded the way a competing `display`/`height` declaration could be.
+     Checkboxes and radios are excluded on purpose — their real tap target is the surrounding
+     <label>, and forcing them to 44px would visually inflate the control itself.
+  ------------------------------------------------------------------------------------- */
+  button,
+  [role="button"],
+  select,
+  textarea,
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
+  }
+
+  /* Width only where a control can genuinely be narrow (an icon-only or one-word button).
+     Inputs, selects and textareas are already full-width or wide by layout, so they are
+     deliberately left out rather than given a minimum they would never hit. */
+  button,
+  [role="button"] {
+    min-width: 44px;
+  }
+
+  /* An <a> that the design has already turned into a flex box is acting as a CONTROL, not
+     as body copy — the sidebar's own nav links and "Deploy Capital" CTA (223x40), and
+     asset-collection's "Back to Asset & Performance" (217x20). This is deliberately keyed on
+     that structural signal rather than a blanket `a { min-height }`, which would also inflate
+     every inline text link inside a paragraph. Anchors are otherwise excluded from section 2
+     for exactly that reason. */
+  a.flex,
+  a.inline-flex {
+    min-height: 44px;
+  }
+
+  /* -------------------------------------------------------------------------------------
+     3. S7 — logout controls. Client "Logout" was 47x20, admin "Log Out" 45x16 — wide enough,
+     genuinely too short, and unusually consequential to mis-tap since it ends the session.
+     The client control is a plain inline <a>, so it needs a display change for the minimum
+     to apply at all. `.mw-tap-logout` is added at runtime by dashboard-sidebar.js's existing
+     wireLogoutLinks(), which already locates exactly these links by their text — no per-page
+     markup edit, and no second way of identifying them that could drift out of sync.
+  ------------------------------------------------------------------------------------- */
+  .mw-tap-logout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* -------------------------------------------------------------------------------------
+     4. S5 — dismiss ("x") controls. The audit named four; a project-wide grep found 37,
+     spanning every modal, the drawers, the toasts and the chat widget. They share no class
+     and no aria-label, but they DO share a naming convention — every one ends in `-close`
+     or `-close-btn` — so this matches on that structurally rather than enumerating 37 ids.
+     A future modal following the same convention inherits the minimum with no edit here.
+     (Below `lg` the section-2 button rule already covers these, since all 37 are <button>
+     elements; this block is kept as the explicit, greppable statement of the convention,
+     and to cover any that are ever authored as a non-button element.)
+  ------------------------------------------------------------------------------------- */
+  [id$="-close"],
+  [id$="-close-btn"],
+  .access-modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

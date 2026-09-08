@@ -339,6 +339,13 @@
     Array.prototype.forEach.call(document.querySelectorAll('a'), function (link) {
       if (link.textContent.trim() !== 'Logout') return;
       link.setAttribute('href', 'login.html');
+      // Mobile fixes, Batch 2 (2026-09-08), Finding S7: this control measured 47x20 — wide
+      // enough, genuinely too short, and unusually consequential to mis-tap. It is a plain
+      // inline <a>, so a bare min-height would be silently ignored; tap-targets.css gives
+      // .mw-tap-logout an inline-flex display alongside the 44px minimum. Tagged here, in
+      // the one place that already identifies these links by their text, rather than adding
+      // a class by hand to all 10 pages where it could drift out of sync.
+      link.classList.add('mw-tap-logout');
       link.addEventListener('click', function (e) {
         e.preventDefault();
         try {

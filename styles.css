@@ -229,21 +229,52 @@ img {
   min-width: 118px;
 }
 
-/* Mobile nav toggle (simple) */
+/* Mobile fixes, Batch 1 (2026-09-08), Finding S1: below 960px "Contact" moves out of the
+   header bar and into the mobile nav drawer (see the @media block further down) rather than
+   sitting alongside "Get Access" — the pair together (276px) never fit a real phone width
+   and produced ~111-136px of genuine horizontal overflow on every marketing page, closing a
+   gap this project's own history had flagged "out of scope" three separate times (rows 101,
+   135, 136) without ever actually fixing it. Hidden by default so desktop is unaffected;
+   the @media block below is what actually reveals it inside the drawer. */
+/* Mobile nav toggle — real 44x44px tap target (was ~38x42px), flex-centered rather than
+   margin-stacked so the explicit box size is exact, not an emergent side-effect of padding. */
 .nav-toggle {
   display: none;
+  width: 44px;
+  height: 44px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-shrink: 0;
 }
 .nav-toggle span {
   display: block;
   width: 22px;
   height: 2px;
   background: var(--text);
-  margin: 5px 0;
-  transition: 0.2s;
+  transition: transform 0.2s, opacity 0.2s;
+}
+/* Hamburger -> X, toggled by site-nav.js alongside .main-nav.is-open */
+.nav-toggle.is-active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.nav-toggle.is-active span:nth-child(2) {
+  opacity: 0;
+}
+.nav-toggle.is-active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Mobile nav drawer's own "Contact" entry — a real link, not a duplicate of the header-actions
+   button, only ever visible inside the drawer (the @media block below reveals it; desktop
+   keeps it hidden since Contact already has its own always-visible button there). */
+.main-nav .mobile-nav-contact {
+  display: none;
 }
 
 /* =====================================================
@@ -514,7 +545,7 @@ img {
 
 .service-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 28px;
 }
 
@@ -712,7 +743,7 @@ img {
 
 .strategy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 28px;
 }
 
@@ -1123,7 +1154,7 @@ img {
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 28px;
   margin-top: 40px;
 }
@@ -1474,15 +1505,103 @@ img {
   transform: scale(1.1);
 }
 
+/* =====================================================================================
+   17B. TAP TARGETS (public site) — Mobile fixes, Batch 2 (2026-09-08)
+   Closes MOBILE_AUDIT.md S6 (footer links 18px tall) and the public half of S5 (the Get
+   Access modal's close control, 36x36 and shared by all 8 marketing pages) for the pages
+   that load styles.css. The Tailwind-based client/admin family has its own equivalents in
+   tap-targets.css; the chat widget's own close button lives in chat-widget.css, since that
+   file is loaded on both families.
+
+   Scoped to the public site's OWN established 960px breakpoint (not the 1023.98px `lg` the
+   dashboard family uses) so each side reuses the responsive system it already has. Above
+   960px nothing here applies, which makes "no desktop regression" structural rather than
+   something to re-verify by eye.
+
+   NOTE on why the footer links need a display change, not just padding: they are plain
+   inline <a> elements, and vertical padding on an inline box does not grow the box the
+   browser actually hit-tests for layout purposes. inline-block is what makes the padded
+   area a real, measurable 44px target rather than a rule that looks right and does nothing.
+   ===================================================================================== */
+@media (max-width: 960px) {
+  /* S6 — footer navigation links. The visible text stays exactly the same size; only the
+     tappable box grows. The list item's own margin is removed at the same time so the
+     footer gains the target area without also gaining 12px of dead space per row. */
+  .footer-col ul li {
+    margin-bottom: 0;
+  }
+  .footer-col ul a {
+    display: inline-block;
+    padding: 13px 0;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  /* S5 (public half) — Get Access modal dismiss control. Absolutely positioned, so a larger
+     box reflows nothing around it; only the control itself grows.
+     `button.` is load-bearing, not cosmetic: the original `.access-modal-close` rule (further
+     down this file, where it is defined with width/height: 36px) has identical specificity
+     (0,1,0) to a bare `.access-modal-close` here and, coming LATER, silently won the cascade —
+     this rule matched and did nothing until it was qualified. Caught by verifying real
+     computed style rather than trusting that the CSS had been written. Qualifying with the
+     element type makes it (0,1,1), which wins regardless of source order. FOURTH instance of
+     this project's duplicate-CSS-block-wins-the-cascade bug class (cf. the deleted `.hero`
+     duplicate, contact.html's own, and Batch 1's `.header-actions .site-header-contact`). */
+  button.access-modal-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* =====================================================
    17. RESPONSIVE
 ===================================================== */
 @media (max-width: 960px) {
+  /* Mobile fixes, Batch 1 (2026-09-08), Finding S1: the drawer itself. .main-nav is reused
+     as the drawer's content (not a second, parallel nav list) — real, toggled by
+     site-nav.js adding/removing .is-open, positioned as a full-width panel anchored to
+     .site-header (position:sticky already establishes the positioning context .main-nav's
+     absolute box needs). */
   .main-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 12px 24px rgba(27, 58, 75, 0.12);
+    padding: 4px 24px 12px;
+  }
+  .main-nav.is-open {
+    display: flex;
+  }
+  .main-nav a {
+    padding: 14px 2px;
+    border-bottom: 1px solid var(--border);
+  }
+  .main-nav a:last-child {
+    border-bottom: none;
+  }
+  .main-nav .mobile-nav-contact {
+    display: block;
+  }
+  /* `a.` is load-bearing, not cosmetic: a SECOND, later `.header-actions .btn` rule (further
+     down this file, the one that actually sizes these buttons to 132x38) has identical
+     specificity (0,2,0) to a bare `.header-actions .site-header-contact` and, coming later,
+     silently won the cascade — so this rule matched but never applied, and the header kept
+     overflowing. Qualifying with the element type makes it (0,2,1), which wins regardless of
+     source order, so a future block appended below can't quietly re-break it. Third instance
+     of this project's own duplicate-CSS-block-wins-the-cascade bug class (cf. the deleted
+     `.hero` duplicate and contact.html's own). */
+  .header-actions a.site-header-contact {
     display: none;
   }
   .nav-toggle {
-    display: block;
+    display: flex;
   }
   .footer-grid {
     grid-template-columns: 1fr 1fr;
@@ -1554,6 +1673,30 @@ img {
 }
 
 @media (max-width: 480px) {
+  /* Mobile fixes, Batch 1 (2026-09-08), Finding S1 (continued): moving "Contact" into the
+     drawer alone was NOT enough at the narrow end. Measured at a real 320px viewport: the
+     header has 272px of content space (320 - 48 container padding) but needs 147.5px logo +
+     118px "Get Access" (its own min-width floor) + 44px toggle = 309.5px, so it still
+     overflowed to a 348px scrollWidth. These three rules close that last 37.5px by letting
+     the logo, the button and the header's own padding all give a little, rather than hiding
+     "Get Access" too — the audit's own suggested fix explicitly wanted it kept in the bar.
+     Every selector is deliberately qualified with `.site-header` (0,3,0): a bare
+     `.header-actions .btn` would tie with the later duplicate of that same selector further
+     down this file and silently lose the cascade — the exact trap that made the first pass
+     at this fix appear to do nothing. Scoped to the header only, so the site-wide
+     `.btn { width: 100% }` rule below is untouched for every other button. */
+  .site-header .container {
+    padding: 0 16px;
+  }
+  .site-header .logo {
+    font-size: 1.15rem;
+  }
+  .site-header .header-actions .btn {
+    width: auto;
+    min-width: 0;
+    padding: 0 12px;
+    font-size: 0.82rem;
+  }
   .stats-bar .container {
     grid-template-columns: 1fr;
   }

@@ -106,6 +106,26 @@
 }
 #chat-widget-close:hover { color: #F7F6F3; }
 
+/* Mobile fixes, Batch 2 (2026-09-08), Finding S5: this dismiss control measured 22x24 — the
+   second-smallest close button in the audit. Lives here rather than in tap-targets.css
+   because the chat widget mounts on BOTH page families (the 8 public marketing pages, which
+   load styles.css, and the 10 client dashboard pages, which load tap-targets.css), so this
+   is the only file guaranteed to be present everywhere the control itself is. Scoped to the
+   dashboard family's own `lg` breakpoint, matching tap-targets.css, so desktop is unchanged.
+   The glyph stays 20px; only the tappable box grows, and the negative margin lets it expand
+   into the header's own padding instead of displacing the title beside it. */
+@media (max-width: 1023.98px) {
+  #chat-widget-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    margin: -8px -8px -8px 0;
+  }
+}
+
 #chat-widget-body {
   flex: 1;
   overflow-y: auto;

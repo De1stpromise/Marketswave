@@ -273,9 +273,57 @@
     });
   }
 
+  // Mobile fixes, Batch 1 (2026-09-08), Finding S3: at narrow widths this dropdown rendered
+  // genuinely off-screen — measured left edge x=-49 on a 375px viewport, truncating the start
+  // of every line ("Notifications" read as "...ications"). Root cause, traced to the exact
+  // geometry rather than assumed: the panel is `absolute right-0` inside the bell's own
+  // `relative` wrapper, so its right edge is pinned to the BELL, not the viewport — and the
+  // bell sits ~104px in from the right edge (header `pr-8` 32px + the Logout link + `gap-4`
+  // 16px). A 320px panel (`w-80`) anchored there starts at 375-104-320 = -49. The existing
+  // `max-w-[90vw]` never helped because 90vw (337px at 375px) is LARGER than 320px, so it
+  // never applied — the constraint had to come from position, not width alone.
+  //
+  // Fix: below 480px, take the panel out of the bell's positioning context and anchor it to
+  // the VIEWPORT (position:fixed, symmetric 1rem gutters), so it is fully on-screen at any
+  // width, independent of where the bell happens to sit. `top: 4.5rem` = the 64px `h-16`
+  // header (byte-identical on all 10 pages that mount this bell, confirmed) + the same 8px
+  // gap `mt-2` gives it when absolute; `margin-top: 0` because a margin would otherwise stack
+  // on top of `top`. 480px reuses styles.css's own already-established breakpoint rather than
+  // inventing a new one; above it the original absolute dropdown demonstrably still fits.
+  //
+  // Delivered as a real injected <style> rather than Tailwind responsive utilities on the
+  // element, deliberately: this project has a documented, silent failure mode where the
+  // Tailwind CDN emits NO CSS at all for a utility it doesn't recognize (the invisible
+  // admin-inbox.html buttons, register row 165) — plain CSS cannot fail that way. ID
+  // specificity (1,0,0) also beats the utility classes already on the element, so this needs
+  // no !important and is insensitive to stylesheet load order. Injecting its own styles
+  // mirrors this component's own established "shared component injects its own markup"
+  // precedent.
+  var PANEL_STYLE_ID = 'notif-bell-panel-styles';
+  function injectPanelStyles() {
+    if (document.getElementById(PANEL_STYLE_ID)) return;
+    var style = document.createElement('style');
+    style.id = PANEL_STYLE_ID;
+    style.textContent =
+      '@media (max-width: 480px) {' +
+        '#notif-bell-panel {' +
+          'position: fixed;' +
+          'top: 4.5rem;' +
+          'margin-top: 0;' +
+          'left: 1rem;' +
+          'right: 1rem;' +
+          'width: auto;' +
+          'max-width: none;' +
+        '}' +
+      '}';
+    document.head.appendChild(style);
+  }
+
   function initDashboardNotifications() {
     var mount = document.getElementById('notif-bell-mount');
     if (!mount) return;
+
+    injectPanelStyles();
 
     mount.innerHTML =
       '<div class="relative">' +

@@ -7115,6 +7115,200 @@ row 74.
   passes, their Auth users, email_log rows) deleted afterward. Backend Requirements
   Register row 168 added.
 
+- **★ Mobile Usability Audit — Stage 1 (2026-09-08, row 169) — a real, complete 393-line audit
+  document that had no CLAUDE.md entry or register row at all until now.** `MOBILE_AUDIT.md`
+  (project root) is a report-only sweep of the public site, the client dashboard and the admin
+  tool at 320/375/390/768px, using real DOM measurement plus real screenshots rather than
+  assumption — going well beyond the horizontal-overflow-at-390px checks earlier verification
+  passes covered. **24 findings: 4 broken, 14 bad, 6 minor**, grouped into 7 systemic findings
+  (S1–S7, one root cause recurring across many pages) plus page-specific ones. The headline
+  items: S1 (public site header overflows every marketing page), S3 (notification bell dropdown
+  renders off-screen, truncating every line — the worst single finding), S2 (off-canvas drawer
+  close buttons at 20×20px on BOTH the client and admin tools), S5 (modal close buttons
+  undersized everywhere checked), S4 (filter bars/row actions/card actions consistently
+  36–40px). It also records a genuine bright spot: the just-redesigned `signup.html` is the
+  strongest page in the project by this standard. **This entry exists because the audit itself
+  was undocumented** — a future session reading only CLAUDE.md would not have known the file
+  existed, let alone that most of its findings are still open. **S1 and S3 are now fixed (row
+  170); every other finding in that document is still open** and is the natural source for a
+  Batch 2.
+- **★ Mobile fixes — Batch 1: S1 (public site header overflow) + S3 (notification dropdown
+  off-screen) (2026-09-08, row 170).** Closes the two BROKEN findings from row 169's audit.
+  **This task was interrupted mid-flight by a machine freeze and resumed in a later session** —
+  the recovery found `styles.css` + `site-nav.js` written and 6 of 8 marketing pages edited in
+  alphabetical order, cut off exactly between `legal.html` and `resources.html`, with S3 not
+  started at all. **Nothing done before the freeze had ever been verified, and verifying it is
+  what found the two real bugs below.**
+
+  **S1.** Below 960px "Contact" moves out of the header bar into a real mobile nav drawer;
+  "Get Access" stays. New `site-nav.js` (loaded by all 8 marketing pages, same self-invoking
+  convention as `home-motion.js`) provides toggle/outside-click/Escape/link-close and the
+  hamburger→X transition — **confirmed via project-wide grep that `.nav-toggle` had never had
+  ANY JS wired to it anywhere in the project, so it did literally nothing before this**. The
+  toggle is now a real 44×44px target (was ~38×42). **A real cascade bug found by verification,
+  not by reading the code:** `.header-actions .site-header-contact { display: none }` MATCHED
+  but never APPLIED — a SECOND, later `.header-actions .btn` rule (line ~1946, the one that
+  actually sizes these buttons to 132×38, genuinely load-bearing, NOT a dead duplicate) has
+  identical specificity (0,2,0) and, coming later, silently won. Fixed by qualifying with the
+  element type — `.header-actions a.site-header-contact` (0,2,1) — which wins regardless of
+  source order, so a future appended block cannot quietly re-break it. **Third instance of this
+  project's own duplicate-CSS-block-wins-the-cascade bug class** (cf. the deleted `.hero`
+  duplicate, contact.html's own). **A second real finding: hiding Contact alone was not enough
+  at 320px** — the header still needed 147.5px logo + 118px "Get Access" (its own `min-width`
+  floor) + 44px toggle = 309.5px against 272px available, so a `@media (max-width: 480px)`
+  block (reusing styles.css's own already-established breakpoint) now lets the logo, the button
+  and the header's own padding each give a little; all three selectors are
+  `.site-header`-qualified (0,3,0) for the same specificity reason. **A third finding, beyond
+  the header and disclosed rather than silently absorbed:** three `repeat(auto-fit, minmax(Npx,
+  1fr))` grids (`.service-grid` 320px, `.strategy-grid` 340px, `.team-grid` 240px) force a
+  track wider than a 320px viewport's content box — guarded with the standard
+  `minmax(min(Npx, 100%), 1fr)` idiom, byte-identical behaviour at every wider width.
+
+  **S3.** Root-caused to exact geometry rather than assumed: the panel is `absolute right-0`
+  inside the bell's own `relative` wrapper, so its right edge is pinned to the BELL, not the
+  viewport, and the bell sits ~104px in from the right edge (header `pr-8` + the Logout link +
+  `gap-4`) — a 320px panel anchored there starts at 375−104−320 = **−49**, exactly the audit's
+  measured value. **The panel already carried `max-w-[90vw]`, which is why a width cap alone
+  would never have worked**: 90vw is 337px at 375px, LARGER than the panel's own 320px, so it
+  never applied — the constraint had to come from position. Below 480px the panel is now
+  `position: fixed` with symmetric 1rem gutters and `top: 4.5rem` (the 64px `h-16` header,
+  confirmed byte-identical on all 10 pages that mount the bell, + the same 8px gap `mt-2` gave
+  it). **Delivered as a real injected `<style>` from `dashboard-notifications.js` rather than
+  Tailwind responsive utilities, deliberately** — this project has a documented silent failure
+  mode where the Tailwind CDN emits NO CSS for an unrecognised utility (row 165); plain CSS
+  cannot fail that way, and ID specificity beats the utility classes already on the element so
+  it needs no `!important` and is insensitive to load order. Injecting its own styles mirrors
+  this component's own "shared component injects its own markup" precedent.
+
+  **Item 3, investigated and the audit corrected:** S1 listed `login.html` as "near-certain" to
+  share the overflowing header. **Directly disproved** — `login.html`/`reset-password.html` use
+  a completely different `.login-topbar` and contain no `.site-header`/`.main-nav`/
+  `.header-actions`/`.nav-toggle` at all; `scrollWidth` equals the viewport exactly at all three
+  widths on them plus `signup.html`/`thank-you.html`. No fix needed or applied. One NEW minor
+  finding was recorded instead (logged in MOBILE_AUDIT.md as A1, deliberately NOT fixed here as
+  cosmetic and out of scope): at 320px their wordmark and "← Back to site" button sit with a
+  **0px gap** and the button label wraps to two lines. An initial read of the screenshot
+  suggested the button was overlapping and obscuring the wordmark; **direct measurement
+  disproved that** (logo ends 184.2, button starts 184.2) — cramped, not broken.
+
+  **Verified with real browser screenshots at real viewports.** No browser automation tool was
+  available (checked, not assumed), so headless Chrome was driven over CDP — this project's own
+  established technique. **A real harness trap was hit and disclosed rather than trusted:** the
+  first run reported a clean PASS on every page at "375px" while
+  `Emulation.setDeviceMetricsOverride` was silently clamping the viewport to 492px, so nothing
+  narrow was ever actually tested — the same false-signal class row 135 documented for Chrome's
+  `--window-size`. The floor is 348px on this build in BOTH headless modes regardless of
+  `--window-size`; 375/390/1440 are exact real top-level viewports, and 320px uses a real
+  same-origin iframe (the technique rows 83/93/100/101 already established), disclosed rather
+  than presented as a top-level viewport. **S1: 240/240** — real `scrollWidth` equals the real
+  viewport on all 8 marketing pages at 320/375/390, no desktop regression at 1440, drawer
+  open/Escape/`aria-expanded`/hamburger→X confirmed. **S3: 65/65** against a REAL signed-in
+  client (real sign-in through the actual `login.html` form) with 8 REAL seeded notifications —
+  every row on-screen at every width, `fixed` below 480px and `absolute` at 1280px. **The
+  screenshot is the actual proof**: at a real 320px viewport every line now reads from its first
+  character ("Allocation request pending: Cash — $25,000"), versus the audit's "...ications" /
+  "...ew document:". **Auth pages: 12/12.** Full regression suite re-run green (all 7 core
+  Supabase suites, all 6 client UI-wiring suites, all admin/PM/inbox/email suites,
+  `verify-tailwind-color-scoping` PASS, `supabase-golden-path-regression.js` PASS (16/16), cloud
+  staging parity OK 50/50 — unchanged, since this task touched no migration or Edge Function).
+  **One suite failure was investigated and proven to be this task's own test-data pollution, not
+  a regression** — `verify-supabase-documents-support.js` asserts exactly 2 rows share
+  `DISP-0001`, and the S3 seed client added a third; PASS again immediately after cleanup. The
+  known intermittent Realtime-timing flake in `verify-supabase-unified-inbox.js` recurred and
+  was clean on retry. All real test data (client, auth user, documents, support and allocation
+  rows) and every temp script were removed afterward, confirmed by direct query.
+
+- **★ Mobile fixes — Batch 2: the systemic tap-target findings S2, S4, S5, S6, S7 + A1
+  (2026-09-08, row 171). ALL 7 SYSTEMIC FINDINGS (S1–S7) FROM THE MOBILE AUDIT ARE NOW
+  CLOSED.** Target throughout: a real rendered hit area of at least 44×44px, reached by
+  padding rather than by making anything visually bigger — every glyph and label keeps its
+  original size.
+  **New shared `tap-targets.css`**, linked on exactly the 26 pages that already load
+  `glass-primitives.css` (the 10 client dashboard + 16 admin pages — verified to be an exact
+  set match, not an approximation). Public-site equivalents live in `styles.css` and the chat
+  widget's own close button in `chat-widget.css`, because those two files are loaded on pages
+  `tap-targets.css` is not.
+  **★ S4's central premise was wrong, and correcting it changed the shape of the fix.** The
+  finding hypothesises "a single shared Tailwind sizing convention" to bump. Investigated
+  before writing anything: there is no such class — the 36/38/40px cluster comes from ~40
+  DISTINCT repeated utility strings (`px-3 py-1.5 text-xs`, `px-4 py-2 text-sm`, …) on
+  unrelated elements across unrelated pages. The instinct that it was one convention rather
+  than N mistakes was right; the assumption that it was expressed as a class was not. So the
+  fix is keyed on what those controls genuinely share — being buttons and form controls —
+  via one `min-height: 44px` rule over `button`/`[role=button]`/`select`/`textarea`/`input`
+  (checkbox and radio excluded: their real target is the surrounding label), plus
+  `min-width: 44px` for buttons only. A `min-height` constrains the USED value after `height`
+  resolves, so it beats a Tailwind `h-*` utility regardless of specificity and cannot be
+  silently out-cascaded. Anchors are deliberately excluded from that rule (a blanket
+  `a { min-height }` would inflate every inline link in body copy); a separate `a.flex,
+  a.inline-flex` rule covers only anchors the design has already made flex boxes — the
+  structural signal that an anchor is acting as a control — which caught the sidebar nav
+  links, "Deploy Capital" (223×40) and "Back to Asset & Performance" (217×20), none of
+  which the audit had listed.
+  **★ S5 was 37 controls, not 4.** A project-wide grep found dismiss controls on every admin
+  queue modal, both drawers, the toasts, the chat widget and asset-collection's popup. They
+  share no class and no common aria-label but DO share a naming convention (every id ends in
+  `-close` or `-close-btn`), so the rule matches structurally rather than enumerating 37 ids,
+  and a future modal following the convention inherits the minimum with no further edit.
+  **★ A REAL CASCADE FAILURE WAS CAUGHT BY VERIFICATION — the FOURTH instance of this
+  project's duplicate-CSS-block-wins-the-cascade bug class.** The Get Access modal rule was
+  added to styles.css ABOVE that file's existing `.access-modal-close { width: 36px }`.
+  Identical specificity (0,1,0), later rule wins — so it matched and did nothing, and the
+  first verification run still measured a real 36×36. Fixed by qualifying it as
+  `button.access-modal-close` (0,1,1), which wins regardless of source order. This is exactly
+  why every assertion in this batch reads a real computed box instead of trusting that CSS
+  was written, and it is the third batch running in which that discipline has paid for itself.
+  **Two `display` traps handled explicitly, both of the "rule matches but does nothing"
+  kind**: (1) `min-height` is IGNORED on a non-replaced inline box, so the header Logout link
+  (S7) and the public footer links (S6) — both plain inline `<a>` — get an explicit
+  inline-flex/inline-block display alongside the minimum, never a bare min-height; (2)
+  `display` is deliberately NOT overridden on `<button>`, because browsers already centre a
+  button's content vertically and forcing a display would fight the `flex`/`w-full`/`hidden`
+  utilities those buttons already carry, with no way to hand a Tailwind value back afterwards
+  (`revert` returns the user-agent default, not the utility's value) — an early draft that
+  tried it was caught and removed before it shipped.
+  **S7's class hook is applied at runtime, not per page**: `dashboard-sidebar.js`'s EXISTING
+  `wireLogoutLinks()` already locates the client Logout links by their text to wire their real
+  sign-out behaviour, so it now also tags them `.mw-tap-logout` — one definition of "which
+  element is the logout link" instead of a hand-added class on 10 pages that could drift.
+  **A1** got a small `@media (max-width: 480px)` block in `login.html` and
+  `reset-password.html` (neither file contained a single media query before this), reusing the
+  public site's own established breakpoint.
+  **Everything is scoped to a breakpoint, which makes "no desktop regression" structural
+  rather than something to re-check by eye**: ≤1023.98px for the Tailwind family (the app's
+  own `lg`), ≤960px for the public site (its own), so each side reuses the responsive system
+  it already has and above those widths not one declaration applies. The only always-on rules
+  are the two drawer buttons, which are `lg:hidden` and therefore cannot reach desktop either.
+  **Verified — 43/43 assertions, exit 0**, applying Batch 1's three recorded lessons
+  explicitly. (a) Every assertion reads a REAL computed/rendered box, never "the CSS was
+  written" — which is what caught the cascade failure above. (b) Every measurement is
+  preceded by a viewport-integrity guard that throws if the browser reports a different width
+  than requested, because Batch 1's first run reported a clean PASS "at 375px" while silently
+  clamped to 492px; 375/390/1440 confirmed exact, and 320px again uses a real same-origin
+  iframe since the top-level override still floors at 348px on this build. (c) All new CSS is
+  plain CSS, and `verify-tailwind-color-scoping` PASSes.
+  **The strongest single result: a full re-scan of 16 pages reports 0 controls under 44×44
+  remaining**, down from 3–37 per page beforehand — measured by enumerating every
+  button/anchor/select/input/textarea/[role=button] on each page rather than re-checking only
+  the ones the audit happened to sample. **Desktop no-regression proven by measurement, not
+  assumption**: at 1440px both media queries confirmed inactive, the drawer rules confirmed
+  `display:none`, and controls re-measured at their exact original sizes (`#filter-type`
+  154×37, `#apply-filters` 116×36, `#reset-filters` 71.6×38, footer link 52.8×18 still
+  `display:inline` with its original 12px `li` margin). Screenshots confirmed the padding
+  changes look right rather than merely measuring right.
+  **Full regression suite re-run green** (all 7 core Supabase suites, all client + admin UI
+  wiring suites, PM/inbox/compose/market/email suites, `verify-tailwind-color-scoping` PASS,
+  `supabase-golden-path-regression.js` PASS 16/16, cloud staging parity OK — unchanged, since
+  this batch touched no migration or Edge Function). **One suite failure was investigated and
+  proven to be this task's own test-data pollution, not a regression** —
+  `verify-admin-approval-gate-ui-wiring` asserts an exact pending count, and the Batch 2 seed
+  client added real pending deposit/withdrawal rows; PASS again immediately after cleanup. The
+  known intermittent Realtime-timing flake in `verify-supabase-unified-inbox.js` recurred and
+  was clean on retry. All real test data was removed afterward — including a real
+  `conversations` row the chat widget created when it was opened during verification, which
+  blocked the auth-user delete via a foreign key and had to be cleared first (worth knowing:
+  opening the chat widget as an authenticated client leaves a real row behind).
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
