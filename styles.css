@@ -2341,8 +2341,12 @@ body.has-overlay-header .hero {
 }
 .philosophy-quiet .container { max-width: 760px; }
 .philosophy-quiet h2 {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: 500;
+  /* The Georgia serif that used to sit here was dropped on 2026-09-08. It appeared exactly
+     once on this page, while the homepage's editorial voice is now unambiguously Inter at
+     light weights (the Core Services heading at 300, its numerals at 200) — one serif in the
+     middle of that reads as an accident rather than a device. services.html keeps its own
+     .service-title serif: there it repeats six times, which is the difference. */
+  font-weight: 300;
   font-size: 2.7rem;
   line-height: 1.2;
   letter-spacing: -0.015em;
