@@ -7548,6 +7548,43 @@ row 74.
   Verified: 119/119 field, 41/41 hero, 39/39 real composited-contrast probes, artifacts 57/57
   and header 55/55 unchanged, console clean. See `Marketswave_Project_Handover.md` row 175.
 
+- **★★ Homepage corrections — seam artifacts rebuilt, Company Pitch split, fonts fixed
+  (2026-09-08, row 176)**: three commits, sequenced fonts -> Company Pitch -> artifacts,
+  because the split moves the boundaries the artifacts sit on.
+  **Fonts**: Inter 200/300 were never in the loaded subset even though the Core Services field
+  asks for both, so it was rendering in a substitute face. Now requested, along with JetBrains
+  Mono 700. **The Philosophy heading's Georgia serif was dropped** — it appeared exactly once
+  on this page; `services.html` keeps its own `.service-title` serif because there it repeats
+  six times, and a check now asserts that so a later sweep does not remove it too.
+  **Company Pitch is now TWO sections**: `.approach` (dark, over the photograph, directional
+  scrim, split lead, one pulled-out ESG statement, a four-step horizontal rail) and
+  `.values-section` (light, the four values as an editorial list — NOT cards). The old
+  `.pitch-prose`/`.process-flow`/`.values-grid`/`.value-item` markup and CSS are gone, and
+  `home-motion.js` was rewired to match: it still targeted those selectors and would silently
+  have stopped revealing anything.
+  **★ The seam artifacts are seven animated SCENES, not icon tiles.** Vault, fingerprint,
+  plinko sorter, candlestick chart, radar, snowball, cheque — 170-260px full-width bands,
+  ported from nav_artifacts_v8.html.
+  **Things a future session needs to know before touching them:**
+  - The zero-height `.seam-rail` is still the container and still load-bearing: every section
+    sets `overflow:hidden`, so a band hung off a section's own edge is clipped. Add a new
+    scene as a `.sa-band` inside a rail BETWEEN two sections, never inside one.
+  - **Sections adjacent to a rail reserve clear space** (`section:has(+ .seam-rail)` and
+    `.seam-rail + section`). Without it, five of the seven overlapped real headings. If you
+    add a taller band, re-run the collision check rather than assuming the clearance covers it.
+  - **A scene must be legible on BOTH grounds it straddles.** The fingerprint and radar were
+    drawn cream for a dark section; after the Company Pitch split the fingerprint sits between
+    two LIGHT sections. It is navy now, and the radar carries its own dark ground. Check the
+    tone on both sides before choosing colours.
+  - The candlestick chart is built by `home-hero.js` from a fixed seed (unlike the Core
+    Services terrains, which are baked). Same seed every load — proven by comparing two loads.
+  - Contrast is measured **under reduced motion**, because these scenes animate opacity on
+    long cycles and sampling at an arbitrary instant catches text mid-fade (the radar readout
+    read 1.42:1 that way, meaninglessly).
+  Verified: 92/92 artifacts, 47/47 Company Pitch, 9/9 fonts, 51/51 real composited-contrast
+  probes, plus field 119/119, header 55/55 and hero 41/41 unchanged. See
+  `Marketswave_Project_Handover.md` row 176.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
