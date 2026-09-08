@@ -1698,46 +1698,11 @@ body.has-overlay-header .hero {
 }
 
 /* L4 — floating glass data cards */
-.hero-planes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.hero-card {
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  border-radius: 16px;
-  background: linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.32));
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow: 0 28px 56px -28px rgba(27,58,75,0.3), inset 0 1px 0 rgba(255,255,255,0.95);
-  padding: 14px 16px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  will-change: transform;
-}
-/* #5B6670 not --text-muted (#6B7178): measured against the hero's own tinted glass, the
-   lighter muted lands at 4.19:1 — under the line. This is the mockup's own lede colour. */
-.hero-card .k { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #5B6670; margin-bottom: 5px; }
-.hero-card .v { font-size: 19px; font-weight: 500; color: #152F3E; letter-spacing: -.02em; line-height: 1; }
-.hero-card .d { font-size: 10.5px; margin-top: 5px; font-weight: 500; color: #5B6670; }
-.hero-card .d.up { color: var(--accent-teal); }
-.hero-card--1 { top: 13%; left: 5%;  width: 158px; animation: heroFloat1 14s ease-in-out infinite alternate; }
-.hero-card--2 { top: 60%; left: 11%; width: 150px; animation: heroFloat2 17s ease-in-out infinite alternate; }
-.hero-card--3 { top: 20%; right: 5%; width: 172px; animation: heroFloat3 15s ease-in-out infinite alternate; }
-.hero-card--4 { bottom: 14%; right: 9%; width: 158px; animation: heroFloat4 19s ease-in-out infinite alternate; }
-@keyframes heroFloat1 { to { transform: translateY(-16px) rotate(-1.2deg); } }
-@keyframes heroFloat2 { to { transform: translateY(14px)  rotate(1deg); } }
-@keyframes heroFloat3 { to { transform: translateY(-12px) rotate(1.4deg); } }
-@keyframes heroFloat4 { to { transform: translateY(16px)  rotate(-1deg); } }
-/* Design round 2 (2026-09-08): hover tilt.
-   The float animation lives on .hero-card and a running CSS animation beats an inline style,
-   so a JS-set transform on the card itself would simply be ignored. The tilt therefore goes
-   on an inner wrapper: the card keeps floating, the inner tilts inside it. .hero-planes sets
-   pointer-events:none for the layer as a whole, so the cards opt back in individually. */
-.hero-card { perspective: 720px; pointer-events: auto; }
-.hero-card-inner {
-  transform-style: preserve-3d;
-  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
-}
-.hero-card.is-tilting .hero-card-inner { transition: transform .08s linear; }
-
-.hero-spark { display: block; margin-top: 8px; width: 100%; height: 22px; overflow: visible; }
+/* L4 — the four floating glass data cards were REMOVED on 2026-09-08 (design round 2
+   addendum, item A), along with the hover tilt built for them one commit earlier. Their
+   markup, wrapper, rules and the four float keyframes are all gone. Nothing else in the hero
+   was positioned relative to them — every other layer is inset:0 or centred on the section
+   itself — verified by measuring the remaining layers before and after, not by reasoning. */
 
 /* L5 — allocation ring */
 .hero-ring {
@@ -2132,16 +2097,10 @@ body.has-overlay-header .hero {
 ------------------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .hero-field,
-  .hero-card,
   .hero-tape-track,
   .hero-badge i {
     animation: none !important;
   }
-  /* Design round 2: the hover tilt is never attached by JS under reduced motion. The cards
-     still respond to hover, but with a plain static lift and no transition — a state change
-     rather than motion, the same line drawn for the header's glass-on-scroll. */
-  .hero-card-inner { transition: none; }
-  .hero-card:hover .hero-card-inner { transform: translateY(-4px); }
   /* Only the VIDEO is motion. An earlier draft hid every .media-bg, which also removed the
      static philosophy photograph — measured: under reduced motion that section fetched only
      the poster and lost its background image entirely. A photo is not motion, so it stays. */
@@ -2149,11 +2108,10 @@ body.has-overlay-header .hero {
 }
 
 /* -------------------------------------------------------------------------------------
-   18E. RESPONSIVE — the floating cards and ring are desktop-only depth, not content.
-   Everything they show is either repeated in the stats bar or decorative.
+   18E. RESPONSIVE — the allocation ring is desktop-only depth, not content.
+   (The floating cards this rule also used to hide were removed entirely on 2026-09-08.)
 ------------------------------------------------------------------------------------- */
 @media (max-width: 900px) {
-  .hero-card,
   .hero-ring { display: none; }
   .section-artifact { width: 88px; height: 88px; border-radius: 20px; bottom: -44px; }
   .section-angle-top,

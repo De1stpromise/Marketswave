@@ -274,38 +274,4 @@
       });
     }
   })();
-  // -------------------------------------------------------------------------------------
-  // Hero card hover tilt (design round 2).
-  //
-  // Applied to .hero-card-inner, never the card itself: the card carries a running float
-  // keyframe animation, and a running animation beats an inline style, so a transform set on
-  // the card would be silently ignored. Never attached under reduced motion — the CSS gives
-  // those visitors a plain static lift on hover instead.
-  // -------------------------------------------------------------------------------------
-  (function heroCardTilt() {
-    if (reduce) return;
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-
-    var MAX_DEG = 9;
-    [].forEach.call(document.querySelectorAll('.hero-card'), function (card) {
-      var inner = card.querySelector('.hero-card-inner');
-      if (!inner) return;
-
-      card.addEventListener('pointermove', function (e) {
-        var b = card.getBoundingClientRect();
-        var px = (e.clientX - b.left) / b.width - 0.5;   // -0.5 .. 0.5
-        var py = (e.clientY - b.top) / b.height - 0.5;
-        card.classList.add('is-tilting');
-        inner.style.transform =
-          'rotateX(' + (-py * MAX_DEG).toFixed(2) + 'deg) ' +
-          'rotateY(' + (px * MAX_DEG).toFixed(2) + 'deg) ' +
-          'translateZ(10px)';
-      });
-
-      card.addEventListener('pointerleave', function () {
-        card.classList.remove('is-tilting');   // back to the slow easing for the settle
-        inner.style.transform = '';
-      });
-    });
-  })();
 })();
