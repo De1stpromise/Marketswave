@@ -7309,6 +7309,75 @@ row 74.
   blocked the auth-user delete via a foreign key and had to be cleared first (worth knowing:
   opening the chat widget as an authenticated client leaves a real row behind).
 
+- **★★ Mobile fixes — Batch 3: the remaining page-specific findings (2026-09-08, row 172).
+  EVERY FINDING IN MOBILE_AUDIT.md IS NOW RESOLVED** — all 7 systemic (Batches 1–2) plus all
+  page-specific (this batch), closing the audit out entirely.
+  **★ The headline change: wide data tables become CARDS at narrow widths, not a scroll cue.**
+  The audit's `transactions.html` finding suggested an edge-fade; its own `admin-deposits.html`
+  finding separately observed that the Approval Gate pages already solve this with cards and
+  named that as the pattern to follow. **Put to the user with the reasoning; they chose cards.**
+  Three things settled the recommendation: a fade only ADVERTISES that 60.4% of the content is
+  elsewhere without making it reachable; **the drill-down modal the ledger already opens carries
+  every one of the 7 columns PLUS three more** (Market Price, Associated Costs, Realized Return)
+  — checked directly before recommending, so a summarising card loses nothing; and it could be
+  done CSS-first with one render path instead of a second mobile-only one.
+  New `responsive-tables.css` + `responsive-tables.js`, opt-in via a `mw-card-table` class
+  (opt-in deliberately — most tables already fit, and silently restyling those would be a change
+  nobody asked for). Below `lg`, each row becomes a self-labelling card.
+  **★ A full sweep found FIVE MORE overflowing tables the audit never caught**, on pages it had
+  only checked for tap targets: `admin-client-applications.html` (939px in 324px — the worst),
+  `asset-performance.html` (744), `admin-hys.html` (716), `admin-products.html` (686),
+  `admin-clients.html` (448). **The user was asked and chose to include them.** The sharpest
+  consequence was on `admin-documents.html`, where the last column holds the Download / Mark
+  Reviewed action — **a PM's primary action sat ~500px off-screen at x=808.9–892.4 in a 390px
+  viewport**, proven by a genuine before/after in a single page load (disable only the new
+  stylesheet), and now at x=248.5–332 at 83.5×44.
+  **Labels are DERIVED, not hand-written**: `responsive-tables.js` copies each column's own
+  `<th>` text onto the `<td>`s beneath it. Chosen over hand-adding ~50 `data-label` attributes
+  across eight string-concatenated render functions — a derived label can never disagree with
+  its heading, and a future column change needs no edit. A MutationObserver re-labels after each
+  re-render, because every one of these tables is rebuilt on filter/refresh and a one-shot pass
+  would have labelled only the first render and silently missed the rest.
+  **Verified rather than assumed for the other named items** — and most turned out already
+  closed by Batch 2's systemic work: `documents.html` chips 145.5×44 (were 28 tall),
+  `settings.html` "Edit" 44×44 (was 22×16), "Request Change" 120.6×44, password fields 276×44,
+  `asset-collection.html` "More info" 234×44 (was 150×16) and "Back to Asset & Performance"
+  217×44. The ONLY named item needing this batch's own work was the settings toggle switches,
+  which the audit had reasonably flagged MINOR (44×24 is the universal toggle size): resolved in
+  the batch's own spirit — the SWITCH stays visually 44×24 and only its `<label>`, the element
+  that actually receives the tap, grows to 44×44 with a compensating negative margin.
+  **The unswept pages are clean**: `risk-management`, `deploy-capital`, `support` (client) and
+  `admin-withdrawals`/`admin-sells`/`admin-support`/`admin-profile-updates`/`admin-advisory-fee`/
+  `admin-security`/`admin-login` all swept at a confirmed 390px — no undersized controls, no
+  overflow, no over-wide tables. `admin-login.html` checked while genuinely unauthenticated.
+  **★ TWO REAL TRAPS CAUGHT, both instances of the lessons this batch was told to apply.**
+  (1) **A stale-cache false negative**: the first re-sweep reported all five tables STILL broken
+  with the new class apparently absent — the persistent browser profile was serving cached
+  copies of the just-edited files. Had it not been chased, a batch that was already correct
+  would have been reported as failing. Fixed at the harness level (`Network.setCacheDisabled` on
+  every navigation), not worked around — this is now the third distinct false-signal class this
+  project's verification has had to defend against, after the viewport clamp and the cascade
+  trap. (2) **`clip` hides painting, not geometry**: the visually-hidden `<thead>` still reported
+  its full layout width and inflated an ancestor's `scrollWidth` (383 against a 324px wrapper),
+  and `width: 1px` alone did nothing because a `table-cell` is re-measured by the table layout
+  algorithm — collapsed properly by also forcing `display: block` on the head cells. A third,
+  smaller one: a `td` is a flex row, and cells carrying text PLUS a badge could not wrap, pushing
+  the badge past the card edge — fixed with `flex-wrap: wrap` on the cell.
+  **Verified**: 36/36 on the main checks, 43/43 on the card-table checks, 5/5 on the
+  admin-documents action A/B — every assertion reading real computed style, every measurement
+  behind a viewport-integrity guard, 375/390/1440 exact and 320px via a real iframe. A full
+  re-sweep reports **0 tables still scrolling horizontally** across every client and admin page.
+  Desktop no-regression proven by measurement on all seven pages (`display: table-row`, `thead`
+  visible, ledger still 1118px at 1440px) plus the settings toggle back to 24px. Real
+  before/after screenshots for the ledger, captured by disabling only the new stylesheet in the
+  same page load so the comparison is genuinely like-for-like.
+  **Full regression suite green** (all 7 core Supabase suites, all client + admin UI-wiring
+  suites, PM/inbox/compose/market/email suites, `verify-tailwind-color-scoping` PASS,
+  `supabase-golden-path-regression.js` PASS 16/16, cloud staging parity OK — unchanged, no
+  migration or Edge Function touched). Two known flakes (`supabase-verify-pm-attribution`,
+  `supabase-verify-unified-inbox`) recurred and were clean on retry. All test data removed
+  afterward, conversations row included.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

@@ -117,6 +117,26 @@
   }
 
   /* -------------------------------------------------------------------------------------
+     3b. Batch 3 (2026-09-08) — 2FA / notification toggle switches on settings.html.
+     The audit flagged these MINOR at 44x24, reasonably: that is the universal toggle-switch
+     size across the web, and inflating the switch itself would look wrong. So the SWITCH is
+     left visually untouched at 44x24 and only its <label> — the element that actually
+     receives the tap — is grown to a 44px box, with a matching negative margin so the row's
+     own spacing is unchanged. That is this batch's whole principle applied literally: the
+     visible control stays the same size, the tappable box reaches the minimum.
+     An explicit class rather than `label:has(> input.sr-only)` on purpose — a `:has()` rule
+     that turned out to be unsupported would fail silently, which is precisely the class of
+     bug this project keeps being bitten by.
+  ------------------------------------------------------------------------------------- */
+  .mw-tap-toggle {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-top: -10px;
+    margin-bottom: -10px;
+  }
+
+  /* -------------------------------------------------------------------------------------
      4. S5 — dismiss ("x") controls. The audit named four; a project-wide grep found 37,
      spanning every modal, the drawers, the toasts and the chat widget. They share no class
      and no aria-label, but they DO share a naming convention — every one ends in `-close`

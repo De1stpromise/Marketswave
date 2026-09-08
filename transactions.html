@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="responsive-tables.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -159,7 +160,14 @@
             <span class="text-xs text-slate-400" id="ledger-count">Showing latest activity</span>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <!-- Mobile fixes, Batch 3 (2026-09-08): `mw-card-table` opts this table into
+                 responsive-tables.css, which stacks each row as a self-labelling card below
+                 the lg breakpoint. Measured at 375px this table was 780.9px inside a 309px
+                 wrapper — 60.4% of it off-screen with no scroll affordance at all. Every row
+                 stays clickable, and the existing drill-down modal already carries all seven
+                 columns plus Market Price, Associated Costs and Realized Return, so the card
+                 loses nothing that was previously reachable. -->
+            <table class="w-full text-sm mw-card-table">
               <thead class="bg-slate-50 text-slate-500">
                 <tr>
                   <th scope="col" class="text-left font-medium px-6 py-3">Date</th>
@@ -220,6 +228,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="responsive-tables.js"></script>
   <script src="chat-widget.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
        bundle-size investigation. Loaded here for the Notification Bell (all 10 client
@@ -571,13 +580,13 @@
           var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
           var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
           return '<tr class="hover:bg-slate-50/50 cursor-pointer" data-txn-id="' + txn.id + '">' +
-            '<td class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
-            '<td class="px-6 py-4 font-medium text-navy">' + txnProductName(txn) + '</td>' +
-            '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + badgeClass + '">' + txnTypeLabel(txn) + '</span></td>' +
-            '<td class="px-6 py-4 text-right">' + unitsCell + '</td>' +
-            '<td class="px-6 py-4 text-right">' + priceCell + '</td>' +
-            '<td class="px-6 py-4 text-right font-medium">' + formatUSD(Math.round(txn.totalValue)) + '</td>' +
-            '<td class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">' + txn.status + '</span></td>' +
+            '<td data-label="Date" class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
+            '<td data-label="Asset" class="px-6 py-4 font-medium text-navy">' + txnProductName(txn) + '</td>' +
+            '<td data-label="Type" class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + badgeClass + '">' + txnTypeLabel(txn) + '</span></td>' +
+            '<td data-label="Quantity" class="px-6 py-4 text-right">' + unitsCell + '</td>' +
+            '<td data-label="Price" class="px-6 py-4 text-right">' + priceCell + '</td>' +
+            '<td data-label="Total Value" class="px-6 py-4 text-right font-medium">' + formatUSD(Math.round(txn.totalValue)) + '</td>' +
+            '<td data-label="Status" class="px-6 py-4"><span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">' + txn.status + '</span></td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = rowsHtml;

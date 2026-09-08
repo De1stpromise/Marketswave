@@ -1,0 +1,143 @@
+/* =====================================================================================
+   RESPONSIVE TABLES — Mobile fixes, Batch 3 (2026-09-08)
+   Turns a wide data table into stacked cards at narrow widths, so the content is read by
+   scrolling DOWN rather than by discovering a sideways swipe.
+
+   ── Why cards rather than a scroll cue ─────────────────────────────────────────────────
+   MOBILE_AUDIT.md's own transactions.html finding suggested "an edge-fade or shadow", but
+   its admin-deposits.html finding separately observes that the Approval Gate pages already
+   solve exactly this by rendering CARDS instead of a table, and names that as the pattern
+   the ledger should follow. Measured at 375px, the ledger table is 780.9px inside a 309px
+   wrapper — 60.4% of the content is off-screen. A fade advertises that more exists; it does
+   not make it reachable without horizontal swiping, which is a poor pattern for a primary
+   data view on a phone. Cards remove the sideways scroll entirely.
+
+   ── Opt-in, deliberately ───────────────────────────────────────────────────────────────
+   Scoped to `.mw-card-table` rather than every <table>. Most tables in this project already
+   fit their wrapper at 390px (confirmed by a full sweep of every client and admin page), and
+   silently restyling those would be a change nobody asked for. A table opts in by adding the
+   class; that is also why this file is safe to link on any page.
+
+   ── How the labels work ────────────────────────────────────────────────────────────────
+   Each <td> carries a `data-label` matching its column heading, surfaced via `::before` so
+   the card is self-describing once the real <thead> is out of the flow. The head is visually
+   hidden rather than `display: none` so it stays available to assistive technology.
+
+   ── Specificity note (this project has been bitten four times) ─────────────────────────
+   Every rule here is `.mw-card-table td`-shaped (0,1,1), which beats the Tailwind utilities
+   already on those cells (`px-6`, `py-4`, `text-right` — all 0,1,0) regardless of source
+   order. No `!important` is needed and no later-loaded utility can silently out-cascade it.
+   Verified by real computed style, not by assuming the cascade behaved.
+   ===================================================================================== */
+
+@media (max-width: 1023.98px) {
+  /* Keep the headings for screen readers, take them out of the visual flow. */
+  .mw-card-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  /* The <th> boxes need collapsing too, not just their <thead>. `clip` only affects PAINTING —
+     each cell still reports its full layout width, which measurably inflated an ancestor's
+     scrollWidth (383 against a 324px wrapper on admin-client-applications.html) even though
+     nothing was visible and the page itself never scrolled. Harmless as it stood, but it would
+     produce a real scrollbar the moment that wrapper gained `overflow-x: auto` like the others,
+     so the geometry is collapsed at source rather than left as a latent trap. */
+  .mw-card-table thead,
+  .mw-card-table thead tr,
+  .mw-card-table thead th {
+    display: block;          /* while these stay `table-cell`, the table layout algorithm
+                                recomputes their natural width and `width: 1px` is only a
+                                hint it is free to ignore — which is exactly what happened */
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .mw-card-table,
+  .mw-card-table tbody,
+  .mw-card-table tr,
+  .mw-card-table td {
+    display: block;
+    width: auto;
+  }
+
+  /* Each row becomes a card. The wrapper's own overflow-x is left alone — with nothing wider
+     than the viewport left inside it, it simply never engages. */
+  .mw-card-table tr {
+    border: 1px solid rgb(226, 232, 240);   /* slate-200, matching the card borders already
+                                                used by the Approval Gate pages */
+    border-radius: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    margin: 0 0.75rem 0.75rem;
+    background: #fff;
+  }
+  .mw-card-table tbody tr:last-child {
+    margin-bottom: 1rem;
+  }
+
+  /* Label on the left, value on the right — one line per field, wrapping when it must. */
+  .mw-card-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    text-align: left;
+    border-bottom: 1px solid rgb(241, 245, 249);  /* slate-100 */
+    /* A cell is not always one value: several carry text PLUS a badge (a source pill, a status
+       chip), which become separate anonymous flex items. Without wrapping, a long pair simply
+       overflowed the card — measured on admin-client-applications.html, where an "Applicant"
+       cell pushed its Supabase badge past the wrapper edge (383 against a 324px box). Allowing
+       the line to wrap, and letting each item shrink, keeps any cell content inside the card
+       regardless of how many pieces it is made of. */
+    flex-wrap: wrap;
+  }
+  .mw-card-table td > * {
+    min-width: 0;
+  }
+  .mw-card-table tr td:last-child {
+    border-bottom: 0;
+  }
+  .mw-card-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: rgb(100, 116, 139);                    /* slate-500 */
+    font-weight: 500;
+    padding-right: 0.5rem;
+  }
+  /* An action cell (or any cell whose heading is genuinely blank) carries data-label="" and
+     gets no label chip; it also spans the full width so its button is not squeezed. */
+  .mw-card-table td[data-label=""] {
+    justify-content: flex-end;
+  }
+  .mw-card-table td[data-label=""]::before {
+    content: none;
+  }
+
+  /* The empty-state / "no results" row is a single colspan cell — it is not a record, so it
+     keeps its centred message instead of being dressed up as a card. */
+  .mw-card-table td[colspan] {
+    display: block;
+    text-align: center;
+    border-bottom: 0;
+  }
+  .mw-card-table td[colspan]::before {
+    content: none;
+  }
+  .mw-card-table tr:has(td[colspan]) {
+    border: 0;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+  }
+}

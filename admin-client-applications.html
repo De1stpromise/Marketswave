@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="responsive-tables.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -114,6 +115,7 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="responsive-tables.js"></script>
   <script>
     initAdminSidebar('client-applications');
   </script>
@@ -473,7 +475,7 @@
           return;
         }
 
-        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
           '<th class="text-left font-medium px-6 py-3">Applicant</th>' +
           '<th class="text-left font-medium px-6 py-3">Email</th>' +
           '<th class="text-left font-medium px-6 py-3">Account Type</th>' +

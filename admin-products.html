@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="responsive-tables.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -277,6 +278,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="responsive-tables.js"></script>
   <script>
     initAdminSidebar('products');
   </script>
@@ -409,7 +411,7 @@
             el.innerHTML = '<p class="text-xs text-slate-400 px-1 py-2">No NAV published yet.</p>';
             return;
           }
-          el.innerHTML = '<table class="w-full text-xs"><thead class="text-slate-400"><tr>' +
+          el.innerHTML = '<table class="w-full text-xs mw-card-table"><thead class="text-slate-400"><tr>' +
             '<th class="text-left font-medium px-3 py-1.5">Effective Date</th>' +
             '<th class="text-right font-medium px-3 py-1.5">Unit Price</th>' +
             '<th class="text-left font-medium px-3 py-1.5">Published By</th>' +
@@ -510,7 +512,7 @@
           return;
         }
 
-        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
           '<th class="text-left font-medium px-6 py-3">Product</th>' +
           '<th class="text-left font-medium px-6 py-3">Asset Class</th>' +
           '<th class="text-left font-medium px-6 py-3">Risk Tier</th>' +

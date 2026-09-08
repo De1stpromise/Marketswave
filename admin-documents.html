@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="responsive-tables.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -117,6 +118,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="responsive-tables.js"></script>
   <script>
     initAdminSidebar('documents');
   </script>
@@ -210,7 +212,13 @@
           return;
         }
 
-        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
+        // Mobile fixes, Batch 3 (2026-09-08): found by this batch's own sweep, not by the audit —
+        // 799px table inside a 324px wrapper at 390px, which pushed the Download / Mark Reviewed
+        // action in the last column completely off-screen. `mw-card-table` stacks each row as a
+        // self-labelling card below the lg breakpoint (responsive-tables.css), which brings that
+        // action back into view. This page has no drill-down modal, so every field the table shows
+        // is surfaced on the card itself.
+        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
           '<th class="text-left font-medium px-6 py-3">Client</th>' +
           '<th class="text-left font-medium px-6 py-3">Document</th>' +
           '<th class="text-left font-medium px-6 py-3">Category</th>' +
@@ -225,13 +233,13 @@
               ? '<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition" data-doc="' + d.id + '">Download</button>'
               : '';
             return '<tr class="hover:bg-slate-50/50">' +
-              '<td class="px-6 py-4 text-slate-500">' + d.clientName + ' (' + d.clientId + ')</td>' +
-              '<td class="px-6 py-4 font-medium text-slate-900">' + d.filename + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + d.category + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + directionLabel + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + (d.status || '—') + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + formatDisplayDate(d.date) + '</td>' +
-              '<td class="px-6 py-4 text-right">' + actionCell + '</td>' +
+              '<td data-label="Client" class="px-6 py-4 text-slate-500">' + d.clientName + ' (' + d.clientId + ')</td>' +
+              '<td data-label="Document" class="px-6 py-4 font-medium text-slate-900">' + d.filename + '</td>' +
+              '<td data-label="Category" class="px-6 py-4 text-slate-500">' + d.category + '</td>' +
+              '<td data-label="Direction" class="px-6 py-4 text-slate-500">' + directionLabel + '</td>' +
+              '<td data-label="Status" class="px-6 py-4 text-slate-500">' + (d.status || '—') + '</td>' +
+              '<td data-label="Date" class="px-6 py-4 text-slate-500">' + formatDisplayDate(d.date) + '</td>' +
+              '<td data-label="" class="px-6 py-4 text-right">' + actionCell + '</td>' +
             '</tr>';
           }).join('') + '</tbody></table>';
       }

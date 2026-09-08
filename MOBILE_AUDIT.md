@@ -2,12 +2,17 @@
 
 **Date:** 2026-09-08
 **Scope:** Public site, client dashboard, admin tool — report only, no fixes applied.
-**Status:** S1 and S3 were FIXED on 2026-09-08 by "Mobile fixes — Batch 1" (CLAUDE.md /
-handover row 170). S2, S4, S5, S6, S7 and A1 were FIXED the same day by "Mobile fixes —
-Batch 2" (row 171). **All 7 systemic findings (S1–S7) are now resolved.** What remains open
-is the page-specific section below. Each finding carries its own RESOLVED note; this document
-stays a record of what the audit found at the time it was written, annotated in place rather
-than rewritten.
+**Status: EVERY FINDING IN THIS DOCUMENT IS NOW RESOLVED** (all on 2026-09-08, across three
+batches). S1 and S3 by "Mobile fixes — Batch 1" (CLAUDE.md / handover row 170); S2, S4, S5,
+S6, S7 and A1 by Batch 2 (row 171); the page-specific findings below by Batch 3 (row 172).
+Each finding carries its own RESOLVED note; this document stays a record of what the audit
+found at the time it was written, annotated in place rather than rewritten.
+
+**Batch 3 also found four things this audit missed** — see "Findings Added After the Fact"
+at the end: five more tables overflowing their wrapper on pages the audit had only checked
+for tap targets (worst: 939px inside 324px, with a PM's primary action pushed off-screen),
+and confirmation that most of the page-specific tap-target items had already been closed by
+Batch 2's systemic work rather than needing anything of their own.
 **Widths tested:** 320px, 375px, 390px, 768px (see Methodology for how these were used per finding).
 
 This audit goes beyond horizontal-overflow checks (the only thing prior verification passes
@@ -388,7 +393,7 @@ behaviour — so there is only ever one definition of "which element is the logo
 
 ## Page-Specific Findings
 
-### `transactions.html` — Ledger table scrolls with no visual cue it's scrollable — BAD
+### `transactions.html` — ~~BAD~~ RESOLVED (2026-09-08) — Ledger table scrolls with no visual cue it's scrollable
 
 The real ledger `<table>` measures **802px wide** inside a wrapper with `overflow-x: auto`
 whose visible width at 375px is only **285px** — meaning roughly 65% of the table's content
@@ -402,6 +407,31 @@ problem, not a legibility one.
 content to reveal (a common, well-established CSS pattern for exactly this case), or pin the
 first 1–2 most-important columns and let the rest scroll.
 
+**RESOLVED, 2026-09-08 (Mobile fixes — Batch 3) — with the CARD layout, not the edge-fade.**
+The choice was put to the user with the reasoning below and they chose cards.
+
+This finding suggested a fade or shadow; the `admin-deposits.html` finding further down
+separately observes that the Approval Gate pages already solve exactly this by rendering
+CARDS, and names that as the pattern this table should follow. Three things settled it:
+1. A fade only *advertises* that 60.4% of the content is elsewhere — it still has to be
+   reached by horizontal swiping, a poor pattern for a primary data view on a phone.
+2. **The drill-down modal this table already opens carries every one of the seven columns
+   PLUS three more** (Market Price at Execution, Associated Costs, Realized Return) — checked
+   directly before recommending. So nothing is lost by summarising in a card.
+3. It could be done CSS-first, with one render path rather than a second mobile-only one.
+
+Implemented as new `responsive-tables.css` + `responsive-tables.js`, opt-in via a
+`mw-card-table` class: below the `lg` breakpoint each row becomes a self-labelling card, with
+each cell's label derived from its own `<th>`. Rows remain clickable, so the drill-down modal
+still opens — verified.
+
+**Verified**: at a genuinely-confirmed 375px the wrapper's scrollWidth is now 309 against a
+309px client width (was **780.9 inside 309**), all 7 fields visible per card, and the page
+itself does not scroll horizontally. Confirmed again at 390px and at a real 320px iframe.
+Desktop re-measured at 1440px as a real table (`display: table-row`, `thead` visible,
+1118px wide) — unchanged. Real before/after screenshots taken by disabling only the new
+stylesheet in the same page load, so the comparison is genuinely like-for-like.
+
 **Charts on this page — checked, no issues:** the "Transaction Volume" bar chart renders
 legibly at 375px — distinguishable bars, readable axis labels (Aug 26 / Sep 26), and a clear
 color-keyed legend (Buys/Sells). The line chart ("Net Cash Flow") was visible but not
@@ -409,15 +439,19 @@ independently screenshotted at full size this pass.
 
 ---
 
-### `documents.html` — notification chip pills undersized, filter row shares S4 — BAD
+### `documents.html` — ~~BAD~~ RESOLVED (2026-09-08, by Batch 2) — notification chip pills undersized
 
 The three status chip pills at the top ("1 New Documents", "0 Signature Required", "0
 Deadline This Week") measure 28px tall — smaller than the general filter-row pattern in S4.
 Everything else on this page is covered by S4 above.
 
+**RESOLVED — already closed by Batch 2's systemic S4 rule; verified, not assumed.**
+Re-measured at a confirmed 390px viewport: the chip pills are **145.5×44** (were 28px tall).
+No page-specific work was needed here.
+
 ---
 
-### `settings.html` — "Edit" buttons are genuinely tiny — BAD
+### `settings.html` — ~~BAD~~ RESOLVED (2026-09-08) — "Edit" buttons are genuinely tiny
 
 The inline "Edit" text-link buttons next to Email/Phone measure **22×16px** — small even
 relative to the rest of this audit's findings, and a real, frequently-used action (editing
@@ -430,13 +464,36 @@ fields are 42px tall — MINOR, just under the line.
 *Suggested fix:* give the "Edit" buttons real padding (they currently look like they're
 sized purely by their text content with no touch-friendly box around it).
 
+**RESOLVED, 2026-09-08. Most of it was already closed by Batch 2's systemic S4 rule —
+verified rather than assumed** by re-measuring each control at a confirmed 390px viewport:
+
+| Control | Audit | Now |
+|---|---|---|
+| "Edit" (Email/Phone) | 22×16 | **44×44** |
+| "Request Change" | 120×30 | **120.6×44** |
+| Password fields | 42 tall | **276×44** |
+
+**The toggle switches were the one item needing Batch 3's own work** (this audit flagged them
+MINOR, reasonably — 44×24 is the universal toggle-switch size and inflating the switch itself
+would look wrong). Resolved in the spirit of the batch rather than by ignoring it: the SWITCH
+is left visually untouched at 44×24, and only its `<label>` — the element that actually
+receives the tap — is grown to a 44px box with a compensating negative margin so the row's
+spacing is unchanged. Verified: label hit area **44×44**, switch still measures 44×24, all 5
+toggles tagged, and at 1440px the label is back to 24px so desktop is untouched.
+
 ---
 
-### `asset-collection.html` — the highest concentration of undersized controls on the client side — BAD
+### `asset-collection.html` — ~~BAD~~ RESOLVED (2026-09-08, by Batch 2) — highest concentration of undersized controls on the client side
 
 In addition to the filter pills and per-card buttons covered in S4, the "More info" toggle
 link on each product card measures **150×16px** — the shortest link-style control found on
 the client side — and the "Back to Asset & Performance" link measures 217×20px.
+
+**RESOLVED — already closed by Batch 2; verified, not assumed.** Re-measured at a confirmed
+390px viewport: "More info" is **234×44** (was 150×16) and "Back to Asset & Performance" is
+**217×44** (was 217×20). The latter was caught by Batch 2's `a.flex, a.inline-flex` rule —
+anchors the design has already made flex boxes are treated as controls — rather than by any
+page-specific edit here.
 
 ---
 
@@ -550,6 +607,76 @@ breakpoint. Slightly smaller topbar logo and back-link font, plus a real `gap`.
 "← Back to site" button is now **40.4px** (was 0px), the button renders on a single line
 (39.1px tall, previously wrapping to two), and `scrollWidth` still equals the viewport exactly
 at 320/320 — no overflow introduced.
+
+---
+
+## Findings Added After the Fact (2026-09-08, from Batch 3's own sweep)
+
+Batch 3's brief included sweeping the pages this audit never individually tested. That sweep
+found one genuinely new defect class and confirmed three non-findings. Recorded here so the
+audit stays the single source of truth.
+
+### B1 — ~~BROKEN~~ RESOLVED (2026-09-08) — Five MORE tables overflow their wrapper, on pages this audit only checked for tap targets
+
+**This audit measured exactly one over-wide table** (`transactions.html`) and, separately,
+praised `admin-deposits.html` for using cards. It never checked whether any OTHER page had
+the same problem. A full sweep of every client and admin page at a confirmed 390px found five
+more, none previously recorded:
+
+| Page | Table | Wrapper | Overflow |
+|---|---|---|---|
+| `admin-client-applications.html` | 939px | 324px | **+615** |
+| `asset-performance.html` (client) | 744px | 324px | +420 |
+| `admin-hys.html` | 716px | 324px | +392 |
+| `admin-products.html` | 686px | 324px | +362 |
+| `admin-clients.html` | 448px | 324px | +124 |
+
+**The worst consequence was on `admin-documents.html`** (already in scope, but the specific
+harm was not recorded): its last column holds the Download / Mark Reviewed action, so **a
+PM's primary action sat at x=808.9–892.4 in a 390px viewport — around 500px off-screen and
+unreachable** unless the PM happened to discover a sideways swipe. Measured directly, and
+confirmed as a genuine before/after by disabling only the new stylesheet in the same page
+load: the same button now sits at x=248.5–332, fully visible, at 83.5×44.
+
+**RESOLVED**: all seven tables now opt into the same `mw-card-table` treatment.
+`responsive-tables.js` derives each cell's label from its own `<th>` — chosen over
+hand-writing ~50 `data-label` attributes across eight string-concatenated render functions,
+because a derived label can never disagree with its heading and a future column change needs
+no edit. A MutationObserver re-labels after each re-render, since every one of these tables
+is rebuilt on filter/refresh and a one-shot pass would have labelled only the first render.
+
+**Verified**: a full re-sweep of every client and admin page reports **0 tables still
+scrolling horizontally**. Expandable rows (`admin-clients.html`, `admin-products.html`) still
+expand correctly in card mode with no page overflow, and every one of the seven pages is
+confirmed to be a real `table-row` again at 1440px.
+
+**Two real traps caught during this work, both worth remembering:**
+- **A stale-cache false negative.** The first re-sweep reported all five tables *still*
+  broken, with the new class apparently absent — the persistent browser profile was serving a
+  cached copy of the just-edited files. Fixed at the harness level (`Network.setCacheDisabled`
+  on every navigation), not worked around. Had it not been chased, the batch would have been
+  reported as failing when it was already correct.
+- **`clip` hides painting, not geometry.** The visually-hidden `<thead>` still reported its
+  full layout width and inflated an ancestor's `scrollWidth` (383 against a 324px wrapper),
+  and `width: 1px` alone did nothing because a `table-cell` is re-measured by the table layout
+  algorithm. Collapsed properly by also setting `display: block` on the head cells.
+
+### B2 — NOT A FINDING — most page-specific tap-target items were already closed by Batch 2
+
+Verified rather than assumed, by re-measuring each at a confirmed 390px viewport: the
+`documents.html` chip pills, `settings.html`'s "Edit" / "Request Change" / password fields,
+and `asset-collection.html`'s "More info" and "Back to Asset & Performance" links had all
+already been fixed by Batch 2's systemic S4 work. Each is annotated in place above. Only the
+`settings.html` toggle switches needed Batch 3's own change.
+
+### B3 — NOT A FINDING — the never-individually-tested pages are clean
+
+`risk-management.html`, `deploy-capital.html`, `support.html` (client) and
+`admin-withdrawals`, `admin-sells`, `admin-support`, `admin-profile-updates`,
+`admin-advisory-fee`, `admin-security`, `admin-login` (admin) were each swept at a confirmed
+390px for undersized controls, horizontal overflow and over-wide tables. **All clean** — the
+systemic fixes had already covered them. `admin-login.html` was checked while genuinely
+unauthenticated, since that is its only real state.
 
 ---
 
