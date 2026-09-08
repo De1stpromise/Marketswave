@@ -202,7 +202,17 @@
        moved here from the Philosophy CTA. New rhythm:
        hero -> DARK(photo) -> light -> light -> DARK(video) -> light -> light -> DARK(footer).
        The photo and video remain the dark beats rather than being extra to them. -->
-  <section class="section media-section" id="company-pitch">
+  <!-- ========== A · OUR APPROACH ========== -->
+  <!-- Homepage corrections, item 2 (2026-09-08), ported from the approved
+       company_pitch_redesign.html. This section used to carry four separate jobs at once:
+       an eyebrow, a heading, a paragraph, a SECOND heading, two dense ESG paragraphs, the
+       four process steps AND the four values. It is now split in two — Approach here (dark,
+       over the existing photograph) and "What we stand for" as its own light section below.
+
+       The ESG content is deliberately condensed into ONE pulled-out statement rather than the
+       two paragraphs it replaced; that condensed wording comes from the approved mockup and is
+       intentional, not a placeholder. -->
+  <section class="section approach" id="company-pitch">
     <picture>
       <source type="image/webp" sizes="100vw"
               srcset="assets/philosophy-768.webp 768w, assets/philosophy-1280.webp 1280w, assets/philosophy-1920.webp 1920w" />
@@ -210,62 +220,71 @@
               srcset="assets/philosophy-768.jpg 768w, assets/philosophy-1280.jpg 1280w, assets/philosophy-1920.jpg 1920w" />
       <img class="media-bg" src="assets/philosophy-1280.jpg" alt="" aria-hidden="true" decoding="async" />
     </picture>
-    <div class="media-scrim media-scrim--photo" aria-hidden="true"></div>
+    <!-- Directional scrim: darkest where the headline sits, lifting to the right so the
+         photograph stays legible under the supporting column. -->
+    <div class="approach-scrim" aria-hidden="true"></div>
     <div class="container">
-      <div class="section-header">
-        <span class="eyebrow">Our approach</span>
-        <h2>20+ year Empirically validated strategies, aimed to deliver quality performance throughout varied market cycles.</h2>
-        <p>Clients with us rely on an investment process that has been test and trusted in various markets, honed over two decades, our process takes an integrated approach to employ our best ideas across public and private markets.</p>
-      </div>
+      <span class="eyebrow">Our approach</span>
 
-      <div class="pitch-prose">
-        <div>
-          <h2 style="font-size:1.7rem; margin-bottom:18px;">Marketswave provides seamless access to a quality investment procedure</h2>
-          <p>Our principles for responsible investment are based on the belief that companies who act responsibly and work in accordance with sustainable principles are better investment projects in the long term, as the risks and opportunities related to the environment, society and governance (ESG factors) are more extensively analyzed. Therefore, it is essential to integrate ESG related aspects when performing a company analysis.</p>
-          <p>We strive to always act responsibly and consider sustainable development in all our investment decisions and our daily operations. Responsibility is grounded in our employees' values. In our principles for responsible investment, sustainability risk assessments and business operations, we consider the most common international agreements and standards for leading society and business.</p>
+      <div class="approach-lead">
+        <h2>Two decades of empirically validated strategy, built to perform <em>across market cycles.</em></h2>
+        <div class="approach-side">
+          <p>Clients rely on an investment process tested across varied markets and honed over two decades.</p>
+          <p>It takes an integrated approach, employing our best ideas across both public and private markets rather than treating them as separate disciplines.</p>
         </div>
       </div>
 
-      <!-- The four process steps, freed from the card they used to sit in and spread across
-           the section over the photograph. Large staggered numerals rather than a horizontal
-           timeline: it echoes the numeral treatment already used by "What Makes Us Different"
-           so the page stays coherent, it collapses to one column at 375px without a
-           horizontal-scroll problem, and a timeline's connecting line would fight the
-           photograph's own composition instead of sitting over it. -->
-      <ol class="process-flow">
-        <li class="process-flow-step"><span class="process-flow-num">01</span>
-          <div><h4>Discover</h4><p>Understand your objectives, time horizon, and risk tolerance.</p></div></li>
-        <li class="process-flow-step"><span class="process-flow-num">02</span>
-          <div><h4>Construct</h4><p>Build portfolios and structures aligned to those goals.</p></div></li>
-        <li class="process-flow-step"><span class="process-flow-num">03</span>
-          <div><h4>Monitor</h4><p>Track performance and rebalance as conditions change.</p></div></li>
-        <li class="process-flow-step"><span class="process-flow-num">04</span>
-          <div><h4>Report</h4><p>Communicate results and decisions with consistency.</p></div></li>
+      <blockquote class="approach-esg">
+        <p>We believe companies that act responsibly and operate on sustainable principles make better long term investments, because the environmental, social and governance risks and opportunities have been more thoroughly analyzed.</p>
+        <span class="approach-esg-attrib">Principles for responsible investment</span>
+      </blockquote>
+
+      <ol class="approach-rail">
+        <li class="approach-step"><span class="approach-dot">01</span>
+          <h4>Discover</h4><p>Understand your objectives, time horizon, and risk tolerance.</p></li>
+        <li class="approach-step"><span class="approach-dot">02</span>
+          <h4>Construct</h4><p>Build portfolios and structures aligned to those goals.</p></li>
+        <li class="approach-step"><span class="approach-dot">03</span>
+          <h4>Monitor</h4><p>Track performance and rebalance as conditions change.</p></li>
+        <li class="approach-step"><span class="approach-dot">04</span>
+          <h4>Report</h4><p>Communicate results and decisions with consistency.</p></li>
       </ol>
-
-      <div class="values-block">
-        <p class="values-label">Our Values</p>
-        <div class="values-grid">
-          <div class="value-item glass-on-dark">
-            <h4>One Team</h4>
-            <p>We operate as a cohesive unit, embracing diversity and collaboration, which fuels our shared commitment to achieving our mission and upholding our values.</p>
-          </div>
-          <div class="value-item glass-on-dark">
-            <h4>Champion the Investor</h4>
-            <p>We prioritize the needs and interests of investors in everything we do, aiming to empower them whether they engage with us directly or indirectly.</p>
-          </div>
-          <div class="value-item glass-on-dark">
-            <h4>Dream Big, Drive Change</h4>
-            <p>We embrace bold visions and actively pursue innovations that improve our services, benefit the communities we operate in, and make a positive impact on the wider world.</p>
-          </div>
-          <div class="value-item glass-on-dark">
-            <h4>Growth Mindset</h4>
-            <p>We encourage continuous personal and professional development, knowing that our collective growth drives the company's success.</p>
-          </div>
-        </div>
-      </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,20 L1440,90 L0,90 Z" fill="#F7F6F3"/></svg>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,20 L1440,90 L0,90 Z" fill="#FDFCFA"/></svg>
+  </section>
+
+  <!-- ========== B · WHAT WE STAND FOR ========== -->
+  <!-- The four values, given their own light section and an editorial list treatment:
+       hairline dividers, a monospace numeral, name and description. Deliberately NOT cards —
+       they were .value-item glass panels crammed into the bottom of the section above. -->
+  <section class="section values-section blob-field">
+    <div class="grid-overlay" aria-hidden="true"></div>
+    <div class="blob blob--xl blob--teal" style="top:-240px; right:-140px; opacity:0.4;"></div>
+    <div class="blob blob--lg blob--gold" style="bottom:-220px; left:-120px; opacity:0.34;"></div>
+    <div class="container">
+      <div class="values-head">
+        <div>
+          <span class="eyebrow">What we stand for</span>
+          <h2>Four values, held in practice.</h2>
+        </div>
+        <p>Responsibility is grounded in our employees' values, reflected in how we assess risk, run the business, and treat the people who invest with us.</p>
+      </div>
+
+      <ol class="values-list">
+        <li class="values-row"><span class="values-num">01</span>
+          <h4>One Team</h4>
+          <p>We operate as a cohesive unit, embracing diversity and collaboration, which fuels our shared commitment to achieving our mission and upholding our values.</p></li>
+        <li class="values-row"><span class="values-num">02</span>
+          <h4>Champion the Investor</h4>
+          <p>We prioritize the needs and interests of investors in everything we do, aiming to empower them whether they engage with us directly or indirectly.</p></li>
+        <li class="values-row"><span class="values-num">03</span>
+          <h4>Dream Big, Drive Change</h4>
+          <p>We embrace bold visions and actively pursue innovations that improve our services, benefit the communities we operate in, and make a positive impact on the wider world.</p></li>
+        <li class="values-row"><span class="values-num">04</span>
+          <h4>Growth Mindset</h4>
+          <p>We encourage continuous personal and professional development, knowing that our collective growth drives the company's success.</p></li>
+      </ol>
+    </div>
   </section>
 
   <!-- Seam artifact: FINGERPRINT — identity, into the account types. Zero-height rail between the two sections, so neither

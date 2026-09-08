@@ -1001,25 +1001,8 @@ body.has-overlay-header .hero {
   font-size: 1.05rem;
 }
 
-.values-block {
-  margin-top: 70px;
-}
 
-.values-label {
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: var(--primary);
-  margin-bottom: 32px;
-}
 
-.values-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
-}
 
 /* Homepage Visual Redesign, Stage 2 (2026-09-05): gains a real, subtle glass treatment
    (.glass-subtle, applied in the HTML) explicitly requested for this section — the
@@ -1027,24 +1010,8 @@ body.has-overlay-header .hero {
    border-top-* declarations, defined here, later in the cascade than .glass-subtle's own
    shorthand border, correctly win for that one side), so each item reads as a light glass
    card with the site's own established top-accent language, not a plain box. */
-.value-item {
-  border-top: 2px solid var(--primary);
-  padding: 20px 18px 22px;
-  border-radius: 0 8px 8px 0;
-}
 
-.value-item h4 {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--primary);
-  margin-bottom: 8px;
-}
 
-.value-item p {
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
 
 /* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/border-radius moved
    to .glass (applied in the HTML alongside this class) — kept here only as a comment so
@@ -1179,7 +1146,7 @@ body.has-overlay-header .hero {
 }
 
 /* Editorial treatment — deliberately not a card. Reuses the same top-rule accent
-   already established by the homepage's Our Values section (.value-item), rather
+   already established by the homepage's Our Values section, rather
    than a boxed/shadowed container. */
 .vm-card {
   border-top: 2px solid var(--primary);
@@ -1840,16 +1807,6 @@ body.has-overlay-header .hero {
 .media-section .philosophy-panel h2 { color: var(--bg); }
 .media-section .philosophy-panel p { color: rgba(247, 246, 243, 0.78); }
 
-/* Design round 2 (2026-09-08): "Our Values" moved onto a dark beat with the Company Pitch.
-   .value-item h4 sets navy at the same (0,1,1) specificity as the heading rule above and is
-   defined earlier in the file, so it would win on order alone — it needs an explicit
-   dark-context override rather than relying on the general rule. The 2px navy top accent
-   goes invisible on navy for the same reason and is re-tinted to cream. */
-.media-section .value-item,
-.section-dark .value-item { border-top-color: rgba(247, 246, 243, 0.55); }
-.media-section .value-item h4,
-.section-dark .value-item h4 { color: var(--bg); }
-
 /* Eyebrow labels — teal on light, mint on dark (the .section-dark rule above overrides). */
 .eyebrow {
   display: inline-block; font-size: 11px; font-weight: 700;
@@ -2164,6 +2121,157 @@ body.has-overlay-header .hero {
 }
 
 /* -------------------------------------------------------------------------------------
+   18H. COMPANY PITCH, SPLIT (homepage corrections, 2026-09-08)
+
+   Ported from the approved company_pitch_redesign.html. What was one section doing four jobs
+   is now two: "Our approach" (dark, over the existing photograph) and "What we stand for"
+   (light, its own section). Expressed with this project's own tokens and .container rather
+   than the mockup's standalone CSS, and the photo comes from the existing responsive
+   <picture> rather than a hardcoded background-image.
+------------------------------------------------------------------------------------- */
+.approach {
+  position: relative;
+  overflow: hidden;
+  background: var(--primary-dark);
+  padding: 130px 0 120px;
+}
+.approach .media-bg { opacity: .28; filter: grayscale(.4); }
+/* Directional, not flat: darkest where the headline sits and lifting to the right, so the
+   photograph stays readable under the supporting column instead of being uniformly crushed. */
+.approach-scrim {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(115deg, #0E2130 0%, rgba(18,40,58,.94) 42%, rgba(18,40,58,.72) 100%);
+}
+.approach .container { position: relative; z-index: 2; }
+.approach .eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; letter-spacing: .16em; color: #9FE1CB; margin-bottom: 20px;
+}
+
+.approach-lead {
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: 64px;
+  align-items: start; margin-bottom: 72px;
+}
+.approach-lead h2 {
+  font-size: 44px; font-weight: 600; letter-spacing: -.03em; line-height: 1.12; color: var(--bg);
+}
+.approach-lead h2 em { font-style: normal; color: #9FE1CB; }
+.approach-side {
+  padding-top: 8px; padding-left: 26px;
+  border-left: 1px solid rgba(159, 225, 203, .28);
+}
+.approach-side p { font-size: 14.5px; line-height: 1.75; color: rgba(247, 246, 243, .78); }
+.approach-side p + p { margin-top: 16px; }
+
+.approach-esg {
+  position: relative; max-width: 760px; margin-bottom: 78px;
+  padding: 34px 0 34px 34px;
+  border-left: 2px solid var(--accent-teal);
+}
+.approach-esg p { font-size: 16.5px; line-height: 1.75; color: rgba(247, 246, 243, .88); }
+.approach-esg-attrib {
+  display: block; margin-top: 16px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9FE1CB;
+}
+
+.approach-rail {
+  position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  list-style: none; margin: 0; padding: 0;
+}
+.approach-rail::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 19px; height: 1px;
+  background: linear-gradient(90deg, rgba(159,225,203,.5), rgba(159,225,203,.18));
+}
+.approach-step { position: relative; padding: 0 26px 0 0; }
+.approach-dot {
+  position: relative; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #0E2130; border: 1px solid rgba(159, 225, 203, .45);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: #9FE1CB; margin-bottom: 22px;
+  transition: background .35s, border-color .35s, color .35s, transform .35s;
+}
+.approach-step:hover .approach-dot {
+  background: var(--accent-teal); border-color: var(--accent-teal);
+  color: #0E2130; transform: scale(1.08);
+}
+.approach-step h4 {
+  font-size: 16px; font-weight: 600; letter-spacing: -.01em; color: var(--bg); margin-bottom: 8px;
+}
+.approach-step p {
+  font-size: 13px; line-height: 1.65; color: rgba(247, 246, 243, .68); max-width: 22ch;
+}
+
+/* ---- B · what we stand for ------------------------------------------------------------- */
+.values-section {
+  position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #FDFCFA, #F4F2ED);
+  padding: 120px 0 130px;
+}
+.values-section .container { position: relative; z-index: 2; }
+.values-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 48px; flex-wrap: wrap; margin-bottom: 58px;
+}
+.values-head h2 {
+  font-size: 40px; font-weight: 600; letter-spacing: -.028em; line-height: 1.1;
+  color: var(--primary); max-width: 12ch;
+}
+/* Measured, not eyeballed: over this section's own teal blob the shared --text-muted
+   composited at 4.32:1 for the lede and 4.52:1 for the row copy — one under the line and one
+   with no margin at all — while the mockup's own numeral grey (#A0A8AD, kept here as #8D9599)
+   measured 2.86:1. All three use a darker tone scoped to this section; the numeral still reads
+   as the quiet element because the name beside it is navy, not because it is faint. */
+.values-head > p { font-size: 14.5px; line-height: 1.75; color: #5C6367; max-width: 340px; }
+
+/* An editorial list, deliberately not cards: hairline dividers, a monospace numeral, the
+   name and the description, with the row lifting and sliding right on hover. */
+.values-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgba(27,58,75,.14); }
+.values-row {
+  display: grid; grid-template-columns: 80px 1fr 1.4fr; gap: 32px;
+  align-items: baseline; padding: 30px 4px;
+  border-bottom: 1px solid rgba(27, 58, 75, .14);
+  transition: background .4s, padding-left .4s;
+}
+.values-row:hover { background: rgba(255, 255, 255, .55); padding-left: 16px; }
+.values-num {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; letter-spacing: .1em; color: #5C6367; transition: color .35s;
+}
+.values-row:hover .values-num { color: var(--accent-teal); }
+.values-row h4 {
+  font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; color: var(--primary);
+}
+.values-row p { font-size: 14px; line-height: 1.7; color: #5C6367; }
+
+@media (max-width: 960px) {
+  .approach { padding: 90px 0 84px; }
+  .approach-lead { grid-template-columns: 1fr; gap: 28px; margin-bottom: 52px; }
+  .approach-lead h2 { font-size: 32px; }
+  .approach-side {
+    border-left: none; padding-left: 0;
+    border-top: 1px solid rgba(159, 225, 203, .28); padding-top: 20px;
+  }
+  .approach-esg { padding: 24px 0 24px 22px; margin-bottom: 56px; }
+  .approach-esg p { font-size: 15px; }
+  .approach-rail { grid-template-columns: 1fr 1fr; gap: 34px 0; }
+  /* The connecting line is a four-across device; across two rows it would cut through the
+     second pair rather than joining anything. */
+  .approach-rail::before { display: none; }
+  .values-section { padding: 84px 0 92px; }
+  .values-head { margin-bottom: 40px; }
+  .values-head h2 { font-size: 29px; max-width: none; }
+  .values-row { grid-template-columns: 52px 1fr; gap: 16px 18px; }
+  .values-row p { grid-column: 2 / -1; margin-top: -14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .approach-dot, .values-row, .values-num { transition: none; }
+}
+
+/* -------------------------------------------------------------------------------------
    18F. SEAM ARTIFACTS — DESIGN ROUND 2 (2026-09-08)
 
    Seven small objects, one per section join (the hero join is deliberately skipped — it
@@ -2280,57 +2388,13 @@ body.has-overlay-header .hero {
 }
 
 /* -------------------------------------------------------------------------------------
-   18C-2. DESIGN ROUND 2 (2026-09-08) — Company Pitch process flow + quiet Philosophy
+   18C-2. QUIET PHILOSOPHY
+   (The Company Pitch prose column, process flow and values grid that also lived here were
+   removed on 2026-09-08 when that section was split in two — see section 18H.)
 ------------------------------------------------------------------------------------- */
 
-/* The prose column that used to be half of a .two-col pair. Its sibling (the boxed process
-   steps) has been freed into .process-flow below, so this is single-column now. */
-.pitch-prose { max-width: 760px; }
-
-/* The four steps, spread across the section over the photograph. Large staggered numerals
-   rather than a horizontal timeline — see the note in index.html for why. */
-.process-flow {
-  list-style: none;
-  margin: 64px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
-}
-.process-flow-step {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  /* The stagger: each step sits a little lower than the last, so the row reads as a descent
-     through the process rather than four equal boxes. */
-  padding-top: calc(var(--step-offset, 0) * 26px);
-}
-.process-flow-step:nth-child(2) { --step-offset: 1; }
-.process-flow-step:nth-child(3) { --step-offset: 2; }
-.process-flow-step:nth-child(4) { --step-offset: 3; }
-.process-flow-num {
-  font-size: 3.2rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  /* Recessive, but still legible. 0.28 alpha measured 2.37:1 against the scrim — and these
-     numerals do carry meaning (they sequence the process), so "decorative" was not a defence.
-     0.62 keeps them clearly subordinate to the step titles while clearing 4.5:1. */
-  color: rgba(247, 246, 243, 0.62);
-}
-.process-flow-step h4 {
-  font-size: 1.05rem;
-  color: var(--bg);
-  margin-bottom: 6px;
-}
-.process-flow-step p {
-  font-size: 0.92rem;
-  line-height: 1.65;
-  color: rgba(247, 246, 243, 0.78);
-}
-
 /* Philosophy CTA — deliberately quiet. No background, no panel, no blobs: the page exhales
-   here before the footer. Big serif type is the only weight it carries. */
+   here before the footer. Large light-weight type is the only weight it carries. */
 .philosophy-quiet {
   position: relative;
   /* Same gradient the other light sections use, not flat --bg: on flat #F7F6F3 the teal
@@ -2362,16 +2426,12 @@ body.has-overlay-header .hero {
 }
 
 @media (max-width: 960px) {
-  .process-flow { grid-template-columns: repeat(2, 1fr); gap: 28px; }
-  /* The stagger is a wide-screen device; at two columns it just makes ragged holes. */
-  .process-flow-step { padding-top: 0; }
-  .philosophy-quiet h2 { font-size: 2.1rem; }
+    /* The stagger is a wide-screen device; at two columns it just makes ragged holes. */
+    .philosophy-quiet h2 { font-size: 2.1rem; }
   .philosophy-quiet { padding: 110px 24px 120px; }
 }
 @media (max-width: 620px) {
-  .process-flow { grid-template-columns: 1fr; gap: 22px; }
-  .process-flow-num { font-size: 2.6rem; }
-  .philosophy-quiet h2 { font-size: 1.8rem; }
+      .philosophy-quiet h2 { font-size: 1.8rem; }
 }
 
 /* -------------------------------------------------------------------------------------
@@ -2530,11 +2590,7 @@ body.has-overlay-header .hero {
   .diff-num {
     font-size: 2rem;
   }
-  .values-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
   }
-}
 
 @media (max-width: 768px) {
   .stats-bar .container {
@@ -2563,11 +2619,7 @@ body.has-overlay-header .hero {
     height: 44px;
     font-size: 1rem;
   }
-  .values-grid {
-    grid-template-columns: 1fr;
-    gap: 28px;
   }
-}
 
 @media (max-width: 480px) {
   /* Mobile fixes, Batch 1 (2026-09-08), Finding S1 (continued): moving "Contact" into the

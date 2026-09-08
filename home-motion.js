@@ -110,23 +110,31 @@
     });
   }
 
-  // ---------- 3. COMPANY PITCH ----------
-  var twoCol = document.querySelector('.two-col');
-  markReveal(twoCol);
-  observeReveal(twoCol, 0.15);
+  // ---------- 3. OUR APPROACH + WHAT WE STAND FOR ----------
+  // Rewired 2026-09-08: the single overloaded Company Pitch section was split in two, so
+  // .two-col, .values-grid/.value-item and .process-steps/.process-step-num no longer exist.
+  // Left pointing at them, this whole block would have silently done nothing — every
+  // querySelector would return null and three real reveals would just stop happening.
+  var approachLead = document.querySelector('.approach-lead');
+  markReveal(approachLead);
+  observeReveal(approachLead, 0.15);
 
-  var valuesGrid = document.querySelector('.values-grid');
-  if (valuesGrid) {
-    var valueItems = valuesGrid.querySelectorAll('.value-item');
-    valueItems.forEach(function (el) { markReveal(el); });
-    observeStaggeredGroup(valuesGrid, valueItems, 100, 0.2);
+  var approachEsg = document.querySelector('.approach-esg');
+  markReveal(approachEsg);
+  observeReveal(approachEsg, 0.2);
+
+  var approachRail = document.querySelector('.approach-rail');
+  if (approachRail) {
+    var approachSteps = approachRail.querySelectorAll('.approach-step');
+    approachSteps.forEach(function (el) { markReveal(el); });
+    observeStaggeredGroup(approachRail, approachSteps, 90, 0.2);
   }
 
-  var processSteps = document.querySelector('.process-steps');
-  if (processSteps) {
-    var stepNums = processSteps.querySelectorAll('.process-step-num');
-    stepNums.forEach(function (el) { markReveal(el, true); });
-    observeStaggeredGroup(processSteps, stepNums, 90, 0.2);
+  var valuesList = document.querySelector('.values-list');
+  if (valuesList) {
+    var valueRows = valuesList.querySelectorAll('.values-row');
+    valueRows.forEach(function (el) { markReveal(el); });
+    observeStaggeredGroup(valuesList, valueRows, 100, 0.2);
   }
 
   // ---------- 5. PLATFORM PITCH — 3 columns stagger left to right ----------
