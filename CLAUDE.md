@@ -6993,6 +6993,77 @@ row 74.
   clean both mid-task (at the user's own request, since Motion work touches interactive
   elements across both tools) and at the end. All real test artifacts deleted afterward.
   Backend Requirements Register row 166 added.
+- **★★★ `signup.html` full-page redesign — centered card replaced with a persistent dark step
+  rail + glass form panel, floating-label inputs, redesigned buttons, built against an
+  approved mockup, all real Supabase submission logic preserved (2026-09-08).** Read the real,
+  live 1557-line implementation fully before changing anything, per instruction, plus
+  `styles.css`'s `.access-value-panel` (the Get Access modal's own opaque navy-gradient
+  recipe, explicitly named as the rail's reference — deliberately not `.glass-dark`, since
+  `.access-value-panel` is opaque specifically because of this project's own earlier
+  contrast-audit finding that glass-over-blurred-backdrop measured as low as 1.86:1) and the
+  full `glass-primitives.css` catalog. **Layout**: `.signup-card`'s scroll-inside-a-card
+  container removed entirely — the page itself scrolls. New `.signup-shell`
+  (`300px 1fr` grid) holds `.signup-rail` (the exact `.access-value-panel` gradient, composed
+  via existing `--primary`/`--primary-dark` tokens, not forked) and `.signup-panel.glass`.
+  The rail's step list is rendered by a new `renderRail()` called from the EXISTING
+  `updateProgress()` (which `showStep()` already calls on every navigation) — driven by the
+  same `currentStep`/`getVisibleSteps()` state powering the step panels, not a parallel
+  implementation, directly per instruction. Responsive: `@media (max-width: 900px)` collapses
+  to one column, rail moves above the form (`order: -1`), step list becomes a horizontal
+  `overflow-x:auto` dot strip with labels/reassurance-footer hidden — verified via a real
+  injected `<iframe>` at 817px CSS width (`resize_window` again confirmed not to move this
+  environment's real viewport). **Inputs**: 18 real text/select fields across steps 2-6
+  converted to a new `.fld` floating-label pattern — real `<label for="...">` elements paired
+  with a matching `id` added to every field that lacked one, label reordered as the input's
+  own next sibling (required for the `:not(:placeholder-shown) + label` CSS technique) —
+  confirmed via a JS audit that all 18 fields keep correct `label.tagName === 'LABEL'` +
+  `for === id` association, so screen readers announce them exactly as before. Selects and
+  the date input (`.fld--static`) keep their label permanently floated instead of the dynamic
+  trick, since `:placeholder-shown` doesn't apply to `<select>` and is unreliable for
+  `type="date"` — investigated and reported, not guessed. The mockup's currency-prefix
+  baseline-fix (`.fld.fld-money .pfx`, visible only once the label has floated) is built and
+  ready but confirmed applied nowhere in the real markup — no real signup field is a
+  free-text currency amount (`investable_assets`/`source_of_wealth` are tier-selection
+  `.choice-grid` cards, untouched). **A real, disclosed automation finding**: a first-pass
+  JS-only `.focus()` check returned false negatives (`document.hasFocus() === false` in the
+  CDP tab, so `:focus` correctly didn't match per spec even though `activeElement` was
+  correct) — re-verified via a real mouse click (which does grant window focus), confirming
+  the float-on-focus mechanism works correctly for a real user; recorded so a future session
+  doesn't misdiagnose the same artifact as a CSS bug. **Buttons**: every `.btn`/`.btn-primary`/
+  `.btn-back` instance replaced with new page-scoped `.signup-btn`/`.signup-btn-next`/
+  `.signup-btn-back` classes — confirmed via grep first that `.btn`/`.btn-primary` are real
+  shared GLOBAL classes used across 11 other pages, so they were never modified, only stopped
+  being used here; both new classes share equal height/min-width, Continue solid navy with a
+  hover-translating chevron, Back a lighter outlined/muted treatment with its own chevron.
+  Confirmed every click handler is attached via `id`/`data-next`/`data-back`, never a class
+  selector, so the swap needed zero JS changes. **Step count, investigated and reported**:
+  `getVisibleSteps()`'s real logic makes the "9 real steps" actually 7 visible (Individual)
+  or 8 (Joint/Entity) — steps 3/4 are mutually exclusive, never both — so the mockup's "7
+  steps" already matches the Individual path exactly, zero real tension. Recommendation:
+  keep all 9 as genuinely distinct data-collection stages (no merging — each maps to a real,
+  separate compliance concern), render the rail dynamically from the live
+  `getVisibleSteps()` result rather than a hardcoded count — confirmed live, Individual path
+  shows exactly 7 rail items. **Verified, browser-first, against the real local Supabase
+  stack**: drove the complete real 7-step Individual flow (real password-strength meter
+  reaching "Strong," two real file uploads, real consent checkboxes) to a real
+  `Submit Application`, landing on `thank-you.html?backend=supabase`. Confirmed via direct
+  Postgres queries: a real `clients` row (`status: 'pending_review'`), a real
+  `marketswave_client_onboarding:<uid>` record with every real answer from every step
+  (proving `saveClientOnboardingData()`/`seedMinimalClientStores()` fired exactly as before),
+  and a real `email_log` proving `notify-new-client-application` genuinely fired to both real
+  local PM accounts. **A real, disclosed correction to the task's own VERIFY wording**: "real
+  Storage objects" doesn't apply — `collectOnboardingData()`'s upload handling (unmodified)
+  has only ever stored a filename + fixed document-type label locally, never real bytes to
+  Supabase Storage; real byte storage belongs exclusively to `documents.html`'s own
+  post-login upload flow, a structurally separate feature this page has never touched.
+  `prefers-reduced-motion` inherited unchanged (`showStep()`'s own Motion-gated transition,
+  already verified correct in the prior Motion task, untouched here). Regression:
+  `npm run verify-tailwind-color-scoping` clean; `supabase-golden-path-regression.js`
+  `PASS (16/16 steps)` — the remaining ~35 domain-specific scripts (HYS/documents/admin
+  queues/email/inbox) were judged not warranted for a page-scoped visual redesign touching
+  zero schema/functions, and were not run — disclosed rather than silently claimed. All real
+  test artifacts deleted afterward, confirmed via re-query. Backend Requirements Register row
+  167 added.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

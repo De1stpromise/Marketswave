@@ -10,30 +10,33 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    /* Client Dashboard Visual Treatment, Stage 3 (2026-09-06): the old dark navy body +
-       photographic background (signup-bg.jpg) + heavy blur overlay + hand-rolled glass
-       card recipe (predating the shared .glass primitive) is replaced with the real shared
-       language — a light background, real blobs/grid-overlay, and the actual .glass class
-       (added to the real markup below). This page's own local .back-link-panel override
-       (a byte-for-byte duplicate of the same rule login.html relied on) is removed entirely
-       — both pages now share the ONE global rule in styles.css, already updated for a
-       light background there, closing a real duplication found while reading this file.
-       signup-bg.jpg is left unused on disk rather than deleted, matching this project's own
-       convention for retired image assets. Every inner step's own form/text styling further
-       down this file was already designed for light content sitting on a near-white card
-       (confirmed by reading the file before changing anything) — none of that needed to
-       change, and no JS/step-navigation logic below was touched at all. */
+    /* Signup full-page redesign (2026-09-08): replaces the centered-card layout (a
+       .signup-section flex-centering a single max-width-720px .signup-card) with a genuine
+       two-column full page — a persistent dark step rail (left) reusing the exact opaque
+       navy-gradient recipe already established for the Get Access modal's value panel
+       (styles.css's .access-value-panel, linear-gradient(145deg, var(--primary) 0%,
+       var(--primary-dark) 100%)) rather than .glass-dark (blurred, ~90% opaque, built for
+       the CLIENT SIDEBAR specifically) — the mockup and this task both name the modal panel
+       as the reference, and that panel is deliberately fully opaque per a real, documented
+       contrast-audit finding elsewhere in this project (glass-over-blurred-backdrop measured
+       as low as 1.86:1). The right column is a .glass form panel — the .signup-card
+       container (with its own max-height/overflow-y scroll-inside-a-card behavior) is gone
+       entirely; the page itself now scrolls. Every id/name/data-* attribute the real JS
+       logic below depends on (validateStep, collectOnboardingData, the Supabase/Firebase
+       submit paths, password strength, upload handlers) is unchanged — this is a visual/
+       structural pass only. See the rail's own step-list rendering further down (renderRail(),
+       called from updateProgress()) for why it deliberately reuses the SAME currentStep/
+       getVisibleSteps() state already driving the step panels, rather than a second,
+       parallel step-tracking implementation. signup-bg.jpg remains unused on disk. */
     body.signup-page {
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
       background: var(--bg);
     }
 
     .signup-topbar {
       position: relative;
       z-index: 2;
-      padding: 20px 24px;
+      padding: 20px 32px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -46,71 +49,156 @@
       letter-spacing: -0.3px;
     }
 
-    .signup-section {
+    /* ===== Shell: dark step rail (left) + glass form panel (right) ===== */
+    .signup-shell {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      min-height: calc(100vh - 76px);
+    }
+
+    .signup-rail {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--white);
+      padding: 44px 30px 30px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .signup-rail-heading {
+      position: relative;
+      z-index: 1;
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .signup-rail-sub {
+      position: relative;
+      z-index: 1;
+      font-size: 0.86rem;
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.72);
+      margin-bottom: 34px;
+    }
+
+    .signup-rail-steps {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
       flex: 1;
+    }
+
+    .rail-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 8px;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+
+    .rail-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 28px 20px 40px;
-      position: relative;
-      overflow: hidden;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
     }
 
-    .signup-card {
+    .rail-lbl {
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.58);
+      transition: color 0.2s;
+    }
+
+    .rail-step.is-done .rail-dot {
+      background: var(--accent-teal);
+      border-color: var(--accent-teal);
+      color: #fff;
+    }
+    .rail-step.is-done .rail-lbl {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .rail-step.is-now {
+      background: rgba(255, 255, 255, 0.09);
+    }
+    .rail-step.is-now .rail-dot {
+      background: #fff;
+      border-color: #fff;
+      color: var(--primary);
+    }
+    .rail-step.is-now .rail-lbl {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .signup-rail-foot {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 26px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .signup-rail-foot svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      opacity: 0.65;
+    }
+    .signup-rail-foot p {
+      margin: 0;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    /* ===== Panel ===== */
+    .signup-panel {
+      position: relative;
+      overflow: hidden;
+      padding: 48px clamp(24px, 6vw, 64px);
+      display: flex;
+      align-items: center;
+    }
+
+    .signup-panel-inner {
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 720px;
-      min-height: 580px;
-      max-height: 78vh;
-      overflow-y: auto;
-      border-radius: 16px;
-      padding: 28px 40px 26px;
-      box-shadow: 0 24px 64px rgba(27, 58, 75, 0.18);
-
-      /* Hide scrollbar but keep scrolling */
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE/Edge */
+      max-width: 580px;
+      margin: 0 auto;
     }
 
-    .signup-card::-webkit-scrollbar {
-      display: none; /* Chrome, Safari, Opera */
-    }
-
-    /* Progress */
-    .progress-wrap {
-      margin-bottom: 32px;
-    }
-
-    .progress-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .step-kicker {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-teal);
       margin-bottom: 10px;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-    }
-
-    .progress-bar {
-      height: 6px;
-      background: #E5E2DC;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 10px;
-      transition: width 0.35s ease;
-      width: 11%;
     }
 
     .step-title {
-      font-size: 1.55rem;
+      font-size: 1.65rem;
       color: var(--primary);
       margin-bottom: 8px;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.4px;
     }
 
     .step-lead {
@@ -197,7 +285,9 @@
       margin: 0;
     }
 
-    /* Navigation buttons */
+    /* Navigation buttons — equal height/min-width, directional chevrons, Back given
+       deliberately lighter visual weight (outline, muted text, no shadow) than Continue
+       (solid navy fill, shadow) so the primary action always reads unambiguously. */
     .step-actions {
       display: flex;
       justify-content: space-between;
@@ -206,11 +296,26 @@
       margin-top: 8px;
     }
 
-    .step-actions .btn {
-      min-width: 140px;
+    .signup-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 50px;
+      min-width: 150px;
+      padding: 0 24px;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s, box-shadow 0.18s;
     }
-
-    .btn.is-loading {
+    .signup-btn svg {
+      transition: transform 0.15s;
+    }
+    .signup-btn.is-loading {
       gap: 10px;
       opacity: 0.85;
       cursor: default;
@@ -227,14 +332,37 @@
       to { transform: rotate(360deg); }
     }
 
-    .btn-back {
+    .signup-btn-next {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(27, 58, 75, 0.18);
+    }
+    .signup-btn-next:hover:not(:disabled) {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+    .signup-btn-next:hover:not(:disabled) svg {
+      transform: translateX(2px);
+    }
+    .signup-btn-next:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .signup-btn-back {
       background: transparent;
       border: 1.5px solid #D8D4CD;
-      color: var(--text);
+      color: var(--text-muted);
+      font-weight: 500;
     }
-    .btn-back:hover {
+    .signup-btn-back:hover {
       background: #F5F3EF;
       border-color: #C4BFB6;
+      color: var(--text);
+    }
+    .signup-btn-back:hover svg {
+      transform: translateX(-2px);
     }
 
     /* Hide steps by default */
@@ -245,30 +373,69 @@
       display: block;
     }
 
-    @media (max-width: 600px) {
-      .signup-card {
-        padding: 32px 22px 28px;
+    @media (max-width: 900px) {
+      .signup-shell {
+        grid-template-columns: 1fr;
+        min-height: 0;
       }
+      .signup-rail {
+        order: -1;
+        padding: 22px 20px;
+      }
+      .signup-rail-sub {
+        margin-bottom: 18px;
+      }
+      .signup-rail-steps {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 2px;
+      }
+      .rail-step {
+        flex-shrink: 0;
+        padding: 6px;
+        border-radius: 50%;
+      }
+      .rail-lbl {
+        display: none;
+      }
+      .signup-rail-foot {
+        display: none;
+      }
+      .signup-panel {
+        padding: 30px 20px;
+      }
+    }
+
+    @media (max-width: 600px) {
       .step-actions {
         flex-direction: column-reverse;
       }
-      .step-actions .btn {
+      .signup-btn {
         width: 100%;
       }
     }
 
-    /* Form elements inside signup */
-    .signup-card .form-row {
+    /* Form elements inside signup — floating-label inputs/selects. Real <label for="…">
+       elements paired with a matching input id (never decorative text), so screen readers
+       announce them exactly as before; only their visual position changes. .fld (text/
+       email/tel/password inputs) floats its label via the standard placeholder=" " +
+       :not(:placeholder-shown) sibling-selector technique. .fld--static (selects and the
+       date input, neither of which reliably supports :placeholder-shown across browsers)
+       keeps its label permanently in the floated position instead — the select/date
+       control's own native empty-state text already communicates "nothing chosen yet",
+       so there's no ambiguity to resolve dynamically. */
+    .signup-panel .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
 
-    .signup-card .form-group {
+    .signup-panel .form-group {
       margin-bottom: 18px;
     }
 
-    .signup-card .form-group label {
+    .signup-panel .form-group > label {
       display: block;
       font-size: 0.88rem;
       font-weight: 600;
@@ -276,29 +443,102 @@
       margin-bottom: 7px;
     }
 
-    .signup-card .form-group .required {
+    .signup-panel .required {
       color: var(--primary);
     }
 
-    .signup-card .form-group input,
-    .signup-card .form-group select {
+    .fld {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .fld:has(+ .password-strength) {
+      margin-bottom: 0;
+    }
+    .password-strength {
+      margin: 8px 0 20px;
+    }
+
+    .fld input,
+    .fld select {
       width: 100%;
-      padding: 12px 14px;
+      height: 54px;
+      padding: 20px 16px 8px;
       border: 1.5px solid #D8D4CD;
-      border-radius: 10px;
+      border-radius: 12px;
       font-family: var(--font);
       font-size: 0.95rem;
       color: var(--text);
       background: #FCFBF9;
-      transition: border-color 0.18s, box-shadow 0.18s;
+      appearance: none;
+      transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
     }
 
-    .signup-card .form-group input:focus,
-    .signup-card .form-group select:focus {
+    .fld select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B7178' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
+    .fld label {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      transition: top 0.16s ease, transform 0.16s ease, font-size 0.16s ease, color 0.16s ease, font-weight 0.16s ease;
+    }
+
+    .fld input:focus,
+    .fld select:focus {
       outline: none;
-      border-color: var(--primary);
+      border-color: var(--accent-teal);
       background: #fff;
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.1);
+      box-shadow: 0 0 0 3px rgba(22, 129, 95, 0.14);
+    }
+
+    .fld input:focus + label,
+    .fld input:not(:placeholder-shown) + label,
+    .fld select:focus + label,
+    .fld--static label {
+      top: 11px;
+      transform: translateY(0);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--accent-teal);
+    }
+
+    /* Currency-prefix variant — the mockup's own fix for a real baseline-misalignment bug
+       (prefix and empty-state label otherwise sit on different lines): the $ sign is only
+       shown once the label has floated (focus or a real value present), never overlapping
+       an unfloated placeholder label. No field in this app's actual signup flow is
+       currently a raw currency amount (Financial Profile's own money-adjacent fields are
+       all tier/category selections, not free-text amounts, confirmed by reading the real
+       markup) — built and ready for a future real field, not applied anywhere below. */
+    .fld.fld-money .pfx {
+      position: absolute;
+      left: 16px;
+      top: 28px;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 0.16s ease;
+      pointer-events: none;
+    }
+    .fld.fld-money input {
+      padding-left: 16px;
+      transition: padding-left 0.16s ease, border-color 0.18s, box-shadow 0.18s, background 0.18s;
+    }
+    .fld.fld-money input:focus,
+    .fld.fld-money input:not(:placeholder-shown) {
+      padding-left: 28px;
+    }
+    .fld.fld-money input:focus ~ .pfx,
+    .fld.fld-money input:not(:placeholder-shown) ~ .pfx {
+      opacity: 1;
     }
 
     /* Password strength indicator */
@@ -338,7 +578,7 @@
     }
 
     @media (max-width: 600px) {
-      .signup-card .form-row {
+      .signup-panel .form-row {
         grid-template-columns: 1fr;
       }
     }
@@ -507,22 +747,38 @@
     <a href="index.html" class="back-link-panel">← Back to site</a>
   </div>
 
-  <section class="signup-section">
-    <div class="grid-overlay"></div>
-    <div class="blob blob--lg blob--teal" style="top:-140px; left:-120px;"></div>
-    <div class="blob blob--md blob--gold" style="bottom:-100px; right:-80px;"></div>
-    <div class="signup-card glass">
+  <div class="signup-shell">
 
-      <!-- Progress -->
-      <div class="progress-wrap">
-        <div class="progress-meta">
-          <span id="step-label">Step 1 of 9</span>
-          <span id="step-name">Account Type</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progress-fill"></div>
-        </div>
+    <!-- Step rail: persistent, shows every visible step at once (done/now/upcoming),
+         reassurance copy, and the encryption note — reuses the exact opaque navy-gradient
+         treatment already established for the Get Access modal's value panel
+         (.access-value-panel's own recipe, composed here via .signup-rail rather than
+         forking a new primitive). Its step list is rendered by renderRail() further down,
+         driven by the SAME currentStep/getVisibleSteps() state that already drives the
+         step panels — not a second, parallel implementation. -->
+    <aside class="signup-rail">
+      <div class="blob blob--sm blob--teal" style="top:-60px; right:-50px;"></div>
+      <div class="blob blob--sm blob--gold" style="bottom:20px; left:-60px;"></div>
+
+      <p class="signup-rail-heading">Open your account</p>
+      <p class="signup-rail-sub">About 5 minutes. Your progress is saved as you go.</p>
+
+      <div class="signup-rail-steps" id="rail-steps"></div>
+
+      <div class="signup-rail-foot">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <p>Your information is encrypted and reviewed only by our portfolio management team.</p>
       </div>
+    </aside>
+
+    <main class="signup-panel glass">
+      <div class="grid-overlay"></div>
+      <div class="blob blob--md blob--teal" style="top:-120px; right:-100px;"></div>
+
+      <div class="signup-panel-inner">
+
+      <!-- Kicker: "Step N of Total", shared across all steps, updated by updateProgress() -->
+      <p class="step-kicker" id="step-label">Step 1 of 9</p>
 
       <!-- ========== STEP 1: Account Type ========== -->
       <div class="signup-step is-active" data-step="1">
@@ -566,7 +822,10 @@
 
         <div class="step-actions">
           <div></div>
-          <button type="button" class="btn btn-primary" id="btn-continue-1" disabled>Continue</button>
+          <button type="button" class="signup-btn signup-btn-next" id="btn-continue-1" disabled>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -575,45 +834,44 @@
         <h1 class="step-title">Personal Details</h1>
         <p class="step-lead">Tell us about yourself. This information is used for account setup and verification.</p>
 
-        <div class="form-group">
-          <label>Full Name <span class="required">*</span></label>
-          <input type="text" name="full_name" placeholder="Your full legal name" required>
+        <div class="fld">
+          <input type="text" name="full_name" id="full_name" placeholder=" " required>
+          <label for="full_name">Full Name <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Email Address <span class="required">*</span></label>
-          <input type="email" name="email" id="email" placeholder="you@example.com" required>
+        <div class="fld">
+          <input type="email" name="email" id="email" placeholder=" " required>
+          <label for="email">Email Address <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Phone Number <span class="required">*</span></label>
-          <input type="tel" name="phone" placeholder="+46 70 000 00 00" required>
+        <div class="fld">
+          <input type="tel" name="phone" id="phone" placeholder=" " required>
+          <label for="phone">Phone Number <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Password <span class="required">*</span></label>
-          <input type="password" name="password" id="password" placeholder="Create a password" required minlength="8">
-          <div class="password-strength">
-            <div class="strength-bar">
-              <div class="strength-fill" id="strength-fill"></div>
-            </div>
-            <span class="strength-text" id="strength-text">Enter a password</span>
+        <div class="fld">
+          <input type="password" name="password" id="password" placeholder=" " required minlength="8">
+          <label for="password">Password <span class="required">*</span></label>
+        </div>
+        <div class="password-strength">
+          <div class="strength-bar">
+            <div class="strength-fill" id="strength-fill"></div>
           </div>
+          <span class="strength-text" id="strength-text">Enter a password</span>
         </div>
 
-        <div class="form-group">
-          <label>Confirm Password <span class="required">*</span></label>
-          <input type="password" name="password_confirm" id="password_confirm" placeholder="Confirm your password" required minlength="8">
+        <div class="fld">
+          <input type="password" name="password_confirm" id="password_confirm" placeholder=" " required minlength="8">
+          <label for="password_confirm">Confirm Password <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Date of Birth <span class="required">*</span></label>
-          <input type="date" name="date_of_birth" required>
+        <div class="fld fld--static">
+          <input type="date" name="date_of_birth" id="date_of_birth" required>
+          <label for="date_of_birth">Date of Birth <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Country of Residence <span class="required">*</span></label>
-          <select name="country" required>
+        <div class="fld fld--static">
+          <select name="country" id="country" required>
             <option value="" disabled selected>Select country</option>
             <option value="SE">Sweden</option>
             <option value="NO">Norway</option>
@@ -627,11 +885,18 @@
             <option value="FR">France</option>
             <option value="OTHER">Other</option>
           </select>
+          <label for="country">Country of Residence <span class="required">*</span></label>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -669,8 +934,14 @@
         </p>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -679,30 +950,36 @@
         <h1 class="step-title">Entity Details</h1>
         <p class="step-lead">Provide the key information about the company or organisation.</p>
 
-        <div class="form-group">
-          <label>Company / Entity Name <span class="required">*</span></label>
-          <input type="text" name="entity_name" placeholder="Registered company name">
+        <div class="fld">
+          <input type="text" name="entity_name" id="entity_name" placeholder=" ">
+          <label for="entity_name">Company / Entity Name <span class="required">*</span></label>
         </div>
 
         <div class="form-row">
-          <div class="form-group">
-            <label>Registration Number</label>
-            <input type="text" name="registration_number" placeholder="Company registration number">
+          <div class="fld">
+            <input type="text" name="registration_number" id="registration_number" placeholder=" ">
+            <label for="registration_number">Registration Number</label>
           </div>
-          <div class="form-group">
-            <label>Country of Incorporation <span class="required">*</span></label>
-            <input type="text" name="incorporation_country" placeholder="e.g. Sweden">
+          <div class="fld">
+            <input type="text" name="incorporation_country" id="incorporation_country" placeholder=" ">
+            <label for="incorporation_country">Country of Incorporation <span class="required">*</span></label>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Your Role in the Entity <span class="required">*</span></label>
-          <input type="text" name="entity_role" placeholder="e.g. Director, Beneficial Owner, Authorised Signatory">
+        <div class="fld">
+          <input type="text" name="entity_role" id="entity_role" placeholder=" ">
+          <label for="entity_role">Your Role in the Entity <span class="required">*</span></label>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -726,8 +1003,14 @@
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" id="btn-submit">Submit Application</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" id="btn-submit">
+            Submit Application
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -794,8 +1077,14 @@
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -805,24 +1094,30 @@
         <p class="step-lead">Enter the details of the second account holder.</p>
 
         <div class="form-row">
-          <div class="form-group">
-            <label>Full Name <span class="required">*</span></label>
-            <input type="text" name="joint_name" placeholder="Joint holder full name">
+          <div class="fld">
+            <input type="text" name="joint_name" id="joint_name" placeholder=" ">
+            <label for="joint_name">Full Name <span class="required">*</span></label>
           </div>
-          <div class="form-group">
-            <label>Email Address <span class="required">*</span></label>
-            <input type="email" name="joint_email" placeholder="joint@example.com">
+          <div class="fld">
+            <input type="email" name="joint_email" id="joint_email" placeholder=" ">
+            <label for="joint_email">Email Address <span class="required">*</span></label>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="tel" name="joint_phone" placeholder="+46 70 000 00 00">
+        <div class="fld">
+          <input type="tel" name="joint_phone" id="joint_phone" placeholder=" ">
+          <label for="joint_phone">Phone Number</label>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -852,14 +1147,20 @@
           </div>
         </div>
         
-        <div class="form-group">
-          <label>Employment Status / Industry</label>
-          <input type="text" name="employment" placeholder="e.g. Technology, Finance, Retired, Self-employed">
+        <div class="fld">
+          <input type="text" name="employment" id="employment" placeholder=" ">
+          <label for="employment">Employment Status / Industry</label>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
@@ -868,46 +1169,53 @@
         <h1 class="step-title">Goals & Preferences</h1>
         <p class="step-lead">Help us understand what you want to achieve.</p>
 
-        <div class="form-group">
-          <label>Primary Investment Goal <span class="required">*</span></label>
-          <select name="investment_goal">
+        <div class="fld fld--static">
+          <select name="investment_goal" id="investment_goal">
             <option value="" disabled selected>Select a goal</option>
             <option value="growth">Long-term Growth</option>
             <option value="income">Steady Income</option>
             <option value="preservation">Capital Preservation</option>
             <option value="retirement">Retirement Planning</option>
           </select>
+          <label for="investment_goal">Primary Investment Goal <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Investment Time Horizon <span class="required">*</span></label>
-          <select name="time_horizon">
+        <div class="fld fld--static">
+          <select name="time_horizon" id="time_horizon">
             <option value="" disabled selected>Select a horizon</option>
             <option value="under-3">Less than 3 years</option>
             <option value="3-7">3 – 7 years</option>
             <option value="7-15">7 – 15 years</option>
             <option value="15-plus">More than 15 years</option>
           </select>
+          <label for="time_horizon">Investment Time Horizon <span class="required">*</span></label>
         </div>
 
-        <div class="form-group">
-          <label>Risk Comfort Level <span class="required">*</span></label>
-          <select name="risk_comfort">
+        <div class="fld fld--static">
+          <select name="risk_comfort" id="risk_comfort">
             <option value="" disabled selected>Select a level</option>
             <option value="low">Low – Prefer stability</option>
             <option value="moderate">Moderate – Balanced approach</option>
             <option value="high">High – Comfortable with larger swings</option>
           </select>
+          <label for="risk_comfort">Risk Comfort Level <span class="required">*</span></label>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-back" data-back>Back</button>
-          <button type="button" class="btn btn-primary" data-next>Continue</button>
+          <button type="button" class="signup-btn signup-btn-back" data-back>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button type="button" class="signup-btn signup-btn-next" data-next>
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
         </div>
       </div>
 
-    </div>
-  </section>
+      </div>
+    </main>
+  </div>
 
 <!-- Client Authentication Phase 1 (Aug 21, 2026) — the first time signup.html loads the
      shared engine at all. Vanilla JS only, no Tailwind dependency, so this doesn't blur the
@@ -974,11 +1282,28 @@
       const visible = getVisibleSteps();
       const index = visible.indexOf(currentStep);
       const total = visible.length;
-      const percent = ((index + 1) / total) * 100;
 
       document.getElementById("step-label").textContent = `Step ${index + 1} of ${total}`;
-      document.getElementById("step-name").textContent = stepNames[currentStep] || "";
-      document.getElementById("progress-fill").style.width = percent + "%";
+      renderRail(visible, index);
+    }
+
+    // Signup full-page redesign (2026-09-08): the rail's step list is rendered from the
+    // exact same currentStep/getVisibleSteps() state driving the step panels themselves —
+    // called from updateProgress(), which showStep() already calls on every navigation —
+    // rather than a second, separately-maintained step-tracking implementation. Rebuilds
+    // the full list on every call (cheap: at most 8 items) so a step becoming visible/
+    // hidden by an account-type change (steps 3/4 are mutually exclusive) is always
+    // reflected correctly, not just the done/now/upcoming state of a fixed list.
+    function renderRail(visible, currentIndex) {
+      const rail = document.getElementById("rail-steps");
+      if (!rail) return;
+      rail.innerHTML = visible.map((step, i) => {
+        const state = i < currentIndex ? "is-done" : (i === currentIndex ? "is-now" : "");
+        const dot = i < currentIndex
+          ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+          : (i + 1);
+        return `<div class="rail-step ${state}"><span class="rail-dot">${dot}</span><span class="rail-lbl">${stepNames[step] || ""}</span></div>`;
+      }).join("");
     }
 
     // Motion UI Components (2026-09-08): Step Player — a directional fade+slide entrance on
