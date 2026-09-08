@@ -7517,6 +7517,37 @@ row 74.
   57/57 artifacts, 34/34 ticker/footer/tilt. Page weight +40.6 KB against the round's own
   baseline, entirely text, no new media. See `Marketswave_Project_Handover.md` register row 174.
 
+- **★★ Homepage design round 2, addendum — hero cards removed, Core Services rebuilt as the
+  monochrome field (2026-09-08, row 175)**: two items, two commits.
+  **A**: the four floating hero cards are gone, superseding the hover tilt built for them one
+  commit earlier — that went with them rather than staying as dead code. The rest of the hero
+  is untouched, proven by comparing every remaining layer's rendered geometry against a
+  baseline captured from the previous commit.
+  **B**: `index.html`'s Core Services section is no longer a six-card grid. It is a full-bleed
+  light stone field (`#EEECE8`) with grain, vignette and a drifting sheen, divided into six
+  vertical `.fpanel` links — each a real link to its own `services.html` anchor, carrying a
+  baked contour terrain, a ghosted numeral, the exact icon its old card used, and a vertical
+  name. One panel is ALWAYS open; hover or focus moves which. Interaction lives in the new
+  `core-field.js`, the surface in `styles.css` section 18G.
+  **Things a future session needs to know before touching it:**
+  - The six terrains are **generated at build time and baked into the markup** (the generator
+    is `scratchpad/build_field2.py`'s port of the mockup's own PRNG). Nothing generates them at
+    runtime, and `core-field.js` is asserted to contain no generation code — do not move that
+    into the browser.
+  - **Greyscale is absolute except one element**: the open panel's 2px `::after` hairline, in
+    that service's `--fp-hue`. A verification walks every painted colour in the section and
+    fails if anything else paints one of the six hues.
+  - The mockup's own `#6B6F72` failed contrast (3.88-4.16:1) once the multiply grain darkens
+    the surface; `--ink-3` is `#5C6063` for that reason. Measure composited pixels, not the
+    flat stone value, if you change any grey here.
+  - The mobile branch keys off POINTER TYPE, not width. Headless Chrome needs
+    `Emulation.setTouchEmulationEnabled` to reach it — `setDeviceMetricsOverride` alone leaves
+    `hover: hover` / `pointer: fine` matching, and the first synthetic tap then navigates away.
+  - `.service-card`/`.service-grid` CSS is deliberately kept: `resources.html` and
+    `blog-press.html` still use it.
+  Verified: 119/119 field, 41/41 hero, 39/39 real composited-contrast probes, artifacts 57/57
+  and header 55/55 unchanged, console clean. See `Marketswave_Project_Handover.md` row 175.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
