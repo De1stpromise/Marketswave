@@ -829,49 +829,6 @@ body.has-overlay-header .hero {
   padding: 90px 0;
 }
 
-.strategy-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
-  gap: 28px;
-}
-
-/* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border moved to .glass
-   (applied in the HTML alongside this class); hover redefined as a shadow boost, since
-   .glass's own border is no longer a plain color this rule could swap on :hover. */
-.strategy-card {
-  border-radius: var(--radius);
-  padding: 36px 32px;
-  transition: box-shadow 0.2s;
-  height: 100%;
-}
-.strategy-card:hover {
-  box-shadow: 0 20px 36px -12px rgba(27,58,75,0.2);
-}
-
-.strategy-card .tag {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.55px;
-  color: var(--primary);
-  background: var(--surface);
-  padding: 5px 12px;
-  border-radius: 20px;
-  margin-bottom: 16px;
-}
-
-.strategy-card h3 {
-  font-size: 1.28rem;
-  margin-bottom: 14px;
-  color: var(--text);
-}
-
-.strategy-card p {
-  color: var(--text-muted);
-  font-size: 0.96rem;
-  line-height: 1.65;
-}
 
 /* =====================================================
    11. HOW IT WORKS
@@ -881,58 +838,6 @@ body.has-overlay-header .hero {
   background: var(--surface);
 }
 
-.workflow {
-  display: grid;
-  gap: 0;
-  max-width: 900px;
-  margin: 0 auto;
-  position: relative;
-}
-
-.workflow::before {
-  content: "";
-  position: absolute;
-  left: 28px;
-  top: 40px;
-  bottom: 40px;
-  width: 2px;
-  background: var(--border-strong);
-}
-
-.workflow-step {
-  display: grid;
-  grid-template-columns: 60px 1fr;
-  gap: 28px;
-  padding: 28px 0;
-  position: relative;
-}
-
-.workflow-step .num {
-  width: 56px;
-  height: 56px;
-  background: var(--primary);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1.15rem;
-  z-index: 2;
-  flex-shrink: 0;
-}
-
-.workflow-step h3 {
-  font-size: 1.25rem;
-  margin-bottom: 10px;
-  color: var(--primary);
-}
-
-.workflow-step p {
-  color: var(--text-muted);
-  font-size: 0.98rem;
-  line-height: 1.6;
-}
 
 /* How it works table */
 .workflow-table-wrap {
@@ -1002,15 +907,12 @@ body.has-overlay-header .hero {
 }
 
 
-
-
 /* Homepage Visual Redesign, Stage 2 (2026-09-05): gains a real, subtle glass treatment
    (.glass-subtle, applied in the HTML) explicitly requested for this section — the
    border-top navy accent is deliberately KEPT alongside it (its own longhand
    border-top-* declarations, defined here, later in the cascade than .glass-subtle's own
    shorthand border, correctly win for that one side), so each item reads as a light glass
    card with the site's own established top-accent language, not a plain box. */
-
 
 
 /* Homepage Visual Redesign, Stage 2 (2026-09-05): background/border/border-radius moved
@@ -2272,6 +2174,195 @@ body.has-overlay-header .hero {
 }
 
 /* -------------------------------------------------------------------------------------
+   18I. RESOURCES — GREYSCALE AT REST (2026-09-08)
+
+   Ported from the approved mockup. Core Strategies and How It Works both drop their cards for
+   editorial lists, carrying the same discipline the homepage's Core Services field uses:
+   nothing carries colour until the row is engaged, and then only that row.
+
+   ★ Three of the mockup's own greys were darkened after measuring them as composited pixels
+   over this page's ground plus the new grain: its #A6ADB2 numerals and category labels came in
+   at 2.2:1 and its #7C868C body copy at 3.62:1, both under 4.5:1. They are still clearly the
+   quiet state — the hovered state is a hue, and the resting name is darker still — but they are
+   readable, which for real body copy has to win. The tones that already passed are untouched.
+
+   ★ No seam artifacts, no monochrome field, no media backgrounds here: the lifecycle story is
+   told once, on the homepage, and this page is deliberately quieter.
+------------------------------------------------------------------------------------- */
+
+/* The page-wide grain lives in glass-primitives.css as a formal shared primitive
+   (.page-grain) — see that file. Kept as a pointer so it's clear why it isn't here. */
+
+/* This page's shared muted body tone. Measured composited BEFORE the redesign, the Help
+   Center copy was already failing at 4.05:1 and the two section ledes sat at 4.56:1 with no
+   margin; the grain then took them to 3.88 and 4.38. Darkened here only — scoped by these
+   sections' own ids, so no other page inherits the change — which is a legibility fix rather
+   than a restyle of sections this task was told to leave alone. */
+#strategies .section-header p,
+#how-it-works .section-header p,
+#blog p,
+#help p { color: #566066; }
+
+/* ---- Core Strategies: an editorial list ------------------------------------------------- */
+.res-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid rgba(27, 58, 75, .14);
+}
+
+.res-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 260px 1fr;
+  gap: 28px;
+  align-items: start;
+  padding: 26px 6px;
+  border-bottom: 1px solid rgba(27, 58, 75, .14);
+  transition: background .45s ease, padding-left .45s cubic-bezier(.3, 1.2, .5, 1);
+}
+/* Two hues per row, and the split is load-bearing. --hue is the full-strength accent and
+   is used ONLY for decoration: the accent rail below and the aria-hidden icon stroke, both
+   of which carry no information a screen reader or a low-contrast reader would lose.
+   --hue-text is a darkened companion used for the two things that are genuinely TEXT
+   (.res-n and .res-kind on hover).
+
+   Measured, not assumed: against this row's own hover surface, five of the six accents fail
+   as text at full strength BEFORE the grain is even applied - gold #C8860A is 2.90:1, blue
+   #4A7FA5 4.09:1, violet #7A6BA8 4.43:1, teal #16815F 4.59:1 and rust #B4553F 4.62:1, the
+   last two nominally passing but landing under 4.5:1 once composited and antialiased. The
+   darkened companions clear 5.6:1 pure, which leaves enough headroom for the grain. Navy
+   #1B3A4B already measures 11.36:1, so row 01's two values are deliberately identical.
+   Same finding as the hero muted tone and the stone field's --ink-3 before it: an accent
+   that reads well as a shape does not automatically read well as a letterform. */
+/* The accent rail, drawing down the left edge in this row's own hue. */
+.res-item::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--hue);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform .45s cubic-bezier(.3, 1.2, .5, 1);
+}
+.res-item:hover,
+.res-item:focus-within { background: rgba(255, 255, 255, .62); padding-left: 18px; }
+.res-item:hover::before,
+.res-item:focus-within::before { transform: scaleY(1); }
+
+.res-n {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; letter-spacing: .1em;
+  color: #5C6367;            /* mockup #A6ADB2 measured 2.2:1 over this ground */
+  padding-top: 5px;
+  transition: color .4s;
+}
+.res-item:hover .res-n,
+.res-item:focus-within .res-n { color: var(--hue-text); }
+
+.res-ttl { display: flex; align-items: center; gap: 14px; }
+.res-ico {
+  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+  background: rgba(120, 132, 142, .09);
+  border: 1px solid rgba(27, 58, 75, .07);
+  display: flex; align-items: center; justify-content: center;
+  filter: grayscale(1); opacity: .6;
+  transition: filter .45s, opacity .45s, transform .45s cubic-bezier(.3, 1.3, .5, 1);
+}
+.res-ico svg {
+  stroke: #6B7178; fill: none; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+  transition: stroke .45s;
+}
+.res-item:hover .res-ico,
+.res-item:focus-within .res-ico { filter: grayscale(0); opacity: 1; transform: translateY(-2px) scale(1.05); }
+.res-item:hover .res-ico svg,
+.res-item:focus-within .res-ico svg { stroke: var(--hue); }
+
+.res-item h3 {
+  font-size: 17.5px; font-weight: 600; letter-spacing: -.015em; line-height: 1.25;
+  color: #4E5960; transition: color .4s;
+}
+.res-item:hover h3,
+.res-item:focus-within h3 { color: #12283A; }
+.res-kind {
+  display: block; margin-top: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: #5C6367;            /* mockup #A6ADB2, same measurement */
+  transition: color .4s;
+}
+.res-item:hover .res-kind,
+.res-item:focus-within .res-kind { color: var(--hue-text); }
+
+.res-item p {
+  font-size: 13.5px; line-height: 1.72;
+  color: #566066;            /* mockup #7C868C measured 3.62:1 */
+  transition: color .4s;
+}
+.res-item:hover p,
+.res-item:focus-within p { color: #414C53; }
+
+
+/* ---- How It Works: a vertical spine ------------------------------------------------------ */
+.res-steps {
+  position: relative;
+  list-style: none;
+  margin: 0 0 56px;
+  padding-left: 38px;
+}
+.res-steps::before {
+  content: "";
+  position: absolute; left: 11px; top: 6px; bottom: 6px; width: 1px;
+  background: linear-gradient(180deg, rgba(27, 58, 75, .25), rgba(27, 58, 75, .08));
+}
+.res-st { position: relative; padding: 0 0 34px; }
+.res-st:last-child { padding-bottom: 0; }
+.res-dot {
+  position: absolute; left: -38px; top: 2px;
+  width: 23px; height: 23px; border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid rgba(27, 58, 75, .22);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; color: #5C6367;
+  transition: background .4s cubic-bezier(.3, 1.3, .5, 1), border-color .4s, color .4s, transform .4s cubic-bezier(.3, 1.3, .5, 1);
+}
+/* #137254 rather than --accent-teal: cream on the token itself measures 4.36:1 composited,
+   a real fail, not a rounding matter. Darkened here only - the token is shared (the homepage
+   stats trend line uses it) and is fine in its own contexts, so this is scoped to the one
+   place it carries text rather than moved globally. */
+.res-st:hover .res-dot,
+.res-st:focus-within .res-dot {
+  background: #137254; border-color: #137254;
+  color: var(--bg); transform: scale(1.12);
+}
+.res-st h3 {
+  font-size: 16px; font-weight: 600; color: #4E5960; margin-bottom: 6px;
+  transition: color .35s;
+}
+.res-st:hover h3,
+.res-st:focus-within h3 { color: #12283A; }
+.res-st p { font-size: 13.5px; line-height: 1.72; color: #566066; max-width: 62ch; }
+
+@media (max-width: 900px) {
+  /* Two columns: the numeral, then everything else. The icons come out of greyscale and
+     stay in colour here, since there is no hover on touch to reveal it. */
+  .res-item { grid-template-columns: 44px 1fr; gap: 14px 16px; padding: 22px 4px; }
+  .res-ttl { grid-column: 2; }
+  .res-item p { grid-column: 2; margin-top: -6px; }
+  .res-ico { filter: grayscale(0); opacity: 1; }
+  .res-ico svg { stroke: var(--hue); }
+  .res-steps { padding-left: 34px; }
+  .res-dot { left: -34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .res-item, .res-item::before, .res-n, .res-ico, .res-ico svg,
+  .res-item h3, .res-kind, .res-item p,
+  .res-dot, .res-st h3 { transition: none; }
+}
+
+/* -------------------------------------------------------------------------------------
    18F. SEAM ARTIFACTS (rebuilt 2026-09-08, ported from nav_artifacts_v8.html)
 
    Seven animated scenes, one per section join. What was here before — seven ~90px white
@@ -2824,19 +2915,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
     grid-template-columns: 1fr;
     gap: 36px;
   }
-  .workflow::before {
-    left: 22px;
-  }
-  .workflow-step {
-    grid-template-columns: 48px 1fr;
-    gap: 18px;
-  }
-  .workflow-step .num {
-    width: 44px;
-    height: 44px;
-    font-size: 1rem;
-  }
-  }
+        }
 
 @media (max-width: 480px) {
   /* Mobile fixes, Batch 1 (2026-09-08), Finding S1 (continued): moving "Contact" into the

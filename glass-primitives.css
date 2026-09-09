@@ -230,6 +230,36 @@
   z-index: 2;
 }
 
+/* ---- .page-grain — Resources redesign (2026-09-08). A page-wide film grain: an
+   SVG-turbulence data-URI multiplied over the whole viewport so a page reads as one
+   printed material rather than flat screen white. Fixed rather than absolute, so it does
+   not scroll with content and does not need a positioned ancestor.
+
+   This is the SECOND texture primitive here, alongside .grid-overlay, and the first that
+   is page-wide rather than section-scoped. The homepage's own .hero-grain and .field-grain
+   are deliberately NOT folded into it in this task: both are section-scoped, both are
+   tuned to their own surface (.field-grain in particular is calibrated against the stone
+   field's measured contrast floor), and consolidating them is a real refactor with its own
+   verification burden rather than a rename. See the register entry for the recommendation.
+
+   Layering note: z-index 40 sits above page content but below the site header (100) and
+   any modal, so the grain never lands on top of chrome or a dialog.
+
+   mix-blend-mode: multiply means this DARKENS everything beneath it — every text colour on
+   a page carrying this class must be contrast-measured composited, never against its own
+   flat value. That is exactly what produced the darkened tones on resources.html. ---- */
+.page-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  /* The mockup's .42 was dialled back: this grain multiplies over every piece of body copy
+     on the page, and measured composited it cost about 0.2:1 across the board. */
+  opacity: .3;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='pg'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23pg)' opacity='.34'/%3E%3C/svg%3E");
+}
+
 /* ---- Contrast Audit fix (2026-09-06) — real, measured, systemic finding: Tailwind's
    text-slate-400/text-slate-500 utility classes are used as body/label copy in 83 real
    instances across 22 client-dashboard and admin-tool files, and every one of them sits

@@ -7585,6 +7585,49 @@ row 74.
   probes, plus field 119/119, header 55/55 and hero 41/41 unchanged. See
   `Marketswave_Project_Handover.md` row 176.
 
+- **★★ Resources page redesign — editorial list, vertical spine, and `.page-grain` promoted to a
+  shared primitive (2026-09-08, row 177)**: resumed after a machine freeze left the work uncommitted,
+  unverified and undocumented. Core Strategies is now a `.res-list` editorial list (per-row `--hue`,
+  monospace numeral, icon, hairline dividers, no boxes) and How It Works a `.res-steps` vertical
+  numbered spine, both carrying the homepage's greyscale-at-rest discipline.
+  **Things a future session needs to know before touching this page:**
+  - **The copy is the point.** The reference mockup was LAYOUT ONLY and its descriptions are trimmed;
+    the real page copy must survive verbatim. Proved by extracting visible text and diffing — 8841 ->
+    8835 characters with every delta explained by the numbering alone. Re-prove it after any edit here;
+    it is a two-second check and it is the one thing this redesign could silently ruin.
+  - **`--hue` is decoration, `--hue-text` is text, and the split is load-bearing.** Measured against the
+    row's own hover surface BEFORE the grain, five of the six accents fail as text: gold `#C8860A`
+    2.90:1, blue `#4A7FA5` 4.09:1, violet `#7A6BA8` 4.43:1, teal `#16815F` 4.59:1, rust `#B4553F`
+    4.62:1. Only the accent rail and the `aria-hidden` icon stroke may use `--hue`. Adding a new row
+    means deriving a new `--hue-text` and measuring it, not reusing the accent.
+  - **`.page-grain` now lives in `glass-primitives.css`**, not `styles.css` — the second texture
+    primitive after `.grid-overlay` and the first that is page-wide. It is `multiply`, so it DARKENS
+    everything beneath it: every text colour on a page carrying it must be measured composited, never
+    against its own flat value. The homepage's `.hero-grain`/`.field-grain` are deliberately NOT folded
+    in yet; `.field-grain` is calibrated against the stone field's own contrast floor, so consolidating
+    is a re-measurement task, not a rename.
+  - **`scripts/verify-contrast.mjs` is new and is the tool for any grain/glass surface.** It samples
+    real composited pixels over CDP. Two of its own bugs are already fixed and worth not
+    reintroducing: foreground detection must be POLARITY-AWARE (this page has light-on-dark surfaces —
+    hero, table head, footer — where taking the darkest pixel measures the background against itself
+    and reports ~1.0:1), and a hovered element's box must be re-read AFTER hover, because
+    `.res-item:hover` adds `padding-left` and shifts the row out from under a stale rect. Measure every
+    variant, not a sample: a 2-row sample originally hid four genuine failures behind two passes.
+  - The `→` affordance was **removed**, not restyled — the rows are not links and the strategies have
+    no detail pages. If detail pages are ever built, it comes back with them.
+  **Verified**: contrast 113 measurements at 1440px and 113 at each of 390/375/320, 0 below 4.5:1;
+  structure/responsive 48/48 across all four widths; full suite 33/34 (the known unified-inbox Realtime
+  flake clean on retry), Tailwind guard PASS, golden path PASS (16/16). **A methodology note worth
+  keeping**: a first full-suite run showed 19 failures that were NOT regressions — restoring the
+  changes and re-running the identical set in the identical order produced output byte-identical to
+  clean HEAD. The cause was 12 leftover `Test Mid-Market PE Fund` products from
+  `verify-products-catalog-fix`'s unreliable teardown, now the SIXTH recorded occurrence of that leak;
+  it is worth fixing that script's teardown rather than cleaning up after it a seventh time.
+  **Pre-existing, unrelated, reported not fixed**: `verify-hosting-default-fix.mjs` fails on clean HEAD
+  too — commit 15eaa27 extracted `supabase-endpoint.js` to the project root, invalidating that
+  script's own documented assumption that its temp module (written into `scripts/` so the
+  `@supabase/supabase-js` bare specifier resolves) needs no project-root-relative imports.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
