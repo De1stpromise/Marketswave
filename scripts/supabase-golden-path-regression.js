@@ -301,9 +301,21 @@ async function main() {
     return buyTxn.id + ', holding units=' + holding.units.toFixed(4) + ', Total Portfolio Value=$' + totalValue.toFixed(2);
   });
 
+  // ★ This used to deliberately leave its test account behind, on the reasoning that it would
+  // be cleaned up by the next `supabase db reset` and "costs nothing". That reasoning has been
+  // reversed, and the reversal is deliberate rather than an accident of tidying:
+  //   - `supabase db reset` is avoided in this project on purpose (it destroys real local test
+  //     data other work depends on), so in practice the reset never comes and the accounts
+  //     simply accumulate — 33 golden-path-supabase-* users had built up by 2026-09-09.
+  //   - It does not cost nothing. Accumulated test clients participate in later runs'
+  //     recipient filters and row counts; a sibling script's own stranded clients silently
+  //     doubled an announcement recipient count and failed a completely unrelated assertion.
+  //   - A regression script that cannot be run twice without changing the environment it
+  //     measures is not a clean regression check.
+  // Deleting the auth user cascades the clients row and every per-client row hanging off it.
+  await admin.auth.admin.deleteUser(uid).catch(function () {});
   console.log('');
-  console.log('Test account: ' + TEST_EMAIL + ' (uid ' + uid + ') left in the local stack —');
-  console.log('cleaned up automatically on the next `supabase db reset`, or leave it, it costs nothing.');
+  console.log('Test account ' + TEST_EMAIL + ' (uid ' + uid + ') removed.');
 }
 
 main()

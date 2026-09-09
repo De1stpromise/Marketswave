@@ -317,6 +317,13 @@ async function main() {
     check('the real log now contains all 3 real, correctly distinguishable entries', log.length === 3 && log.every(function (e) { return e.clientId === testClient.id; }), JSON.stringify(log));
   })();
 
+  // The non-admin account is created once at the top and used by every authorization-negative
+  // check below, so it cannot be deleted inside any individual part — and it was never deleted
+  // at all, quietly accumulating one non-admin-*@test.marketswave.local user per run (33 had
+  // built up before this was noticed). Every other test account this script creates is already
+  // deleted by the part that owns it.
+  await admin.auth.admin.deleteUser(nonAdminUser.id).catch(function () {});
+
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.\n');
   if (failed > 0) {
     console.log('VERIFY: FAIL');

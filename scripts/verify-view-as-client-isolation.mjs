@@ -76,6 +76,14 @@ async function main() {
     email: 'view-as-target-' + suffix + '@test.marketswave.local', password: password, email_confirm: true
   });
   if (realClientErr) throw new Error('createUser (real client) failed: ' + realClientErr.message);
+
+  // Cleanup used to be a bare sequence at the end of main() with no try/finally at all, so
+  // any throw between here and there stranded both test auth users and their clients rows.
+  // That is not theoretical: this script failed once inside a full-suite run and left
+  // view-as-target-* users behind. The try opens as soon as the first real row exists.
+  let approveTestClient = null;
+  try {
+
   await admin.from('clients').insert({
     id: realClientUser.user.id, name: 'Real Client Target', email: realClientUser.user.email,
     phone: '+1-555-0500', account_type: 'Individual Account', status: 'active'
@@ -151,9 +159,9 @@ async function main() {
   // authenticates as the real admin — the actual, concrete consequence that would matter if
   // any contamination had occurred (every admin action would silently execute as the wrong
   // identity).
-  const { data: approveTestClient } = await admin.auth.admin.createUser({
+  ({ data: approveTestClient } = await admin.auth.admin.createUser({
     email: 'view-as-approve-check-' + suffix + '@test.marketswave.local', password: password, email_confirm: true
-  });
+  }));
   await admin.from('clients').insert({
     id: approveTestClient.user.id, name: 'Approve Check', email: approveTestClient.user.email,
     phone: '+1-555-0501', account_type: 'Individual Account', status: 'pending_review'
@@ -261,10 +269,17 @@ async function main() {
   check('the real client\'s own localStorage is COMPLETELY UNCHANGED by anything in Part A', realClientLocalStorageBefore === realClientLocalStorageAfter);
   check('the real client\'s storage contains NOTHING resembling the admin\'s own local ambient variable (never crossed the other direction either)', !Object.keys(secondClientAuth.clientDom.window.localStorage).some(function (k) { return k.indexOf('marketswave_current_client_id') !== -1; }));
 
-  // Cleanup
-  await admin.from('clients').delete().in('id', [realClientUser.user.id, approveTestClient.user.id]);
-  await admin.auth.admin.deleteUser(realClientUser.user.id);
-  await admin.auth.admin.deleteUser(approveTestClient.user.id);
+  } finally {
+    // Runs regardless of outcome. Guarded per-id because approveTestClient is only created
+    // partway through Part A — on an early failure it is still null, and an unguarded
+    // property read here would replace the real error with a TypeError from the cleanup.
+    const ids = [realClientUser.user.id];
+    if (approveTestClient && approveTestClient.user) ids.push(approveTestClient.user.id);
+    await admin.from('clients').delete().in('id', ids);
+    for (const id of ids) {
+      await admin.auth.admin.deleteUser(id).catch(function () {});
+    }
+  }
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.\n');
   if (failed > 0) {

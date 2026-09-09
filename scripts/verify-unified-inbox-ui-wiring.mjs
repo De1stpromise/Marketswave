@@ -333,20 +333,36 @@ async function main() {
   } finally {
     console.log('\nCleaning up...');
     for (const f of tempFiles) { try { unlinkSync(f); } catch (_e) {} }
+    // ★ The visitor's anonymous auth user has to be collected BEFORE its conversation is
+    // deleted, because visitor_auth_id on that row is the only way back to it.
+    //
+    // The previous comment here reasoned that because an anonymous session has no real email,
+    // there was "nothing further to find/delete for the anonymous side". That conflated two
+    // different things: signInAnonymously() genuinely DOES create a real auth.users row — it
+    // just has a null email — so there was nothing to find BY EMAIL, but there was very much
+    // something to delete. Only the conversation was being cleaned, and the anonymous user
+    // was stranded, one per run, which is what kept auth_users drifting upward across
+    // otherwise-clean suite runs. (A listUsers() call sat here too, its result never read.)
+    const anonUserIds = new Set();
+    const collectVisitor = async (filterFn) => {
+      const { data } = await filterFn(admin.from('conversations').select('id, visitor_auth_id'));
+      (data || []).forEach((r) => { if (r.visitor_auth_id) anonUserIds.add(r.visitor_auth_id); });
+      return (data || []).map((r) => r.id);
+    };
+
     if (conversationIdToCleanup) {
+      await collectVisitor((q) => q.eq('id', conversationIdToCleanup));
       await admin.from('messages').delete().eq('conversation_id', conversationIdToCleanup);
       await admin.from('conversations').delete().eq('id', conversationIdToCleanup);
     }
-    const { data: seededRows } = await admin.from('conversations').select('id').ilike('contact_email', '%' + suffix + '%');
-    if (seededRows && seededRows.length) {
-      const ids = seededRows.map((r) => r.id);
-      await admin.from('messages').delete().in('conversation_id', ids);
-      await admin.from('conversations').delete().in('id', ids);
+    const seededIds = await collectVisitor((q) => q.ilike('contact_email', '%' + suffix + '%'));
+    if (seededIds.length) {
+      await admin.from('messages').delete().in('conversation_id', seededIds);
+      await admin.from('conversations').delete().in('id', seededIds);
     }
-    const { data: visitorUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    // Anonymous sessions have no real email — find the one this test created via the
-    // conversation's own visitor_auth_id instead, cleaned up just above; nothing further to
-    // find/delete by email for the anonymous side (never a real Auth user with visitorEmail).
+    for (const uid of anonUserIds) {
+      await admin.auth.admin.deleteUser(uid).catch(() => {});
+    }
     console.log('Done.');
   }
 

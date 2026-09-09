@@ -73,19 +73,61 @@ function localizeCdnImport(source) {
   return source.replace(needle, "import { createClient } from '@supabase/supabase-js';");
 }
 
-// Written into scripts/ (not the project root) specifically so the substituted
-// '@supabase/supabase-js' bare specifier resolves against scripts/node_modules — Node's
-// module resolution walks UP from the importing file's own directory looking for
+// Temp copies are written into scripts/ (not the project root) specifically so the
+// substituted '@supabase/supabase-js' bare specifier resolves against scripts/node_modules —
+// Node's module resolution walks UP from the importing file's own directory looking for
 // node_modules, never into a child directory, and the project root has no node_modules of
-// its own. Neither real source file has any OTHER relative import that would need to resolve
-// against the project root instead (confirmed by reading both files first — unlike
-// supabase-data.js's own `import('./supabase-config.js')`, which is why THAT file's own
-// established temp-copy technique, in verify-cross-role-sync-bugfix.mjs, has to use the
-// project root), so this placement is safe.
+// its own. That placement is load-bearing and must not be "fixed" by moving these files to
+// the root; doing so re-breaks the bare specifier this placement exists to satisfy.
+//
+// The cost of that placement is that any PROJECT-ROOT-RELATIVE import inside the copied
+// source no longer resolves, because the copy now lives a directory deeper. When this script
+// was written (2026-09-07) neither real source had such an import, and its original comment
+// said so. Commit 15eaa27 the following day extracted supabase-endpoint.js to the project
+// root and pointed supabase-config.js at it, silently invalidating that assumption and
+// leaving this script failing with "Cannot find module 'supabase-endpoint.js'" — unnoticed
+// because nothing re-ran it.
+//
+// Rather than relocate, the fix is the same temp-copy approach verify-cross-role-sync-
+// bugfix.mjs already uses for supabase-data.js: co-locate the dependency next to the copy
+// that needs it and repoint the import at it. supabase-endpoint.js is self-contained (no
+// imports of its own, confirmed by reading it), so a byte-for-byte copy is sufficient and
+// there is no transitive case to handle. localizeRelativeImports() is deliberately strict —
+// if supabase-config.js ever gains ANOTHER root-relative import, it throws with the offending
+// specifier named instead of failing later with an opaque resolution error.
+// ★ The endpoint copy is PER-SCENARIO, not shared, and that is the whole point rather than an
+// implementation detail. supabase-endpoint.js reads window.location.hostname/.search at module
+// TOP LEVEL and freezes WANTS_SUPABASE_STAGING/ACTIVE_CONFIG at import time. A single shared
+// copy is imported once and cached, so every scenario after the first would silently reuse the
+// FIRST scenario's environment resolution — which is exactly the module-caching hazard this
+// script already avoids for the config itself by writing a new temp file per scenario. A
+// shared copy here made 7 assertions fail with the local scenarios reporting the staging URL.
+const REAL_SUPABASE_ENDPOINT_SRC = readFileSync(PROJECT_ROOT_DIR + 'supabase-endpoint.js', 'utf8');
+
+function writeEndpointCopy(n) {
+  const basename = '.tmp-hosting-endpoint-' + n + '-' + process.pid + '.mjs';
+  writeFileSync(SCRIPTS_DIR + basename, REAL_SUPABASE_ENDPOINT_SRC, 'utf8');
+  tempFiles.push(SCRIPTS_DIR + basename);
+  return basename;
+}
+
+function localizeRelativeImports(source, endpointBasename) {
+  const out = source.replace(/(['"])\.\/supabase-endpoint\.js\1/g, "'./" + endpointBasename + "'");
+  // Any OTHER project-root-relative specifier is a shape change this script has not been
+  // taught about — fail loudly and name it, rather than let it become the next silent break.
+  const leftover = out.match(/from\s+['"]\.\/(?!\.tmp-hosting-)[^'"]+['"]/g);
+  if (leftover) {
+    throw new Error('Unhandled project-root-relative import in copied source: ' + leftover.join(', ') +
+      ' — add it to localizeRelativeImports() (co-locate a temp copy), do not move the temp file to the root.');
+  }
+  return out;
+}
+
 async function importScenario(realSource, hostname, search) {
   scenarioCounter++;
+  const endpointBasename = writeEndpointCopy(scenarioCounter);
   const tempPath = SCRIPTS_DIR + '.tmp-hosting-check-' + scenarioCounter + '-' + process.pid + '.mjs';
-  writeFileSync(tempPath, localizeCdnImport(realSource), 'utf8');
+  writeFileSync(tempPath, localizeRelativeImports(localizeCdnImport(realSource), endpointBasename), 'utf8');
   tempFiles.push(tempPath);
   const fakeWindow = { location: { hostname: hostname, search: search } };
   const priorWindow = globalThis.window;

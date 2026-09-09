@@ -143,6 +143,17 @@ async function main() {
   const { data: created, error: createErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (createErr) throw new Error('createUser failed: ' + createErr.message);
   const clientId = created.user.id;
+
+  const createdProductIds = [];
+  let cleanupLeaked = false;
+
+  // The try opens HERE, immediately after the first real artifact exists, rather than after
+  // the sign-in checks below. Everything from this point on creates or depends on real rows,
+  // so anything that throws in between must still reach the finally — previously the client
+  // user, its clients row and its account_state were all created outside the try and leaked
+  // outright if any of the setup checks threw.
+  try {
+
   const clientName = 'Products Fix Test Client ' + suffix;
   await admin.from('clients').insert({ id: clientId, name: clientName, email: email, phone: '+1-555-0177', account_type: 'Individual Account', status: 'active' });
   await admin.from('account_state').insert({ client_id: clientId, unallocated_capital: 2000, allocated_capital: 8000, asset_returns: 0 });
@@ -151,10 +162,6 @@ async function main() {
   const { error: signInErr } = await withContext(CLIENT_CTX, function () { return clientSupabaseClient.auth.signInWithPassword({ email, password }); });
   check('the CLIENT context genuinely signs in as the real test client, completely independent of the ADMIN context above', !signInErr, signInErr && signInErr.message);
   check('the ADMIN context is confirmed UNAFFECTED by the client sign-in that just happened in the other context', (await adminClient.auth.getUser()).data.user.email === 'pm@marketswave.local');
-
-  const createdProductIds = [];
-
-  try {
 
   // ===========================================================================================
   // PART 1 — Add Product (a Crypto product with description + logoUrl), via the REAL
@@ -426,14 +433,59 @@ async function main() {
   });
 
   } finally {
-    // Cleanup — the two real test products aren't owned by any client (the Product Catalog
-    // is global), so they need an explicit delete; the holding/account_state/client rows all
-    // cascade from the real auth user via `on delete cascade`, confirmed by reading every
-    // migration's own FK definition, same as every prior verification script in this project.
+    // Cleanup. This block leaked a "Test Mid-Market PE Fund" product on essentially every run
+    // for six recorded sessions, and the shape of that leak is worth stating so it is not
+    // reintroduced:
+    //
+    //   1. ORDER. `holdings.product_id` references `products(id)` with NO `on delete cascade`
+    //      (see 20260830182232_create_portfolio_engine_tables.sql) — so deleting a product
+    //      while a holding still points at it is a foreign-key violation. The old code deleted
+    //      products FIRST and the auth user SECOND, but PART 2 attaches a real holding to the
+    //      PE product, so that delete always failed, and the user delete a line later then
+    //      cascaded the holding away and left the product orphaned with nothing referencing it.
+    //      That is exactly why only the PE product ever leaked and the Crypto one never did.
+    //      The user is now deleted FIRST, which cascades holdings/account_state/transactions,
+    //      after which the products are genuinely deletable.
+    //
+    //   2. SILENCE. PostgREST returns that FK violation in the resolved `error` field rather
+    //      than throwing, and the old code never read it, so six sessions of failure produced
+    //      no output at all. Errors are checked and surfaced now.
+    //
+    //   3. REGISTRATION. `createdProductIds` is populated by parsing the id out of a toast
+    //      AFTER the row already exists in Postgres, so any failure in that window — a
+    //      pollUntil timeout, a null regex match — orphans a product that cleanup never even
+    //      knew about. Rather than narrow that window, cleanup no longer depends on it: the
+    //      authoritative sweep is by this run's own unique `suffix`, which is baked into every
+    //      test product's name at creation time. Collected ids are still swept first, so the
+    //      two mechanisms back each other up.
+    const cleanupErrors = [];
+
+    // User first — cascades holdings/account_state/transactions/clients off the products.
+    const { error: userErr } = await admin.auth.admin.deleteUser(clientId);
+    if (userErr) cleanupErrors.push('deleteUser: ' + userErr.message);
+
     for (const id of createdProductIds) {
-      await admin.from('products').delete().eq('id', id);
+      const { error } = await admin.from('products').delete().eq('id', id);
+      if (error) cleanupErrors.push('delete product ' + id + ': ' + error.message);
     }
-    await admin.auth.admin.deleteUser(clientId);
+
+    // Suffix sweep — catches anything created but never registered above.
+    const { error: sweepErr } = await admin.from('products').delete().like('name', '%' + suffix + '%');
+    if (sweepErr) cleanupErrors.push('suffix sweep: ' + sweepErr.message);
+
+    // Prove the teardown actually worked rather than assuming it. A silent failure here is
+    // precisely what went unnoticed for six sessions, so it is loud now.
+    const { data: leaked } = await admin.from('products').select('id,name').like('name', '%' + suffix + '%');
+    if (leaked && leaked.length) {
+      cleanupErrors.push('LEAKED ' + leaked.length + ' product(s): ' + leaked.map(function (r) { return r.id + ' ' + r.name; }).join(', '));
+    }
+
+    if (cleanupErrors.length) {
+      console.error('\n*** CLEANUP FAILED — test data has been left behind ***');
+      cleanupErrors.forEach(function (m) { console.error('  ' + m); });
+      cleanupLeaked = true;
+    }
+
     tempFiles.forEach(function (f) {
       try { unlinkSync(f); } catch (e) { /* best-effort */ }
     });
@@ -442,6 +494,12 @@ async function main() {
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');
   if (failed > 0) {
     console.log('\nVERIFY: FAIL (' + failed + ' assertion(s) failed)');
+    process.exit(1);
+  }
+  // A run that asserted correctly but left rows behind is not a pass: that combination is
+  // what let this script quietly pollute six later sessions.
+  if (cleanupLeaked) {
+    console.log('\nVERIFY: FAIL (assertions passed, but cleanup left test data behind)');
     process.exit(1);
   }
   console.log('\nVERIFY: PASS');

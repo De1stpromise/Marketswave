@@ -68,6 +68,27 @@ async function main() {
   const pmEmail = 'pm@marketswave.local';
 
   const suffix = crypto.randomBytes(4).toString('hex');
+
+  // ★ Startup sweep. The finally block below is thorough, but a `finally` cannot run if the
+  // process dies hard — and this script creates 105 synthetic clients for the chunk-boundary
+  // test, so one abnormal exit strands all 105. That is not hypothetical: it happened, and
+  // because the batch test filters on status/accountType rather than on this run's own
+  // suffix, the stranded clients silently joined the NEXT run's recipient set and made it
+  // report 210 recipients where it asserts 105 — a failure whose message points at batching
+  // and says nothing about leftover data.
+  //
+  // Sweeping on entry makes the script self-healing rather than dependent on every previous
+  // run having exited cleanly. The pattern is stable and unambiguous (@invalid.test is a
+  // deliberately unroutable domain used only by this script's synthetic clients), so this
+  // cannot touch real data. Deleting the auth user cascades the clients row.
+  const { data: strandedBatch } = await admin.from('clients').select('id').like('email', 'batch-%@invalid.test');
+  if (strandedBatch && strandedBatch.length) {
+    console.log('  (startup sweep: removing ' + strandedBatch.length + ' synthetic batch client(s) stranded by a previous run)');
+    for (const row of strandedBatch) {
+      await admin.from('clients').delete().eq('id', row.id);
+      await admin.auth.admin.deleteUser(row.id).catch(function () {});
+    }
+  }
   const cleanupClientIds = [];
   const cleanupAuthUserIds = [];
   const cleanupConversationIds = [];

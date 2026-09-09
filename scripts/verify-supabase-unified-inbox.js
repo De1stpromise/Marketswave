@@ -238,14 +238,22 @@ async function main() {
         // subscription was actually active, a genuine race, not a fluke).
         subscribeStatus = status;
       });
-    await waitFor(() => subscribeStatus === 'SUBSCRIBED', 8000);
+    // 8s was tight enough to fail intermittently when this runs inside the full 34-script
+    // suite: the Realtime container is contended by that point and the join lands late.
+    // Raising the ceiling does not weaken what is asserted — the subscription must still
+    // genuinely reach SUBSCRIBED, and a healthy stack still gets there in well under a
+    // second — it just stops a loaded machine from being reported as a broken one.
+    await waitFor(() => subscribeStatus === 'SUBSCRIBED', 30000);
     check('the real Realtime postgres_changes subscription genuinely reaches SUBSCRIBED (not just the channel\'s own "joined" state)', subscribeStatus === 'SUBSCRIBED', subscribeStatus);
 
     await sleep(300); // let the subscription fully settle before inserting, avoiding a real race with the join itself
     const realtimeMessageBody = 'A real-time test message — ' + suffix;
     await clientSignedIn.from('messages').insert({ conversation_id: realtimeConversationId, channel: 'chat', direction: 'inbound', body: realtimeMessageBody, sender_name: 'Real Inbox Client', sender_email: clientEmail });
 
-    await waitFor(() => realtimeEventReceived !== null, 8000);
+    // Same reasoning as the SUBSCRIBED wait above. The assertion below is unchanged: the
+    // event must genuinely arrive over Realtime and its body must match exactly, so a
+    // dropped or polled result still fails.
+    await waitFor(() => realtimeEventReceived !== null, 30000);
     check('★ the real admin session received the new message via a genuinely live Realtime event, not a poll', !!realtimeEventReceived && realtimeEventReceived.body === realtimeMessageBody, JSON.stringify(realtimeEventReceived));
 
     await pm.removeChannel(channel);
