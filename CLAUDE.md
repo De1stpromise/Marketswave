@@ -7750,6 +7750,49 @@ row 74.
   **Pre-existing, unrelated, reported not fixed**: `about.html`'s section lede measures 4.01:1
   — proven pre-existing by reproducing the identical figure on clean HEAD.
 
+- **★★ Login gate + sign-in loading screen redesigned; auth logic untouched (2026-09-09,
+  rows 183-184)**: `login.html` is a split gate (dark canvas environment left, cream
+  floating-label form right) with an access-granted loading screen (orbiting rings, 36-tick
+  dial, lock that opens). New `login-gate.js` for the canvas, magnetic controls and tick dial.
+  **Things a future session needs to know before touching this page:**
+  - **★ This is a REAL authentication flow.** Every element the auth module reaches for is
+    load-bearing and must survive any redesign: `#login-form`, `#loading-screen` (.is-active),
+    `#login-error` (.is-visible), `#email`, `#password`, `button[type=submit]`, `.login-card`
+    (the FIRST one — showForgotPanel() display-toggles it), `#forgot-panel`,
+    `.forgot-step[data-forgot-step]`, `#back-to-login-1/2`, `#btn-send-reset`, `#forgot-error`,
+    `#reset-email`, and `a[href="signup.html"]` (the ?env/?backend propagator rewrites it).
+  - **★ The loading screen is now raised BEFORE sign-in, not after.** It used to appear only
+    once every await had already resolved, which is why the mockup's four timer-cycled messages
+    would have been fiction — nothing was left to narrate. The three messages now map one-to-one
+    onto real awaited work. **The consequence: the screen can be up when auth FAILS, so every
+    failure path must call `hideLoading()`.** There are six (bad credentials, missing client
+    row, pending_review, rejected — in both branches). Add a seventh failure path and you must
+    add a seventh call, or the user is stranded on a loading screen after a failed sign-in.
+  - **★ The submit handler does not attach for ~4 seconds after load** (row 184), because
+    `firebase-config.js` statically imports four gstatic.com modules and a static ES import is
+    a real network fetch. Confirmed identical on clean HEAD. Any browser test MUST wait for the
+    module before submitting — `verify-login-redesign.mjs` probes the forgot-password listener
+    to detect readiness, because probing with a submit event would fire a real sign-in. Without
+    that gate the auth assertions dispatch into a form with no handler and pass vacuously.
+  - Grain blend differs per surface and is not interchangeable: SCREEN on the dark environment
+    and loading screen, MULTIPLY on the cream pane. Multiply on dark disappears entirely.
+  - The area below the gate headline is **deliberately empty** and asserted to be. Stats,
+    tickers, clocks, security badges and link lists were all tried and rejected.
+  - The back control is a **direct grid child**, not a child of either column, so it can sit in
+    the cream pane on desktop and inside the dark band on mobile. All three grid children are
+    placed explicitly — adding a third item without explicit placement pushes the columns into
+    later rows.
+  **Verified**: `scripts/verify-login-redesign.mjs` 76/76 (twice), including the real auth
+  behaviour driven through the actual form — wrong password and unknown email give an identical
+  generic message, pending_review and rejected still block with their own copy, and a real
+  client reaches the dashboard. The status line is proven non-timer by blocking the auth
+  endpoint and asserting it stays put. Contrast 11/11 plus the loading screen measured
+  separately; reduced motion leaves both screens complete rather than empty; fonts audited by
+  metric comparison (JetBrains Mono was absent and is now loaded at the weight actually used).
+  **Two pre-existing issues reported not fixed (row 184)**: the ~4s dead window above, and the
+  Supabase branch dropping `?env=staging` on its success redirect while the retired Firebase
+  branch preserves it.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
