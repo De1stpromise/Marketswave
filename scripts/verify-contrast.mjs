@@ -83,6 +83,18 @@ const SELECTORS = [
   { label: 'blog card body', sel: '#blog p', limit: 3 },
   { label: 'footer link', sel: '.site-footer a', limit: 4 },
   { label: 'footer text', sel: '.site-footer p', limit: 2 },
+  // Login gate + loading screen (2026-09-09). Small muted text on a dark environment and a
+  // teal eyebrow on cream are both the shapes that fail, so all of them are measured.
+  { label: 'gate headline', sel: '.gate-headline h1', limit: 1 },
+  { label: 'gate sub', sel: '.gate-sub', limit: 1 },
+  { label: 'gate brand', sel: '.gate-brand', limit: 1 },
+  { label: 'gate eyebrow', sel: '.gate-eyebrow', limit: 1 },
+  { label: 'gate title', sel: '.login-title', limit: 1 },
+  { label: 'gate lead', sel: '.login-lead', limit: 1 },
+  { label: 'field label', sel: '.fld label', limit: 2 },
+  { label: 'forgot link', sel: '.gate-row a', limit: 1 },
+  { label: 'back pill', sel: '.gate-back', limit: 1 },
+  { label: 'gate alt', sel: '.gate-alt', limit: 1 },
   // Condensed disclosures (2026-09-09): small muted type on the footer's dark, grain-screened
   // surface - exactly the combination that fails, and it appears on all eight footer pages.
   { label: 'disclosure text', sel: '.footer-disclosures p', limit: 3 },
@@ -300,6 +312,14 @@ function report(rows) {
     }
   }
   console.log('\n' + rows.length + ' measurements, ' + fail.length + ' below ' + THRESHOLD + ':1');
+  // A run that measured NOTHING is not a pass. It means the page never loaded, or no selector
+  // matched anything - and reporting PASS there is a vacuous green that would hide a real
+  // regression rather than catch it. Seen intermittently on login.html, whose auth module is
+  // slow to settle, which is exactly the kind of page where a silent zero is most misleading.
+  if (rows.length === 0) {
+    console.log('CONTRAST: FAIL (no measurements taken — page did not load, or no selector matched)');
+    process.exit(1);
+  }
   console.log(fail.length ? 'CONTRAST: FAIL' : 'CONTRAST: PASS');
   process.exit(fail.length ? 1 : 0);
 }
