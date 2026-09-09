@@ -2249,6 +2249,18 @@ body.has-overlay-header .hero {
 #blog p,
 #help p { color: #566066; }
 
+/* Same tone, same reason, one background wider (2026-09-09). `.section-alt` swaps the page
+   ground for --surface (#EDE8E1), which is dark enough that --text-muted's own #6B7178 drops
+   to a measured 4.01:1 on it — a real fail, found on about.html's team-section lede and
+   confirmed pre-existing on clean HEAD. #566066 takes it to 5.24:1.
+
+   Scoped to the SURFACE rather than to about.html, because the background is what causes it:
+   any .section-alt section on any page has the same problem, and pinning the fix to one page
+   would leave the next one to rediscover it. Deliberately reuses the tone directly above
+   rather than introducing another grey — resources.html's own .section-alt sections already
+   resolve to #566066 through the id-scoped rules above, so this changes nothing there. */
+.section-alt .section-header p { color: #566066; }
+
 /* ---- Core Strategies: an editorial list ------------------------------------------------- */
 .res-list {
   list-style: none;
