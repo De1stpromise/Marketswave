@@ -62,12 +62,15 @@ function localCreds() {
   return { url: st.API_URL, service: st.SERVICE_ROLE_KEY };
 }
 
-async function main() {
+const TESTEMAIL = /^(login-[a-z_]+|nobody)-[0-9a-f]{8}@test[.]marketswave[.]local$/;
+
+async function main(ctx) {
   const { url, service } = localCreds();
   const admin = createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
   const suffix = crypto.randomBytes(4).toString('hex');
   const password = 'LoginRedesign-2026!';
-  const made = [];
+  const made = ctx.made;
+  ctx.admin = admin;
 
   async function makeClient(status) {
     const email = 'login-' + status.replace('_', '') + '-' + suffix + '@test.marketswave.local';
@@ -86,10 +89,12 @@ async function main() {
   const rejectedEmail = await makeClient('rejected');
 
   const profile = mkdtempSync(join(tmpdir(), 'mw-login-'));
+  ctx.profile = profile;
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  ctx.chrome = chrome;
 
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
@@ -101,6 +106,7 @@ async function main() {
   }
   if (!wsUrl) { chrome.kill(); throw new Error('no page target'); }
   const ws = new WebSocket(wsUrl);
+  ctx.ws = ws;
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Log.enable');
@@ -431,12 +437,60 @@ async function main() {
   ok(F.panelShown && F.step1 && F.cardHidden, 'forgot link opens the panel at step 1 and hides the sign-in card');
   ok(F.backWorks, 'back-to-login returns to the sign-in card');
 
-  ws.close(); chrome.kill();
-  try { rmSync(profile, { recursive: true, force: true }); } catch (e) {}
-  for (const id of made) await admin.auth.admin.deleteUser(id).catch(() => {});
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   console.log(fail ? 'LOGIN REDESIGN: FAIL' : 'LOGIN REDESIGN: PASS');
-  process.exit(fail ? 1 : 0);
+  return fail ? 1 : 0;
 }
 
-main().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });
+/* Teardown runs on EVERY exit path, not just the happy one.
+ *
+ * These same calls used to sit at the tail of main(), which meant a failed assertion, a
+ * CDP timeout or a Chrome spawn failure skipped cleanup entirely and left a full set of
+ * test clients behind - two such runs are what leaked six of them. Three things changed:
+ * it lives in a finally, a failed delete is reported rather than swallowed by
+ * .catch(() => {}), and it sweeps by email shape so residue from an older crashed run is
+ * collected too instead of waiting for someone to notice it. Note that main() must not
+ * call process.exit() any more: exiting from inside the try is what would skip a finally.
+ */
+async function cleanup(ctx) {
+  if (ctx.ws) { try { ctx.ws.close(); } catch (e) {} }
+  if (ctx.chrome) { try { ctx.chrome.kill(); } catch (e) {} }
+  if (ctx.profile) { try { rmSync(ctx.profile, { recursive: true, force: true }); } catch (e) {} }
+  if (!ctx.admin) return;
+
+  const ids = new Set(ctx.made);
+  // listUsers is paged, so walk it rather than trusting that page one holds everything.
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await ctx.admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) { console.error('CLEANUP: listUsers failed: ' + error.message); ctx.leaked = true; break; }
+    const users = (data && data.users) || [];
+    for (const u of users) {
+      if (TESTEMAIL.test(u.email || '')) ids.add(u.id);
+    }
+    if (users.length < 200) break;
+  }
+
+  for (const id of ids) {
+    const { error } = await ctx.admin.auth.admin.deleteUser(id);
+    if (error) { console.error('CLEANUP: could not delete ' + id + ': ' + error.message); ctx.leaked = true; }
+  }
+
+  // Confirm rather than assume - a teardown that quietly did nothing is the actual bug.
+  const { count, error: cErr } = await ctx.admin
+    .from('clients').select('id', { count: 'exact', head: true })
+    .like('email', 'login-%@test.marketswave.local');
+  if (cErr) { console.error('CLEANUP: residue check failed: ' + cErr.message); ctx.leaked = true; }
+  else if (count) { console.error('CLEANUP: ' + count + ' test client rows still present'); ctx.leaked = true; }
+  else if (ids.size) console.log('cleanup: removed ' + ids.size + ' test account(s), none remaining');
+}
+
+const ctx = { admin: null, made: [], chrome: null, ws: null, profile: null, leaked: false };
+let code = 1;
+main(ctx)
+  .then((c) => { code = c; })
+  .catch((e) => { console.error('ERROR:', e.message); code = 1; })
+  .finally(async () => {
+    await cleanup(ctx).catch((e) => { console.error('CLEANUP: ' + e.message); ctx.leaked = true; });
+    if (ctx.leaked) console.error('LOGIN REDESIGN: teardown left test data behind');
+    process.exit(ctx.leaked ? 1 : code);
+  });
