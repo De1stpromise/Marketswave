@@ -2303,6 +2303,140 @@ body.has-overlay-header .hero {
 .res-item:focus-within p { color: #414C53; }
 
 
+/* =====================================================================================
+   HOW IT WORKS - PORTFOLIO ASSEMBLY ARTIFACT (resources.html, 2026-09-09)
+   Two columns: the existing numbered step spine left, this artifact sticky right, building
+   one layer per step as the reader scrolls.
+
+   NOT IN A CARD, deliberately. No border, no .glass, no background fill. It is held only by
+   two hairline rules - one under the top label, one above the readout - and its own cast
+   shadow on the drawing. This page is card-free throughout (the Core Strategies list and the
+   step spine are both bare), so a panel here would fight the page's own language.
+
+   COLOUR: the approved mockup's greys are NOT used verbatim. Measured against this page's
+   own #F7F6F3 ground, before .page-grain's multiply darkens them further, the mockup's label
+   #8A9298 is 2.92:1, its readout key #7C868C is 3.44:1 and its idle dot #96A0A6 is 2.47:1 -
+   all well under 4.5:1. They are replaced with #5C6367 (5.66:1), which is not an invention:
+   it is the tone .res-dot on this very page already uses, so the artifact matches its
+   neighbour rather than introducing a fourth grey.
+   ===================================================================================== */
+
+.hiw-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 70px;
+  align-items: start;
+}
+
+/* Progress fill over the existing spine. Implemented as ::after on the <ol> and driven by a
+   custom property rather than an injected element, so the step markup stays untouched and
+   still validates (an <ol> may only contain <li>). */
+.res-steps::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 6px;
+  width: 1px;
+  height: var(--hiw-fill, 0px);
+  background: linear-gradient(180deg, var(--accent-teal, #16815F), var(--primary, #1B3A4B));
+  transition: height .18s linear;
+}
+
+.res-st.is-past .res-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+}
+/* #137254 rather than --accent-teal, for the same measured reason the :hover state above
+   already uses it: cream on the token itself is 4.32:1 composited, a real fail. The halo
+   keeps the token's own rgba, since it carries no text. */
+.res-st.is-now .res-dot {
+  background: #137254;
+  border-color: #137254;
+  color: var(--bg);
+  transform: scale(1.14);
+  box-shadow: 0 0 0 5px rgba(22, 129, 95, .14);
+}
+.res-st.is-past h3,
+.res-st.is-now h3 { color: #12283A; }
+
+/* ---- the artifact itself ---- */
+.hiw-rig { position: sticky; top: 96px; }
+
+.hiw-cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(27, 58, 75, .14);
+}
+.hiw-cap b {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; font-weight: 500; letter-spacing: .14em;
+  text-transform: uppercase; color: #5C6367;
+}
+.hiw-cap i {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; font-style: normal; color: var(--primary);
+}
+
+.hiw-art {
+  display: block; width: 100%; height: auto; overflow: visible;
+  filter: drop-shadow(0 26px 34px rgba(27, 58, 75, .13));
+}
+
+.hiw-readout {
+  margin-top: 6px; padding-top: 12px;
+  border-top: 1px solid rgba(27, 58, 75, .14);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.hiw-row {
+  display: flex; justify-content: space-between;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  opacity: .22;
+  transition: opacity .5s;
+}
+.hiw-row.is-on { opacity: 1; }
+.hiw-k { color: #5C6367; }
+.hiw-v { color: var(--primary); }
+
+/* SVG layer states */
+.hiw-lay {
+  opacity: 0;
+  transform-origin: center;
+  transition: opacity .6s ease, transform .7s cubic-bezier(.3, 1.15, .5, 1);
+}
+.hiw-lay.is-on { opacity: 1; }
+.hiw-ring {
+  fill: none; stroke-linecap: round;
+  transition: stroke-dashoffset .8s cubic-bezier(.3, 1, .5, 1);
+}
+.hiw-beam {
+  stroke-width: 1; stroke-dasharray: 3 4;
+  opacity: 0; transition: opacity .5s;
+}
+.hiw-beam.is-on { opacity: .5; }
+
+/* Below the site's own established 960px breakpoint: one column, no longer sticky, centred
+   at a constrained width. The artifact sits AFTER all six steps in source order here, so a
+   scroll-driven build would never be seen mid-assembly - the reader arrives at it already
+   complete. resources-artifact.js therefore renders the finished state directly at these
+   widths rather than pretending to build. */
+@media (max-width: 960px) {
+  .hiw-layout { grid-template-columns: 1fr; gap: 40px; }
+  .hiw-rig { position: static; max-width: 320px; margin: 0 auto; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No transitions and no orbit (the script skips the animation loop entirely), but the
+     artifact must still show its COMPLETE assembled state - reduced motion means do not
+     animate, not show nothing. The script applies every layer up front in this mode. */
+  .hiw-lay, .hiw-row, .hiw-ring, .hiw-beam, .res-steps::after,
+  .res-st .res-dot, .res-st h3 { transition: none !important; }
+}
+
 /* ---- How It Works: a vertical spine ------------------------------------------------------ */
 .res-steps {
   position: relative;

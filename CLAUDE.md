@@ -7661,6 +7661,53 @@ row 74.
   it up: log the actual HTTP status/body of those two `functions.invoke` calls, which
   separates "call rejected" from "call succeeded but wrote nulls" in a single run.
 
+- **★★ How It Works portfolio-assembly artifact, and a real font-fallback bug fixed on
+  resources.html (2026-09-09, row 180)**: the empty right half of How It Works now holds a
+  vertical artifact that assembles one layer per step as the reader scrolls (seed -> plan
+  frame -> custody vessel -> four allocation layers -> monitoring orbit -> reporting ring),
+  synchronised with the step spine, a 17%->100% counter and a row-by-row readout. New
+  `resources-artifact.js`; the `<ol>` and all six steps' copy are untouched.
+  **Things a future session needs to know before touching this page:**
+  - **★ `document.fonts.check()` DOES NOT tell you whether a family is loaded, and it lied
+    here.** It returned `true` for JetBrains Mono on a page with no `@font-face` for it, on a
+    machine where it is not installed, and where it provably rendered as a fallback. Chrome
+    reports true whenever the font list resolves at all — fallback included — so it answers
+    "will this render?" (always yes), not "is this family being used?". Use METRIC COMPARISON
+    instead: render a specimen in the requested family and in a deliberately nonexistent one;
+    identical widths mean both hit the same fallback. `scripts/audit-fonts.mjs` does this
+    across every family actually used on a page — run it after touching fonts anywhere.
+  - **resources.html had been silently falling back since row 177.** It never loaded JetBrains
+    Mono, yet `styles.css` sets it on `.res-n`/`.res-kind`/`.res-dot`. Only `index.html` loads
+    the family; the other seven marketing pages do not, but only resources.html actually uses
+    it, so this was the one affected page. The homepage's hero ticker and Core Services field
+    were checked and are genuinely fine. **If you add a JetBrains Mono rule to any other
+    marketing page, load the font there too** — nothing will warn you.
+  - **The artifact is NOT in a card, deliberately.** No border, no glass, no background fill —
+    two hairline rules and a cast shadow on the drawing only. This page is card-free
+    throughout; a panel here fights it. The verification asserts all four by computed style.
+  - **Do not use `var(--accent-teal)` for anything carrying text on this page.** Cream on that
+    token measures 4.32:1. The `.is-now` dot reintroduced exactly the failure row 177 had
+    already fixed for `:hover`; both now use `#137254`. The mockup's own greys also all failed
+    (label 2.92:1, readout key 3.44:1, idle dot 2.47:1) and are replaced with `#5C6367`, the
+    tone `.res-dot` already used.
+  - **Reduced motion and mobile both show the COMPLETE assembly, not an empty baseplate.**
+    Reduced motion means do not animate, not show nothing. Below 960px the artifact sits after
+    all six steps in source order, so the reader arrives having already passed every step and a
+    scroll-build would never be seen — showing it assembled is the honest choice, not a
+    shortcut.
+  - **Testing this page's scroll behaviour: the site sets `scroll-behavior: smooth` globally**
+    (row 101). A plain `scrollBy` therefore animates for hundreds of ms and every read lands
+    mid-flight. Use `scrollTo({behavior:'instant'})`, confirm `scrollY` actually arrived, then
+    poll for the processed state with a timeout. A "has it stopped changing" check is not
+    enough on its own — the previous step's state is itself perfectly stable and reads as
+    settled.
+  **Verified**: `scripts/verify-hiw-artifact.mjs` 44/44 (four runs, including under full-suite
+  CPU load) — it proves the artifact BUILDS across six real scroll positions with a screenshot
+  at each, rather than screenshotting a finished state that a hardcoded artifact would also
+  produce; plus rAF-throttling measured against a no-scroll baseline (60 scroll events cost 2
+  extra frames). Contrast 127/127, row 177's structural check 48/48, copy preservation zero
+  prose lost, Tailwind guard PASS.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

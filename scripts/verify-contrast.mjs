@@ -53,6 +53,13 @@ const SELECTORS = [
   { label: 'res-step h3', sel: '.res-st h3', limit: 6 },
   { label: 'res-step body', sel: '.res-st p', limit: 6 },
   { label: 'res-step dot', sel: '.res-dot', limit: 6 },
+  // How It Works portfolio-assembly artifact (2026-09-09). The readout rows sit at opacity
+  // .22 until their step is reached, so these are measured with the artifact scrolled into
+  // view, which is also the only state in which a reader can actually read them.
+  { label: 'artifact label', sel: '.hiw-cap b', limit: 1 },
+  { label: 'artifact percentage', sel: '.hiw-cap i', limit: 1 },
+  { label: 'readout key', sel: '.hiw-readout .hiw-row.is-on .hiw-k', limit: 6 },
+  { label: 'readout value', sel: '.hiw-readout .hiw-row.is-on .hiw-v', limit: 6 },
   // --- hover state: greyscale-at-rest only pays off if the engaged row is legible ---
   // Every row is measured, not a sample: the six accents differ per row, and a
   // 2-row sample originally hid four genuine failures behind two passes.

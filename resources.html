@@ -8,7 +8,14 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- JetBrains Mono is genuinely required here, not decorative: styles.css sets it on
+       .res-n, .res-kind and .res-dot (the Core Strategies numerals/labels and the How It
+       Works step numerals), and the portfolio-assembly artifact below uses it throughout.
+       It was NOT loaded on this page until 2026-09-09, so all of those had been silently
+       falling back since the Resources redesign shipped — measured, not assumed: the family
+       rendered at exactly the same width as a nonexistent one. Weights 400 (inherited by the
+       existing .res-* elements) and 500 (the artifact) are both genuinely in use. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body>
@@ -157,6 +164,12 @@
         <p>A clear sequence from first conversation to ongoing service — showing both what the client provides and what the firm delivers at each stage.</p>
       </div>
 
+      <!-- Two columns: the existing numbered step spine on the left, and a portfolio-assembly
+           artifact on the right that builds one layer per step as the reader scrolls, so the
+           right half becomes a live index of progress rather than decoration. The <ol> below
+           and all six steps' copy are unchanged — this only added the column beside them. -->
+      <div class="hiw-layout">
+
       <!-- A vertical spine: one connecting line with numbered nodes down the left, each
            step's FULL original description beside it. -->
       <ol class="res-steps">
@@ -196,6 +209,81 @@
           <p>Ongoing deliverables include secure online access, account statements, performance reporting against relevant benchmarks, tax documents, periodic review meetings, and a process for updating the plan after life events. Responsibilities extend beyond selecting investments to settling transactions, maintaining records, and preparing clear reports for clients.</p>
         </li>
       </ol>
+
+      <!-- The artifact. Deliberately NOT in a card: no border, no glass panel, no background
+           fill. It sits directly on the page, bracketed only by two hairline rules and its own
+           cast shadow, because this page is card-free throughout and a panel here would fight
+           that. Decorative — aria-hidden — since every fact it depicts is already stated in the
+           six steps beside it; a screen reader gets the steps, not a redundant diagram. -->
+      <aside class="hiw-rig" aria-hidden="true">
+        <div class="hiw-frame">
+          <div class="hiw-cap">
+            <b>Portfolio assembly</b><i id="hiw-pct">17%</i>
+          </div>
+
+          <svg class="hiw-art" viewBox="0 0 320 340" role="presentation" focusable="false">
+            <!-- baseplate: always present, so the artifact never reads as empty -->
+            <g opacity=".5">
+              <ellipse cx="160" cy="286" rx="118" ry="30" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".22"/>
+              <ellipse cx="160" cy="286" rx="78" ry="20" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".16"/>
+              <ellipse cx="160" cy="286" rx="38" ry="10" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".12"/>
+            </g>
+
+            <!-- 01 seed -->
+            <g class="hiw-lay" data-layer="1">
+              <circle cx="160" cy="286" r="7" fill="#C8860A"/>
+              <circle cx="160" cy="286" r="14" fill="none" stroke="#C8860A" stroke-width="1" opacity=".45"/>
+            </g>
+
+            <!-- 02 plan frame -->
+            <g class="hiw-lay" data-layer="2">
+              <path d="M62 286 L160 232 L258 286" fill="none" stroke="#1B3A4B" stroke-width="1.2" opacity=".5"/>
+              <path d="M62 286 L62 250 M258 286 L258 250" stroke="#1B3A4B" stroke-width="1.2" opacity=".35"/>
+              <circle cx="160" cy="232" r="3.5" fill="#1B3A4B"/>
+            </g>
+
+            <!-- 03 custody vessel -->
+            <g class="hiw-lay" data-layer="3">
+              <ellipse cx="160" cy="252" rx="96" ry="24" fill="none" stroke="#1B3A4B" stroke-width="1.4"/>
+              <path d="M64 252 L64 272 A96 24 0 0 0 256 272 L256 252" fill="rgba(27,58,75,.05)" stroke="#1B3A4B" stroke-width="1.4"/>
+            </g>
+
+            <!-- 04 allocation layers, one per asset-class hue -->
+            <g class="hiw-lay" data-layer="4">
+              <ellipse cx="160" cy="222" rx="88" ry="22" fill="rgba(27,58,75,.14)" stroke="#1B3A4B" stroke-width="1"/>
+              <ellipse cx="160" cy="196" rx="74" ry="18.5" fill="rgba(22,129,95,.16)" stroke="#16815F" stroke-width="1"/>
+              <ellipse cx="160" cy="174" rx="58" ry="14.5" fill="rgba(200,134,10,.18)" stroke="#C8860A" stroke-width="1"/>
+              <ellipse cx="160" cy="156" rx="42" ry="10.5" fill="rgba(74,127,165,.18)" stroke="#4A7FA5" stroke-width="1"/>
+            </g>
+
+            <!-- 05 monitoring orbit -->
+            <g class="hiw-lay" data-layer="5">
+              <ellipse cx="160" cy="190" rx="118" ry="46" fill="none" stroke="#16815F" stroke-width="1" stroke-dasharray="4 6" opacity=".7"/>
+              <line class="hiw-beam" id="hiw-beam" x1="278" y1="190" x2="160" y2="190" stroke="#16815F"/>
+              <circle id="hiw-sat" cx="278" cy="190" r="5" fill="#16815F"/>
+            </g>
+
+            <!-- 06 reporting ring -->
+            <g class="hiw-lay" data-layer="6">
+              <circle class="hiw-ring" id="hiw-ring" cx="160" cy="120" r="30" stroke="#1B3A4B" stroke-width="2" stroke-dasharray="189" stroke-dashoffset="189"/>
+              <path d="M160 96 L160 144 M136 120 L184 120" stroke="#1B3A4B" stroke-width="1" opacity=".3"/>
+              <circle cx="160" cy="120" r="6" fill="#1B3A4B"/>
+              <path d="M160 150 L160 168" stroke="#1B3A4B" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/>
+            </g>
+          </svg>
+
+          <div class="hiw-readout" id="hiw-readout">
+            <div class="hiw-row"><span class="hiw-k">Objectives</span><span class="hiw-v">captured</span></div>
+            <div class="hiw-row"><span class="hiw-k">Policy</span><span class="hiw-v">documented</span></div>
+            <div class="hiw-row"><span class="hiw-k">Custody</span><span class="hiw-v">established</span></div>
+            <div class="hiw-row"><span class="hiw-k">Allocation</span><span class="hiw-v">5 classes</span></div>
+            <div class="hiw-row"><span class="hiw-k">Monitoring</span><span class="hiw-v">active</span></div>
+            <div class="hiw-row"><span class="hiw-k">Reporting</span><span class="hiw-v">scheduled</span></div>
+          </div>
+        </div>
+      </aside>
+
+      </div><!-- /.hiw-layout -->
 
       <!-- Supporting Table -->
       <div class="workflow-table-wrap">
@@ -473,5 +561,6 @@
   <div id="chat-widget-mount"></div>
   <script src="chat-widget.js"></script>
   <script>initChatWidget();</script>
+  <script src="resources-artifact.js"></script>
 </body>
 </html>
