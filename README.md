@@ -168,6 +168,38 @@ any time; it self-heals a partially-bootstrapped state rather than erroring. On 
 prints the account's real Supabase Auth uid and confirms the `user_roles` row live (a
 verification read, not just trusting the write call succeeded).
 
+### ★ Before running the full verification suite: one warm-up pass
+
+**The first full-suite run after a cold start is not a valid measurement. Discard it and
+measure from the second run onward.**
+
+A cold start is any `supabase start` following a `supabase stop`, including the first run of
+a session. Two costs land entirely on run 1: `supabase functions serve` compiles each of the
+51 Edge Functions on its **first invocation** rather than at boot, and Realtime is still
+establishing subscriptions. So:
+
+```
+supabase start
+# ... then, from scripts/ :
+#   1. run the full suite once and THROW THE RESULT AWAY   (~25 min)
+#   2. run it again — this is the run you actually read     (~25 min)
+```
+
+This is measured rather than assumed. Across ten full-suite passes on 2026-09-09, **every
+first run after a cold start dropped 1-3 assertions, and every run after that passed
+34/34.** The drops are always in Realtime or edge-auth paths, always pass when the script is
+run on its own, and are *not* test-data pollution — that was a separate, real problem, fixed
+separately (handover row 178). Reading a cold first run as a regression will send you
+chasing a convincing-looking failure that is only a cold stack. If you need a clean
+consecutive pair, budget **three** passes, not two. A `supabase stop`/`start` mid-session
+resets this and the next run is cold again.
+
+**`email_log` grows by ~58 rows per suite run, by design.** It is an append-only audit of
+genuinely-sent emails and the email tests genuinely send, so it is the one table expected to
+grow. Do not purge it and do not read it as a leak. Every *other* table returns to its exact
+starting count across a full double run (confirmed twice, `auth_users` included) — so a
+non-zero delta anywhere else **is** a real leak and worth chasing.
+
 ### Step 5 — Verify the schema/RLS actually work, not just that they exist
 
 ```

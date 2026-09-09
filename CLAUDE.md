@@ -7628,6 +7628,39 @@ row 74.
   script's own documented assumption that its temp module (written into `scripts/` so the
   `@supabase/supabase-js` bare specifier resolves) needs no project-root-relative imports.
 
+- **★★ Verification-script teardown made reliable + hosting-default check repaired
+  (2026-09-09, rows 178-179)**: the recurring `Test Mid-Market PE Fund` leak was an ORDERING
+  bug, not a missing delete — `holdings.product_id` references `products(id)` with no
+  `on delete cascade`, and teardown deleted products BEFORE the auth user, so that delete
+  always hit an FK violation whose error nothing read, and the user delete a line later
+  cascaded the holding away and orphaned the product. Only the PE product has a holding,
+  which is why only it ever leaked. Now: user deleted first, errors checked, and the
+  authoritative sweep keys off the run's unique suffix rather than ids parsed after the rows
+  already exist. Proven with a control (pre-fix code + injected failure leaks one product;
+  fixed code + identical failure leaks nothing). `verify-hosting-default-fix.mjs` was broken
+  outright since commit 15eaa27 extracted `supabase-endpoint.js` to the project root; fixed
+  by co-locating a PER-SCENARIO copy beside the temp files (per-scenario is load-bearing —
+  that module resolves the environment at import time, so a shared copy is cached and every
+  later scenario reuses the first one's answer). Four more leaks fixed for the same reason
+  (no try/finally at all; 105 synthetic clients stranded on hard death, now swept on entry;
+  an undeleted `non-admin-*` account; and an anonymous `auth.users` row whose comment wrongly
+  reasoned that no-email meant nothing-to-delete), and golden-path's documented "leave it, it
+  costs nothing" was deliberately reversed. **Every table now returns to its exact starting
+  count across a full double run** — see the two new Working conventions above for the
+  cold-start warm-up rule and the expected `email_log` growth, both of which you want to read
+  BEFORE running the suite.
+  **★ One item is TRACKED AND OPEN, deliberately not chased (row 179)**:
+  `verify-supabase-pm-attribution` intermittently writes NULL attribution, but ONLY for
+  `approve-client-application`/`reject-client-application` — in the SAME run, with the SAME
+  PM JWT, ~20 other admin-write functions attribute correctly, and the 403/untouched-row
+  assertions pass. Three occurrences, all inside full-suite runs; 52/52 in isolation. That
+  narrowness is the useful part: it is NOT a general claims failure and NOT "admin actions
+  without an audit trail" (both checked and ruled out). The function 401s if `getClaims()`
+  errors, so a successful call structurally cannot write nulls — which points at the call not
+  succeeding on those occasions, though that was not confirmed. First step for whoever picks
+  it up: log the actual HTTP status/body of those two `functions.invoke` calls, which
+  separates "call rejected" from "call succeeded but wrote nulls" in a single run.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -7879,6 +7912,27 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   not a destructive bare `theme.colors` override. `scripts/verify-tailwind-color-scoping.js`
   is the standing, automatable check for both directions — checked directly (not assumed) to
   actually catch the exact regression by reintroducing it in a throwaway copy first.
+- **★ Full-suite runs need ONE warm-up pass after a cold start — take measurements from the
+  SECOND run onward.** Added 2026-09-09. A "cold start" is any `supabase start` after a
+  `supabase stop`, including the very first run of a session. The stack is genuinely not at
+  steady state on that first pass: `supabase functions serve` compiles each of the 51 Edge
+  Functions on its FIRST invocation rather than at boot, and Realtime is still establishing
+  its subscriptions. Both costs land entirely on run 1.
+  This is measured, not a hunch — across ten full-suite passes, **every first run after a
+  cold start dropped 1-3 assertions, and every subsequent run passed 34/34**. The drops are
+  always in Realtime or edge-auth paths, always pass in isolation, and are not test-data
+  pollution (that was a separate problem, fixed in row 178). Treating a cold first run as a
+  regression will send you chasing a real-looking failure that is only a cold stack.
+  So: `supabase start` -> run the suite once and DISCARD it -> then run it for real. If you
+  need a clean pair, that is three passes, not two, and each is ~25 minutes — budget for it.
+  A `supabase stop`/`start` in the middle of a session resets this; the next run is a cold
+  run again.
+- **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
+  "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
+  and the email tests genuinely send. Every other table returns to its exact starting count
+  across a full double run (confirmed twice, `auth_users` included). When checking for leaked
+  test data, `email_log` is the one expected non-zero delta; a non-zero delta anywhere ELSE
+  is a real leak worth chasing.
 
 ## Verification
 
