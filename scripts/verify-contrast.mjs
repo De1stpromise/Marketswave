@@ -83,6 +83,10 @@ const SELECTORS = [
   { label: 'blog card body', sel: '#blog p', limit: 3 },
   { label: 'footer link', sel: '.site-footer a', limit: 4 },
   { label: 'footer text', sel: '.site-footer p', limit: 2 },
+  // Condensed disclosures (2026-09-09): small muted type on the footer's dark, grain-screened
+  // surface - exactly the combination that fails, and it appears on all eight footer pages.
+  { label: 'disclosure text', sel: '.footer-disclosures p', limit: 3 },
+  { label: 'full-disclosures link', sel: '.footer-disclosures-more a', limit: 1 },
 ];
 
 // WCAG relative luminance + contrast ratio.

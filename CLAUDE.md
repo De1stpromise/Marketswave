@@ -7708,6 +7708,48 @@ row 74.
   extra frames). Contrast 127/127, row 177's structural check 48/48, copy preservation zero
   prose lost, Tailwind guard PASS.
 
+- **★★ Site footer disclosures — full text on legal.html, condensed on all 8 footer pages
+  (2026-09-09, row 181)**: new `legal.html#disclosures` section with the client's own
+  disclosure text, and a condensed 3-paragraph block in the shared footer linking to it.
+  **Things a future session needs to know before touching this:**
+  - **The legal text is the CLIENT'S OWN and is used VERBATIM. Do not edit, soften, shorten or
+    "improve" it**, and do not retype it inline. Both the full section and the three footer
+    excerpts are generated from a single source list, which is why a check can prove all 12
+    paragraphs and all 3 excerpts byte-identical. If it ever needs updating, regenerate both
+    places from one source rather than editing two copies that will drift.
+  - **It is 12 paragraphs, not 10.** The brief said ten and supplied twelve; its own quoted
+    first and last paragraphs matched paragraphs 1 and 12, so the count was a miscount, not an
+    instruction to drop two. Footer excerpts are paragraphs 1, 3 and 9.
+  - **The footer is byte-identical across all 8 pages** (about, blog-press, contact,
+    help-center, index, legal, resources, services) — verified by hashing before and after.
+    Any footer change must be applied to all 8 in one pass, and the hash check is the way to
+    confirm it stayed uniform.
+  - **The footer texture already existed** — `.site-footer::before` is the radial light and
+    `::after` the SVG-turbulence grain, built in round 2 (row 174). The grain is `mix-blend-mode:
+    screen`, NOT multiply, because the surface is dark and multiply would simply vanish there.
+    `.page-grain` is multiply and is therefore the wrong primitive for a dark surface — that
+    difference is why a separate treatment exists, not an oversight. Do not add a third grain.
+  - **The legal block needs `z-index: 2`** to sit above those two decorative pseudo-elements
+    (light at 0, grain at 1). Text placed in the footer without it renders under the grain.
+  - **`support@marketswave.com` is fully retired** (row 161): `send-email.ts`, `support.html`
+    and the recovery template all use `support@marketswave.net`. The site footer never carried
+    a support address at all. The comment in `send-email.ts` is a dated RESOLUTION RECORD, not
+    a live placeholder — leave it.
+  - **Email vs site disclosures do NOT contradict each other**, checked claim by claim: six
+    risk claims align exactly; six more appear only on the site, where the email is silent
+    rather than conflicting. The one asymmetry, reported for the client rather than edited:
+    the site says "only suitable for accredited investors" while the email says "not suitable
+    for all clients" — the site is stricter, so nobody receiving both is misled.
+  **Verified**: `scripts/verify-footer-disclosures.mjs` 9/9 across all 8 pages at
+  1440/390/375/320 (3 paragraphs, hairline rule, working link, zero overflow, and the block
+  proven genuinely smaller AND dimmer than the footer body while staying ≥11px at ≥1.6
+  line-height — quiet, not fine print). Contrast run on all 8 pages: disclosure text 5.55:1 and
+  the link pass everywhere. Fonts audited on all 8 by metric comparison (row 180): zero
+  fallbacks. The link was verified by CLICKING it, not by reading the href. Copy preservation
+  re-run on all 8, nothing lost. Tailwind guard PASS.
+  **Pre-existing, unrelated, reported not fixed**: `about.html`'s section lede measures 4.01:1
+  — proven pre-existing by reproducing the identical figure on clean HEAD.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

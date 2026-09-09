@@ -1303,6 +1303,52 @@ body.has-overlay-header .hero {
   color: white;
 }
 
+/* Condensed disclosures, below the functional footer (2026-09-09).
+
+   Deliberately quiet and clearly secondary - smaller than the footer's own body text, in a
+   dimmer tone - but NOT fine print. This text exists to be read, so it keeps a generous
+   line-height and a real reading measure rather than being shrunk until it is decorative.
+
+   #8FA0B3 measures 5.55:1 on the footer's --primary-dark ground: visibly quieter than the
+   #94A3B8 the rest of the footer uses (5.79:1) while staying well clear of 4.5:1. The grain
+   above it is SCREENED rather than multiplied, so it lightens this surface slightly - which
+   moves contrast up, not down, and is why the composited measurement comes out above the
+   flat one rather than below.
+
+   z-index sits above .site-footer's two decorative pseudo-elements (::before light at 0,
+   ::after grain at 1), so the text is never sitting under the grain layer.
+*/
+.footer-disclosures {
+  position: relative;
+  z-index: 2;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.footer-disclosures p {
+  font-size: 0.78rem;
+  line-height: 1.75;
+  color: #8FA0B3;
+  max-width: 92ch;
+  margin-bottom: 12px;
+}
+.footer-disclosures p:last-child { margin-bottom: 0; }
+
+.footer-disclosures-more { margin-top: 16px; }
+.footer-disclosures-more a {
+  color: #B0BBC9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 0.8rem;
+}
+.footer-disclosures-more a:hover { color: #FFFFFF; }
+
+@media (max-width: 640px) {
+  /* Long legal paragraphs at a narrow width need the line-height more than the desktop does,
+     not less - a wall of tight small type is where this kind of block stops being read. */
+  .footer-disclosures p { font-size: 0.76rem; line-height: 1.8; }
+}
+
 .footer-bottom {
   border-top: 1px solid rgba(255,255,255,0.1);
   padding-top: 28px;
