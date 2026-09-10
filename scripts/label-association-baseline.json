@@ -1,0 +1,1087 @@
+{
+ "signup.html::account_type": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::full_name": {
+  "axName": "Full Name *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::email": {
+  "axName": "Email Address *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::phone": {
+  "axName": "Phone Number *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::password": {
+  "axName": "Password *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::password_confirm": {
+  "axName": "Confirm Password *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::date_of_birth": {
+  "axName": "Date of Birth *",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::country": {
+  "axName": "Country of Residence *",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::input:file": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::entity_name": {
+  "axName": "Company / Entity Name *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::registration_number": {
+  "axName": "Registration Number",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::incorporation_country": {
+  "axName": "Country of Incorporation *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::entity_role": {
+  "axName": "Your Role in the Entity *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::consent-terms": {
+  "axName": "I agree to the Terms of Use and Privacy Policy.",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::consent-accuracy": {
+  "axName": "I confirm that all information provided is true and accurate to the best of my knowledge.",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::risk_knowledge": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::risk_reaction": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::risk_objective": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::risk_horizon": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::risk_liquidity": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::risk_experience": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::joint_name": {
+  "axName": "Full Name *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::joint_email": {
+  "axName": "Email Address *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::joint_phone": {
+  "axName": "Phone Number",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::investable_assets": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::source_of_wealth": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "signup.html::employment": {
+  "axName": "Employment Status / Industry",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "signup.html::investment_goal": {
+  "axName": "Primary Investment Goal *",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::time_horizon": {
+  "axName": "Investment Time Horizon *",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "signup.html::risk_comfort": {
+  "axName": "Risk Comfort Level *",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "login.html::email": {
+  "axName": "EMAIL ADDRESS",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "login.html::password": {
+  "axName": "PASSWORD",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "login.html::reset-email": {
+  "axName": "EMAIL ADDRESS",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::_gotcha": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "contact.html::full-name": {
+  "axName": "Full Name *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::email": {
+  "axName": "Email Address *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::phone": {
+  "axName": "Phone Number",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::company": {
+  "axName": "Company / Organisation",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::message": {
+  "axName": "Message *",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "contact.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "contact.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "contact.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "reset-password.html::new-password": {
+  "axName": "New Password",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "reset-password.html::confirm-new-password": {
+  "axName": "Confirm New Password",
+  "axFrom": "relatedElement+placeholder:placeholder",
+  "ok": true
+ },
+ "dashboard.html::convert-amount": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "dashboard.html::convert-from": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "dashboard.html::convert-to": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "dashboard.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "dashboard.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "dashboard.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-performance.html::sell-units-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "asset-performance.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-performance.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-performance.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-collection.html::asset-search": {
+  "axName": "Search by asset name...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-collection.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-collection.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "asset-collection.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "transactions.html::filter-date-from": {
+  "axName": "Date From",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "transactions.html::filter-date-to": {
+  "axName": "Date To",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "transactions.html::filter-type": {
+  "axName": "Type",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "transactions.html::filter-asset": {
+  "axName": "Asset",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "transactions.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "transactions.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "transactions.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "documents.html::filter-category": {
+  "axName": "Category",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "documents.html::filter-direction": {
+  "axName": "Direction",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "documents.html::filter-date-from": {
+  "axName": "Date From",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "documents.html::filter-date-to": {
+  "axName": "Date To",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "documents.html::upload-file": {
+  "axName": "File",
+  "axFrom": "relatedElement+contents:value",
+  "ok": true
+ },
+ "documents.html::upload-category": {
+  "axName": "Category",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "documents.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "documents.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "documents.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::crypto-asset": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::crypto-amount": {
+  "axName": "0.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::crypto-network": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::bank-name": {
+  "axName": "As it appears on your bank account",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-address": {
+  "axName": "Street, city, postal code, country",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-phone": {
+  "axName": "+1 000 000 0000",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-amount": {
+  "axName": "0.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-currency": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::bank-institution": {
+  "axName": "Name of your bank",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-account-number": {
+  "axName": "Your account number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-branch-address": {
+  "axName": "Branch street, city, postal code, country",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-routing": {
+  "axName": "Domestic routing number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-swift": {
+  "axName": "For international transfers",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::bank-notes": {
+  "axName": "Any extra information...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-amount": {
+  "axName": "0.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-crypto-asset": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-crypto-network": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-crypto-address": {
+  "axName": "Where should we send your funds?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-holder": {
+  "axName": "As it should appear on the receiving account",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-currency": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-name": {
+  "axName": "Destination bank",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-account-number": {
+  "axName": "Destination account number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-branch-address": {
+  "axName": "Branch street, city, postal code, country",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-routing": {
+  "axName": "Domestic routing number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::withdraw-bank-swift": {
+  "axName": "For international transfers",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "deploy-capital.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-term-select": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "high-yield-savings.html::np-fd-amount": {
+  "axName": "5000",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-ayw-amount": {
+  "axName": "0.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-crypto-asset": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "high-yield-savings.html::np-crypto-network": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "high-yield-savings.html::np-bank-name": {
+  "axName": "As it appears on your bank account",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-bank-institution": {
+  "axName": "Name of your bank",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-bank-account": {
+  "axName": "Your account number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-bank-routing": {
+  "axName": "Optional",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::np-bank-swift": {
+  "axName": "Optional",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-crypto-address": {
+  "axName": "Your wallet address",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-crypto-asset": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-crypto-network": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-bank-name": {
+  "axName": "As it appears on your bank account",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-bank-institution": {
+  "axName": "Name of your bank",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-bank-account": {
+  "axName": "Recipient account number",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-bank-routing": {
+  "axName": "Optional",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::wd-bank-swift": {
+  "axName": "Optional",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "high-yield-savings.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "risk-management.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "risk-management.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "risk-management.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "settings.html::force-new-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::force-confirm-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::email-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::phone-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::current-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::new-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::confirm-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::twofa-toggle": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::twofa-code": {
+  "axName": "000000",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "settings.html::input:checkbox": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-legalName-firstName": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-legalName-lastName": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-address-street": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-address-city": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-address-state": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-address-zip": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-address-country": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::cm-idDocument-documentType": {
+  "axName": "e.g. Passport, Driver's License",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "settings.html::cm-idDocument-file": {
+  "axName": "Choose File",
+  "axFrom": "contents:value",
+  "ok": true
+ },
+ "settings.html::change-modal-reason": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "settings.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "settings.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "settings.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "support.html::dispute-category": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "support.html::dispute-description": {
+  "axName": "Describe the issue in detail...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "support.html::dispute-evidence": {
+  "axName": "Evidence (optional)",
+  "axFrom": "relatedElement+contents:value",
+  "ok": true
+ },
+ "support.html::callback-name": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "support.html::callback-phone": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "support.html::callback-time": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "support.html::chat-widget-name": {
+  "axName": "Your name",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "support.html::chat-widget-email": {
+  "axName": "you@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "support.html::chat-widget-input": {
+  "axName": "Type a message...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-advisory-fee.html::rate-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-allocations.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-client-applications.html::reject-reason-input": {
+  "axName": "Why is this application being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::client-search": {
+  "axName": "Search by name or ID...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::add-name": {
+  "axName": "Jane Smith",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::add-account-type": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-clients.html::add-email": {
+  "axName": "jane@example.com",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::add-phone": {
+  "axName": "+1 (555) 555-0100",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::add-starting-capital": {
+  "axName": "0.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-clients.html::security-reason-input": {
+  "axName": "Why is this reset being performed?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-deposits.html::credit-amount-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-deposits.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-documents.html::publish-client": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-documents.html::publish-category": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-documents.html::publish-file": {
+  "axName": "Choose File",
+  "axFrom": "contents:value",
+  "ok": true
+ },
+ "admin-documents.html::publish-due-date": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-documents.html::publish-signature-required": {
+  "axName": "Signature required",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "admin-hys.html::credit-amount-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-hys.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-hys.html::wd-reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-inbox.html::inbox-search": {
+  "axName": "Search name, email, or message…",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-inbox.html::thread-reply-input": {
+  "axName": "Reply…",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-inbox.html::compose-client-search": {
+  "axName": "Search real clients by name or email…",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-inbox.html::announce-status-filter": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-inbox.html::announce-account-type-filter": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-inbox.html::compose-subject": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-inbox.html::compose-body": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-inbox.html::compose-footer-type": {
+  "axName": "Investment (includes the risk disclosure)",
+  "axFrom": "relatedElement",
+  "ok": true
+ },
+ "admin-products.html::product-search": {
+  "axName": "Search by product name...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-name": {
+  "axName": "Atlas Infrastructure Fund",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-asset-class": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::add-risk-tier": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::add-investment-type": {
+  "axName": "Growth Fund",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-description": {
+  "axName": "Short one-line summary shown on every client-facing card",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-logo-url": {
+  "axName": "https://example.com/logo.png",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-extended-description": {
+  "axName": "Longer text shown in the client-facing \"More info\" popup",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-minimum-investment": {
+  "axName": "1000",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::add-unit-price": {
+  "axName": "100.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::edit-name": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::edit-asset-class": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::edit-risk-tier": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::edit-investment-type": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::edit-description": {
+  "axName": "Short one-line summary shown on every client-facing card",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::edit-logo-url": {
+  "axName": "https://example.com/logo.png",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::edit-extended-description": {
+  "axName": "Longer text shown in the client-facing \"More info\" popup",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::edit-minimum-investment": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::nav-unit-price": {
+  "axName": "105.00",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-products.html::nav-effective-date": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-products.html::nav-note": {
+  "axName": "Q3 2026 appraisal",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-profile-updates.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-security.html::current-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-security.html::new-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-security.html::confirm-password": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-sells.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-support.html::update-status-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-support.html::update-note-input": {
+  "axName": "Optional note the client will see on this request...",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ },
+ "admin-withdrawals.html::approve-amount-input": {
+  "axName": "",
+  "axFrom": "",
+  "ok": false
+ },
+ "admin-withdrawals.html::reject-reason-input": {
+  "axName": "Why is this request being rejected?",
+  "axFrom": "placeholder:placeholder",
+  "ok": false
+ }
+}

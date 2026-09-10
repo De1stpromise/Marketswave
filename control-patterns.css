@@ -345,35 +345,246 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator {
 }
 input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
-/* ---- Native file input.
-   ::file-selector-button IS standard in all three engines, so the BUTTON half
-   can be brought to Tier C properly. What stays unstylable: the "No file
-   chosen" text, the gap, filename truncation, and there is no drag-drop or
-   clear affordance. A real custom file component is logged as its own task
-   (register row 189) — it is a real component with real accessibility
-   requirements, not a styling change. ---- */
-.mw-file {
-  width: 100%;
-  font-family: inherit;
-  font-size: 13px;
-  color: #475569;
-  cursor: pointer;
-}
-.mw-file::file-selector-button {
-  height: 40px;
-  margin-right: 12px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 10px;
-  background: var(--primary, #1B3A4B);
-  color: #FFFFFF;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s;
-}
-.mw-file::file-selector-button:hover { background: #122A38; }
+/* ---- Native file input ---- REMOVED 2026-09-10.
+   `.mw-file` styled `::file-selector-button` on a bare native input. Every one of the five
+   file inputs in this project is now the accessible `.mw-upload` component instead (register
+   row 189), so these rules had no users left and were deleted rather than kept as a second,
+   half-styled way to do the same thing. The reasoning about what IS and IS NOT stylable on a
+   native file input is preserved in BUTTON_AUDIT.md 5.2, where it is still the record of why
+   the component was needed. ---- */
 
-.mw-file-admin::file-selector-button { background: #0F172A; }
-.mw-file-admin::file-selector-button:hover { background: #1E293B; }
+/* =====================================================================
+   ACCESSIBLE FILE SELECTION  (.mw-upload)  — register row 189
+   Added 2026-09-10. Replaces the `<div>` + click-handler pattern, which was
+   keyboard-inaccessible: no tabindex, no role, no keydown, and the real input
+   behind it was `hidden` and therefore out of the tab order too. Both signup
+   uploads are REQUIRED steps, so that blocked account opening outright for
+   keyboard-only and screen-reader users.
+
+   ★ WHY A VISUALLY-HIDDEN REAL INPUT AND NOT A BUTTON WITH ARIA
+   -------------------------------------------------------------
+   The input is a genuine `<input type="file">`, hidden with the clip technique
+   (NOT display:none / visibility:hidden, either of which removes it from the
+   tab order AND from the accessibility tree), with real `<label for>` elements
+   as its visible face. Everything is then inherited rather than reimplemented:
+
+     - Tab order, focus, and Space/Enter activation are native. No keydown
+       handler exists to get wrong, and they work with JS entirely disabled.
+     - Clicking the label opens the picker natively — again, no JS.
+     - The accessible name comes from real labels, so it survives any future
+       refactor that an aria-label string would not.
+     - `required`, form association and constraint validation keep working,
+       which a detached `<button>` + hidden input silently loses.
+
+   A `<button>` driving a hidden input would have to re-create every one of
+   those, and JS failing would leave the control completely dead rather than
+   merely unstyled. The one thing the native route costs is that focus lands on
+   an invisible element, so the ring has to be drawn on the label instead —
+   handled below, and cheap next to what it buys.
+
+   ★ visibility:hidden is NOT an acceptable way to hide this input. It removes
+   the node from the accessibility tree entirely (measured: role becomes none,
+   ignored becomes true, and the computed name goes empty). Use the clip block
+   below unchanged.
+   ===================================================================== */
+.mw-upload { position: relative; }
+
+.mw-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The visible face. A real <label for>, so it is natively clickable and
+   natively contributes to the input's accessible name. */
+.mw-upload-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 14px 18px;
+  border: 1.5px dashed #C4BFB6;
+  border-radius: 12px;
+  background: #FCFBF9;
+  color: #475569;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.mw-upload-face:hover {
+  border-color: var(--primary, #1B3A4B);
+  background: #FFFFFF;
+  color: #1A1C1E;
+}
+.mw-upload-face svg { flex-shrink: 0; }
+
+/* Focus lands on the clipped input, so the ring is drawn on its label. This is
+   the one real cost of the native approach and it must not be dropped: without
+   it a keyboard user has no idea where they are. */
+.mw-upload-input:focus-visible + .mw-upload-face {
+  outline: none;
+  border-color: var(--primary, #1B3A4B);
+  border-style: solid;
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+}
+.mw-upload-input:disabled + .mw-upload-face { opacity: 0.5; cursor: not-allowed; }
+
+.mw-upload.has-file .mw-upload-face {
+  border-style: solid;
+  border-color: var(--primary, #1B3A4B);
+  background: rgba(27, 58, 75, 0.04);
+  color: #1A1C1E;
+}
+
+.mw-upload-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.mw-upload-hint { font-size: 12px; color: #5C6367; margin: 0; }
+.mw-upload-state { font-size: 13px; color: #1A1C1E; font-weight: 500; margin: 0; }
+.mw-upload.is-empty .mw-upload-state { color: #5C6367; font-weight: 400; }
+
+/* A real <button>, so it is reachable and activatable natively too. It carries
+   `hidden` when there is nothing to clear, which keeps it out of the tab order
+   rather than leaving a dead stop for keyboard users. */
+.mw-upload-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid #D8D4CD;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #475569;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+}
+.mw-upload-clear:hover { background: #F5F3EF; border-color: #C4BFB6; color: #1A1C1E; }
+.mw-upload-clear:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.3); }
+
+/* The error is associated with the control via aria-describedby, not merely
+   placed near it, so a screen reader reads it as part of the field. */
+.mw-upload-error { font-size: 12.5px; color: #A8452F; font-weight: 500; margin: 6px 0 0; }
+.mw-upload-input[aria-invalid="true"] + .mw-upload-face { border-color: #A8452F; border-style: solid; }
+
+.mw-upload-admin .mw-upload-face:hover,
+.mw-upload-admin.has-file .mw-upload-face { border-color: #0F172A; }
+.mw-upload-admin.has-file .mw-upload-face { background: rgba(15, 23, 42, 0.04); }
+.mw-upload-admin .mw-upload-input:focus-visible + .mw-upload-face {
+  border-color: #0F172A;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+}
+
+@media (max-width: 480px) {
+  .mw-upload-meta { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .mw-upload-clear { width: 100%; justify-content: center; }
+}
+
+/* =====================================================================
+   FLOATING LABELS  (.mw-fld)  — register row 190
+   Added 2026-09-10. The box treatment landed with the button sweep; this is
+   the label half, deferred at the time because relocating ~127 labels can
+   break a for/id association with NO VISUAL SYMPTOM. It is done now behind
+   scripts/verify-label-association.mjs, which reads the COMPUTED ACCESSIBLE
+   NAME out of Chrome's accessibility tree before and after.
+
+   STRUCTURE — the label MUST follow the control, because the float is driven
+   by the adjacent-sibling selectors below:
+
+     <div class="mw-fld">
+       <input id="x" class="mw-field" placeholder=" ">
+       <label for="x">Label</label>
+     </div>
+
+   `placeholder=" "` (a single space, not empty) is load-bearing: the resting
+   state is detected with :placeholder-shown, which only matches when a
+   placeholder attribute is actually present.
+
+   ★ .mw-fld--static IS NOT A HALF-CONVERSION. :placeholder-shown never matches
+   a <select>, and is unreliable on date/time inputs, so those keep the label
+   permanently raised. That is the same variant signup.html's own .fld already
+   uses (.fld--static) — one pattern with a documented sub-case, not two
+   competing patterns.
+   ===================================================================== */
+.mw-fld { position: relative; }
+
+/* Room for the raised label. This overrides .mw-field's own centred padding,
+   so it must stay more specific than it. */
+.mw-fld > .mw-field {
+  height: 54px;
+  padding: 21px 16px 6px;
+}
+.mw-fld > select.mw-field { padding-right: 42px; }
+.mw-fld > textarea.mw-field {
+  height: auto;
+  min-height: 110px;
+  padding: 24px 16px 12px;
+}
+
+.mw-fld > label {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 400;
+  color: #6B7178;
+  line-height: 1;
+  /* Clicks fall through to the control beneath, which fills the whole box. The
+     label still names the control in the accessibility tree — pointer-events
+     affects hit testing only, never semantics. */
+  pointer-events: none;
+  transition: top 0.16s ease, font-size 0.16s ease, color 0.16s ease;
+  max-width: calc(100% - 34px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-fld > .mw-field:focus + label,
+.mw-fld > .mw-field:not(:placeholder-shown) + label,
+.mw-fld--static > label {
+  top: 9px;
+  transform: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5C6367;
+}
+.mw-fld > .mw-field:focus + label { color: var(--primary, #1B3A4B); }
+.mw-fld--admin > .mw-field:focus + label { color: #0F172A; }
+
+/* A textarea's label sits at the top rather than vertically centred — there is
+   no single line to centre against. */
+.mw-fld > textarea.mw-field + label { top: 20px; transform: none; }
+.mw-fld > textarea.mw-field:focus + label,
+.mw-fld > textarea.mw-field:not(:placeholder-shown) + label { top: 9px; }
+
+.mw-fld > .mw-field:disabled + label { opacity: 0.55; }
+
+/* The compact filter-bar variant is retired by this conversion: a raised label
+   and a value cannot both fit in 40px. Every field is one height now, which is
+   the uniformity row 190 asked for rather than a mixed estate. */
+.mw-fld > .mw-field.mw-field-sm { height: 54px; padding: 21px 12px 6px; font-size: 14px; }
+.mw-fld > select.mw-field.mw-field-sm { padding-right: 38px; background-position: right 14px center; }

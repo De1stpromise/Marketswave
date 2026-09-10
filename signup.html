@@ -6,6 +6,11 @@
   <title>Open an Account — Marketswave</title>
   <meta name="description" content="Start your Marketswave onboarding process." />
   <link rel="stylesheet" href="styles.css" />
+  <!-- .mw-upload lives in control-patterns.css, which is shared with the Tailwind
+       families. signup.html is a public-site page and did not load it, so the
+       component rendered unstyled and its focus ring never painted — the native
+       semantics were all correct, only the CSS was absent. -->
+  <link rel="stylesheet" href="control-patterns.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -257,7 +262,26 @@
     }
 
     .account-type-card input {
-      display: none;
+      /* NOT display:none. These are real radios inside a <label> card, and display:none
+         takes them out of the tab order AND out of the accessibility tree — which made
+         step 1 (account type) and the choice grids on steps 5-7 completely unreachable by
+         keyboard, exactly like the upload control did (register row 189). The clip
+         technique hides them visually while keeping them focusable and announced. */
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+    /* Focus lands on the clipped radio, so the ring is drawn on the visible card. */
+    .account-type-card:has(input:focus-visible) {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
     }
 
     .account-type-icon {
@@ -653,7 +677,25 @@
       min-height: 52px;
     }
     .choice-card input {
-      display: none;
+      /* NOT display:none. These are real radios inside a <label> card, and display:none
+         takes them out of the tab order AND out of the accessibility tree — which made
+         step 1 (account type) and the choice grids on steps 5-7 completely unreachable by
+         keyboard, exactly like the upload control did (register row 189). The clip
+         technique hides them visually while keeping them focusable and announced. */
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+    .choice-card:has(input:focus-visible) {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
     }
     .choice-card:hover {
       border-color: #C4BFB6;
@@ -672,41 +714,6 @@
     }
 
     /* Document Upload */
-    .upload-box {
-      border: 1.5px dashed #C4BFB6;
-      border-radius: 12px;
-      padding: 28px 20px;
-      text-align: center;
-      cursor: pointer;
-      background: #FCFBF9;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .upload-box:hover {
-      border-color: var(--primary);
-      background: #FFFFFF;
-    }
-    .upload-box.has-file {
-      border-style: solid;
-      border-color: var(--primary);
-      background: rgba(27, 58, 75, 0.04);
-    }
-    .upload-icon {
-      display: block;
-      font-size: 1.4rem;
-      color: var(--primary);
-      margin-bottom: 8px;
-    }
-    .upload-text {
-      font-size: 0.92rem;
-      color: var(--text-muted);
-    }
-    .upload-filename {
-      font-size: 0.92rem;
-      color: var(--primary);
-      font-weight: 500;
-      margin-top: 6px;
-    }
-
     /* Review & Consent */
     .review-box {
       background: #F7F6F3;
@@ -906,26 +913,38 @@
         <p class="step-lead">Please upload one government-issued photo ID and one proof of address. Accepted formats: PDF, JPG, PNG.</p>
 
         <div class="form-group">
-          <label>Government-issued Photo ID <span class="required">*</span></label>
-          <div class="upload-box" data-upload="id">
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
-            <div class="upload-placeholder">
-              <span class="upload-icon">↑</span>
-              <span class="upload-text">Click to upload ID (Passport or National ID)</span>
+          <label for="signup-upload-id">Government-issued Photo ID <span class="required">*</span></label>
+          <div class="mw-upload is-empty" data-upload="id">
+              <input type="file" id="signup-upload-id" class="mw-upload-input" accept=".pdf,.jpg,.jpeg,.png"
+                     aria-describedby="signup-upload-id-hint signup-upload-id-state">
+              <label class="mw-upload-face" for="signup-upload-id">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Click or press Enter to choose your ID (Passport or National ID)</span>
+              </label>
+              <p class="mw-upload-error" id="signup-upload-id-error" hidden></p>
+              <div class="mw-upload-meta">
+                <p class="mw-upload-hint" id="signup-upload-id-hint">PDF, JPG or PNG.</p>
+                <p class="mw-upload-state" id="signup-upload-id-state" role="status">No file chosen</p>
             </div>
-            <div class="upload-filename" hidden></div>
+              <button type="button" class="mw-upload-clear" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove file</button>
           </div>
         </div>
 
         <div class="form-group">
-          <label>Proof of Address <span class="required">*</span></label>
-          <div class="upload-box" data-upload="address">
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden>
-            <div class="upload-placeholder">
-              <span class="upload-icon">↑</span>
-              <span class="upload-text">Click to upload Proof of Address (last 3 months)</span>
+          <label for="signup-upload-address">Proof of Address <span class="required">*</span></label>
+          <div class="mw-upload is-empty" data-upload="address">
+              <input type="file" id="signup-upload-address" class="mw-upload-input" accept=".pdf,.jpg,.jpeg,.png"
+                     aria-describedby="signup-upload-address-hint signup-upload-address-state">
+              <label class="mw-upload-face" for="signup-upload-address">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Click or press Enter to choose proof of address (last 3 months)</span>
+              </label>
+              <p class="mw-upload-error" id="signup-upload-address-error" hidden></p>
+              <div class="mw-upload-meta">
+                <p class="mw-upload-hint" id="signup-upload-address-hint">PDF, JPG or PNG.</p>
+                <p class="mw-upload-state" id="signup-upload-address-state" role="status">No file chosen</p>
             </div>
-            <div class="upload-filename" hidden></div>
+              <button type="button" class="mw-upload-clear" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove file</button>
           </div>
         </div>
 
@@ -1227,7 +1246,8 @@
      bundle-size investigation. Loaded here for the Step Player only. -->
 <script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
 <script src="motion-helpers.js"></script>
-<script src="engine-core.js"></script>
+<script src="upload-control.js"></script>
+  <script src="engine-core.js"></script>
 <!-- Backend Migration Phase 1 (Aug 22, 2026): this script is now type="module" specifically
      so it can `import` the Firebase Auth/Functions SDK and firebase-config.js's shared,
      emulator-connected app instance — the ONLY change of its kind on this page. The IIFE
@@ -1488,18 +1508,28 @@
 
       // ---- Step 8 ----
       if (step === 8) {
-        const idBox = active.querySelector('[data-upload="id"]');
-        const addressBox = active.querySelector('[data-upload="address"]');
+        // Errors are ASSOCIATED WITH THE CONTROL (aria-invalid + aria-describedby via
+        // MarketswaveUpload.setError) rather than thrown into an alert() that floats free of
+        // the field it is about — register row 189. The old alert() was also the documented
+        // CDP-freeze hazard, and it sat directly on a required step.
+        const boxes = [
+          [active.querySelector('[data-upload="id"]'), 'Please choose a government-issued photo ID.'],
+          [active.querySelector('[data-upload="address"]'), 'Please choose a proof of address.']
+        ];
         let valid = true;
-
-        if (!idBox.classList.contains("has-file")) {
-          showError("Please upload a government-issued photo ID.");
-          valid = false;
-        }
-        if (!addressBox.classList.contains("has-file")) {
-          showError("Please upload a proof of address.");
-          valid = false;
-        }
+        let firstBad = null;
+        boxes.forEach(function (pair) {
+          const box = pair[0];
+          if (!box) return;
+          // The real File object, not a CSS class that something else might have set.
+          const input = box.querySelector('.mw-upload-input');
+          const hasFile = !!(input && input.files && input.files[0]);
+          if (window.MarketswaveUpload) window.MarketswaveUpload.setError(box, hasFile ? '' : pair[1]);
+          if (!hasFile) { valid = false; if (!firstBad) firstBad = input; }
+        });
+        // Move focus to the first offending control so a keyboard user is taken to the
+        // problem instead of being told about it somewhere they cannot see.
+        if (firstBad) firstBad.focus();
         return valid;
       }
 
@@ -1565,22 +1595,12 @@
     });
 
     // ---------- Document Upload ----------
-    document.querySelectorAll(".upload-box").forEach(box => {
-      const input = box.querySelector("input[type=file]");
-      const placeholder = box.querySelector(".upload-placeholder");
-      const filename = box.querySelector(".upload-filename");
-
-      box.addEventListener("click", () => input.click());
-
-      input.addEventListener("change", () => {
-        if (input.files && input.files[0]) {
-          filename.textContent = input.files[0].name;
-          filename.hidden = false;
-          placeholder.hidden = true;
-          box.classList.add("has-file");
-        }
-      });
-    });
+    // The old wiring here was a click handler on a <div> with the real input `hidden` —
+    // no tabindex, no role, no keydown, and the input out of the tab order, so neither the
+    // div nor the input could be reached or activated by keyboard at all. Both uploads are
+    // REQUIRED steps, so that blocked account opening outright for keyboard-only and
+    // screen-reader users (register row 189). It is now a real focusable input behind real
+    // <label for> elements, and upload-control.js self-initialises — nothing to call here.
 
     // ---------- Submit ----------
     // Client Authentication Phase 1 (Aug 21, 2026): completing onboarding now creates a
@@ -1620,9 +1640,11 @@
         return el ? el.value : '';
       }
       function uploadedFileName(uploadKey) {
-        const box = document.querySelector(`.upload-box[data-upload="${uploadKey}"]`);
-        const filenameEl = box ? box.querySelector('.upload-filename') : null;
-        return filenameEl && !filenameEl.hidden ? filenameEl.textContent.trim() : null;
+        // Reads the real File object rather than scraping the rendered filename text, which
+        // is what this did before — that broke silently whenever the readout markup changed.
+        const box = document.querySelector(`.mw-upload[data-upload="${uploadKey}"]`);
+        const input = box ? box.querySelector('.mw-upload-input') : null;
+        return input && input.files && input.files[0] ? input.files[0].name : null;
       }
 
       return {

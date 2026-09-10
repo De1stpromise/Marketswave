@@ -146,7 +146,20 @@
             <div class="flex flex-wrap gap-3 items-end">
               <div class="flex-1 min-w-[220px]">
                 <label for="upload-file" class="block text-xs text-slate-500 mb-1">File</label>
-                <input type="file" id="upload-file" class="mw-file">
+                <div class="mw-upload is-empty">
+              <input type="file" id="upload-file" class="mw-upload-input"
+                     aria-describedby="upload-file-hint upload-file-state">
+              <label class="mw-upload-face" for="upload-file">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Choose a file to upload</span>
+              </label>
+              <p class="mw-upload-error" id="upload-file-error" hidden></p>
+              <div class="mw-upload-meta">
+                <p class="mw-upload-hint" id="upload-file-hint">PDF, image or document.</p>
+                <p class="mw-upload-state" id="upload-file-state" role="status">No file chosen</p>
+              </div>
+              <button type="button" class="mw-upload-clear" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove file</button>
+            </div>
               </div>
               <div>
                 <label for="upload-category" class="block text-xs text-slate-500 mb-1">Category</label>
@@ -212,6 +225,7 @@
   <script src="motion-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="upload-control.js"></script>
   <script src="chat-widget.js"></script>
   <script>
     // Sidebar must be mounted before the notification-count logic below runs, since that
