@@ -72,6 +72,13 @@
 .ret-u.is-loss { color: var(--ret-loss); }
 .ret-r { color: var(--ret-realised); }
 
+/* The display figure is normally the neutral strong tone. On asset-performance.html's
+   Unrealised and Realised gains cards it carries the sign instead — the figure IS the
+   gain/loss, not a neutral total. Colour is never the only signal: signedUSD() puts an
+   explicit + or U+2212 in front of every one of them. */
+.ret-v.is-gain { color: var(--ret-gain); }
+.ret-v.is-loss { color: var(--ret-loss); }
+
 .ret-class {
   font-size: 25px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--ret-strong); line-height: 1.15;
@@ -91,10 +98,26 @@
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px; font-weight: 700; color: var(--ret-strong);
 }
-/* The em dash means "this position has never been sold" — real information, so it is
-   held to the same 4.5:1 floor as any other figure. #8A9298 measured 3.16:1 on the
-   table's white ground and was replaced. */
-.rt .rt-dash { color: var(--ret-muted); }
+/* The class/type line under a holding's name. Extracted from an inline style so the
+   closed-positions panel and the Return Table share one definition — the two are siblings
+   and a drifting copy would show. Mono here is the settled rule's OTHER case: an uppercase,
+   letter-spaced micro-label, not prose. */
+.rt-meta {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ret-muted);
+  margin-top: 2px;
+}
+/* The cross-reference between the two tables: the same position legitimately appears in
+   both when it has been partly sold. It takes the realised tone, the same colour the legend
+   dot and the panel's own realised figures use, so the eye follows it to the right place.
+   #3A6785 is already measured on this ground; --ret-muted's grey would have read as more
+   inert meta rather than as a pointer. */
+.rt-partial { color: var(--ret-realised); margin-top: 3px; }
+
+/* Closed positions, empty — the state most clients are in, so it gets real copy at a real
+   reading size rather than a greyed-out placeholder tone. */
+.rt-empty-copy { font-size: 13px; color: var(--ret-muted); line-height: 1.7; }
 
 /* Amount over percentage, right-aligned — the mockup's stacked treatment. */
 .rt-gain { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
@@ -146,4 +169,10 @@
    switch the table into its card layout, so the two treatments never disagree. */
 @media (max-width: 1023.98px) {
   .rt .rt-hide-sm { display: none !important; }
+  /* The card labels take their size from whichever cell they belong to, so they came out at
+     13px beside a mono figure and 14px beside an Inter one. One size for all of them reads as
+     a label column rather than as drift. Scoped to this table deliberately: the same
+     inconsistency probably exists on other card tables, but those are not in this change's
+     verification, and responsive-tables.css is shared. */
+  .rt td::before { font-size: 13px; }
 }

@@ -70,26 +70,61 @@
           <p class="text-slate-500 mt-1">Allocation and performance across your portfolio.</p>
         </div>
 
-        <!-- Summary cards — .glass-subtle: a dense 3-card row. -->
+        <!-- Summary cards — .glass-subtle: a dense 3-card row.
+             Three cards, per the approved mockup: what the portfolio is worth, what is still
+             moving with the market, and what is locked in. The pair reads as a whole — a
+             client's return is genuinely two numbers, and showing either one alone is what
+             made the dashboard's own realised-only card misleading in the first place.
+             Unallocated Capital lost its card here; it is not a RETURNS figure, and it is
+             still shown on dashboard.html and on deploy-capital.html, which is where a client
+             acts on it.
+             Typography follows the settled ladder: label Inter 600 (.ret-k), display figure
+             Inter 600 30px (.ret-v — the same class dashboard.html's own return card uses, so
+             the hero figure is identical on both screens), and every INLINE figure in the
+             sub-line monospace 700, which is where the mono-for-figures rule applies. -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           <div class="glass-subtle rounded-2xl p-5">
-            <p class="text-sm text-slate-500 mb-1">Total Allocated Capital</p>
-            <p class="text-2xl font-semibold text-navy" id="total-allocated-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="text-xs text-slate-400 mt-1" id="total-allocated-pct"><span class="inline-block h-3 w-20 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-k">Total portfolio value</p>
+            <p class="ret-v" id="perf-tpv-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="perf-tpv-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
           <div class="glass-subtle rounded-2xl p-5">
-            <p class="text-sm text-slate-500 mb-1">Unallocated Capital</p>
-            <p class="text-2xl font-semibold text-navy" id="unallocated-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="text-xs text-slate-400 mt-1" id="unallocated-pct"><span class="inline-block h-3 w-20 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-k">Unrealised</p>
+            <p class="ret-v" id="perf-unrealised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="perf-unrealised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
           <div class="glass-subtle rounded-2xl p-5">
-            <p class="text-sm text-slate-500 mb-1">Total Asset Returns
-              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle ml-1">Unrealised</span>
-            </p>
-            <p class="text-2xl font-semibold text-emerald-600" id="total-asset-returns-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="text-xs text-slate-400 mt-1">Live preview — not yet realized</p>
+            <p class="ret-k">Realised gains</p>
+            <p class="ret-v" id="perf-realised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="perf-realised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
         </div>
+
+        <!-- Browse Asset Collection (Aug 21, 2026): the product-browsing grid that used to
+             live here moved to its own page, asset-collection.html, so it can scale to
+             hundreds of products with real search/filter/pagination instead of an unbounded
+             grid on this page. This page still owns current-holdings performance, closed
+             positions, and the full allocation+sell request history, none of which belongs on
+             a pure browse-and-request catalog page.
+             MOVED ABOVE THE TABLES (2026-09-09): it is the entry point to allocating capital,
+             and it used to sit below two data tables plus a request history. A client with no
+             holdings at all — the state most new clients are in — had to scroll past an empty
+             Return Table and an empty closed-positions panel to find the one control that
+             does anything. On mobile, where every table becomes a stack of cards and vertical
+             distance is far more expensive, that was several screens of nothing. -->
+        <!-- Glass Language Extension (2026-09-07): a plain navigational teaser card (no
+             data, no table, no form) -- glass-eligible under the same "standalone
+             informational/decorative surface" category as dashboard.html's own Risk
+             Metrics/Market Snapshot cards. Genuinely missed in the earlier pass. -->
+        <a href="asset-collection.html" class="block glass rounded-2xl p-6 mb-8 hover:border-navy/30 transition group">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold text-navy">Browse Asset Collection</h3>
+              <p class="text-sm text-slate-500 mt-0.5">Search and request allocation into any available asset. Requests are sent for Portfolio Manager approval.</p>
+            </div>
+            <svg class="w-5 h-5 text-slate-400 group-hover:text-navy group-hover:translate-x-1 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </a>
 
         <!-- Return Table
              Glass Language Extension (2026-09-07): deliberately left plain -- a real, dense
@@ -110,7 +145,6 @@
                   <th class="text-right px-6 py-3">Current value</th>
                   <th class="text-right px-6 py-3">Unrealised</th>
                   <th class="text-right px-6 py-3 rt-hide-sm">Trend</th>
-                  <th class="text-right px-6 py-3">Realised</th>
                   <th class="text-right px-6 py-3">Action</th>
                 </tr>
               </thead>
@@ -124,25 +158,24 @@
           </div>
         </div>
 
-        <!-- Browse Asset Collection (Aug 21, 2026): the product-browsing grid that used to
-             live here moved to its own page, asset-collection.html, so it can scale to
-             hundreds of products with real search/filter/pagination instead of an unbounded
-             grid on this page. Return Table and My Requests below are UNCHANGED — this page
-             still owns current-holdings performance and the full allocation+sell request
-             history, neither of which belongs on a pure browse-and-request catalog page. -->
-        <!-- Glass Language Extension (2026-09-07): a plain navigational teaser card (no
-             data, no table, no form) -- glass-eligible under the same "standalone
-             informational/decorative surface" category as dashboard.html's own Risk
-             Metrics/Market Snapshot cards. Genuinely missed in the earlier pass. -->
-        <a href="asset-collection.html" class="block glass rounded-2xl p-6 hover:border-navy/30 transition group">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="font-semibold text-navy">Browse Asset Collection</h3>
-              <p class="text-sm text-slate-500 mt-0.5">Search and request allocation into any available asset. Requests are sent for Portfolio Manager approval.</p>
-            </div>
-            <svg class="w-5 h-5 text-slate-400 group-hover:text-navy group-hover:translate-x-1 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <!-- Closed positions
+             Realised gains live here and only here now: the Return Table's own Realised
+             column was an em dash on every row for any client who has never sold, which is
+             most of them, and a closed position has no other row to sit on once its holding
+             is gone. Styled with the same .rt table classes as the Return Table above so the
+             two read as siblings rather than as two different components.
+             Deliberately left plain (not glass), same reasoning as the Return Table: a real,
+             dense table of financial data. -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            <h3 class="font-semibold text-navy">Closed positions</h3>
+            <span class="text-xs text-slate-400">Positions you have sold &mdash; locked in, and no longer moving with the market</span>
           </div>
-        </a>
+          <!-- renderAsyncBundle owns this whole region and rebuilds it on every render, so
+               it holds no static child that a skeleton pass could destroy (the lesson from
+               transactions.html's own ledger empty-row). -->
+          <div class="overflow-x-auto" id="closed-positions-region"></div>
+        </div>
 
         <!-- My Requests
              Glass Language Extension (2026-09-07): deliberately left plain -- renders a real
@@ -296,27 +329,57 @@
       // again and reintroduce a second, client-side source of truth for money.
 
       // ---- Summary cards ----
-      var allocatedEl = document.getElementById('total-allocated-amount');
-      var allocatedPctEl = document.getElementById('total-allocated-pct');
-      var unallocatedEl = document.getElementById('unallocated-amount');
-      var unallocatedPctEl = document.getElementById('unallocated-pct');
-      var returnsEl = document.getElementById('total-asset-returns-amount');
+      var tpvEl = document.getElementById('perf-tpv-amount');
+      var tpvSubEl = document.getElementById('perf-tpv-sub');
+      var unrealisedEl = document.getElementById('perf-unrealised-amount');
+      var unrealisedSubEl = document.getElementById('perf-unrealised-sub');
+      var realisedEl = document.getElementById('perf-realised-amount');
+      var realisedSubEl = document.getElementById('perf-realised-sub');
 
       function renderSummaryCards() {
-        if (allocatedEl) allocatedEl.textContent = formatUSD(Math.round(account.allocatedCapital));
-        if (allocatedPctEl) allocatedPctEl.textContent = (tpv > 0 ? Math.round((account.allocatedCapital / tpv) * 100) : 0) + '% of portfolio';
-        if (unallocatedEl) unallocatedEl.textContent = formatUSD(Math.round(account.unallocatedCapital));
-        if (unallocatedPctEl) unallocatedPctEl.textContent = (tpv > 0 ? Math.round((account.unallocatedCapital / tpv) * 100) : 0) + '% of portfolio';
-        // Total Asset Returns is deliberately the live UNREALIZED preview
-        // (getTotalUnrealizedReturns()), not Account State's realized-only assetReturns
-        // (which stays $0 until something actually sells) — labeled "Unrealized" in the card
-        // so it's never mistaken for a realized figure.
-        if (returnsEl) {
-          // Server figure now (get-returns-summary), not the page-local port below. Same
-          // maths, but a number a client reads as their return is not assembled in the page.
-          var totalUnrealized = returns ? returns.unrealized : 0;
-          returnsEl.textContent = (totalUnrealized >= 0 ? '+' : '') + formatUSD(Math.round(totalUnrealized));
-          returnsEl.className = 'text-2xl font-semibold ' + (totalUnrealized >= 0 ? 'text-emerald-600' : 'text-red-600');
+        var r = returns || {};
+        var held = (r.positions || []).length;
+        if (tpvEl) tpvEl.textContent = formatUSD(Math.round(tpv));
+        if (tpvSubEl) tpvSubEl.textContent = 'Across ' + held + (held === 1 ? ' holding' : ' holdings');
+
+        var u = r.unrealized || 0;
+        if (unrealisedEl) {
+          unrealisedEl.textContent = signedUSD(u);
+          // Three-way, matching toneClass() in the tables below: an exactly-zero figure is
+          // neutral, not green. Painting "no gain at all" as a gain states something untrue.
+          unrealisedEl.className = 'ret-v' + (u === 0 ? '' : (u < 0 ? ' is-loss' : ' is-gain'));
+        }
+        if (unrealisedSubEl) {
+          // Held-only denominator, deliberately — this figure describes positions still held,
+          // so capital already taken back out of a closed position is not what produced it.
+          // Only the DASHBOARD's portfolio-level total return spans both; see
+          // get-returns-summary's own header for that distinction.
+          var uPct = r.costBasis > 0 ? (u / r.costBasis) * 100 : 0;
+          unrealisedSubEl.innerHTML = '<span class="ret-mono ret-u' + (u < 0 ? ' is-loss' : '') +
+            '" style="font-weight:700">' + signedPct(uPct) + '</span> on positions held';
+        }
+
+        // The realised figure is the closed-positions total, deliberately — this card
+        // introduces the panel directly below it and states its own row count, so the two
+        // must agree on screen. In real data it is also identical to the account-level
+        // asset_returns the dashboard shows, by construction: execute-sell writes the same
+        // realized_return value to both the ledger row and account_state, so summing the
+        // ledger and reading the store can only ever give the same number.
+        var closed = r.closedTotals || { count: 0, realised: 0 };
+        if (realisedEl) {
+          realisedEl.textContent = closed.count === 0 ? formatUSD(0) : signedUSD(closed.realised);
+          realisedEl.className = 'ret-v' +
+            (closed.count === 0 || closed.realised === 0
+              ? ''
+              : (closed.realised < 0 ? ' is-loss' : ' is-gain'));
+        }
+        if (realisedSubEl) {
+          // A zero here is not an error state, it is the normal state for most clients — the
+          // panel below carries the full explanation, so this line stays short and factual.
+          realisedSubEl.innerHTML = closed.count === 0
+            ? 'No positions sold yet'
+            : 'Locked in across <b style="color:var(--ret-strong);font-weight:600">' + closed.count +
+              '</b> closed position' + (closed.count === 1 ? '' : 's');
         }
       }
 
@@ -361,12 +424,47 @@
       function toneClass(n) {
         return n > 0 ? 'rt-pos' : (n < 0 ? 'rt-neg' : 'rt-flat');
       }
+      // pct may be null: a closed position whose recovered capital was genuinely $0 has no
+      // real denominator, so the amount is shown alone rather than beside a fabricated 0.0%.
       function gainCell(amount, pct) {
         var tone = toneClass(amount);
         return '<span class="rt-gain">' +
           '<span class="a ' + tone + '">' + signedUSD(amount) + '</span>' +
-          '<span class="p ' + tone + '">' + signedPct(pct) + '</span>' +
+          (pct === null || pct === undefined
+            ? ''
+            : '<span class="p ' + tone + '">' + signedPct(pct) + '</span>') +
           '</span>';
+      }
+
+      // closedAt is a full timestamptz; formatDisplayDate expects a bare YYYY-MM-DD and
+      // appends its own UTC midnight, so pass the date part rather than the whole timestamp.
+      function formatClosedDate(iso) {
+        if (!iso) return '\u2014';
+        return formatDisplayDate(String(iso).slice(0, 10));
+      }
+
+      // The name cell is shared by the Return Table and the closed-positions panel, so the
+      // two genuinely render one component rather than two copies that can drift apart.
+      function positionNameCellHTML(p, extraHTML) {
+        var swatch = ASSET_CLASS_COLORS[p.assetClass] || '#8A9298';
+        // Asset class and investment type are separate fields a PM can legitimately set to
+        // the SAME value — real staging has exactly that today (Bitcoin, "Crypto" /
+        // "Crypto"), which rendered as "Crypto · Crypto". Collapse on equality rather
+        // than special-casing any one class, and compare trimmed/case-insensitively so a
+        // stray "crypto " collapses too — while still DISPLAYING the value as entered.
+        var metaParts = [p.assetClass, p.investmentType].filter(Boolean);
+        if (metaParts.length === 2 &&
+            String(metaParts[0]).trim().toLowerCase() === String(metaParts[1]).trim().toLowerCase()) {
+          metaParts = [metaParts[0]];
+        }
+        return '<div class="flex items-center gap-3">' +
+            '<span aria-hidden="true" class="shrink-0 rounded-sm" style="width:3px;height:30px;background:' + swatch + '"></span>' +
+            '<span class="block">' +
+              '<b class="block font-semibold text-navy">' + p.name + '</b>' +
+              '<span class="block rt-meta">' + metaParts.join(' \u00b7 ') + '</span>' +
+              (extraHTML || '') +
+            '</span>' +
+          '</div>';
       }
 
       // The series is REAL price history — see unitPriceSeries() in the shared engine for how
@@ -397,20 +495,22 @@
         if (!tableBody) return;
         var positions = (returns && returns.positions) ? returns.positions : [];
         if (positions.length === 0) {
-          tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
+          tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
           if (tableFoot) tableFoot.innerHTML = '';
           return;
         }
 
         tableBody.innerHTML = positions.map(function (p) {
-          var swatch = ASSET_CLASS_COLORS[p.assetClass] || '#8A9298';
           var product = productById(p.productId);
-          var meta = [p.assetClass, p.investmentType].filter(Boolean).join(' \u00b7 ');
 
-          // Realised is an em dash only when this position has genuinely never been sold.
-          var realisedCell = p.realized === 0
-            ? '<td class="px-6 py-4 text-right rt-num rt-dash">\u2014</td>'
-            : '<td class="px-6 py-4 text-right rt-num ' + toneClass(p.realized) + '">' + signedUSD(p.realized) + '</td>';
+          // A holding that has ALSO been partly sold appears in BOTH tables: this row is what
+          // is still held, and the closed-positions panel below carries the portion sold.
+          // Without a cue the pair reads as a contradiction — the same position listed twice
+          // with different units. Determined server-side from the EXISTENCE of a SELL row
+          // rather than from a non-zero gain, so a sale at exactly cost still marks it.
+          var partialMarker = p.partiallySold
+            ? '<span class="block rt-meta rt-partial">Partially sold</span>'
+            : '';
 
           var available = availableToSell({ productId: p.productId, units: p.units });
           var actionCell = available > 1e-6
@@ -419,29 +519,19 @@
 
           return '<tr class="hover:bg-slate-50/50">' +
             '<td class="px-6 py-4">' +
-              '<div class="flex items-center gap-3">' +
-                '<span aria-hidden="true" class="shrink-0 rounded-sm" style="width:3px;height:30px;background:' + swatch + '"></span>' +
-                '<span class="block">' +
-                  '<b class="block font-semibold text-navy">' + p.name + '</b>' +
-                  '<span class="block ret-mono uppercase" style="font-size:10px;color:#5C6367;letter-spacing:.06em;margin-top:2px">' + meta + '</span>' +
-                  (product ? lastValuedLineHTML(product) : '') +
-                '</span>' +
-              '</div>' +
+              positionNameCellHTML(p, partialMarker + (product ? lastValuedLineHTML(product) : '')) +
             '</td>' +
             '<td class="px-6 py-4 text-right rt-num">' + formatUnits(p.units) + '</td>' +
             '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(p.costBasis)) + '</td>' +
             '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(p.currentValue)) + '</td>' +
             '<td class="px-6 py-4 text-right">' + gainCell(p.unrealized, p.unrealizedPercent) + '</td>' +
             '<td class="px-6 py-4 text-right rt-hide-sm">' + sparklineSVG(p.trend) + '</td>' +
-            realisedCell +
             actionCell +
             '</tr>';
         }).join('');
 
         if (!tableFoot) return;
-        // Totals row. Realised here is realizedHeld — the sum of the column actually above
-        // it. See get-returns-summary for why that is deliberately not the account-level
-        // realised figure the dashboard shows.
+        // Totals row. The percentage uses the HELD cost basis, matching the column above it.
         var totalPct = returns.costBasis > 0 ? (returns.unrealized / returns.costBasis) * 100 : 0;
         tableFoot.innerHTML = '<tr>' +
           '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
@@ -450,12 +540,80 @@
           '<td class="px-6 py-4 text-right rt-val" data-label="Current value">' + formatUSD(Math.round(returns.currentValue)) + '</td>' +
           '<td class="px-6 py-4 text-right" data-label="Unrealised">' + gainCell(returns.unrealized, totalPct) + '</td>' +
           '<td class="px-6 py-4 rt-hide-sm" data-label=""></td>' +
-          '<td class="px-6 py-4 text-right rt-num ' + (returns.realizedHeld === 0 ? 'rt-dash' : toneClass(returns.realizedHeld)) + '" data-label="Realised">' +
-            (returns.realizedHeld === 0 ? '\u2014' : signedUSD(returns.realizedHeld)) +
-          '</td>' +
           '<td class="px-6 py-4" data-label=""></td>' +
           '</tr>';
       }
+
+      // ---- Closed positions ------------------------------------------------------------
+      // Every figure here is the server's (get-returns-summary). In particular
+      // `capitalAllocated` is the RECOVERED original cost of the units sold, reconstructed
+      // exactly from each SELL row as total_value - realized_return — see that function's
+      // header for the identity and the proof behind it. Nothing on this page recomputes it.
+      var closedRegion = document.getElementById('closed-positions-region');
+
+      // Most clients have never sold, so this is the state this panel is usually in. It is
+      // written as a real answer rather than a shrug: the second line is also the explanation
+      // for why the Realised gains card above reads $0.
+      var CLOSED_EMPTY_HTML =
+        '<div class="px-6 py-10 text-center">' +
+          '<div class="w-10 h-10 mx-auto mb-3 rounded-xl flex items-center justify-center" style="background:rgba(27,58,75,.06)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5C6367" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+              '<path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/>' +
+            '</svg>' +
+          '</div>' +
+          '<p class="rt-empty-copy">You haven&rsquo;t sold any positions yet.<br>Gains stay unrealised until a position is sold.</p>' +
+        '</div>';
+
+      function renderClosedPositions() {
+        if (!closedRegion) return;
+        var rows = (returns && returns.closedPositions) ? returns.closedPositions : [];
+        if (rows.length === 0) { closedRegion.innerHTML = CLOSED_EMPTY_HTML; return; }
+        var t = returns.closedTotals;
+
+        var body = rows.map(function (c) {
+          // The reciprocal of the Return Table's "Partially sold" marker: this row is the
+          // portion sold, and the rest is still in the table above. Marking both ends is what
+          // makes one position appearing twice read as deliberate rather than as a duplicate.
+          var stillHeldMarker = c.stillHeld
+            ? '<span class="block rt-meta rt-partial">Part of this position is still held</span>'
+            : '';
+          return '<tr class="hover:bg-slate-50/50">' +
+            '<td class="px-6 py-4">' + positionNameCellHTML(c, stillHeldMarker) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(c.unitsSold) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(c.capitalAllocated)) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(c.proceeds)) + '</td>' +
+            '<td class="px-6 py-4 text-right">' + gainCell(c.realised, c.realisedPercent) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatClosedDate(c.closedAt) + '</td>' +
+            '</tr>';
+        }).join('');
+
+        // responsive-tables.js derives each card label from the matching <th>, but only for
+        // tbody cells — a tfoot cell needs its label stated, exactly as the Return Table's
+        // own totals row does.
+        var foot = '<tr>' +
+          '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
+          '<td class="px-6 py-4 text-right rt-num" data-label="Units sold">' + formatUnits(t.unitsSold) + '</td>' +
+          '<td class="px-6 py-4 text-right rt-num" data-label="Capital Allocated">' + formatUSD(Math.round(t.capitalAllocated)) + '</td>' +
+          '<td class="px-6 py-4 text-right rt-val" data-label="Proceeds">' + formatUSD(Math.round(t.proceeds)) + '</td>' +
+          '<td class="px-6 py-4 text-right" data-label="Realised">' + gainCell(t.realised, t.realisedPercent) + '</td>' +
+          '<td class="px-6 py-4" data-label=""></td>' +
+          '</tr>';
+
+        closedRegion.innerHTML =
+          '<table class="w-full text-sm mw-card-table rt">' +
+            '<thead class="bg-slate-50 text-slate-500"><tr>' +
+              '<th class="text-left px-6 py-3">Position</th>' +
+              '<th class="text-right px-6 py-3">Units sold</th>' +
+              '<th class="text-right px-6 py-3">Capital Allocated</th>' +
+              '<th class="text-right px-6 py-3">Proceeds</th>' +
+              '<th class="text-right px-6 py-3">Realised</th>' +
+              '<th class="text-right px-6 py-3">Closed</th>' +
+            '</tr></thead>' +
+            '<tbody class="divide-y divide-slate-100">' + body + '</tbody>' +
+            '<tfoot>' + foot + '</tfoot>' +
+          '</table>';
+      }
+
       // ---- My Requests: allocation + sell requests merged, full history, every status,
       // newest first. The real requested_at column is already a full timestamptz (unlike the
       // local engine's own plain 'YYYY-MM-DD' date string, which needed a SEPARATE
@@ -580,7 +738,7 @@
         sellRequests = data.sellRequests;
       }
 
-      MarketswaveData.renderAsyncBundle([allocatedEl, allocatedPctEl, unallocatedEl, unallocatedPctEl, returnsEl], {
+      MarketswaveData.renderAsyncBundle([tpvEl, tpvSubEl, unrealisedEl, unrealisedSubEl, realisedEl, realisedSubEl], {
         skeletonHTML: MarketswaveData.skeleton.text('w-24', { height: 'h-6' }),
         load: loadPageData,
         render: function (data) {
@@ -609,6 +767,20 @@
           render: function (data) {
             applyPageData(data);
             renderReturnTable();
+          }
+        });
+        // The closed-positions panel is its own region (a plain <div>, so it needs its own
+        // skeleton shape) sharing the same cached promise. It refreshes with the table for
+        // one reason worth stating: a submitted Sell does NOT close anything — only a
+        // Portfolio Manager's later approval does — so this panel is expected to look
+        // unchanged after a Sell, and re-rendering it keeps that visible rather than leaving
+        // a stale render that only happens to look right.
+        MarketswaveData.renderAsyncBundle(closedRegion, {
+          skeletonHTML: '<div class="p-6">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }) + '</div>',
+          load: loadPageData,
+          render: function (data) {
+            applyPageData(data);
+            renderClosedPositions();
           }
         });
         MarketswaveData.renderAsyncBundle(myRequestsListEl, {

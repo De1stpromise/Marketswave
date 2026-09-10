@@ -63,8 +63,13 @@
     white-space: nowrap;
   }
 
+  /* tfoot belongs in this list. Without it the element kept `display: table-footer-group`,
+     which re-established a table formatting context around the totals row: its own `tr` then
+     shrink-to-fit inside an anonymous table box instead of filling the width, so the totals
+     card rendered visibly narrower than the holding cards above it. */
   .mw-card-table,
   .mw-card-table tbody,
+  .mw-card-table tfoot,
   .mw-card-table tr,
   .mw-card-table td {
     display: block;
@@ -81,7 +86,8 @@
     margin: 0 0.75rem 0.75rem;
     background: #fff;
   }
-  .mw-card-table tbody tr:last-child {
+  .mw-card-table tbody tr:last-child,
+  .mw-card-table tfoot tr:last-child {
     margin-bottom: 1rem;
   }
 
@@ -114,6 +120,14 @@
     color: rgb(100, 116, 139);                    /* slate-500 */
     font-weight: 500;
     padding-right: 0.5rem;
+    /* A ::before inherits from its ORIGINATING ELEMENT, so a cell that sets its own
+       font-family hands that family to its label too. On asset-performance.html the numeric
+       cells are JetBrains Mono, which rendered sentence-case prose labels ("Capital
+       Allocated", "Current value") in monospace — breaking the settled rule that mono is for
+       figures and for uppercase letter-spaced micro-labels, and these are neither. The label
+       is prose, so it states its own family rather than inheriting the cell's. Cells that are
+       already Inter are unaffected; the FIGURES inside the cards keep their own family. */
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   /* An action cell (or any cell whose heading is genuinely blank) carries data-label="" and
      gets no label chip; it also spans the full width so its button is not squeezed. */
@@ -122,6 +136,14 @@
   }
   .mw-card-table td[data-label=""]::before {
     content: none;
+  }
+  /* A totals row only populates some columns, and the table still has to emit a <td> for the
+     rest to keep the column count intact. In the table that is invisible; as a card it became
+     blank rows with borders. A cell with genuinely no content says nothing, so it is not
+     drawn. :empty matches only a cell with no text and no children, so a rendered "—"
+     placeholder still shows with its label. */
+  .mw-card-table td:empty {
+    display: none;
   }
 
   /* The empty-state / "no results" row is a single colspan cell — it is not a record, so it

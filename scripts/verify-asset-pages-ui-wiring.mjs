@@ -237,19 +237,27 @@ async function main() {
 
   const performanceScript = extractInlineScript(performancePath, 'UI Wiring — Stage 2');
   const tableBody = performanceDom.window.document.getElementById('return-table-body');
-  const allocatedEl = performanceDom.window.document.getElementById('total-allocated-amount');
+  // The summary cards became Total portfolio value / Unrealised / Realised gains on
+  // 2026-09-09 (row 187); 'Total Allocated Capital' no longer exists on this page. The
+  // check below moved to the Total portfolio value card, which is the figure on this row
+  // that is still independently computable from the seeded holdings.
+  const tpvEl = performanceDom.window.document.getElementById('perf-tpv-amount');
   const myRequestsListEl = performanceDom.window.document.getElementById('my-requests-list');
 
   performanceDom.window.eval(performanceScript);
   check('the loading skeleton genuinely appears immediately (Return Table)', /animate-pulse/.test(tableBody.innerHTML), tableBody.innerHTML.slice(0, 200));
-  check('the loading skeleton genuinely appears immediately (summary cards)', /animate-pulse/.test(allocatedEl.innerHTML), allocatedEl.innerHTML);
+  check('the loading skeleton genuinely appears immediately (summary cards)', /animate-pulse/.test(tpvEl.innerHTML), tpvEl.innerHTML);
 
   await pollUntil(function () { return !/animate-pulse/.test(tableBody.innerHTML); }, 20000);
 
   const { data: liveEtf } = await admin.from('products').select('unit_price').eq('id', equityEtf.id).single();
   const { data: liveEthereum } = await admin.from('products').select('unit_price').eq('id', ethereum.id).single();
   const expectedAllocated = Math.round(ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price);
-  check('summary cards show the real, independently-computed allocated capital (both real holdings)', allocatedEl.textContent === '$' + expectedAllocated.toLocaleString('en-US'), allocatedEl.textContent + ' vs expected $' + expectedAllocated.toLocaleString('en-US'));
+  // Total portfolio value is allocated + unallocated, so this still checks the same
+  // thing the allocated-capital assertion did: a real money figure computed here from
+  // the seeded holdings and the live unit prices, not read back from the page's own call.
+  const expectedTpv = Math.round(ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price + UNALLOCATED);
+  check('summary cards show the real, independently-computed portfolio value (both real holdings + unallocated)', tpvEl.textContent === '$' + expectedTpv.toLocaleString('en-US'), tpvEl.textContent + ' vs expected $' + expectedTpv.toLocaleString('en-US'));
   check('Return Table shows a real row for the seeded ETF holding, with a real Sell button', tableBody.textContent.indexOf('Global Equity ETF') !== -1 && !!tableBody.querySelector('.sell-request-btn'), tableBody.innerHTML.slice(0, 400));
 
   const perfToastEl = performanceDom.window.document.getElementById('allocation-toast');

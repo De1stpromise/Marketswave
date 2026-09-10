@@ -123,17 +123,40 @@ PROFILES['returns-dashboard'] = [
   { label: 'best class pct', sel: '#best-performing-return .ret-u', limit: 1 },
 ];
 
+// asset-performance.html. `.rt` now matches BOTH tables — the Return Table and the
+// closed-positions panel — which is deliberate: they are styled as siblings, so measuring
+// them through one selector is what proves they really are. Limits are set above the real
+// element counts so nothing is silently sampled out.
 PROFILES['returns-holdings'] = [
-  { label: 'column head', sel: '.rt th', limit: 8 },
-  { label: 'holding name', sel: '.rt tbody b', limit: 4 },
-  { label: 'holding meta', sel: '.rt tbody .ret-mono', limit: 4 },
-  { label: 'units/cost figure', sel: '.rt .rt-num', limit: 8 },
-  { label: 'current value', sel: '.rt .rt-val', limit: 5 },
-  { label: 'unrealised amount', sel: '.rt .rt-gain .a', limit: 5 },
-  { label: 'unrealised percent', sel: '.rt .rt-gain .p', limit: 5 },
-  { label: 'totals label', sel: '.rt-total-lab', limit: 1 },
+  // Summary cards. The two returns cards colour the DISPLAY figure by sign, which the
+  // dashboard's own card does not, so these are new surfaces rather than known ones.
+  { label: 'card label', sel: '.ret-k', limit: 3 },
+  { label: 'card figure', sel: '.ret-v', limit: 3 },
+  { label: 'card sub-line', sel: '.ret-sub', limit: 3 },
+  { label: 'card sub figure', sel: '.ret-sub .ret-u', limit: 2 },
+  // Both tables
+  { label: 'column head', sel: '.rt th', limit: 14 },
+  { label: 'holding name', sel: '.rt tbody b', limit: 8 },
+  { label: 'holding meta', sel: '.rt tbody .rt-meta', limit: 8 },
+  // The partial-sale marker takes the realised blue rather than the meta grey, so it is a
+  // genuinely different measurement from the meta line it sits under.
+  { label: 'partial-sale marker', sel: '.rt-partial', limit: 6 },
+  { label: 'units/cost figure', sel: '.rt .rt-num', limit: 14 },
+  { label: 'current value', sel: '.rt .rt-val', limit: 10 },
+  { label: 'gain amount', sel: '.rt .rt-gain .a', limit: 10 },
+  { label: 'gain percent', sel: '.rt .rt-gain .p', limit: 10 },
+  { label: 'totals label', sel: '.rt-total-lab', limit: 2 },
   { label: 'legend text', sel: '.rt-legend div', limit: 2 },
   { label: 'legend term', sel: '.rt-legend b', limit: 2 },
+];
+
+// The same page for a client who has never sold — the state MOST clients are in, so its
+// copy is measured for real rather than assumed to inherit a tone measured elsewhere.
+PROFILES['returns-holdings-empty'] = [
+  { label: 'card label', sel: '.ret-k', limit: 3 },
+  { label: 'card figure', sel: '.ret-v', limit: 3 },
+  { label: 'card sub-line', sel: '.ret-sub', limit: 3 },
+  { label: 'empty-state copy', sel: '.rt-empty-copy', limit: 1 },
 ];
 
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];

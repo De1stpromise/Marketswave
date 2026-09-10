@@ -27,22 +27,38 @@
 // That last detail is easy to get subtly wrong by summing raw values and rounding once at the
 // end; it is reproduced exactly, and cross-checked against the real engine in verification.
 //
-// TOTAL RETURN PERCENTAGE — a disclosed choice, not an engine rule. The engine defines no
-// "total return %", so a denominator had to be picked. This uses the cost basis of currently
-// held positions: the same denominator the per-position and per-class percentages already
-// use, so every percentage on both screens means the same thing. The known imperfection,
-// stated rather than hidden: realised gains came from positions that are no longer held, so
-// their own cost basis is not in that denominator. No available figure fixes this — the
-// engine does not retain the cost basis of closed positions.
+// ★ RECOVERING THE COST BASIS OF A CLOSED POSITION — the identity everything below rests on.
+// The engine discards a position's cost basis on sale (it is subtracted from the holding, and
+// the holding row is deleted outright once fully sold). It is NOT lost, and it does not need
+// reconstructing from BUY history: execute-sell computes
+//     realized_return = round2(saleValue - costBasisPortion)
+// and stores BOTH `total_value` (= saleValue) and `realized_return` on the SELL row. So
 //
-// ★ THAT IMPERFECTION IS A REAL, TRACKED DEFECT, NOT JUST A CAVEAT — Backend Requirements
-// Register row 186. It OVERSTATES performance for any client who has sold: the numerator
-// counts gains from closed positions while the denominator has forgotten the capital that
-// produced them. $100,000 -> $115,000 across one closed and one open position reports
-// +25% instead of +15%. The DOLLAR figures above are unaffected and always correct; only
-// `totalPercent` is. No effect for a client who has never sold. Do not 'fix' it here by
-// changing the denominator — the missing data is the cost basis of closed positions, which
-// requires a schema change and a migration decision; see row 186 before touching this.
+//     capital allocated to the units sold  =  total_value - realized_return
+//
+// Both operands are already rounded to 2dp when written, so that subtraction is EXACT, not an
+// approximation — and because each partial sell records its own realized_return against the
+// holding's own cost basis at that moment, it stays exact across a partial-sell chain. It is
+// also immune to the average-cost-basis blending that would defeat a FIFO-style reconstruction
+// from BUY rows, precisely because it never looks at BUY rows. Proven against a real 1000-unit
+// position sold down in three real calls (250 / 300 / 450): each sell's reconstruction matched
+// the holding row's own cost-basis delta to the cent, and the three summed back to the original
+// $100,000 exactly. execute-sell is the only writer of SELL rows and has always written
+// realized_return, so there is no legacy row this identity silently fails on.
+//
+// TOTAL RETURN PERCENTAGE — ★ row 186 is FIXED here, using exactly that identity.
+// It previously divided total return by the cost basis of CURRENTLY HELD positions only, so
+// the numerator counted gains from closed positions while the denominator had forgotten the
+// capital that produced them — $100,000 -> $115,000 across one closed and one open position
+// reported +25% instead of +15%. The denominator is now capital DEPLOYED, not capital STILL
+// deployed:
+//     capitalDeployed = costBasis (held) + costBasisClosed (recovered from the ledger)
+// No schema change and no migration were needed: the figure was never lost, only unqueried.
+//
+// The per-POSITION and per-CLASS percentages deliberately keep their own held-only cost basis
+// as a denominator — each describes a position you still hold, so capital you already took
+// back out of a different, closed position is not part of what produced it. Only the
+// portfolio-level `totalPercent` spans both, because only its numerator does.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
@@ -100,19 +116,41 @@ Deno.serve(async (req) => {
     const { data: state } = await admin
       .from('account_state').select('*').eq('client_id', targetClientId).maybeSingle();
 
-    // Per-product realised: the real sum of realized_return across this client's own SELL
-    // transactions. A position never sold sums to exactly 0 and renders as an em dash.
+    // The closed-position accumulator behind the panel.
+    //
+    // This used to ALSO produce a per-held-position realised figure, for a Realised column in
+    // the Return Table. That column is gone (2026-09-09): for any client who has never sold —
+    // most of them — every cell in it was an em dash, and a position that HAS been closed has
+    // no row left in that table to sit on. Realised now lives in the closed-positions panel,
+    // which can describe a closed position properly instead of hanging one number off a
+    // holding that may no longer exist.
+    //
+    // Aggregated PER PRODUCT, not per SELL row: a position sold down over three sells is one
+    // closed position a client would recognise, not three, and it matches how the rest of the
+    // engine already treats a holding — one blended average-cost position, never discrete
+    // lots. `closedAt` is therefore the MOST RECENT sell: the date that portion finished
+    // closing.
     const { data: sells } = await admin
       .from('transactions')
-      .select('product_id, realized_return')
+      .select('product_id, units, total_value, realized_return, created_at')
       .eq('client_id', targetClientId)
       .eq('type', 'SELL');
-    const realisedByProduct = new Map<string, number>();
+    const closedByProduct = new Map<string, {
+      unitsSold: number; capitalAllocated: number; proceeds: number;
+      realised: number; closedAt: string | null;
+    }>();
     for (const t of sells || []) {
-      realisedByProduct.set(
-        t.product_id,
-        (realisedByProduct.get(t.product_id) || 0) + (t.realized_return || 0)
-      );
+      const realised = t.realized_return || 0;
+      const proceeds = t.total_value || 0;
+      const c = closedByProduct.get(t.product_id) ||
+        { unitsSold: 0, capitalAllocated: 0, proceeds: 0, realised: 0, closedAt: null };
+      c.unitsSold += t.units || 0;
+      // The identity from this file's own header. Exact, not an estimate.
+      c.capitalAllocated += proceeds - realised;
+      c.proceeds += proceeds;
+      c.realised += realised;
+      if (!c.closedAt || t.created_at > c.closedAt) c.closedAt = t.created_at;
+      closedByProduct.set(t.product_id, c);
     }
 
     const { data: navs } = await admin
@@ -142,7 +180,12 @@ Deno.serve(async (req) => {
         currentValue: currentValue,
         unrealized: unrealized,
         unrealizedPercent: unrealizedPercent,
-        realized: round2(realisedByProduct.get(h.product_id) || 0),
+        // A holding that ALSO has closed-position history: the client still holds part of it
+        // and sold the rest, so it legitimately appears in both the Return Table and the
+        // closed-positions panel. Keyed on the EXISTENCE of a SELL row, deliberately not on
+        // `realized !== 0` — a sale can realise exactly $0 (sold at cost), which is a real
+        // partial sale that a gain-based test would silently miss.
+        partiallySold: closedByProduct.has(h.product_id),
         trend: product ? unitPriceSeries(product, TREND_DAYS, navsByProduct.get(h.product_id)) : []
       };
     });
@@ -156,15 +199,45 @@ Deno.serve(async (req) => {
     // rule is written against, not a re-derivation from the ledger.
     const realized = state ? state.asset_returns : 0;
 
-    // realizedHeld is deliberately a DIFFERENT figure from `realized`, not a duplicate.
-    // It sums only the positions the client still holds, which is what the holdings table's
-    // own totals row must show: a totals row that does not add up to the column above it is
-    // a visible arithmetic error to anyone who checks it. The two diverge exactly when a
-    // position has been sold in full — its realised gain is real and still counted in
-    // `realized`, but it has no row left in that table to sit on.
-    const realizedHeld = round2(positions.reduce((s, p) => s + p.realized, 0));
     const total = round2(realized + unrealized);
-    const totalPercent = costBasis > 0 ? round2((total / costBasis) * 100) : null;
+
+    // Closed positions — one entry per product with any sell history, newest first.
+    // `capitalAllocated` is the recovered original cost of the units sold; see this file's
+    // header for the identity and the proof behind it.
+    const closedPositions = Array.from(closedByProduct.entries()).map(([productId, c]) => {
+      const product = products.find((p) => p.id === productId);
+      const capitalAllocated = round2(c.capitalAllocated);
+      const realisedAmount = round2(c.realised);
+      return {
+        productId,
+        name: product ? product.name : productId,
+        assetClass: product ? product.asset_class : null,
+        investmentType: product ? product.investment_type : null,
+        unitsSold: round2(c.unitsSold),
+        capitalAllocated,
+        proceeds: round2(c.proceeds),
+        realised: realisedAmount,
+        // Null rather than 0 when there is no real denominator: a position whose recovered
+        // cost was genuinely $0 has no meaningful percentage, and printing 0.0% would state
+        // something the data does not support.
+        realisedPercent: capitalAllocated === 0
+          ? null
+          : round2((realisedAmount / capitalAllocated) * 100),
+        closedAt: c.closedAt,
+        // True when part of this position is still held — the Return Table shows the rest.
+        stillHeld: positions.some((p) => p.productId === productId)
+      };
+    }).sort((a, b) => String(b.closedAt || '').localeCompare(String(a.closedAt || '')));
+
+    const closedCapital = round2(closedPositions.reduce((s, c) => s + c.capitalAllocated, 0));
+    const closedProceeds = round2(closedPositions.reduce((s, c) => s + c.proceeds, 0));
+    const closedRealised = round2(closedPositions.reduce((s, c) => s + c.realised, 0));
+    const closedUnits = round2(closedPositions.reduce((s, c) => s + c.unitsSold, 0));
+
+    // ★ row 186's fix. Capital DEPLOYED, not capital STILL deployed — the numerator spans
+    // both held and closed positions, so the denominator must too. See the header.
+    const capitalDeployed = round2(costBasis + closedCapital);
+    const totalPercent = capitalDeployed > 0 ? round2((total / capitalDeployed) * 100) : null;
 
     const classMap = new Map<string, { costBasis: number; currentValue: number; unrealized: number }>();
     for (const p of positions) {
@@ -193,9 +266,18 @@ Deno.serve(async (req) => {
     }
 
     return jsonResponse({
-      realized, realizedHeld, unrealized, total, totalPercent,
-      costBasis, currentValue,
-      positions, byClass, bestClass
+      realized, unrealized, total, totalPercent,
+      costBasis, currentValue, capitalDeployed,
+      positions, byClass, bestClass,
+      closedPositions,
+      closedTotals: {
+        count: closedPositions.length,
+        unitsSold: closedUnits,
+        capitalAllocated: closedCapital,
+        proceeds: closedProceeds,
+        realised: closedRealised,
+        realisedPercent: closedCapital === 0 ? null : round2((closedRealised / closedCapital) * 100)
+      }
     }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);

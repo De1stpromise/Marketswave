@@ -139,9 +139,16 @@ async function main() {
     await admin.from('holdings').insert({ client_id: clientId, product_id: 'PROD-0001', units: 500, cost_basis: 50000 });
     await admin.from('holdings').insert({ client_id: clientId, product_id: 'PROD-0003', units: 300, cost_basis: 30000 });
     await admin.from('holdings').insert({ client_id: clientId, product_id: 'PROD-0004', units: 200, cost_basis: 40000 });
+    // A realistic SELL row, not just a gain figure: the closed-positions panel recovers the
+    // original capital as total_value - realized_return, so $1,000 of proceeds carrying a
+    // $3,400 gain would imply a NEGATIVE original cost and quietly render nonsense. 200 units
+    // at ~111 is $22,274 of proceeds against a $3,400 gain — an ordinary trade.
+    const sellUnits = 200;
     await admin.from('transactions').insert({
-      client_id: clientId, product_id: 'PROD-0003', type: 'SELL', units: 10,
-      price: byId['PROD-0003'].unit_price, total_value: 1000, realized_return: 3400, status: 'completed'
+      client_id: clientId, product_id: 'PROD-0003', type: 'SELL', units: sellUnits,
+      price: byId['PROD-0003'].unit_price,
+      total_value: Math.round(sellUnits * byId['PROD-0003'].unit_price * 100) / 100,
+      realized_return: 3400, status: 'completed'
     });
 
     const anon = createClient(url, anonKey);
@@ -160,9 +167,7 @@ async function main() {
       'true'
     ].join('');
 
-    // ===================================================================================
-    console.log('\n=== CONTRAST — every new coloured figure, real composited pixels ===\n');
-    for (const [profile, page] of [['returns-dashboard', 'dashboard.html'], ['returns-holdings', 'asset-performance.html']]) {
+    function runContrast(profile, page, label) {
       const res = spawnSync(process.execPath, ['verify-contrast.mjs'], {
         cwd: fileURLToPath(new URL('.', import.meta.url)),
         encoding: 'utf8',
@@ -177,12 +182,29 @@ async function main() {
       const out = res.stdout || '';
       const tail = out.trim().split('\n').slice(-2).join(' | ');
       const m = out.match(/(\d+) measurements, (\d+) below/);
-      console.log('  ' + page + ' -> ' + tail);
-      check(page + ': contrast measured real elements (not an empty run)', !!m && Number(m[1]) > 0, tail);
-      check(page + ': every measured figure clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
+      console.log('  ' + label + ' -> ' + tail);
+      check(label + ': contrast measured real elements (not an empty run)', !!m && Number(m[1]) > 0, tail);
+      check(label + ': every measured figure clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
       // Print any failing lines so a regression names itself.
       out.split('\n').filter((l) => /FAIL\s+\d/.test(l)).forEach((l) => console.log('      ' + l.trim()));
     }
+
+    // ===================================================================================
+    console.log('\n=== CONTRAST — every new coloured figure, real composited pixels ===\n');
+    runContrast('returns-dashboard', 'dashboard.html', 'dashboard.html');
+    runContrast('returns-holdings', 'asset-performance.html', 'asset-performance.html');
+
+    // The empty state is what most clients see, so it is measured as a real state rather
+    // than assumed to inherit a tone measured on a populated page. Removing the SELL row
+    // turns this same client into one who has never sold.
+    await admin.from('transactions').delete().eq('client_id', clientId).eq('type', 'SELL');
+    runContrast('returns-holdings-empty', 'asset-performance.html', 'asset-performance.html (never sold)');
+    await admin.from('transactions').insert({
+      client_id: clientId, product_id: 'PROD-0003', type: 'SELL', units: sellUnits,
+      price: byId['PROD-0003'].unit_price,
+      total_value: Math.round(sellUnits * byId['PROD-0003'].unit_price * 100) / 100,
+      realized_return: 3400, status: 'completed'
+    });
 
     // ===================================================================================
     console.log('\n=== MOBILE — the table gained three columns ===\n');
@@ -207,7 +229,10 @@ async function main() {
         const done = await cdp.evaluate(
           "(() => { const f = document.querySelector('#return-table-foot tr');" +
           " const c = document.querySelector('#return-table-body tr td:nth-child(2)');" +
-          " return !!f && !!c && c.hasAttribute('data-label'); })()"
+          " const p = document.querySelector('#closed-positions-region tfoot tr');" +
+          " const pc = document.querySelector('#closed-positions-region tbody tr td:nth-child(2)');" +
+          " return !!f && !!c && c.hasAttribute('data-label')" +
+          "        && !!p && !!pc && pc.hasAttribute('data-label'); })()"
         );
         if (done) break;
         await sleep(500);
@@ -220,35 +245,112 @@ async function main() {
       if (real !== width) continue;
 
       const r = await cdp.evaluate(`(() => {
-        const t = document.querySelector('table.rt');
         const rows = document.querySelectorAll('#return-table-body tr');
         const trendTh = [...document.querySelectorAll('.rt th')].find(x => x.textContent.trim() === 'Trend');
         const foot = document.querySelector('#return-table-foot tr');
+        const cRows = document.querySelectorAll('#closed-positions-region tbody tr');
+        const cFoot = document.querySelector('#closed-positions-region tfoot tr');
+        const w = (el) => el ? Math.round(el.getBoundingClientRect().width) : 0;
+        // A card label is PROSE. It is drawn by td::before, which inherits from its
+        // originating cell — so a numeric (monospace) cell used to hand its family to its
+        // own label. Read the real computed family rather than trusting the rule exists.
+        const labelFamily = (el) => el ? getComputedStyle(el, '::before').fontFamily : '';
+        const numericCell = rows.length ? rows[0].children[1] : null;   // Units: a mono cell
+        // A cell with genuinely nothing in it should not be drawn as a blank bordered strip.
+        const emptyVisible = [...document.querySelectorAll('.mw-card-table td')].filter(
+          td => td.children.length === 0 && td.textContent.trim() === ''
+                && getComputedStyle(td).display !== 'none').length;
+        // The way IN to allocating capital, relative to the first table.
+        const browse = document.querySelector('a[href="asset-collection.html"]');
+        const firstTable = document.querySelector('table.rt');
         return {
           rendered: !!foot && rows.length > 0,
           bodyScrollW: document.body.scrollWidth,
           innerW: window.innerWidth,
           trendDisplay: trendTh ? getComputedStyle(trendTh).display : 'missing',
           rowDisplay: rows.length ? getComputedStyle(rows[0]).display : 'none',
-          firstCellLabel: rows.length ? (getComputedStyle(rows[0].children[1], '::before').content || '') : '',
+          firstCellLabel: numericCell ? (getComputedStyle(numericCell, '::before').content || '') : '',
+          numericCellLabelFamily: labelFamily(numericCell),
           legendVisible: !!document.querySelector('.rt-legend') && getComputedStyle(document.querySelector('.rt-legend')).display !== 'none',
-          footLabelled: foot ? [...foot.children].every(td => td.hasAttribute('data-label')) : false
+          footLabelled: foot ? [...foot.children].every(td => td.hasAttribute('data-label')) : false,
+          rowW: w(rows[0]), footW: w(foot),
+          closedRendered: !!cFoot && cRows.length > 0,
+          closedRowDisplay: cRows.length ? getComputedStyle(cRows[0]).display : 'none',
+          closedCellLabel: cRows.length ? (getComputedStyle(cRows[0].children[1], '::before').content || '') : '',
+          closedFootLabelled: cFoot ? [...cFoot.children].every(td => td.hasAttribute('data-label')) : false,
+          closedRowW: w(cRows[0]), closedFootW: w(cFoot),
+          emptyVisible: emptyVisible,
+          browseBeforeTable: !!browse && !!firstTable &&
+            (browse.compareDocumentPosition(firstTable) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
         };
       })()`);
 
-      check(width + 'px: the real table rendered', r.rendered, JSON.stringify(r));
+      check(width + 'px: the Return Table rendered', r.rendered, JSON.stringify(r));
+      check(width + 'px: the closed-positions panel rendered', r.closedRendered);
       check(width + 'px: no horizontal page overflow', r.bodyScrollW <= r.innerW + 1, r.bodyScrollW + ' vs ' + r.innerW);
       check(width + 'px: legend stays visible', r.legendVisible);
+      check(width + 'px: Browse Asset Collection sits above the tables', r.browseBeforeTable);
       if (width >= 1024) {
         check(width + 'px: Trend column is shown on desktop', r.trendDisplay !== 'none', r.trendDisplay);
         check(width + 'px: rows stay real table rows on desktop', r.rowDisplay === 'table-row', r.rowDisplay);
+        check(width + 'px: the panel stays a real table on desktop too', r.closedRowDisplay === 'table-row', r.closedRowDisplay);
       } else {
         check(width + 'px: Trend column is hidden rather than squeezing the figures', r.trendDisplay === 'none', r.trendDisplay);
         check(width + 'px: rows switch to the card layout from the mobile batches', r.rowDisplay === 'block', r.rowDisplay);
         check(width + 'px: cells still name their column in card mode', /Units/.test(r.firstCellLabel), r.firstCellLabel);
         check(width + 'px: the totals row keeps its labels too', r.footLabelled);
+        // The two regressions this page has already had once, asserted rather than assumed
+        // fixed: prose card labels rendered in the figures' monospace, and a totals card
+        // laid out narrower than the holding cards above it.
+        check(width + 'px: card labels are PROSE in Inter, not the cells figures monospace',
+          /Inter/.test(r.numericCellLabelFamily) && !/JetBrains/.test(r.numericCellLabelFamily),
+          r.numericCellLabelFamily);
+        check(width + 'px: the totals card spans the same width as a holding card',
+          r.footW === r.rowW, r.footW + ' vs ' + r.rowW);
+        check(width + 'px: no blank cell is drawn as an empty bordered strip', r.emptyVisible === 0, r.emptyVisible);
+        // The panel is a sibling table, so it has to earn all of that independently.
+        check(width + 'px: panel rows switch to the card layout too', r.closedRowDisplay === 'block', r.closedRowDisplay);
+        check(width + 'px: panel cells name their column', /Units sold/.test(r.closedCellLabel), r.closedCellLabel);
+        check(width + 'px: the panel totals row keeps its labels', r.closedFootLabelled);
+        check(width + 'px: the panel totals card matches its own rows width',
+          r.closedFootW === r.closedRowW, r.closedFootW + ' vs ' + r.closedRowW);
       }
     }
+
+    // ===================================================================================
+    console.log('\n=== MOBILE — the empty state, at the narrowest real width ===\n');
+    await admin.from('transactions').delete().eq('client_id', clientId).eq('type', 'SELL');
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: true });
+    await cdp.send('Page.navigate', { url: BASE + '/asset-performance.html' });
+    for (let i = 0; i < 60; i++) {
+      const done = await cdp.evaluate(
+        "(() => { const r = document.getElementById('closed-positions-region');" +
+        " return !!r && r.innerHTML.length > 0 && r.innerHTML.indexOf('animate-pulse') === -1; })()"
+      );
+      if (done) break;
+      await sleep(500);
+    }
+    const e = await cdp.evaluate(`(() => {
+      const region = document.getElementById('closed-positions-region');
+      const copy = region.querySelector('.rt-empty-copy');
+      return {
+        realW: window.innerWidth,
+        hasTable: !!region.querySelector('table'),
+        copyVisible: !!copy && getComputedStyle(copy).display !== 'none',
+        copyRight: copy ? Math.round(copy.getBoundingClientRect().right) : 0,
+        bodyScrollW: document.body.scrollWidth,
+        card: (document.getElementById('perf-realised-amount') || {}).textContent,
+        sub: (document.getElementById('perf-realised-sub') || {}).textContent
+      };
+    })()`);
+    check('320px: viewport is genuinely 320px', e.realW === 320, 'got ' + e.realW);
+    check('320px: the empty state shows no table at all', !e.hasTable);
+    check('320px: the empty-state copy is visible and inside the viewport',
+      e.copyVisible && e.copyRight <= e.realW + 1, e.copyRight + ' vs ' + e.realW);
+    check('320px: the empty state introduces no horizontal overflow',
+      e.bodyScrollW <= e.realW + 1, e.bodyScrollW + ' vs ' + e.realW);
+    check('320px: the Realised gains card reads a plain $0', e.card === '$0', e.card);
+    check('320px: its sub-line explains the zero', /No positions sold yet/.test(e.sub || ''), e.sub);
 
     console.log('\n' + pass + ' passed, ' + fail + ' failed');
     console.log(fail ? 'RETURNS DISPLAY VISUAL: FAIL' : 'RETURNS DISPLAY VISUAL: PASS');
