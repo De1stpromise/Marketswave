@@ -7825,24 +7825,23 @@ row 74.
     is the sum of the ALREADY-ROUNDED per-position values — summing raw and rounding once at
     the end is a different number. Verified by seeding the REAL `engine-core.js` with the same
     holdings and prices and comparing to the cent, not by re-deriving the server's arithmetic.
-  - **`realized` and `realizedHeld` are deliberately DIFFERENT figures, not a duplicate.**
-    `realized` is `account_state.asset_returns` (authoritative, what the dashboard shows).
-    `realizedHeld` sums only positions still held, and is what the table's totals row uses — a
-    totals row that does not add up to the column above it is a visible arithmetic error. They
-    diverge exactly when a position has been sold in full.
-  - **The total-return percentage denominator is a disclosed CHOICE, not an engine rule.** The
-    engine defines no "total return %". It uses the cost basis of held positions, the same
-    denominator the per-position and per-class figures use, so every percentage on both screens
-    means the same thing. Known imperfection, stated rather than hidden: realised gains came
-    from positions no longer held, whose cost basis is not in that denominator. Nothing
-    available fixes this — the engine does not retain the cost basis of closed positions.
-    **That is now tracked as its own open item, register row 186**, because it is a real
-    defect and not merely a caveat: it OVERSTATES performance for any client who has sold
-    ($100,000 -> $115,000 across one closed and one open position reports +25% instead of
-    +15%). The dollar figures are unaffected and always correct; only the percentage is; and
-    there is no effect at all for a client who has never sold. The fix is NOT a different
-    denominator — it is retaining the cost basis of closed positions, which the engine
-    currently discards on sale, so it needs a schema change and a migration decision.
+  - **`realizedHeld` and the per-position `realized` field are GONE (2026-09-09, row 187).**
+    Both existed only to feed the Return Table's Realised column, which was removed; realised
+    is now reported per CLOSED position instead, which is the thing it actually describes.
+    `realized` (the account-level `account_state.asset_returns`) remains and is still what the
+    dashboard shows, unchanged.
+  - **The total-return percentage denominator: FIXED 2026-09-09 (row 187), and the reasoning
+    that was written here before was WRONG.** It used to divide by the cost basis of HELD
+    positions only, which overstated performance for anyone who had sold ($100,000 -> $115,000
+    across one closed and one open position reported +25% instead of +15%). This entry, and
+    register row 186, both claimed the engine "does not retain the cost basis of closed
+    positions" and that fixing it needed a schema change plus a migration. **That was false.**
+    The figure was never lost, only unqueried: `execute-sell` stores both `total_value` and
+    `realized_return` on the SELL row, so `capital allocated = total_value - realized_return`,
+    exactly. The denominator is now capital DEPLOYED (`capitalDeployed` = held cost basis plus
+    recovered closed cost basis). Per-position and per-class percentages deliberately keep the
+    held-only denominator, since each describes a position still held. See row 186, which was
+    corrected in place rather than merely ticked off.
   - **The Trend sparkline is REAL history, not a decorative shape.** `settleProduct()`'s daily
     return depends only on product id and calendar date, never on the price, so the walk is
     exactly invertible: `price(D-1) = price(D) / exp(dailyReturn(D))`. New `unitPriceSeries()`
@@ -7880,8 +7879,9 @@ row 74.
     of scope — but it is now the LAST place unrealised is computed in the browser, and it
     should read `get-returns-summary` when that page is next touched.
   **Table**: Holding (name + class/type) | Units | Capital Allocated | Current value |
-  Unrealised (amount over percentage) | Trend | Realised | Action, plus a totals row and a
-  two-line legend. The column keeps its ORIGINAL label, "Capital Allocated": it was briefly
+  Unrealised (amount over percentage) | Trend | Action, plus a totals row and a two-line
+  legend. (The Realised column was here originally and was removed on 2026-09-09 — see row
+  187.) The column keeps its ORIGINAL label, "Capital Allocated": it was briefly
   renamed "Cost basis" on the technical argument that the cell renders `holding.costBasis`,
   and that was reverted the same day. Both phrases describe the same real figure — what the
   client originally put into the position — and where two labels are equally accurate, the
@@ -7904,6 +7904,81 @@ row 74.
   Cards stay SHORT — asserted, not just intended: no allocation breakdown, ranking or sparkline
   was added to them, and the mockup's own unused `.vbreak`/`.rank`/`.spark` CSS was not carried
   over.
+
+- **★★ Realised gains card, closed positions panel, and the Return Table cleanup
+  (2026-09-09, row 187).** Realised gains had nowhere sensible to live: the Return Table's
+  Realised column was an em dash on every row for any client who had never sold — most of
+  them — and a position that HAS been closed has no holding row left to sit on at all. The
+  column is gone; realised now has a panel that can describe a closed position properly.
+  **★ THE INVESTIGATION THAT GATED THE DESIGN, AND ITS ANSWER — READ THIS BEFORE TOUCHING
+  ANYTHING HERE.** The approved design needed the capital originally allocated to each CLOSED
+  position, and row 186 claimed the engine discarded that on sale. **It does not.** No BUY
+  history is needed and none is consulted: `execute-sell` computes `realized_return =
+  round2(saleValue - costBasisPortion)` and writes BOTH `total_value` and `realized_return` to
+  the SELL row, so `capital allocated to the units sold = total_value - realized_return`.
+  Both operands are already rounded to 2dp at write time, so the subtraction is EXACT. It is
+  also immune to the average-cost blending that would defeat a FIFO-style reconstruction from
+  BUY rows, precisely because it never looks at them. Proven, not reasoned: a real 1000-unit
+  position (cost basis $100,000) sold down through three real `execute-sell` calls
+  (250/300/450) reconstructed to the holding row's own cost-basis delta to the cent on every
+  sell, summing back to exactly $100,000. `execute-sell` is the only writer of SELL rows and
+  has always written `realized_return`, so no legacy row breaks it.
+  **Things a future session needs to know before touching this:**
+  - **★ Row 186 is FIXED by the same identity, and row 186 itself was CORRECTED IN PLACE
+    rather than ticked off.** Its stated root cause ("the engine discards a position's cost
+    basis on sale") was factually wrong and its proposed fix (schema change + reconstruction
+    from BUY history) would have been unnecessary and more fragile. `totalPercent` now divides
+    by `capitalDeployed` = held cost basis + recovered closed cost basis. Per-POSITION and
+    per-CLASS percentages deliberately keep their own held-only denominator: each describes a
+    position you still hold, so capital already taken back out of a closed one is not what
+    produced it. Only the portfolio-level figure spans both, because only its numerator does.
+  - **Closed positions aggregate PER PRODUCT, not per SELL row.** A position sold down over
+    three sells is one closed position a client would recognise, and it matches how the engine
+    already treats a holding — one blended average-cost position, never discrete lots.
+    `closedAt` is therefore the MOST RECENT sell.
+  - **`partiallySold` keys on the EXISTENCE of a SELL row, never on a non-zero gain.** A sale
+    at exactly cost realises $0 and is still a real partial sale; a gain-based test would
+    silently miss it and the two tables would then look like a duplicate rather than a
+    deliberate pair. The panel carries the reciprocal marker ("Part of this position is still
+    held") so the cross-reference reads from both ends.
+  - **The Realised gains CARD shows the closed-positions total, not `account_state.asset_returns`.**
+    It introduces the panel directly below it and states that panel's own row count, so the two
+    must agree on screen. In real data they are the same number by construction: `execute-sell`
+    writes the identical `realized_return` to the ledger row and to `account_state`.
+  - **Three things the removed column orphaned were deleted, not left dormant**: the payload's
+    `realizedHeld`, the per-position `realized` field (and the `realisedByProduct` map behind
+    it), and `.rt-dash`. Leaving `realizedHeld` in place would have left a long comment in
+    `get-returns-summary` explaining that it feeds a totals row that no longer exists.
+  - **★ A SEEDED SELL ROW MUST BE ONE `execute-sell` COULD ACTUALLY HAVE WRITTEN.** Both
+    existing verification scripts seeded impossible rows — $1,000 of proceeds carrying a
+    $3,400 gain, and 10 units at ~$111 carrying $2,500 — which imply a NEGATIVE original
+    cost. That never mattered while nothing read it; the moment capital is recovered as
+    `total_value - realized_return` it produces a nonsense denominator, and it would not have
+    failed loudly. Both seeds were corrected to real trades.
+  - **`audit-fonts.mjs` could not audit an authenticated page at all**, and would have
+    reported on `login.html` after the redirect while appearing to succeed. It now takes
+    `AUDIT_BOOTSTRAP_JS`, the same hook and the same reasoning as `verify-contrast.mjs`'s
+    `CONTRAST_BOOTSTRAP_JS`.
+  - **`.rt` now matches TWO tables** (the Return Table and the panel), which is deliberate —
+    they are styled as siblings, so measuring them through one selector is what proves it. Any
+    probe that wants only one of them must scope to that table's own element; an unscoped
+    `thead th` merges both column lists.
+  **Layout**: three summary cards — Total portfolio value, Unrealised, Realised gains.
+  Unallocated Capital lost its card here: it is not a returns figure, and it is still on
+  dashboard.html and deploy-capital.html, which is where a client acts on it. "Browse Asset
+  Collection" moved ABOVE both tables, directly under the cards — it is the entry point to
+  allocating capital, and a client with no holdings previously scrolled past two empty tables
+  and a request history to reach it, which on mobile is several screens of nothing.
+  **Verified**: `verify-returns-display.mjs` 105/105 (the real partial-sell chain driven
+  through the real `execute-sell`; rendered figures cross-checked against the LEDGER ROWS
+  rather than against the payload the page was handed; a genuinely losing close, a negative
+  totals row and a negative Realised card; the empty state) and
+  `verify-returns-display-visual.mjs` 72/72 — 91 real composited-contrast measurements
+  across three profiles including a dedicated never-sold run, and 1440/390/375/320 with
+  explicit guards against the two regressions this page has already had once: card labels
+  rendered in the figures' monospace, and a totals card laid out narrower than the holding
+  cards above it. `audit-fonts.mjs` re-run on both pages: no fallbacks, mono weights used
+  (500, 700) exactly matching the faces available.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
