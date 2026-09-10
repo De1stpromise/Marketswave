@@ -7924,6 +7924,25 @@ row 74.
   sell, summing back to exactly $100,000. `execute-sell` is the only writer of SELL rows and
   has always written `realized_return`, so no legacy row breaks it.
   **Things a future session needs to know before touching this:**
+  - **★ THE MONO RULE IS AMENDED (2026-09-10). Mono is for FIGURES, and for uppercase
+    micro-labels ONLY where they are sparse enough to read as an accent.** As first written,
+    the rule said "figures and uppercase micro-labels" with no density qualifier, and this
+    table followed it literally: column heads, the asset-class line under every holding name,
+    the TOTAL label and every figure were all JetBrains Mono. Individually each one satisfied
+    the rule; together they made the table read as a different typeface embedded in an Inter
+    page rather than as an Inter table with monospaced numbers. A device used on everything
+    is not a device. Heads, the asset-class line and the TOTAL label are Inter now; every
+    figure stayed mono. They keep their uppercase, size and letter-spacing — that is what
+    actually makes them read as labels — and step 500 -> 600, because mono carries more
+    apparent weight at 9.5-10px (uniform stems, wider glyphs) so a straight family swap
+    leaves the heads looking lighter than they were.
+    **Measured, so the scale of the over-application is on record**: mono@500 on
+    asset-performance.html dropped from 38 elements to 18, and a new Inter@600 group of
+    exactly 20 appeared — the heads, meta lines and totals labels that moved.
+    **Where the rule still applies unchanged**: the public site's `.res-kind`, `.res-n`,
+    `.field-eyebrow`, `.approach .eyebrow`, `.values-num`, `.hiw-cap` and the hero ticker are
+    each ONE element per section or row. That sparseness is exactly the accent case, and they
+    are deliberate — leave them.
   - **★ Row 186 is FIXED by the same identity, and row 186 itself was CORRECTED IN PLACE
     rather than ticked off.** Its stated root cause ("the engine discards a position's cost
     basis on sale") was factually wrong and its proposed fix (schema change + reconstruction
@@ -7963,6 +7982,11 @@ row 74.
     they are styled as siblings, so measuring them through one selector is what proves it. Any
     probe that wants only one of them must scope to that table's own element; an unscoped
     `thead th` merges both column lists.
+  **The rest of the app was audited for the same over-application, and is clean.**
+  dashboard.html uses mono in exactly four places — `.ret-pc`, `.ret-u`, `.ret-r` and
+  `.ret-mono` — and every one of them is a figure; its card labels (`.ret-k`) were already
+  Inter 600. `support.html` uses Tailwind `font-mono` once per row for a ticket id, which is
+  an identifier and sparse. Nothing else in the client or admin family uses mono at all.
   **Layout**: three summary cards — Total portfolio value, Unrealised, Realised gains.
   Unallocated Capital lost its card here: it is not a returns figure, and it is still on
   dashboard.html and deploy-capital.html, which is where a client acts on it. "Browse Asset
