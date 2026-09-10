@@ -50,7 +50,8 @@
     "verify-tailwind-color-scoping": "node verify-tailwind-color-scoping.js",
     "verify-contrast": "node verify-contrast.mjs",
     "verify-resources-redesign": "node verify-resources-redesign.mjs",
-    "verify-password-reset-flow": "node --experimental-loader ./lib/esm-loader-reset-flow-test.mjs verify-password-reset-flow.mjs"
+    "verify-password-reset-flow": "node --experimental-loader ./lib/esm-loader-reset-flow-test.mjs verify-password-reset-flow.mjs",
+    "verify-control-patterns": "node verify-control-patterns.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

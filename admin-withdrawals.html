@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -75,11 +76,11 @@
       </div>
       <p class="text-sm text-slate-500 mb-4">Client requested <span class="font-medium text-slate-900" id="approve-requested-label"></span>. Enter the amount to actually approve — editable in case a compliance hold or correction means less than the full requested amount should be released.</p>
       <label class="block text-sm font-medium text-slate-700 mb-1">Approved Amount (USD)</label>
-      <input type="number" id="approve-amount-input" step="0.01" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-1" />
+      <input type="number" id="approve-amount-input" step="0.01" min="0" class="mw-field mw-field-admin mb-1" />
       <p class="text-xs text-red-500 hidden mb-2" id="approve-error"></p>
       <div class="flex gap-3 mt-4">
-        <button type="button" id="approve-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="approve-submit" class="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">Approve Withdrawal</button>
+        <button type="button" id="approve-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="approve-submit" class="mw-btn mw-btn-approve mw-btn-grow">Approve Withdrawal</button>
       </div>
     </div>
   </div>
@@ -93,11 +94,11 @@
         <button type="button" id="reject-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
-      <textarea id="reject-reason-input" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 mb-2" placeholder="Why is this request being rejected?"></textarea>
+      <textarea id="reject-reason-input" rows="3" class="mw-field mw-field-admin mb-2" placeholder="Why is this request being rejected?"></textarea>
       <p class="text-xs text-red-500 hidden mb-2" id="reject-error"></p>
       <div class="flex gap-3 mt-2">
-        <button type="button" id="reject-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="reject-submit" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition">Reject Request</button>
+        <button type="button" id="reject-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="reject-submit" class="mw-btn mw-btn-danger mw-btn-grow">Reject Request</button>
       </div>
     </div>
   </div>
@@ -198,8 +199,8 @@
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.destinationDetails) + '</div>' +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
-              '<button type="button" class="reject-btn px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="approve-btn px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Approve</button>' +
+              '<button type="button" class="reject-btn mw-btn mw-btn-secondary mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
+              '<button type="button" class="approve-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Approve</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';

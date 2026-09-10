@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -77,7 +78,7 @@
         <!-- My Pockets -->
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-navy">My Pockets</h3>
-          <button type="button" id="open-new-pocket-btn" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">+ Open New Pocket</button>
+          <button type="button" id="open-new-pocket-btn" class="mw-btn mw-btn-primary">+ Open New Pocket</button>
         </div>
 
         <div id="pockets-empty" class="hidden bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-400">
@@ -149,18 +150,18 @@
       <!-- Step: fd-details -->
       <div class="np-step hidden" data-step="fd-details">
         <div class="flex gap-1.5 mb-4 flex-wrap" id="np-term-mode-tabs">
-          <button type="button" class="np-term-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-navy text-white transition" data-mode="short">Short-Term (1–12 Months)</button>
-          <button type="button" class="np-term-mode-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-mode="locked">Locked (1–5 Years)</button>
+          <button type="button" class="np-term-mode-tab mw-btn mw-btn-sm bg-navy text-white" data-mode="short">Short-Term (1–12 Months)</button>
+          <button type="button" class="np-term-mode-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-mode="locked">Locked (1–5 Years)</button>
         </div>
 
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Term</label>
-            <select id="np-term-select" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></select>
+            <select id="np-term-select" class="mw-field"></select>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount</label>
-            <input type="number" id="np-fd-amount" placeholder="5000" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="number" id="np-fd-amount" placeholder="5000" class="mw-field">
             <p class="text-xs text-slate-400 mt-1">$5,000 minimum.</p>
             <p class="text-xs text-red-500 hidden mt-1" id="np-fd-amount-error">Minimum deposit is $5,000.</p>
           </div>
@@ -174,8 +175,8 @@
         </div>
 
         <div class="flex gap-3 pt-5">
-          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
-          <button type="button" id="np-fd-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue</button>
+          <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="type">Back</button>
+          <button type="button" id="np-fd-continue" class="mw-btn mw-btn-primary mw-btn-grow">Continue</button>
         </div>
       </div>
 
@@ -184,14 +185,14 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Amount</label>
-            <input type="number" id="np-ayw-amount" placeholder="0.00" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="number" id="np-ayw-amount" placeholder="0.00" class="mw-field">
             <p class="text-xs text-red-500 hidden mt-1" id="np-ayw-amount-error">Please enter an amount.</p>
           </div>
           <p class="text-xs text-slate-400">As You Want pockets have no minimum, no fixed term, and no fixed rate — withdraw anytime.</p>
         </div>
         <div class="flex gap-3 pt-5">
-          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
-          <button type="button" id="np-ayw-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue</button>
+          <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="type">Back</button>
+          <button type="button" id="np-ayw-continue" class="mw-btn mw-btn-primary mw-btn-grow">Continue</button>
         </div>
       </div>
 
@@ -215,7 +216,7 @@
           </button>
         </div>
         <div class="pt-5">
-          <button type="button" id="np-funding-back" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="type">Back</button>
+          <button type="button" id="np-funding-back" class="np-back mw-btn mw-btn-secondary" data-target="type">Back</button>
         </div>
       </div>
 
@@ -224,7 +225,7 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
-            <select id="np-crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <select id="np-crypto-asset" class="mw-field">
               <option value="">Select asset</option>
               <option value="BTC">Bitcoin (BTC)</option>
               <option value="ETH">Ethereum (ETH)</option>
@@ -234,7 +235,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Network</label>
-            <select id="np-crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <select id="np-crypto-network" class="mw-field">
               <option value="">Select network</option>
               <option value="ERC20">ERC-20</option>
               <option value="TRC20">TRC-20</option>
@@ -245,8 +246,8 @@
           <p class="text-xs text-red-500 hidden" id="np-crypto-error">Please select an asset and network.</p>
         </div>
         <div class="flex gap-3 pt-5">
-          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="funding">Back</button>
-          <button type="button" id="np-crypto-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm &amp; Submit Request</button>
+          <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="funding">Back</button>
+          <button type="button" id="np-crypto-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm &amp; Submit Request</button>
         </div>
       </div>
 
@@ -255,32 +256,32 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Full Legal Name</label>
-            <input type="text" id="np-bank-name" placeholder="As it appears on your bank account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="np-bank-name" placeholder="As it appears on your bank account" class="mw-field">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
-            <input type="text" id="np-bank-institution" placeholder="Name of your bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="np-bank-institution" placeholder="Name of your bank" class="mw-field">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
-            <input type="text" id="np-bank-account" placeholder="Your account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="np-bank-account" placeholder="Your account number" class="mw-field">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
-              <input type="text" id="np-bank-routing" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <input type="text" id="np-bank-routing" placeholder="Optional" class="mw-field">
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC</label>
-              <input type="text" id="np-bank-swift" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <input type="text" id="np-bank-swift" placeholder="Optional" class="mw-field">
             </div>
           </div>
           <p class="text-xs text-slate-400">Provide either a routing number or a SWIFT / BIC code.</p>
           <p class="text-xs text-red-500 hidden" id="np-bank-error">Please complete the required fields, including a routing number or SWIFT / BIC code.</p>
         </div>
         <div class="flex gap-3 pt-5">
-          <button type="button" class="np-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="funding">Back</button>
-          <button type="button" id="np-bank-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm &amp; Submit Request</button>
+          <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="funding">Back</button>
+          <button type="button" id="np-bank-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm &amp; Submit Request</button>
         </div>
       </div>
     </div>
@@ -307,8 +308,8 @@
           <p class="text-xs text-red-600">This pocket has not yet reached maturity. Withdrawing now returns your principal of <span id="wd-warning-principal" class="font-semibold">$0.00</span> only — the accrued interest of <span id="wd-warning-interest" class="font-semibold">$0.00</span> will be forfeited.</p>
         </div>
         <div class="flex gap-3">
-          <button type="button" id="wd-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-          <button type="button" id="wd-warning-continue" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Continue Anyway</button>
+          <button type="button" id="wd-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+          <button type="button" id="wd-warning-continue" class="mw-btn mw-btn-primary mw-btn-grow">Continue Anyway</button>
         </div>
       </div>
 
@@ -336,11 +337,11 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Destination Wallet Address</label>
-            <input type="text" id="wd-crypto-address" placeholder="Your wallet address" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="wd-crypto-address" placeholder="Your wallet address" class="mw-field">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Asset</label>
-            <select id="wd-crypto-asset" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <select id="wd-crypto-asset" class="mw-field">
               <option value="">Select asset</option>
               <option value="BTC">Bitcoin (BTC)</option>
               <option value="ETH">Ethereum (ETH)</option>
@@ -350,7 +351,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Network</label>
-            <select id="wd-crypto-network" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <select id="wd-crypto-network" class="mw-field">
               <option value="">Select network</option>
               <option value="ERC20">ERC-20</option>
               <option value="TRC20">TRC-20</option>
@@ -361,8 +362,8 @@
           <p class="text-xs text-red-500 hidden" id="wd-crypto-error">Please complete all fields.</p>
         </div>
         <div class="flex gap-3 pt-5">
-          <button type="button" class="wd-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="destination">Back</button>
-          <button type="button" id="wd-crypto-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm Withdrawal</button>
+          <button type="button" class="wd-back mw-btn mw-btn-secondary" data-target="destination">Back</button>
+          <button type="button" id="wd-crypto-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm Withdrawal</button>
         </div>
       </div>
 
@@ -370,32 +371,32 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Recipient Full Name</label>
-            <input type="text" id="wd-bank-name" placeholder="As it appears on your bank account" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="wd-bank-name" placeholder="As it appears on your bank account" class="mw-field">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Bank Name</label>
-            <input type="text" id="wd-bank-institution" placeholder="Name of your bank" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="wd-bank-institution" placeholder="Name of your bank" class="mw-field">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Account Number</label>
-            <input type="text" id="wd-bank-account" placeholder="Recipient account number" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="wd-bank-account" placeholder="Recipient account number" class="mw-field">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1.5">Routing Number</label>
-              <input type="text" id="wd-bank-routing" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <input type="text" id="wd-bank-routing" placeholder="Optional" class="mw-field">
             </div>
             <div>
               <label class="block text-sm font-medium text-slate-700 mb-1.5">SWIFT / BIC</label>
-              <input type="text" id="wd-bank-swift" placeholder="Optional" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <input type="text" id="wd-bank-swift" placeholder="Optional" class="mw-field">
             </div>
           </div>
           <p class="text-xs text-slate-400">Provide either a routing number or a SWIFT / BIC code.</p>
           <p class="text-xs text-red-500 hidden" id="wd-bank-error">Please complete the required fields, including a routing number or SWIFT / BIC code.</p>
         </div>
         <div class="flex gap-3 pt-5">
-          <button type="button" class="wd-back px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition" data-target="destination">Back</button>
-          <button type="button" id="wd-bank-confirm" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Confirm Withdrawal</button>
+          <button type="button" class="wd-back mw-btn mw-btn-secondary" data-target="destination">Back</button>
+          <button type="button" id="wd-bank-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm Withdrawal</button>
         </div>
       </div>
     </div>
@@ -671,7 +672,7 @@
       } else if (p.type === 'fixed' && p.termMode === 'locked' && p.status === 'active') {
         actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Locked until maturity — no early withdrawal available.</p>`;
       } else {
-        actionBlock = `<button type="button" class="withdraw-btn mt-4 w-full py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition" data-id="${p.id}">Withdraw</button>`;
+        actionBlock = `<button type="button" class="withdraw-btn mt-4 mw-btn mw-btn-primary mw-btn-block" data-id="${p.id}">Withdraw</button>`;
       }
 
       card.innerHTML = `

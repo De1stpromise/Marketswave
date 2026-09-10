@@ -159,6 +159,32 @@ PROFILES['returns-holdings-empty'] = [
   { label: 'empty-state copy', sel: '.rt-empty-copy', limit: 1 },
 ];
 
+/* The converged control vocabulary (Button and Control Modernisation, 2026-09-10).
+ * Both label colours are NEW surfaces: Tier B puts #475569 on a translucent white that
+ * sits over whatever the page's own glass/blob background happens to be, and Tier C is
+ * the same at 13px. Hover is measured too, because .mw-btn-secondary:hover CHANGES both
+ * the ground (#F5F3EF) and the text (#1A1C1E) — a hover state that fails is still a
+ * failure, and rest-state alone would never have measured it. */
+PROFILES.controls = [
+  { label: 'Tier A label (gradient ground)', sel: '.mw-btn-primary', limit: 4 },
+  { label: 'Tier A admin label', sel: '.mw-btn-admin', limit: 4 },
+  { label: 'Tier A approve label', sel: '.mw-btn-approve', limit: 4 },
+  { label: 'Tier A danger label', sel: '.mw-btn-danger', limit: 4 },
+  { label: 'Tier B label (translucent ground)', sel: '.mw-btn-secondary', limit: 6 },
+  // Scoped so no element is measured twice under two labels: a Tier C button that is
+  // ALSO secondary is measured once, as Tier B. Measuring one button under both labels
+  // produced 7.44:1 and 4.1:1 in the SAME run for the SAME element (the second sample
+  // caught an antialiased edge pixel) - a permanent false failure if left in.
+  { label: 'Tier C label', sel: '.mw-btn-sm:not(.mw-btn-secondary):not(.mw-btn-outline)', limit: 8 },
+  { label: 'Tier B outline label', sel: '.mw-btn-outline', limit: 4 },
+  { label: 'field text', sel: '.mw-field', limit: 6 },
+  // --- hover: the secondary treatment changes BOTH ground and text on hover ---
+  { label: 'HOVER Tier B label', sel: '.mw-btn-secondary', limit: 6, hover: true },
+  { label: 'HOVER Tier C label', sel: '.mw-btn-sm:not(.mw-btn-secondary):not(.mw-btn-outline)', limit: 8, hover: true },
+  { label: 'HOVER Tier A label', sel: '.mw-btn-primary', limit: 4, hover: true },
+  { label: 'HOVER Tier A admin label', sel: '.mw-btn-admin', limit: 4, hover: true },
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 
@@ -329,6 +355,16 @@ async function main() {
     }
     await cdp.send('Page.navigate', { url: PAGE_URL });
     await sleep(Number(process.env.CONTRAST_SETTLE_MS || 1800));
+
+    // CONTRAST_PREPARE_JS runs AFTER the page has settled, unlike CONTRAST_BOOTSTRAP_JS,
+    // which must run BEFORE navigation to seed a session. It exists because some controls
+    // only come into being once the page is live and something has been opened - a
+    // conditionally-revealed form panel, a modal. Without it those controls are never
+    // measured at all and the run reports a confident zero.
+    if (process.env.CONTRAST_PREPARE_JS) {
+      await cdp.eval(process.env.CONTRAST_PREPARE_JS);
+      await sleep(Number(process.env.CONTRAST_PREPARE_SETTLE_MS || 900));
+    }
 
     // Viewport-integrity guard: this project has had a run report a clean PASS while the
     // browser was silently clamped to a different width. Fail loudly instead.

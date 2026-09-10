@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
     .convo-row.is-active { background: #F1F5F9; }
@@ -42,7 +43,7 @@
         </div>
         <div class="flex items-center gap-4">
           <p class="text-xs text-slate-400" id="realtime-status">Connecting…</p>
-          <button type="button" id="new-message-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition">+ New Message</button>
+          <button type="button" id="new-message-btn" class="mw-btn mw-btn-admin mw-btn-sm">+ New Message</button>
         </div>
       </header>
 
@@ -51,7 +52,7 @@
         <!-- ========== LEFT: conversation list ========== -->
         <div class="w-full max-w-sm border-r border-slate-200 bg-white flex flex-col overflow-hidden shrink-0">
           <div class="p-4 border-b border-slate-100 space-y-3">
-            <input type="text" id="inbox-search" placeholder="Search name, email, or message…" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <input type="text" id="inbox-search" placeholder="Search name, email, or message…" class="mw-field mw-field-admin mw-field-sm">
             <div class="flex flex-wrap gap-1.5 text-xs font-medium" id="status-filters">
               <span class="filter-pill is-active px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="all">All</span>
               <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="unread">Unread</span>
@@ -85,15 +86,15 @@
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="text-xs font-medium px-2.5 py-1 rounded-full" id="thread-status-badge"></span>
-                <button type="button" id="thread-resolve-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition">Resolve</button>
-                <button type="button" id="thread-archive-btn" class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition">Archive</button>
-                <button type="button" id="thread-reopen-btn" class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200 transition hidden">Reopen</button>
+                <button type="button" id="thread-resolve-btn" class="mw-btn mw-btn-admin mw-btn-sm">Resolve</button>
+                <button type="button" id="thread-archive-btn" class="mw-btn mw-btn-secondary mw-btn-sm">Archive</button>
+                <button type="button" id="thread-reopen-btn" class="mw-btn mw-btn-secondary mw-btn-sm hidden">Reopen</button>
               </div>
             </div>
             <div class="flex-1 overflow-y-auto p-6 space-y-3" id="thread-messages"></div>
             <div class="border-t border-slate-200 bg-white p-4 flex gap-2 shrink-0">
-              <input type="text" id="thread-reply-input" placeholder="Reply…" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
-              <button type="button" id="thread-reply-send" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Send</button>
+              <input type="text" id="thread-reply-input" placeholder="Reply…" class="mw-field mw-field-admin mw-field-sm flex-1">
+              <button type="button" id="thread-reply-send" class="mw-btn mw-btn-admin">Send</button>
             </div>
           </div>
         </div>
@@ -137,7 +138,7 @@
         <div id="compose-panel-single">
           <label class="block text-xs font-medium text-slate-500 mb-1">Recipient</label>
           <div class="relative">
-            <input type="text" id="compose-client-search" placeholder="Search real clients by name or email…" autocomplete="off" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <input type="text" id="compose-client-search" placeholder="Search real clients by name or email…" autocomplete="off" class="mw-field mw-field-admin mw-field-sm">
             <div id="compose-client-results" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
           </div>
           <div id="compose-client-selected" class="hidden mt-2 flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
@@ -151,14 +152,14 @@
         <div id="compose-panel-announcement" class="hidden space-y-3">
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Status</label>
-            <select id="announce-status-filter" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm">
+            <select id="announce-status-filter" class="mw-field mw-field-admin">
               <option value="active" selected>Active clients only</option>
               <option value="all">All clients (any status, including pending/rejected)</option>
             </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Account Type</label>
-            <select id="announce-account-type-filter" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm">
+            <select id="announce-account-type-filter" class="mw-field mw-field-admin">
               <option value="all" selected>All account types</option>
               <option value="Individual Account">Individual Account</option>
               <option value="Joint Account">Joint Account</option>
@@ -170,11 +171,11 @@
 
         <div>
           <label class="block text-xs font-medium text-slate-500 mb-1">Subject</label>
-          <input type="text" id="compose-subject" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+          <input type="text" id="compose-subject" class="mw-field mw-field-admin mw-field-sm">
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-500 mb-1">Message</label>
-          <textarea id="compose-body" rows="6" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"></textarea>
+          <textarea id="compose-body" rows="6" class="mw-field mw-field-admin mw-field-sm"></textarea>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-500 mb-1.5">Footer Type — an explicit choice at send time, not a guess</label>
@@ -187,8 +188,8 @@
         <div id="compose-confirm-panel" class="hidden bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800"></div>
 
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" id="compose-cancel-btn" class="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition hidden">Cancel</button>
-          <button type="button" id="compose-send-btn" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Send</button>
+          <button type="button" id="compose-cancel-btn" class="mw-btn mw-btn-secondary mw-btn-sm hidden">Cancel</button>
+          <button type="button" id="compose-send-btn" class="mw-btn mw-btn-admin">Send</button>
         </div>
       </div>
     </div>

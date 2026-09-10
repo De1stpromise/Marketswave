@@ -1,0 +1,379 @@
+/* =====================================================================
+   control-patterns.css — the shared button + form-control vocabulary for the
+   Tailwind families (10 client dashboard pages, 16 admin pages).
+   Added 2026-09-10 by the Button and Control Modernisation sweep.
+   Full inventory, tier rationale and leave-alone list: BUTTON_AUDIT.md
+   =====================================================================
+
+   WHY PLAIN CSS AND NOT TAILWIND UTILITIES
+   ----------------------------------------
+   Two reasons, both from real incidents in this project:
+
+   1. The Tailwind CDN's JIT compiler emits NO CSS at all for a utility it does
+      not recognise, and does not error (row 165: `bg-navy` on an admin page
+      rendered a fully transparent button with white text — present, laid out,
+      clickable, invisible). Plain CSS cannot fail that way.
+   2. None of the three treatments below (a gradient, a sweeping highlight, a
+      directional icon shift) is expressible as a utility string anyway.
+
+   HOW IT LAYERS WITH tap-targets.css
+   -----------------------------------
+   `tap-targets.css` sets `min-height: 44px` on every button below 1024px.
+   `min-height` constrains the USED value after `height` resolves, so a Tier C
+   control is 40px on desktop and 44px on mobile with no extra rule. That is the
+   intended behaviour, not a collision — do not "fix" it.
+
+   THE THREE TIERS
+   ---------------
+   A single 54px height applied to everything would break the dense contexts:
+   a table-row action grown from 28px to 54px adds ~26px to every row on every
+   Approval Gate page. Tier C is the same palette, border treatment and states
+   at a density a table row can carry — the same relationship `.btn-sm` already
+   has to `.btn` on the public site, not a new invented pattern.
+
+     Tier A  .mw-btn.mw-btn-primary     54px  committing action, gradient + sweep
+     Tier B  .mw-btn.mw-btn-secondary   54px  cancel / back / neutral
+     Tier C  .mw-btn.mw-btn-sm          40px  in-row action, tab, pill, chip
+
+   Admin keeps its own slate/amber palette (locked rule) — the SHAPE and
+   BEHAVIOUR converge, the colour does not. Use .mw-btn-admin / .mw-btn-approve
+   / .mw-btn-danger there, never .mw-btn-primary.
+   ===================================================================== */
+
+/* ---- Base geometry, shared by every tier ---- */
+.mw-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 54px;
+  min-width: 150px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 0.18s, border-color 0.18s, color 0.18s,
+              box-shadow 0.18s, transform 0.12s ease-out;
+}
+
+/* A trailing icon shifts on hover; a LEADING icon does not. `:not(:first-child)`
+   is what distinguishes "chevron after the label" (directional, should move)
+   from "icon before the label" (decorative, should not). */
+.mw-btn > svg:last-child:not(:first-child) {
+  transition: transform 0.25s;
+  flex-shrink: 0;
+}
+.mw-btn:hover > svg:last-child:not(:first-child) { transform: translateX(3px); }
+.mw-btn.mw-btn-back:hover > svg:first-child { transform: translateX(-3px); }
+.mw-btn.mw-btn-back > svg:first-child { transition: transform 0.25s; flex-shrink: 0; }
+
+.mw-btn:disabled,
+.mw-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Focus is never removed, only replaced — these are real form controls. */
+.mw-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+}
+
+/* ---- The light sweep (Tier A only). Ported verbatim from login.html's
+   .gate-btn — the one reference in this project that actually carries it.
+   Deliberately NOT on Tier C: at 40px in a table row it reads as noise. ---- */
+.mw-btn-primary::before,
+.mw-btn-admin::before,
+.mw-btn-approve::before,
+.mw-btn-danger::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -50%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.mw-btn-primary:hover::before,
+.mw-btn-admin:hover::before,
+.mw-btn-approve:hover::before,
+.mw-btn-danger:hover::before { left: 110%; }
+
+.mw-btn-sm::before { content: none; }
+
+/* ---- Tier A, client family (navy) ---- */
+.mw-btn.mw-btn-primary {
+  background: linear-gradient(135deg, #22485C, #152B3B);
+  color: #FFFFFF;
+  box-shadow: 0 14px 28px -12px rgba(21, 43, 59, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.mw-btn.mw-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 18px 36px -12px rgba(21, 43, 59, 0.65),
+              inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+/* The flat sibling — signup.html's own .signup-btn-next treatment. Same
+   geometry, no gradient, no sweep. For a page with several primary-ish
+   actions where a sweep on each would be noise. */
+.mw-btn.mw-btn-flat {
+  background: var(--primary, #1B3A4B);
+  color: #FFFFFF;
+  box-shadow: 0 8px 20px rgba(27, 58, 75, 0.18);
+}
+.mw-btn.mw-btn-flat:hover:not(:disabled) {
+  background: #122A38;
+  transform: translateY(-1px);
+}
+
+/* ---- Tier A, admin family (slate/amber — locked, never navy) ---- */
+.mw-btn.mw-btn-admin {
+  background: linear-gradient(135deg, #1E293B, #0F172A);
+  color: #FFFFFF;
+  box-shadow: 0 14px 28px -12px rgba(15, 23, 42, 0.55),
+              inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.mw-btn.mw-btn-admin:hover:not(:disabled) {
+  box-shadow: 0 18px 36px -12px rgba(15, 23, 42, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+.mw-btn.mw-btn-admin:focus-visible { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35); }
+
+/* Approve / Reject keep their existing emerald + red semantics — those carry
+   real meaning on a queue page and are not decoration. */
+/* The ramp is emerald-700 -> emerald-800, NOT the emerald-600 the old buttons used.
+   Measured against white: emerald-600 is 3.77:1, genuinely below the 4.5:1 floor, and
+   every Approve/Credit button in the admin tool had been shipping at that ratio long
+   before this sweep. Carrying it forward as the light stop of a gradient would have
+   preserved a real failure under new paint. emerald-700 is 5.48:1 and emerald-800 is
+   7.68:1, so both ends of the ramp pass. Do not lighten this back toward -600. */
+.mw-btn.mw-btn-approve {
+  background: linear-gradient(135deg, #047857, #065F46);
+  color: #FFFFFF;
+  box-shadow: 0 14px 28px -12px rgba(6, 95, 70, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.mw-btn.mw-btn-approve:hover:not(:disabled) {
+  box-shadow: 0 18px 36px -12px rgba(6, 95, 70, 0.58),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.mw-btn.mw-btn-approve:focus-visible { box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.35); }
+
+.mw-btn.mw-btn-danger {
+  background: linear-gradient(135deg, #DC2626, #B91C1C);
+  color: #FFFFFF;
+  box-shadow: 0 14px 28px -12px rgba(185, 28, 28, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.mw-btn.mw-btn-danger:hover:not(:disabled) {
+  box-shadow: 0 18px 36px -12px rgba(185, 28, 28, 0.58),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.mw-btn.mw-btn-danger:focus-visible { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35); }
+
+/* ---- Tier B — secondary. One neutral treatment shared by both families:
+   it carries no brand colour, so it needs no per-tool variant. ---- */
+.mw-btn.mw-btn-secondary {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid #D8D4CD;
+  color: #475569;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.mw-btn.mw-btn-secondary:hover:not(:disabled) {
+  background: #F5F3EF;
+  border-color: #C4BFB6;
+  color: #1A1C1E;
+}
+.mw-btn.mw-btn-secondary:focus-visible { box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.25); }
+
+/* An outlined action that still needs to read as the brand (e.g. "Request
+   Allocation" on a product card) — navy border and text, fills on hover. */
+.mw-btn.mw-btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--primary, #1B3A4B);
+  color: var(--primary, #1B3A4B);
+}
+.mw-btn.mw-btn-outline:hover:not(:disabled) {
+  background: var(--primary, #1B3A4B);
+  color: #FFFFFF;
+}
+
+/* ---- Tier C — the in-context size. Same palette and states, sweep removed,
+   min-width released so it can sit inside a table cell. ---- */
+.mw-btn.mw-btn-sm {
+  height: 40px;
+  min-width: 0;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  gap: 6px;
+}
+.mw-btn.mw-btn-sm:hover:not(:disabled) { transform: none; }
+
+/* ROW 171'S FLOOR, RESTORED EXPLICITLY — do not remove this block.
+   `tap-targets.css` guarantees min-width/min-height 44px on every `button` below
+   1024px, but it does so with an ELEMENT selector (0,0,1). `.mw-btn.mw-btn-sm`'s
+   own `min-width: 0` above is (0,2,0) and silently out-specifies it, which took
+   Tier C pills down to 40.3px wide on mobile — measured, not theorised, and caught
+   by verify-control-patterns.mjs on its first real run. Re-declaring the floor here
+   keeps it independent of source order between the two stylesheets. Height needs no
+   equivalent: `min-height` constrains the used value after `height` resolves, so
+   tap-targets' own rule already wins there. */
+@media (max-width: 1023.98px) {
+  .mw-btn.mw-btn-sm,
+  .mw-btn.mw-btn-block,
+  .mw-btn.mw-btn-grow { min-width: 44px; }
+}
+
+/* Pill variant of Tier C, for filter pills and notification chips, which were
+   already round and should stay round. */
+.mw-btn.mw-btn-pill { border-radius: 999px; }
+
+/* ---- Full-width / flex-child helpers. `flex-1` (Tailwind) still works on
+   these because it only sets flex-grow/shrink/basis; min-width is what would
+   fight it, so release it explicitly. ---- */
+.mw-btn.mw-btn-block { width: 100%; min-width: 0; }
+.mw-btn.mw-btn-grow { flex: 1 1 0%; min-width: 0; }
+
+/* Two 150px buttons plus a gap overflow a modal's content box at 320px, so the
+   floor is released at the public site's own established narrow breakpoint. */
+@media (max-width: 480px) {
+  .mw-btn { min-width: 0; padding: 0 16px; }
+}
+
+/* =====================================================================
+   FORM CONTROLS
+   The box treatment from signup.html's own .fld input/select: 54px, 12px
+   radius, 1.5px #D8D4CD, #FCFBF9 ground, real focus ring, custom chevron.
+
+   NOT the floating LABEL, deliberately — see BUTTON_AUDIT.md. That needs each
+   label relocated to be its input's next sibling plus placeholder=" ", across
+   72 controls and several JS template strings, where a wrong move silently
+   breaks the for/id association a screen reader depends on. Logged as its own
+   task rather than folded in here.
+   ===================================================================== */
+.mw-field {
+  width: 100%;
+  height: 54px;
+  padding: 0 16px;
+  border: 1.5px solid #D8D4CD;
+  border-radius: 12px;
+  background: #FCFBF9;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1A1C1E;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+.mw-field::placeholder { color: #9A9690; }
+.mw-field:hover:not(:disabled) { border-color: #C4BFB6; background: #FFFFFF; }
+.mw-field:focus {
+  outline: none;
+  border-color: var(--primary, #1B3A4B);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+}
+.mw-field:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Admin keeps its amber focus ring — the locked palette rule applies to focus
+   states too, not just fills. */
+.mw-field-admin:focus {
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.22);
+}
+
+/* A textarea is not a fixed-height control. */
+textarea.mw-field {
+  height: auto;
+  min-height: 110px;
+  padding: 14px 16px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+/* Custom chevron — the exact data-URI from signup.html's own .fld select, so
+   the two families cannot drift. */
+select.mw-field {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B7178' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 42px;
+}
+
+/* A compact field for filter bars, matching Tier C's density. */
+.mw-field.mw-field-sm {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+select.mw-field.mw-field-sm { padding-right: 36px; background-position: right 12px center; }
+
+/* ---- Native date input.
+   ACHIEVABLE: the box (height, radius, border, ground, focus ring, font) —
+   all inherited normally, which is what .mw-field above supplies.
+   NOT ACHIEVABLE cross-browser: the picker indicator glyph
+   (::-webkit-calendar-picker-indicator is Chromium-only; Firefox renders its
+   own and Safari differs again) and the internal segment layout. Deliberately
+   left native rather than replaced with a custom date component — see
+   BUTTON_AUDIT.md. The one thing done here is to stop the indicator sitting
+   flush against the border. ---- */
+input[type="date"].mw-field { padding-right: 12px; }
+input[type="date"].mw-field::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+/* ---- Native file input.
+   ::file-selector-button IS standard in all three engines, so the BUTTON half
+   can be brought to Tier C properly. What stays unstylable: the "No file
+   chosen" text, the gap, filename truncation, and there is no drag-drop or
+   clear affordance. A real custom file component is logged as its own task
+   (register row 189) — it is a real component with real accessibility
+   requirements, not a styling change. ---- */
+.mw-file {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+}
+.mw-file::file-selector-button {
+  height: 40px;
+  margin-right: 12px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary, #1B3A4B);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.mw-file::file-selector-button:hover { background: #122A38; }
+
+.mw-file-admin::file-selector-button { background: #0F172A; }
+.mw-file-admin::file-selector-button:hover { background: #1E293B; }

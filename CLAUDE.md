@@ -8012,6 +8012,76 @@ row 74.
   cards above it. `audit-fonts.mjs` re-run on both pages: no fallbacks, mono weights used
   (500, 700) exactly matching the faces available.
 
+- **★★ Button and control modernisation sweep — every button, filter control,
+  select, file input and date input across all 38 pages (2026-09-10, row 188).** The audit is
+  its own committed artifact, **`BUTTON_AUDIT.md`**, alongside `MOBILE_AUDIT.md` — inventory,
+  tier rationale, native-control recommendations and the leave-alone list. Read it before
+  touching any control; what follows is only what a future session most needs up front.
+  **★ The two named reference patterns were not the same pattern, and that gated the design.**
+  `signup.html`'s `.signup-btn-next` is FLAT `var(--primary)`, 50px, no sweep; `login.html`'s
+  `.gate-btn` is a 135deg navy gradient, 54px, WITH the `::before` light sweep. The gate button
+  won (most recently designed, the one the brief actually described, and the sweep is its
+  distinguishing gesture); signup's flat variant survives as `.mw-btn-flat`.
+  **Things a future session needs to know before touching this:**
+  - **The vocabulary lives in `control-patterns.css`**, plain CSS, linked on exactly the 26
+    pages that already load `tap-targets.css`. Plain CSS deliberately, not Tailwind utilities:
+    row 165 is the precedent — the CDN emits NO CSS for a utility it does not recognise and
+    does not error, which is how a button once shipped fully transparent. A gradient, a sweep
+    and a directional icon shift are not expressible as utility strings regardless.
+  - **There are THREE tiers and that is deliberate.** A (54px, committing), B (54px,
+    secondary), C (40px, in-context). One 54px height everywhere would take a `px-3 py-1.5`
+    table-row action from 28px to 54px and add ~26px to EVERY row on EVERY Approval Gate page.
+    Tier C is the same palette and states at row density — the same relationship `.btn-sm`
+    already has to `.btn` on the public site, not a new invented pattern. Do not collapse them.
+  - **★ Tier C is 40px BY DESIGN and reaches 44px on mobile only via `tap-targets.css`'s own
+    `min-height`.** That layering is load-bearing for row 171 and it has already broken once:
+    `.mw-btn-sm { min-width: 0 }` is (0,2,0) and silently out-specified `button { min-width:
+    44px }` (0,0,1), taking pills to 40.3px wide on mobile. The floor is now re-declared inside
+    `control-patterns.css` in its own commented media query — do not delete it.
+  - **Tabs and pills converge on GEOMETRY ONLY.** Their active state is toggled by JS — by
+    `classList.add/remove` of specific utilities in some places and a full `className` rebuild
+    in others — so `bg-navy`/`bg-slate-100`/`text-white` are left exactly where the JS expects
+    them. Changing those class names breaks the toggle silently. Verified by real clicks.
+  - **★ WHITE ON emerald-600 IS 3.77:1 AND ALWAYS WAS.** Every Approve/Credit button in the
+    admin tool shipped below the 4.5:1 floor from the day those pages were built; the new
+    gradient would have carried that exact colour as its light stop. The ramp is emerald-700
+    → emerald-800 (5.48:1 → 7.68:1). A standing assertion checks BOTH ends of every Tier A
+    gradient against its own white label, because a gradient can pass at one end and fail at
+    the other. Do not lighten it back. The red notification chip was fixed for the same reason.
+  - **The admin palette stays locked.** Shape and behaviour converge, colour does not: use
+    `.mw-btn-admin` / `.mw-btn-approve` / `.mw-btn-danger` there, never `.mw-btn-primary`. A
+    standing assertion walks every `.mw-btn` on 11 admin pages and fails if any paints navy.
+  - **Native date and file inputs were STYLED, NOT REPLACED**, and that was a recommendation,
+    not a default. `::file-selector-button` is standard in all three engines so the button half
+    genuinely reaches Tier C; the picker indicator on a date input is Chromium-only and is left
+    native. **Rows 189 and 190 are the two things deliberately NOT folded in** — a real custom
+    file component, and the floating-label conversion for the 72 form controls (the box
+    treatment landed, the LABEL did not: it needs 72 labels relocated, several inside JS
+    template strings, where a wrong move silently breaks a `for`/`id` association).
+  - **★ ROW 189 IS NOT JUST DEFERRED WORK — IT RECORDS A LIVE DEFECT.** `signup.html`'s
+    existing `.upload-box` is a bare `<div>` with a click handler: a whole-file grep for
+    `tabindex`/`role="button"`/`keydown` returns ZERO, and the `<input type=file>` behind it is
+    `hidden`, so it is out of the tab order too. A keyboard-only or screen-reader user cannot
+    upload a document through the real signup flow today, and both uploads are REQUIRED steps.
+    So it is not a template to copy — it must be built properly AND retrofitted.
+  - **The leave-alone list is asserted, not just intended** — the Risk Meter's locked segmented
+    control, the four selection-card families, and `#remove-confirm-submit` (row 166's
+    press-and-hold delete, whose progress overlay depends on its own `position:relative` +
+    `overflow:hidden`; `.mw-btn-danger`'s sweep would have fought it — a genuine near-miss).
+  - `verify-contrast.mjs` gained a `controls` profile and a **`CONTRAST_PREPARE_JS`** post-settle
+    hook — `CONTRAST_BOOTSTRAP_JS` runs BEFORE navigation and cannot reach a control that only
+    exists once a panel has been opened, so without it those pages report a confident zero.
+    Its tier selectors are mutually exclusive on purpose: measuring one button under two labels
+    returned 7.44:1 and 4.1:1 for the SAME element in the SAME run (an antialiased edge pixel).
+  **Verified**: `npm run verify-control-patterns` (from `scripts/`) 38/38 — every assertion a
+  real rendered box behind a viewport-integrity guard, 320px via a real iframe, modal contents
+  measured by temporarily revealing their hidden ancestors (without that, most of Tier A is
+  `display:none` and the run passes confidently over 7 buttons). 22 Tier A / 18 Tier B / 21
+  Tier C / 80 fields client, 31 + 48 admin; **0 controls under 44×44 across 21 pages at
+  390/375/320px**; real clicks proving tabs, filter bars, modals and the custom select still
+  work. Contrast: 64 real composited-pixel measurements on 8 pages including hover, 0 below
+  4.5:1. `verify-tailwind-color-scoping` PASS. Fonts untouched (`.mw-btn` inherits).
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -8278,6 +8348,13 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   need a clean pair, that is three passes, not two, and each is ~25 minutes — budget for it.
   A `supabase stop`/`start` in the middle of a session resets this; the next run is a cold
   run again.
+- **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
+  control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
+  for two things that have each broken silently once: the three-tier geometry, and row 171's
+  0-controls-under-44×44 floor, which `control-patterns.css` can out-specify by accident. It
+  also checks both ends of every Tier A gradient against its own white label — a gradient can
+  pass contrast at one end and fail at the other, which is exactly how white-on-emerald-600
+  shipped at 3.77:1 for months. See `BUTTON_AUDIT.md` for the full reasoning.
 - **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
   "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
   and the email tests genuinely send. Every other table returns to its exact starting count

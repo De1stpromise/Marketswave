@@ -28,6 +28,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -85,16 +86,16 @@
           <!-- Search -->
           <div class="relative max-w-sm mb-5">
             <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <input type="text" id="asset-search" placeholder="Search by asset name..." class="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+            <input type="text" id="asset-search" placeholder="Search by asset name..." class="mw-field pl-9">
           </div>
 
           <!-- Category tabs -->
           <div class="flex flex-wrap gap-2 mb-6" id="category-tabs">
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-navy text-white" data-category="">All</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Private Equity">Private Equity</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Real Assets">Real Assets</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Stocks & ETFs">Stocks & ETFs</button>
-            <button type="button" class="category-tab px-4 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition" data-category="Crypto">Crypto</button>
+            <button type="button" class="category-tab mw-btn mw-btn-sm bg-navy text-white" data-category="">All</button>
+            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Private Equity">Private Equity</button>
+            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Real Assets">Real Assets</button>
+            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Stocks & ETFs">Stocks & ETFs</button>
+            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Crypto">Crypto</button>
           </div>
 
           <!-- Asset cards grid -->
@@ -103,7 +104,7 @@
           <p class="hidden text-sm text-slate-400 text-center py-8" id="no-results">No assets match your search/filter.</p>
 
           <div class="text-center mt-6">
-            <button type="button" id="load-more-btn" class="hidden px-6 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-navy hover:bg-slate-50 transition">Load More</button>
+            <button type="button" id="load-more-btn" class="hidden mw-btn mw-btn-secondary">Load More</button>
           </div>
 
         </div>
@@ -282,13 +283,13 @@
           badgeHtml +
           '</div>' +
           (product.description ? '<p class="text-sm text-slate-600 mb-1">' + product.description + '</p>' : '') +
-          (showMoreInfo ? '<button type="button" class="more-info-link text-xs font-medium text-navy underline hover:no-underline mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
+          (showMoreInfo ? '<button type="button" class="more-info-link mw-btn mw-btn-secondary mw-btn-sm mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
           '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
           '<p class="text-xs text-slate-400 mb-4">Minimum investment: ' + formatUSD(product.minimumInvestment) + '</p>' +
           '<div class="mt-auto">' +
           '<label class="block text-xs font-medium text-slate-500 mb-1.5">Requested Allocation Amount</label>' +
-          '<input type="number" min="0" step="100" placeholder="$0.00" class="allocation-amount-input w-full px-3 py-2 mb-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">' +
-          '<button type="button" class="request-allocation-btn w-full py-2 rounded-lg text-sm font-medium border border-navy text-navy hover:bg-navy hover:text-white transition">Request Allocation</button>' +
+          '<input type="number" min="0" step="100" placeholder="$0.00" class="allocation-amount-input mw-field mw-field-sm mb-3">' +
+          '<button type="button" class="request-allocation-btn mw-btn mw-btn-outline mw-btn-block">Request Allocation</button>' +
           '</div>' +
           '</div>';
       }

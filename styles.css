@@ -97,12 +97,18 @@ img {
 /* =====================================================
    3. BUTTONS
 ===================================================== */
+/* Radius converged 8px -> 12px (2026-09-10, Button and Control Modernisation)
+   to match the reference controls on login.html and signup.html. `position` and
+   `overflow` are here rather than on .hero-btn-primary so the sweep below has a
+   containing block; they are inert on every other .btn variant. */
 .btn {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 13px 26px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   font-weight: 600;
   font-size: 0.92rem;
   border: 2px solid transparent;
@@ -443,6 +449,22 @@ body.has-overlay-header .hero {
 .hero-btn-primary:hover {
   box-shadow: 0 18px 34px rgba(27,58,75,0.34), inset 0 1px 0 rgba(255,255,255,0.15);
 }
+/* The light sweep — ported verbatim from login.html's .gate-btn, the reference
+   this pattern converges on. The hero primary was the one gradient button on
+   the public site that never had it. */
+.hero-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -50%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.18), transparent);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.hero-btn-primary:hover::before { left: 110%; }
+.hero-btn-primary > * { position: relative; z-index: 1; }
 
 .hero-btn-secondary {
   padding: 14px 29px;
@@ -3576,7 +3598,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   width: 100%;
   padding: 13px 16px;
   border: 1.5px solid #D8D4CD;
-  border-radius: 10px;
+  border-radius: 12px;
   font-family: var(--font);
   font-size: 0.95rem;
   color: var(--text);
@@ -3682,7 +3704,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   justify-content: space-between;
   padding: 13px 16px;
   border: 1.5px solid #D8D4CD;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #FCFBF9;
   font-family: var(--font);
   font-size: 0.95rem;

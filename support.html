@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -72,7 +73,7 @@
             <p class="text-sm font-medium text-navy mt-2">+1 (800) 555-0199</p>
             <p class="text-xs text-slate-500 mt-1">Mon–Fri, 8am–8pm ET</p>
             <div class="mt-auto pt-4">
-              <button type="button" id="open-callback-btn" class="w-full py-2 rounded-lg border border-slate-200 text-sm font-medium text-navy hover:bg-slate-50 transition">Request a Callback</button>
+              <button type="button" id="open-callback-btn" class="mw-btn mw-btn-secondary mw-btn-block">Request a Callback</button>
             </div>
           </div>
 
@@ -84,7 +85,7 @@
             <h3 class="font-semibold text-navy mb-1">Chat with Us</h3>
             <p class="text-sm text-slate-500 mt-2">Get real-time help from our support team.</p>
             <div class="mt-auto pt-4">
-              <button type="button" id="open-chat-btn" class="w-full py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Start Chat</button>
+              <button type="button" id="open-chat-btn" class="mw-btn mw-btn-primary mw-btn-block">Start Chat</button>
             </div>
           </div>
 
@@ -97,7 +98,7 @@
             <p class="text-sm font-medium text-navy mt-2">support@marketswave.net</p>
             <p class="text-xs text-slate-500 mt-1">We typically reply within 1 business day.</p>
             <div class="flex gap-2 mt-auto pt-4">
-              <button type="button" id="copy-email-btn" class="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-medium text-navy hover:bg-slate-50 transition">Copy</button>
+              <button type="button" id="copy-email-btn" class="mw-btn mw-btn-secondary mw-btn-grow">Copy</button>
               <a href="mailto:support@marketswave.net" class="flex-1 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition text-center">Email Us</a>
             </div>
           </div>
@@ -116,7 +117,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-              <select id="dispute-category" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+              <select id="dispute-category" class="mw-field">
                 <option value="">Select a category</option>
                 <option value="Transaction Issue">Transaction Issue</option>
                 <option value="Account Access">Account Access</option>
@@ -127,16 +128,16 @@
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-              <textarea id="dispute-description" rows="4" placeholder="Describe the issue in detail..." class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"></textarea>
+              <textarea id="dispute-description" rows="4" placeholder="Describe the issue in detail..." class="mw-field"></textarea>
             </div>
             <div class="md:col-span-2">
               <label for="dispute-evidence" class="block text-sm font-medium text-slate-700 mb-1.5">Evidence <span class="text-slate-400 font-normal">(optional)</span></label>
-              <input type="file" id="dispute-evidence" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-navy file:text-white file:text-sm file:font-medium hover:file:bg-navy-dark file:cursor-pointer cursor-pointer">
+              <input type="file" id="dispute-evidence" class="mw-file">
             </div>
           </div>
           <div class="max-w-3xl mt-8 pt-6 border-t border-slate-200">
             <p class="text-xs text-red-500 hidden mb-3" id="dispute-error">Please select a category and describe the issue.</p>
-            <button type="button" id="dispute-submit" class="px-5 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Submit Dispute</button>
+            <button type="button" id="dispute-submit" class="mw-btn mw-btn-primary">Submit Dispute</button>
           </div>
         </div>
 
@@ -175,15 +176,15 @@
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
-          <input type="text" id="callback-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          <input type="text" id="callback-name" class="mw-field">
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
-          <input type="tel" id="callback-phone" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          <input type="tel" id="callback-phone" class="mw-field">
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Best Time to Call</label>
-          <select id="callback-time" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy">
+          <select id="callback-time" class="mw-field">
             <option value="Morning">Morning (8am–12pm ET)</option>
             <option value="Afternoon">Afternoon (12pm–4pm ET)</option>
             <option value="Evening">Evening (4pm–8pm ET)</option>
@@ -192,8 +193,8 @@
         <p class="text-xs text-red-500 hidden" id="callback-error">Please provide a name and phone number.</p>
       </div>
       <div class="flex gap-3 pt-5">
-        <button type="button" id="callback-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="callback-submit" class="flex-1 py-2.5 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Request Callback</button>
+        <button type="button" id="callback-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="callback-submit" class="mw-btn mw-btn-primary mw-btn-grow">Request Callback</button>
       </div>
     </div>
   </div>

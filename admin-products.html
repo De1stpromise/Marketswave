@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="responsive-tables.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -52,21 +53,21 @@
           <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div class="relative flex-1 min-w-[220px] max-w-sm">
               <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input type="text" id="product-search" placeholder="Search by product name..." class="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+              <input type="text" id="product-search" placeholder="Search by product name..." class="mw-field mw-field-admin pl-9" />
             </div>
-            <button type="button" id="open-add-modal" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition shrink-0">+ Add Product</button>
+            <button type="button" id="open-add-modal" class="mw-btn mw-btn-secondary mw-btn-sm shrink-0">+ Add Product</button>
           </div>
 
           <!-- Asset class filter pills -->
           <div class="px-6 pt-3 border-b border-slate-100">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Asset Class</p>
             <div class="flex flex-wrap gap-2 pb-3" id="class-filter-pills">
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="All">All</button>
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Private Equity">Private Equity</button>
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Real Assets">Real Assets</button>
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Stocks & ETFs">Stocks & ETFs</button>
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Crypto">Crypto</button>
-              <button type="button" class="class-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="Unallocated / Cash">Unallocated / Cash</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="All">All</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Private Equity">Private Equity</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Real Assets">Real Assets</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Stocks & ETFs">Stocks & ETFs</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Crypto">Crypto</button>
+              <button type="button" class="class-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Unallocated / Cash">Unallocated / Cash</button>
             </div>
           </div>
 
@@ -74,10 +75,10 @@
           <div class="px-6 pt-3 border-b border-slate-100">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Risk Tier</p>
             <div class="flex flex-wrap gap-2 pb-3" id="tier-filter-pills">
-              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="All">All</button>
-              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="conservative">Conservative</button>
-              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="balanced">Balanced</button>
-              <button type="button" class="tier-filter-pill px-3 py-1 rounded-full text-xs font-medium transition" data-filter="aggressive">Aggressive</button>
+              <button type="button" class="tier-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="All">All</button>
+              <button type="button" class="tier-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="conservative">Conservative</button>
+              <button type="button" class="tier-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="balanced">Balanced</button>
+              <button type="button" class="tier-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="aggressive">Aggressive</button>
             </div>
           </div>
 
@@ -101,12 +102,12 @@
       <div class="space-y-3">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
-          <input type="text" id="add-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Atlas Infrastructure Fund" />
+          <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
-            <select id="add-asset-class" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <select id="add-asset-class" class="mw-field mw-field-admin">
               <option value="Private Equity">Private Equity</option>
               <option value="Real Assets">Real Assets</option>
               <option value="Stocks & ETFs">Stocks & ETFs</option>
@@ -115,7 +116,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
-            <select id="add-risk-tier" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <select id="add-risk-tier" class="mw-field mw-field-admin">
               <option value="conservative">Conservative</option>
               <option value="balanced">Balanced</option>
               <option value="aggressive">Aggressive</option>
@@ -124,39 +125,39 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
-          <input type="text" id="add-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Growth Fund" />
+          <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" />
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
-          <textarea id="add-description" rows="2" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+          <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
         </div>
         <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
              see updateAddConditionalFields(), wired to add-asset-class's change event. -->
         <div id="add-logo-url-field" class="hidden">
           <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
-          <input type="text" id="add-logo-url" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="https://example.com/logo.png" />
+          <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="add-extended-description-field" class="hidden">
           <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
-          <textarea id="add-extended-description" rows="4" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+          <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
-            <input type="number" id="add-minimum-investment" step="1" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="1000" />
+            <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" />
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Starting Unit Price (USD)</label>
-            <input type="number" id="add-unit-price" step="0.01" min="0.01" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="100.00" />
+            <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" />
           </div>
         </div>
         <p class="text-xs text-slate-400">Starting unit price is PM-entered, not a live market feed — this project has no real-time pricing data source (see the Backend Requirements Register). After creation, price moves only via the returns engine's own daily tick.</p>
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="add-error"></p>
       <div class="flex gap-3 mt-5">
-        <button type="button" id="add-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="add-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Add Product</button>
+        <button type="button" id="add-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="add-submit" class="mw-btn mw-btn-admin mw-btn-grow">Add Product</button>
       </div>
     </div>
   </div>
@@ -173,12 +174,12 @@
       <div class="space-y-3">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
-          <input type="text" id="edit-name" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+          <input type="text" id="edit-name" class="mw-field mw-field-admin" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
-            <select id="edit-asset-class" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <select id="edit-asset-class" class="mw-field mw-field-admin">
               <option value="Private Equity">Private Equity</option>
               <option value="Real Assets">Real Assets</option>
               <option value="Stocks & ETFs">Stocks & ETFs</option>
@@ -188,7 +189,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
-            <select id="edit-risk-tier" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
+            <select id="edit-risk-tier" class="mw-field mw-field-admin">
               <option value="conservative">Conservative</option>
               <option value="balanced">Balanced</option>
               <option value="aggressive">Aggressive</option>
@@ -197,26 +198,26 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
-          <input type="text" id="edit-investment-type" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+          <input type="text" id="edit-investment-type" class="mw-field mw-field-admin" />
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
-          <textarea id="edit-description" rows="2" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+          <textarea id="edit-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
         </div>
         <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
              see updateEditConditionalFields(), wired to edit-asset-class's change event. -->
         <div id="edit-logo-url-field" class="hidden">
           <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
-          <input type="text" id="edit-logo-url" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="https://example.com/logo.png" />
+          <input type="text" id="edit-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="edit-extended-description-field" class="hidden">
           <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
-          <textarea id="edit-extended-description" rows="4" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+          <textarea id="edit-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
-          <input type="number" id="edit-minimum-investment" step="1" min="0" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+          <input type="number" id="edit-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" />
         </div>
         <div class="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3">
           <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Current Unit Price</p>
@@ -226,8 +227,8 @@
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="edit-error"></p>
       <div class="flex gap-3 mt-5">
-        <button type="button" id="edit-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="edit-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Save Changes</button>
+        <button type="button" id="edit-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="edit-submit" class="mw-btn mw-btn-admin mw-btn-grow">Save Changes</button>
       </div>
     </div>
   </div>
@@ -248,22 +249,22 @@
       <div class="space-y-3">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">New Unit Price (USD)</label>
-          <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="105.00" />
+          <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" />
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Effective Date</label>
-          <input type="date" id="nav-effective-date" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
+          <input type="date" id="nav-effective-date" class="mw-field mw-field-admin" />
           <p class="text-xs text-slate-400 mt-1">The real-world date this valuation is effective as of — may be earlier than today (e.g. a quarter-end appraisal published later).</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Note (optional)</label>
-          <input type="text" id="nav-note" class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" placeholder="Q3 2026 appraisal" />
+          <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" />
         </div>
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="nav-error"></p>
       <div class="flex gap-3 mt-5">
-        <button type="button" id="nav-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-        <button type="button" id="nav-submit" class="flex-1 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">Publish NAV</button>
+        <button type="button" id="nav-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="nav-submit" class="mw-btn mw-btn-admin mw-btn-grow">Publish NAV</button>
       </div>
     </div>
   </div>
@@ -439,7 +440,7 @@
           '<div class="mt-5 pt-4 border-t border-slate-200">' +
             '<div class="flex items-center justify-between mb-2">' +
               '<p class="text-xs text-slate-400 uppercase tracking-wide">NAV History</p>' +
-              '<button type="button" class="publish-nav-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition" data-id="' + p.id + '" data-name="' + p.name + '">Publish New NAV</button>' +
+              '<button type="button" class="publish-nav-btn mw-btn mw-btn-sm border border-amber-300 text-amber-700 hover:bg-amber-50" data-id="' + p.id + '" data-name="' + p.name + '">Publish New NAV</button>' +
             '</div>' +
             '<div id="nav-history-' + p.id + '"></div>' +
           '</div>';
@@ -460,7 +461,7 @@
               '</div>' +
             '</div>' +
             '<div class="mt-4">' +
-              '<button type="button" class="edit-btn px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition" data-id="' + p.id + '">Edit</button>' +
+              '<button type="button" class="edit-btn mw-btn mw-btn-admin mw-btn-sm" data-id="' + p.id + '">Edit</button>' +
             '</div>' +
             navSection +
           '</td>' +

@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -54,8 +55,8 @@
 
           <label class="block text-sm font-medium text-slate-700 mb-1">New Rate (%)</label>
           <div class="flex gap-3">
-            <input type="number" id="rate-input" step="0.01" min="0" class="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500" />
-            <button type="button" id="save-rate-btn" class="px-5 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition">Save</button>
+            <input type="number" id="rate-input" step="0.01" min="0" class="mw-field mw-field-admin flex-1" />
+            <button type="button" id="save-rate-btn" class="mw-btn mw-btn-sm bg-amber-600 text-white hover:bg-amber-700">Save</button>
           </div>
           <p class="text-xs text-red-500 hidden mt-2" id="rate-error"></p>
         </div>

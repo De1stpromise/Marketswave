@@ -20,6 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
     @keyframes rowFlash {
@@ -66,15 +67,15 @@
           <!-- The notification chip AREA (this wrapper) now reads as one cohesive glass
                strip; each individual chip keeps its own colored pill styling unchanged. -->
           <div class="flex flex-wrap gap-2 glass-subtle rounded-xl p-2.5" id="notification-chips">
-            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition" data-target="new">
+            <button type="button" class="notif-chip mw-btn mw-btn-sm mw-btn-pill bg-blue-50 text-blue-700 hover:bg-blue-100" data-target="new">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
               <span id="chip-new-count"><span class="inline-block h-3 w-3 bg-blue-200 rounded animate-pulse"></span></span> New Documents
             </button>
-            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium hover:bg-amber-100 transition" data-target="signature">
+            <button type="button" class="notif-chip mw-btn mw-btn-sm mw-btn-pill bg-amber-50 text-amber-700 hover:bg-amber-100" data-target="signature">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
               <span id="chip-signature-count"><span class="inline-block h-3 w-3 bg-amber-200 rounded animate-pulse"></span></span> Signature Required
             </button>
-            <button type="button" class="notif-chip flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition" data-target="deadline">
+            <button type="button" class="notif-chip mw-btn mw-btn-sm mw-btn-pill bg-red-50 text-red-700 hover:bg-red-100" data-target="deadline">
               <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
               <span id="chip-deadline-count"><span class="inline-block h-3 w-3 bg-red-200 rounded animate-pulse"></span></span> Deadline This Week
             </button>
@@ -88,7 +89,7 @@
           <div class="flex flex-wrap gap-3 items-end">
             <div>
               <label for="filter-category" class="block text-xs text-slate-500 mb-1">Category</label>
-              <select id="filter-category" name="category" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+              <select id="filter-category" name="category" class="mw-field mw-field-sm">
                 <option value="">All Categories</option>
                 <option value="Contracts">Contracts</option>
                 <option value="Signature Required">Signature Required</option>
@@ -98,7 +99,7 @@
             </div>
             <div>
               <label for="filter-direction" class="block text-xs text-slate-500 mb-1">Direction</label>
-              <select id="filter-direction" name="direction" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+              <select id="filter-direction" name="direction" class="mw-field mw-field-sm">
                 <option value="">All</option>
                 <option value="from">From Marketswave</option>
                 <option value="upload">Uploaded by You</option>
@@ -106,14 +107,14 @@
             </div>
             <div>
               <label for="filter-date-from" class="block text-xs text-slate-500 mb-1">Date From</label>
-              <input type="date" id="filter-date-from" name="date_from" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+              <input type="date" id="filter-date-from" name="date_from" class="mw-field mw-field-sm">
             </div>
             <div>
               <label for="filter-date-to" class="block text-xs text-slate-500 mb-1">Date To</label>
-              <input type="date" id="filter-date-to" name="date_to" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+              <input type="date" id="filter-date-to" name="date_to" class="mw-field mw-field-sm">
             </div>
-            <button type="button" id="apply-filters" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Apply Filters</button>
-            <button type="button" id="reset-filters" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Reset</button>
+            <button type="button" id="apply-filters" class="mw-btn mw-btn-primary">Apply Filters</button>
+            <button type="button" id="reset-filters" class="mw-btn mw-btn-secondary">Reset</button>
           </div>
         </div>
 
@@ -145,17 +146,17 @@
             <div class="flex flex-wrap gap-3 items-end">
               <div class="flex-1 min-w-[220px]">
                 <label for="upload-file" class="block text-xs text-slate-500 mb-1">File</label>
-                <input type="file" id="upload-file" class="w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-navy file:text-white file:text-sm file:font-medium hover:file:bg-navy-dark file:cursor-pointer cursor-pointer">
+                <input type="file" id="upload-file" class="mw-file">
               </div>
               <div>
                 <label for="upload-category" class="block text-xs text-slate-500 mb-1">Category</label>
-                <select id="upload-category" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-navy/20">
+                <select id="upload-category" class="mw-field mw-field-sm">
                   <option value="Contracts">Contracts</option>
                   <option value="Statements & Reports">Statements & Reports</option>
                   <option value="General">General</option>
                 </select>
               </div>
-              <button type="button" id="submit-upload" class="px-4 py-2 rounded-lg bg-navy text-white text-sm font-medium hover:bg-navy-dark transition">Upload Document</button>
+              <button type="button" id="submit-upload" class="mw-btn mw-btn-primary">Upload Document</button>
             </div>
           </div>
 
@@ -184,7 +185,7 @@
       </div>
       <p class="text-sm text-slate-500 mb-6">Remove <span class="font-medium text-navy" id="remove-confirm-filename">this document</span> from your uploads?</p>
       <div class="flex gap-3">
-        <button type="button" id="remove-confirm-cancel" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+        <button type="button" id="remove-confirm-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
         <!-- Motion UI Components (2026-09-08): Delete Button — a real press-and-hold
              confirmation on the one genuinely destructive action in this project (see
              documents.html's own inline script for the full investigation of why no other
@@ -327,16 +328,16 @@
         if (doc.deadlineLabel) parts.push('<span class="deadline-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">' + doc.deadlineLabel + '</span>');
         if (isFrom && doc.status === 'Signature Required') {
           parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Signature Required</span>');
-          parts.push('<button type="button" class="sign-btn px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition">Sign</button>');
+          parts.push('<button type="button" class="sign-btn mw-btn mw-btn-sm bg-amber-500 text-white hover:bg-amber-600">Sign</button>');
         } else if (isFrom && doc.status === 'Signed') {
           parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Signed</span>');
         }
         if (isFrom) {
-          parts.push('<button type="button" class="download-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Download</button>');
+          parts.push('<button type="button" class="download-btn mw-btn mw-btn-secondary mw-btn-sm">Download</button>');
         } else {
           var statusClass = doc.status === 'Under Review' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
           parts.push('<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ' + statusClass + '">' + (doc.status || 'Received') + '</span>');
-          parts.push('<button type="button" class="remove-upload-btn px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Remove</button>');
+          parts.push('<button type="button" class="remove-upload-btn mw-btn mw-btn-secondary mw-btn-sm">Remove</button>');
         }
 
         return '<div class="doc-row flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50/50 transition" data-doc-id="' + doc.id + '" data-category="' + doc.category + '" data-direction="' + doc.direction + '" data-date="' + doc.date + '" data-new="' + doc.isNew + '" data-signature="' + (doc.status === 'Signature Required') + '" data-deadline="' + (!!doc.deadlineLabel) + '">' +
