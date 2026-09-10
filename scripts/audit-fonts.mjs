@@ -20,6 +20,21 @@
  * fallback, so the requested family is not being applied. A distinct width means it is.
  * That is a direct measurement of what the reader actually sees.
  *
+ * ★ KNOWN LIMITATION — THIS SCRIPT CANNOT VERIFY WEIGHTS WITHIN A MONOSPACE FAMILY.
+ * The probe compares TEXT WIDTH, and in a monospace family every weight has the same advance
+ * width, so 400, 500 and 700 all measure identically. Measured on asset-performance.html
+ * (2026-09-09): JetBrains Mono reported w=297.6 at 400, 500 AND 700 while the document had
+ * @font-face entries for 500 and 700 ONLY — so this script reported "LOADED" for a mono
+ * weight that does not exist. What actually happens there is not a fallback to another
+ * family: CSS font matching resolves the missing 400 to the 500 face, so the text renders
+ * one step heavier than authored. Silent, and invisible to this tool.
+ *
+ * So: a LOADED result here means the FAMILY resolves. It does NOT mean the requested WEIGHT
+ * exists. After changing mono weights, check the "@font-face entries" block this script also
+ * prints — that list is the real evidence for which weights the document actually has.
+ * Proportional families are unaffected: their widths do vary with weight, which is why the
+ * Inter weights below are genuinely distinguished.
+ *
  * Usage: AUDIT_URL=http://127.0.0.1:8765/resources.html node scripts/audit-fonts.mjs
  */
 import { spawn } from 'node:child_process';
@@ -110,7 +125,7 @@ async function main() {
       for (const v of used.values()) {
         // First family in the stack is what the page is actually asking for.
         const first = v.family.split(',')[0].trim().replace(/^["']|["']$/g, '');
-        const generic = ['sans-serif','serif','monospace','system-ui','-apple-system','cursive','fantasy'].includes(first.toLowerCase());
+        const generic = ['sans-serif','serif','monospace','system-ui','-apple-system','cursive','fantasy','ui-sans-serif','ui-serif','ui-monospace','ui-rounded','math','emoji','fangsong'].includes(first.toLowerCase());
         let loaded = true, evidence = '';
         if (!generic) {
           const baseline = widthIn('"NoSuchFamily' + Math.random().toString(36).slice(2) + '"', v.weight);
