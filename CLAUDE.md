@@ -7676,6 +7676,19 @@ row 74.
     instead: render a specimen in the requested family and in a deliberately nonexistent one;
     identical widths mean both hit the same fallback. `scripts/audit-fonts.mjs` does this
     across every family actually used on a page — run it after touching fonts anywhere.
+  - **★ ...but METRIC COMPARISON CANNOT VERIFY A *WEIGHT* WITHIN A MONOSPACE FAMILY, and
+    `audit-fonts.mjs` will report LOADED for a mono weight that does not exist (2026-09-09).**
+    The probe compares text WIDTH, and every weight of a monospace family has the same advance
+    width. Measured on asset-performance.html: JetBrains Mono reported `w=297.6` at 400, 500
+    AND 700 while the document had `@font-face` entries for 500 and 700 only. The real effect
+    is not a fallback to another family — CSS font matching resolves the missing 400 to the
+    500 face, so the text renders one step HEAVIER than authored, which is exactly the kind of
+    thing that reads as "inconsistent" without anything looking broken. A LOADED result means
+    the FAMILY resolves; it says nothing about the WEIGHT. After changing mono weights, read
+    the "@font-face entries" block the script also prints — that list is the real evidence.
+    Proportional families are unaffected, since their widths genuinely vary with weight.
+    Also fixed then: `ui-sans-serif` (and the other `ui-*` CSS generics) were missing from the
+    script's generic list, so it flagged them as FALLBACK when there is nothing to load.
   - **resources.html had been silently falling back since row 177.** It never loaded JetBrains
     Mono, yet `styles.css` sets it on `.res-n`/`.res-kind`/`.res-dot`. Only `index.html` loads
     the family; the other seven marketing pages do not, but only resources.html actually uses
@@ -7823,6 +7836,13 @@ row 74.
     means the same thing. Known imperfection, stated rather than hidden: realised gains came
     from positions no longer held, whose cost basis is not in that denominator. Nothing
     available fixes this — the engine does not retain the cost basis of closed positions.
+    **That is now tracked as its own open item, register row 186**, because it is a real
+    defect and not merely a caveat: it OVERSTATES performance for any client who has sold
+    ($100,000 -> $115,000 across one closed and one open position reports +25% instead of
+    +15%). The dollar figures are unaffected and always correct; only the percentage is; and
+    there is no effect at all for a client who has never sold. The fix is NOT a different
+    denominator — it is retaining the cost basis of closed positions, which the engine
+    currently discards on sale, so it needs a schema change and a migration decision.
   - **The Trend sparkline is REAL history, not a decorative shape.** `settleProduct()`'s daily
     return depends only on product id and calendar date, never on the price, so the walk is
     exactly invertible: `price(D-1) = price(D) / exp(dailyReturn(D))`. New `unitPriceSeries()`
@@ -7859,12 +7879,18 @@ row 74.
     card badge. That page is neither the dashboard cards nor the holdings table, so it was out
     of scope — but it is now the LAST place unrealised is computed in the browser, and it
     should read `get-returns-summary` when that page is next touched.
-  **Table**: Holding (name + class/type) | Units | Cost basis | Current value | Unrealised
-  (amount over percentage) | Trend | Realised | Action, plus a totals row and a two-line
-  legend. "Capital Allocated" was renamed "Cost basis" because the cell has rendered
-  `holding.costBasis` since Phase 4b and the old label named a different figure. Asset Class
+  **Table**: Holding (name + class/type) | Units | Capital Allocated | Current value |
+  Unrealised (amount over percentage) | Trend | Realised | Action, plus a totals row and a
+  two-line legend. The column keeps its ORIGINAL label, "Capital Allocated": it was briefly
+  renamed "Cost basis" on the technical argument that the cell renders `holding.costBasis`,
+  and that was reverted the same day. Both phrases describe the same real figure — what the
+  client originally put into the position — and where two labels are equally accurate, the
+  one a client understands without explanation beats the accountant's term. The same wording
+  was aligned in the Sell modal and in transactions.html's Net Invested sub-label, both of
+  which had said "cost basis" since well before this work. Code identifiers
+  (`holding.costBasis`) are deliberately untouched — this is copy, not a rename. Asset Class
   and Investment Type moved into the Holding cell rather than being dropped — no information
-  left the table. **The Sell button survived**: the mockup omits it, but it is a real write
+  left the table.
   action, and the task said "extend".
   **Deployment note**: the shared-module change is **72 insertions, 0 modifications**, and
   `unitPriceSeries()` is called only by the new function — verified, not assumed — so unlike

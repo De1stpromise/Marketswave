@@ -34,6 +34,15 @@
 // stated rather than hidden: realised gains came from positions that are no longer held, so
 // their own cost basis is not in that denominator. No available figure fixes this — the
 // engine does not retain the cost basis of closed positions.
+//
+// ★ THAT IMPERFECTION IS A REAL, TRACKED DEFECT, NOT JUST A CAVEAT — Backend Requirements
+// Register row 186. It OVERSTATES performance for any client who has sold: the numerator
+// counts gains from closed positions while the denominator has forgotten the capital that
+// produced them. $100,000 -> $115,000 across one closed and one open position reports
+// +25% instead of +15%. The DOLLAR figures above are unaffected and always correct; only
+// `totalPercent` is. No effect for a client who has never sold. Do not 'fix' it here by
+// changing the denominator — the missing data is the cost basis of closed positions, which
+// requires a schema change and a migration decision; see row 186 before touching this.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {

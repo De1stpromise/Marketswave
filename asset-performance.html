@@ -106,7 +106,7 @@
                 <tr>
                   <th class="text-left px-6 py-3">Holding</th>
                   <th class="text-right px-6 py-3">Units</th>
-                  <th class="text-right px-6 py-3">Cost basis</th>
+                  <th class="text-right px-6 py-3">Capital Allocated</th>
                   <th class="text-right px-6 py-3">Current value</th>
                   <th class="text-right px-6 py-3">Unrealised</th>
                   <th class="text-right px-6 py-3 rt-hide-sm">Trend</th>
@@ -178,7 +178,7 @@
             <div class="bg-slate-50 rounded-xl border border-slate-100 p-4 text-sm my-4">
               <div class="flex justify-between mb-1.5"><span class="text-slate-500">Available to sell</span><span class="font-medium text-navy" id="sell-available-units">—</span></div>
               <div class="flex justify-between mb-1.5"><span class="text-slate-500">Current value</span><span class="font-medium text-navy" id="sell-current-value">—</span></div>
-              <div class="flex justify-between mb-1.5"><span class="text-slate-500">Cost basis</span><span class="font-medium text-navy" id="sell-cost-basis">—</span></div>
+              <div class="flex justify-between mb-1.5"><span class="text-slate-500">Capital allocated</span><span class="font-medium text-navy" id="sell-cost-basis">—</span></div>
               <div class="flex justify-between"><span class="text-slate-500">Projected gain/loss</span><span class="font-medium" id="sell-gain-loss">—</span></div>
             </div>
 
@@ -446,7 +446,7 @@
         tableFoot.innerHTML = '<tr>' +
           '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
           '<td class="px-6 py-4" data-label=""></td>' +
-          '<td class="px-6 py-4 text-right rt-num" data-label="Cost basis">' + formatUSD(Math.round(returns.costBasis)) + '</td>' +
+          '<td class="px-6 py-4 text-right rt-num" data-label="Capital Allocated">' + formatUSD(Math.round(returns.costBasis)) + '</td>' +
           '<td class="px-6 py-4 text-right rt-val" data-label="Current value">' + formatUSD(Math.round(returns.currentValue)) + '</td>' +
           '<td class="px-6 py-4 text-right" data-label="Unrealised">' + gainCell(returns.unrealized, totalPct) + '</td>' +
           '<td class="px-6 py-4 rt-hide-sm" data-label=""></td>' +
