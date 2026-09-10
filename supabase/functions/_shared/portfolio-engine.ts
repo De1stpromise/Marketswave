@@ -227,3 +227,75 @@ export async function computeTotalPortfolioValue(supabaseAdmin: any, clientId: s
   if (!state) return 0;
   return state.unallocated_capital + state.allocated_capital + state.asset_returns;
 }
+
+// ---- Historical unit-price series --------------------------------------------------------
+// Returns `days` daily unit prices, oldest first, ending at the product's CURRENT price.
+//
+// This is GENUINE history, not a decorative shape. settleProduct()'s daily return depends
+// only on the product id and the calendar date — never on the price it is applied to — so the
+// walk is exactly invertible: price(D-1) = price(D) / exp(dailyReturn(D)). Walking backward
+// from today therefore reproduces the same series the product actually traded through, and
+// walking that result forward again lands back on today's price to the cent (asserted
+// directly in verify-returns-display.mjs rather than assumed).
+//
+// Products carved out of the tick have no simulated series to invert:
+//   - Unallocated / Cash never moves at all.
+//   - Private Equity / Real Assets move ONLY on a real published NAV (Phase D, row 143).
+// For those, real history is nav_publications, passed in by the caller. With fewer than two
+// real publications the series is honestly FLAT — an illiquid holding genuinely does not move
+// between appraisals, so a flat line is the truthful picture rather than a missing one.
+export function unitPriceSeries(
+  product: ProductRow,
+  days: number,
+  navHistory?: { effective_date: string; published_unit_price: number }[]
+): number[] {
+  const n = Math.max(2, days);
+
+  // Dates for the window, oldest first, ending today.
+  const dates: string[] = [];
+  const cursor = new Date(todayStrUTC() + 'T00:00:00Z');
+  cursor.setUTCDate(cursor.getUTCDate() - (n - 1));
+  for (let i = 0; i < n; i++) {
+    dates.push(formatDateUTC(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const config = RISK_TIER_RETURN_CONFIG[product.risk_tier];
+  const ticks =
+    product.asset_class !== 'Unallocated / Cash' &&
+    product.asset_class !== 'Private Equity' &&
+    product.asset_class !== 'Real Assets' &&
+    !!config;
+
+  if (!ticks) {
+    // Step through real published NAVs where we have them; otherwise honestly flat.
+    const pubs = (navHistory || [])
+      .slice()
+      .sort((a, b) => (a.effective_date < b.effective_date ? -1 : 1));
+    if (pubs.length === 0) return dates.map(() => round2(product.unit_price));
+    return dates.map((d) => {
+      let price = pubs[0].published_unit_price;
+      for (const p of pubs) {
+        if (p.effective_date <= d) price = p.published_unit_price;
+      }
+      return round2(price);
+    });
+  }
+
+  const dailyMean = config.annualReturnMean / 365;
+  const dailyVolatility = config.annualVolatility / Math.sqrt(365);
+  const dailyVariance = dailyVolatility * dailyVolatility;
+  const dailyReturnFor = (dateStr: string) => {
+    const z = seededStandardNormal(product.id + '|' + dateStr);
+    return dailyMean - 0.5 * dailyVariance + dailyVolatility * z;
+  };
+
+  // Walk backward from today's real price, then reverse into oldest-first order.
+  const series: number[] = [product.unit_price];
+  let price = product.unit_price;
+  for (let i = dates.length - 1; i > 0; i--) {
+    price = price / Math.exp(dailyReturnFor(dates[i]));
+    series.push(price);
+  }
+  return series.reverse().map(round2);
+}

@@ -508,6 +508,11 @@ entrypoint = "./functions/get-holdings/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/get-holdings/*.html" ]
 
+[functions.get-returns-summary]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-returns-summary/index.ts"
+
 [functions.get-transaction-ledger]
 enabled = true
 verify_jwt = false
