@@ -6,10 +6,19 @@
  *
  * WHY A STYLESHEET RATHER THAN tailwind.config COLOURS. These pages already extend Tailwind
  * with navy/cream, so adding gain/loss tokens there would have worked — but the approved
- * mockup specifies real typographic detail (JetBrains Mono figures, uppercase mono column
- * heads, letter-spacing, stacked amount-over-percentage cells) that is far clearer as plain
- * CSS than as long utility strings, and plain CSS cannot hit the Tailwind CDN's silent
- * unknown-utility failure mode (row 165).
+ * mockup specifies real typographic detail (JetBrains Mono figures, letter-spacing, stacked
+ * amount-over-percentage cells) that is far clearer as plain CSS than as long utility
+ * strings, and plain CSS cannot hit the Tailwind CDN's silent unknown-utility failure mode
+ * (row 165).
+ *
+ * MONO IS FOR FIGURES HERE, AND ONLY FIGURES (2026-09-10). The mockup put every column
+ * head, every asset-class label and the TOTAL label in mono too, and at this density it
+ * stopped reading as a deliberate accent and started reading as a foreign typeface dropped
+ * into an Inter page. Row 187's rule is amended accordingly: mono is for figures, and for
+ * uppercase micro-labels ONLY where they are sparse enough to read as an accent — a table
+ * where every label is mono defeats the point of the device. The labels keep their
+ * uppercase, size and letter-spacing, which is what actually makes them read as labels;
+ * only the family changed, plus one weight step to hold the same presence (see .rt th).
  *
  * THE THREE COLOURS ARE MEASURED, NOT PICKED. Row 177 found five of six accent hues fail
  * WCAG 4.5:1 as text on these grounds, so none is reused blind:
@@ -85,10 +94,13 @@
 }
 
 /* ---- Holdings table ---- */
+/* Inter, not mono. Weight steps 500 -> 600 because mono carries more apparent weight at
+   this size (uniform stems, wider glyphs), so a straight family swap would have left the
+   heads reading lighter than they did. Size and letter-spacing are unchanged. */
 .rt th {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
-  color: var(--ret-muted); font-weight: 500;
+  color: var(--ret-muted); font-weight: 600;
 }
 .rt .rt-num {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -100,11 +112,12 @@
 }
 /* The class/type line under a holding's name. Extracted from an inline style so the
    closed-positions panel and the Return Table share one definition — the two are siblings
-   and a drifting copy would show. Mono here is the settled rule's OTHER case: an uppercase,
-   letter-spaced micro-label, not prose. */
+   and a drifting copy would show. Inter since 2026-09-10: this is a LABEL, and it repeats
+   once per row, so it is part of what made the table read as a mono component rather than
+   an Inter one. Uppercase + letter-spacing still carry the micro-label treatment. */
 .rt-meta {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px; font-weight: 500; letter-spacing: 0.06em;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--ret-muted);
   margin-top: 2px;
 }
@@ -139,10 +152,11 @@
   border-top: 1.5px solid rgba(27, 58, 75, 0.16);
   font-weight: 700;
 }
+/* Inter, matching the column heads it sits beneath — same reasoning, same weight step. */
 .rt tfoot .rt-total-lab {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--ret-muted); font-weight: 500;
+  color: var(--ret-muted); font-weight: 600;
 }
 
 /* ---- Legend: defines both terms in plain language ---- */

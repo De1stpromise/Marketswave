@@ -14,7 +14,7 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +23,9 @@ import { runVerifyMain } from './lib/run-verify.mjs';
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = Number(process.env.RETURNS_VISUAL_PORT || 9344);
 const BASE = process.env.RETURNS_BASE_URL || 'http://127.0.0.1:8765';
+// Set RETURNS_SHOT_DIR to have each viewport's render written out for eyes-on comparison.
+const SHOT_DIR = process.env.RETURNS_SHOT_DIR || '';
+if (SHOT_DIR) mkdirSync(SHOT_DIR, { recursive: true });
 
 let pass = 0, fail = 0;
 function check(label, condition, detail) {
@@ -285,6 +288,59 @@ async function main() {
         };
       })()`);
 
+      // ---- TYPOGRAPHY: mono is FIGURES ONLY inside this table (2026-09-10) --------------
+      // Read the real computed family, never the class list — the whole failure mode here is
+      // a rule that matches and does nothing, or an inherited family nobody declared.
+      const t = await cdp.evaluate(`(() => {
+        const fam = (el) => el ? getComputedStyle(el).fontFamily : 'MISSING';
+        const isMono = (f) => /JetBrains Mono/i.test(f);
+        const isInter = (f) => /^["']?Inter/i.test(f);
+        const q = (sel) => document.querySelector(sel);
+        const rt = document.getElementById('return-table-body').closest('table');
+        const panel = document.querySelector('#closed-positions-region table');
+        return {
+          head:        fam(rt.querySelector('thead th')),
+          panelHead:   fam(panel && panel.querySelector('thead th')),
+          meta:        fam(rt.querySelector('#return-table-body .rt-meta')),
+          totalLab:    fam(q('.rt-total-lab')),
+          legend:      fam(q('.rt-legend div')),
+          holdingName: fam(rt.querySelector('#return-table-body b')),
+          num:         fam(rt.querySelector('#return-table-body .rt-num')),
+          val:         fam(rt.querySelector('#return-table-body .rt-val')),
+          gainAmt:     fam(rt.querySelector('#return-table-body .rt-gain .a')),
+          gainPct:     fam(rt.querySelector('#return-table-body .rt-gain .p')),
+          // Surrounding page content the table is supposed to sit inside, not fight.
+          pageH2:      fam(q('main h2')),
+          cardLabel:   fam(q('.ret-k')),
+          cardFigure:  fam(q('.ret-v')),
+          cardSubFig:  fam(q('.ret-sub .ret-u')),
+          headWeight:  q('.rt th') ? getComputedStyle(q('.rt th')).fontWeight : '',
+          metaWeight:  q('.rt-meta') ? getComputedStyle(q('.rt-meta')).fontWeight : '',
+          monoCount:   [...document.querySelectorAll('.rt *')]
+                         .filter(el => isMono(getComputedStyle(el).fontFamily)).length,
+          _isMono: null
+        };
+      })()`);
+      const mono = (f) => /JetBrains Mono/i.test(f || '');
+      const inter = (f) => /^["']?Inter/i.test(f || '');
+      check(width + 'px: column heads are Inter, not mono', inter(t.head) && !mono(t.head), t.head);
+      check(width + 'px: panel column heads are Inter too', inter(t.panelHead) && !mono(t.panelHead), t.panelHead);
+      check(width + 'px: the asset-class label is Inter, not mono', inter(t.meta) && !mono(t.meta), t.meta);
+      check(width + 'px: the TOTAL label is Inter, not mono', inter(t.totalLab) && !mono(t.totalLab), t.totalLab);
+      check(width + 'px: the legend stayed Inter', inter(t.legend) && !mono(t.legend), t.legend);
+      check(width + 'px: the holding name is Inter (prose, unchanged)', inter(t.holdingName), t.holdingName);
+      // The other half of the rule: every figure genuinely stayed mono.
+      check(width + 'px: numeric cells stayed mono', mono(t.num), t.num);
+      check(width + 'px: value cells stayed mono', mono(t.val), t.val);
+      check(width + 'px: the unrealised amount stayed mono', mono(t.gainAmt), t.gainAmt);
+      check(width + 'px: the unrealised percentage stayed mono', mono(t.gainPct), t.gainPct);
+      check(width + 'px: the card sub-line figure stayed mono', mono(t.cardSubFig), t.cardSubFig);
+      // The table now shares its label typeface with the page around it.
+      check(width + 'px: table heads match the page heading family', inter(t.pageH2) && inter(t.head), t.pageH2 + ' | ' + t.head);
+      check(width + 'px: table heads match the summary card label family', inter(t.cardLabel) && inter(t.head), t.cardLabel + ' | ' + t.head);
+      check(width + 'px: labels kept a real head weight after the family swap',
+        Number(t.headWeight) >= 600 && Number(t.metaWeight) >= 600, t.headWeight + '/' + t.metaWeight);
+
       check(width + 'px: the Return Table rendered', r.rendered, JSON.stringify(r));
       check(width + 'px: the closed-positions panel rendered', r.closedRendered);
       check(width + 'px: no horizontal page overflow', r.bodyScrollW <= r.innerW + 1, r.bodyScrollW + ' vs ' + r.innerW);
@@ -314,6 +370,23 @@ async function main() {
         check(width + 'px: the panel totals row keeps its labels', r.closedFootLabelled);
         check(width + 'px: the panel totals card matches its own rows width',
           r.closedFootW === r.closedRowW, r.closedFootW + ' vs ' + r.closedRowW);
+      }
+
+      if (SHOT_DIR) {
+        // Framed from the summary cards down through the table, so the comparison the eye
+        // needs to make — table labels against the page around them — is in one image.
+        // Frame ON the table, with whatever page content sits directly above it still in
+        // shot — the comparison being made is table labels against surrounding page text,
+        // so a screenshot of the cards alone would prove nothing.
+        await cdp.evaluate("(() => { const m = document.querySelector('main');"
+          + " const t = document.getElementById('return-table-body').closest('table');"
+          + " const card = t.closest('div.bg-white') || t;"
+          + " m.scrollTop = Math.max(0, card.offsetTop - 140); return true; })()");
+        await sleep(400);
+        const png = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+        if (png && png.result && png.result.data) {
+          writeFileSync(join(SHOT_DIR, 'returns-table-' + width + '.png'), Buffer.from(png.result.data, 'base64'));
+        }
       }
     }
 
