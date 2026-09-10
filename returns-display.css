@@ -1,0 +1,146 @@
+/* returns-display.css — Returns Display (2026-09-09)
+ *
+ * Shared by dashboard.html (the three summary cards) and asset-performance.html (the
+ * holdings table). Same "one small stylesheet, linked by the pages that need it" convention
+ * as tap-targets.css / responsive-tables.css / chat-widget.css.
+ *
+ * WHY A STYLESHEET RATHER THAN tailwind.config COLOURS. These pages already extend Tailwind
+ * with navy/cream, so adding gain/loss tokens there would have worked — but the approved
+ * mockup specifies real typographic detail (JetBrains Mono figures, uppercase mono column
+ * heads, letter-spacing, stacked amount-over-percentage cells) that is far clearer as plain
+ * CSS than as long utility strings, and plain CSS cannot hit the Tailwind CDN's silent
+ * unknown-utility failure mode (row 165).
+ *
+ * THE THREE COLOURS ARE MEASURED, NOT PICKED. Row 177 found five of six accent hues fail
+ * WCAG 4.5:1 as text on these grounds, so none is reused blind:
+ *   --ret-gain     #137254  the same green row 180 already proved on a grain surface
+ *   --ret-loss     #A8452F
+ *   --ret-realised #3A6785  deliberately NOT row 177's #4A7FA5, which measured 4.09:1
+ * All three are measured composited by verify-contrast.mjs on both real pages.
+ *
+ * Gain/loss is never signalled by colour alone — every figure also carries an explicit
+ * + or − sign, so the distinction survives for a colour-blind reader.
+ */
+
+:root {
+  --ret-gain: #137254;
+  --ret-loss: #A8452F;
+  --ret-realised: #3A6785;
+  --ret-muted: #5C6367;
+  --ret-strong: #12283A;
+}
+
+.ret-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ---- Card header: small icon + label, shared by all three dashboard cards ---- */
+.ret-k {
+  font-size: 12px;
+  color: var(--ret-muted);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ret-k svg {
+  width: 13px; height: 13px;
+  stroke: #7C868C; fill: none; stroke-width: 1.8;
+  flex-shrink: 0;
+}
+
+/* ---- Total return card ---- */
+.ret-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ret-v {
+  font-size: 30px; font-weight: 600; letter-spacing: -0.025em;
+  color: var(--ret-strong); line-height: 1;
+}
+.ret-pc {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; font-weight: 700;
+  padding: 3px 8px; border-radius: 6px;
+  white-space: nowrap;
+}
+.ret-pc.is-gain { color: var(--ret-gain); background: rgba(19, 114, 84, 0.10); }
+.ret-pc.is-loss { color: var(--ret-loss); background: rgba(168, 69, 47, 0.10); }
+
+/* One line of context. The two figures are bolded and colour-coded so the split reads at a
+   glance; the separator is a middot, not a second sentence. */
+.ret-sub { font-size: 11.5px; color: var(--ret-muted); margin-top: 9px; line-height: 1.6; }
+.ret-u { color: var(--ret-gain); font-weight: 600; }
+.ret-u.is-loss { color: var(--ret-loss); }
+.ret-r { color: var(--ret-realised); font-weight: 600; }
+
+.ret-class {
+  font-size: 25px; font-weight: 600; letter-spacing: -0.02em;
+  color: var(--ret-strong); line-height: 1.15;
+}
+
+/* ---- Holdings table ---- */
+.rt th {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--ret-muted); font-weight: 500;
+}
+.rt .rt-num {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; color: #3E4A52;
+}
+.rt .rt-val {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px; font-weight: 700; color: var(--ret-strong);
+}
+/* The em dash means "this position has never been sold" — real information, so it is
+   held to the same 4.5:1 floor as any other figure. #8A9298 measured 3.16:1 on the
+   table's white ground and was replaced. */
+.rt .rt-dash { color: var(--ret-muted); }
+
+/* Amount over percentage, right-aligned — the mockup's stacked treatment. */
+.rt-gain { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.rt-gain .a {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; font-weight: 700;
+}
+.rt-gain .p {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+.rt-pos { color: var(--ret-gain); }
+.rt-neg { color: var(--ret-loss); }
+.rt-flat { color: var(--ret-muted); }
+
+.rt-spark { width: 70px; height: 20px; display: block; }
+
+.rt tfoot td {
+  border-top: 1.5px solid rgba(27, 58, 75, 0.16);
+  font-weight: 700;
+}
+.rt tfoot .rt-total-lab {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ret-muted); font-weight: 500;
+}
+
+/* ---- Legend: defines both terms in plain language ---- */
+.rt-legend {
+  display: flex; gap: 22px; flex-wrap: wrap;
+  padding: 14px 24px 18px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(27, 58, 75, 0.08);
+}
+.rt-legend div {
+  font-size: 11.5px; color: var(--ret-muted);
+  display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;
+}
+.rt-legend i {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 5px;
+}
+.rt-legend b { font-weight: 600; color: var(--ret-strong); }
+.rt-legend .dot-u { background: var(--ret-gain); }
+.rt-legend .dot-r { background: var(--ret-realised); }
+
+/* The Trend column is decorative-supporting, not load-bearing: it is the first thing to go
+   when width is scarce. Hidden below the same lg breakpoint responsive-tables.css uses to
+   switch the table into its card layout, so the two treatments never disagree. */
+@media (max-width: 1023.98px) {
+  .rt .rt-hide-sm { display: none !important; }
+}

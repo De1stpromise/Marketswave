@@ -27,9 +27,10 @@
     }
   </script>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="returns-display.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -81,13 +82,13 @@
         </div>
 
         <!-- Top Stats Row -->
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
 
           <!-- Total Portfolio Value - Prominent. Client Dashboard Visual Treatment
                (2026-09-06): the dark navy gradient card became a light .glass card,
                matching the restrained public-site language rather than a forked "dark
                glass" variant — its own hero distinctiveness now comes from size
-               (md:col-span-2), position, and text-3xl weight, not a color inversion.
+               position, and text-3xl weight, not a color inversion. It is now one of three
                .gradient-text was tried on the dollar figure itself and DELIBERATELY
                REVERTED, per instruction to prioritize legibility over decorative
                richness for a real financial figure: measured contrast at the gradient's
@@ -98,8 +99,11 @@
                dollar-figure treatment) is used instead. Every OTHER text color below was
                still updated from white/white-on-navy to navy/slate for legibility on the
                new light surface. -->
-          <div class="md:col-span-2 glass rounded-2xl p-6">
-            <p class="text-sm text-slate-500 mb-1">Total Portfolio Value</p>
+          <div class="glass rounded-2xl p-6">
+            <p class="ret-k">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              Total portfolio value
+            </p>
             <p class="text-3xl font-bold tracking-tight text-navy" id="tpv-amount"><span class="inline-block h-8 w-48 bg-slate-200 rounded animate-pulse"></span></p>
             <div class="flex items-center gap-2 mt-3">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500" id="tpv-monthly-change">
@@ -109,19 +113,38 @@
             </div>
           </div>
 
-          <!-- Returns from Capital — .glass-subtle: a dense 3-card row, matching the
-               calmer-sibling precedent already established for this density elsewhere. -->
+          <!-- Total return — the point of this card is DISCLOSURE, not a new calculation.
+               The realised figure below is byte-for-byte the same realised-only number this
+               card used to show alone (still #asset-returns-amount, still
+               account_state.asset_returns, still never blended with anything). It simply no
+               longer stands on its own carrying a question it cannot answer: a client holding
+               well-performing positions for two years saw $0 here and had no way to tell that
+               was an accounting boundary rather than a portfolio that had done nothing.
+               .glass-subtle: a dense 3-card row, matching the calmer-sibling precedent. -->
           <div class="glass-subtle rounded-2xl p-6">
-            <p class="text-sm text-slate-500 mb-1">Asset Returns</p>
-            <p class="text-2xl font-semibold text-navy" id="asset-returns-amount"><span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="text-sm text-emerald-600 mt-2">From initial capital</p>
+            <p class="ret-k">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>
+              Total return
+            </p>
+            <div class="ret-top">
+              <span class="ret-v" id="total-return-amount"><span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span></span>
+              <span id="total-return-pct"></span>
+            </div>
+            <p class="ret-sub" id="total-return-split">
+              <span class="inline-block h-4 w-48 bg-slate-200 rounded animate-pulse"></span>
+            </p>
           </div>
 
-          <!-- Best Performing -->
+          <!-- Best performing class. This figure was ALWAYS unrealised and, before row 130,
+               never said so; the word now sits permanently in the markup rather than being
+               appended by script, so it cannot go missing on an error path. -->
           <div class="glass-subtle rounded-2xl p-6">
-            <p class="text-sm text-slate-500 mb-1">Best Performing Class</p>
-            <p class="text-2xl font-semibold text-navy" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="text-sm text-emerald-600 mt-2" id="best-performing-return"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-k">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polygon points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9 16.2 7.8"/></svg>
+              Best performing class
+            </p>
+            <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="best-performing-return"><span class="inline-block h-4 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
         </div>
 
@@ -588,62 +611,95 @@
         }
       });
 
-      // ---- Asset Returns: realized-only, direct from account_state.asset_returns (already
-      // fetched by loadDashboardData() via get-account-state) — correctly $0 for a client who
-      // has never sold anything, per the locked "returns tracked separately from allocation"
-      // rule. Never assetReturns + unrealized — that would silently blur the locked
-      // realized/unrealized distinction this project has enforced since Phase 2. ----
-      var assetReturnsEl = document.getElementById('asset-returns-amount');
-      MarketswaveData.renderAsyncBundle(assetReturnsEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-24', { height: 'h-7' }),
-        load: loadDashboardData,
-        render: function (data) {
-          // Motion UI Components (2026-09-08): same "one-time real reveal" reasoning as
-          // Total Portfolio Value above — this is a real, realized-returns figure computed
-          // once per load, not a live-updating ticker.
+      // ---- Total return + Best performing class -------------------------------------
+      // Both cards read ONE new endpoint, get-returns-summary, rather than assembling money
+      // figures in the browser. Unrealised used to be computed client-side here and on
+      // asset-performance.html (row 121's own disclosed call); a figure a client reads as
+      // their return should not be assembled in the page, so the maths moved server-side and
+      // this file now only formats what it is given.
+      //
+      // The realised half keeps the id #asset-returns-amount and still carries
+      // account_state.asset_returns and nothing else — realised-only, never blended. That
+      // rule is locked and this change does not touch it. All that changed is that the
+      // number no longer stands alone implying a portfolio did nothing.
+      function loadReturnsSummary() {
+        if (!loadReturnsSummary._p) {
+          loadReturnsSummary._p = MarketswaveData.callFunction('get-returns-summary');
+        }
+        return loadReturnsSummary._p;
+      }
+
+      // Sign is carried explicitly on every figure, so gain/loss never depends on colour
+      // alone. U+2212 MINUS SIGN, matching the approved mockup — not a hyphen.
+      function signedUSD(n) {
+        var rounded = Math.round(n);
+        if (rounded < 0) return '\u2212' + formatUSD(Math.abs(rounded));
+        return '+' + formatUSD(rounded);
+      }
+      function signedPct(n) {
+        if (n < 0) return '\u2212' + Math.abs(n).toFixed(1) + '%';
+        return '+' + n.toFixed(1) + '%';
+      }
+
+      var totalReturnEl = document.getElementById('total-return-amount');
+      var totalReturnPctEl = document.getElementById('total-return-pct');
+      var totalReturnSplitEl = document.getElementById('total-return-split');
+      MarketswaveData.renderAsyncBundle([totalReturnEl, totalReturnSplitEl], {
+        skeletonHTML: MarketswaveData.skeleton.text('w-32', { height: 'h-7' }),
+        load: loadReturnsSummary,
+        render: function (r) {
+          var isLoss = r.total < 0;
           if (window.MotionHelpers) {
-            window.MotionHelpers.countUp(assetReturnsEl, { to: Math.round(data.account.assetReturns), format: formatUSD });
+            window.MotionHelpers.countUp(totalReturnEl, {
+              to: Math.round(r.total),
+              format: function (v) { return signedUSD(v); }
+            });
           } else {
-            assetReturnsEl.textContent = formatUSD(Math.round(data.account.assetReturns));
+            totalReturnEl.textContent = signedUSD(r.total);
           }
+          totalReturnEl.className = 'ret-v';
+
+          // No cost basis means no honest denominator — show no pill rather than a
+          // fabricated 0%.
+          if (r.totalPercent === null || r.totalPercent === undefined) {
+            totalReturnPctEl.textContent = '';
+            totalReturnPctEl.className = '';
+          } else {
+            totalReturnPctEl.textContent = signedPct(r.totalPercent);
+            totalReturnPctEl.className = 'ret-pc ' + (r.totalPercent < 0 ? 'is-loss' : 'is-gain');
+          }
+
+          totalReturnSplitEl.innerHTML =
+            '<span class="ret-u' + (r.unrealized < 0 ? ' is-loss' : '') + '" id="total-unrealized-amount">' +
+              signedUSD(r.unrealized) +
+            '</span> unrealised &middot; ' +
+            '<span class="ret-r" id="asset-returns-amount">' + formatUSD(Math.round(r.realized)) + '</span> realised';
         }
       });
 
-      // ---- Best Performing Class: reuses computeClassBreakdown() (the exact same grouping
-      // the pie chart/legend above already computes from the same cached loadDashboardData()
-      // result — no second network round trip), extended with a real per-class return (current
-      // value vs. real cost basis, an unrealized figure — the label says so explicitly, not
-      // "YTD," since this isn't actually a calendar-year-anchored figure). A class with no real
-      // holdings (zero cost basis) is excluded from "best" rather than showing a fabricated
-      // 0%/undefined result; a client with no holdings in ANY class shows an honest "—". ----
+      // Best performing class now comes from the server's own per-class breakdown rather
+      // than a second client-side grouping of the same data. A class with no real cost basis
+      // is excluded there rather than reported at a fabricated 0%, and a client holding
+      // nothing anywhere gets a genuine null, rendered as an honest em dash.
       var bestClassEl = document.getElementById('best-performing-class');
       var bestClassReturnEl = document.getElementById('best-performing-return');
       MarketswaveData.renderAsyncBundle([bestClassEl, bestClassReturnEl], {
         skeletonHTML: MarketswaveData.skeleton.text('w-28', { height: 'h-6' }),
-        load: loadDashboardData,
-        render: function (data) {
-          var breakdown = computeClassBreakdown(data);
-          var best = null;
-          var bestPct = -Infinity;
-          ASSET_CLASS_ORDER.forEach(function (c) {
-            if (breakdown.costBasis[c] > 0) {
-              var pct = ((breakdown.totals[c] - breakdown.costBasis[c]) / breakdown.costBasis[c]) * 100;
-              if (pct > bestPct) {
-                bestPct = pct;
-                best = c;
-              }
-            }
-          });
-          if (best === null) {
-            bestClassEl.textContent = '—';
+        load: loadReturnsSummary,
+        render: function (r) {
+          if (!r.bestClass) {
+            bestClassEl.textContent = '\u2014';
             bestClassReturnEl.textContent = 'No holdings yet';
-            bestClassReturnEl.className = 'text-sm text-slate-400 mt-2';
-          } else {
-            bestClassEl.textContent = best;
-            var sign = bestPct >= 0 ? '+' : '';
-            bestClassReturnEl.textContent = sign + bestPct.toFixed(1) + '% unrealized';
-            bestClassReturnEl.className = 'text-sm mt-2 ' + (bestPct >= 0 ? 'text-emerald-600' : 'text-red-600');
+            bestClassReturnEl.className = 'ret-sub';
+            return;
           }
+          bestClassEl.textContent = r.bestClass.assetClass;
+          var pct = r.bestClass.unrealizedPercent;
+          bestClassReturnEl.className = 'ret-sub';
+          bestClassReturnEl.innerHTML =
+            '<span class="ret-mono ret-u' + (pct < 0 ? ' is-loss' : '') + '" style="font-weight:700">' +
+              signedPct(pct) +
+            '</span> unrealised';
         }
       });
 

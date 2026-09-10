@@ -25,10 +25,11 @@
       }
     }
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="responsive-tables.css">
+  <link rel="stylesheet" href="returns-display.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -83,7 +84,7 @@
           </div>
           <div class="glass-subtle rounded-2xl p-5">
             <p class="text-sm text-slate-500 mb-1">Total Asset Returns
-              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle ml-1">Unrealized</span>
+              <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 align-middle ml-1">Unrealised</span>
             </p>
             <p class="text-2xl font-semibold text-emerald-600" id="total-asset-returns-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="text-xs text-slate-400 mt-1">Live preview — not yet realized</p>
@@ -100,20 +101,26 @@
             <span class="text-xs text-slate-400">Performance tracked separately from allocation</span>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm mw-card-table">
+            <table class="w-full text-sm mw-card-table rt">
               <thead class="bg-slate-50 text-slate-500">
                 <tr>
-                  <th class="text-left font-medium px-6 py-3">Asset</th>
-                  <th class="text-left font-medium px-6 py-3">Asset Class</th>
-                  <th class="text-left font-medium px-6 py-3">Investment Type</th>
-                  <th class="text-right font-medium px-6 py-3">Capital Allocated</th>
-                  <th class="text-right font-medium px-6 py-3">Return %</th>
-                  <th class="text-right font-medium px-6 py-3">Realized Amount</th>
-                  <th class="text-right font-medium px-6 py-3">Action</th>
+                  <th class="text-left px-6 py-3">Holding</th>
+                  <th class="text-right px-6 py-3">Units</th>
+                  <th class="text-right px-6 py-3">Cost basis</th>
+                  <th class="text-right px-6 py-3">Current value</th>
+                  <th class="text-right px-6 py-3">Unrealised</th>
+                  <th class="text-right px-6 py-3 rt-hide-sm">Trend</th>
+                  <th class="text-right px-6 py-3">Realised</th>
+                  <th class="text-right px-6 py-3">Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100" id="return-table-body"></tbody>
+              <tfoot id="return-table-foot"></tfoot>
             </table>
+          </div>
+          <div class="rt-legend" id="return-table-legend">
+            <div><i class="dot-u"></i><span><b>Unrealised</b> &mdash; gain or loss on positions you still hold, at today&rsquo;s price</span></div>
+            <div><i class="dot-r"></i><span><b>Realised</b> &mdash; locked in when a position is sold</span></div>
           </div>
         </div>
 
@@ -247,7 +254,6 @@
       // (requested_at/resolved_at/etc.) is a full timestamptz, unlike the local engine's own
       // plain date strings, so display needs an explicit conversion to keep the same output.
       function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : iso; }
-      function round2ish(n) { return Math.round(n * 100) / 100; }
       function formatDisplayDate(isoDate) {
         var d = new Date(isoDate + 'T00:00:00Z');
         return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
@@ -272,6 +278,7 @@
       var account = { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
       var tpv = 0;
       var holdings = [];
+      var returns = null;
       var products = [];
       var ledger = [];
       var sellRequests = [];
@@ -280,28 +287,13 @@
       function productById(id) { return products.find(function (p) { return p.id === id; }); }
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
 
-      // Pure port of engine-core.js's own getUnrealizedReturn(Percent)()/
-      // getTotalUnrealizedReturns() — real holdings + real live unit_price, computed
-      // client-side from the already-fetched data (no server-side-only logic here worth its
-      // own Edge Function). Small, disclosed duplication with asset-collection.html's own
-      // identical getUnrealizedReturnPercent() — pure financial math, not part of the async/
-      // UI pattern supabase-data.js owns, so it stays page-local, same category as this
-      // project's own already-documented formatUSD() duplication (Known Structural Debt).
-      function getUnrealizedReturn(productId) {
-        var holding = holdingByProductId(productId);
-        if (!holding) return 0;
-        var product = productById(productId);
-        if (!product) return 0;
-        return round2ish(holding.units * product.unitPrice - holding.costBasis);
-      }
-      function getUnrealizedReturnPercent(productId) {
-        var holding = holdingByProductId(productId);
-        if (!holding || holding.costBasis === 0) return 0;
-        return round2ish((getUnrealizedReturn(productId) / holding.costBasis) * 100);
-      }
-      function getTotalUnrealizedReturns() {
-        return round2ish(holdings.reduce(function (sum, h) { return sum + getUnrealizedReturn(h.productId); }, 0));
-      }
+      // Unrealised used to be computed here, a pure port of engine-core.js's own
+      // getUnrealizedReturn(Percent)()/getTotalUnrealizedReturns(). It moved server-side to
+      // get-returns-summary (Returns Display, 2026-09-09): a figure a client reads as their
+      // own return should not be assembled in the page, and the same numbers now feed both
+      // this table and the dashboard from one place rather than two ports that could drift.
+      // The port is deleted rather than left dormant so nothing can quietly start using it
+      // again and reintroduce a second, client-side source of truth for money.
 
       // ---- Summary cards ----
       var allocatedEl = document.getElementById('total-allocated-amount');
@@ -320,20 +312,12 @@
         // (which stays $0 until something actually sells) — labeled "Unrealized" in the card
         // so it's never mistaken for a realized figure.
         if (returnsEl) {
-          var totalUnrealized = getTotalUnrealizedReturns();
+          // Server figure now (get-returns-summary), not the page-local port below. Same
+          // maths, but a number a client reads as their return is not assembled in the page.
+          var totalUnrealized = returns ? returns.unrealized : 0;
           returnsEl.textContent = (totalUnrealized >= 0 ? '+' : '') + formatUSD(Math.round(totalUnrealized));
           returnsEl.className = 'text-2xl font-semibold ' + (totalUnrealized >= 0 ? 'text-emerald-600' : 'text-red-600');
         }
-      }
-
-      // Realized Amount is genuinely realized — the actual sum of realizedReturn across
-      // every SELL transaction for that product, not the live unrealized preview (that's the
-      // summary card above). "—" only when that sum is genuinely zero (no sells exist for
-      // this product yet).
-      function realizedAmountForProduct(productId) {
-        return round2ish(ledger.reduce(function (sum, t) {
-          return t.type === 'SELL' && t.productId === productId ? sum + t.realizedReturn : sum;
-        }, 0));
       }
 
       // Sum of unitsToSell across this product's own PENDING sell requests — subtracted from
@@ -351,45 +335,126 @@
       }
 
       var tableBody = document.getElementById('return-table-body');
+      var tableFoot = document.getElementById('return-table-foot');
+
+      // Locked asset-class palette, identical to dashboard.html's allocation pie, so the
+      // swatch beside a holding means the same thing on both screens. Decorative only —
+      // every figure carries its own sign and label, so nothing depends on colour.
+      var ASSET_CLASS_COLORS = {
+        'Private Equity': '#8B5A0F',
+        'Real Assets': '#1B3D2A',
+        'Stocks & ETFs': '#C8860A',
+        'Crypto': '#D4A843'
+      };
+
+      function formatUnits(n) {
+        return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      // U+2212 MINUS SIGN, per the approved mockup — a hyphen reads as a dash next to digits.
+      function signedUSD(n) {
+        var r = Math.round(n);
+        return (r < 0 ? '\u2212' : '+') + formatUSD(Math.abs(r));
+      }
+      function signedPct(n) {
+        return (n < 0 ? '\u2212' : '+') + Math.abs(n).toFixed(1) + '%';
+      }
+      function toneClass(n) {
+        return n > 0 ? 'rt-pos' : (n < 0 ? 'rt-neg' : 'rt-flat');
+      }
+      function gainCell(amount, pct) {
+        var tone = toneClass(amount);
+        return '<span class="rt-gain">' +
+          '<span class="a ' + tone + '">' + signedUSD(amount) + '</span>' +
+          '<span class="p ' + tone + '">' + signedPct(pct) + '</span>' +
+          '</span>';
+      }
+
+      // The series is REAL price history — see unitPriceSeries() in the shared engine for how
+      // it is derived rather than invented. Coloured by the LINE'S OWN direction, not by the
+      // position's unrealised sign: those two genuinely disagree when a position is underwater
+      // against its cost basis but has risen over the last month, and painting a rising line
+      // red would misdescribe the thing being drawn.
+      function sparklineSVG(trend) {
+        if (!trend || trend.length < 2) return '';
+        var min = Math.min.apply(null, trend);
+        var max = Math.max.apply(null, trend);
+        var range = max - min;
+        var W = 70, H = 20, PAD = 2;
+        var pts = trend.map(function (v, i) {
+          var x = (i / (trend.length - 1)) * W;
+          // A genuinely flat series — Private Equity / Real Assets hold their price between
+          // appraisals — has zero range. Draw the centre line rather than dividing by zero.
+          var y = range === 0 ? H / 2 : PAD + (1 - (v - min) / range) * (H - PAD * 2);
+          return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        var rising = trend[trend.length - 1] >= trend[0];
+        return '<svg class="rt-spark" viewBox="0 0 70 20" aria-hidden="true" focusable="false">' +
+          '<polyline points="' + pts + '" fill="none" stroke="' + (rising ? '#137254' : '#A8452F') +
+          '" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+
       function renderReturnTable() {
         if (!tableBody) return;
-        var currentHoldings = holdings;
-        if (currentHoldings.length === 0) {
-          tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
+        var positions = (returns && returns.positions) ? returns.positions : [];
+        if (positions.length === 0) {
+          tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-slate-400">No current holdings.</td></tr>';
+          if (tableFoot) tableFoot.innerHTML = '';
           return;
         }
-        tableBody.innerHTML = currentHoldings.map(function (h) {
-          var product = productById(h.productId);
-          if (!product) return '';
-          var pct = getUnrealizedReturnPercent(h.productId);
-          var pctColor = pct > 0 ? 'text-emerald-600' : (pct < 0 ? 'text-red-600' : 'text-slate-500');
-          var pctSign = pct > 0 ? '+' : '';
-          var realizedAmount = realizedAmountForProduct(h.productId);
-          var realizedCell = realizedAmount === 0
-            ? '<td class="px-6 py-4 text-right text-slate-400">—</td>'
-            : '<td class="px-6 py-4 text-right font-medium ' + (realizedAmount > 0 ? 'text-emerald-600' : 'text-red-600') + '">' +
-              (realizedAmount > 0 ? '+' : '') + formatUSD(Math.round(realizedAmount)) + '</td>';
 
-          // No holding means no row at all here (the Return Table only ever iterates
-          // current holdings — Cash never has one, a fully-sold product's holding is
-          // removed entirely by executeSell()), so the "no button" case from the spec is
-          // naturally satisfied; the case actually reachable here is a pending sell request
-          // already covering the full position, handled by the availableUnits <= 0 check.
-          var available = availableToSell(h);
+        tableBody.innerHTML = positions.map(function (p) {
+          var swatch = ASSET_CLASS_COLORS[p.assetClass] || '#8A9298';
+          var product = productById(p.productId);
+          var meta = [p.assetClass, p.investmentType].filter(Boolean).join(' \u00b7 ');
+
+          // Realised is an em dash only when this position has genuinely never been sold.
+          var realisedCell = p.realized === 0
+            ? '<td class="px-6 py-4 text-right rt-num rt-dash">\u2014</td>'
+            : '<td class="px-6 py-4 text-right rt-num ' + toneClass(p.realized) + '">' + signedUSD(p.realized) + '</td>';
+
+          var available = availableToSell({ productId: p.productId, units: p.units });
           var actionCell = available > 1e-6
-            ? '<td class="px-6 py-4 text-right"><button type="button" class="sell-request-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition" data-product-id="' + h.productId + '">Sell</button></td>'
+            ? '<td class="px-6 py-4 text-right"><button type="button" class="sell-request-btn text-xs font-medium px-3 py-1.5 rounded-lg border border-navy text-navy hover:bg-navy hover:text-white transition" data-product-id="' + p.productId + '">Sell</button></td>'
             : '<td class="px-6 py-4 text-right"><button type="button" class="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 cursor-not-allowed" disabled title="Pending sell request already covers your full position.">Sell</button></td>';
 
           return '<tr class="hover:bg-slate-50/50">' +
-            '<td class="px-6 py-4 font-medium text-navy">' + product.name + '</td>' +
-            '<td class="px-6 py-4 text-slate-600">' + product.assetClass + lastValuedLineHTML(product) + '</td>' +
-            '<td class="px-6 py-4 text-slate-600">' + product.investmentType + '</td>' +
-            '<td class="px-6 py-4 text-right">' + formatUSD(Math.round(h.costBasis)) + '</td>' +
-            '<td class="px-6 py-4 text-right font-medium ' + pctColor + '">' + pctSign + pct.toFixed(1) + '%</td>' +
-            realizedCell +
+            '<td class="px-6 py-4">' +
+              '<div class="flex items-center gap-3">' +
+                '<span aria-hidden="true" class="shrink-0 rounded-sm" style="width:3px;height:30px;background:' + swatch + '"></span>' +
+                '<span class="block">' +
+                  '<b class="block font-semibold text-navy">' + p.name + '</b>' +
+                  '<span class="block ret-mono uppercase" style="font-size:10px;color:#5C6367;letter-spacing:.06em;margin-top:2px">' + meta + '</span>' +
+                  (product ? lastValuedLineHTML(product) : '') +
+                '</span>' +
+              '</div>' +
+            '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(p.units) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(p.costBasis)) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(p.currentValue)) + '</td>' +
+            '<td class="px-6 py-4 text-right">' + gainCell(p.unrealized, p.unrealizedPercent) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-hide-sm">' + sparklineSVG(p.trend) + '</td>' +
+            realisedCell +
             actionCell +
             '</tr>';
         }).join('');
+
+        if (!tableFoot) return;
+        // Totals row. Realised here is realizedHeld — the sum of the column actually above
+        // it. See get-returns-summary for why that is deliberately not the account-level
+        // realised figure the dashboard shows.
+        var totalPct = returns.costBasis > 0 ? (returns.unrealized / returns.costBasis) * 100 : 0;
+        tableFoot.innerHTML = '<tr>' +
+          '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
+          '<td class="px-6 py-4" data-label=""></td>' +
+          '<td class="px-6 py-4 text-right rt-num" data-label="Cost basis">' + formatUSD(Math.round(returns.costBasis)) + '</td>' +
+          '<td class="px-6 py-4 text-right rt-val" data-label="Current value">' + formatUSD(Math.round(returns.currentValue)) + '</td>' +
+          '<td class="px-6 py-4 text-right" data-label="Unrealised">' + gainCell(returns.unrealized, totalPct) + '</td>' +
+          '<td class="px-6 py-4 rt-hide-sm" data-label=""></td>' +
+          '<td class="px-6 py-4 text-right rt-num ' + (returns.realizedHeld === 0 ? 'rt-dash' : toneClass(returns.realizedHeld)) + '" data-label="Realised">' +
+            (returns.realizedHeld === 0 ? '\u2014' : signedUSD(returns.realizedHeld)) +
+          '</td>' +
+          '<td class="px-6 py-4" data-label=""></td>' +
+          '</tr>';
       }
       // ---- My Requests: allocation + sell requests merged, full history, every status,
       // newest first. The real requested_at column is already a full timestamptz (unlike the
@@ -474,6 +539,7 @@
             throw err;
           }),
           MarketswaveData.callFunction('get-holdings'),
+          MarketswaveData.callFunction('get-returns-summary'),
           MarketswaveData.callFunction('get-transaction-ledger'),
           MarketswaveData.callFunction('get-total-portfolio-value'),
           MarketswaveData.selectTable('products'),
@@ -483,15 +549,16 @@
           return {
             account: results[0],
             holdings: results[1],
-            ledger: results[2],
-            tpv: results[3].totalPortfolioValue,
-            products: results[4].map(function (p) {
+            returns: results[2],
+            ledger: results[3],
+            tpv: results[4].totalPortfolioValue,
+            products: results[5].map(function (p) {
               return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price, lastTickDate: p.last_tick_date };
             }),
-            allocationRequests: results[5].map(function (r) {
+            allocationRequests: results[6].map(function (r) {
               return { id: r.id, productId: r.product_id, requestedAmount: r.requested_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
             }),
-            sellRequests: results[6].map(function (r) {
+            sellRequests: results[7].map(function (r) {
               return { id: r.id, productId: r.product_id, unitsToSell: r.units_to_sell, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
             })
           };
@@ -506,6 +573,7 @@
         account = data.account;
         tpv = data.tpv;
         holdings = data.holdings;
+        returns = data.returns;
         products = data.products;
         ledger = data.ledger;
         allocationRequests = data.allocationRequests;
