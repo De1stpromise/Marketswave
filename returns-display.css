@@ -6,19 +6,26 @@
  *
  * WHY A STYLESHEET RATHER THAN tailwind.config COLOURS. These pages already extend Tailwind
  * with navy/cream, so adding gain/loss tokens there would have worked — but the approved
- * mockup specifies real typographic detail (JetBrains Mono figures, letter-spacing, stacked
- * amount-over-percentage cells) that is far clearer as plain CSS than as long utility
- * strings, and plain CSS cannot hit the Tailwind CDN's silent unknown-utility failure mode
- * (row 165).
+ * mockup specifies real typographic detail (letter-spacing, stacked amount-over-percentage
+ * cells, tabular figures) that is far clearer as plain CSS than as long utility strings, and
+ * plain CSS cannot hit the Tailwind CDN's silent unknown-utility failure mode (row 165).
  *
- * MONO IS FOR FIGURES HERE, AND ONLY FIGURES (2026-09-10). The mockup put every column
- * head, every asset-class label and the TOTAL label in mono too, and at this density it
- * stopped reading as a deliberate accent and started reading as a foreign typeface dropped
- * into an Inter page. Row 187's rule is amended accordingly: mono is for figures, and for
- * uppercase micro-labels ONLY where they are sparse enough to read as an accent — a table
- * where every label is mono defeats the point of the device. The labels keep their
- * uppercase, size and letter-spacing, which is what actually makes them read as labels;
- * only the family changed, plus one weight step to hold the same presence (see .rt th).
+ * ★ THERE IS NO MONOSPACE ON THIS PAGE ANY MORE (2026-09-10). It went in two steps. First
+ * the labels -- column heads, the asset-class line, the TOTAL label -- because at that
+ * density mono had stopped reading as a deliberate accent and started reading as a foreign
+ * typeface dropped into an Inter page. Then the figures, for the same reason: with the
+ * labels already Inter, a table of monospaced numbers under Inter headings still read as
+ * two typefaces bolted together.
+ *
+ * THE ALIGNMENT MONO WAS PROVIDING IS KEPT, AND IT IS THE ONLY REASON MONO WAS DEFENSIBLE
+ * HERE. Inter's default figures are PROPORTIONAL: measured at 13px, "1111111" is 37.78px
+ * against 58.75px for "0000000", so a column containing a 1 would visibly stagger.
+ * `font-variant-numeric: tabular-nums` fixes every digit to one advance width -- measured,
+ * both strings render at 58.97px, and $50,000 and $59,200 both at 54.02px. It is set on
+ * `.rt` so the whole table inherits it (any figure added later is covered without a further
+ * edit) and on the card figure classes individually. Do not remove it and leave the family
+ * change in place: that trades a font mismatch for a misaligned money column, which is
+ * worse.
  *
  * THE THREE COLOURS ARE MEASURED, NOT PICKED. Row 177 found five of six accent hues fail
  * WCAG 4.5:1 as text on these grounds, so none is reused blind:
@@ -39,7 +46,9 @@
   --ret-strong: #12283A;
 }
 
-.ret-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
+/* Renamed from .ret-mono (2026-09-10): it no longer selects a monospace family, and a class
+   called "mono" that does not is worse than no class at all. It marks a FIGURE. */
+.ret-fig { font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* ---- Card heading, shared by all three dashboard cards ----
    The icons were removed (2026-09-09) and the label now holds that corner alone, so it is
@@ -59,11 +68,10 @@
 .ret-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .ret-v {
   font-size: 30px; font-weight: 600; letter-spacing: -0.025em;
-  color: var(--ret-strong); line-height: 1;
+  color: var(--ret-strong); line-height: 1; font-variant-numeric: tabular-nums;
 }
 .ret-pc {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px; font-weight: 700;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
   padding: 3px 8px; border-radius: 6px;
   white-space: nowrap;
 }
@@ -74,8 +82,7 @@
    glance; the separator is a middot, not a second sentence. */
 .ret-sub { font-size: 11.5px; color: var(--ret-muted); margin-top: 9px; line-height: 1.6; }
 .ret-u, .ret-r {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-weight: 700;
+  font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .ret-u { color: var(--ret-gain); }
 .ret-u.is-loss { color: var(--ret-loss); }
@@ -93,7 +100,11 @@
   color: var(--ret-strong); line-height: 1.15;
 }
 
-/* ---- Holdings table ---- */
+/* ---- Holdings table ----
+   Tabular figures for everything inside it. Inherited, so a figure added to this table
+   later gets column alignment without anyone remembering to ask for it. */
+.rt { font-variant-numeric: tabular-nums; }
+
 /* Inter, not mono. Weight steps 500 -> 600 because mono carries more apparent weight at
    this size (uniform stems, wider glyphs), so a straight family swap would have left the
    heads reading lighter than they did. Size and letter-spacing are unchanged. */
@@ -103,11 +114,9 @@
   color: var(--ret-muted); font-weight: 600;
 }
 .rt .rt-num {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px; font-weight: 500; color: #3E4A52;
 }
 .rt .rt-val {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px; font-weight: 700; color: var(--ret-strong);
 }
 /* The class/type line under a holding's name. Extracted from an inline style so the
@@ -135,11 +144,9 @@
 /* Amount over percentage, right-aligned — the mockup's stacked treatment. */
 .rt-gain { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .rt-gain .a {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px; font-weight: 700;
 }
 .rt-gain .p {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10.5px; font-weight: 500;
 }
 .rt-pos { color: var(--ret-gain); }

@@ -314,10 +314,32 @@ async function main() {
           cardLabel:   fam(q('.ret-k')),
           cardFigure:  fam(q('.ret-v')),
           cardSubFig:  fam(q('.ret-sub .ret-u')),
+          // Tabular figures are the property mono was actually providing. Assert the real
+          // rendered advance width, not just that the CSS declaration is present: the
+          // declaration is inert if the loaded face has no tnum table.
+          tnumNum:     q('.rt .rt-num') ? getComputedStyle(q('.rt .rt-num')).fontVariantNumeric : '',
+          digitWidths: (() => {
+            const probe = document.createElement('span');
+            const cell = q('.rt .rt-num');
+            if (!cell) return null;
+            const cs = getComputedStyle(cell);
+            probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;'
+              + 'font-family:' + cs.fontFamily + ';font-size:' + cs.fontSize
+              + ';font-weight:' + cs.fontWeight + ';font-variant-numeric:' + cs.fontVariantNumeric;
+            document.body.appendChild(probe);
+            const w = (txt) => { probe.textContent = txt; return Math.round(probe.getBoundingClientRect().width * 100) / 100; };
+            const out = { ones: w('1111111'), zeros: w('0000000'), a: w('$50,000'), b: w('$59,200') };
+            probe.remove();
+            return out;
+          })(),
           headWeight:  q('.rt th') ? getComputedStyle(q('.rt th')).fontWeight : '',
           metaWeight:  q('.rt-meta') ? getComputedStyle(q('.rt-meta')).fontWeight : '',
-          monoCount:   [...document.querySelectorAll('.rt *')]
+          // The whole document, not just the table: this page requests no monospace face
+          // at all any more, so ANY element resolving to one is a regression.
+          monoCount:   [...document.querySelectorAll('body *')]
                          .filter(el => isMono(getComputedStyle(el).fontFamily)).length,
+          monoRequested: [...document.querySelectorAll('link[rel=stylesheet]')]
+                         .some(l => /JetBrains/i.test(l.href)),
           _isMono: null
         };
       })()`);
@@ -329,12 +351,24 @@ async function main() {
       check(width + 'px: the TOTAL label is Inter, not mono', inter(t.totalLab) && !mono(t.totalLab), t.totalLab);
       check(width + 'px: the legend stayed Inter', inter(t.legend) && !mono(t.legend), t.legend);
       check(width + 'px: the holding name is Inter (prose, unchanged)', inter(t.holdingName), t.holdingName);
-      // The other half of the rule: every figure genuinely stayed mono.
-      check(width + 'px: numeric cells stayed mono', mono(t.num), t.num);
-      check(width + 'px: value cells stayed mono', mono(t.val), t.val);
-      check(width + 'px: the unrealised amount stayed mono', mono(t.gainAmt), t.gainAmt);
-      check(width + 'px: the unrealised percentage stayed mono', mono(t.gainPct), t.gainPct);
-      check(width + 'px: the card sub-line figure stayed mono', mono(t.cardSubFig), t.cardSubFig);
+      // The figures moved to Inter too (2026-09-10) — one typeface on the whole page.
+      check(width + 'px: numeric cells are Inter', inter(t.num) && !mono(t.num), t.num);
+      check(width + 'px: value cells are Inter', inter(t.val) && !mono(t.val), t.val);
+      check(width + 'px: the unrealised amount is Inter', inter(t.gainAmt) && !mono(t.gainAmt), t.gainAmt);
+      check(width + 'px: the unrealised percentage is Inter', inter(t.gainPct) && !mono(t.gainPct), t.gainPct);
+      check(width + 'px: the card sub-line figure is Inter', inter(t.cardSubFig) && !mono(t.cardSubFig), t.cardSubFig);
+      check(width + 'px: NO element on the page resolves to a monospace family', t.monoCount === 0, t.monoCount);
+      check(width + 'px: the page no longer requests a monospace face at all', t.monoRequested === false);
+      // ★ The property mono was genuinely providing, and the only reason it was defensible
+      // here. Measured on real rendered width, because the declaration is inert if the face
+      // has no tnum table — which is exactly the kind of silent loss this guards against.
+      check(width + 'px: figures declare tabular-nums', /tabular-nums/.test(t.tnumNum), t.tnumNum);
+      check(width + 'px: every digit really is one advance width (1111111 === 0000000)',
+        t.digitWidths && t.digitWidths.ones === t.digitWidths.zeros,
+        JSON.stringify(t.digitWidths));
+      check(width + 'px: two real money figures align to the pixel ($50,000 === $59,200)',
+        t.digitWidths && t.digitWidths.a === t.digitWidths.b,
+        JSON.stringify(t.digitWidths));
       // The table now shares its label typeface with the page around it.
       check(width + 'px: table heads match the page heading family', inter(t.pageH2) && inter(t.head), t.pageH2 + ' | ' + t.head);
       check(width + 'px: table heads match the summary card label family', inter(t.cardLabel) && inter(t.head), t.cardLabel + ' | ' + t.head);
