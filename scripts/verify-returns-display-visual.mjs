@@ -31,6 +31,36 @@ function check(label, condition, detail) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Residue sweep, run on ENTRY rather than only in the finally.
+//
+// The finally block below cleans up a normal run, but it cannot run if the process is KILLED
+// mid-flight — which is exactly what happened during this task's own development (a suite
+// runner was stopped part-way and left seven test accounts behind, cleaned up by hand). Row
+// 178 already learned this for verify-products-catalog-fix: sweep by the script's own email
+// SHAPE on entry, so residue from an older crashed run is collected automatically instead of
+// waiting for somebody to notice it. listUsers is paged, so walk it rather than trusting
+// page one.
+async function sweepResidue(admin, re) {
+  const ids = [];
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) { console.error('SWEEP: listUsers failed: ' + error.message); return; }
+    const users = (data && data.users) || [];
+    for (const u of users) if (re.test(u.email || '')) ids.push(u.id);
+    if (users.length < 200) break;
+  }
+  for (const id of ids) {
+    await admin.from('transactions').delete().eq('client_id', id);
+    await admin.from('holdings').delete().eq('client_id', id);
+    await admin.from('account_state').delete().eq('client_id', id);
+    await admin.from('clients').delete().eq('id', id);
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) console.error('SWEEP: could not delete ' + id + ': ' + error.message);
+  }
+  if (ids.length) console.log('sweep: cleared ' + ids.length + ' leftover account(s) from an earlier interrupted run');
+}
+
+
 function readLocalStackCredentials() {
   const scriptsDir = fileURLToPath(new URL('.', import.meta.url));
   const raw = execSync('supabase status -o json', { cwd: scriptsDir + '/..', encoding: 'utf8' });
@@ -84,6 +114,7 @@ async function main() {
   const { url, serviceRoleKey, anonKey } = readLocalStackCredentials();
   const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
+  await sweepResidue(admin, /^returnsvis-[0-9a-f]{8}@test[.]marketswave[.]local$/);
   const suffix = crypto.randomBytes(4).toString('hex');
   const PASSWORD = 'ReturnsVisual-2026!';
   const email = 'returnsvis-' + suffix + '@test.marketswave.local';
