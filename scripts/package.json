@@ -17,6 +17,8 @@
     "supabase-verify-hys": "node verify-supabase-hys.js",
     "supabase-verify-final-approval-gate": "node verify-supabase-final-approval-gate.js",
     "supabase-verify-documents-support": "node verify-supabase-documents-support.js",
+    "verify-returns-display-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-returns-display-visual.mjs",
+    "verify-returns-display": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-returns-display.mjs",
     "verify-dashboard-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-ui-wiring.mjs",
     "verify-asset-pages-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-asset-pages-ui-wiring.mjs",
     "verify-funding-transactions-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-funding-transactions-ui-wiring.mjs",

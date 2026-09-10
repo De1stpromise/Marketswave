@@ -262,7 +262,6 @@ async function main() {
     dom.window.clientScopedKey = function (key) { return key + ':' + clientR.id; };
     const script = extractInlineScript(path, 'UI Wiring — Stage 1');
     const D = dom.window.document;
-    const assetReturnsEl = D.getElementById('asset-returns-amount');
     const bestClassEl = D.getElementById('best-performing-class');
     const bestReturnEl = D.getElementById('best-performing-return');
 
@@ -270,11 +269,20 @@ async function main() {
     await sharedClient.auth.signInWithPassword({ email: clientR.email, password: 'VerifyDashFix-2026!' });
 
     dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(assetReturnsEl.innerHTML) && !/animate-pulse/.test(bestClassEl.innerHTML); }, 20000);
+    await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('total-return-split').innerHTML) && !/animate-pulse/.test(bestClassEl.innerHTML); }, 20000);
+    // Returns Display (2026-09-09): #asset-returns-amount is now CREATED BY THE RENDER —
+    // it is the realised half of the total-return card's split line, not a static element —
+    // so it cannot be looked up before eval(). Resolve it after the render settles.
+    const assetReturnsEl = D.getElementById('asset-returns-amount');
 
     check('Asset Returns shows the EXACT real account_state.asset_returns figure ($2,500), realized-only, not blended with any unrealized figure', assetReturnsEl.textContent === '$2,500', assetReturnsEl.textContent);
     check('Best Performing Class correctly identifies Private Equity — the real mathematically-best real class, not the first/hardcoded one', bestClassEl.textContent === 'Private Equity', bestClassEl.textContent);
-    check('Best Performing Class shows the real, correctly-computed unrealized % (+18.4%)', bestReturnEl.textContent.indexOf('+18.4%') === 0 && bestReturnEl.textContent.indexOf('unrealized') !== -1, bestReturnEl.textContent);
+    // Spelling updated to 'unrealised' (Returns Display, 2026-09-09): the approved mockup
+    // and the task's own specified legend copy are British, and the two existing
+    // user-facing American spellings on these pages were aligned so neither page reads
+    // as mixed. The ASSERTION's intent is unchanged — this figure must still say, in
+    // words, that it is unrealised, which is the whole point of row 130's own fix.
+    check('Best Performing Class shows the real, correctly-computed unrealised % (+18.4%)', bestReturnEl.textContent.indexOf('+18.4%') === 0 && bestReturnEl.textContent.indexOf('unrealised') !== -1, bestReturnEl.textContent);
     check('the real losing class (Crypto, ' + expectedEthPct.toFixed(1) + '%) was correctly NOT chosen as best', bestClassEl.textContent !== 'Crypto');
   })();
 
@@ -289,7 +297,6 @@ async function main() {
     dom.window.clientScopedKey = function (key) { return key + ':' + clientR2.id; };
     const script = extractInlineScript(path, 'UI Wiring — Stage 1');
     const D = dom.window.document;
-    const assetReturnsEl = D.getElementById('asset-returns-amount');
     const bestClassEl = D.getElementById('best-performing-class');
     const bestReturnEl = D.getElementById('best-performing-return');
 
@@ -298,6 +305,10 @@ async function main() {
 
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(bestClassEl.innerHTML); }, 20000);
+    // Returns Display (2026-09-09): #asset-returns-amount is now CREATED BY THE RENDER —
+    // it is the realised half of the total-return card's split line, not a static element —
+    // so it cannot be looked up before eval(). Resolve it after the render settles.
+    const assetReturnsEl = D.getElementById('asset-returns-amount');
     check('Asset Returns shows a real, honest $0 for a client who has never sold anything', assetReturnsEl.textContent === '$0', assetReturnsEl.textContent);
     check('Best Performing Class shows an honest "—", never a fabricated class', bestClassEl.textContent === '—', bestClassEl.textContent);
     check('the sub-line honestly says "No holdings yet"', bestReturnEl.textContent === 'No holdings yet', bestReturnEl.textContent);

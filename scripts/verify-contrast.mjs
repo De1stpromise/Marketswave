@@ -44,7 +44,14 @@ const PORT = Number(process.env.CONTRAST_PORT || 9333);
 const PAGE_URL = process.env.CONTRAST_URL || 'http://127.0.0.1:8765/resources.html';
 const THRESHOLD = 4.5;
 
-const SELECTORS = [
+// Page profiles. This file began as resources.html's own contrast check; the Returns
+// Display work (2026-09-09) needed the same real-composited-pixel measurement on two
+// AUTHENTICATED pages, so the selector list became a profile chosen by CONTRAST_PROFILE and
+// an optional CONTRAST_BOOTSTRAP_JS hook seeds a real session before the target page loads.
+// Default behaviour is unchanged: no env vars means the resources profile, exactly as before.
+const PROFILES = {};
+
+PROFILES.resources = [
   // --- the redesigned components (rest state) ---
   { label: 'res-item h3', sel: '.res-item h3', limit: 6 },
   { label: 'res-item kind', sel: '.res-kind', limit: 6 },
@@ -100,6 +107,37 @@ const SELECTORS = [
   { label: 'disclosure text', sel: '.footer-disclosures p', limit: 3 },
   { label: 'full-disclosures link', sel: '.footer-disclosures-more a', limit: 1 },
 ];
+
+// Returns Display (2026-09-09). Every NEW coloured figure is measured — gain green, loss
+// red, realised blue — in BOTH tones, because a returns display that has only ever been
+// measured green is only half measured. Row 177 found five of six accent hues fail as text
+// on these grounds, so none of these three is assumed safe from having been used elsewhere.
+PROFILES['returns-dashboard'] = [
+  { label: 'card label', sel: '.ret-k', limit: 3 },
+  { label: 'total return figure', sel: '.ret-v', limit: 1 },
+  { label: 'percentage pill', sel: '.ret-pc', limit: 1 },
+  { label: 'context line', sel: '.ret-sub', limit: 3 },
+  { label: 'unrealised figure', sel: '#total-unrealized-amount', limit: 1 },
+  { label: 'realised figure (blue)', sel: '#asset-returns-amount', limit: 1 },
+  { label: 'best class name', sel: '.ret-class', limit: 1 },
+  { label: 'best class pct', sel: '#best-performing-return .ret-u', limit: 1 },
+];
+
+PROFILES['returns-holdings'] = [
+  { label: 'column head', sel: '.rt th', limit: 8 },
+  { label: 'holding name', sel: '.rt tbody b', limit: 4 },
+  { label: 'holding meta', sel: '.rt tbody .ret-mono', limit: 4 },
+  { label: 'units/cost figure', sel: '.rt .rt-num', limit: 8 },
+  { label: 'current value', sel: '.rt .rt-val', limit: 5 },
+  { label: 'unrealised amount', sel: '.rt .rt-gain .a', limit: 5 },
+  { label: 'unrealised percent', sel: '.rt .rt-gain .p', limit: 5 },
+  { label: 'totals label', sel: '.rt-total-lab', limit: 1 },
+  { label: 'legend text', sel: '.rt-legend div', limit: 2 },
+  { label: 'legend term', sel: '.rt-legend b', limit: 2 },
+];
+
+const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
+if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 
 // WCAG relative luminance + contrast ratio.
 const lum = (c) => {
@@ -258,8 +296,16 @@ async function main() {
 
   for (const width of widths) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    // An authenticated target needs its session in place BEFORE the page's own script runs,
+    // so seed it on the same origin first, then navigate for real.
+    if (process.env.CONTRAST_BOOTSTRAP_JS) {
+      const origin = new URL(PAGE_URL).origin + '/';
+      await cdp.send('Page.navigate', { url: origin });
+      await sleep(600);
+      await cdp.eval(process.env.CONTRAST_BOOTSTRAP_JS);
+    }
     await cdp.send('Page.navigate', { url: PAGE_URL });
-    await sleep(1800);
+    await sleep(Number(process.env.CONTRAST_SETTLE_MS || 1800));
 
     // Viewport-integrity guard: this project has had a run report a clean PASS while the
     // browser was silently clamped to a different width. Fail loudly instead.

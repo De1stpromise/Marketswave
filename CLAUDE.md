@@ -7793,6 +7793,92 @@ row 74.
   Supabase branch dropping `?env=staging` on its success redirect while the retired Firebase
   branch preserves it.
 
+- **★★ Returns display — dashboard cards and the holdings table (2026-09-09, row 185).**
+  The dashboard's returns card showed realised gains only, so a client holding well-performing
+  positions for two years saw $0. **The number was correct** — realised-only is the locked
+  accounting rule and nothing here changes it. What was wrong is that one number was carrying a
+  job it cannot do, so this is a DISCLOSURE change, not a recalculation.
+  **New backend, after investigating what already existed.** `get-holdings` returned only
+  `{id, productId, units, costBasis}`; unrealised was computed IN THE BROWSER on
+  asset-performance.html and asset-collection.html, per-class percentages again in
+  dashboard.html, and per-product realised from the ledger — three client-side money
+  computations, no server figure for any of it. New `get-returns-summary` is now the one
+  source: per-position unrealised amount/percent, totals, per-class breakdown, best class,
+  per-product realised, and the trend series. The page-local ports were DELETED rather than
+  left dormant, so nothing can quietly reintroduce a second source of truth for money.
+  **Things a future session needs to know before touching this:**
+  - **The maths is the engine's own, including its order of operations.** `unrealized =
+    round2(units * unitPrice - costBasis)`, percent guarded at zero cost basis, and the total
+    is the sum of the ALREADY-ROUNDED per-position values — summing raw and rounding once at
+    the end is a different number. Verified by seeding the REAL `engine-core.js` with the same
+    holdings and prices and comparing to the cent, not by re-deriving the server's arithmetic.
+  - **`realized` and `realizedHeld` are deliberately DIFFERENT figures, not a duplicate.**
+    `realized` is `account_state.asset_returns` (authoritative, what the dashboard shows).
+    `realizedHeld` sums only positions still held, and is what the table's totals row uses — a
+    totals row that does not add up to the column above it is a visible arithmetic error. They
+    diverge exactly when a position has been sold in full.
+  - **The total-return percentage denominator is a disclosed CHOICE, not an engine rule.** The
+    engine defines no "total return %". It uses the cost basis of held positions, the same
+    denominator the per-position and per-class figures use, so every percentage on both screens
+    means the same thing. Known imperfection, stated rather than hidden: realised gains came
+    from positions no longer held, whose cost basis is not in that denominator. Nothing
+    available fixes this — the engine does not retain the cost basis of closed positions.
+  - **The Trend sparkline is REAL history, not a decorative shape.** `settleProduct()`'s daily
+    return depends only on product id and calendar date, never on the price, so the walk is
+    exactly invertible: `price(D-1) = price(D) / exp(dailyReturn(D))`. New `unitPriceSeries()`
+    walks backward from today. It is proven by walking the result FORWARD again and landing on
+    today's real price to the cent. Private Equity / Real Assets are carved out of the tick, so
+    their real history is `nav_publications` and a flat line is the TRUTHFUL picture between
+    appraisals, not a missing one.
+  - **★ `engine-core.js` is NOT a valid oracle for settlement.** It never received row 143's
+    Private Equity / Real Assets carve-out (built server-side only, since no live page still
+    calls the local `settleProduct()`), so the local engine happily ticks a PE product the
+    server correctly holds flat. It IS a valid oracle for the unrealised FORMULA, which is what
+    was ported — the verification pins the seeded catalog to today so settlement is a no-op and
+    the formula is compared in isolation.
+  - **Colours are measured, and one was a real failure.** `--ret-gain #137254` (row 180's
+    proven green), `--ret-loss #A8452F`, `--ret-realised #3A6785` — deliberately NOT row 177's
+    `#4A7FA5`, which measured 4.09:1. The em dash for a never-sold position was `#8A9298` and
+    measured **3.16:1** on the table's white ground; it carries real meaning ("never sold") so
+    it was darkened to `--ret-muted`. Caught by measurement, invisible by eye. Gain/loss is
+    never signalled by colour alone — every figure carries an explicit + or U+2212 sign.
+  - **`verify-contrast.mjs` now takes page PROFILES and can measure AUTHENTICATED pages.**
+    `CONTRAST_PROFILE` picks the selector set (default `resources`, unchanged — re-confirmed at
+    120 measurements, 0 failures) and `CONTRAST_BOOTSTRAP_JS` seeds a real session on the
+    origin before navigating. A wrong session key cannot produce a false pass: the page bounces
+    to login and the run reports zero measurements, which it already treats as a hard failure.
+  - **New user-facing copy is British ("unrealised"/"realised")**, following the approved mockup
+    and the task's own specified legend wording. The two existing user-facing American spellings
+    on these two pages were aligned so neither page reads as mixed; code identifiers
+    (`getUnrealizedReturn` etc.) were deliberately left alone.
+  - **`runVerifyMain()` exits 0 on ANY normal resolve**, so returning a code from `main()` is
+    silently discarded and a failing run reports success. Both new scripts call
+    `process.exit(1)` explicitly — proven with a forced-failure control, not assumed.
+  - **One client-side computation deliberately NOT closed, stated rather than implied**:
+    `asset-collection.html` keeps its own `getUnrealizedReturnPercent()` for the per-product
+    card badge. That page is neither the dashboard cards nor the holdings table, so it was out
+    of scope — but it is now the LAST place unrealised is computed in the browser, and it
+    should read `get-returns-summary` when that page is next touched.
+  **Table**: Holding (name + class/type) | Units | Cost basis | Current value | Unrealised
+  (amount over percentage) | Trend | Realised | Action, plus a totals row and a two-line
+  legend. "Capital Allocated" was renamed "Cost basis" because the cell has rendered
+  `holding.costBasis` since Phase 4b and the old label named a different figure. Asset Class
+  and Investment Type moved into the Holding cell rather than being dropped — no information
+  left the table. **The Sell button survived**: the mockup omits it, but it is a real write
+  action, and the task said "extend".
+  **Deployment note**: the shared-module change is **72 insertions, 0 modifications**, and
+  `unitPriceSeries()` is called only by the new function — verified, not assumed — so unlike
+  row 143 the other 12 importers' bundles are not behaviourally stale and only
+  `get-returns-summary` needed deploying.
+  **Verified**: `verify-returns-display.mjs` 57/57 (engine cross-check, the invertible-series
+  proof, a genuinely losing position, a genuinely negative total return, the totals row adding
+  up, 401/403) and `verify-returns-display-visual.mjs` 34/34 (contrast on both pages with a
+  winner AND a loser on screen so both tones are measured for real; 1440/390/375/320 with the
+  Trend column hidden below `lg` and the card layout from the mobile batches still holding).
+  Cards stay SHORT — asserted, not just intended: no allocation breakdown, ranking or sparkline
+  was added to them, and the mockup's own unused `.vbreak`/`.rank`/`.spark` CSS was not carried
+  over.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
