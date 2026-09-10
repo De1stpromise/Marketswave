@@ -1,6 +1,6 @@
 {
   "name": "marketswave-dev-scripts",
-  "description": "Backend Migration Phase 0 (Aug 26, 2026) \u2014 emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
+  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -49,7 +49,8 @@
     "verify-pm-compose-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-compose-ui-wiring.mjs",
     "verify-tailwind-color-scoping": "node verify-tailwind-color-scoping.js",
     "verify-contrast": "node verify-contrast.mjs",
-    "verify-resources-redesign": "node verify-resources-redesign.mjs"
+    "verify-resources-redesign": "node verify-resources-redesign.mjs",
+    "verify-password-reset-flow": "node --experimental-loader ./lib/esm-loader-reset-flow-test.mjs verify-password-reset-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

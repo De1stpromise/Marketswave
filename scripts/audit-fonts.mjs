@@ -36,6 +36,14 @@
  * Inter weights below are genuinely distinguished.
  *
  * Usage: AUDIT_URL=http://127.0.0.1:8765/resources.html node scripts/audit-fonts.mjs
+ *
+ * AUTHENTICATED PAGES. A client-facing dashboard page redirects to login.html unless a
+ * real session is already on the origin, and this script would then audit the LOGIN page
+ * while appearing to succeed. Set AUDIT_BOOTSTRAP_JS to seed one first — the same hook,
+ * with the same shape and the same reasoning, as verify-contrast.mjs's
+ * CONTRAST_BOOTSTRAP_JS. A wrong session cannot produce a false clean sheet: the page
+ * bounces to login and the families reported are login.html's, which is why the URL each
+ * result belongs to is printed alongside it.
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -93,8 +101,15 @@ async function main() {
   let anyFallback = false;
 
   for (const url of URLS) {
+    // Seed the session on the target's own origin BEFORE navigating, so the page's own
+    // load-time auth guard sees it rather than redirecting to login.
+    if (process.env.AUDIT_BOOTSTRAP_JS) {
+      await cdp.send('Page.navigate', { url: new URL(url).origin + '/' });
+      await sleep(600);
+      await cdp.eval(process.env.AUDIT_BOOTSTRAP_JS);
+    }
     await cdp.send('Page.navigate', { url });
-    await sleep(2500);
+    await sleep(Number(process.env.AUDIT_SETTLE_MS || 2500));
     await cdp.eval('document.fonts.ready');
 
     const report = await cdp.eval(`(() => {
