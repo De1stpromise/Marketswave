@@ -236,6 +236,30 @@ PROFILES['watchlist-modal'] = [
 ];
 
 
+// ★ Savings deposit from unallocated capital (2026-09-11). The internal funding step is a
+// genuinely new surface: a figure block on a slate-50 panel inside a white modal, plus a
+// disabled-state error line. Measured rather than assumed safe because the amounts sit on a
+// tinted panel, not the plain white the rest of the modal uses. CONTRAST_PREPARE_JS drives the
+// real flow to that step first — it does not exist in the DOM until a client gets there.
+PROFILES['hys-internal'] = [
+  { label: 'available label', sel: '[data-step="funding-internal"] .uppercase', limit: 1 },
+  { label: 'available figure', sel: '#np-internal-available', limit: 1 },
+  { label: 'row label', sel: '[data-step="funding-internal"] .text-slate-600', limit: 2 },
+  { label: 'transferring figure', sel: '#np-internal-amount', limit: 1 },
+  { label: 'remaining figure', sel: '#np-internal-remaining', limit: 1 },
+  { label: 'explanatory copy', sel: '[data-step="funding-internal"] .text-slate-500', limit: 1 },
+  { label: 'card title', sel: '.np-funding-card[data-method="internal"] h4', limit: 1 },
+  { label: 'card description', sel: '.np-funding-card[data-method="internal"] p', limit: 1 }
+];
+
+// The admin queue's own new surfaces: the INTERNAL TRANSFER badge (amber-100/amber-800, the
+// most distinct of the three method badges by design) and the amber explanatory line that
+// replaces the external destination details.
+PROFILES['hys-internal-admin'] = [
+  { label: 'internal badge', sel: '.bg-amber-100.text-amber-800', limit: 1 },
+  { label: 'no-payment-to-confirm note', sel: '#pending-list .text-amber-800:not(.bg-amber-100)', limit: 1 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

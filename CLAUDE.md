@@ -8400,6 +8400,77 @@ row 74.
   delivered to a real inbox with a real Resend id, separately from the suite — the suite
   itself mails a deliberately malformed recipient so a regression run never mails anyone.
 
+- **★★ Savings deposit from unallocated capital — a second funding source for an HYS pocket
+  (2026-09-11, row 197).** A pocket could only ever be funded by an external payment; it can
+  now also be funded from capital already sitting in the client's account as unallocated.
+  Goes through the EXISTING `hys_deposit_requests` queue — a fixed-term pocket commits capital
+  for a real period and a locked one cannot be withdrawn before maturity, so a PM seeing that
+  commitment before it binds has genuine value.
+  **Things a future session needs to know before touching this:**
+  - **★ NO NEW SOURCE COLUMN — `method` already IS the funding-source field**, widened to
+    `('crypto','bank','internal')`. A separate `source` column would have made every consumer
+    read two fields to answer one question and left `method` holding a meaningless value for
+    an internal transfer. What that DOES require is checking every consumer rather than
+    assuming a new value passes through: `request-hys-deposit` validates it,
+    `credit-hys-deposit` maps it to `hys_pockets.funding_method`, `admin-hys.html` renders it
+    through `METHOD_STYLES` + a label helper. **`hys_pockets.funding_method` is ALSO
+    constrained** and needed `'unallocated capital'` added — found by reading the table, not
+    by hitting the violation. The RLS INSERT policy pins only `client_id`/`status`, so it
+    needed no change.
+  - **★ HYS_DEPOSIT DOES NOT DESCRIBE AN INTERNAL TRANSFER, and the reason is a real gap
+    rather than a naming preference.** HYS_DEPOSIT means "external money arrived into a
+    pocket" and never touches `account_state` — which is exactly why `transactions.html`
+    excludes it from Net Cash Flow. An internal transfer DOES reduce unallocated capital, so
+    reusing that type would leave the balance dropping with NO ledger row accounting for it.
+    Hence `HYS_TRANSFER_IN`.
+  - **★ ONE LEDGER ROW, NOT TWO — a deliberate deviation from the brief's "entries on both
+    sides", stated rather than quietly taken.** This ledger is single-entry: BUY moves capital
+    out of unallocated into a holding and writes ONE row; nothing writes a matching debit row
+    beside it. Half-double-entry for this one flow would leave a future reader asking why. Both
+    ends stay traceable: the row's own name says "from Unallocated Capital", the pocket is on
+    high-yield-savings.html, and `hys_deposit_requests.transaction_id` links request to ledger.
+  - **★ THE AMOUNT IS NOT PM-EDITABLE, and that is enforced server-side.** The editable
+    confirmed amount exists because external settlement is genuinely uncertain (fees, FX,
+    partial transfers) and the PM records what actually landed. Nothing lands here. The admin
+    modal locks the field, but `credit-hys-deposit` refuses a mismatched amount outright,
+    because a UI control is not a constraint. Same reasoning `approve-hys-withdrawal` already
+    uses for being a pure confirm.
+  - **★ RE-VALIDATION AT BOTH ENDS, AND NEITHER IS REDUNDANT.** Request time
+    (`request-withdrawal/index.ts:69-77`'s pattern) stops a client committing capital they
+    plainly do not have; approval time (`approve-withdrawal/index.ts:81-96`'s pattern, same
+    `1e-9` epsilon, same 409-with-real-numbers) catches capital that WAS there and has since
+    been allocated elsewhere. Both patterns were reused rather than rewritten.
+  - **The debit is claimed BEFORE the pocket is created, with an explicit compensating
+    restore** if the pocket insert fails — there is no cross-statement transaction through
+    supabase-js, and of the possible half-states, "client debited for a pocket that does not
+    exist, request still pending" is the worst one to leave behind.
+  - **Rejection genuinely returns nothing, confirmed rather than assumed**: `reject-hys-deposit`
+    only ever writes the request row's own status/reason, and the request path never moved
+    capital in the first place, so for an internal transfer there is nothing to return.
+  - **Emails describe a transfer, not a deposit that never arrived** — the approval email
+    reports what moved and the unallocated balance remaining; the rejection email says
+    explicitly that the capital has not moved.
+  - **`.ret-fig` is NOT reachable from high-yield-savings.html** (it lives in
+    `returns-display.css`, which that page does not link) — caught before shipping by the
+    row-191 reachability trap. Tailwind's own `tabular-nums` is used instead.
+  **Verified**: `npm run verify-hys-internal-funding` 40/40 (request-time refusal, the real
+  end-to-end transfer with capital genuinely leaving unallocated, the PM-edit refusal, **the
+  race** — request, allocate the same capital elsewhere, approve, refused 409 with unallocated
+  never going negative and the request left genuinely pending — rejection moving nothing,
+  401/403, and the external path proven unregressed including its still-editable amount);
+  `npm run verify-hys-internal-ui-wiring` 32/32 (the REAL pages' own scripts in a real DOM:
+  three funding cards, the real balance shown, an unaffordable amount genuinely disabling the
+  control, a real request created, the INTERNAL TRANSFER badge and read-only amount in the real
+  admin queue, a real approval moving real capital, and the ledger row rendered without the
+  "Capital allocated — null" bug this project has fixed twice); `npm run
+  verify-hys-internal-visual` 28/28 (contrast on 9 new surfaces, fonts Inter-only,
+  1440/390/375/320 with the viewport-integrity guard and 320px through a real iframe).
+  **A real verification finding worth keeping**: the 1440px case failed as "step did not
+  render" purely because it was the FIRST navigation and paid the Edge Function cold-start
+  cost — 390/375 passed only because they came second and third. Fixed with one throwaway
+  warm-up load, the same reasoning as the full-suite warm-up convention; a longer timeout
+  would have hidden which load was cold rather than fixing anything.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

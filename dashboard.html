@@ -820,6 +820,7 @@
             var isHysDeposit = txn.type === 'HYS_DEPOSIT';
             var isWithdrawal = txn.type === 'WITHDRAWAL';
             var isHysWithdrawal = txn.type === 'HYS_WITHDRAWAL';
+            var isHysTransferIn = txn.type === 'HYS_TRANSFER_IN';
             var title, detail, dotColor;
             var dateOnly = toDateOnly(txn.createdAt);
             if (isDeposit) {
@@ -842,6 +843,14 @@
               title = 'HYS pocket withdrawal processed';
               detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
                 (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
+            } else if (isHysTransferIn) {
+              // Savings deposit from unallocated capital (2026-09-11). Handled explicitly
+              // BEFORE the product-lookup branch below: an HYS_TRANSFER_IN has no productId,
+              // so falling through would render the literal "Capital allocated — null" this
+              // page has already had to fix twice (DEPOSIT, then HYS_WITHDRAWAL).
+              dotColor = 'bg-teal-500';
+              title = 'Moved to HYS pocket';
+              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly + ' · From unallocated capital';
             } else {
               var product = data.products.find(function (p) { return p.id === txn.productId; });
               var productName = product ? product.name : txn.productId;

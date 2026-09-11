@@ -141,6 +141,7 @@
                 <option value="HYS Deposit">HYS Deposit</option>
                 <option value="Withdrawal">Withdrawal</option>
                 <option value="HYS Withdrawal">HYS Withdrawal</option>
+                <option value="HYS Transfer">HYS Transfer</option>
               </select>
                 <label for="filter-type">Type</label>
               </div>
@@ -308,6 +309,12 @@
         if (txn.type === 'HYS_WITHDRAWAL') {
           return 'HYS Pocket Withdrawal (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
         }
+        // Savings deposit from unallocated capital (2026-09-11). Single-entry ledger, so this
+        // ONE row has to account for both ends of the movement — hence the source is named
+        // here rather than left to a second row that does not exist.
+        if (txn.type === 'HYS_TRANSFER_IN') {
+          return 'HYS Pocket Funding (from Unallocated Capital)';
+        }
         var p = txnProduct(txn);
         return p ? p.name : txn.productId;
       }
@@ -317,6 +324,7 @@
         if (txn.type === 'HYS_DEPOSIT') return 'HYS Deposit';
         if (txn.type === 'WITHDRAWAL') return 'Withdrawal';
         if (txn.type === 'HYS_WITHDRAWAL') return 'HYS Withdrawal';
+        if (txn.type === 'HYS_TRANSFER_IN') return 'HYS Transfer';
         return 'Deposit';
       }
 
@@ -585,6 +593,7 @@
             : txn.type === 'HYS_DEPOSIT' ? 'bg-purple-50 text-purple-700'
             : txn.type === 'WITHDRAWAL' ? 'bg-orange-50 text-orange-700'
             : txn.type === 'HYS_WITHDRAWAL' ? 'bg-amber-50 text-amber-700'
+            : txn.type === 'HYS_TRANSFER_IN' ? 'bg-teal-50 text-teal-700'
             : 'bg-blue-50 text-blue-700';
           var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
           var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
@@ -721,6 +730,7 @@
         var isHysDeposit = txn.type === 'HYS_DEPOSIT';
         var isWithdrawal = txn.type === 'WITHDRAWAL';
         var isHysWithdrawal = txn.type === 'HYS_WITHDRAWAL';
+        var isHysTransferIn = txn.type === 'HYS_TRANSFER_IN';
         document.getElementById('txn-modal-asset').textContent = txnProductName(txn);
         document.getElementById('txn-modal-date').textContent = txn.date;
         document.getElementById('txn-modal-type').textContent = txnTypeLabel(txn);
@@ -761,6 +771,8 @@
           ? 'Processed following Portfolio Manager approval of a withdrawal request.'
           : isHysWithdrawal
           ? 'Processed following Portfolio Manager approval of a High Yield Savings pocket withdrawal request.'
+          : isHysTransferIn
+          ? 'Moved from your unallocated capital into a High Yield Savings pocket, following Portfolio Manager approval. No external payment was involved.'
           : isSell
           ? 'Executed following Portfolio Manager approval of a sell request.'
           : 'Executed following Portfolio Manager approval of an allocation request.';

@@ -18,6 +18,16 @@
 // transactions (type HYS_DEPOSIT) so the activity is visible in one place, mirroring the local
 // engine's own appendTransactionForClient() call exactly.
 //
+// ★ THE ONE EXCEPTION TO THAT, ADDED 2026-09-11: an INTERNAL TRANSFER (method 'internal')
+// funds the pocket from the client's own unallocated capital, so it necessarily DOES move
+// account_state — that movement is the entire feature. The "HYS never touches account_state"
+// rule still holds for every externally-funded pocket, which is what it was always about:
+// money arriving from outside the platform does not pass through unallocated on its way in.
+//
+// Three things differ on that path and each is enforced HERE, server-side, never trusted from
+// the admin UI: the confirmed amount is not PM-editable, the client's CURRENT unallocated
+// capital is re-validated, and the ledger row is HYS_TRANSFER_IN rather than HYS_DEPOSIT.
+//
 // AUTHORIZATION: admin-only, via getClaims(jwt) — never getUser(), same pattern as every
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -79,7 +89,46 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Fixed Deposit pockets require a minimum of $5,000 — confirmedAmount is below that minimum.' }, 400);
     }
 
+    const isInternal = request.method === 'internal';
     const clientId = request.client_id;
+
+    // ★ A PM-EDITABLE AMOUNT IS MEANINGLESS FOR AN INTERNAL TRANSFER, so it is refused
+    // rather than silently accepted. The editable confirmed amount exists because external
+    // settlement is genuinely uncertain — wire fees, FX, a partial transfer — and the PM is
+    // recording what actually landed. Nothing lands here: the capital is already in the
+    // account, and the figure is exact. This mirrors approve-hys-withdrawal's own reasoning
+    // for being a pure confirm ("a deterministic calculation, not real-world settlement
+    // uncertainty"). The admin UI locks the field, but the rule is enforced here because a
+    // UI control is not a constraint.
+    if (isInternal && Math.abs(round2(confirmedAmount) - round2(request.requested_amount)) > 1e-9) {
+      return jsonResponse({
+        error: 'An internal transfer moves an exact amount and cannot be adjusted at approval. ' +
+          'Approve $' + round2(request.requested_amount).toLocaleString() + ' as requested, or reject it.'
+      }, 400);
+    }
+
+    // ★ RE-VALIDATION, END TWO OF TWO. Pattern reused from approve-withdrawal/index.ts:81-96
+    // verbatim in shape — fetch the CURRENT balance, compare with the same 1e-9 epsilon, 409
+    // with the real numbers in the message. This is the exact race that function already
+    // guards: the client can commit $50k here and then allocate that same capital elsewhere
+    // before a PM acts, so a balance checked only at request time is a balance that can go
+    // stale into the negative.
+    let currentUnallocated = 0;
+    if (isInternal) {
+      const { data: accountState, error: accountErr } = await admin
+        .from('account_state')
+        .select('unallocated_capital')
+        .eq('client_id', clientId)
+        .maybeSingle();
+      if (accountErr) return jsonResponse({ error: accountErr.message }, 500);
+      currentUnallocated = accountState ? accountState.unallocated_capital : 0;
+      if (confirmedAmount > currentUnallocated + 1e-9) {
+        return jsonResponse({
+          error: 'Cannot approve internal transfer ' + requestId + ': only ' + currentUnallocated +
+            ' unallocated capital remains, but ' + confirmedAmount + ' was requested to transfer.'
+        }, 409);
+      }
+    }
     const now = new Date();
     let maturityDate: string | null = null;
     let projectedInterest = 0;
@@ -89,6 +138,23 @@ Deno.serve(async (req) => {
       else maturity.setFullYear(maturity.getFullYear() + request.term_years);
       maturityDate = maturity.toISOString();
       projectedInterest = round2(confirmedAmount * (request.rate / 100) * request.term_in_years);
+    }
+
+    // ★ THE DEBIT. Claimed BEFORE the pocket is created, deliberately: unallocated capital is
+    // the scarce resource here, so it is taken first and the pocket built against it, rather
+    // than creating a pocket and hoping the debit lands. There is no cross-statement
+    // transaction available through supabase-js — the same non-atomicity every other
+    // multi-write function in this project already carries — so the one realistic failure
+    // (the pocket insert being refused) is COMPENSATED explicitly below rather than left to
+    // strand a client's capital with nothing to show for it.
+    if (isInternal) {
+      const { error: debitErr } = await admin
+        .from('account_state')
+        .upsert(
+          { client_id: clientId, unallocated_capital: round2(currentUnallocated - confirmedAmount), updated_at: new Date().toISOString() },
+          { onConflict: 'client_id' }
+        );
+      if (debitErr) return jsonResponse({ error: debitErr.message }, 500);
     }
 
     // Same id format high-yield-savings.html's own local createPocket() convention was for —
@@ -109,21 +175,35 @@ Deno.serve(async (req) => {
         term_in_years: request.term_in_years,
         maturity_date: maturityDate,
         projected_interest: projectedInterest,
-        funding_method: request.method === 'crypto' ? 'crypto wallet' : 'bank account'
+        funding_method: isInternal ? 'unallocated capital' : (request.method === 'crypto' ? 'crypto wallet' : 'bank account')
       })
       .select()
       .single();
-    if (pocketErr) return jsonResponse({ error: pocketErr.message }, 500);
+    if (pocketErr) {
+      // Put the capital back. Without this the client would have been debited for a pocket
+      // that does not exist, with the request still pending — the worst of the three states.
+      if (isInternal) {
+        await admin
+          .from('account_state')
+          .upsert(
+            { client_id: clientId, unallocated_capital: round2(currentUnallocated), updated_at: new Date().toISOString() },
+            { onConflict: 'client_id' }
+          );
+      }
+      return jsonResponse({ error: pocketErr.message }, 500);
+    }
 
     // A HYS_DEPOSIT transaction has no product_id/units/price, just total_value/pocket
     // context — same shape as the local HYS_DEPOSIT transaction creditHYSDeposit() itself
-    // produces.
+    // produces. HYS_TRANSFER_IN is the internally-funded counterpart: see the migration's own
+    // header for why reusing HYS_DEPOSIT here would leave an unexplained drop in unallocated
+    // capital, and why this is one row rather than a debit/credit pair.
     const { data: txn, error: txnErr } = await admin
       .from('transactions')
       .insert({
         client_id: clientId,
         product_id: null,
-        type: 'HYS_DEPOSIT',
+        type: isInternal ? 'HYS_TRANSFER_IN' : 'HYS_DEPOSIT',
         units: null,
         price: null,
         total_value: round2(confirmedAmount),
@@ -157,21 +237,35 @@ Deno.serve(async (req) => {
       const pocketLabel = request.pocket_type === 'fixed'
         ? 'Fixed Deposit pocket' + (request.term_label ? ' (' + request.term_label + ')' : '')
         : 'As You Want pocket';
+      // ★ An internal transfer email must not describe a deposit that never arrived. The
+      // client moved their own capital; nothing was received from outside, and the figure
+      // that changed is their unallocated balance — so the email says exactly that, and
+      // reports the remaining balance, which is the number they will actually want.
       const detailRows = [
         { label: 'Pocket type', value: pocketLabel },
-        { label: 'Amount credited', value: '$' + round2(confirmedAmount).toLocaleString() }
+        { label: isInternal ? 'Amount transferred' : 'Amount credited', value: '$' + round2(confirmedAmount).toLocaleString() }
       ];
+      if (isInternal) {
+        detailRows.push({ label: 'Funded from', value: 'Your unallocated capital' });
+        detailRows.push({ label: 'Unallocated capital remaining', value: '$' + round2(currentUnallocated - confirmedAmount).toLocaleString() });
+      }
       if (maturityDate) detailRows.push({ label: 'Maturity date', value: new Date(maturityDate).toISOString().slice(0, 10) });
       const { html, text } = renderEmail({
-        heading: 'Your High Yield Savings deposit has been credited',
-        introParagraphs: ['Hi ' + clientRow.name + ', your deposit has been credited to a new savings pocket, held separately from your main portfolio.'],
+        heading: isInternal
+          ? 'Your transfer to High Yield Savings is complete'
+          : 'Your High Yield Savings deposit has been credited',
+        introParagraphs: [isInternal
+          ? 'Hi ' + clientRow.name + ', your Portfolio Manager has approved the transfer of capital from your unallocated balance into a new savings pocket. The capital has moved within your account — no payment was taken from outside it.'
+          : 'Hi ' + clientRow.name + ', your deposit has been credited to a new savings pocket, held separately from your main portfolio.'],
         detailRows,
         cta: { text: 'View your pocket', href: siteLink('high-yield-savings.html') },
         footerType: 'investment'
       });
       await sendEmail(admin, {
         to: clientRow.email,
-        subject: 'Your Marketswave High Yield Savings deposit has been credited',
+        subject: isInternal
+          ? 'Your Marketswave transfer to High Yield Savings is complete'
+          : 'Your Marketswave High Yield Savings deposit has been credited',
         html,
         text,
         relatedEntityType: 'hys_deposit_request',

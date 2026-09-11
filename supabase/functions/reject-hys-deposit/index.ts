@@ -71,13 +71,21 @@ Deno.serve(async (req) => {
     // approve-client-application/index.ts's own identical comment for the full "why."
     const { data: clientRow } = await admin.from('clients').select('name, email').eq('id', request.client_id).maybeSingle();
     if (clientRow) {
+      // ★ An internal transfer that is rejected must not read as a refused deposit — nothing
+      // was ever sent in, and the reassurance the client actually needs is that their capital
+      // never moved. Confirmed against this function's own behaviour rather than assumed: the
+      // only write below is the request row's own status/reason, so for an internal transfer
+      // there is genuinely nothing to return.
+      const isInternal = request.method === 'internal';
       const pocketLabel = request.pocket_type === 'fixed'
-        ? 'Fixed Deposit request' + (request.term_label ? ' (' + request.term_label + ')' : '')
-        : 'As You Want deposit request';
+        ? (isInternal ? 'Fixed Deposit transfer' : 'Fixed Deposit request') + (request.term_label ? ' (' + request.term_label + ')' : '')
+        : (isInternal ? 'As You Want transfer' : 'As You Want deposit request');
       const { html, text } = renderEmail({
         heading: 'An update on your Marketswave High Yield Savings request',
-        introParagraphs: ['Hi ' + clientRow.name + ', your ' + pocketLabel + ' could not be approved. Please contact support if you have any questions.'],
-        detailRows: [{ label: 'Amount requested', value: '$' + request.requested_amount.toLocaleString() }],
+        introParagraphs: [isInternal
+          ? 'Hi ' + clientRow.name + ', your ' + pocketLabel + ' was not approved. Your capital has not moved and remains available as unallocated capital in your account. Please contact support if you have any questions.'
+          : 'Hi ' + clientRow.name + ', your ' + pocketLabel + ' could not be approved. Please contact support if you have any questions.'],
+        detailRows: [{ label: isInternal ? 'Amount requested to transfer' : 'Amount requested', value: '$' + request.requested_amount.toLocaleString() }],
         callout: reason ? { text: reason } : undefined,
         cta: { text: 'View your requests', href: siteLink('high-yield-savings.html') },
         footerType: 'investment'

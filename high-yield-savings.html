@@ -205,7 +205,7 @@
       <!-- Step: funding -->
       <div class="np-step hidden" data-step="funding">
         <p class="text-sm text-slate-600 mb-4">Funding amount: <span class="font-semibold text-navy" id="np-funding-amount">$0.00</span></p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button type="button" class="np-funding-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="crypto">
             <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
               <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -220,9 +220,44 @@
             <h4 class="font-semibold text-navy mb-1">Bank</h4>
             <p class="text-xs text-slate-500">Fund via bank transfer.</p>
           </button>
+          <!-- Savings deposit from unallocated capital (2026-09-11). A third funding SOURCE,
+               not a third payment rail: nothing arrives from outside the account. -->
+          <button type="button" class="np-funding-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="internal">
+            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
+              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"/></svg>
+            </div>
+            <h4 class="font-semibold text-navy mb-1">Unallocated Capital</h4>
+            <p class="text-xs text-slate-500">Move capital already in your account.</p>
+          </button>
         </div>
         <div class="pt-5">
           <button type="button" id="np-funding-back" class="np-back mw-btn mw-btn-secondary" data-target="type">Back</button>
+        </div>
+      </div>
+
+      <!-- Step: funding-internal -->
+      <div class="np-step hidden" data-step="funding-internal">
+        <div class="space-y-4">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs uppercase tracking-wide text-slate-500 mb-1">Available unallocated capital</p>
+            <p class="text-2xl font-semibold text-navy tabular-nums" id="np-internal-available">$0.00</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 p-4">
+            <div class="flex items-baseline justify-between gap-4 mb-2">
+              <span class="text-sm text-slate-600">Transferring</span>
+              <span class="text-sm font-semibold text-navy tabular-nums" id="np-internal-amount">$0.00</span>
+            </div>
+            <div class="flex items-baseline justify-between gap-4">
+              <span class="text-sm text-slate-600">Unallocated capital after</span>
+              <span class="text-sm font-semibold text-navy tabular-nums" id="np-internal-remaining">$0.00</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500">This moves capital that is already in your account — no payment is taken from outside it. Your Portfolio Manager reviews the commitment before it binds, and nothing moves until it is approved.</p>
+          <p class="text-xs text-red-500 hidden" id="np-internal-error">This exceeds your available unallocated capital.</p>
+        </div>
+        <div class="flex gap-3 pt-5">
+          <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="funding">Back</button>
+          <button type="button" id="np-internal-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm &amp; Submit Request</button>
         </div>
       </div>
 
@@ -490,6 +525,7 @@
     var pockets = [];
     var depositRequests = [];
     var withdrawalRequests = [];
+    var unallocatedCapital = 0;
     var dataLoaded = false;
     var dataPromise = null;
 
@@ -568,13 +604,23 @@
         return Promise.all([
           MarketswaveData.selectTable('hys_pockets'),
           MarketswaveData.selectTable('hys_deposit_requests'),
-          MarketswaveData.selectTable('hys_withdrawal_requests')
+          MarketswaveData.selectTable('hys_withdrawal_requests'),
+          // Savings deposit from unallocated capital (2026-09-11): the funding step needs the
+          // client's real available balance. A client with no account_state row yet genuinely
+          // has no capital, and get-account-state returns a real 404 for that case — the same
+          // "not found is not an error" mapping dashboard.html already established, reused
+          // rather than re-derived.
+          MarketswaveData.callFunction('get-account-state').catch(function (err) {
+            if (err && err.status === 404) return { unallocatedCapital: 0 };
+            throw err;
+          })
         ]);
       }).then(function (results) {
         return {
           pockets: results[0].map(mapPocketRow),
           depositRequests: results[1].map(mapDepositRequestRow),
-          withdrawalRequests: results[2].map(mapWithdrawalRequestRow)
+          withdrawalRequests: results[2].map(mapWithdrawalRequestRow),
+          unallocatedCapital: (results[3] && results[3].unallocatedCapital) || 0
         };
       }).catch(function (err) {
         dataPromise = null;
@@ -587,6 +633,7 @@
       pockets = data.pockets;
       depositRequests = data.depositRequests;
       withdrawalRequests = data.withdrawalRequests;
+      unallocatedCapital = data.unallocatedCapital;
       dataLoaded = true;
     }
 
@@ -996,10 +1043,35 @@
       goToFunding();
     });
 
+    // Savings deposit from unallocated capital (2026-09-11): the internal step is populated
+    // at the moment it is opened, from the same real balance loadHysData() fetched, so the
+    // client sees their genuine available capital rather than a placeholder. The client-side
+    // over-balance check here is immediate feedback only — request-hys-deposit re-checks it
+    // server-side, and credit-hys-deposit checks it AGAIN at approval time.
+    function showInternalFundingStep() {
+      const available = unallocatedCapital || 0;
+      const amount = draft.amount || 0;
+      document.getElementById('np-internal-available').textContent = fmt(available);
+      document.getElementById('np-internal-amount').textContent = fmt(amount);
+      document.getElementById('np-internal-remaining').textContent = fmt(Math.max(0, available - amount));
+      const over = amount > available + 1e-9;
+      document.getElementById('np-internal-error').classList.toggle('hidden', !over);
+      document.getElementById('np-internal-confirm').disabled = over;
+      showNpStep('funding-internal');
+    }
+
     document.querySelectorAll('.np-funding-card').forEach(card => {
       card.addEventListener('click', () => {
-        showNpStep(card.dataset.method === 'crypto' ? 'funding-crypto' : 'funding-bank');
+        const m = card.dataset.method;
+        if (m === 'internal') { showInternalFundingStep(); return; }
+        showNpStep(m === 'crypto' ? 'funding-crypto' : 'funding-bank');
       });
+    });
+
+    document.getElementById('np-internal-confirm').addEventListener('click', () => {
+      const btn = document.getElementById('np-internal-confirm');
+      MarketswaveData.withButtonBusy(btn, 'Submitting...', () => submitPocketRequest('internal', null))
+        .catch(err => showToast('Request Failed', MarketswaveData.writeErrorMessage(err), true));
     });
 
     document.getElementById('np-crypto-confirm').addEventListener('click', () => {

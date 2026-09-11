@@ -102,10 +102,13 @@
     <div class="absolute inset-0 bg-black/60" id="credit-modal-backdrop"></div>
     <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
       <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Credit HYS Deposit</p>
+        <p class="text-lg font-semibold text-slate-900" id="credit-modal-title">Credit HYS Deposit</p>
         <button type="button" id="credit-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Client requested <span class="font-medium text-slate-900" id="credit-requested-label"></span> for <span class="font-medium text-slate-900" id="credit-pocket-label"></span>. Enter the actual confirmed amount landing in the pocket — this may differ due to fees, FX, or a partial transfer. The pocket is created only once you confirm.</p>
+      <p class="text-sm text-slate-500 mb-4" id="credit-external-copy">Client requested <span class="font-medium text-slate-900" id="credit-requested-label"></span> for <span class="font-medium text-slate-900" id="credit-pocket-label"></span>. Enter the actual confirmed amount landing in the pocket — this may differ due to fees, FX, or a partial transfer. The pocket is created only once you confirm.</p>
+      <!-- Internal transfer: no external settlement, so no editable amount. The field below is
+           locked rather than hidden, so the PM still sees the exact figure they are approving. -->
+      <p class="text-sm text-slate-500 mb-4 hidden" id="credit-internal-copy">This moves <span class="font-medium text-slate-900" id="credit-internal-amount"></span> from the client's own unallocated capital into <span class="font-medium text-slate-900" id="credit-internal-pocket"></span>. There is no incoming payment to confirm, so the amount is fixed. Their available capital is re-checked at the moment you approve — if it has since been allocated elsewhere, this will be refused rather than overdrawing the account.</p>
       <div class="mw-fld mw-fld--admin">
         <input type="number" id="credit-amount-input" step="0.01" min="0" class="mw-field mw-field-admin mb-1" placeholder=" " />
         <label for="credit-amount-input">Confirmed Amount (USD)</label>
@@ -217,8 +220,17 @@
       };
       var METHOD_STYLES = {
         crypto: 'bg-purple-50 text-purple-700',
-        bank: 'bg-blue-50 text-blue-700'
+        bank: 'bg-blue-50 text-blue-700',
+        // Savings deposit from unallocated capital (2026-09-11). Deliberately the most
+        // distinct of the three: a PM scanning this queue needs to tell at a glance that
+        // there is NO incoming payment to confirm here — only a commitment to approve.
+        internal: 'bg-amber-100 text-amber-800'
       };
+      function methodLabelFor(method) {
+        if (method === 'crypto') return 'Crypto';
+        if (method === 'internal') return 'Internal Transfer';
+        return 'Bank Transfer';
+      }
 
       var toast = document.getElementById('admin-toast');
       var toastTitle = document.getElementById('admin-toast-title');
@@ -275,7 +287,7 @@
 
         listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
           var methodClass = METHOD_STYLES[r.method] || 'bg-slate-100 text-slate-600';
-          var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
+          var methodLabel = methodLabelFor(r.method);
           return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
             '<div class="min-w-0">' +
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
@@ -284,11 +296,16 @@
                 '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
               '<p class="text-lg font-semibold text-slate-900 mb-1">' + formatUSD(r.requestedAmount) + ' · ' + pocketTypeLabel(r) + '</p>' +
-              '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
+              // An internal transfer has no external destination details to render, so the
+              // row says what a PM actually needs to know in their place: there is no payment
+              // to wait for, and the amount is fixed.
+              (r.method === 'internal'
+                ? '<p class="text-sm text-amber-800">Funded from the client&rsquo;s own unallocated capital. No incoming payment to confirm — approving moves capital that is already in the account, at exactly this amount.</p>'
+                : '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>') +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
               '<button type="button" class="reject-btn mw-btn mw-btn-secondary mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="credit-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-pocket="' + pocketTypeLabel(r).replace(/"/g, '&quot;') + '">Credit</button>' +
+              '<button type="button" class="credit-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-method="' + r.method + '" data-pocket="' + pocketTypeLabel(r).replace(/"/g, '&quot;') + '">' + (r.method === 'internal' ? 'Approve Transfer' : 'Credit') + '</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
@@ -352,7 +369,7 @@
 
         listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
           var methodClass = METHOD_STYLES[r.method] || 'bg-slate-100 text-slate-600';
-          var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
+          var methodLabel = methodLabelFor(r.method);
           var forfeitBadge = r.forfeit ? '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-600">Interest forfeited</span>' : '';
           return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
             '<div class="min-w-0">' +
@@ -494,12 +511,25 @@
       var activeCreditClientId = null;
       var activeCreditId = null;
 
-      function openCreditModal(clientId, id, requested, pocketLabel) {
+      function openCreditModal(clientId, id, requested, pocketLabel, method) {
         activeCreditClientId = clientId;
         activeCreditId = id;
+        var isInternal = method === 'internal';
         creditRequestedLabel.textContent = formatUSD(requested);
         creditPocketLabel.textContent = pocketLabel;
         creditAmountInput.value = requested;
+        // The amount is locked rather than merely pre-filled: an internal transfer moves an
+        // exact figure. credit-hys-deposit refuses a mismatched amount server-side regardless
+        // — this only stops the PM being invited to type one.
+        creditAmountInput.readOnly = isInternal;
+        creditAmountInput.classList.toggle('bg-slate-100', isInternal);
+        creditAmountInput.classList.toggle('text-slate-500', isInternal);
+        document.getElementById('credit-modal-title').textContent = isInternal ? 'Approve Internal Transfer' : 'Credit HYS Deposit';
+        document.getElementById('credit-submit').textContent = isInternal ? 'Approve & Open Pocket' : 'Credit & Open Pocket';
+        document.getElementById('credit-external-copy').classList.toggle('hidden', isInternal);
+        document.getElementById('credit-internal-copy').classList.toggle('hidden', !isInternal);
+        document.getElementById('credit-internal-amount').textContent = formatUSD(requested);
+        document.getElementById('credit-internal-pocket').textContent = pocketLabel;
         creditError.classList.add('hidden');
         creditModal.classList.remove('hidden');
       }
@@ -563,7 +593,7 @@
       document.getElementById('pending-list').addEventListener('click', function (e) {
         var creditBtn = e.target.closest('.credit-btn');
         if (creditBtn) {
-          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.pocket);
+          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.pocket, creditBtn.dataset.method);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');
