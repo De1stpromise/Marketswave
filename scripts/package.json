@@ -1,6 +1,6 @@
 {
   "name": "marketswave-dev-scripts",
-  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
+  "description": "Backend Migration Phase 0 (Aug 26, 2026) \u2014 emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -55,12 +55,16 @@
     "verify-upload-accessibility": "node verify-upload-accessibility.mjs",
     "verify-label-association": "node verify-label-association.mjs",
     "verify-shared-stylesheet-coverage": "node verify-shared-stylesheet-coverage.mjs",
-    "verify-no-monospace": "node verify-no-monospace.mjs"
+    "verify-no-monospace": "node verify-no-monospace.mjs",
+    "supabase-configure-scheduler": "node supabase-configure-scheduler.js",
+    "supabase-verify-watchlist-alerts": "node verify-supabase-watchlist-alerts.js",
+    "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "firebase": "^11.0.2",
     "firebase-admin": "^12.7.0",
-    "jsdom": "^30.0.1"
+    "jsdom": "^30.0.1",
+    "pg": "^8.23.0"
   }
 }

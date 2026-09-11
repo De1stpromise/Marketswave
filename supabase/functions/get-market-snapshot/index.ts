@@ -37,6 +37,7 @@
 // market data, not scoped per client at all, matching market_data_cache's own RLS policy.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { BASE_SYMBOLS, refreshSymbols } from '../_shared/market-refresh.ts';
 
 const CACHE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -104,41 +105,27 @@ Deno.serve(async (req) => {
     if (isFresh) {
       resultRows = Object.keys(SYMBOLS).map((symbol) => cacheBySymbol[symbol]);
     } else {
-      const finnhubKey = Deno.env.get('FINNHUB_API_KEY');
-      if (!finnhubKey) {
-        return jsonResponse({ error: 'FINNHUB_API_KEY is not configured on this server.' }, 500);
+      // ★ Merged Market Snapshot + Watchlist (2026-09-11): the provider calls and the
+      // market_data_cache write both moved into _shared/market-refresh.ts, which is now the
+      // single implementation shared with the scheduled refresh-market-data run. This
+      // function used to upsert only (symbol, value, change_percent, source, last_updated) —
+      // once the table gained name/provider_id/asset_type, that upsert would have BLANKED
+      // those three columns on every cache miss, because an upsert replaces the whole row.
+      // Delegating fixes that by construction rather than by keeping two column lists in
+      // step by hand.
+      try {
+        await refreshSymbols(admin, BASE_SYMBOLS);
+      } catch (refreshErr) {
+        return jsonResponse({ error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr) }, 500);
       }
-
-      const finnhubSymbols = Object.keys(FINNHUB_SYMBOLS);
-      const [finnhubQuotes, coinGeckoData] = await Promise.all([
-        Promise.all(finnhubSymbols.map((symbol) => fetchFinnhubQuote(symbol, finnhubKey))),
-        fetchCoinGeckoPrices(Object.keys(COINGECKO_IDS))
-      ]);
-
-      const nowIso = new Date().toISOString();
-      const fresh = [
-        ...finnhubSymbols.map((symbol, i) => ({
-          symbol,
-          value: finnhubQuotes[i].c,
-          change_percent: finnhubQuotes[i].dp,
-          source: 'finnhub',
-          last_updated: nowIso
-        })),
-        ...Object.entries(COINGECKO_IDS).map(([coinGeckoId, { symbol }]) => ({
-          symbol,
-          value: coinGeckoData[coinGeckoId].usd,
-          change_percent: coinGeckoData[coinGeckoId].usd_24h_change,
-          source: 'coingecko',
-          last_updated: nowIso
-        }))
-      ];
-
-      const { data: upserted, error: upsertErr } = await admin
+      const { data: reread, error: rereadErr } = await admin
         .from('market_data_cache')
-        .upsert(fresh, { onConflict: 'symbol' })
-        .select();
-      if (upsertErr) return jsonResponse({ error: upsertErr.message }, 500);
-      resultRows = upserted;
+        .select('*')
+        .in('symbol', Object.keys(SYMBOLS));
+      if (rereadErr) return jsonResponse({ error: rereadErr.message }, 500);
+      const bySymbol: Record<string, Record<string, unknown>> = {};
+      for (const row of reread || []) bySymbol[row.symbol as string] = row;
+      resultRows = Object.keys(SYMBOLS).map((symbol) => bySymbol[symbol]).filter(Boolean);
     }
 
     return jsonResponse({
@@ -157,24 +144,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function fetchFinnhubQuote(symbol: string, apiKey: string): Promise<{ c: number; dp: number }> {
-  const res = await fetch('https://finnhub.io/api/v1/quote?symbol=' + symbol + '&token=' + apiKey);
-  if (!res.ok) throw new Error('Finnhub request for ' + symbol + ' failed: HTTP ' + res.status);
-  const data = await res.json();
-  if (data.error) throw new Error('Finnhub error for ' + symbol + ': ' + data.error);
-  if (typeof data.c !== 'number') throw new Error('Finnhub returned an unexpected shape for ' + symbol + ': ' + JSON.stringify(data));
-  return data;
-}
 
-async function fetchCoinGeckoPrices(ids: string[]): Promise<Record<string, { usd: number; usd_24h_change: number }>> {
-  const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + ids.join(',') + '&vs_currencies=usd&include_24hr_change=true');
-  if (!res.ok) throw new Error('CoinGecko request failed: HTTP ' + res.status);
-  const data = await res.json();
-  for (const id of ids) {
-    if (!data[id]) throw new Error('CoinGecko returned an unexpected shape (missing ' + id + '): ' + JSON.stringify(data));
-  }
-  return data;
-}
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {

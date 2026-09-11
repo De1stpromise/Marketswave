@@ -17,6 +17,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
 import { validateProductFields, toProductClientShape } from '../_shared/product-validation.ts';
+import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -52,6 +53,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const validationError = validateProductFields(body, true);
     if (validationError) return jsonResponse({ error: validationError }, 400);
+    const tickerError = validateTicker(body.ticker);
+    if (tickerError) return jsonResponse({ error: tickerError }, 400);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
@@ -89,9 +92,17 @@ Deno.serve(async (req) => {
     if (typeof body.description === 'string' && body.description.trim()) insertRow.description = body.description.trim();
     if (typeof body.extendedDescription === 'string' && body.extendedDescription.trim()) insertRow.extended_description = body.extendedDescription.trim();
     if (typeof body.logoUrl === 'string' && body.logoUrl.trim()) insertRow.logo_url = body.logoUrl.trim();
+    // ticker (2026-09-11): stored uppercase, matching the unique index on upper(ticker) —
+    // a product entered as 'eth' and a watchlist row stored as 'ETH' must be one mapping.
+    if (typeof body.ticker === 'string' && body.ticker.trim()) insertRow.ticker = normalizeSymbol(body.ticker);
 
     const { data: created, error: insertErr } = await admin.from('products').insert(insertRow).select().single();
-    if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
+    if (insertErr) {
+      if ((insertErr.code || '') === '23505') {
+        return jsonResponse({ error: 'Another product already uses that ticker. A symbol can map to only one catalog product.' }, 409);
+      }
+      return jsonResponse({ error: insertErr.message }, 500);
+    }
 
     return jsonResponse(toProductClientShape(created), 200);
   } catch (err) {

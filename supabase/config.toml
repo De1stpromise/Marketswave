@@ -794,3 +794,44 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/send-announcement/deno.json"
 entrypoint = "./functions/send-announcement/index.ts"
+
+
+[functions.get-watchlist]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-watchlist/index.ts"
+
+[functions.add-watchlist-symbol]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/add-watchlist-symbol/index.ts"
+
+[functions.remove-watchlist-symbol]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/remove-watchlist-symbol/index.ts"
+
+[functions.search-symbols]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/search-symbols/index.ts"
+
+[functions.set-price-alert]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/set-price-alert/index.ts"
+
+[functions.clear-price-alert]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/clear-price-alert/index.ts"
+
+[functions.refresh-market-data]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/refresh-market-data/index.ts"
+
+[functions.check-price-alerts]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/check-price-alerts/index.ts"

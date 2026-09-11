@@ -63,7 +63,12 @@ export function validateProductFields(fields: Record<string, unknown>, requireUn
 // returns engine's own deterministic tick mechanic is the only thing that should ever move
 // a product's price, confirmed still true by reading editProduct()'s own current source
 // before porting this rule, not assumed carried over from an earlier investigation.
-export const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment', 'description', 'extendedDescription', 'logoUrl'];
+// 'ticker' joined this list on 2026-09-11 (the merged Market Snapshot + Watchlist). It is
+// genuinely editable — a real instrument can be delisted, renamed or re-ticketed, and a
+// product mapped to the wrong symbol would put an Allocate button on the wrong row. Its
+// own validation lives in _shared/symbol-catalog.ts alongside the mapping it feeds, not
+// here, so the read side and the write side of products.ticker cannot drift apart.
+export const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment', 'description', 'extendedDescription', 'logoUrl', 'ticker'];
 
 // Maps a real `products` row (snake_case columns) to the same camelCase shape
 // getAllProducts()/getProduct()/addProduct()/editProduct() already return locally — so
@@ -84,6 +89,7 @@ export function toProductClientShape(row: Record<string, unknown>) {
     description: row.description,
     extendedDescription: row.extended_description,
     logoUrl: row.logo_url,
+    ticker: row.ticker,
     createdBy: row.created_by,
     createdByEmail: row.created_by_email,
     updatedBy: row.updated_by,

@@ -32,6 +32,7 @@
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="returns-display.css">
+  <link rel="stylesheet" href="watchlist-card.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -251,19 +252,67 @@
 
         </div>
 
-        <!-- Fourth Row: Market Snapshot — now full-width (see the comment above), with real
-             data from get-market-snapshot. SPY/QQQ are real, honest labels — Finnhub's free
-             tier has no direct S&P 500/NASDAQ index quote (a real, disclosed constraint —
-             see get-market-snapshot's own header). 6 real data points as of Client Dashboard
-             Polish (2026-09-06); grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 now that this
-             card owns the full row width, so all 6 sit in one line at desktop width instead
-             of wrapping to 2 rows. The loading placeholder is a real 6-card skeleton
-             (MarketswaveData.skeleton) shaped like the real final grid. -->
-        <div class="glass rounded-2xl p-6">
-          <h3 class="font-semibold text-navy mb-5">Market Snapshot</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" id="market-snapshot-grid"></div>
+        <!-- Fourth Row: MARKET SNAPSHOT + WATCHLIST (2026-09-11).
+             This card used to be a fixed six-symbol read of get-market-snapshot. It is now
+             one feature: the six symbols are the client's editable DEFAULT, they can add any
+             stock, ETF or coin either provider can price, and each row carries one price
+             alert that fires once by email and then clears. It supersedes the separate
+             watchlist and price-alerts items that were queued as three things.
+
+             Offered vs Tracking only is a real lookup, not decoration: a row is Offered when
+             its symbol maps to a catalog product via products.ticker (the shared primitive
+             in _shared/symbol-catalog.ts), and only then does it carry a real Allocate
+             action. "Delayed" stays — these prices come from a cache the scheduler refreshes
+             every 15 minutes, and a card that looked live would be claiming something
+             untrue. -->
+        <div class="glass rounded-2xl p-6" id="watchlist-card">
+          <div class="wl-head">
+            <h3 class="font-semibold text-navy">Market snapshot<span class="wl-count" id="wl-count"></span></h3>
+            <div class="wl-head-right">
+              <span class="wl-delayed"><i></i>Delayed</span>
+              <button type="button" class="mw-btn mw-btn-sm mw-btn-secondary" id="wl-add-toggle" aria-expanded="false" aria-controls="wl-addpanel">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Add symbol
+              </button>
+            </div>
+          </div>
+
+          <div class="wl-addpanel" id="wl-addpanel" hidden>
+            <div class="wl-search">
+              <span class="wl-search-ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+              <label class="sr-only" for="wl-search-input">Search stocks, ETFs or crypto</label>
+              <input id="wl-search-input" class="mw-field" type="search" autocomplete="off" placeholder="Search stocks, ETFs or crypto" />
+            </div>
+            <div class="wl-results" id="wl-results"></div>
+          </div>
+
+          <p class="wl-modal-error" id="wl-message" hidden></p>
+          <div class="wl-rows" id="wl-rows"></div>
+          <p class="wl-cap" id="wl-cap"></p>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- Price alert modal (2026-09-11). Solid white, deliberately NOT .glass: a modal over
+       its own translucent backdrop is the double-transparency stack the 2026-09-06 contrast
+       audit measured at 1.86:1 and had to revert on two other modals. -->
+  <div class="wl-modal-backdrop" id="wl-alert-modal" hidden>
+    <div class="wl-modal" role="dialog" aria-modal="true" aria-labelledby="wl-alert-title">
+      <p class="wl-modal-title" id="wl-alert-title">Alert me</p>
+      <p class="wl-modal-sub" id="wl-alert-sub"></p>
+      <div class="wl-seg" role="group" aria-label="Alert direction">
+        <button type="button" class="mw-btn mw-btn-sm mw-btn-primary" data-wl-dir="above" aria-pressed="true">Rises above</button>
+        <button type="button" class="mw-btn mw-btn-sm mw-btn-secondary" data-wl-dir="below" aria-pressed="false">Falls below</button>
+      </div>
+      <label class="block text-[10px] font-semibold tracking-wide uppercase text-slate-600 mb-1" for="wl-alert-target">Target price (USD)</label>
+      <input id="wl-alert-target" class="mw-field" inputmode="decimal" autocomplete="off" />
+      <p class="wl-modal-error" id="wl-alert-error" hidden></p>
+      <div class="wl-modal-foot">
+        <button type="button" class="mw-btn mw-btn-sm mw-btn-outline" id="wl-alert-clear" hidden>Remove alert</button>
+        <button type="button" class="mw-btn mw-btn-sm mw-btn-secondary" id="wl-alert-cancel">Cancel</button>
+        <button type="button" class="mw-btn mw-btn-sm mw-btn-primary" id="wl-alert-save">Set alert</button>
+      </div>
     </div>
   </div>
 
@@ -826,42 +875,310 @@
 
       var CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', SEK: 'kr' };
 
-      function marketCardSkeleton() {
-        return '<div class="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">' +
-          MarketswaveData.skeleton.block('w-16', { height: 'h-3' }) +
-          MarketswaveData.skeleton.block('w-20', { height: 'h-5' }) +
-          MarketswaveData.skeleton.block('w-12', { height: 'h-3' }) +
-          '</div>';
+      // ---- MARKET SNAPSHOT + WATCHLIST (2026-09-11) ----------------------------------
+      // One card, one read (get-watchlist), and four real write actions: add a symbol,
+      // remove one, set an alert, clear an alert. Reads go through renderAsyncBundle;
+      // every write goes through withButtonBusy + writeErrorMessage, per supabase-data.js's
+      // own documented patterns — nothing here invents a new loading or error shape.
+      var WL_ROWS = document.getElementById('wl-rows');
+      var WL_COUNT = document.getElementById('wl-count');
+      var WL_CAP = document.getElementById('wl-cap');
+      var WL_MESSAGE = document.getElementById('wl-message');
+      var WL_ADD_TOGGLE = document.getElementById('wl-add-toggle');
+      var WL_ADDPANEL = document.getElementById('wl-addpanel');
+      var WL_SEARCH = document.getElementById('wl-search-input');
+      var WL_RESULTS = document.getElementById('wl-results');
+      var WL_MODAL = document.getElementById('wl-alert-modal');
+
+      var wlState = { symbols: [], limit: 25, alertTarget: null, direction: 'above' };
+      var wlSearchTimer = null;
+
+      var BELL_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+      var X_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
+      function wlEscape(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
 
-      function loadMarketSnapshot() {
-        return MarketswaveData.renderAsyncBundle(document.getElementById('market-snapshot-grid'), {
-          skeletonHTML: new Array(6).fill(marketCardSkeleton()).join(''),
-          load: function () { return MarketswaveData.callFunction('get-market-snapshot'); },
-          render: function (result) {
-            var grid = document.getElementById('market-snapshot-grid');
-            grid.innerHTML = result.data.map(function (item) {
-              var isUp = item.changePercent >= 0;
-              // Crypto (source: coingecko) gets a $ prefix + thousands separator; ETF/stock
-              // quotes (source: finnhub) show a plain rounded price, matching this card's own
-              // pre-existing SPY/QQQ convention — checking `source` rather than a hardcoded
-              // symbol list means a future coin (e.g. SOL, added this task) or ETF needs no
-              // change here.
-              var displayValue = item.source === 'coingecko'
-                ? '$' + Math.round(item.value).toLocaleString()
-                : Math.round(item.value * 100) / 100;
-              return '<div class="p-4 rounded-xl bg-slate-50 border border-slate-100">' +
-                '<p class="text-xs text-slate-500 mb-1">' + item.label + '</p>' +
-                '<p class="text-lg font-semibold text-navy">' + displayValue + '</p>' +
-                '<p class="text-xs mt-1 ' + (isUp ? 'text-emerald-600' : 'text-red-500') + '">' +
-                (isUp ? '+' : '') + item.changePercent.toFixed(2) + '%</p>' +
-                '</div>';
-            }).join('');
-          }
+      // Crypto is quoted whole-dollar and equities keep their cents — the same rule
+      // check-price-alerts' own email formatter uses, so an alert email and the row that
+      // produced it never disagree about what a price looks like.
+      function wlPrice(value, assetType) {
+        if (value == null || !isFinite(value)) return '—';
+        if (assetType === 'crypto') {
+          return value >= 1
+            ? '$' + Math.round(value).toLocaleString('en-US')
+            : '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+        }
+        return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function wlMessage(text) {
+        if (!text) { WL_MESSAGE.hidden = true; WL_MESSAGE.textContent = ''; return; }
+        WL_MESSAGE.textContent = text;
+        WL_MESSAGE.hidden = false;
+      }
+
+      function wlRowSkeleton() {
+        return '<div class="wl-row">' +
+          '<div class="wl-sym">' + MarketswaveData.skeleton.block('w-12', { height: 'h-4' }) +
+          MarketswaveData.skeleton.block('w-28', { height: 'h-3' }) + '</div>' +
+          '<div class="wl-px">' + MarketswaveData.skeleton.block('w-16', { height: 'h-4' }) + '</div>' +
+          '<div class="wl-act">' + MarketswaveData.skeleton.block('w-20', { height: 'h-8' }) + '</div>' +
+          '<div></div></div>';
+      }
+
+      function wlRowHTML(row) {
+        var change = row.changePercent;
+        var changeClass = change == null ? 'wl-flat' : (change >= 0 ? 'wl-up' : 'wl-dn');
+        var changeText = change == null ? '—'
+          : (change >= 0 ? '+' : '−') + Math.abs(change).toFixed(2) + '%';
+
+        var badge = row.offered
+          ? '<span class="wl-badge">Offered</span>'
+          : '<span class="wl-badge wl-track">Tracking only</span>';
+
+        var allocate = row.offered
+          ? '<a class="mw-btn mw-btn-sm mw-btn-primary" href="asset-collection.html?product=' +
+            encodeURIComponent(row.offered.productId) + '">Allocate</a>'
+          : '';
+
+        var bellClass = 'mw-btn mw-btn-sm mw-btn-secondary wl-bell' + (row.alert ? ' is-on' : '');
+        var bellLabel = row.alert
+          ? 'Edit the price alert on ' + row.symbol
+          : 'Set a price alert on ' + row.symbol;
+
+        var alertLine = '';
+        if (row.alert) {
+          alertLine = '<div class="wl-alertline"><i></i>Alert when ' +
+            (row.alert.direction === 'above' ? 'above ' : 'below ') +
+            '<b>' + wlEscape(wlPrice(row.alert.targetPrice, row.assetType)) + '</b>' +
+            ' — we will email you once, then it clears</div>';
+        }
+
+        return '<div class="wl-row" data-wl-id="' + wlEscape(row.id) + '">' +
+          '<div class="wl-sym">' +
+            '<span class="wl-tag">' + wlEscape(row.symbol) + '</span>' +
+            '<span class="wl-name">' + wlEscape(row.name) + '</span>' +
+            badge +
+          '</div>' +
+          '<div class="wl-px">' +
+            '<div class="wl-px-v">' + wlEscape(wlPrice(row.price, row.assetType)) + '</div>' +
+            '<div class="wl-px-c ' + changeClass + '">' + changeText + '</div>' +
+          '</div>' +
+          '<div class="wl-act">' + allocate +
+            '<button type="button" class="' + bellClass + '" data-wl-bell="' + wlEscape(row.id) + '" title="' + wlEscape(bellLabel) + '" aria-label="' + wlEscape(bellLabel) + '">' + BELL_SVG + '</button>' +
+          '</div>' +
+          '<button type="button" class="wl-x" data-wl-remove="' + wlEscape(row.id) + '" title="Remove ' + wlEscape(row.symbol) + '" aria-label="Remove ' + wlEscape(row.symbol) + ' from your watchlist">' + X_SVG + '</button>' +
+          alertLine +
+        '</div>';
+      }
+
+      function renderWatchlist(result) {
+        wlState.symbols = result.symbols || [];
+        wlState.limit = result.limit;
+
+        if (wlState.symbols.length === 0) {
+          WL_ROWS.innerHTML = '<p class="wl-empty">You are not tracking any symbols.<br>Add one to follow its price and set alerts.</p>';
+          WL_COUNT.textContent = '';
+          WL_CAP.textContent = '';
+          return;
+        }
+
+        WL_ROWS.innerHTML = wlState.symbols.map(wlRowHTML).join('');
+        WL_COUNT.textContent = ' · ' + wlState.symbols.length + (wlState.symbols.length === 1 ? ' symbol' : ' symbols');
+        // The ceiling is stated, not just enforced — a client who hits it should already
+        // know it was coming.
+        WL_CAP.textContent = 'Tracking ' + wlState.symbols.length + ' of up to ' + wlState.limit + ' symbols';
+      }
+
+      function loadWatchlist() {
+        return MarketswaveData.renderAsyncBundle(WL_ROWS, {
+          skeletonHTML: new Array(4).fill(wlRowSkeleton()).join(''),
+          load: function () { return MarketswaveData.callFunction('get-watchlist'); },
+          render: renderWatchlist
         });
       }
 
-      loadMarketSnapshot();
+      // ---- Add a symbol -------------------------------------------------------------
+      WL_ADD_TOGGLE.addEventListener('click', function () {
+        var open = WL_ADDPANEL.hidden;
+        WL_ADDPANEL.hidden = !open;
+        WL_ADD_TOGGLE.setAttribute('aria-expanded', String(open));
+        if (open) { WL_SEARCH.focus(); } else { WL_SEARCH.value = ''; WL_RESULTS.innerHTML = ''; }
+      });
+
+      WL_SEARCH.addEventListener('input', function () {
+        clearTimeout(wlSearchTimer);
+        var query = WL_SEARCH.value.trim();
+        if (query.length < 1) { WL_RESULTS.innerHTML = ''; return; }
+        // Debounced: every keystroke would otherwise spend real Finnhub rate-limit budget,
+        // which is the same budget the scheduled refresh depends on.
+        wlSearchTimer = setTimeout(function () { runSymbolSearch(query); }, 350);
+      });
+
+      function runSymbolSearch(query) {
+        WL_RESULTS.innerHTML = '<p class="wl-search-note">Searching stocks, ETFs and crypto…</p>';
+        MarketswaveData.callFunction('search-symbols', { query: query }).then(function (result) {
+          if (WL_SEARCH.value.trim() !== query) return; // a newer query already won
+          var notes = (result.providerErrors || []).map(function (e) {
+            return '<p class="wl-search-note">' + wlEscape(e) + '</p>';
+          }).join('');
+          if (!result.results || result.results.length === 0) {
+            WL_RESULTS.innerHTML = notes + '<p class="wl-search-note">Nothing matched “' + wlEscape(query) + '”.</p>';
+            return;
+          }
+          WL_RESULTS.innerHTML = notes + result.results.map(function (r) {
+            return '<button type="button" class="wl-res" data-wl-add="' + wlEscape(r.symbol) +
+              '" data-wl-source="' + wlEscape(r.source) + '"' +
+              (r.providerId ? ' data-wl-provider="' + wlEscape(r.providerId) + '"' : '') +
+              ' data-wl-name="' + wlEscape(r.name) + '">' +
+              '<span class="wl-tag">' + wlEscape(r.symbol) + '</span>' +
+              '<span class="wl-name">' + wlEscape(r.name) + '</span>' +
+              (r.offered ? '<span class="wl-badge">Offered</span>' : '') +
+              '<span class="wl-src">' + (r.assetType === 'crypto' ? 'Crypto' : 'Stock') + '</span>' +
+              '</button>';
+          }).join('');
+        }).catch(function (err) {
+          WL_RESULTS.innerHTML = '<p class="wl-search-note">' + wlEscape(MarketswaveData.writeErrorMessage(err)) + '</p>';
+        });
+      }
+
+      WL_RESULTS.addEventListener('click', function (event) {
+        var btn = event.target.closest('[data-wl-add]');
+        if (!btn) return;
+        wlMessage('');
+        MarketswaveData.withButtonBusy(btn, 'Adding…', function () {
+          return MarketswaveData.callFunction('add-watchlist-symbol', {
+            symbol: btn.getAttribute('data-wl-add'),
+            source: btn.getAttribute('data-wl-source'),
+            providerId: btn.getAttribute('data-wl-provider') || null,
+            name: btn.getAttribute('data-wl-name')
+          });
+        }).then(function () {
+          WL_SEARCH.value = '';
+          WL_RESULTS.innerHTML = '';
+          WL_ADDPANEL.hidden = true;
+          WL_ADD_TOGGLE.setAttribute('aria-expanded', 'false');
+          return loadWatchlist();
+        }).catch(function (err) {
+          wlMessage(MarketswaveData.writeErrorMessage(err));
+        });
+      });
+
+      // ---- Remove a symbol, and open the alert modal ---------------------------------
+      WL_ROWS.addEventListener('click', function (event) {
+        var removeBtn = event.target.closest('[data-wl-remove]');
+        if (removeBtn) {
+          wlMessage('');
+          MarketswaveData.withButtonBusy(removeBtn, '', function () {
+            return MarketswaveData.callFunction('remove-watchlist-symbol', {
+              id: removeBtn.getAttribute('data-wl-remove')
+            });
+          }).then(function () {
+            return loadWatchlist();
+          }).catch(function (err) {
+            wlMessage(MarketswaveData.writeErrorMessage(err));
+          });
+          return;
+        }
+        var bellBtn = event.target.closest('[data-wl-bell]');
+        if (bellBtn) openAlertModal(bellBtn.getAttribute('data-wl-bell'));
+      });
+
+      // ---- The alert modal ----------------------------------------------------------
+      function setDirection(direction) {
+        wlState.direction = direction;
+        Array.prototype.forEach.call(WL_MODAL.querySelectorAll('[data-wl-dir]'), function (btn) {
+          var selected = btn.getAttribute('data-wl-dir') === direction;
+          btn.classList.toggle('mw-btn-primary', selected);
+          btn.classList.toggle('mw-btn-secondary', !selected);
+          btn.setAttribute('aria-pressed', String(selected));
+        });
+      }
+
+      function openAlertModal(watchlistSymbolId) {
+        var row = wlState.symbols.filter(function (s) { return s.id === watchlistSymbolId; })[0];
+        if (!row) return;
+        wlState.alertTarget = row;
+        document.getElementById('wl-alert-title').textContent = 'Alert me on ' + row.symbol;
+        // States the once-and-clear rule at the moment the client is actually deciding,
+        // not only afterwards in the row summary.
+        document.getElementById('wl-alert-sub').textContent =
+          (row.price == null
+            ? 'We do not have a current price for ' + row.symbol + ' yet. '
+            : 'Currently ' + wlPrice(row.price, row.assetType) + '. ') +
+          'We will email you once — alerts clear after they fire.';
+        document.getElementById('wl-alert-target').value = row.alert ? String(row.alert.targetPrice) : '';
+        document.getElementById('wl-alert-clear').hidden = !row.alert;
+        document.getElementById('wl-alert-save').textContent = row.alert ? 'Update alert' : 'Set alert';
+        var err = document.getElementById('wl-alert-error');
+        err.hidden = true; err.textContent = '';
+        setDirection(row.alert ? row.alert.direction : 'above');
+        WL_MODAL.hidden = false;
+        document.getElementById('wl-alert-target').focus();
+      }
+
+      function closeAlertModal() {
+        WL_MODAL.hidden = true;
+        wlState.alertTarget = null;
+      }
+
+      function alertError(message) {
+        var err = document.getElementById('wl-alert-error');
+        err.textContent = message;
+        err.hidden = false;
+      }
+
+      WL_MODAL.addEventListener('click', function (event) {
+        if (event.target === WL_MODAL) closeAlertModal();
+        var dirBtn = event.target.closest('[data-wl-dir]');
+        if (dirBtn) setDirection(dirBtn.getAttribute('data-wl-dir'));
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !WL_MODAL.hidden) closeAlertModal();
+      });
+      document.getElementById('wl-alert-cancel').addEventListener('click', closeAlertModal);
+
+      document.getElementById('wl-alert-save').addEventListener('click', function () {
+        var row = wlState.alertTarget;
+        if (!row) return;
+        var raw = document.getElementById('wl-alert-target').value.replace(/[,\s$]/g, '');
+        var target = parseFloat(raw);
+        if (!isFinite(target) || target <= 0) {
+          alertError('Enter a target price greater than zero.');
+          return;
+        }
+        MarketswaveData.withButtonBusy(this, 'Saving…', function () {
+          return MarketswaveData.callFunction('set-price-alert', {
+            watchlistSymbolId: row.id,
+            direction: wlState.direction,
+            targetPrice: target
+          });
+        }).then(function () {
+          closeAlertModal();
+          return loadWatchlist();
+        }).catch(function (err) {
+          alertError(MarketswaveData.writeErrorMessage(err));
+        });
+      });
+
+      document.getElementById('wl-alert-clear').addEventListener('click', function () {
+        var row = wlState.alertTarget;
+        if (!row) return;
+        MarketswaveData.withButtonBusy(this, 'Removing…', function () {
+          return MarketswaveData.callFunction('clear-price-alert', { watchlistSymbolId: row.id });
+        }).then(function () {
+          closeAlertModal();
+          return loadWatchlist();
+        }).catch(function (err) {
+          alertError(MarketswaveData.writeErrorMessage(err));
+        });
+      });
+
+      loadWatchlist();
 
       // Currency Converter — live, auto-updating on any input change (this card has never
       // had a dedicated "Convert" button, only a static result) rather than adding a new UI

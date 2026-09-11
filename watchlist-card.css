@@ -1,0 +1,334 @@
+/* ★★ Merged Market Snapshot + Watchlist (2026-09-11).
+   Feature-scoped stylesheet for dashboard.html's watchlist card, following
+   returns-display.css's own precedent (one feature, one file, linked by the one page that
+   uses it) rather than growing the shared control/tap-target stylesheets with markup only
+   this card has.
+
+   WHAT IS DELIBERATELY NOT HERE: buttons and inputs. Every control in this card is a real
+   .mw-btn / .mw-field from control-patterns.css, so the three-tier geometry and row 171's
+   44px mobile floor apply to it automatically and verify-control-patterns keeps guarding
+   it. Re-styling a button here would put this card outside that guard.
+
+   COLOUR: every text tone below is one already measured and proven elsewhere in this
+   project, not taken from the mockup verbatim. The mockup's own #7C868C / #8A9298 greys
+   measure roughly 4.0:1 and 3.4:1 on this card's light ground — below the 4.5:1 floor — so
+   secondary text uses #5C6367 (the tone the Resources list and the stone field already
+   use) and the gain/loss pair reuses returns-display's proven #137254 / #A8452F. */
+
+#watchlist-card {
+  /* The card can grow tall once a client tracks 25 symbols; the list scrolls inside it
+     (see .wl-rows) rather than the card growing without limit down the page. */
+  display: flex;
+  flex-direction: column;
+}
+
+.wl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.wl-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ★ MEASURED, NOT CHOSEN BY EYE — and the reason is worth recording, because it is not the
+   usual "pick a darker grey".
+   At 11px/500 #5C6367 this read 2.67:1; weight 600 moved it to 3.19:1; 12px to 3.61:1;
+   13px to 3.71:1 — barely moving, which is the signature of a measurement that is not
+   limited by the colour at all. Forcing the same element to PURE BLACK at 20px measured its
+   darkest real pixel at #383838, not #000000: text on this glass card never reaches its own
+   declared colour, because the card's backdrop-filter composites the subtree and the
+   antialiasing caps coverage at roughly 78%. A secondary grey at 11px therefore cannot pass
+   here no matter which grey it is.
+   So this is not a faint suffix any more. It is part of the heading, at the heading's own
+   size and colour, separated by a middot — legible on its own terms rather than tuned until
+   a measurement stopped complaining. */
+.wl-count {
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Delayed" stays, and stays literal: these prices come out of a cache refreshed on a
+   15-minute cycle, and a card that looked live would be claiming something untrue. */
+.wl-delayed {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5C6367;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.wl-delayed i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8A9298;
+  flex-shrink: 0;
+}
+
+.wl-rows {
+  margin-top: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.wl-rows::-webkit-scrollbar { width: 6px; }
+.wl-rows::-webkit-scrollbar-thumb { background: rgba(27, 58, 75, 0.18); border-radius: 3px; }
+
+.wl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto 34px;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 6px;
+  border-top: 1px solid rgba(27, 58, 75, 0.08);
+  transition: background 0.25s;
+}
+.wl-row:hover { background: rgba(255, 255, 255, 0.55); }
+
+.wl-sym {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.wl-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: #12283A;
+  min-width: 46px;
+  letter-spacing: 0.01em;
+}
+.wl-name {
+  font-size: 12.5px;
+  color: #5C6367;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Offered = this symbol is a real product in the catalog, so the row carries a real
+   Allocate action. Tracking only = it is not, and there is genuinely no allocation path —
+   the badge is the honest explanation for why that row has no Allocate button. */
+.wl-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: rgba(19, 114, 84, 0.12);
+  color: #137254;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.wl-badge.wl-track {
+  background: rgba(27, 58, 75, 0.08);
+  color: #4A5560;
+}
+
+.wl-px { text-align: right; }
+.wl-px-v {
+  font-size: 14px;
+  font-weight: 700;
+  color: #12283A;
+  font-variant-numeric: tabular-nums;
+}
+.wl-px-c {
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.wl-up { color: #137254; }
+.wl-dn { color: #A8452F; }
+.wl-flat { color: #5C6367; }
+
+.wl-act {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+/* The bell is a Tier C control from control-patterns.css; only its "an alert is armed on
+   this row" state is defined here, because that state is specific to this feature. */
+.wl-bell.is-on {
+  background: rgba(200, 134, 10, 0.14);
+  border-color: rgba(200, 134, 10, 0.5);
+  color: #7A5206;
+}
+
+/* Remove appears on hover at pointer widths and is permanently visible on touch, where
+   there is no hover to reveal it. */
+.wl-x {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #8A8177;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+.wl-row:hover .wl-x,
+.wl-x:focus-visible { opacity: 1; }
+.wl-x:hover { background: rgba(168, 69, 47, 0.1); color: #A8452F; }
+@media (hover: none) {
+  .wl-x { opacity: 1; }
+}
+
+/* A row's armed alert, stated in full underneath it — including that it fires once. */
+.wl-alertline {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0 0;
+  font-size: 11.5px;
+  color: #7A5206;
+}
+.wl-alertline b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wl-alertline i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #C8860A;
+  flex-shrink: 0;
+}
+
+.wl-cap {
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(27, 58, 75, 0.08);
+  font-size: 11px;
+  color: #5C6367;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-empty {
+  padding: 26px 10px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #5C6367;
+  line-height: 1.7;
+}
+
+/* ---- Add-symbol panel ---- */
+.wl-addpanel {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(27, 58, 75, 0.22);
+  background: rgba(255, 255, 255, 0.45);
+}
+.wl-search { position: relative; }
+.wl-search .wl-search-ic {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #6B7178;
+}
+.wl-search .mw-field { padding-left: 40px; }
+
+.wl-results { margin-top: 10px; }
+.wl-res {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 8px;
+  min-height: 44px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.18s;
+}
+.wl-res:hover { background: rgba(255, 255, 255, 0.85); }
+.wl-res .wl-tag { min-width: 52px; }
+.wl-res .wl-name { flex: 1; }
+.wl-src {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5C6367;
+  flex-shrink: 0;
+}
+.wl-search-note {
+  font-size: 11.5px;
+  color: #5C6367;
+  padding: 10px 8px 2px;
+  line-height: 1.6;
+}
+
+/* ---- Alert modal ----
+   SOLID white, never .glass. A modal sitting over its own translucent backdrop is exactly
+   the double-transparency stack that measured 1.86:1 in the 2026-09-06 contrast audit and
+   had to be reverted on two other modals. Do not add glass here. */
+.wl-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 42, 56, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 60;
+}
+.wl-modal {
+  background: #FFFFFF;
+  border-radius: 16px;
+  border: 1px solid rgba(27, 58, 75, 0.12);
+  box-shadow: 0 22px 48px -20px rgba(27, 58, 75, 0.4);
+  width: 100%;
+  max-width: 420px;
+  padding: 22px;
+}
+.wl-modal-title { font-size: 15px; font-weight: 600; color: #12283A; }
+.wl-modal-sub { font-size: 12.5px; color: #5C6367; margin-top: 4px; line-height: 1.6; }
+.wl-seg { display: flex; gap: 8px; margin: 16px 0 12px; }
+.wl-modal-foot { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
+.wl-modal-error {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: #A8452F;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .wl-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+  }
+  .wl-act {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .wl-x {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .wl-name { font-size: 12px; }
+}

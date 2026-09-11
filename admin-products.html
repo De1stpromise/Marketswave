@@ -140,6 +140,13 @@
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-ticker" class="mw-field mw-field-admin" placeholder="ETH" />
+            <label for="add-ticker">Market Symbol (optional)</label>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">The real instrument symbol, if this product tracks one (e.g. ETH). A client watching that symbol then sees this product as &ldquo;Offered&rdquo; with a real Allocate action. Leave blank for a product with no publicly quoted symbol.</p>
+        </div>
+        <div>
+          <div class="mw-fld mw-fld--admin">
             <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
             <label for="add-description">Description</label>
           </div>
@@ -228,6 +235,13 @@
             <input type="text" id="edit-investment-type" class="mw-field mw-field-admin" placeholder=" " />
             <label for="edit-investment-type">Investment Type</label>
           </div>
+        </div>
+        <div>
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="edit-ticker" class="mw-field mw-field-admin" placeholder=" " />
+            <label for="edit-ticker">Market Symbol (optional)</label>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">The real instrument symbol, if this product tracks one (e.g. ETH). A client watching that symbol then sees this product as &ldquo;Offered&rdquo; with a real Allocate action. Leave blank for a product with no publicly quoted symbol.</p>
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
@@ -502,6 +516,13 @@
                 '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">' + lastPriceLabel + '</p>' +
                 '<p class="text-slate-700">' + formatDisplayDate(p.lastTickDate) + '</p>' +
               '</div>' +
+              // Market Symbol (2026-09-11). Shown here rather than as a table column because
+              // most products genuinely have none — an all-but-empty column would read as
+              // missing data rather than as the honest "this vehicle has no public symbol".
+              '<div>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Market Symbol</p>' +
+                '<p class="text-slate-700">' + (p.ticker ? p.ticker : 'Not mapped') + '</p>' +
+              '</div>' +
             '</div>' +
             '<div class="mt-4">' +
               '<button type="button" class="edit-btn mw-btn mw-btn-admin mw-btn-sm" data-id="' + p.id + '">Edit</button>' +
@@ -522,7 +543,8 @@
           id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
           riskTier: p.risk_tier, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
           inceptionUnitPrice: p.inception_unit_price, createdAt: p.created_at, lastTickDate: p.last_tick_date,
-          description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url
+          description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url,
+          ticker: p.ticker
         };
       }
 
@@ -656,6 +678,7 @@
         document.getElementById('add-investment-type').value = '';
         document.getElementById('add-description').value = '';
         document.getElementById('add-logo-url').value = '';
+        document.getElementById('add-ticker').value = '';
         document.getElementById('add-extended-description').value = '';
         document.getElementById('add-minimum-investment').value = '';
         document.getElementById('add-unit-price').value = '';
@@ -681,6 +704,7 @@
         var investmentType = document.getElementById('add-investment-type').value.trim();
         var description = document.getElementById('add-description').value.trim();
         var logoUrl = document.getElementById('add-logo-url').value.trim();
+        var ticker = document.getElementById('add-ticker').value.trim();
         var extendedDescription = document.getElementById('add-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('add-minimum-investment').value);
         var unitPrice = parseFloat(document.getElementById('add-unit-price').value);
@@ -696,7 +720,8 @@
             unitPrice: unitPrice,
             description: description,
             logoUrl: logoUrl,
-            extendedDescription: extendedDescription
+            extendedDescription: extendedDescription,
+            ticker: ticker
           });
         }).then(function (result) {
           closeAddModal();
@@ -724,6 +749,7 @@
         document.getElementById('edit-investment-type').value = p.investmentType;
         document.getElementById('edit-description').value = p.description || '';
         document.getElementById('edit-logo-url').value = p.logoUrl || '';
+        document.getElementById('edit-ticker').value = p.ticker || '';
         document.getElementById('edit-extended-description').value = p.extendedDescription || '';
         document.getElementById('edit-minimum-investment').value = p.minimumInvestment;
         document.getElementById('edit-unit-price-display').textContent = formatUSD2(p.unitPrice);
@@ -748,6 +774,7 @@
         var investmentType = document.getElementById('edit-investment-type').value.trim();
         var description = document.getElementById('edit-description').value.trim();
         var logoUrl = document.getElementById('edit-logo-url').value.trim();
+        var ticker = document.getElementById('edit-ticker').value.trim();
         var extendedDescription = document.getElementById('edit-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('edit-minimum-investment').value);
         var btn = document.getElementById('edit-submit');
@@ -764,7 +791,8 @@
               minimumInvestment: minimumInvestment,
               description: description,
               logoUrl: logoUrl,
-              extendedDescription: extendedDescription
+              extendedDescription: extendedDescription,
+              ticker: ticker
             }
           });
         }).then(function (result) {

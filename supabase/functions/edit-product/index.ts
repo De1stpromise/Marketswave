@@ -21,6 +21,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { validateProductFields, toProductClientShape, PRODUCT_EDITABLE_FIELDS } from '../_shared/product-validation.ts';
+import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -88,6 +89,10 @@ Deno.serve(async (req) => {
     };
     const validationError = validateProductFields(merged, false);
     if (validationError) return jsonResponse({ error: validationError }, 400);
+    if ('ticker' in patch) {
+      const tickerError = validateTicker(patch.ticker);
+      if (tickerError) return jsonResponse({ error: tickerError }, 400);
+    }
 
     const updateRow: Record<string, unknown> = { updated_by: adminId, updated_by_email: adminEmail };
     if ('name' in patch) updateRow.name = String(patch.name).trim();
@@ -98,9 +103,21 @@ Deno.serve(async (req) => {
     if ('description' in patch) updateRow.description = typeof patch.description === 'string' ? patch.description.trim() : patch.description;
     if ('extendedDescription' in patch) updateRow.extended_description = typeof patch.extendedDescription === 'string' ? patch.extendedDescription.trim() : patch.extendedDescription;
     if ('logoUrl' in patch) updateRow.logo_url = typeof patch.logoUrl === 'string' ? patch.logoUrl.trim() : patch.logoUrl;
+    // ticker (2026-09-11): an empty string clears the mapping (the product stops being
+    // Offered on a watchlist row) rather than storing '' — null is what 'no symbol' means
+    // everywhere else this column is read.
+    if ('ticker' in patch) {
+      const normalized = typeof patch.ticker === 'string' ? normalizeSymbol(patch.ticker) : null;
+      updateRow.ticker = normalized ? normalized : null;
+    }
 
     const { data: updated, error: updateErr } = await admin.from('products').update(updateRow).eq('id', id).select().single();
-    if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
+    if (updateErr) {
+      if ((updateErr.code || '') === '23505') {
+        return jsonResponse({ error: 'Another product already uses that ticker. A symbol can map to only one catalog product.' }, 409);
+      }
+      return jsonResponse({ error: updateErr.message }, 500);
+    }
 
     return jsonResponse(toProductClientShape(updated), 200);
   } catch (err) {

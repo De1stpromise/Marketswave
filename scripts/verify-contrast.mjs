@@ -201,6 +201,43 @@ PROFILES['controls-fields'] = [
   { label: 'HOVER upload clear', sel: '.mw-upload-clear', limit: 4, hover: true },
 ];
 
+/* Merged Market Snapshot + Watchlist (2026-09-11). Every text surface on the new card,
+ * measured on real composited pixels over the glass it actually sits on — the mockup's own
+ * #7C868C / #8A9298 greys measure roughly 4.0:1 and 3.4:1 there and are not used.
+ * BOTH badge styles are measured, not one as a stand-in for the other: Offered is green on
+ * a green tint and Tracking only is slate on a navy tint, two genuinely different stacks.
+ * The add panel and the alert modal are opened by CONTRAST_PREPARE_JS before sampling —
+ * without that most of this profile is display:none and the run passes on nothing. */
+PROFILES.watchlist = [
+  { label: 'row ticker', sel: '.wl-tag', limit: 8 },
+  { label: 'row name', sel: '.wl-name', limit: 8 },
+  { label: 'badge Offered', sel: '.wl-badge:not(.wl-track)', limit: 6 },
+  { label: 'badge Tracking only', sel: '.wl-badge.wl-track', limit: 6 },
+  { label: 'row price', sel: '.wl-px-v', limit: 8 },
+  { label: 'row change (gain)', sel: '.wl-px-c.wl-up', limit: 6 },
+  { label: 'row change (loss)', sel: '.wl-px-c.wl-dn', limit: 6 },
+  { label: 'Delayed label', sel: '.wl-delayed', limit: 1 },
+  { label: 'symbol count', sel: '.wl-count', limit: 1 },
+  { label: 'ceiling caption', sel: '.wl-cap', limit: 1 },
+  { label: 'armed alert line', sel: '.wl-alertline', limit: 4 },
+  { label: 'search result source', sel: '.wl-src', limit: 6 },
+  { label: 'HOVER row name', sel: '.wl-name', limit: 6, hover: true },
+  { label: 'HOVER row price', sel: '.wl-px-v', limit: 6, hover: true },
+];
+
+/* The alert modal is measured in its OWN run, not alongside the card. It covers the page
+ * with a blurred scrim, so anything behind it is sampled THROUGH that scrim — which is
+ * exactly how the first run of this profile reported .wl-name at 3.6:1 with a white
+ * foreground on a mid-grey ground. Those were real measurements of a genuinely obscured
+ * surface, not a real contrast failure, and splitting the runs is what makes both honest. */
+PROFILES['watchlist-modal'] = [
+  { label: 'alert modal title', sel: '.wl-modal-title', limit: 1 },
+  { label: 'alert modal copy', sel: '.wl-modal-sub', limit: 1 },
+  { label: 'alert modal field label', sel: 'label[for="wl-alert-target"]', limit: 1 },
+  { label: 'alert modal error', sel: '.wl-modal-error:not([hidden])', limit: 2 },
+];
+
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

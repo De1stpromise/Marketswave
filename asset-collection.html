@@ -364,9 +364,28 @@
           allocatableProducts = data.products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
           holdings = data.holdings;
           dataLoaded = true;
+          focusRequestedProduct();
           render();
         }
       });
+
+      // ---- ?product=PROD-XXXX ------------------------------------------------------
+      // The watchlist card's Allocate button (2026-09-11) links here with the catalog
+      // product it resolved the symbol to. Without this the button would land the client on
+      // an unfiltered grid and leave them to find the product themselves, which is not a
+      // real action. It reuses this page's OWN existing search state rather than adding a
+      // second filtering path — the search box visibly carries the product's name, so the
+      // filter is explained and the client can clear it the ordinary way.
+      function focusRequestedProduct() {
+        var params = new URLSearchParams(window.location.search);
+        var requested = params.get('product');
+        if (!requested) return;
+        var match = allocatableProducts.filter(function (p) { return p.id === requested; })[0];
+        if (!match) return; // a product that is no longer allocatable simply shows the full grid
+        searchQuery = match.name;
+        var box = document.getElementById('asset-search');
+        if (box) box.value = match.name;
+      }
 
       // ---- Search ----
       document.getElementById('asset-search').addEventListener('input', function (e) {
