@@ -855,3 +855,13 @@ entrypoint = "./functions/remove-deposit-address-assignment/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/lookup-product-symbol/index.ts"
+
+[functions.save-product-document]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/save-product-document/index.ts"
+
+[functions.get-product-document]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-product-document/index.ts"
