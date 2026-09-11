@@ -47,6 +47,13 @@ export const PER_CLIENT_SYMBOL_LIMIT = 25;
 export const PLATFORM_STOCK_SYMBOL_CEILING =
   FINNHUB_REFRESH_BUDGET_PER_MINUTE * REFRESH_INTERVAL_MINUTES;
 
+// Live pricing, part 1 (2026-09-11): a provider's 429 is a distinct, transient condition a PM
+// can act on ("try again in a minute") — surfaced as its own error class so callers return a
+// clear 503 rather than a generic 500.
+export class RateLimitedError extends Error {
+  constructor(message: string) { super(message); this.name = 'RateLimitedError'; }
+}
+
 export interface Quote {
   price: number;
   changePercent: number | null;
@@ -96,6 +103,7 @@ export async function fetchStockQuotes(symbols: string[]): Promise<Record<string
 
 async function fetchStockQuote(symbol: string, key: string): Promise<Quote | null> {
   const res = await fetch('https://finnhub.io/api/v1/quote?symbol=' + encodeURIComponent(symbol) + '&token=' + key);
+  if (res.status === 429) throw new RateLimitedError('Finnhub is rate-limiting requests right now. Try again in a minute.');
   if (!res.ok) throw new Error('Finnhub quote for ' + symbol + ' failed: HTTP ' + res.status);
   const data = await res.json();
   if (data && data.error) throw new Error('Finnhub error for ' + symbol + ': ' + data.error);
@@ -120,6 +128,7 @@ export async function fetchCryptoQuotes(providerIds: string[]): Promise<Record<s
   const url = 'https://api.coingecko.com/api/v3/simple/price?ids=' +
     ids.map(encodeURIComponent).join(',') + '&vs_currencies=usd&include_24hr_change=true';
   const res = await fetch(url);
+  if (res.status === 429) throw new RateLimitedError('CoinGecko is rate-limiting requests right now. Try again in a minute.');
   if (!res.ok) throw new Error('CoinGecko request failed: HTTP ' + res.status);
   const data = await res.json();
   const out: Record<string, Quote> = {};

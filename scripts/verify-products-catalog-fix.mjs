@@ -184,17 +184,26 @@ async function main() {
 
     const testLogoUrl = 'https://example.test/products-fix-' + suffix + '-logo.png';
     const testDescription = 'A diversified digital-asset basket added by the real Products Catalog Fix test — ' + suffix + '.';
+    // Live pricing, part 1 (2026-09-11): a Crypto product is MARKET-PRICED — created from a
+    // real symbol search, its class derived from the symbol and its first price taken live.
+    // The PM-typed starting price no longer exists for this model.
+    const searchInput = D.getElementById('add-symbol-search');
+    searchInput.value = 'solana';
+    searchInput.dispatchEvent(new dom.window.Event('input'));
+    await pollUntil(function () { return D.querySelectorAll('.symbol-result').length > 0; }, 30000);
+    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'SOL' && b.dataset.source === 'coingecko'; });
+    check('the real symbol search returns SOL from CoinGecko', !!solResult);
+    solResult.click();
+    await pollUntil(function () { return /Price will track SOL/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
+    check('picking it shows the live preview and derives the asset class (Crypto)', D.getElementById('add-asset-class').value === 'Crypto' && D.getElementById('add-asset-class').disabled === true, 'preview label: ' + D.getElementById('add-live-preview-label').textContent + ' | results: ' + D.querySelectorAll('.symbol-result').length);
     D.getElementById('add-name').value = 'Test Digital Basket ' + suffix;
-    D.getElementById('add-asset-class').value = 'Crypto';
-    D.getElementById('add-asset-class').dispatchEvent(new dom.window.Event('change'));
     D.getElementById('add-risk-tier').value = 'aggressive';
     D.getElementById('add-investment-type').value = 'Index Basket';
     D.getElementById('add-description').value = testDescription;
     D.getElementById('add-logo-url').value = testLogoUrl;
     D.getElementById('add-minimum-investment').value = '500';
-    D.getElementById('add-unit-price').value = '25.50';
 
-    check('the Logo URL field is genuinely visible for a Crypto product (the conditional-field UI)', !D.getElementById('add-logo-url-field').classList.contains('hidden'));
+    check('the Logo URL field is genuinely visible for a market-priced product (the conditional-field UI)', !D.getElementById('add-logo-url-field').classList.contains('hidden'));
 
     var bodyBefore = D.getElementById('admin-toast-body').textContent;
     D.getElementById('add-submit').click();
@@ -208,7 +217,7 @@ async function main() {
 
     const { data: row } = await admin.from('products').select('*').eq('id', cryptoProductId).single();
     check('the real products row genuinely has all three new columns set correctly', row.description === testDescription && row.logo_url === testLogoUrl && row.extended_description === null, JSON.stringify(row));
-    check('unit_price and inception_unit_price both equal the PM-entered starting price', Math.abs(row.unit_price - 25.5) < 1e-9 && Math.abs(row.inception_unit_price - 25.5) < 1e-9, JSON.stringify(row));
+    check('unit_price is the LIVE market price for SOL (never PM-typed), model market, ticker SOL', row.pricing_model === 'market' && row.ticker === 'SOL' && Number(row.unit_price) > 0 && Number(row.inception_unit_price) === Number(row.unit_price), JSON.stringify(row));
   });
 
   // ===========================================================================================
@@ -229,6 +238,9 @@ async function main() {
     await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML); }, 20000);
 
     D.getElementById('open-add-modal').click();
+    // Live pricing, part 1 (2026-09-11): choose "Valued by appraisal" first — the model is
+    // chosen before anything else and cannot be changed later.
+    [...D.querySelectorAll('.add-model-btn')].find(function (b) { return b.dataset.model === 'appraisal'; }).click();
     D.getElementById('add-name').value = 'Test Mid-Market PE Fund ' + suffix;
     D.getElementById('add-asset-class').value = 'Private Equity';
     D.getElementById('add-asset-class').dispatchEvent(new dom.window.Event('change'));
@@ -239,7 +251,7 @@ async function main() {
     D.getElementById('add-minimum-investment').value = '1000';
     D.getElementById('add-unit-price').value = '100.00';
 
-    check('the Extended Description field is genuinely visible for a Private Equity product', !D.getElementById('add-extended-description-field').classList.contains('hidden'));
+    check('the Extended Description field is genuinely visible for a Private Equity product', !D.getElementById('add-appraisal-section').classList.contains('hidden'));
 
     var bodyBefore = D.getElementById('admin-toast-body').textContent;
     D.getElementById('add-submit').click();
@@ -377,7 +389,7 @@ async function main() {
   console.log('\n6a. A real client-side attempt to sneak unitPrice into the patch is genuinely rejected server-side');
   await withContext(ADMIN_CTX, async function () {
     const { data: result, error } = await ADMIN_CTX.MarketswaveData.callFunction('edit-product', { id: peProductId, patch: { minimumInvestment: 2000, unitPrice: 999 } }).then(function (d) { return { data: d, error: null }; }).catch(function (e) { return { data: null, error: e }; });
-    check('the real Edge Function genuinely rejects a patch containing unitPrice, with the real specific message', !!error && /unitPrice moves only via the returns engine/i.test(error.message), error && error.message);
+    check('the real Edge Function genuinely rejects a patch containing unitPrice, with the real specific message', !!error && /cannot change: unitPrice.*never set by hand/i.test(error.message), error && error.message);
     const { data: row3 } = await admin.from('products').select('unit_price,minimum_investment').eq('id', peProductId).single();
     check('the real row is completely UNCHANGED by the rejected attempt — neither unit_price nor minimum_investment moved', Math.abs(row3.unit_price - 100) < 1e-9 && Math.abs(row3.minimum_investment - 1000) < 1e-9, JSON.stringify(row3));
   });
@@ -386,9 +398,11 @@ async function main() {
   await withContext(ADMIN_CTX, async function () {
     const before = (await admin.from('products').select('id')).data.length;
     const { data: result, error } = await ADMIN_CTX.MarketswaveData.callFunction('add-product', {
-      name: 'Should Never Exist', assetClass: 'Not A Real Class', investmentType: 'X', riskTier: 'balanced', minimumInvestment: 100, unitPrice: 10
+      pricingModel: 'appraisal', name: 'Should Never Exist', assetClass: 'Not A Real Class', investmentType: 'X', riskTier: 'balanced', minimumInvestment: 100, unitPrice: 10
     }).then(function (d) { return { data: d, error: null }; }).catch(function (e) { return { data: null, error: e }; });
-    check('the real Edge Function genuinely rejects an invalid assetClass', !!error && /assetClass must be one of/i.test(error.message), error && error.message);
+    // Live pricing, part 1 (2026-09-11): an appraisal product must be PE/RA, so an invalid
+    // class is refused by that rule first — still a genuine server-side rejection, no row.
+    check('the real Edge Function genuinely rejects an invalid assetClass', !!error && /Private Equity or Real Assets|assetClass must be one of/i.test(error.message), error && error.message);
     const after = (await admin.from('products').select('id')).data.length;
     check('genuinely ZERO products rows were created for the rejected attempt', after === before, before + ' -> ' + after);
   });

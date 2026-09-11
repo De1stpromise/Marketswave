@@ -18,7 +18,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
 import { validateProductFields, toProductClientShape, PRICING_MODELS, APPRAISAL_ASSET_CLASSES, assetClassForSource, validateMaximumInvestment } from '../_shared/product-validation.ts';
 import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
-import { lookupStockQuote, lookupCrypto } from '../_shared/market-providers.ts';
+import { lookupStockQuote, fetchCryptoQuotes, RateLimitedError } from '../_shared/market-providers.ts';
 import { refreshSymbols } from '../_shared/market-refresh.ts';
 
 Deno.serve(async (req) => {
@@ -81,9 +81,10 @@ Deno.serve(async (req) => {
         marketProviderId = body.providerId;
         // The FIRST price is taken live, right now: a product must never be created with a
         // PM-typed placeholder that the next refresh would then "correct".
-        const coin = await lookupCrypto(marketProviderId);
+        const quotes = await fetchCryptoQuotes([marketProviderId]);
+        const coin = quotes[marketProviderId];
         if (!coin) return jsonResponse({ error: 'CoinGecko returned no price for ' + marketProviderId + ' — the product was not created.' }, 400);
-        marketFirstPrice = coin.quote;
+        marketFirstPrice = coin;
       } else {
         const quote = await lookupStockQuote(marketSymbol);
         if (!quote) return jsonResponse({ error: 'Finnhub returned no price for ' + marketSymbol + ' (an unknown symbol comes back as a zero, which is refused) — the product was not created.' }, 400);
@@ -168,6 +169,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse(toProductClientShape(created), 200);
   } catch (err) {
+    if (err instanceof RateLimitedError) return jsonResponse({ error: err.message + ' The product was not created.' }, 503);
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });

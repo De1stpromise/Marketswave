@@ -361,6 +361,10 @@
     // 401/'auth' and 403/'forbidden' are their own kinds and correctly fall through to the
     // generic friendlyMessage() below instead, since those never reach real business logic.
     if (err && err.kind === 'client') return err.message;
+    // Live pricing, part 1 (2026-09-11): a 503 is the one server-side status that carries a
+    // message a PM can act on ("CoinGecko is rate-limiting requests right now. Try again in a
+    // minute.") rather than an internal failure — show it verbatim, like a 4xx.
+    if (err && err.status === 503 && err.message && !/non-2xx/i.test(err.message)) return err.message;
     return friendlyMessage(err);
   }
 

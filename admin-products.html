@@ -94,56 +94,91 @@
   </div>
 
   <!-- Add Product modal -->
+  <!-- Add Product — Product catalog, live pricing part 1 (2026-09-11). The pricing model is
+       chosen FIRST and is immutable afterwards; the form's own copy says so. Market-priced:
+       a symbol search across both providers with live prices, the asset class DERIVED from the
+       symbol (shown, not chosen), the first price taken live by add-product. Valued by
+       appraisal: PE / Real Assets only, PM-entered starting price, moves only via publish-nav. -->
   <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60" id="add-modal-backdrop"></div>
-    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Add Product</p>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-1">
+        <p class="text-lg font-semibold text-slate-900">New product</p>
         <button type="button" id="add-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Adds a new product to the global catalog, immediately available for allocation on every client's Asset Collection page.</p>
-      <div class="space-y-3">
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" />
-            <label for="add-name">Name</label>
-          </div>
+      <p class="text-sm text-slate-500 mb-4">Choose how this product is priced. <span class="font-medium text-slate-700">It cannot be changed later.</span></p>
+
+      <div class="flex gap-2 mb-5" id="add-model-seg" role="radiogroup" aria-label="Pricing model">
+        <button type="button" class="add-model-btn mw-btn mw-btn-sm mw-btn-pill" data-model="market" role="radio" aria-checked="true">Market-priced</button>
+        <button type="button" class="add-model-btn mw-btn mw-btn-sm mw-btn-pill" data-model="appraisal" role="radio" aria-checked="false">Valued by appraisal</button>
+      </div>
+
+      <!-- Market-priced: symbol search -->
+      <div id="add-market-section">
+        <div class="mw-fld mw-fld--admin">
+          <input type="text" id="add-symbol-search" class="mw-field mw-field-admin" placeholder="e.g. BTC, SPY, Apple" autocomplete="off" spellcheck="false" />
+          <label for="add-symbol-search">Search symbol</label>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div id="add-symbol-results" class="hidden border border-slate-200 rounded-xl overflow-hidden mt-2 mb-3"></div>
+        <p id="add-symbol-hint" class="text-xs text-slate-500 mt-1 mb-3">Stocks and ETFs from Finnhub, coins from CoinGecko. Prices shown are live.</p>
+        <div id="add-live-preview" class="hidden flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4" style="background:rgba(19,114,84,.06);border:1px solid rgba(19,114,84,.2);">
+          <span class="text-xs font-semibold" style="color:#166349;" id="add-live-preview-label"></span>
+          <span class="text-lg font-bold text-slate-900 tabular-nums" id="add-live-preview-price"></span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Bitcoin" />
+              <label for="add-name">Product name</label>
+            </div>
+          </div>
           <div>
             <div class="mw-fld mw-fld--static mw-fld--admin">
               <select id="add-asset-class" class="mw-field mw-field-admin">
-              <option value="Private Equity">Private Equity</option>
-              <option value="Real Assets">Real Assets</option>
-              <option value="Stocks & ETFs">Stocks & ETFs</option>
-              <option value="Crypto">Crypto</option>
-            </select>
-              <label for="add-asset-class">Asset Class</label>
+                <option value="Private Equity">Private Equity</option>
+                <option value="Real Assets">Real Assets</option>
+                <option value="Stocks & ETFs">Stocks &amp; ETFs</option>
+                <option value="Crypto">Crypto</option>
+              </select>
+              <label for="add-asset-class">Asset class</label>
             </div>
           </div>
+        </div>
+        <p class="text-xs text-slate-500" id="add-asset-class-hint">Asset class is set from the symbol and can't be changed — it determines how the product behaves throughout the platform.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <div class="mw-fld mw-fld--static mw-fld--admin">
               <select id="add-risk-tier" class="mw-field mw-field-admin">
-              <option value="conservative">Conservative</option>
-              <option value="balanced">Balanced</option>
-              <option value="aggressive">Aggressive</option>
-            </select>
-              <label for="add-risk-tier">Risk Tier</label>
+                <option value="conservative">Conservative</option>
+                <option value="balanced">Balanced</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+              <label for="add-risk-tier">Risk tier</label>
+            </div>
+          </div>
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Coin, ETF, Growth Fund" />
+              <label for="add-investment-type">Investment type</label>
             </div>
           </div>
         </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" />
-            <label for="add-investment-type">Investment Type</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" />
+              <label for="add-minimum-investment">Minimum allocation (USD)</label>
+            </div>
           </div>
-        </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-ticker" class="mw-field mw-field-admin" placeholder="ETH" />
-            <label for="add-ticker">Market Symbol (optional)</label>
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="add-maximum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="Leave blank for no cap" />
+              <label for="add-maximum-investment">Maximum allocation (optional)</label>
+            </div>
           </div>
-          <p class="text-xs text-slate-500 mt-1">The real instrument symbol, if this product tracks one (e.g. ETH). A client watching that symbol then sees this product as &ldquo;Offered&rdquo; with a real Allocate action. Leave blank for a product with no publicly quoted symbol.</p>
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
@@ -151,8 +186,6 @@
             <label for="add-description">Description</label>
           </div>
         </div>
-        <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
-             see updateAddConditionalFields(), wired to add-asset-class's change event. -->
         <div id="add-logo-url-field" class="hidden">
           <div class="mw-fld mw-fld--admin">
             <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
@@ -160,37 +193,27 @@
           </div>
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
-        <div id="add-extended-description-field" class="hidden">
+        <!-- Appraisal-only -->
+        <div id="add-appraisal-section" class="hidden space-y-3">
           <div class="mw-fld mw-fld--admin">
-            <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
-            <label for="add-extended-description">Extended Description</label>
+            <textarea id="add-extended-description" rows="3" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+            <label for="add-extended-description">Extended description</label>
           </div>
+          <div class="mw-fld mw-fld--admin">
+            <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" />
+            <label for="add-unit-price">Starting unit price (USD)</label>
+          </div>
+          <p class="text-xs text-slate-400">Valued by appraisal: the price moves only when a PM publishes a new valuation (by percentage or unit price), never by a market feed and never by the simulated tick.</p>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <div class="mw-fld mw-fld--admin">
-              <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" />
-              <label for="add-minimum-investment">Minimum Investment (USD)</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld mw-fld--admin">
-              <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" />
-              <label for="add-unit-price">Starting Unit Price (USD)</label>
-            </div>
-          </div>
-        </div>
-        <p class="text-xs text-slate-400">Starting unit price is PM-entered, not a live market feed — this project has no real-time pricing data source (see the Backend Requirements Register). After creation, price moves only via the returns engine's own daily tick.</p>
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="add-error"></p>
       <div class="flex gap-3 mt-5">
         <button type="button" id="add-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
-        <button type="button" id="add-submit" class="mw-btn mw-btn-admin mw-btn-grow">Add Product</button>
+        <button type="button" id="add-submit" class="mw-btn mw-btn-admin mw-btn-grow">Create product</button>
       </div>
     </div>
   </div>
 
-  <!-- Edit Product modal -->
   <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60" id="edit-modal-backdrop"></div>
     <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -236,12 +259,11 @@
             <label for="edit-investment-type">Investment Type</label>
           </div>
         </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="edit-ticker" class="mw-field mw-field-admin" placeholder=" " />
-            <label for="edit-ticker">Market Symbol (optional)</label>
-          </div>
-          <p class="text-xs text-slate-500 mt-1">The real instrument symbol, if this product tracks one (e.g. ETH). A client watching that symbol then sees this product as &ldquo;Offered&rdquo; with a real Allocate action. Leave blank for a product with no publicly quoted symbol.</p>
+        <!-- Live pricing, part 1 (2026-09-11): the pricing model and symbol are chosen at
+             creation and immutable — shown here, never editable (edit-product refuses them). -->
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Pricing model — fixed at creation</p>
+          <p class="text-sm text-slate-800" id="edit-pricing-display">—</p>
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
@@ -264,10 +286,18 @@
             <label for="edit-extended-description">Extended Description</label>
           </div>
         </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="number" id="edit-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder=" " />
-            <label for="edit-minimum-investment">Minimum Investment (USD)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="edit-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder=" " />
+              <label for="edit-minimum-investment">Minimum Investment (USD)</label>
+            </div>
+          </div>
+          <div>
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="edit-maximum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="No cap" />
+              <label for="edit-maximum-investment">Maximum (optional)</label>
+            </div>
           </div>
         </div>
         <div class="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3">
@@ -284,44 +314,67 @@
     </div>
   </div>
 
-  <!-- Publish NAV modal (Backend Migration Phase D — NAV feature, 2026-09-06). Scoped, at the
-       UI level, to Private Equity / Real Assets products only — the button that opens this is
-       rendered only inside expandedRowHTML() when p.assetClass is one of those two; publish-nav
-       itself re-validates this server-side regardless, so this scoping is a UX convenience, not
-       the real security boundary. -->
+  <!-- Publish valuation — Product catalog, live pricing part 1 (2026-09-11). Two modes,
+       percentage by default (an appraisal arrives as "up 4.2%"; making a PM compute
+       $620 x 1.042 by hand is where a typo becomes a wrong valuation for every holder at
+       once). A live preview of the resulting unit price, and an IMPACT TABLE of every real
+       client holding the product — units, current value, new value, change, total — before
+       anything is committed. publish-nav re-validates eligibility server-side regardless. -->
   <div id="nav-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/60" id="nav-modal-backdrop"></div>
-    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Publish New NAV</p>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between mb-1">
+        <p class="text-lg font-semibold text-slate-900">Publish valuation</p>
         <button type="button" id="nav-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4" id="nav-modal-product-name"></p>
-      <div class="space-y-3">
-        <div>
+      <p class="text-sm font-medium text-slate-700" id="nav-modal-product-name"></p>
+      <p class="text-xs text-slate-500 mb-4" id="nav-modal-current"></p>
+
+      <div class="flex gap-2 mb-4" id="nav-mode-seg" role="radiogroup" aria-label="Valuation mode">
+        <button type="button" class="nav-mode-btn mw-btn mw-btn-sm mw-btn-pill mw-btn-grow" data-mode="percent" role="radio" aria-checked="true">By percentage</button>
+        <button type="button" class="nav-mode-btn mw-btn mw-btn-sm mw-btn-pill mw-btn-grow" data-mode="price" role="radio" aria-checked="false">By unit price</button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div id="nav-percent-field">
           <div class="mw-fld mw-fld--admin">
-            <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" />
-            <label for="nav-unit-price">New Unit Price (USD)</label>
+            <input type="number" id="nav-change-percent" step="0.01" class="mw-field mw-field-admin" placeholder="4.2" />
+            <label for="nav-change-percent">Change (%)</label>
+          </div>
+        </div>
+        <div id="nav-price-field" class="hidden">
+          <div class="mw-fld mw-fld--admin">
+            <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="646.04" />
+            <label for="nav-unit-price">New unit price (USD)</label>
           </div>
         </div>
         <div>
           <div class="mw-fld mw-fld--static mw-fld--admin">
             <input type="date" id="nav-effective-date" class="mw-field mw-field-admin" />
-            <label for="nav-effective-date">Effective Date</label>
-          </div>
-          <p class="text-xs text-slate-400 mt-1">The real-world date this valuation is effective as of — may be earlier than today (e.g. a quarter-end appraisal published later).</p>
-        </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" />
-            <label for="nav-note">Note (optional)</label>
+            <label for="nav-effective-date">Effective date</label>
           </div>
         </div>
+      </div>
+      <p class="text-xs text-slate-400 mt-1 mb-3">The real-world date this valuation is effective as of — may be earlier than today (e.g. a quarter-end appraisal published later).</p>
+
+      <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4" style="background:rgba(180,83,9,.06);border:1px solid rgba(180,83,9,.25);">
+        <span class="text-xs font-semibold" style="color:#7A5207;">New unit price</span>
+        <span class="text-lg font-bold text-slate-900 tabular-nums" id="nav-preview">—</span>
+      </div>
+
+      <div class="border border-slate-200 rounded-xl overflow-hidden mb-4" id="nav-impact">
+        <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-600" id="nav-impact-heading">What this changes</div>
+        <div id="nav-impact-body"><p class="text-xs text-slate-500 px-4 py-3">Loading holders…</p></div>
+      </div>
+
+      <div class="mw-fld mw-fld--admin">
+        <textarea id="nav-note" rows="2" class="mw-field mw-field-admin" placeholder="Q2 2026 appraisal — portfolio company revaluation"></textarea>
+        <label for="nav-note">Rationale (recorded with the publication)</label>
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="nav-error"></p>
       <div class="flex gap-3 mt-5">
         <button type="button" id="nav-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
-        <button type="button" id="nav-submit" class="mw-btn mw-btn-admin mw-btn-grow">Publish NAV</button>
+        <button type="button" id="nav-submit" class="mw-btn mw-btn-admin mw-btn-grow">Publish valuation</button>
       </div>
     </div>
   </div>
@@ -490,14 +543,50 @@
         });
       }
 
+      // Live pricing, part 1 (2026-09-11): the source line under every price. Green dot =
+      // market, fresh; grey = market, stale (older than two missed refreshes); amber = valued
+      // by appraisal; red = the last refresh could not price it (last good price retained).
+      var STALE_AFTER_MS = 30 * 60 * 1000;
+      function formatAsOf(iso) {
+        if (!iso) return '—';
+        var d = new Date(iso);
+        var sameDay = d.toDateString() === new Date().toDateString();
+        var time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        return sameDay ? time : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + time;
+      }
+      function priceSourceLineHTML(p) {
+        if (p.pricingModel === 'market') {
+          if (p.priceStatus === 'quote_failed') {
+            return '<p class="text-[11px] text-red-700 mt-0.5"><span class="inline-block w-1.5 h-1.5 rounded-full bg-red-600 mr-1 align-middle"></span>Quote failed · last good ' + formatAsOf(p.priceAsOf) + '</p>';
+          }
+          var stale = !p.priceAsOf || (Date.now() - new Date(p.priceAsOf).getTime() > STALE_AFTER_MS);
+          return '<p class="text-[11px] mt-0.5 ' + (stale ? 'text-slate-600' : 'text-emerald-800') + '"><span class="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle ' + (stale ? 'bg-slate-400' : 'bg-emerald-600') + '"></span>' + (p.ticker || '') + ' · ' + (p.priceAsOf ? 'as of ' + formatAsOf(p.priceAsOf) + (stale ? ' · stale' : '') : 'awaiting first refresh') + '</p>';
+        }
+        if (p.pricingModel === 'appraisal') {
+          return '<p class="text-[11px] text-amber-800 mt-0.5"><span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 align-middle"></span>Appraisal · last valued ' + formatDisplayDate(p.lastTickDate) + '</p>';
+        }
+        if (p.pricingModel === 'fixed') return '<p class="text-[11px] text-slate-500 mt-0.5">Par value</p>';
+        return '<p class="text-[11px] text-slate-500 mt-0.5">Simulated tick (legacy)</p>';
+      }
+
       function expandedRowHTML(p) {
         var eligible = isNavEligible(p);
-        var lastPriceLabel = eligible ? 'Last Valued (NAV)' : 'Last Price Tick';
+        var lastPriceLabel = eligible ? 'Last Valued (NAV)' : (p.pricingModel === 'market' ? 'Price as of' : 'Last Price Tick');
+        var pricingBlock = p.pricingModel === 'market'
+          ? '<p class="text-slate-700">Market-priced · ' + (p.ticker || '') + ' via ' + (p.priceSource === 'coingecko' ? 'CoinGecko' : 'Finnhub') + '</p>'
+          : p.pricingModel === 'appraisal' ? '<p class="text-slate-700">Valued by appraisal</p>'
+          : '<p class="text-slate-700">' + (p.pricingModel === 'fixed' ? 'Fixed (par)' : 'Simulated tick — legacy, unmapped') + '</p>';
+        var failureBlock = p.pricingModel === 'market' && p.priceStatus === 'quote_failed'
+          ? '<div class="mt-4 rounded-xl border border-red-300 bg-red-50 p-3" id="quote-failed-' + p.id + '">' +
+              '<p class="text-sm font-semibold text-red-800 mb-0.5">Price quote failed — last good price retained</p>' +
+              '<p class="text-xs text-red-800">' + (p.priceFailureReason || 'The provider returned no usable price on the last refresh.') + (p.priceLastFailedAt ? ' Last attempt ' + formatAsOf(p.priceLastFailedAt) + '.' : '') + ' Clients still see ' + formatUSD2(p.unitPrice) + ' with its timestamp; nothing was overwritten with a zero.</p>' +
+            '</div>'
+          : '';
         var navSection = !eligible ? '' :
           '<div class="mt-5 pt-4 border-t border-slate-200">' +
             '<div class="flex items-center justify-between mb-2">' +
               '<p class="text-xs text-slate-400 uppercase tracking-wide">NAV History</p>' +
-              '<button type="button" class="publish-nav-btn mw-btn mw-btn-sm border border-amber-300 text-amber-700 hover:bg-amber-50" data-id="' + p.id + '" data-name="' + p.name + '">Publish New NAV</button>' +
+              '<button type="button" class="publish-nav-btn mw-btn mw-btn-sm border border-amber-300 text-amber-700 hover:bg-amber-50" data-id="' + p.id + '" data-name="' + p.name + '">Publish valuation</button>' +
             '</div>' +
             '<div id="nav-history-' + p.id + '"></div>' +
           '</div>';
@@ -514,16 +603,15 @@
               '</div>' +
               '<div>' +
                 '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">' + lastPriceLabel + '</p>' +
-                '<p class="text-slate-700">' + formatDisplayDate(p.lastTickDate) + '</p>' +
+                '<p class="text-slate-700">' + (p.pricingModel === 'market' ? (p.priceAsOf ? formatAsOf(p.priceAsOf) : 'awaiting first refresh') : formatDisplayDate(p.lastTickDate)) + '</p>' +
               '</div>' +
-              // Market Symbol (2026-09-11). Shown here rather than as a table column because
-              // most products genuinely have none — an all-but-empty column would read as
-              // missing data rather than as the honest "this vehicle has no public symbol".
               '<div>' +
-                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Market Symbol</p>' +
-                '<p class="text-slate-700">' + (p.ticker ? p.ticker : 'Not mapped') + '</p>' +
+                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Pricing</p>' +
+                pricingBlock +
               '</div>' +
+              (p.maximumInvestment != null ? '<div><p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Maximum Allocation</p><p class="text-slate-700">' + formatUSD(p.maximumInvestment) + '</p></div>' : '') +
             '</div>' +
+            failureBlock +
             '<div class="mt-4">' +
               '<button type="button" class="edit-btn mw-btn mw-btn-admin mw-btn-sm" data-id="' + p.id + '">Edit</button>' +
             '</div>' +
@@ -544,7 +632,11 @@
           riskTier: p.risk_tier, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
           inceptionUnitPrice: p.inception_unit_price, createdAt: p.created_at, lastTickDate: p.last_tick_date,
           description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url,
-          ticker: p.ticker
+          ticker: p.ticker,
+          pricingModel: p.pricing_model, priceSource: p.price_source, providerId: p.provider_id,
+          priceAsOf: p.price_as_of, priceChangePercent: p.price_change_percent,
+          priceStatus: p.price_status, priceFailureReason: p.price_failure_reason, priceLastFailedAt: p.price_last_failed_at,
+          maximumInvestment: p.maximum_investment
         };
       }
 
@@ -598,7 +690,7 @@
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + classCls + '">' + p.assetClass + '</span></td>' +
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + tier.cls + '">' + tier.label + '</span></td>' +
               '<td class="px-6 py-4 text-right text-slate-700">' + formatUSD(p.minimumInvestment) + '</td>' +
-              '<td class="px-6 py-4 text-right font-medium text-slate-900">' + formatUSD2(p.unitPrice) + '</td>' +
+              '<td class="px-6 py-4 text-right"><p class="font-medium text-slate-900 tabular-nums">' + formatUSD2(p.unitPrice) + '</p>' + priceSourceLineHTML(p) + '</td>' +
               '<td class="px-6 py-4 text-right">' +
                 '<svg class="w-4 h-4 text-slate-400 transition-transform inline-block' + (isExpanded ? ' rotate-180' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
               '</td>' +
@@ -668,22 +760,120 @@
         document.getElementById(extendedFieldId).classList.toggle('hidden', assetClass !== 'Private Equity' && assetClass !== 'Real Assets');
       }
 
-      // ---- Add Product modal ----
+      // ---- Add Product modal — live pricing, part 1 (2026-09-11) ----
       var addModal = document.getElementById('add-modal');
       var addError = document.getElementById('add-error');
-      function openAddModal() {
-        document.getElementById('add-name').value = '';
-        document.getElementById('add-asset-class').value = 'Private Equity';
-        document.getElementById('add-risk-tier').value = 'balanced';
-        document.getElementById('add-investment-type').value = '';
-        document.getElementById('add-description').value = '';
-        document.getElementById('add-logo-url').value = '';
-        document.getElementById('add-ticker').value = '';
-        document.getElementById('add-extended-description').value = '';
-        document.getElementById('add-minimum-investment').value = '';
-        document.getElementById('add-unit-price').value = '';
-        updateConditionalFields('Private Equity', 'add-logo-url-field', 'add-extended-description-field');
+      var addModel = 'market';
+      var addPick = null;          // the chosen symbol { symbol, name, source, providerId, assetClass, price, exchange, exchangeVerified }
+      var addSearchTimer = null;
+      var addSearchSeq = 0;
+
+      function setAddModel(model) {
+        addModel = model;
+        document.querySelectorAll('.add-model-btn').forEach(function (b) {
+          var on = b.dataset.model === model;
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+          b.classList.toggle('bg-slate-900', on); b.classList.toggle('text-white', on);
+          b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-600', !on);
+        });
+        var isMarket = model === 'market';
+        document.getElementById('add-market-section').classList.toggle('hidden', !isMarket);
+        document.getElementById('add-appraisal-section').classList.toggle('hidden', isMarket);
+        document.getElementById('add-logo-url-field').classList.toggle('hidden', !isMarket);
+        var cls = document.getElementById('add-asset-class');
+        cls.disabled = isMarket;
+        document.getElementById('add-asset-class-hint').textContent = isMarket
+          ? 'Asset class is set from the symbol and can\'t be changed — it determines how the product behaves throughout the platform.'
+          : 'Valued by appraisal applies to Private Equity and Real Assets only. Stocks & ETFs and Crypto are always market-priced.';
+        if (isMarket) {
+          cls.value = addPick ? addPick.assetClass : 'Stocks & ETFs';
+        } else {
+          if (cls.value !== 'Private Equity' && cls.value !== 'Real Assets') cls.value = 'Private Equity';
+        }
         addError.classList.add('hidden');
+      }
+
+      function renderSymbolResults(results, providerErrors) {
+        var box = document.getElementById('add-symbol-results');
+        if (!results.length) {
+          box.innerHTML = '<p class="text-xs text-slate-500 px-4 py-3">No matches' + (providerErrors && providerErrors.length ? ' — ' + providerErrors.join(' ') : '') + '.</p>';
+          box.classList.remove('hidden');
+          return;
+        }
+        box.innerHTML = results.map(function (r) {
+          var picked = addPick && addPick.symbol === r.symbol && addPick.source === r.source;
+          // The exchange is shown as a VISIBLE fallback when not verified — a PM must never
+          // read "US listing" as checked data (profile2 returns nothing for ETFs on the free
+          // tier, so the pick step verifies what it can and says so when it cannot).
+          var exch = r.exchangeVerified
+            ? '<span class="text-[10px] font-bold tracking-wide uppercase text-slate-500 min-w-[64px] text-right">' + r.exchange + '</span>'
+            : '<span class="text-[10px] font-semibold tracking-wide uppercase text-slate-500 min-w-[64px] text-right" title="Exchange not verified by the provider">' + r.exchange + ' · <span class="italic normal-case">unverified</span></span>';
+          return '<button type="button" class="symbol-result w-full text-left flex items-center gap-3 px-4 py-2.5 border-b border-slate-100 last:border-b-0 hover:bg-slate-50' + (picked ? ' bg-amber-50' : '') + '" data-symbol="' + r.symbol + '" data-source="' + r.source + '" data-provider-id="' + (r.providerId || '') + '" data-name="' + r.name.replace(/"/g, '&quot;') + '"' + (r.alreadyOffered ? ' disabled title="Already offered as a product"' : '') + '>' +
+            '<span class="text-xs font-bold text-slate-900 min-w-[52px] tabular-nums">' + r.symbol + '</span>' +
+            '<span class="text-sm text-slate-600 flex-1 truncate">' + r.name + (r.alreadyOffered ? ' <span class="text-[10px] text-slate-400">(already offered)</span>' : '') + '</span>' +
+            '<span class="text-xs font-semibold text-slate-900 tabular-nums">' + (r.price != null ? '$' + Number(r.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—') + '</span>' +
+            exch +
+          '</button>';
+        }).join('');
+        box.classList.remove('hidden');
+      }
+
+      function runSymbolSearch(query) {
+        var seq = ++addSearchSeq;
+        MarketswaveData.callFunction('lookup-product-symbol', { query: query }).then(function (res) {
+          if (seq !== addSearchSeq) return; // a newer search superseded this one
+          renderSymbolResults(res.results || [], res.providerErrors || []);
+        }).catch(function (err) {
+          if (seq !== addSearchSeq) return;
+          var box = document.getElementById('add-symbol-results');
+          box.innerHTML = '<p class="text-xs text-red-600 px-4 py-3">' + MarketswaveData.writeErrorMessage(err) + '</p>';
+          box.classList.remove('hidden');
+        });
+      }
+
+      document.getElementById('add-symbol-search').addEventListener('input', function (e) {
+        var q = e.target.value.trim();
+        clearTimeout(addSearchTimer);
+        addPick = null;
+        document.getElementById('add-live-preview').classList.add('hidden');
+        if (q.length < 1) { document.getElementById('add-symbol-results').classList.add('hidden'); return; }
+        addSearchTimer = setTimeout(function () { runSymbolSearch(q); }, 400);
+      });
+
+      document.getElementById('add-symbol-results').addEventListener('click', function (e) {
+        var btn = e.target.closest('.symbol-result');
+        if (!btn || btn.disabled) return;
+        var pick = { symbol: btn.dataset.symbol, source: btn.dataset.source, providerId: btn.dataset.providerId || null, name: btn.dataset.name };
+        var preview = document.getElementById('add-live-preview');
+        document.getElementById('add-live-preview-label').textContent = 'Checking ' + pick.symbol + '…';
+        document.getElementById('add-live-preview-price').textContent = '';
+        preview.classList.remove('hidden');
+        // The pick step: a fresh quote and, where the provider can give one, a verified exchange.
+        MarketswaveData.callFunction('lookup-product-symbol', { symbol: pick.symbol, source: pick.source, providerId: pick.providerId, name: pick.name }).then(function (res) {
+          addPick = res;
+          if (!document.getElementById('add-name').value.trim()) document.getElementById('add-name').value = res.name;
+          document.getElementById('add-asset-class').value = res.assetClass;
+          document.getElementById('add-live-preview-label').textContent = 'Price will track ' + res.symbol + ' · refreshed every 15 minutes · ' + (res.exchangeVerified ? res.exchange : res.exchange + ' (exchange unverified)');
+          document.getElementById('add-live-preview-price').textContent = '$' + Number(res.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          document.querySelectorAll('.symbol-result').forEach(function (b) { b.classList.toggle('bg-amber-50', b.dataset.symbol === res.symbol && b.dataset.source === res.source); });
+        }).catch(function (err) {
+          addPick = null;
+          document.getElementById('add-live-preview-label').textContent = MarketswaveData.writeErrorMessage(err);
+        });
+      });
+
+      document.getElementById('add-model-seg').addEventListener('click', function (e) {
+        var b = e.target.closest('.add-model-btn');
+        if (b) setAddModel(b.dataset.model);
+      });
+
+      function openAddModal() {
+        ['add-name', 'add-investment-type', 'add-description', 'add-logo-url', 'add-extended-description', 'add-minimum-investment', 'add-maximum-investment', 'add-unit-price', 'add-symbol-search'].forEach(function (id) { document.getElementById(id).value = ''; });
+        document.getElementById('add-risk-tier').value = 'balanced';
+        document.getElementById('add-symbol-results').classList.add('hidden');
+        document.getElementById('add-live-preview').classList.add('hidden');
+        addPick = null;
+        setAddModel('market');
         addModal.classList.remove('hidden');
       }
       function closeAddModal() { addModal.classList.add('hidden'); }
@@ -692,40 +882,37 @@
       document.getElementById('add-modal-close').addEventListener('click', closeAddModal);
       document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
       document.getElementById('add-cancel').addEventListener('click', closeAddModal);
-      document.getElementById('add-asset-class').addEventListener('change', function (e) {
-        updateConditionalFields(e.target.value, 'add-logo-url-field', 'add-extended-description-field');
-      });
 
       document.getElementById('add-submit').addEventListener('click', function () {
         addError.classList.add('hidden');
-        var name = document.getElementById('add-name').value.trim();
-        var assetClass = document.getElementById('add-asset-class').value;
-        var riskTier = document.getElementById('add-risk-tier').value;
-        var investmentType = document.getElementById('add-investment-type').value.trim();
-        var description = document.getElementById('add-description').value.trim();
-        var logoUrl = document.getElementById('add-logo-url').value.trim();
-        var ticker = document.getElementById('add-ticker').value.trim();
-        var extendedDescription = document.getElementById('add-extended-description').value.trim();
-        var minimumInvestment = parseFloat(document.getElementById('add-minimum-investment').value);
-        var unitPrice = parseFloat(document.getElementById('add-unit-price').value);
+        var maxRaw = document.getElementById('add-maximum-investment').value;
+        var payload = {
+          pricingModel: addModel,
+          name: document.getElementById('add-name').value.trim(),
+          investmentType: document.getElementById('add-investment-type').value.trim(),
+          riskTier: document.getElementById('add-risk-tier').value,
+          minimumInvestment: parseFloat(document.getElementById('add-minimum-investment').value),
+          description: document.getElementById('add-description').value.trim(),
+          logoUrl: document.getElementById('add-logo-url').value.trim()
+        };
+        if (maxRaw !== '') payload.maximumInvestment = parseFloat(maxRaw);
+        if (addModel === 'market') {
+          if (!addPick) { addError.textContent = 'Search for a symbol and pick one first.'; addError.classList.remove('hidden'); return; }
+          payload.symbol = addPick.symbol;
+          payload.source = addPick.source;
+          payload.providerId = addPick.providerId;
+          // assetClass is derived server-side from the symbol; not sent, cannot be overridden.
+        } else {
+          payload.assetClass = document.getElementById('add-asset-class').value;
+          payload.extendedDescription = document.getElementById('add-extended-description').value.trim();
+          payload.unitPrice = parseFloat(document.getElementById('add-unit-price').value);
+        }
         var btn = document.getElementById('add-submit');
-
-        MarketswaveData.withButtonBusy(btn, 'Adding...', function () {
-          return MarketswaveData.callFunction('add-product', {
-            name: name,
-            assetClass: assetClass,
-            investmentType: investmentType,
-            riskTier: riskTier,
-            minimumInvestment: minimumInvestment,
-            unitPrice: unitPrice,
-            description: description,
-            logoUrl: logoUrl,
-            extendedDescription: extendedDescription,
-            ticker: ticker
-          });
+        MarketswaveData.withButtonBusy(btn, 'Creating...', function () {
+          return MarketswaveData.callFunction('add-product', payload);
         }).then(function (result) {
           closeAddModal();
-          showToast('Product Added', result.name + ' (' + result.id + ') is now available for allocation.');
+          showToast('Product Added', result.name + ' (' + result.id + ') is now available for allocation' + (result.pricingModel === 'market' ? ' at $' + Number(result.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ', tracking ' + result.ticker : '') + '.');
           reloadProducts(true);
         }).catch(function (err) {
           addError.textContent = MarketswaveData.writeErrorMessage(err);
@@ -749,9 +936,15 @@
         document.getElementById('edit-investment-type').value = p.investmentType;
         document.getElementById('edit-description').value = p.description || '';
         document.getElementById('edit-logo-url').value = p.logoUrl || '';
-        document.getElementById('edit-ticker').value = p.ticker || '';
         document.getElementById('edit-extended-description').value = p.extendedDescription || '';
         document.getElementById('edit-minimum-investment').value = p.minimumInvestment;
+        document.getElementById('edit-maximum-investment').value = p.maximumInvestment != null ? p.maximumInvestment : '';
+        document.getElementById('edit-pricing-display').textContent = p.pricingModel === 'market'
+          ? 'Market-priced · tracks ' + p.ticker + ' (' + (p.priceSource === 'coingecko' ? 'CoinGecko' : 'Finnhub') + ') · refreshed every 15 minutes'
+          : p.pricingModel === 'appraisal' ? 'Valued by appraisal · moves only via a published valuation'
+          : p.pricingModel === 'fixed' ? 'Fixed at par' : 'Simulated tick (legacy — created before pricing models existed)';
+        // Asset class is derived from the symbol for a market-priced product: shown, not editable.
+        document.getElementById('edit-asset-class').disabled = p.pricingModel === 'market';
         document.getElementById('edit-unit-price-display').textContent = formatUSD2(p.unitPrice);
         updateConditionalFields(p.assetClass, 'edit-logo-url-field', 'edit-extended-description-field');
         editError.classList.add('hidden');
@@ -774,26 +967,28 @@
         var investmentType = document.getElementById('edit-investment-type').value.trim();
         var description = document.getElementById('edit-description').value.trim();
         var logoUrl = document.getElementById('edit-logo-url').value.trim();
-        var ticker = document.getElementById('edit-ticker').value.trim();
         var extendedDescription = document.getElementById('edit-extended-description').value.trim();
         var minimumInvestment = parseFloat(document.getElementById('edit-minimum-investment').value);
+        var maxRaw = document.getElementById('edit-maximum-investment').value;
         var btn = document.getElementById('edit-submit');
         var id = activeEditId;
+        var patch = {
+          name: name,
+          investmentType: investmentType,
+          riskTier: riskTier,
+          minimumInvestment: minimumInvestment,
+          maximumInvestment: maxRaw === '' ? null : parseFloat(maxRaw),
+          description: description,
+          logoUrl: logoUrl,
+          extendedDescription: extendedDescription
+        };
+        // A market-priced product's class is derived and locked; only send it when editable.
+        if (!document.getElementById('edit-asset-class').disabled) patch.assetClass = assetClass;
 
         MarketswaveData.withButtonBusy(btn, 'Saving...', function () {
           return MarketswaveData.callFunction('edit-product', {
             id: id,
-            patch: {
-              name: name,
-              assetClass: assetClass,
-              investmentType: investmentType,
-              riskTier: riskTier,
-              minimumInvestment: minimumInvestment,
-              description: description,
-              logoUrl: logoUrl,
-              extendedDescription: extendedDescription,
-              ticker: ticker
-            }
+            patch: patch
           });
         }).then(function (result) {
           closeEditModal();
@@ -805,48 +1000,138 @@
         });
       });
 
-      // ---- Publish NAV modal ----
+      // ---- Publish valuation modal — live pricing, part 1 (2026-09-11) ----
       var navModal = document.getElementById('nav-modal');
       var navError = document.getElementById('nav-error');
       var activeNavProductId = null;
+      var navMode = 'percent';
+      var navCurrentPrice = 0;
+      var navHolders = [];        // [{ clientId, name, units }]
+      var navHoldersLoaded = false;
 
-      function todayStrUTC() {
-        return new Date().toISOString().slice(0, 10);
+      function todayStrUTC() { return new Date().toISOString().slice(0, 10); }
+      function round2(n) { return Math.round(n * 100) / 100; }
+      function signedUSD(n) { var r = Math.round(n); return (r < 0 ? '\u2212' : '+') + formatUSD(Math.abs(r)); }
+
+      function setNavMode(mode) {
+        navMode = mode;
+        document.querySelectorAll('.nav-mode-btn').forEach(function (b) {
+          var on = b.dataset.mode === mode;
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+          b.classList.toggle('bg-slate-900', on); b.classList.toggle('text-white', on);
+          b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-600', !on);
+        });
+        document.getElementById('nav-percent-field').classList.toggle('hidden', mode !== 'percent');
+        document.getElementById('nav-price-field').classList.toggle('hidden', mode !== 'price');
+        updateNavPreview();
+      }
+
+      // The new unit price the server will compute — the same formula publish-nav applies
+      // (round2(current x (1 + pct/100))), so the preview and the result cannot disagree.
+      function computeNavNewPrice() {
+        if (navMode === 'percent') {
+          var pct = parseFloat(document.getElementById('nav-change-percent').value);
+          if (!isFinite(pct) || pct <= -100) return null;
+          return round2(navCurrentPrice * (1 + pct / 100));
+        }
+        var price = parseFloat(document.getElementById('nav-unit-price').value);
+        return isFinite(price) && price > 0 ? round2(price) : null;
+      }
+
+      function updateNavPreview() {
+        var next = computeNavNewPrice();
+        document.getElementById('nav-preview').textContent = next == null ? formatUSD2(navCurrentPrice) + ' \u2192 \u2014' : formatUSD2(navCurrentPrice) + ' \u2192 ' + formatUSD2(next);
+        renderNavImpact(next);
+      }
+
+      // The impact table: every client holding the product — units, current value, new value,
+      // change, and a total. Built from the real cross-client holdings read (RLS: admin) so
+      // the PM sees what a publication does to real people before publishing it.
+      function renderNavImpact(nextPrice) {
+        var body = document.getElementById('nav-impact-body');
+        var heading = document.getElementById('nav-impact-heading');
+        if (!navHoldersLoaded) { heading.textContent = 'What this changes'; body.innerHTML = '<p class="text-xs text-slate-500 px-4 py-3">Loading holders\u2026</p>'; return; }
+        heading.textContent = 'What this changes \u2014 ' + navHolders.length + (navHolders.length === 1 ? ' client holding' : ' clients holding');
+        if (navHolders.length === 0) { body.innerHTML = '<p class="text-xs text-slate-500 px-4 py-3">No client currently holds this product. Publishing changes the unit price only.</p>'; return; }
+        var total = 0;
+        var rows = navHolders.map(function (h) {
+          var from = round2(h.units * navCurrentPrice);
+          var to = nextPrice == null ? null : round2(h.units * nextPrice);
+          var delta = to == null ? null : round2(to - from);
+          if (delta != null) total += delta;
+          return '<div class="nav-impact-row flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100 last:border-b-0 text-sm" data-client-id="' + h.clientId + '">' +
+            '<span class="text-slate-700 min-w-0 truncate">' + h.name + '</span>' +
+            '<span class="text-slate-500 tabular-nums whitespace-nowrap">' + formatUnitsDisplay(h.units) + ' units \u00b7 ' + formatUSD(Math.round(from)) + '</span>' +
+            '<span class="font-semibold text-slate-900 tabular-nums whitespace-nowrap nav-impact-to">' + (to == null ? '\u2014' : formatUSD(Math.round(to))) + '</span>' +
+            '<span class="font-bold tabular-nums min-w-[88px] text-right nav-impact-delta ' + (delta == null ? 'text-slate-400' : delta < 0 ? 'text-red-700' : 'text-emerald-800') + '">' + (delta == null ? '\u2014' : signedUSD(delta)) + '</span>' +
+          '</div>';
+        }).join('');
+        body.innerHTML = rows +
+          '<div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 text-sm font-bold text-slate-900">' +
+            '<span>Total across all holders</span>' +
+            '<span class="tabular-nums ' + (nextPrice == null ? 'text-slate-400' : round2(total) < 0 ? 'text-red-700' : 'text-emerald-800') + '" id="nav-impact-total">' + (nextPrice == null ? '\u2014' : signedUSD(round2(total))) + '</span>' +
+          '</div>';
+      }
+      function formatUnitsDisplay(u) {
+        return Number(u).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
       }
 
       function openNavModal(id, name) {
+        var p = products.find(function (prod) { return prod.id === id; });
+        if (!p) return;
         activeNavProductId = id;
-        document.getElementById('nav-modal-product-name').textContent = name;
+        navCurrentPrice = Number(p.unitPrice);
+        navHolders = []; navHoldersLoaded = false;
+        document.getElementById('nav-modal-product-name').textContent = name + ' \u00b7 ' + p.assetClass;
+        document.getElementById('nav-modal-current').textContent = 'Currently ' + formatUSD2(navCurrentPrice) + ' per unit \u00b7 last valued ' + formatDisplayDate(p.lastTickDate);
+        document.getElementById('nav-change-percent').value = '';
         document.getElementById('nav-unit-price').value = '';
         document.getElementById('nav-effective-date').value = todayStrUTC();
         document.getElementById('nav-note').value = '';
         navError.classList.add('hidden');
+        setNavMode('percent');
         navModal.classList.remove('hidden');
+        Promise.all([
+          MarketswaveData.selectTable('holdings', function (q) { return q.eq('product_id', id); }),
+          MarketswaveData.selectTable('clients')
+        ]).then(function (res) {
+          var byId = {}; res[1].forEach(function (c) { byId[c.id] = c.name; });
+          navHolders = res[0].map(function (h) { return { clientId: h.client_id, name: byId[h.client_id] || h.client_id, units: Number(h.units) }; })
+            .sort(function (a, b) { return b.units - a.units; });
+          navHoldersLoaded = true;
+          updateNavPreview();
+        }).catch(function (err) {
+          navHoldersLoaded = true; navHolders = [];
+          document.getElementById('nav-impact-body').innerHTML = '<p class="text-xs text-red-600 px-4 py-3">Could not load holders: ' + MarketswaveData.writeErrorMessage(err) + '</p>';
+        });
       }
       function closeNavModal() { navModal.classList.add('hidden'); activeNavProductId = null; }
 
       document.getElementById('nav-modal-close').addEventListener('click', closeNavModal);
       document.getElementById('nav-modal-backdrop').addEventListener('click', closeNavModal);
       document.getElementById('nav-cancel').addEventListener('click', closeNavModal);
+      document.getElementById('nav-mode-seg').addEventListener('click', function (e) {
+        var b = e.target.closest('.nav-mode-btn');
+        if (b) setNavMode(b.dataset.mode);
+      });
+      document.getElementById('nav-change-percent').addEventListener('input', updateNavPreview);
+      document.getElementById('nav-unit-price').addEventListener('input', updateNavPreview);
 
       document.getElementById('nav-submit').addEventListener('click', function () {
         navError.classList.add('hidden');
-        var newUnitPrice = parseFloat(document.getElementById('nav-unit-price').value);
         var effectiveDate = document.getElementById('nav-effective-date').value;
         var note = document.getElementById('nav-note').value.trim();
         var id = activeNavProductId;
         var btn = document.getElementById('nav-submit');
+        var payload = { productId: id, effectiveDate: effectiveDate, note: note };
+        if (navMode === 'percent') payload.changePercent = parseFloat(document.getElementById('nav-change-percent').value);
+        else payload.newUnitPrice = parseFloat(document.getElementById('nav-unit-price').value);
 
         MarketswaveData.withButtonBusy(btn, 'Publishing...', function () {
-          return MarketswaveData.callFunction('publish-nav', {
-            productId: id,
-            newUnitPrice: newUnitPrice,
-            effectiveDate: effectiveDate,
-            note: note
-          });
+          return MarketswaveData.callFunction('publish-nav', payload);
         }).then(function (result) {
           closeNavModal();
-          showToast('NAV Published', result.product.name + ' is now valued at ' + formatUSD2(result.product.unitPrice) + ' as of ' + formatDisplayDate(result.publication.effectiveDate) + '.');
+          showToast('Valuation Published', result.product.name + ' is now valued at ' + formatUSD2(result.product.unitPrice) + ' (' + (result.product.changePercent >= 0 ? '+' : '') + result.product.changePercent + '%) as of ' + formatDisplayDate(result.publication.effectiveDate) + '.');
           delete navHistoryCache[id];
           reloadProducts(true);
         }).catch(function (err) {

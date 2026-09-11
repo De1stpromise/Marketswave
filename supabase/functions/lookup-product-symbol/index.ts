@@ -23,7 +23,7 @@
 // keystroke from being a search.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { searchStocks, searchCrypto, fetchStockQuotes, fetchCryptoQuotes, lookupStockQuote, lookupCrypto, SymbolSearchResult } from '../_shared/market-providers.ts';
+import { searchStocks, searchCrypto, fetchStockQuotes, fetchCryptoQuotes, lookupStockQuote, RateLimitedError, SymbolSearchResult } from '../_shared/market-providers.ts';
 import { resolveSymbols, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { assetClassForSource } from '../_shared/product-validation.ts';
 
@@ -62,11 +62,15 @@ Deno.serve(async (req) => {
       if (source === 'coingecko') {
         const providerId = typeof body.providerId === 'string' ? body.providerId : '';
         if (!providerId) return jsonResponse({ error: 'providerId is required for a crypto symbol.' }, 400);
-        const coin = await lookupCrypto(providerId);
+        // simple/price, not /coins/{id}: the lighter endpoint, and the search row already
+        // carried the coin's name. /coins/{id} is the one CoinGecko rate-limits first under
+        // repeated use.
+        const quotes = await fetchCryptoQuotes([providerId]);
+        const coin = quotes[providerId];
         if (!coin) return jsonResponse({ error: 'CoinGecko returned no price for ' + providerId + '.' }, 404);
         return jsonResponse({
-          symbol, name: coin.name, source, providerId, assetClass: assetClassForSource(source),
-          price: coin.quote.price, changePercent: coin.quote.changePercent,
+          symbol, name: typeof body.name === 'string' && body.name ? body.name : symbol, source, providerId, assetClass: assetClassForSource(source),
+          price: coin.price, changePercent: coin.changePercent,
           exchange: 'Crypto', exchangeVerified: true,
           alreadyOffered: !!taken[symbol]
         }, 200);
@@ -123,6 +127,7 @@ Deno.serve(async (req) => {
     });
     return jsonResponse({ query, providerErrors, results }, 200);
   } catch (err) {
+    if (err instanceof RateLimitedError) return jsonResponse({ error: err.message }, 503);
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
