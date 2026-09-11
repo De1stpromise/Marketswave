@@ -8471,6 +8471,99 @@ row 74.
   warm-up load, the same reasoning as the full-suite warm-up convention; a longer timeout
   would have hidden which load was cold rather than fixing anything.
 
+- **★★ Crypto deposit routing — address book, per-client assignment, and a deposit request
+  that carries no amount (2026-09-11, row 198).** Until now a crypto deposit request captured
+  a method and an amount and a PM credited it; no address existed anywhere, so the client was
+  never told where to send funds. Built against an approved mockup, landed in five commits
+  (backend, address book, client flow, queue, verification/docs).
+  **Things a future session needs to know before touching any of this:**
+  - **★ RETIREMENT IS ENFORCED IN THE DATABASE, NOT THE UI OR THE EDGE FUNCTION.** An address
+    removed from its last client becomes `retired` (an AFTER trigger on the assignments
+    table recomputes status from the active count); a BEFORE INSERT trigger refuses any new
+    assignment to a retired address; a BEFORE UPDATE trigger refuses flipping `status` back.
+    Proven against a direct `service_role` INSERT and UPDATE, not only the function — that
+    is the caller RLS cannot stop. An address that was NEVER assigned stays `available`;
+    only real history retires one. `deposit_addresses.status` is never written by any
+    caller; do not add one that does.
+  - **The schema has a `deposit_routes` table the brief did not name.** "Seed the four real
+    entries" was read as the four currency+network ROUTES (BTC/Bitcoin, USDT/TRC-20,
+    USDT/ERC-20, ETH/ERC-20), not four real wallet addresses — none were supplied, and a
+    placeholder address a client could be shown is the exact unrecoverable-loss case this
+    feature exists to prevent. Routes are what the client form offers even with no address
+    assigned (the empty state needs them), and what an address is added AGAINST. The same
+    0x address may legitimately exist under both USDT/ERC-20 and ETH/ERC-20 — two rows, two
+    client-facing choices, two warnings; uniqueness is `(currency, network, address)`.
+  - **Assignments are soft-removed (`removed_at`), never deleted**, and `currency`/`network`
+    are denormalised onto them by trigger so "one address per client per route" is a real
+    partial unique index (`where removed_at is null`) rather than an application check two
+    concurrent assigns could both pass. Proven with a direct service_role insert → 23505.
+  - **★ `deposit_requests.requested_amount` is now NULLABLE, and a crypto request stores
+    NULL — not zero, not a client guess.** A second CHECK keeps it REQUIRED for `method =
+    'bank'`, so that flow is byte-for-byte unchanged (proven at the DB level, not only in the
+    function). New columns: `network`, `deposit_address_id` (a snapshot of WHICH address the
+    client was shown — the attribution anchor and the join behind "last deposit" in the
+    address book), `tx_hash`. **Every consumer of `requested_amount` had to be checked**:
+    `admin-deposits.html`'s pending card called `.toLocaleString()` on it (a TypeError that
+    would have dropped the whole Pending list), its History `(differs)` marker compared
+    against it, its Credit modal pre-filled it, `reject-deposit`'s email called
+    `.toLocaleString()` on it, and `deploy-capital.html`'s funding table formatted it. All
+    five handle null now; `credit-deposit` needed no logic change (it only ever read
+    `body.confirmedAmount`) — proven by crediting two amount-less requests at two different
+    PM-entered figures.
+  - **Format validation is STRUCTURAL only, deliberately** — prefix, charset, length per
+    network (`_shared/deposit-address-validation.ts`). It catches the realistic paste errors
+    (truncation, whitespace, a TRON address in the Bitcoin slot). Checksums (bech32 polymod,
+    base58check, EIP-55) are NOT built: EIP-55 needs keccak, which Deno's Web Crypto does not
+    ship, and the PM is pasting from the wallet that generated the address, not typing it —
+    a single-character transcription error is the case checksums exist for and is not the
+    case this form produces. A retype-to-confirm field was rejected as theatre (pasting the
+    same clipboard twice confirms nothing). What structural validation cannot catch — a
+    well-formed address belonging to someone else — is why the Add modal shows the full
+    address back before saving.
+  - **QR: built.** qrcodejs from cdnjs, 19,927 bytes / 7,038 gzipped, loaded on
+    `deploy-capital.html` only, renders in a canvas locally — the address never leaves the
+    page. Guarded so the card still renders without the QR if the CDN is unreachable.
+  - **The address book is a NEW page, `admin-deposit-addresses.html`, in the Catalog nav
+    group** — managed reference data with a per-item management view, the same shape as
+    Product Catalog, not a Pending/History queue. `admin-deposits.html` links to it from its
+    header. Expand-in-place (the `admin-clients.html` pattern) is the management view.
+  - **A crypto request's email wording now names the method** ("Crypto — BTC (Bitcoin)")
+    and, having no amount, says so — receipt, credit and rejection all checked. The
+    rejection copy points at `support@marketswave.net`, not "reply to this email": the
+    sender is `noreply@` (row 153).
+  - **★ Contrast: two real failures caught by measurement, invisible by eye.** The choice
+    card's 11px uppercase network label (`#5C6367`, 3.91:1 on the selected card's tinted
+    ground) is `#3E4A52`; the address book's 10px bold `text-slate-600` pills (4.28:1) are
+    `text-slate-700`. Both are antialiasing at small sizes eating a colour that passes at
+    body size — measure, do not eyeball, anything under 12px.
+  - **A harness trap, recorded so it is not rediscovered**: `deploy-capital.html`'s inline
+    script is ONE block that contains both the `Deploy Capital logic` and `UI Wiring —
+    Stage 3` markers. Evaluating it once per marker registered every listener twice with two
+    competing closures over one DOM, which surfaced as "submit created no request" — a test
+    bug that looked exactly like a page bug. Evaluate it once.
+  **Verified**: `supabase-verify-deposit-addresses` 75/75 (auth 401/403 on all three
+  functions; structural validation per route including the cross-network paste; many
+  clients per address, one address per client per route, the partial index refusing a
+  direct duplicate; RLS with a second real client — two clients on one address each see
+  only it, a third sees nothing, anon nothing, client writes refused, a client UPDATE a
+  provable no-op; the amount-less request, hash optional and validated, bank still requires
+  an amount at the DB; credit at two different PM figures landing on two accounts; reject on
+  an amount-less row; retirement refused via the function, via a direct service_role INSERT,
+  and via a direct status UPDATE). `verify-deposit-routing-ui-wiring` 49/49 through the real
+  page scripts — the complete end-to-end run the brief specified. `verify-deposit-routing-
+  visual` 49/49 — 78 real composited-pixel contrast measurements across four profiles,
+  Inter-only fonts, and 1440/390/375 plus a real 320px iframe measuring a 62-character
+  P2WSH address's own right edge against its box, not merely the page's scrollWidth. Full
+  suite: 43/45 green in-pass after a warm-up run; the two non-green were the known
+  `supabase-verify-unified-inbox` Realtime flake (39/39 in isolation) and
+  `verify-supabase-nav-publications.js` exiting 127 AFTER every assertion had printed PASS
+  (the Windows libuv teardown abort, 40/40 in isolation). Stage 3's own
+  `verify-funding-transactions-ui-wiring` was a real regression — it drove the removed
+  form — updated to the routed panel with every assertion mapped to its replacement, 54→55.
+  Deployed to real cloud staging (migration + the 6 touched functions), parity clean 19/19 +
+  63/63, and a 14/14 end-to-end proof run directly against the real deployed functions with
+  the 4 pre-existing `clients` rows confirmed byte-identical before and after.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

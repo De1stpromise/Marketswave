@@ -204,7 +204,7 @@
       var COIN_CLASS = { BTC: 'dep-coin--btc', ETH: 'dep-coin--eth', USDT: 'dep-coin--usdt' };
       var STATUS_PILL = {
         assigned: { label: 'Assigned', cls: 'bg-emerald-50 text-emerald-700' },
-        available: { label: 'Available', cls: 'bg-slate-100 text-slate-600' },
+        available: { label: 'Available', cls: 'bg-slate-100 text-slate-700' }, // slate-600 measured 4.28:1 at 10px bold
         retired: { label: 'Retired', cls: 'bg-amber-50 text-amber-800' }
       };
 
@@ -271,7 +271,7 @@
         return '<div class="flex items-center gap-2.5">' +
           '<span class="dep-coin ' + (COIN_CLASS[a.currency] || 'bg-slate-500') + '">' + esc(a.currency) + '</span>' +
           '<div><p class="font-semibold text-slate-900 leading-tight">' + esc(r.currency_name) + '</p>' +
-          '<span class="inline-block text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">' + esc(r.network_label) + '</span></div>' +
+          '<span class="inline-block text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 mt-1">' + esc(r.network_label) + '</span></div>' +
           '</div>';
       }
 

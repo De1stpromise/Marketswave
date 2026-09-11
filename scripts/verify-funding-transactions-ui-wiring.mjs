@@ -98,6 +98,7 @@ async function main() {
 
   const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const suffix = crypto.randomBytes(4).toString('hex');
+  let seededAddressId = null;
   const email = 'fundingtxn-' + suffix + '@test.marketswave.local';
   const password = 'VerifyFundingTxn-2026!';
 
@@ -154,6 +155,13 @@ async function main() {
   const fundingListEl = deployDom.window.document.getElementById('my-funding-requests-list');
   const D = deployDom.window.document;
 
+  // Seeded BEFORE the page script runs: the page fetches the client's assigned addresses
+  // once at load, exactly as it would for a real client whose PM assigned one earlier.
+  const { data: seededAddress } = await admin.from('deposit_addresses')
+    .insert({ currency: 'BTC', network: 'Bitcoin', address: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', label: 'Stage 3 test ' + suffix })
+    .select().single();
+  seededAddressId = seededAddress.id;
+  await admin.from('deposit_address_assignments').insert({ address_id: seededAddress.id, client_id: clientId, currency: 'BTC', network: 'Bitcoin' });
   deployDom.window.eval(deployScript);
   check('the loading skeleton genuinely appears immediately (My Funding Requests)', /animate-pulse/.test(fundingListEl.innerHTML), fundingListEl.innerHTML.slice(0, 200));
 
@@ -167,22 +175,28 @@ async function main() {
   const formSuccessMessageEl = D.getElementById('form-success-message');
 
   // ---- WRITE TEST 1 — a real successful crypto deposit round trip. ----
+  // Crypto deposit routing (2026-09-11): the crypto form no longer takes an asset/amount/
+  // network — it shows the client's own assigned address for one of four routes and submits
+  // a request that carries NO amount. This test now seeds a real assigned BTC address for
+  // the client first (nothing can be submitted without one, by design) and drives the routed
+  // panel; the amount-less row is what it asserts. The full routing feature has its own
+  // suite (verify-deposit-routing-ui-wiring.mjs) — this keeps Stage 3's own round trip alive.
   console.log('1. Deposit (crypto) — a real successful round trip');
   await (async function () {
+    deployDom.window.QRCode = function (el, opts) { el.setAttribute('data-qr-text', opts.text); };
     D.querySelector('.option-card[data-method="crypto"]').click();
-    D.getElementById('crypto-asset').value = 'BTC';
-    D.getElementById('crypto-amount').value = '2500';
-    D.getElementById('crypto-network').value = 'ERC20'; // the real <select>'s actual option values are ERC20/TRC20/BEP20/Native — confirmed by reading the real markup, not assumed ("mainnet" was a wrong guess caught by this exact assertion on the first run)
+    await pollUntil(function () { return !!D.getElementById('submit-crypto'); }, 20000);
+    check('the routed crypto panel renders the real assigned address', D.getElementById('crypto-address-value') && D.getElementById('crypto-address-value').textContent === seededAddress.address);
     const btn = D.getElementById('submit-crypto');
     btn.click();
     check('the button shows a genuine busy state immediately after clicking (withButtonBusy)', btn.disabled === true);
 
-    await pollUntil(function () { return formSuccessEl.classList.contains('is-active'); }, 15000);
-    check('the success panel genuinely activates with a real deposit request id in its message', formSuccessMessageEl.textContent.indexOf('Your deposit request (') !== -1, formSuccessMessageEl.textContent);
+    await pollUntil(function () { return !!D.getElementById('crypto-pending-card'); }, 20000);
+    check('the pending view genuinely renders with a real deposit request id', !!D.getElementById('crypto-pending-card') && /Deposit awaiting confirmation/.test(D.getElementById('crypto-pending-card').textContent), D.getElementById('crypto-address-region').textContent.slice(0, 200));
 
     const { data: rows } = await admin.from('deposit_requests').select('*').eq('client_id', clientId).eq('method', 'crypto');
-    check('a real, single pending deposit_requests row was genuinely created for the crypto deposit', rows && rows.length === 1 && rows[0].status === 'pending' && rows[0].requested_amount === 2500 && rows[0].currency === 'BTC', JSON.stringify(rows));
-    check('the real details JSON preserves asset/network verbatim', rows[0].details.asset === 'BTC' && rows[0].details.network === 'ERC20', JSON.stringify(rows[0].details));
+    check('a real, single pending deposit_requests row was genuinely created for the crypto deposit — with NO amount', rows && rows.length === 1 && rows[0].status === 'pending' && rows[0].requested_amount === null && rows[0].currency === 'BTC', JSON.stringify(rows));
+    check('the real row snapshots the route and the address it was shown', rows[0].network === 'Bitcoin' && rows[0].deposit_address_id === seededAddress.id, JSON.stringify(rows[0]));
   })();
 
   // ---- WRITE TEST 2 — a real successful bank deposit round trip. ----
@@ -392,6 +406,10 @@ async function main() {
 
   } finally {
     await admin.from('deposit_requests').delete().eq('client_id', clientId);
+    if (seededAddressId) {
+      await admin.from('deposit_address_assignments').delete().eq('address_id', seededAddressId);
+      await admin.from('deposit_addresses').delete().eq('id', seededAddressId);
+    }
     await admin.from('withdrawal_requests').delete().eq('client_id', clientId);
     await admin.from('transactions').delete().eq('client_id', clientId);
     await admin.from('holdings').delete().eq('client_id', clientId);

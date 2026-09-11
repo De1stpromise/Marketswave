@@ -1796,6 +1796,44 @@ scheduler pointed at the stack's own API URL fails with `Couldn't connect to ser
 to Kong's own network alias (`http://kong:8000/functions/v1`) for exactly this reason; a real
 cloud project uses its public URL, because there is no container boundary to cross.
 
+### ★ Crypto deposit routing (2026-09-11) — the address book and what a PM must do first
+
+A crypto deposit request no longer carries an amount. What it carries is WHICH address the
+client was shown — resolved server-side from the client's own assignment — plus an optional
+transaction hash; the PM enters what actually arrived at credit time. That means **a client
+cannot make a crypto deposit at all until a PM has assigned them an address** on that
+currency + network. Until then the Deploy Capital page shows an honest empty state with a
+route into the support chat, not a form that fails.
+
+The PM side lives at `admin-deposit-addresses.html` (Catalog group in the sidebar; also
+linked from the Deposits queue header):
+
+1. **Add address** — choose one of the four routes (Bitcoin / Bitcoin, Tether / TRC-20,
+   Tether / ERC-20, Ethereum / ERC-20), paste the address, review it in full, confirm.
+   Validation is structural only (prefix, character set, length for that network): it will
+   catch a truncated paste or a TRON address in the Bitcoin slot, and it will NOT catch a
+   well-formed address that is simply the wrong one — that is what the review step is for.
+2. **Assign** — one address can serve many clients; a client holds one address per
+   currency + network. Both rules are enforced by the database, not the page.
+3. **Manage** — expand a row for the client list (assignment date, last credited deposit),
+   Assign client, Remove.
+
+**Retirement, not reuse.** Removing the last client from an address retires it —
+permanently, and the database refuses any new assignment to it thereafter (a `service_role`
+insert is refused too; only a trigger can stop that caller). Funds can still arrive at a
+retired address from a wallet where a former client saved it, and reusing it would
+misattribute them. The management view states the sharing consequence for any address with
+two or more clients: the chain alone cannot say who sent what, so the client-side hash is
+nudged hard.
+
+Verification scripts, from `scripts/`:
+
+```
+npm run supabase-verify-deposit-addresses      # backend: 75 assertions, incl. retirement at the DB and RLS with a second real client
+npm run verify-deposit-routing-ui-wiring       # the full end-to-end run through the real page scripts: 49
+node verify-deposit-routing-visual.mjs         # contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 49
+```
+
 ### Step 9 — Stop the stack when you're done
 
 ```

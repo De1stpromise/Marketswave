@@ -260,6 +260,55 @@ PROFILES['hys-internal-admin'] = [
   { label: 'no-payment-to-confirm note', sel: '#pending-list .text-amber-800:not(.bg-amber-100)', limit: 1 }
 ];
 
+// Crypto deposit routing (2026-09-11). The client-facing address card sits on the page's
+// glass form panel with its own tinted sub-surfaces (an amber warning, a cream address box,
+// an amber pending card) - three grounds that are not the plain white the rest of the form
+// uses, so every text element on each is measured. CONTRAST_PREPARE_JS drives the real crypto
+// option first; none of this exists in the DOM until a client has chosen it.
+PROFILES['deposit-routing-client'] = [
+  { label: 'choice name', sel: '.dep-choice b', limit: 4 },
+  { label: 'choice network', sel: '.dep-choice .dep-net', limit: 4 },
+  { label: 'warning title', sel: '#crypto-warning-title', limit: 1 },
+  { label: 'warning body', sel: '#crypto-warning-body', limit: 1 },
+  { label: 'address heading', sel: '#crypto-address-card .uppercase', limit: 1 },
+  { label: 'network chip', sel: '#crypto-network-chip', limit: 1 },
+  { label: 'address value', sel: '#crypto-address-value', limit: 1 },
+  { label: 'copy button', sel: '#crypto-copy-btn', limit: 1 },
+  { label: 'hash field label', sel: '#crypto-address-card .mw-fld label', limit: 1 },
+  { label: 'hash hint', sel: '#crypto-hash-hint', limit: 1 },
+  { label: 'hash hint lead', sel: '#crypto-hash-hint b', limit: 1 },
+  { label: 'submit', sel: '#submit-crypto', limit: 1 },
+  { label: 'pending title', sel: '#crypto-pending-card > div > p:first-child', limit: 1 },
+  { label: 'pending body', sel: '#crypto-pending-card > div > p:nth-child(2)', limit: 1 },
+  { label: 'pending meta key', sel: '#crypto-pending-card span', limit: 4 },
+  { label: 'pending meta value', sel: '#crypto-pending-card b', limit: 4 }
+];
+PROFILES['deposit-routing-empty'] = [
+  { label: 'empty title', sel: '#crypto-empty-state p:first-of-type', limit: 1 },
+  { label: 'empty body', sel: '#crypto-empty-state p:nth-of-type(2)', limit: 1 },
+  { label: 'empty CTA', sel: '#crypto-empty-message-pm', limit: 1 }
+];
+// The address book (glass card; the expanded management view is glass-subtle inside it).
+PROFILES['deposit-routing-admin'] = [
+  { label: 'currency name', sel: '#addresses-list .font-semibold', limit: 4 },
+  { label: 'network / status pill', sel: '#addresses-list [class*="text-[10px]"]', limit: 8 },
+  { label: 'address', sel: '#addresses-list .dep-addr', limit: 4 },
+  { label: 'avatar initials', sel: '#addresses-list .dep-av', limit: 3 },
+  { label: 'assigned-to text', sel: '#addresses-list td .text-xs', limit: 4 },
+  { label: 'management note', sel: '.expand-row p', limit: 8 },
+  { label: 'management cell', sel: '.expand-row td', limit: 8 },
+  { label: 'management head', sel: '.expand-row th', limit: 4 },
+  { label: 'management buttons', sel: '.expand-row button', limit: 4 }
+];
+// The deposits queue: the amount-less line and the amber no-hash note.
+PROFILES['deposit-routing-queue'] = [
+  { label: 'amount-determined line', sel: '#pending-list .italic', limit: 2 },
+  { label: 'no-hash note', sel: '#pending-list .text-amber-800', limit: 2 },
+  { label: 'no-hash lead', sel: '#pending-list .text-amber-700', limit: 2 },
+  { label: 'sent-to / hash', sel: '#pending-list .dep-addr', limit: 4 },
+  { label: 'route figure', sel: '#pending-list .text-base', limit: 2 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 
