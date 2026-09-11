@@ -29,6 +29,20 @@
     return '—';
   }
 
+  // Product catalog — live pricing, part 1 (2026-09-11). Units are STORED at full precision
+  // (Postgres numeric, never rounded at write) and DISPLAYED per asset: a $5,000 allocation
+  // into BTC at $77,883 is 0.0642 units, and a holdings table reading "0.06420000" is noise.
+  // Crypto shows up to 8 decimals, equities up to 4, everything else 2 — always at least 2,
+  // with trailing zeros beyond the second decimal trimmed so 500 reads "500.00" and
+  // 0.06420000 reads "0.0642".
+  function formatUnits(units, assetClass) {
+    var n = Number(units);
+    if (!isFinite(n)) return '—';
+    var max = assetClass === 'Crypto' ? 8 : assetClass === 'Stocks & ETFs' ? 4 : 2;
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: max });
+  }
+
   window.formatDateDisplay = formatDateDisplay;
   window.formatFieldDisplay = formatFieldDisplay;
+  window.formatUnits = formatUnits;
 })();

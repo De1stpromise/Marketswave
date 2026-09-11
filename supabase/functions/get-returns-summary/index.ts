@@ -213,7 +213,9 @@ Deno.serve(async (req) => {
         name: product ? product.name : productId,
         assetClass: product ? product.asset_class : null,
         investmentType: product ? product.investment_type : null,
-        unitsSold: round2(c.unitsSold),
+        // Units are not money: a closed 0.0642-BTC position must not read 0.06. Full precision;
+        // the page formats per asset (format-helpers.js formatUnits). Live pricing, part 1.
+        unitsSold: c.unitsSold,
         capitalAllocated,
         proceeds: round2(c.proceeds),
         realised: realisedAmount,

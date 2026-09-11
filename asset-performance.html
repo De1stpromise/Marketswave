@@ -247,6 +247,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="format-helpers.js"></script>
   <script src="responsive-tables.js"></script>
   <script src="chat-widget.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
@@ -416,7 +417,12 @@
         'Crypto': '#D4A843'
       };
 
-      function formatUnits(n) {
+      // Live pricing, part 1 (2026-09-11): per-asset unit precision now lives in
+      // format-helpers.js (window.formatUnits) — crypto 8dp, equities 4dp, else 2dp,
+      // trailing zeros trimmed. A local fallback keeps this page rendering if the shared
+      // file is ever missing.
+      function formatUnits(n, assetClass) {
+        if (typeof window.formatUnits === 'function') return window.formatUnits(n, assetClass);
         return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
       // U+2212 MINUS SIGN, per the approved mockup — a hyphen reads as a dash next to digits.
@@ -527,7 +533,7 @@
             '<td class="px-6 py-4">' +
               positionNameCellHTML(p, partialMarker + (product ? lastValuedLineHTML(product) : '')) +
             '</td>' +
-            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(p.units) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(p.units, p.assetClass) + '</td>' +
             '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(p.costBasis)) + '</td>' +
             '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(p.currentValue)) + '</td>' +
             '<td class="px-6 py-4 text-right">' + gainCell(p.unrealized, p.unrealizedPercent) + '</td>' +
@@ -585,7 +591,7 @@
             : '';
           return '<tr class="hover:bg-slate-50/50">' +
             '<td class="px-6 py-4">' + positionNameCellHTML(c, stillHeldMarker) + '</td>' +
-            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(c.unitsSold) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUnits(c.unitsSold, c.assetClass) + '</td>' +
             '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(c.capitalAllocated)) + '</td>' +
             '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(c.proceeds)) + '</td>' +
             '<td class="px-6 py-4 text-right">' + gainCell(c.realised, c.realisedPercent) + '</td>' +
@@ -598,7 +604,7 @@
         // own totals row does.
         var foot = '<tr>' +
           '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
-          '<td class="px-6 py-4 text-right rt-num" data-label="Units sold">' + formatUnits(t.unitsSold) + '</td>' +
+          '<td class="px-6 py-4 text-right rt-num" data-label="Units sold">' + formatUnits(t.unitsSold, t.assetClass) + '</td>' +
           '<td class="px-6 py-4 text-right rt-num" data-label="Capital Allocated">' + formatUSD(Math.round(t.capitalAllocated)) + '</td>' +
           '<td class="px-6 py-4 text-right rt-val" data-label="Proceeds">' + formatUSD(Math.round(t.proceeds)) + '</td>' +
           '<td class="px-6 py-4 text-right" data-label="Realised">' + gainCell(t.realised, t.realisedPercent) + '</td>' +
@@ -644,7 +650,7 @@
             status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason };
         });
         var sells = sellRequests.map(function (r) {
-          return { kind: 'Sell', id: r.id, productId: r.productId, amountLabel: r.unitsToSell.toFixed(4) + ' units',
+          return { kind: 'Sell', id: r.id, productId: r.productId, amountLabel: formatUnits(r.unitsToSell, (productById(r.productId) || {}).assetClass) + ' units',
             status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason };
         });
         var requests = allocations.concat(sells)
@@ -855,7 +861,7 @@
           sellUnitsError.classList.toggle('hidden', unitsValid || sellUnitsInput.value === '');
           if (!unitsValid && sellUnitsInput.value !== '') {
             sellUnitsError.textContent = units > sellState.available
-              ? 'Cannot exceed available units (' + sellState.available.toFixed(4) + ').'
+              ? 'Cannot exceed available units (' + formatUnits(sellState.available, product.assetClass) + ').'
               : 'Enter a positive number of units.';
           }
         }
@@ -887,7 +893,7 @@
 
         sellModalTitle.textContent = 'Sell — ' + product.name;
         sellModalPrice.textContent = 'Current unit price: ' + formatUSD(product.unitPrice, 2);
-        sellAvailableEl.textContent = available.toFixed(4) + ' units';
+        sellAvailableEl.textContent = formatUnits(available, product.assetClass) + ' units';
 
         sellModeTabs.forEach(function (t) {
           var isAll = t.dataset.mode === 'all';
@@ -956,7 +962,7 @@
             return MarketswaveData.callFunction('request-sell', { productId: productId, unitsToSell: units });
           }).then(function () {
             closeSellModal();
-            showToast('Sell Request Sent', units.toFixed(4) + ' units of ' + product.name + ' submitted. Pending Portfolio Manager approval.', false);
+            showToast('Sell Request Sent', formatUnits(units, product.assetClass) + ' units of ' + product.name + ' submitted. Pending Portfolio Manager approval.', false);
             reloadTableAndRequests(true);
           }).catch(function (err) {
             showToast('Request Not Sent', MarketswaveData.writeErrorMessage(err), true);

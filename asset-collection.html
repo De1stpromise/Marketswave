@@ -252,6 +252,53 @@
           '</div>';
       }
 
+      // ---- Live pricing, part 1 (2026-09-11): the price block and its SOURCE line ----
+      // Green dot: market price with the time it was taken. Grey dot: the same, but older
+      // than two missed refreshes — shown WITH its timestamp and still allocatable (the PM
+      // re-reads the price at approval, so a stale quote is never a stale execution). Amber:
+      // valued by appraisal, with the last-valued date. Ticker chip and "Fractional units"
+      // appear on market-priced products only.
+      var STALE_AFTER_MS = 30 * 60 * 1000;
+      function formatAsOf(iso) {
+        var d = new Date(iso);
+        var time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        var sameDay = d.toDateString() === new Date().toDateString();
+        return sameDay ? time : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + time;
+      }
+      function formatValuedDate(ymd) {
+        if (!ymd) return '—';
+        var d = new Date(ymd + 'T00:00:00Z');
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+      }
+      function priceSourceHTML(product) {
+        if (product.pricingModel === 'market') {
+          var stale = !product.priceAsOf || (Date.now() - new Date(product.priceAsOf).getTime() > STALE_AFTER_MS);
+          var when = product.priceAsOf ? 'as of ' + formatAsOf(product.priceAsOf) : 'awaiting refresh';
+          return '<p class="price-source flex items-center gap-1.5 text-[11px] text-slate-600 pt-2.5 mt-1 border-t border-slate-200" data-source="' + (stale ? 'stale' : 'live') + '">' +
+            '<span class="inline-block w-1.5 h-1.5 rounded-full ' + (stale ? 'bg-slate-400' : 'bg-emerald-600') + '" aria-hidden="true"></span>' +
+            'Market price · <b class="font-semibold text-slate-700">' + when + '</b>' + (stale && product.priceAsOf ? ' — awaiting refresh' : '') +
+          '</p>';
+        }
+        if (product.pricingModel === 'appraisal') {
+          return '<p class="price-source flex items-center gap-1.5 text-[11px] text-slate-600 pt-2.5 mt-1 border-t border-slate-200" data-source="appraisal">' +
+            '<span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>' +
+            'Valued by appraisal · <b class="font-semibold text-slate-700">last valued ' + formatValuedDate(product.lastTickDate) + '</b>' +
+          '</p>';
+        }
+        return '';
+      }
+      function priceBlockHTML(product) {
+        var pct = product.priceChangePercent;
+        var chg = '';
+        if (typeof pct === 'number' && isFinite(pct) && pct !== 0) {
+          chg = '<span class="price-change text-sm font-bold tabular-nums ' + (pct > 0 ? 'text-emerald-800' : 'text-red-700') + '">' + (pct > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(2) + '%</span>';
+        }
+        return '<div class="flex items-end justify-between gap-3 mb-1">' +
+          '<div><p class="product-price text-2xl font-semibold text-navy tabular-nums leading-none">$' + Number(product.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</p><p class="text-[11px] text-slate-500 mt-1">per unit</p></div>' +
+          chg +
+        '</div>' + priceSourceHTML(product);
+      }
+
       function cardHTML(product) {
         var holding = holdingByProductId(product.id);
         var badgeHtml;
@@ -283,12 +330,16 @@
           '<div><p class="font-medium text-navy">' + product.name + '</p>' +
           '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
           '</div>' +
+          '<div class="flex items-center gap-2 shrink-0">' +
+          (product.pricingModel === 'market' && product.ticker ? '<span class="product-ticker text-[11px] font-bold tracking-wide text-slate-600 bg-slate-100 px-2 py-0.5 rounded">' + product.ticker + '</span>' : '') +
           badgeHtml +
           '</div>' +
+          '</div>' +
+          priceBlockHTML(product) +
           (product.description ? '<p class="text-sm text-slate-600 mb-1">' + product.description + '</p>' : '') +
           (showMoreInfo ? '<button type="button" class="more-info-link mw-btn mw-btn-secondary mw-btn-sm mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
           '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
-          '<p class="text-xs text-slate-400 mb-4">Minimum investment: ' + formatUSD(product.minimumInvestment) + '</p>' +
+          '<p class="text-xs text-slate-500 mb-4">Minimum ' + formatUSD(product.minimumInvestment) + (product.maximumInvestment != null ? ' · Maximum ' + formatUSD(product.maximumInvestment) : '') + (product.pricingModel === 'market' ? ' · <span class="fractional-note">Fractional units</span>' : '') + '</p>' +
           '<div class="mt-auto">' +
           '<div class="mw-fld mb-3">' +
           '<input type="number" min="0" step="100" placeholder=" " id="alloc-amt-' + product.id + '" class="allocation-amount-input mw-field mw-field-sm">' +
@@ -353,7 +404,11 @@
                 return {
                   id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
                   minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
-                  description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url
+                  description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url,
+                  // Live pricing, part 1 (2026-09-11): the price source a card must state explicitly.
+                  ticker: p.ticker, pricingModel: p.pricing_model, priceAsOf: p.price_as_of,
+                  priceChangePercent: p.price_change_percent, priceStatus: p.price_status,
+                  lastTickDate: p.last_tick_date, maximumInvestment: p.maximum_investment
                 };
               }),
               holdings: results[1]

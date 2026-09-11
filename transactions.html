@@ -238,6 +238,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="format-helpers.js"></script>
   <script src="responsive-tables.js"></script>
   <script src="chat-widget.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
@@ -296,6 +297,12 @@
       // failed product lookup (which used to render the literal text "null" for DEPOSIT
       // before that was fixed — every type since has been handled here proactively from day
       // one rather than repeating that bug, HYS_WITHDRAWAL included, Aug 27, 2026).
+      // Live pricing, part 1 (2026-09-11): per-asset unit precision (format-helpers.js).
+      function unitsLabel(txn) {
+        var product = txn.productId ? productById(txn.productId) : null;
+        var cls = product ? (product.assetClass || product.asset_class) : null;
+        return typeof formatUnits === 'function' ? formatUnits(txn.units, cls) : Number(txn.units).toFixed(4);
+      }
       function txnProductName(txn) {
         if (txn.type === 'DEPOSIT') {
           return 'Cash Deposit (' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + ')';
@@ -595,7 +602,7 @@
             : txn.type === 'HYS_WITHDRAWAL' ? 'bg-amber-50 text-amber-700'
             : txn.type === 'HYS_TRANSFER_IN' ? 'bg-teal-50 text-teal-700'
             : 'bg-blue-50 text-blue-700';
-          var unitsCell = txn.units != null ? txn.units.toFixed(4) : '—';
+          var unitsCell = txn.units != null ? unitsLabel(txn) : '—';
           var priceCell = txn.price != null ? formatUSD(txn.price, 2) : '—';
           return '<tr class="hover:bg-slate-50/50 cursor-pointer" data-txn-id="' + txn.id + '">' +
             '<td data-label="Date" class="px-6 py-4 text-slate-600">' + txn.date + '</td>' +
@@ -738,7 +745,7 @@
         // A DEPOSIT/HYS_DEPOSIT/WITHDRAWAL has no units or unit price — nothing was bought
         // or sold — so those fields show "—" instead of calling .toFixed() on null, which
         // used to throw.
-        document.getElementById('txn-modal-qty').textContent = txn.units != null ? txn.units.toFixed(4) : '—';
+        document.getElementById('txn-modal-qty').textContent = txn.units != null ? unitsLabel(txn) : '—';
         document.getElementById('txn-modal-price').textContent = txn.price != null ? formatUSD(txn.price, 2) : '—';
         // The engine executes exactly at the settled unit price — no separate slippage or
         // per-trade fee concept exists, so Market Price mirrors Execution Price and
