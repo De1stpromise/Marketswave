@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deposit Addresses — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="responsive-tables.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Crypto deposit routing (2026-09-11). A deposit address is a long, case-sensitive
+       string a PM compares by eye; tabular figures keep the digits aligned and
+       break-all keeps it inside the card at any width. Plain CSS, not a utility: row 165's
+       lesson — the Tailwind CDN emits nothing for an unrecognised utility and does not
+       say so. Inter, not a monospace face (row 192). */
+    .dep-addr { font-variant-numeric: tabular-nums; letter-spacing: .01em; word-break: break-all; }
+    .dep-coin { width: 30px; height: 30px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .dep-coin--btc { background: #C8860A; }
+    .dep-coin--eth { background: #4A5F8E; }
+    .dep-coin--usdt { background: #149E7E; }
+    .dep-av { width: 24px; height: 24px; border-radius: 9999px; background: #1E293B; color: #fff; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid #fff; margin-left: -9px; }
+    .dep-av:first-child { margin-left: 0; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
+        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-semibold text-slate-900">Deposit Addresses</h2>
+            <p class="text-slate-500 mt-1">Shared across all portfolio managers. Assign one address per client, per network.</p>
+          </div>
+          <button type="button" id="open-add-modal" class="mw-btn mw-btn-admin mw-btn-sm shrink-0">+ Add address</button>
+        </div>
+
+        <div class="glass rounded-2xl">
+          <div class="px-6 pt-3 border-b border-slate-100">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Status</p>
+            <div class="flex flex-wrap gap-2 pb-3" id="status-filter-pills">
+              <button type="button" class="status-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="all">All</button>
+              <button type="button" class="status-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="assigned">Assigned</button>
+              <button type="button" class="status-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="available">Available</button>
+              <button type="button" class="status-filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="retired">Retired</button>
+            </div>
+          </div>
+          <div id="addresses-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add address modal: two steps. The second shows the full address back before saving —
+       format validation is structural only (see _shared/deposit-address-validation.ts), so
+       the one thing only a human can confirm is that this is the address they meant. -->
+  <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="add-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900" id="add-modal-title">Add deposit address</p>
+        <button type="button" id="add-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+
+      <div id="add-step-form">
+        <p class="text-sm text-slate-500 mb-4">Paste the address from the wallet that will receive client funds. It is checked for format only; whether it is the right address is yours to confirm on the next step.</p>
+        <div class="space-y-3">
+          <div class="mw-fld mw-fld--admin mw-fld--static">
+            <select id="add-route" class="mw-field mw-field-admin"></select>
+            <label for="add-route">Currency and network</label>
+          </div>
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-address" class="mw-field mw-field-admin dep-addr" placeholder="Paste the full address" autocomplete="off" spellcheck="false" />
+            <label for="add-address">Address</label>
+          </div>
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-label" class="mw-field mw-field-admin" placeholder="e.g. Treasury BTC 1" />
+            <label for="add-label">Label (optional)</label>
+          </div>
+        </div>
+        <p class="text-xs text-red-500 hidden mt-2" id="add-error"></p>
+        <div class="flex gap-3 mt-4">
+          <button type="button" id="add-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+          <button type="button" id="add-continue" class="mw-btn mw-btn-admin mw-btn-grow">Review</button>
+        </div>
+      </div>
+
+      <div id="add-step-confirm" class="hidden">
+        <p class="text-sm text-slate-500 mb-3">Confirm this is exactly the address in your wallet. A single wrong character cannot be validated and funds sent to it cannot be recovered.</p>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-2">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1" id="add-confirm-route"></p>
+          <p class="text-sm font-semibold text-slate-900 dep-addr" id="add-confirm-address"></p>
+        </div>
+        <p class="text-xs text-red-500 hidden mt-2" id="add-confirm-error"></p>
+        <div class="flex gap-3 mt-4">
+          <button type="button" id="add-back" class="mw-btn mw-btn-secondary mw-btn-grow">Back</button>
+          <button type="button" id="add-submit" class="mw-btn mw-btn-admin mw-btn-grow">Confirm &amp; add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign client modal -->
+  <div id="assign-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="assign-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Assign client</p>
+        <button type="button" id="assign-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-1" id="assign-route-label"></p>
+      <p class="text-xs text-slate-500 dep-addr mb-4" id="assign-address-label"></p>
+      <div class="mw-fld mw-fld--admin mw-fld--static">
+        <select id="assign-client" class="mw-field mw-field-admin"></select>
+        <label for="assign-client">Client</label>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">A client holds one address per currency and network. Clients already on another address for this network are listed but cannot be selected — remove them from that address first.</p>
+      <p class="text-xs text-red-500 hidden mt-2" id="assign-error"></p>
+      <div class="flex gap-3 mt-4">
+        <button type="button" id="assign-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="assign-submit" class="mw-btn mw-btn-admin mw-btn-grow">Assign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove client modal -->
+  <div id="remove-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="remove-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900">Remove client from address</p>
+        <button type="button" id="remove-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-sm text-slate-600 mb-3" id="remove-copy"></p>
+      <div id="remove-retire-warning" class="hidden rounded-xl border border-amber-300 bg-amber-50 p-3 mb-3">
+        <p class="text-sm font-semibold text-amber-900 mb-1">This is the last client on this address. Removing them retires it — permanently.</p>
+        <p class="text-xs text-amber-900">A retired address can never be assigned to anyone new. Funds can still arrive at it from a wallet where a client saved it, and reusing it would misattribute them.</p>
+      </div>
+      <p class="text-xs text-red-500 hidden mb-2" id="remove-error"></p>
+      <div class="flex gap-3 mt-2">
+        <button type="button" id="remove-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="remove-submit" class="mw-btn mw-btn-danger mw-btn-grow">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="responsive-tables.js"></script>
+  <script>
+    initAdminSidebar('deposit-addresses');
+  </script>
+
+  <script>
+    // Crypto deposit routing (2026-09-11) — the shared deposit address book.
+    //
+    // A NEW PAGE, not a section of admin-deposits.html: that page is a Pending/History
+    // queue; this is managed reference data with its own per-item management view — the
+    // same shape as admin-products.html, and grouped with it under Catalog in the sidebar.
+    // The deposits queue links here from its own header for workflow proximity.
+    //
+    // Reads: deposit_addresses / deposit_address_assignments / deposit_routes / clients /
+    // deposit_requests — all direct, RLS-authorized admin reads (public.is_admin()). Writes:
+    // add-deposit-address / assign-deposit-address / remove-deposit-address-assignment,
+    // through MarketswaveData.withButtonBusy()/writeErrorMessage() exactly as every other
+    // admin write action. Status is never written from here: the database derives it, and
+    // the database — not this page — is what refuses to reassign a retired address.
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
+
+      var COIN_CLASS = { BTC: 'dep-coin--btc', ETH: 'dep-coin--eth', USDT: 'dep-coin--usdt' };
+      var STATUS_PILL = {
+        assigned: { label: 'Assigned', cls: 'bg-emerald-50 text-emerald-700' },
+        available: { label: 'Available', cls: 'bg-slate-100 text-slate-600' },
+        retired: { label: 'Retired', cls: 'bg-amber-50 text-amber-800' }
+      };
+
+      var toast = document.getElementById('admin-toast');
+      var toastTitle = document.getElementById('admin-toast-title');
+      var toastBody = document.getElementById('admin-toast-body');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title;
+        toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function toDateOnly(iso) { return typeof iso === 'string' ? iso.slice(0, 10) : '—'; }
+      function initials(name) {
+        return typeof getClientInitials === 'function' ? getClientInitials(name || '') : (name || '?').slice(0, 2).toUpperCase();
+      }
+      // "bc1qxy2k…8bh7f0sl5k" — enough of both ends to recognise an address at a glance; the
+      // expanded view and every modal show it in full.
+      function shortAddress(a) {
+        return a.length > 20 ? a.slice(0, 8) + '…' + a.slice(-10) : a;
+      }
+
+      var routes = [];
+      var addresses = [];
+      var assignments = [];
+      var clientsById = {};
+      var creditedByAddressClient = {}; // addressId|clientId -> latest resolved_at
+      var expandedIds = {};
+      var statusFilter = 'all';
+
+      function routeOf(a) {
+        return routes.find(function (r) { return r.currency === a.currency && r.network === a.network; }) ||
+          { currency: a.currency, network: a.network, currency_name: a.currency, network_label: a.network };
+      }
+      function activeAssignments(addressId) {
+        return assignments.filter(function (x) { return x.address_id === addressId && !x.removed_at; });
+      }
+      function historicalAssignments(addressId) {
+        return assignments.filter(function (x) { return x.address_id === addressId && !!x.removed_at; });
+      }
+
+      function renderFilterPills() {
+        document.querySelectorAll('.status-filter-pill').forEach(function (btn) {
+          var on = btn.dataset.filter === statusFilter;
+          btn.classList.toggle('bg-slate-900', on);
+          btn.classList.toggle('text-white', on);
+          btn.classList.toggle('bg-slate-100', !on);
+          btn.classList.toggle('text-slate-600', !on);
+        });
+      }
+
+      function currencyCellHTML(a) {
+        var r = routeOf(a);
+        return '<div class="flex items-center gap-2.5">' +
+          '<span class="dep-coin ' + (COIN_CLASS[a.currency] || 'bg-slate-500') + '">' + esc(a.currency) + '</span>' +
+          '<div><p class="font-semibold text-slate-900 leading-tight">' + esc(r.currency_name) + '</p>' +
+          '<span class="inline-block text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">' + esc(r.network_label) + '</span></div>' +
+          '</div>';
+      }
+
+      function assignedCellHTML(a) {
+        var active = activeAssignments(a.id);
+        if (active.length > 0) {
+          var avatars = active.slice(0, 4).map(function (x) {
+            var c = clientsById[x.client_id];
+            return '<span class="dep-av" title="' + esc(c ? c.name : x.client_id) + '">' + esc(initials(c ? c.name : '')) + '</span>';
+          }).join('');
+          return '<div class="flex items-center flex-wrap gap-1.5">' + avatars +
+            '<span class="text-xs text-slate-600 ml-1">' + active.length + (active.length === 1 ? ' client' : ' clients') + '</span></div>';
+        }
+        if (a.status === 'retired') {
+          var n = historicalAssignments(a.id).length;
+          return '<span class="text-xs text-slate-500">Previously ' + n + (n === 1 ? ' client' : ' clients') + '</span>';
+        }
+        return '<span class="text-xs text-slate-500">Unassigned</span>';
+      }
+
+      function expandedRowHTML(a) {
+        var r = routeOf(a);
+        var active = activeAssignments(a.id);
+        var history = historicalAssignments(a.id);
+        var retired = a.status === 'retired';
+
+        var note;
+        if (retired) {
+          note = '<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 mb-4">' +
+            '<p class="text-sm font-semibold text-amber-900 mb-0.5">Retired' + (a.retired_at ? ' on ' + toDateOnly(a.retired_at) : '') + ' — cannot be assigned to anyone new.</p>' +
+            '<p class="text-xs text-amber-900">Funds may still arrive here from a wallet where a former client saved this address. Reconcile any that do against the clients listed below; the database refuses any new assignment.</p></div>';
+        } else if (active.length >= 2) {
+          note = '<div class="rounded-xl border border-slate-300 bg-slate-100 p-3 mb-4 flex gap-2.5">' +
+            '<svg class="w-4 h-4 text-slate-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>' +
+            '<div><p class="text-sm font-semibold text-slate-800 mb-0.5">Shared by ' + active.length + ' clients</p>' +
+            '<p class="text-xs text-slate-700">Deposits from these clients arrive at the same address, so the chain alone will not say who sent what. Reconcile by transaction hash where provided, or by amount and timing.</p></div></div>';
+        } else if (active.length === 1) {
+          note = '<p class="text-xs text-slate-600 mb-4">Assigned to one client. Once a second client shares it, the chain alone will not say who sent what — reconcile by transaction hash where provided.</p>';
+        } else {
+          note = '<p class="text-xs text-slate-600 mb-4">Not yet assigned. Assign a client to start routing their deposits here.</p>';
+        }
+
+        var rows = active.map(function (x) {
+          var c = clientsById[x.client_id];
+          var last = creditedByAddressClient[a.id + '|' + x.client_id];
+          return '<tr class="border-t border-slate-100">' +
+            '<td class="px-4 py-3"><div class="flex items-center gap-2.5"><span class="dep-coin bg-slate-800" style="width:30px;height:30px;font-size:10px;">' + esc(initials(c ? c.name : '')) + '</span><div><p class="font-medium text-slate-900">' + esc(c ? c.name : x.client_id) + '</p><p class="text-xs text-slate-500">' + esc(x.client_id) + '</p></div></div></td>' +
+            '<td class="px-4 py-3 text-slate-600 tabular-nums">' + toDateOnly(x.assigned_at) + '</td>' +
+            '<td class="px-4 py-3 tabular-nums ' + (last ? 'text-slate-600' : 'text-slate-500') + '">' + (last ? toDateOnly(last) : 'None yet') + '</td>' +
+            '<td class="px-4 py-3 text-right"><button type="button" class="remove-btn mw-btn mw-btn-secondary mw-btn-sm" data-assignment="' + esc(x.id) + '" data-address="' + esc(a.id) + '" data-client-name="' + esc(c ? c.name : x.client_id) + '">Remove</button></td>' +
+            '</tr>';
+        }).join('');
+        var historyRows = history.map(function (x) {
+          var c = clientsById[x.client_id];
+          return '<tr class="border-t border-slate-100 text-slate-500">' +
+            '<td class="px-4 py-3">' + esc(c ? c.name : x.client_id) + '</td>' +
+            '<td class="px-4 py-3 tabular-nums">' + toDateOnly(x.assigned_at) + '</td>' +
+            '<td class="px-4 py-3 tabular-nums">Removed ' + toDateOnly(x.removed_at) + '</td>' +
+            '<td></td></tr>';
+        }).join('');
+
+        return '<tr class="expand-row">' +
+          '<td colspan="5" class="px-6 pb-5 pt-0 glass-subtle">' +
+            '<div class="pt-4">' +
+              '<div class="flex flex-wrap items-start justify-between gap-3 mb-3">' +
+                '<div class="min-w-0">' +
+                  '<p class="text-sm font-semibold text-slate-900">' + esc(r.currency_name) + ' · ' + esc(r.network_label) + (a.label ? ' · <span class="font-normal text-slate-600">' + esc(a.label) + '</span>' : '') + '</p>' +
+                  '<p class="text-sm text-slate-700 dep-addr mt-1">' + esc(a.address) + '</p>' +
+                  '<p class="text-xs text-slate-500 mt-1">Added ' + toDateOnly(a.created_at) + (a.created_by_email ? ' by ' + esc(a.created_by_email) : '') + '</p>' +
+                '</div>' +
+                (retired ? '' : '<button type="button" class="assign-btn mw-btn mw-btn-admin mw-btn-sm shrink-0" data-address="' + esc(a.id) + '">+ Assign client</button>') +
+              '</div>' +
+              note +
+              (active.length || history.length
+                ? '<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table class="w-full text-sm mw-card-table"><thead class="text-slate-500 bg-slate-50"><tr>' +
+                  '<th class="text-left font-medium px-4 py-2.5">Client</th><th class="text-left font-medium px-4 py-2.5">Assigned</th><th class="text-left font-medium px-4 py-2.5">Last deposit</th><th class="w-10"></th>' +
+                  '</tr></thead><tbody>' + rows + historyRows + '</tbody></table></div>'
+                : '') +
+            '</div>' +
+          '</td></tr>';
+      }
+
+      function renderAddresses() {
+        var listEl = document.getElementById('addresses-list');
+        var order = { assigned: 0, available: 1, retired: 2 };
+        var filtered = addresses
+          .filter(function (a) { return statusFilter === 'all' || a.status === statusFilter; })
+          .sort(function (a, b) {
+            if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+            var ra = routeOf(a), rb = routeOf(b);
+            if (ra.display_order !== rb.display_order) return (ra.display_order || 0) - (rb.display_order || 0);
+            return new Date(a.created_at) - new Date(b.created_at);
+          });
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = '<p class="text-sm text-slate-500 px-6 py-8 text-center">' +
+            (addresses.length === 0 ? 'No deposit addresses yet. Add one to start routing client deposits.' : 'No addresses match this filter.') + '</p>';
+          return;
+        }
+
+        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
+          '<th class="text-left font-medium px-6 py-3">Currency</th>' +
+          '<th class="text-left font-medium px-6 py-3">Address</th>' +
+          '<th class="text-left font-medium px-6 py-3">Assigned to</th>' +
+          '<th class="text-left font-medium px-6 py-3">Status</th>' +
+          '<th class="w-28"></th>' +
+          '</tr></thead><tbody class="divide-y divide-slate-100">' +
+          filtered.map(function (a) {
+            var isExpanded = !!expandedIds[a.id];
+            var pill = STATUS_PILL[a.status] || STATUS_PILL.available;
+            var action = a.status === 'retired'
+              ? '<button type="button" class="manage-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + esc(a.id) + '">' + (isExpanded ? 'Close' : 'History') + '</button>'
+              : a.status === 'available'
+                ? '<button type="button" class="assign-btn mw-btn mw-btn-admin mw-btn-sm" data-address="' + esc(a.id) + '">Assign</button>'
+                : '<button type="button" class="manage-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + esc(a.id) + '">' + (isExpanded ? 'Close' : 'Manage') + '</button>';
+            var summaryRow = '<tr class="address-row cursor-pointer hover:bg-slate-50/50" data-id="' + esc(a.id) + '">' +
+              '<td class="px-6 py-4">' + currencyCellHTML(a) + '</td>' +
+              '<td class="px-6 py-4 text-slate-600 dep-addr" title="' + esc(a.address) + '">' + esc(shortAddress(a.address)) + (a.label ? '<span class="block text-xs text-slate-500 mt-0.5">' + esc(a.label) + '</span>' : '') + '</td>' +
+              '<td class="px-6 py-4">' + assignedCellHTML(a) + '</td>' +
+              '<td class="px-6 py-4"><span class="inline-flex text-[10px] font-bold tracking-wide uppercase px-2 py-1 rounded ' + pill.cls + '">' + pill.label + '</span></td>' +
+              '<td class="px-6 py-4 text-right">' + action + '</td>' +
+            '</tr>';
+            return summaryRow + (isExpanded ? expandedRowHTML(a) : '');
+          }).join('') + '</tbody></table>';
+      }
+
+      // ---- Data load ----
+      var dataPromise = null;
+      function loadPageData() {
+        if (dataPromise) return dataPromise;
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('deposit_routes'),
+          MarketswaveData.selectTable('deposit_addresses'),
+          MarketswaveData.selectTable('deposit_address_assignments'),
+          MarketswaveData.selectTable('clients'),
+          MarketswaveData.selectTable('deposit_requests')
+        ]).then(function (results) {
+          var byAddrClient = {};
+          results[4].forEach(function (r) {
+            if (r.status !== 'credited' || !r.deposit_address_id) return;
+            var k = r.deposit_address_id + '|' + r.client_id;
+            if (!byAddrClient[k] || r.resolved_at > byAddrClient[k]) byAddrClient[k] = r.resolved_at;
+          });
+          var cById = {};
+          results[3].forEach(function (c) { cById[c.id] = c; });
+          return { routes: results[0], addresses: results[1], assignments: results[2], clientsById: cById, credited: byAddrClient };
+        }).catch(function (err) { dataPromise = null; throw err; });
+        return dataPromise;
+      }
+
+      function reloadPageData(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('addresses-list'), {
+          skeletonHTML: '<table class="w-full"><tbody>' + MarketswaveData.skeleton.tableRows(4, 5) + '</tbody></table>',
+          load: loadPageData,
+          render: function (data) {
+            routes = data.routes.slice().sort(function (a, b) { return a.display_order - b.display_order; });
+            addresses = data.addresses;
+            assignments = data.assignments;
+            clientsById = data.clientsById;
+            creditedByAddressClient = data.credited;
+            populateRouteSelect();
+            renderFilterPills();
+            renderAddresses();
+          }
+        });
+      }
+
+      // ---- Filter pills ----
+      document.getElementById('status-filter-pills').addEventListener('click', function (e) {
+        var pill = e.target.closest('.status-filter-pill');
+        if (!pill) return;
+        statusFilter = pill.dataset.filter;
+        renderFilterPills();
+        renderAddresses();
+      });
+
+      // ---- Add address modal (two steps) ----
+      var addModal = document.getElementById('add-modal');
+      var addRoute = document.getElementById('add-route');
+      var addAddress = document.getElementById('add-address');
+      var addLabel = document.getElementById('add-label');
+      var addError = document.getElementById('add-error');
+      var addConfirmError = document.getElementById('add-confirm-error');
+      var addStepForm = document.getElementById('add-step-form');
+      var addStepConfirm = document.getElementById('add-step-confirm');
+
+      function populateRouteSelect() {
+        addRoute.innerHTML = routes.map(function (r) {
+          return '<option value="' + esc(r.currency) + '|' + esc(r.network) + '">' + esc(r.currency_name) + ' — ' + esc(r.network_label) + '</option>';
+        }).join('');
+      }
+      function selectedRoute() {
+        var parts = addRoute.value.split('|');
+        return routes.find(function (r) { return r.currency === parts[0] && r.network === parts[1]; });
+      }
+      function openAddModal() {
+        addAddress.value = '';
+        addLabel.value = '';
+        addError.classList.add('hidden');
+        addConfirmError.classList.add('hidden');
+        addStepForm.classList.remove('hidden');
+        addStepConfirm.classList.add('hidden');
+        addModal.classList.remove('hidden');
+      }
+      function closeAddModal() { addModal.classList.add('hidden'); }
+      document.getElementById('open-add-modal').addEventListener('click', openAddModal);
+      document.getElementById('add-modal-close').addEventListener('click', closeAddModal);
+      document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
+      document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+      document.getElementById('add-continue').addEventListener('click', function () {
+        var r = selectedRoute();
+        var value = addAddress.value;
+        if (!r) { addError.textContent = 'Choose a currency and network.'; addError.classList.remove('hidden'); return; }
+        if (!value.trim()) { addError.textContent = 'Paste the address first.'; addError.classList.remove('hidden'); return; }
+        addError.classList.add('hidden');
+        document.getElementById('add-confirm-route').textContent = r.currency_name + ' · ' + r.network_label;
+        document.getElementById('add-confirm-address').textContent = value;
+        addStepForm.classList.add('hidden');
+        addStepConfirm.classList.remove('hidden');
+      });
+      document.getElementById('add-back').addEventListener('click', function () {
+        addStepConfirm.classList.add('hidden');
+        addStepForm.classList.remove('hidden');
+      });
+      document.getElementById('add-submit').addEventListener('click', function () {
+        var r = selectedRoute();
+        var btn = document.getElementById('add-submit');
+        MarketswaveData.withButtonBusy(btn, 'Adding...', function () {
+          return MarketswaveData.callFunction('add-deposit-address', {
+            currency: r.currency, network: r.network, address: addAddress.value, label: addLabel.value
+          });
+        }).then(function (result) {
+          closeAddModal();
+          showToast('Address Added', r.currency_name + ' (' + r.network_label + ') — available to assign.');
+          expandedIds[result.id] = true;
+          reloadPageData(true);
+        }).catch(function (err) {
+          // A structural rejection names the route and the reason — shown verbatim, and the
+          // user is sent back to the form to fix it rather than left on the confirm step.
+          addConfirmError.textContent = MarketswaveData.writeErrorMessage(err);
+          addConfirmError.classList.remove('hidden');
+        });
+      });
+
+      // ---- Assign modal ----
+      var assignModal = document.getElementById('assign-modal');
+      var assignClient = document.getElementById('assign-client');
+      var assignError = document.getElementById('assign-error');
+      var activeAssignAddressId = null;
+
+      function openAssignModal(addressId) {
+        var a = addresses.find(function (x) { return x.id === addressId; });
+        if (!a) return;
+        activeAssignAddressId = addressId;
+        var r = routeOf(a);
+        document.getElementById('assign-route-label').textContent = r.currency_name + ' · ' + r.network_label;
+        document.getElementById('assign-address-label').textContent = a.address;
+        var onThisAddress = {};
+        activeAssignments(addressId).forEach(function (x) { onThisAddress[x.client_id] = true; });
+        var onRoute = {};
+        assignments.forEach(function (x) {
+          if (!x.removed_at && x.currency === a.currency && x.network === a.network) onRoute[x.client_id] = x.address_id;
+        });
+        var clientList = Object.keys(clientsById).map(function (id) { return clientsById[id]; })
+          .filter(function (c) { return c.status !== 'rejected'; })
+          .sort(function (x, y) { return (x.name || '').localeCompare(y.name || ''); });
+        assignClient.innerHTML = '<option value="">Choose a client</option>' + clientList.map(function (c) {
+          var blocked = onThisAddress[c.id] ? ' (already on this address)' : onRoute[c.id] ? ' (already has a ' + a.currency + ' ' + a.network + ' address)' : '';
+          return '<option value="' + esc(c.id) + '"' + (blocked ? ' disabled' : '') + '>' + esc(c.name) + blocked + '</option>';
+        }).join('');
+        assignError.classList.add('hidden');
+        assignModal.classList.remove('hidden');
+      }
+      function closeAssignModal() { assignModal.classList.add('hidden'); activeAssignAddressId = null; }
+      document.getElementById('assign-modal-close').addEventListener('click', closeAssignModal);
+      document.getElementById('assign-modal-backdrop').addEventListener('click', closeAssignModal);
+      document.getElementById('assign-cancel').addEventListener('click', closeAssignModal);
+      document.getElementById('assign-submit').addEventListener('click', function () {
+        var clientId = assignClient.value;
+        var addressId = activeAssignAddressId;
+        if (!clientId) { assignError.textContent = 'Choose a client.'; assignError.classList.remove('hidden'); return; }
+        var btn = document.getElementById('assign-submit');
+        MarketswaveData.withButtonBusy(btn, 'Assigning...', function () {
+          return MarketswaveData.callFunction('assign-deposit-address', { addressId: addressId, clientId: clientId });
+        }).then(function () {
+          closeAssignModal();
+          var c = clientsById[clientId];
+          showToast('Client Assigned', (c ? c.name : clientId) + ' will now see this address on their Deploy Capital page.');
+          expandedIds[addressId] = true;
+          reloadPageData(true);
+        }).catch(function (err) {
+          assignError.textContent = MarketswaveData.writeErrorMessage(err);
+          assignError.classList.remove('hidden');
+        });
+      });
+
+      // ---- Remove modal ----
+      var removeModal = document.getElementById('remove-modal');
+      var removeError = document.getElementById('remove-error');
+      var activeRemoveAssignmentId = null;
+
+      function openRemoveModal(assignmentId, addressId, clientName) {
+        activeRemoveAssignmentId = assignmentId;
+        var a = addresses.find(function (x) { return x.id === addressId; });
+        var isLast = a ? activeAssignments(addressId).length === 1 : false;
+        document.getElementById('remove-copy').textContent = 'Remove ' + clientName + ' from this ' + (a ? routeOf(a).currency_name + ' (' + routeOf(a).network_label + ')' : '') + ' address? They will no longer see it on their Deploy Capital page.';
+        document.getElementById('remove-retire-warning').classList.toggle('hidden', !isLast);
+        removeError.classList.add('hidden');
+        removeModal.classList.remove('hidden');
+      }
+      function closeRemoveModal() { removeModal.classList.add('hidden'); activeRemoveAssignmentId = null; }
+      document.getElementById('remove-modal-close').addEventListener('click', closeRemoveModal);
+      document.getElementById('remove-modal-backdrop').addEventListener('click', closeRemoveModal);
+      document.getElementById('remove-cancel').addEventListener('click', closeRemoveModal);
+      document.getElementById('remove-submit').addEventListener('click', function () {
+        var assignmentId = activeRemoveAssignmentId;
+        var btn = document.getElementById('remove-submit');
+        MarketswaveData.withButtonBusy(btn, 'Removing...', function () {
+          return MarketswaveData.callFunction('remove-deposit-address-assignment', { assignmentId: assignmentId });
+        }).then(function (result) {
+          closeRemoveModal();
+          showToast(result.addressRetired ? 'Client Removed — Address Retired' : 'Client Removed',
+            result.addressRetired ? 'That was the last client on it. The address is now retired and can never be reassigned.' : 'The address remains assigned to its other clients.');
+          reloadPageData(true);
+        }).catch(function (err) {
+          removeError.textContent = MarketswaveData.writeErrorMessage(err);
+          removeError.classList.remove('hidden');
+        });
+      });
+
+      // ---- Delegated row/button clicks ----
+      document.getElementById('addresses-list').addEventListener('click', function (e) {
+        var assignBtn = e.target.closest('.assign-btn');
+        if (assignBtn) { openAssignModal(assignBtn.dataset.address); return; }
+        var removeBtn = e.target.closest('.remove-btn');
+        if (removeBtn) { openRemoveModal(removeBtn.dataset.assignment, removeBtn.dataset.address, removeBtn.dataset.clientName); return; }
+        var manageBtn = e.target.closest('.manage-btn');
+        var row = manageBtn ? null : e.target.closest('.address-row');
+        var id = manageBtn ? manageBtn.dataset.id : row ? row.dataset.id : null;
+        if (!id) return;
+        expandedIds[id] = !expandedIds[id];
+        renderAddresses();
+      });
+
+      reloadPageData(true);
+    })();
+  </script>
+
+</body>
+</html>

@@ -163,6 +163,18 @@
               <p class="text-sm text-slate-400 mt-2">Manage catalog →</p>
             </a>
 
+            <!-- Crypto deposit routing (2026-09-11): a count of ASSIGNED addresses (the ones
+                 actually routing client deposits), not a pending-count — same non-queue
+                 treatment as Products. -->
+            <a href="admin-deposit-addresses.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-slate-500">Deposit Addresses in Use</p>
+                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8zm0 0V7a2 2 0 012-2h11a2 2 0 012 2v1M16 14h2"/></svg>
+              </div>
+              <p class="text-3xl font-bold text-slate-900" id="deposit-address-count">—</p>
+              <p class="text-sm text-slate-400 mt-2" id="deposit-address-sub">Manage address book →</p>
+            </a>
+
           </div>
         </div>
 
@@ -325,6 +337,17 @@
         document.getElementById('product-count').textContent = rows.length;
       }).catch(function () {
         document.getElementById('product-count').textContent = '—';
+      });
+
+      // Crypto deposit routing (2026-09-11): assigned addresses, with the available count as
+      // the sub-line so a PM can see at a glance whether there is anything left to assign.
+      MarketswaveData.selectTable('deposit_addresses').then(function (rows) {
+        var assigned = rows.filter(function (r) { return r.status === 'assigned'; }).length;
+        var available = rows.filter(function (r) { return r.status === 'available'; }).length;
+        document.getElementById('deposit-address-count').textContent = assigned;
+        document.getElementById('deposit-address-sub').textContent = available + ' available to assign →';
+      }).catch(function () {
+        document.getElementById('deposit-address-count').textContent = '—';
       });
     })();
   </script>

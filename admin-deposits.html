@@ -41,9 +41,15 @@
              would break this scrollable container's own vertical scroll). -->
         <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
-        <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Deposits</h2>
-          <p class="text-slate-500 mt-1">Client-submitted deposit requests, awaiting credit confirmation.</p>
+        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-semibold text-slate-900">Deposits</h2>
+            <p class="text-slate-500 mt-1">Client-submitted deposit requests, awaiting credit confirmation.</p>
+          </div>
+          <!-- Crypto deposit routing (2026-09-11): the address book lives on its own page
+               (Catalog group); linked here because the PM crediting a crypto deposit is the
+               one who needs to check which address it was sent to. -->
+          <a href="admin-deposit-addresses.html" class="mw-btn mw-btn-secondary mw-btn-sm shrink-0 inline-flex">Manage deposit addresses &rarr;</a>
         </div>
 
         <!-- Pending -->

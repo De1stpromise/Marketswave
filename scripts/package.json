@@ -63,7 +63,8 @@
     "verify-hys-internal-funding": "node verify-hys-internal-funding.js",
     "verify-hys-internal-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-hys-internal-ui-wiring.mjs",
     "verify-hys-internal-visual": "node verify-hys-internal-visual.mjs",
-    "supabase-verify-deposit-addresses": "node verify-supabase-deposit-addresses.js"
+    "supabase-verify-deposit-addresses": "node verify-supabase-deposit-addresses.js",
+    "verify-deposit-routing-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-deposit-routing-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

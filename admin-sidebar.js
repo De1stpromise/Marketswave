@@ -265,6 +265,17 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       label: 'Product Catalog',
       icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
       group: 'catalog'
+    },
+    {
+      // Crypto deposit routing (2026-09-11): the shared deposit address book. Grouped with
+      // Product Catalog rather than under Approval Gate — it is managed reference data with a
+      // per-item management view, not a Pending/History queue; admin-deposits.html links here
+      // from its own header for workflow proximity. Wallet icon.
+      key: 'deposit-addresses',
+      href: 'admin-deposit-addresses.html',
+      label: 'Deposit Addresses',
+      icon: 'M3 10h18M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8zm0 0V7a2 2 0 012-2h11a2 2 0 012 2v1M16 14h2',
+      group: 'catalog'
     }
   ];
 
