@@ -309,6 +309,62 @@ PROFILES['deposit-routing-queue'] = [
   { label: 'route figure', sel: '#pending-list .text-base', limit: 2 }
 ];
 
+// Product catalog — live pricing, part 1 (2026-09-11). The client card's new price block and
+// its three source states (live green / stale grey / appraisal amber), the change figure in
+// BOTH tones (a winner and a loser are both seeded so neither tone is assumed from the other),
+// the ticker chip and the fractional-units note — all on the card's white ground inside the
+// page's glass container.
+PROFILES['live-pricing-client'] = [
+  { label: 'unit price', sel: '.product-price', limit: 6 },
+  { label: 'per-unit label', sel: '.product-price + p', limit: 6 },
+  { label: 'change (gain)', sel: '.price-change.text-emerald-800', limit: 3 },
+  { label: 'change (loss)', sel: '.price-change.text-red-700', limit: 3 },
+  { label: 'source live', sel: '.price-source[data-source="live"]', limit: 3 },
+  { label: 'source live bold', sel: '.price-source[data-source="live"] b', limit: 3 },
+  { label: 'source stale', sel: '.price-source[data-source="stale"]', limit: 3 },
+  { label: 'source stale bold', sel: '.price-source[data-source="stale"] b', limit: 3 },
+  { label: 'source appraisal', sel: '.price-source[data-source="appraisal"]', limit: 3 },
+  { label: 'source appraisal bold', sel: '.price-source[data-source="appraisal"] b', limit: 3 },
+  { label: 'ticker chip', sel: '.product-ticker', limit: 4 },
+  { label: 'min/max/fractional line', sel: '.fractional-note', limit: 4 }
+];
+// admin-products.html list: the 11px source lines in all four colours, inside the glass table.
+PROFILES['live-pricing-admin-list'] = [
+  { label: 'source market fresh', sel: '#products-list .text-emerald-800', limit: 3 },
+  { label: 'source market stale', sel: '#products-list p.text-slate-600', limit: 3 },
+  { label: 'source appraisal', sel: '#products-list .text-amber-800', limit: 3 },
+  { label: 'source quote failed', sel: '#products-list .text-red-700', limit: 3 },
+  { label: 'quote-failed block title', sel: '[id^="quote-failed-"] .text-red-800.font-semibold', limit: 1 },
+  { label: 'quote-failed block body', sel: '[id^="quote-failed-"] p.text-xs', limit: 1 }
+];
+// The New product modal, after a real search: segmented control, hints, results (price,
+// name, the unverified-exchange label), the green live preview.
+PROFILES['live-pricing-admin-add'] = [
+  { label: 'model segment (selected)', sel: '.add-model-btn[aria-checked="true"]', limit: 1 },
+  { label: 'model segment (unselected)', sel: '.add-model-btn[aria-checked="false"]', limit: 1 },
+  { label: 'cannot-change copy', sel: '#add-modal .text-slate-500 .text-slate-700', limit: 1 },
+  { label: 'asset-class hint', sel: '#add-asset-class-hint', limit: 1 },
+  { label: 'result symbol', sel: '.symbol-result .text-slate-900', limit: 3 },
+  { label: 'result name', sel: '.symbol-result .text-slate-600', limit: 3 },
+  { label: 'result exchange fallback', sel: '.symbol-result .text-slate-500', limit: 3 },
+  { label: 'live preview label', sel: '#add-live-preview-label', limit: 1 },
+  { label: 'live preview price', sel: '#add-live-preview-price', limit: 1 }
+];
+// The Publish valuation modal with the impact table populated (deltas in both tones).
+PROFILES['live-pricing-admin-nav'] = [
+  { label: 'current line', sel: '#nav-modal-current', limit: 1 },
+  { label: 'mode segment (selected)', sel: '.nav-mode-btn[aria-checked="true"]', limit: 1 },
+  { label: 'mode segment (unselected)', sel: '.nav-mode-btn[aria-checked="false"]', limit: 1 },
+  { label: 'preview label (amber tint)', sel: '#nav-modal .text-xs.font-semibold[style]', limit: 1 },
+  { label: 'preview price', sel: '#nav-preview', limit: 1 },
+  { label: 'impact heading', sel: '#nav-impact-heading', limit: 1 },
+  { label: 'impact who', sel: '.nav-impact-row .text-slate-700', limit: 4 },
+  { label: 'impact from', sel: '.nav-impact-row .text-slate-500', limit: 4 },
+  { label: 'impact to', sel: '.nav-impact-to', limit: 4 },
+  { label: 'impact delta', sel: '.nav-impact-delta', limit: 4 },
+  { label: 'impact total', sel: '#nav-impact-total', limit: 1 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

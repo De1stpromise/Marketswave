@@ -293,8 +293,10 @@
         if (typeof pct === 'number' && isFinite(pct) && pct !== 0) {
           chg = '<span class="price-change text-sm font-bold tabular-nums ' + (pct > 0 ? 'text-emerald-800' : 'text-red-700') + '">' + (pct > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(2) + '%</span>';
         }
-        return '<div class="flex items-end justify-between gap-3 mb-1">' +
-          '<div><p class="product-price text-2xl font-semibold text-navy tabular-nums leading-none">$' + Number(product.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</p><p class="text-[11px] text-slate-500 mt-1">per unit</p></div>' +
+        // flex-wrap + a smaller size below sm: a five-figure crypto price next to a change
+        // figure escaped a 320px card in a single non-wrapping row (caught by measurement).
+        return '<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 mb-1">' +
+          '<div><p class="product-price text-xl sm:text-2xl font-semibold text-navy tabular-nums leading-none">$' + Number(product.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</p><p class="text-[11px] text-slate-500 mt-1">per unit</p></div>' +
           chg +
         '</div>' + priceSourceHTML(product);
       }
