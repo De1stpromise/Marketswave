@@ -66,8 +66,15 @@ async function main() {
 
   const PE_PRODUCT = 'PROD-0001'; // Nordic Growth Fund, Private Equity
   const RA_PRODUCT = 'PROD-0002'; // European Real Estate Trust, Real Assets
-  const ETF_PRODUCT = 'PROD-0003'; // Global Equity ETF, Stocks & ETFs — NOT carved out
-  const CRYPTO_PRODUCT = 'PROD-0004'; // Ethereum, Crypto — NOT carved out
+  // Product catalog — live pricing, part 1 (2026-09-11): PROD-0003/PROD-0004 are market-
+  // priced now and never tick. The row-143 regression this suite guards ("the classes NOT
+  // carved out still tick") is still a real property of the legacy simulated model, so it
+  // runs against two temporary genuinely-simulated products instead.
+  const { createSimulatedTestProduct, deleteSimulatedTestProduct } = await import('./lib/simulated-test-product.mjs');
+  const simEtf = await createSimulatedTestProduct(admin, suffix + 'E', { asset_class: 'Stocks & ETFs' });
+  const simCrypto = await createSimulatedTestProduct(admin, suffix + 'C', { asset_class: 'Crypto', risk_tier: 'aggressive', investment_type: 'Coin' });
+  const ETF_PRODUCT = simEtf.id;
+  const CRYPTO_PRODUCT = simCrypto.id;
 
   // Capture every product this script touches so it can be restored exactly at the end.
   const { data: originalProducts } = await admin.from('products').select('*').in('id', [PE_PRODUCT, RA_PRODUCT, ETF_PRODUCT, CRYPTO_PRODUCT]);
@@ -287,6 +294,8 @@ async function main() {
   for (const id of [PE_PRODUCT, RA_PRODUCT, ETF_PRODUCT, CRYPTO_PRODUCT]) {
     await admin.from('products').update({ unit_price: originalById[id].unit_price, last_tick_date: originalById[id].last_tick_date }).eq('id', id);
   }
+  await deleteSimulatedTestProduct(admin, ETF_PRODUCT);
+  await deleteSimulatedTestProduct(admin, CRYPTO_PRODUCT);
   await admin.from('nav_publications').delete().in('note', ['Q2 2026 appraisal.', 'Independent valuation, PM #2.', 'Cross-client correctness test.']);
   if (pm2Email) {
     const { data: userList } = await admin.auth.admin.listUsers();

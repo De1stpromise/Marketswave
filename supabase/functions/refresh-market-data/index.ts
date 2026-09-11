@@ -19,7 +19,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { authorizeScheduledCall } from '../_shared/scheduler-auth.ts';
-import { BASE_SYMBOLS, refreshSymbols, CacheEntry } from '../_shared/market-refresh.ts';
+import { BASE_SYMBOLS, refreshSymbols, CacheEntry, productCacheEntries, syncMarketPricedProducts } from '../_shared/market-refresh.ts';
 import { PLATFORM_STOCK_SYMBOL_CEILING } from '../_shared/market-providers.ts';
 import { normalizeSymbol } from '../_shared/symbol-catalog.ts';
 
@@ -56,8 +56,26 @@ Deno.serve(async (req) => {
       };
     }
 
+    // Product catalog — live pricing, part 1 (2026-09-11): every market-priced PRODUCT's
+    // ticker joins the same union, keyed on symbol, so a product and a watchlist row on
+    // the same symbol still cost one call. Product stock symbols count toward the same
+    // 450 ceiling as watchlist ones; the product share is reported separately below.
+    const productEntries = await productCacheEntries(admin);
+    let productSymbols = 0;
+    let productStockSymbolsNew = 0;
+    for (const entry of productEntries) {
+      productSymbols++;
+      if (bySymbol[entry.symbol]) continue;
+      if (entry.asset_type === 'stock') productStockSymbolsNew++;
+      bySymbol[entry.symbol] = entry;
+    }
+
     const entries = Object.values(bySymbol);
     const outcome = await refreshSymbols(admin, entries);
+
+    // Copy fresh prices onto the market-priced products and flag any whose symbol could
+    // not be priced (a zero/absent quote never overwrites the last good price).
+    const productSync = await syncMarketPricedProducts(admin, outcome.failed);
 
     // Reported on every run so the remaining headroom against the derived ceiling is an
     // observable number rather than an assumption that was true when this was written.
@@ -69,6 +87,11 @@ Deno.serve(async (req) => {
       headroom: PLATFORM_STOCK_SYMBOL_CEILING - outcome.stockSymbols,
       updated: outcome.updated,
       failed: outcome.failed,
+      productSymbols,
+      productStockSymbolsNotAlreadyWatched: productStockSymbolsNew,
+      productsSynced: productSync.synced,
+      productsFlagged: productSync.flagged,
+      productsCleared: productSync.cleared,
       via: auth.via
     }, 200);
   } catch (err) {

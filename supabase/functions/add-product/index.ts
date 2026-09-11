@@ -16,8 +16,10 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { round2 } from '../_shared/portfolio-engine.ts';
-import { validateProductFields, toProductClientShape } from '../_shared/product-validation.ts';
+import { validateProductFields, toProductClientShape, PRICING_MODELS, APPRAISAL_ASSET_CLASSES, assetClassForSource, validateMaximumInvestment } from '../_shared/product-validation.ts';
 import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
+import { lookupStockQuote, lookupCrypto } from '../_shared/market-providers.ts';
+import { refreshSymbols } from '../_shared/market-refresh.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -51,10 +53,54 @@ Deno.serve(async (req) => {
     const adminEmail = claimsData.claims.email as string;
 
     const body = await req.json();
+
+    // ★ Product catalog — live pricing, part 1 (2026-09-11): the pricing model is chosen
+    // FIRST and is immutable afterwards (edit-product refuses it). Two models a PM can
+    // choose; the legacy 'simulated' tick is not creatable.
+    const pricingModel = body && body.pricingModel;
+    if (PRICING_MODELS.indexOf(pricingModel) === -1) {
+      return jsonResponse({ error: 'pricingModel must be "market" (priced from a real symbol) or "appraisal" (valued by published NAV). It cannot be changed after creation.' }, 400);
+    }
+
+    let marketFirstPrice: { price: number; changePercent: number | null } | null = null;
+    let marketSymbol: string | null = null;
+    let marketSource: 'finnhub' | 'coingecko' | null = null;
+    let marketProviderId: string | null = null;
+
+    if (pricingModel === 'market') {
+      // Asset class is DERIVED from the symbol's provider — the request's own assetClass,
+      // if any, is ignored rather than trusted, so BTC cannot be filed under Real Assets.
+      marketSource = body.source === 'finnhub' || body.source === 'coingecko' ? body.source : null;
+      if (!marketSource) return jsonResponse({ error: 'A market-priced product needs a symbol chosen from the search (source must be finnhub or coingecko).' }, 400);
+      const tickerError = validateTicker(body.symbol);
+      if (tickerError || !body.symbol) return jsonResponse({ error: tickerError || 'symbol is required for a market-priced product.' }, 400);
+      marketSymbol = normalizeSymbol(body.symbol);
+      body.assetClass = assetClassForSource(marketSource);
+      if (marketSource === 'coingecko') {
+        if (typeof body.providerId !== 'string' || !body.providerId) return jsonResponse({ error: 'providerId (the CoinGecko id) is required for a crypto product.' }, 400);
+        marketProviderId = body.providerId;
+        // The FIRST price is taken live, right now: a product must never be created with a
+        // PM-typed placeholder that the next refresh would then "correct".
+        const coin = await lookupCrypto(marketProviderId);
+        if (!coin) return jsonResponse({ error: 'CoinGecko returned no price for ' + marketProviderId + ' — the product was not created.' }, 400);
+        marketFirstPrice = coin.quote;
+      } else {
+        const quote = await lookupStockQuote(marketSymbol);
+        if (!quote) return jsonResponse({ error: 'Finnhub returned no price for ' + marketSymbol + ' (an unknown symbol comes back as a zero, which is refused) — the product was not created.' }, 400);
+        marketFirstPrice = quote;
+      }
+      body.unitPrice = marketFirstPrice.price;
+    } else {
+      if (APPRAISAL_ASSET_CLASSES.indexOf(body.assetClass) === -1) {
+        return jsonResponse({ error: 'A product valued by appraisal must be Private Equity or Real Assets. Stocks & ETFs and Crypto are market-priced.' }, 400);
+      }
+      if (body.symbol || body.ticker) return jsonResponse({ error: 'A product valued by appraisal does not carry a market symbol.' }, 400);
+    }
+
     const validationError = validateProductFields(body, true);
     if (validationError) return jsonResponse({ error: validationError }, 400);
-    const tickerError = validateTicker(body.ticker);
-    if (tickerError) return jsonResponse({ error: tickerError }, 400);
+    const maxError = validateMaximumInvestment(body);
+    if (maxError) return jsonResponse({ error: maxError }, 400);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
@@ -87,14 +133,22 @@ Deno.serve(async (req) => {
       created_at: today,
       last_tick_date: today,
       created_by: adminId,
-      created_by_email: adminEmail
+      created_by_email: adminEmail,
+      pricing_model: pricingModel
     };
+    if (typeof body.maximumInvestment === 'number') insertRow.maximum_investment = body.maximumInvestment;
+    if (pricingModel === 'market') {
+      insertRow.ticker = marketSymbol;
+      insertRow.price_source = marketSource;
+      insertRow.provider_id = marketProviderId;
+      insertRow.price_as_of = new Date().toISOString();
+      insertRow.price_change_percent = marketFirstPrice ? marketFirstPrice.changePercent : null;
+      insertRow.unit_price = marketFirstPrice ? marketFirstPrice.price : unitPrice; // full precision, not round2'd: the market's own figure
+      insertRow.inception_unit_price = insertRow.unit_price;
+    }
     if (typeof body.description === 'string' && body.description.trim()) insertRow.description = body.description.trim();
     if (typeof body.extendedDescription === 'string' && body.extendedDescription.trim()) insertRow.extended_description = body.extendedDescription.trim();
     if (typeof body.logoUrl === 'string' && body.logoUrl.trim()) insertRow.logo_url = body.logoUrl.trim();
-    // ticker (2026-09-11): stored uppercase, matching the unique index on upper(ticker) —
-    // a product entered as 'eth' and a watchlist row stored as 'ETH' must be one mapping.
-    if (typeof body.ticker === 'string' && body.ticker.trim()) insertRow.ticker = normalizeSymbol(body.ticker);
 
     const { data: created, error: insertErr } = await admin.from('products').insert(insertRow).select().single();
     if (insertErr) {
@@ -102,6 +156,14 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Another product already uses that ticker. A symbol can map to only one catalog product.' }, 409);
       }
       return jsonResponse({ error: insertErr.message }, 500);
+    }
+
+    // Seed the cache row for the new symbol too (best-effort), so the very next read-through
+    // and the scheduled refresh both already know it — mirrors get-watchlist's own top-up.
+    if (pricingModel === 'market' && marketSymbol && marketSource) {
+      try {
+        await refreshSymbols(admin, [{ symbol: marketSymbol, name: String(body.name).trim(), source: marketSource, provider_id: marketProviderId, asset_type: marketSource === 'coingecko' ? 'crypto' : 'stock' }]);
+      } catch (_e) { /* the product already carries its real first price; the scheduler catches up */ }
     }
 
     return jsonResponse(toProductClientShape(created), 200);

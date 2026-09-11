@@ -243,7 +243,7 @@ async function main() {
   // ---- 1d. Products: add-product (PM1) vs edit-product (PM2) on that same product ----
   await (async function () {
     const { data: created, error: addErr } = await pm1.client.functions.invoke('add-product', {
-      body: { name: 'Attrib Test Product ' + suffix, assetClass: 'Stocks & ETFs', investmentType: 'ETF', riskTier: 'balanced', minimumInvestment: 500, unitPrice: 10 }
+      body: { pricingModel: 'appraisal', name: 'Attrib Test Product ' + suffix, assetClass: 'Real Assets', investmentType: 'Fund', riskTier: 'balanced', minimumInvestment: 500, unitPrice: 10 }
     });
     check('add-product succeeds', !addErr, addErr && addErr.message);
     check('add-product response reflects PM #1\'s real id+email', created && created.createdBy === pm1.session.user.id && created.createdByEmail === pm1Email, JSON.stringify(created));
@@ -252,7 +252,7 @@ async function main() {
     check('edit-product succeeds', !editErr, editErr && editErr.message);
     check('edit-product response reflects PM #2\'s real id+email, PM #1\'s createdBy untouched', edited && edited.updatedBy === pm2.session.user.id && edited.updatedByEmail === pm2Email && edited.createdBy === pm1.session.user.id, JSON.stringify(edited));
 
-    const { error: blockedErr } = await nonAdmin.client.functions.invoke('add-product', { body: { name: 'Should Not Exist', assetClass: 'Stocks & ETFs', investmentType: 'ETF', riskTier: 'balanced', minimumInvestment: 500, unitPrice: 10 } });
+    const { error: blockedErr } = await nonAdmin.client.functions.invoke('add-product', { body: { pricingModel: 'appraisal', name: 'Should Not Exist', assetClass: 'Real Assets', investmentType: 'Fund', riskTier: 'balanced', minimumInvestment: 500, unitPrice: 10 } });
     check('non-admin caller is blocked from add-product (403)', blockedErr && blockedErr.context && blockedErr.context.status === 403);
 
     await admin.from('products').delete().eq('id', created.id);

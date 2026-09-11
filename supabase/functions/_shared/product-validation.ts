@@ -68,7 +68,30 @@ export function validateProductFields(fields: Record<string, unknown>, requireUn
 // product mapped to the wrong symbol would put an Allocate button on the wrong row. Its
 // own validation lives in _shared/symbol-catalog.ts alongside the mapping it feeds, not
 // here, so the read side and the write side of products.ticker cannot drift apart.
-export const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment', 'description', 'extendedDescription', 'logoUrl', 'ticker'];
+// Product catalog — live pricing, part 1 (2026-09-11): `ticker` LEFT this list — the symbol
+// is part of the pricing model, chosen at creation and immutable afterwards (a remapped
+// symbol would silently re-price every holder). `maximumInvestment` joined it.
+export const PRODUCT_EDITABLE_FIELDS = ['name', 'assetClass', 'investmentType', 'riskTier', 'minimumInvestment', 'maximumInvestment', 'description', 'extendedDescription', 'logoUrl'];
+
+export const PRICING_MODELS = ['market', 'appraisal'];          // the two a PM can choose
+export const APPRAISAL_ASSET_CLASSES = ['Private Equity', 'Real Assets'];
+
+// Asset class is DERIVED from the symbol's provider, never chosen, so BTC can't be filed
+// under Real Assets: Finnhub prices listed equities/ETFs, CoinGecko prices coins.
+export function assetClassForSource(source: string): string | null {
+  if (source === 'finnhub') return 'Stocks & ETFs';
+  if (source === 'coingecko') return 'Crypto';
+  return null;
+}
+
+export function validateMaximumInvestment(fields: Record<string, unknown>): string | null {
+  const max = fields.maximumInvestment;
+  if (max == null || max === '') return null;
+  if (typeof max !== 'number' || !isFinite(max) || max <= 0) return 'maximumInvestment must be a positive number when given.';
+  const min = typeof fields.minimumInvestment === 'number' ? fields.minimumInvestment : 0;
+  if (max < min) return 'maximumInvestment must not be below minimumInvestment.';
+  return null;
+}
 
 // Maps a real `products` row (snake_case columns) to the same camelCase shape
 // getAllProducts()/getProduct()/addProduct()/editProduct() already return locally — so
@@ -90,6 +113,15 @@ export function toProductClientShape(row: Record<string, unknown>) {
     extendedDescription: row.extended_description,
     logoUrl: row.logo_url,
     ticker: row.ticker,
+    pricingModel: row.pricing_model,
+    priceSource: row.price_source,
+    providerId: row.provider_id,
+    priceAsOf: row.price_as_of,
+    priceChangePercent: row.price_change_percent,
+    priceStatus: row.price_status,
+    priceFailureReason: row.price_failure_reason,
+    priceLastFailedAt: row.price_last_failed_at,
+    maximumInvestment: row.maximum_investment,
     createdBy: row.created_by,
     createdByEmail: row.created_by_email,
     updatedBy: row.updated_by,

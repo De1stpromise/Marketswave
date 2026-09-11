@@ -20,6 +20,7 @@ import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { createSimulatedTestProduct, deleteSimulatedTestProduct } from './lib/simulated-test-product.mjs';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { runVerifyMain } from './lib/run-verify.mjs';
 
@@ -110,6 +111,7 @@ async function main() {
 
   await sweepResidue(admin, /^returns-(mixed|other|partial|fresh)-[0-9a-f]{8}@test[.]marketswave[.]local$/);
   const suffix = crypto.randomBytes(4).toString('hex');
+  const simProductIds = [];
   const made = [];
   const PASSWORD = 'ReturnsDisplay-2026!';
 
@@ -130,8 +132,14 @@ async function main() {
     const { data: prods } = await admin.from('products').select('*');
     const byId = Object.fromEntries(prods.map((p) => [p.id, p]));
     const PE = byId['PROD-0001'];      // Private Equity  — carved out of the tick
-    const ETF = byId['PROD-0003'];     // Stocks & ETFs   — ticks
-    const CRY = byId['PROD-0004'];     // Crypto          — ticks
+    // Product catalog — live pricing, part 1 (2026-09-11): the seeded Stocks/Crypto products
+    // are market-priced now (they never tick and their Trend series is honestly flat), so the
+    // invertible-series proof and the seeded valuations below use two temporary, genuinely
+    // simulated products — the properties under test belong to the tick, not to a product.
+    const ETF = await createSimulatedTestProduct(admin, suffix + 'E', { asset_class: 'Stocks & ETFs', unit_price: 103.16 });
+    const CRY = await createSimulatedTestProduct(admin, suffix + 'C', { asset_class: 'Crypto', risk_tier: 'aggressive', investment_type: 'Coin', unit_price: 111.2 });
+    simProductIds.push(ETF.id, CRY.id);
+    prods.push(ETF, CRY); // the local-engine cross-check below is seeded from `prods`, which was read before these existed
 
     // ===================================================================================
     console.log('\n=== PART 1: server figures vs. the REAL engine, on a mixed portfolio ===\n');
@@ -672,6 +680,7 @@ async function main() {
     // silently discarded and a failing run would report success. Exit explicitly.
     if (fail) process.exit(1);
   } finally {
+    for (const id of simProductIds) await deleteSimulatedTestProduct(admin, id);
     for (const id of made) {
       await admin.from('transactions').delete().eq('client_id', id);
       await admin.from('holdings').delete().eq('client_id', id);

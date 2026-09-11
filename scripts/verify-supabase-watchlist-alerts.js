@@ -445,10 +445,12 @@ async function main() {
     // =========================================================================================
     console.log('\n=== PART 9: the shared symbol -> product primitive ===\n');
     // =========================================================================================
+    // Product catalog — live pricing, part 1 (2026-09-11): a symbol is now part of the
+    // pricing model — chosen at creation via the search, priced live, immutable after.
     const newProduct = await callFunction(url, pm.session.access_token, 'add-product', {
-      name: 'Watchlist Verify Equity ' + suffix, assetClass: 'Stocks & ETFs',
-      investmentType: 'Index Fund', riskTier: 'balanced', minimumInvestment: 1000,
-      unitPrice: 50, ticker: 'spy'
+      pricingModel: 'market', source: 'finnhub', symbol: 'spy',
+      name: 'Watchlist Verify Equity ' + suffix,
+      investmentType: 'Index Fund', riskTier: 'balanced', minimumInvestment: 1000
     });
     check('a PM can map a catalog product to a real market symbol', newProduct.status === 200,
       JSON.stringify(newProduct.body));
@@ -461,27 +463,33 @@ async function main() {
       nowOffered.body.symbols.find((r) => r.symbol === 'SPY').offered.productId === newProduct.body.id);
 
     const dupTicker = await callFunction(url, pm.session.access_token, 'add-product', {
-      name: 'Duplicate Ticker ' + suffix, assetClass: 'Stocks & ETFs', investmentType: 'Index Fund',
-      riskTier: 'balanced', minimumInvestment: 1000, unitPrice: 50, ticker: 'SPY'
+      pricingModel: 'market', source: 'finnhub', symbol: 'SPY',
+      name: 'Duplicate Ticker ' + suffix, investmentType: 'Index Fund',
+      riskTier: 'balanced', minimumInvestment: 1000
     });
     check('two products cannot both claim one symbol — the Allocate button must be unambiguous',
       dupTicker.status === 409, JSON.stringify(dupTicker.body));
     if (dupTicker.status === 200) createdProductIds.push(dupTicker.body.id);
 
     const badTicker = await callFunction(url, pm.session.access_token, 'add-product', {
-      name: 'Bad Ticker ' + suffix, assetClass: 'Stocks & ETFs', investmentType: 'Index Fund',
-      riskTier: 'balanced', minimumInvestment: 1000, unitPrice: 50, ticker: 'not a symbol!'
+      pricingModel: 'market', source: 'finnhub', symbol: 'not a symbol!',
+      name: 'Bad Ticker ' + suffix, investmentType: 'Index Fund',
+      riskTier: 'balanced', minimumInvestment: 1000
     });
     check('free text is refused as a ticker', badTicker.status === 400, JSON.stringify(badTicker.body));
     if (badTicker.status === 200) createdProductIds.push(badTicker.body.id);
 
+    // Live pricing, part 1 (2026-09-11): the symbol is IMMUTABLE after creation — remapping
+    // or clearing it would silently re-price every holder. The former "clearing a ticker
+    // stores null" assertion is therefore inverted, not dropped: the edit is refused and the
+    // watchlist row stays Offered.
     const clearTicker = await callFunction(url, pm.session.access_token, 'edit-product', {
       id: newProduct.body.id, patch: { ticker: '' }
     });
-    check('clearing a ticker stores null, not an empty string', clearTicker.status === 200 && !clearTicker.body.ticker);
-    const backToTracking = await callFunction(url, a.token, 'get-watchlist');
-    check('...and the watchlist row honestly reverts to Tracking only',
-      backToTracking.body.symbols.find((r) => r.symbol === 'SPY').offered === null);
+    check('a product\'s symbol cannot be cleared or remapped after creation (400)', clearTicker.status === 400, JSON.stringify(clearTicker.body));
+    const stillOffered = await callFunction(url, a.token, 'get-watchlist');
+    check('...and the watchlist row is still Offered through the unchanged mapping',
+      stillOffered.body.symbols.find((r) => r.symbol === 'SPY').offered.productId === newProduct.body.id);
 
     // =========================================================================================
     console.log('\n=== PART 10: the scheduler itself (this project had none) ===\n');

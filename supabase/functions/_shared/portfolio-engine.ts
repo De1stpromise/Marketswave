@@ -14,6 +14,10 @@
 // scripts/verify-supabase-portfolio-engine.js, not just assumed equivalent from reading it.
 
 // ---- Rounding — engine-core.js's round2() ------------------------------------------------
+// Product catalog — live pricing, part 1 (2026-09-11): the cache read-through for
+// market-priced products (see market-refresh.ts's own header for the two paths).
+import { readThroughMarketPrice, MarketPricedProductRow } from './market-refresh.ts';
+
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -83,6 +87,11 @@ export interface ProductRow {
   inception_unit_price: number;
   created_at: string;
   last_tick_date: string;
+  pricing_model?: string;
+  ticker?: string | null;
+  price_source?: 'finnhub' | 'coingecko' | null;
+  provider_id?: string | null;
+  price_as_of?: string | null;
 }
 
 // ---- settleProduct() — engine-core.js's own function, ported line for line. Walks a
@@ -107,6 +116,16 @@ export function settleProduct(product: ProductRow): { unitPrice: number; lastTic
   // new mechanism. Every caller of settleProduct() (settleAllProducts(), settleOneProduct())
   // inherits this for free; no call site needed to change.
   if (product.asset_class === 'Private Equity' || product.asset_class === 'Real Assets') {
+    return { unitPrice: product.unit_price, lastTickDate: product.last_tick_date, changed: false };
+  }
+  // Product catalog — live pricing, part 1 (2026-09-11): a MARKET-PRICED product never
+  // ticks either — its price is the market's, copied from the cache by the refresh and read
+  // through by settleAllProducts()/settleOneProduct() below. Same early-return shape as the
+  // two carve-outs above. 'fixed' (Cash) is already caught by the asset-class check; the
+  // explicit pricing_model test is what makes the rule survive a future asset class. Only a
+  // legacy 'simulated' row (a pre-existing Stocks/Crypto product no PM has mapped yet) still
+  // reaches the GBM tick below.
+  if (product.pricing_model === 'market' || product.pricing_model === 'fixed' || product.pricing_model === 'appraisal') {
     return { unitPrice: product.unit_price, lastTickDate: product.last_tick_date, changed: false };
   }
   const config = RISK_TIER_RETURN_CONFIG[product.risk_tier];
@@ -148,6 +167,13 @@ export async function settleAllProducts(supabaseAdmin: any): Promise<ProductRow[
 
   const updated: ProductRow[] = [];
   for (const product of products as ProductRow[]) {
+    // Market-priced: read the latest cached market price through onto the row. This is what
+    // makes an approval execute at the approval-time price (see market-refresh.ts).
+    if (product.pricing_model === 'market') {
+      const live = await readThroughMarketPrice(supabaseAdmin, product as unknown as MarketPricedProductRow);
+      updated.push({ ...product, unit_price: live.unitPrice, price_as_of: live.priceAsOf });
+      continue;
+    }
     const result = settleProduct(product);
     if (result.changed) {
       const { error: updateErr } = await supabaseAdmin
@@ -172,6 +198,11 @@ export async function settleAllProducts(supabaseAdmin: any): Promise<ProductRow[
 export async function settleOneProduct(supabaseAdmin: any, productId: string): Promise<ProductRow> {
   const { data: product, error } = await supabaseAdmin.from('products').select('*').eq('id', productId).single();
   if (error || !product) throw new Error('Unknown product: ' + productId);
+
+  if (product.pricing_model === 'market') {
+    const live = await readThroughMarketPrice(supabaseAdmin, product as MarketPricedProductRow);
+    return { ...product, unit_price: live.unitPrice, price_as_of: live.priceAsOf } as ProductRow;
+  }
 
   const result = settleProduct(product as ProductRow);
   if (result.changed) {
@@ -261,10 +292,17 @@ export function unitPriceSeries(
   }
 
   const config = RISK_TIER_RETURN_CONFIG[product.risk_tier];
+  // Product catalog — live pricing, part 1 (2026-09-11): a market-priced product's history is
+  // the market's, which this project does not store yet (the cache holds one value per
+  // symbol, not a series). Inverting the tick for it would FABRICATE a walk the price never
+  // took, so a market-priced product is deliberately flat here — the same honest treatment as
+  // an appraisal product with no publications — until a real price history exists (open item,
+  // register row 199).
   const ticks =
     product.asset_class !== 'Unallocated / Cash' &&
     product.asset_class !== 'Private Equity' &&
     product.asset_class !== 'Real Assets' &&
+    product.pricing_model !== 'market' &&
     !!config;
 
   if (!ticks) {

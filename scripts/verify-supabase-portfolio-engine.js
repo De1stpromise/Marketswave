@@ -84,7 +84,14 @@ async function main() {
   // both the real engine-core.js source and the real deployed Edge Function stack — is
   // completely unaffected by the carve-out for any product the tick mechanic still applies
   // to, so this is a like-for-like swap, not a weakened test.
-  const testProductId = 'PROD-0003'; // Global Equity ETF, Stocks & ETFs, balanced tier
+  // Product catalog — live pricing, part 1 (2026-09-11): PROD-0003 is market-priced now and
+  // never ticks, so the determinism/cost-basis/round-trip tests below run against a
+  // temporary, genuinely-simulated product (see lib/simulated-test-product.mjs) — the SAME
+  // id on both sides, since the tick's seed is `productId|date`. The properties under test
+  // are unchanged; only the product carrying them moved.
+  const { createSimulatedTestProduct, deleteSimulatedTestProduct } = await import('./lib/simulated-test-product.mjs');
+  const simProduct = await createSimulatedTestProduct(admin, suffix, { unit_price: 118.40, last_tick_date: '2026-08-20' });
+  const testProductId = simProduct.id;
   const pastDate = '2026-08-20'; // several real days before "today" in this environment
   const startingPrice = 118.40; // an arbitrary, manufactured test starting price
 
@@ -104,6 +111,9 @@ async function main() {
     // rewrite the underlying localStorage-polyfill catalog key directly, then reload so the
     // engine picks up the rewritten data.
     const catalogRaw = JSON.parse(storages.localStorage.getItem('marketswave_product_catalog'));
+    // The local engine has no idea about the temporary Supabase product; give it the same
+    // row (same id, same tier) so both sides settle the identical seed series.
+    catalogRaw.push({ id: testProductId, name: simProduct.name, assetClass: 'Stocks & ETFs', investmentType: 'Index Fund', riskTier: 'balanced', minimumInvestment: 100, unitPrice: startingPrice, inceptionUnitPrice: 100, createdAt: '2026-08-01', lastTickDate: pastDate });
     const idx = catalogRaw.findIndex((p) => p.id === testProductId);
     catalogRaw[idx].lastTickDate = pastDate;
     catalogRaw[idx].unitPrice = startingPrice;
@@ -172,9 +182,9 @@ async function main() {
     // Controlled scenario: a known holding at a known cost basis, sell a known fraction.
     const knownUnits = 200;
     const knownCostBasis = 20000; // avg cost $100/unit
-    await admin.from('holdings').insert({ client_id: user.id, product_id: 'PROD-0003', units: knownUnits, cost_basis: knownCostBasis });
+    await admin.from('holdings').insert({ client_id: user.id, product_id: testProductId, units: knownUnits, cost_basis: knownCostBasis });
 
-    const { data: product } = await admin.from('products').select('unit_price').eq('id', 'PROD-0003').single();
+    const { data: product } = await admin.from('products').select('unit_price').eq('id', testProductId).single();
     const unitPrice = product.unit_price;
 
     const unitsToSell = 75; // an arbitrary, non-round fraction of 200
@@ -184,14 +194,14 @@ async function main() {
 
     const adminSignIn = await signIn(url, anonKey, 'pm@marketswave.local', 'MarketswavePM-Local-2026!');
     const { data: sellResult, error: sellErr } = await adminSignIn.client.functions.invoke('execute-sell', {
-      body: { clientId: user.id, productId: 'PROD-0003', unitsToSell }
+      body: { clientId: user.id, productId: testProductId, unitsToSell }
     });
 
     check('execute-sell succeeded', !sellErr, sellErr && sellErr.message);
     check('saleValue matches the exact formula (unitsToSell * unitPrice, rounded)', sellResult && sellResult.totalValue === expectedSaleValue, JSON.stringify(sellResult));
     check('realizedReturn matches the exact formula (saleValue - proportional costBasis)', sellResult && sellResult.realizedReturn === expectedRealizedReturn, 'expected=' + expectedRealizedReturn + ' got=' + (sellResult && sellResult.realizedReturn));
 
-    const { data: holdingAfter } = await admin.from('holdings').select('*').eq('client_id', user.id).eq('product_id', 'PROD-0003').single();
+    const { data: holdingAfter } = await admin.from('holdings').select('*').eq('client_id', user.id).eq('product_id', testProductId).single();
     const expectedRemainingUnits = knownUnits - unitsToSell;
     const expectedRemainingCostBasis = Math.round((knownCostBasis - expectedCostBasisPortion) * 100) / 100;
     check('remaining holding units are exactly units - unitsToSell', Math.abs(holdingAfter.units - expectedRemainingUnits) < 1e-9, 'got=' + holdingAfter.units);
@@ -230,12 +240,12 @@ async function main() {
     const adminSignIn = await signIn(url, anonKey, 'pm@marketswave.local', 'MarketswavePM-Local-2026!');
 
     const { data: buyResult, error: buyErr } = await adminSignIn.client.functions.invoke('execute-buy', {
-      body: { clientId: user.id, productId: 'PROD-0003', dollarAmount: 10000 }
+      body: { clientId: user.id, productId: testProductId, dollarAmount: 10000 }
     });
     check('round-trip: execute-buy succeeded', !buyErr, buyErr && buyErr.message);
 
     const { data: sellResult, error: sellErr } = await adminSignIn.client.functions.invoke('execute-sell', {
-      body: { clientId: user.id, productId: 'PROD-0003', unitsToSell: buyResult.units }
+      body: { clientId: user.id, productId: testProductId, unitsToSell: buyResult.units }
     });
     check('round-trip: execute-sell (100% of the just-bought units) succeeded', !sellErr, sellErr && sellErr.message);
 
@@ -407,6 +417,7 @@ async function main() {
     await admin.auth.admin.deleteUser(user.id);
   })();
 
+  await deleteSimulatedTestProduct(admin, testProductId);
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');
   if (failed > 0) {
     console.log('\nVERIFY: FAIL (' + failed + ' assertion(s) failed)');

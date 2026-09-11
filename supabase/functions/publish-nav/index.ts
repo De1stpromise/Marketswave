@@ -27,6 +27,7 @@
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { round2 } from '../_shared/portfolio-engine.ts';
 
 const ELIGIBLE_ASSET_CLASSES = ['Private Equity', 'Real Assets'];
 
@@ -60,15 +61,26 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const productId = body && body.productId;
-    const newUnitPrice = body && body.newUnitPrice;
+    // ★ Product catalog — live pricing, part 1 (2026-09-11): TWO modes. An appraisal arrives
+    // as "up 4.2%", so a PM may enter the percentage and let the system compute the price
+    // (the default in the UI), or enter the unit price directly. Exactly one of the two.
+    const changePercent = body && body.changePercent;
+    let newUnitPrice = body && body.newUnitPrice;
+    const hasPct = typeof changePercent === 'number' && isFinite(changePercent);
+    const hasPrice = typeof newUnitPrice === 'number' && isFinite(newUnitPrice);
+    if (hasPct && hasPrice) return jsonResponse({ error: 'Give either changePercent or newUnitPrice, not both.' }, 400);
+    if (hasPct && changePercent <= -100) return jsonResponse({ error: 'changePercent must be greater than -100.' }, 400);
     const note = body && typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null;
     const effectiveDate = body && typeof body.effectiveDate === 'string' && body.effectiveDate
       ? body.effectiveDate
       : new Date().toISOString().slice(0, 10);
 
     if (!productId) return jsonResponse({ error: 'productId is required.' }, 400);
-    if (typeof newUnitPrice !== 'number' || !isFinite(newUnitPrice) || newUnitPrice <= 0) {
-      return jsonResponse({ error: 'New unit price must be a positive number.' }, 400);
+    if (!hasPct && !hasPrice) {
+      return jsonResponse({ error: 'newUnitPrice must be a positive number, or give changePercent.' }, 400);
+    }
+    if (hasPrice && newUnitPrice <= 0) {
+      return jsonResponse({ error: 'newUnitPrice must be a positive number.' }, 400);
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
       return jsonResponse({ error: 'effectiveDate must be a YYYY-MM-DD date string.' }, 400);
@@ -80,6 +92,15 @@ Deno.serve(async (req) => {
     if (fetchErr) return jsonResponse({ error: fetchErr.message }, 500);
     if (!product) return jsonResponse({ error: 'Unknown product: ' + productId + '.' }, 404);
 
+    if (product.pricing_model === 'market') {
+      return jsonResponse({ error: product.name + ' is market-priced (' + product.ticker + ') — its price is the market\'s and cannot be published by hand. If a PM needs to control returns, that is what Private Equity and Real Assets are for.' }, 400);
+    }
+    // Percentage mode: the previous price is the one on the row RIGHT NOW, so the computed
+    // figure is against the same value the impact table was built from.
+    const previousUnitPrice = Number(product.unit_price);
+    if (hasPct) newUnitPrice = round2(previousUnitPrice * (1 + changePercent / 100));
+    if (!(newUnitPrice > 0)) return jsonResponse({ error: 'The computed unit price must be positive.' }, 400);
+    const effectivePct = Math.round(((newUnitPrice - previousUnitPrice) / previousUnitPrice) * 10000) / 100;
     if (ELIGIBLE_ASSET_CLASSES.indexOf(product.asset_class) === -1) {
       return jsonResponse({
         error: 'Real NAV publication only applies to Private Equity / Real Assets products. ' +
@@ -103,7 +124,7 @@ Deno.serve(async (req) => {
 
     const { data: updatedProduct, error: updateErr } = await admin
       .from('products')
-      .update({ unit_price: newUnitPrice, last_tick_date: effectiveDate })
+      .update({ unit_price: newUnitPrice, last_tick_date: effectiveDate, price_change_percent: effectivePct, price_as_of: new Date().toISOString() })
       .eq('id', productId)
       .select()
       .single();
@@ -115,6 +136,8 @@ Deno.serve(async (req) => {
         name: updatedProduct.name,
         assetClass: updatedProduct.asset_class,
         unitPrice: updatedProduct.unit_price,
+        previousUnitPrice: previousUnitPrice,
+        changePercent: effectivePct,
         lastTickDate: updatedProduct.last_tick_date
       },
       publication: {

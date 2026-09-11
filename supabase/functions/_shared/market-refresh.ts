@@ -115,3 +115,142 @@ function toRow(entry: CacheEntry, quote: Quote, nowIso: string) {
     last_updated: nowIso
   };
 }
+
+// ============================================================================
+// ★ Product catalog — live pricing, part 1 (2026-09-11).
+//
+// A market-priced product's unit_price IS the market price of its ticker. Two paths keep
+// that true, and both live here so they cannot drift apart:
+//
+//   1. productCacheEntries() — the product tickers the SCHEDULED REFRESH must cover. It is
+//      unioned with the base symbols and every client's watchlist inside refresh-market-data,
+//      keyed on symbol, so a product and a watchlist row sharing BTC still cost one call.
+//      Products on Finnhub count toward the same 450-distinct-stock ceiling; the refresh
+//      reports the product share separately so the accounting stays observable.
+//
+//   2. readThroughMarketPrice() — called by settleAllProducts()/settleOneProduct() for every
+//      market-priced product. It copies the cache's current value onto the product row only
+//      when the cache is NEWER than the price already on the row, which means every existing
+//      settlement caller — get-holdings, get-account-state, computeTotalPortfolioValue, and
+//      execute-buy/execute-sell behind approve-allocation/approve-sell — re-reads the latest
+//      market price at the moment it runs. An allocation approved an hour after it was
+//      requested therefore executes at the approval-time price, never the request's figure.
+//
+// ★ A ZERO PRICE IS NOT A STALE PRICE, AND IT NEVER OVERWRITES A GOOD ONE. The provider layer
+// already turns Finnhub's {"c":0} into "no quote" (market-providers.ts), so a zero never
+// reaches market_data_cache. syncMarketPricedProducts() is the second half: a product whose
+// symbol the refresh could not price is marked price_status = 'quote_failed' with the reason
+// and the time — its unit_price keeps the last known good value — and is marked 'ok' again
+// the moment a real quote lands. The PM sees the flag on admin-products.html; the client
+// keeps seeing the last good price with its honest timestamp.
+// ============================================================================
+
+export interface MarketPricedProductRow {
+  id: string;
+  ticker: string | null;
+  name: string;
+  pricing_model: string;
+  price_source: 'finnhub' | 'coingecko' | null;
+  provider_id: string | null;
+  unit_price: number;
+  price_as_of: string | null;
+  price_status?: string;
+}
+
+export function productToCacheEntry(p: MarketPricedProductRow): CacheEntry | null {
+  if (p.pricing_model !== 'market' || !p.ticker || !p.price_source) return null;
+  return {
+    symbol: String(p.ticker).trim().toUpperCase(),
+    name: p.name,
+    source: p.price_source,
+    provider_id: p.price_source === 'coingecko' ? p.provider_id : null,
+    asset_type: p.price_source === 'coingecko' ? 'crypto' : 'stock'
+  };
+}
+
+export async function productCacheEntries(admin: any): Promise<CacheEntry[]> {
+  const { data, error } = await admin
+    .from('products')
+    .select('id, ticker, name, pricing_model, price_source, provider_id, unit_price, price_as_of')
+    .eq('pricing_model', 'market');
+  if (error) throw new Error('Could not read market-priced products: ' + error.message);
+  const out: CacheEntry[] = [];
+  for (const row of (data || []) as MarketPricedProductRow[]) {
+    const entry = productToCacheEntry(row);
+    if (entry) out.push(entry);
+  }
+  return out;
+}
+
+// Copies the cache price onto one product row if (and only if) the cache is newer than the
+// price the row already carries. Returns the row's current unit price either way. A missing
+// cache row (a symbol the refresh has not reached yet) leaves the product exactly as it is —
+// that is the "awaiting refresh" state, not an error.
+export async function readThroughMarketPrice(admin: any, product: MarketPricedProductRow): Promise<{ unitPrice: number; priceAsOf: string | null; changePercent: number | null; changed: boolean }> {
+  const symbol = String(product.ticker || '').trim().toUpperCase();
+  const current = { unitPrice: Number(product.unit_price), priceAsOf: product.price_as_of, changePercent: null as number | null, changed: false };
+  if (product.pricing_model !== 'market' || !symbol) return current;
+
+  const { data: cached, error } = await admin
+    .from('market_data_cache')
+    .select('value, change_percent, last_updated')
+    .eq('symbol', symbol)
+    .maybeSingle();
+  if (error) throw new Error('Could not read market_data_cache for ' + symbol + ': ' + error.message);
+  if (!cached || !(Number(cached.value) > 0)) return current;
+  const cacheTime = new Date(cached.last_updated).getTime();
+  const rowTime = product.price_as_of ? new Date(product.price_as_of).getTime() : 0;
+  if (cacheTime <= rowTime) return current;
+
+  const { error: updateErr } = await admin
+    .from('products')
+    .update({
+      unit_price: Number(cached.value),
+      price_as_of: cached.last_updated,
+      price_change_percent: cached.change_percent == null ? null : Number(cached.change_percent),
+      price_status: 'ok',
+      price_failure_reason: null
+    })
+    .eq('id', product.id);
+  if (updateErr) throw new Error('Could not sync market price onto ' + product.id + ': ' + updateErr.message);
+  return { unitPrice: Number(cached.value), priceAsOf: cached.last_updated, changePercent: cached.change_percent == null ? null : Number(cached.change_percent), changed: true };
+}
+
+// After a refresh: sync every market-priced product from the cache, and flag the ones whose
+// symbol could not be priced. `failed` is refreshSymbols()'s own list (symbols and provider
+// messages); a product is flagged when its own symbol is in it.
+export async function syncMarketPricedProducts(
+  admin: any,
+  failed: string[]
+): Promise<{ synced: number; flagged: string[]; cleared: string[] }> {
+  const { data, error } = await admin
+    .from('products')
+    .select('id, ticker, name, pricing_model, price_source, provider_id, unit_price, price_as_of, price_status')
+    .eq('pricing_model', 'market');
+  if (error) throw new Error('Could not read market-priced products: ' + error.message);
+
+  const failedSymbols = new Set(failed.map((f) => String(f).trim().toUpperCase()));
+  const result = { synced: 0, flagged: [] as string[], cleared: [] as string[] };
+  for (const row of (data || []) as MarketPricedProductRow[]) {
+    const symbol = String(row.ticker || '').trim().toUpperCase();
+    if (failedSymbols.has(symbol)) {
+      const { error: flagErr } = await admin
+        .from('products')
+        .update({
+          price_status: 'quote_failed',
+          price_failure_reason: 'The provider returned no usable price for ' + symbol + ' on the last refresh. The last known good price is retained.',
+          price_last_failed_at: new Date().toISOString()
+        })
+        .eq('id', row.id);
+      if (flagErr) throw new Error('Could not flag ' + row.id + ': ' + flagErr.message);
+      result.flagged.push(row.id);
+      continue;
+    }
+    const outcome = await readThroughMarketPrice(admin, row);
+    if (outcome.changed) {
+      result.synced++;
+      if (row.price_status === 'quote_failed') result.cleared.push(row.id);
+    }
+  }
+  return result;
+}

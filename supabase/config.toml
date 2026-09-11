@@ -850,3 +850,8 @@ entrypoint = "./functions/assign-deposit-address/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/remove-deposit-address-assignment/index.ts"
+
+[functions.lookup-product-symbol]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/lookup-product-symbol/index.ts"

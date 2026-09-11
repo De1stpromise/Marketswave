@@ -70,6 +70,10 @@ Deno.serve(async (req) => {
     if (dollarAmount < product.minimum_investment) {
       return jsonResponse({ error: 'Allocation amount is below ' + product.name + '\'s minimum investment of ' + product.minimum_investment + '.' }, 400);
     }
+    // Product catalog — live pricing, part 1 (2026-09-11): the optional PM-set maximum.
+    if (product.maximum_investment != null && dollarAmount > Number(product.maximum_investment)) {
+      return jsonResponse({ error: 'Allocation amount exceeds this product\'s maximum of $' + Number(product.maximum_investment).toLocaleString() + '.' }, 400);
+    }
 
     const { data: accountState, error: accountErr } = await admin
       .from('account_state')

@@ -20,8 +20,7 @@
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { validateProductFields, toProductClientShape, PRODUCT_EDITABLE_FIELDS } from '../_shared/product-validation.ts';
-import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
+import { validateProductFields, toProductClientShape, PRODUCT_EDITABLE_FIELDS, validateMaximumInvestment } from '../_shared/product-validation.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -63,7 +62,7 @@ Deno.serve(async (req) => {
     const disallowed = patchKeys.filter(function (k) { return PRODUCT_EDITABLE_FIELDS.indexOf(k) === -1; });
     if (disallowed.length > 0) {
       return jsonResponse({
-        error: 'editProduct() cannot change: ' + disallowed.join(', ') + '. unitPrice moves only via the returns engine\'s own tick mechanic, never a manual override from this form; id/createdAt/lastTickDate/inceptionUnitPrice are immutable once a product exists.'
+        error: 'editProduct() cannot change: ' + disallowed.join(', ') + '. unitPrice is never set by hand (a market-priced product tracks its symbol; an appraisal product moves only via publish-nav); pricingModel/ticker/priceSource are chosen at creation and immutable; id/createdAt/lastTickDate/inceptionUnitPrice are immutable once a product exists.'
       }, 400);
     }
 
@@ -87,12 +86,19 @@ Deno.serve(async (req) => {
       extendedDescription: 'extendedDescription' in patch ? patch.extendedDescription : existing.extended_description,
       logoUrl: 'logoUrl' in patch ? patch.logoUrl : existing.logo_url
     };
+    // A market-priced product's asset class is derived from its symbol and cannot be
+    // re-filed by hand; the other classes keep the existing rule.
+    if ('assetClass' in patch && existing.pricing_model === 'market' && patch.assetClass !== existing.asset_class) {
+      return jsonResponse({ error: 'A market-priced product\'s asset class is derived from its symbol and cannot be changed.' }, 400);
+    }
+    if ('assetClass' in patch && existing.pricing_model === 'appraisal' && ['Private Equity', 'Real Assets'].indexOf(patch.assetClass) === -1) {
+      return jsonResponse({ error: 'A product valued by appraisal must stay Private Equity or Real Assets.' }, 400);
+    }
+    (merged as Record<string, unknown>).maximumInvestment = 'maximumInvestment' in patch ? patch.maximumInvestment : existing.maximum_investment;
     const validationError = validateProductFields(merged, false);
     if (validationError) return jsonResponse({ error: validationError }, 400);
-    if ('ticker' in patch) {
-      const tickerError = validateTicker(patch.ticker);
-      if (tickerError) return jsonResponse({ error: tickerError }, 400);
-    }
+    const maxError = validateMaximumInvestment(merged as Record<string, unknown>);
+    if (maxError) return jsonResponse({ error: maxError }, 400);
 
     const updateRow: Record<string, unknown> = { updated_by: adminId, updated_by_email: adminEmail };
     if ('name' in patch) updateRow.name = String(patch.name).trim();
@@ -103,13 +109,7 @@ Deno.serve(async (req) => {
     if ('description' in patch) updateRow.description = typeof patch.description === 'string' ? patch.description.trim() : patch.description;
     if ('extendedDescription' in patch) updateRow.extended_description = typeof patch.extendedDescription === 'string' ? patch.extendedDescription.trim() : patch.extendedDescription;
     if ('logoUrl' in patch) updateRow.logo_url = typeof patch.logoUrl === 'string' ? patch.logoUrl.trim() : patch.logoUrl;
-    // ticker (2026-09-11): an empty string clears the mapping (the product stops being
-    // Offered on a watchlist row) rather than storing '' — null is what 'no symbol' means
-    // everywhere else this column is read.
-    if ('ticker' in patch) {
-      const normalized = typeof patch.ticker === 'string' ? normalizeSymbol(patch.ticker) : null;
-      updateRow.ticker = normalized ? normalized : null;
-    }
+    if ('maximumInvestment' in patch) updateRow.maximum_investment = patch.maximumInvestment == null || patch.maximumInvestment === '' ? null : patch.maximumInvestment;
 
     const { data: updated, error: updateErr } = await admin.from('products').update(updateRow).eq('id', id).select().single();
     if (updateErr) {
