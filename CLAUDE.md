@@ -8367,6 +8367,19 @@ row 74.
     `backdrop-filter` composites the subtree and antialiasing caps coverage at roughly 78%,
     so a secondary grey at 11px cannot pass there whichever grey it is. Do not tune a colour
     until the measurement stops complaining — make the text genuinely bigger, or move it.
+    **The measurement stands; the element it was measuring is gone.** Later the same day the
+    symbol count and the "Tracking N of up to 25 symbols" caption were both removed outright
+    (see the next bullet) — which resolved this contrast problem rather than working around
+    it, since the count was the one element that could not pass on this card at any grey.
+  - **★ NO SYMBOL COUNT, AND NO CEILING CAPTION. The ceiling is surfaced in the add flow and
+    nowhere else.** A client does not need a running tally of their own list — it reads as
+    inventory management rather than information, so the heading is plain "Market snapshot".
+    The per-client ceiling is still enforced server-side exactly as before; it appears at the
+    one moment it is relevant, as `add-watchlist-symbol`'s own 409 ("You can track up to 25
+    symbols. Remove one to add another.") shown through `writeErrorMessage()` when a client
+    actually tries to add past it — not before. `verify-watchlist-ui-wiring` asserts both
+    elements are ABSENT and separately drives a real client at a real 25-symbol ceiling
+    clicking a real search result, so neither half can quietly regress.
   - **Measure the alert modal in its OWN contrast run.** It covers the page with a blurred
     scrim, so anything behind it is sampled THROUGH that scrim: the first run reported
     `.wl-name` at 3.6:1 with a WHITE foreground on mid-grey, a real measurement of a
@@ -8379,7 +8392,7 @@ row 74.
   authorization on both scheduled functions, a real pg_cron statement reaching a real Edge
   Function and coming back 200 through pg_net, and a real alert firing once, marked with the
   real price it fired at, with a second sweep confirming no re-fire and no second mail);
-  `npm run verify-watchlist-ui-wiring` 47/47 (the REAL dashboard.html script in a real DOM —
+  `npm run verify-watchlist-ui-wiring` 52/52 (the REAL dashboard.html script in a real DOM —
   real clicks on a real search result, bell, Set alert and Remove); `npm run
   verify-watchlist-visual` 30/30 (contrast on both badge styles and both change directions
   measured separately, fonts by real advance width, 1440/390/375/320 with a viewport-
