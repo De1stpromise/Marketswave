@@ -54,7 +54,7 @@
             <div class="relative flex-1 min-w-[220px] max-w-sm">
               <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               <div class="mw-fld mw-fld--admin">
-                <input type="text" id="client-search" placeholder="Search by name or ID..." class="mw-field mw-field-admin pl-9" placeholder=" " />
+                <input type="text" id="client-search" placeholder="Search by name or ID..." class="mw-field mw-field-admin pl-9" />
                 <label for="client-search">Search by name or ID</label>
               </div>
             </div>
@@ -89,7 +89,7 @@
       <div class="space-y-3">
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Jane Smith" placeholder=" " />
+            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Jane Smith" />
             <label for="add-name">Name</label>
           </div>
         </div>
@@ -106,20 +106,20 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <div class="mw-fld mw-fld--admin">
-              <input type="email" id="add-email" class="mw-field mw-field-admin" placeholder="jane@example.com" placeholder=" " />
+              <input type="email" id="add-email" class="mw-field mw-field-admin" placeholder="jane@example.com" />
               <label for="add-email">Email</label>
             </div>
           </div>
           <div>
             <div class="mw-fld mw-fld--admin">
-              <input type="text" id="add-phone" class="mw-field mw-field-admin" placeholder="+1 (555) 555-0100" placeholder=" " />
+              <input type="text" id="add-phone" class="mw-field mw-field-admin" placeholder="+1 (555) 555-0100" />
               <label for="add-phone">Phone</label>
             </div>
           </div>
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="number" id="add-starting-capital" step="0.01" min="0" class="mw-field mw-field-admin" placeholder="0.00" placeholder=" " />
+            <input type="number" id="add-starting-capital" step="0.01" min="0" class="mw-field mw-field-admin" placeholder="0.00" />
             <label for="add-starting-capital">Starting Unallocated Capital (USD)</label>
           </div>
         </div>
@@ -155,7 +155,7 @@
         stored). Real credential revocation for Firebase-sourced clients isn't available yet.
       </div>
       <div class="mw-fld mw-fld--admin">
-        <textarea id="security-reason-input" rows="3" class="mw-field mw-field-admin mb-2" placeholder="Why is this reset being performed?" placeholder=" "></textarea>
+        <textarea id="security-reason-input" rows="3" class="mw-field mw-field-admin mb-2" placeholder="Why is this reset being performed?"></textarea>
         <label for="security-reason-input">Reason (required)</label>
       </div>
       <p class="text-xs text-red-500 hidden mb-2" id="security-error"></p>

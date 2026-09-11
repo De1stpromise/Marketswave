@@ -51,7 +51,10 @@
     "verify-contrast": "node verify-contrast.mjs",
     "verify-resources-redesign": "node verify-resources-redesign.mjs",
     "verify-password-reset-flow": "node --experimental-loader ./lib/esm-loader-reset-flow-test.mjs verify-password-reset-flow.mjs",
-    "verify-control-patterns": "node verify-control-patterns.mjs"
+    "verify-control-patterns": "node verify-control-patterns.mjs",
+    "verify-upload-accessibility": "node verify-upload-accessibility.mjs",
+    "verify-label-association": "node verify-label-association.mjs",
+    "verify-shared-stylesheet-coverage": "node verify-shared-stylesheet-coverage.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

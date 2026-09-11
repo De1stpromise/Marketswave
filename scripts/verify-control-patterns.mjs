@@ -30,6 +30,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { SETTLE_SOURCE, assertDistinct } from './lib/settle.mjs';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = Number(process.env.CONTROLS_PORT || 9366);
@@ -473,8 +474,8 @@ async function main() {
     // verify-contrast.mjs's controls-fields profile; this is the deterministic guard.
     await goto(cdp, BASE + '/documents.html', clientBootstrap);
     const fldContrast = await cdp.evaluate([
+      SETTLE_SOURCE,
       '(async () => {',
-      '  const settle = () => new Promise((r) => setTimeout(r, 320));',
       '  const lum = (c) => { const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }; return 0.2126*f(c[0]) + 0.7152*f(c[1]) + 0.0722*f(c[2]); };',
       '  const ratio = (a, b) => { const p = [lum(a), lum(b)].sort((x, y) => y - x); return Math.round(((p[0] + 0.05) / (p[1] + 0.05)) * 100) / 100; };',
       '  const rgb = (str) => String(str).split(/[^0-9]+/).filter(function (x) { return x !== ""; }).slice(0, 3).map(Number);',
@@ -490,10 +491,10 @@ async function main() {
       '  const label = wrap.querySelector("label");',
       '  const ground = rgb(getComputedStyle(field).backgroundColor);',
       '  const rest = rgb(getComputedStyle(label).color);',
-      '  await settle();',
+      '  await __mwSettle(wrap);',
       '  const restSettled = rgb(getComputedStyle(label).color);',
       '  field.focus();',
-      '  await settle();',
+      '  await __mwSettle(wrap);',
       '  const focusedGround = rgb(getComputedStyle(field).backgroundColor);',
       '  const focused = rgb(getComputedStyle(label).color);',
       '  const out = { restStable: JSON.stringify(rest) === JSON.stringify(restSettled), restOnGround: ratio(rest, ground), focusedOnGround: ratio(focused, focusedGround), rest: rest, focused: focused, ground: ground, focusedGround: focusedGround, matchesFocus: field.matches(":focus"), docHasFocus: document.hasFocus(), isActive: document.activeElement === field };',
@@ -511,9 +512,9 @@ async function main() {
     // `transition: ... color 0.16s` and getComputedStyle immediately after .focus()
     // returns the pre-transition value. Same class as the mid-fade contrast trap in
     // row 176. Without this guard the pair would keep passing while measuring nothing.
+    const distinct = assertDistinct(fldContrast.rest, fldContrast.focused, 'floating-label colour');
     check('the focused reading is genuinely a DIFFERENT colour from rest, so the pair is not measuring one state twice',
-      JSON.stringify(fldContrast.focused) !== JSON.stringify(fldContrast.rest) && fldContrast.matchesFocus === true,
-      JSON.stringify(fldContrast));
+      distinct.ok && fldContrast.matchesFocus === true, distinct.detail);
 
     // ---------------------------------------------------------------- PART 5: still works
     console.log('\nPART 5 — every control still WORKS (real clicks, real state changes)\n');

@@ -54,7 +54,7 @@
             <div class="relative flex-1 min-w-[220px] max-w-sm">
               <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               <div class="mw-fld mw-fld--admin">
-                <input type="text" id="product-search" placeholder="Search by product name..." class="mw-field mw-field-admin pl-9" placeholder=" " />
+                <input type="text" id="product-search" placeholder="Search by product name..." class="mw-field mw-field-admin pl-9" />
                 <label for="product-search">Search by product name</label>
               </div>
             </div>
@@ -105,7 +105,7 @@
       <div class="space-y-3">
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" placeholder=" " />
+            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" />
             <label for="add-name">Name</label>
           </div>
         </div>
@@ -134,13 +134,13 @@
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" placeholder=" " />
+            <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" />
             <label for="add-investment-type">Investment Type</label>
           </div>
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
-            <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card" placeholder=" "></textarea>
+            <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
             <label for="add-description">Description</label>
           </div>
         </div>
@@ -148,27 +148,27 @@
              see updateAddConditionalFields(), wired to add-asset-class's change event. -->
         <div id="add-logo-url-field" class="hidden">
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" placeholder=" " />
+            <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
             <label for="add-logo-url">Logo URL</label>
           </div>
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="add-extended-description-field" class="hidden">
           <div class="mw-fld mw-fld--admin">
-            <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup" placeholder=" "></textarea>
+            <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
             <label for="add-extended-description">Extended Description</label>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <div class="mw-fld mw-fld--admin">
-              <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" placeholder=" " />
+              <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" />
               <label for="add-minimum-investment">Minimum Investment (USD)</label>
             </div>
           </div>
           <div>
             <div class="mw-fld mw-fld--admin">
-              <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" placeholder=" " />
+              <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" />
               <label for="add-unit-price">Starting Unit Price (USD)</label>
             </div>
           </div>
@@ -231,7 +231,7 @@
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
-            <textarea id="edit-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card" placeholder=" "></textarea>
+            <textarea id="edit-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
             <label for="edit-description">Description</label>
           </div>
         </div>
@@ -239,14 +239,14 @@
              see updateEditConditionalFields(), wired to edit-asset-class's change event. -->
         <div id="edit-logo-url-field" class="hidden">
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="edit-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" placeholder=" " />
+            <input type="text" id="edit-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
             <label for="edit-logo-url">Logo URL</label>
           </div>
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="edit-extended-description-field" class="hidden">
           <div class="mw-fld mw-fld--admin">
-            <textarea id="edit-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup" placeholder=" "></textarea>
+            <textarea id="edit-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
             <label for="edit-extended-description">Extended Description</label>
           </div>
         </div>
@@ -286,7 +286,7 @@
       <div class="space-y-3">
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" placeholder=" " />
+            <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" />
             <label for="nav-unit-price">New Unit Price (USD)</label>
           </div>
         </div>
@@ -299,7 +299,7 @@
         </div>
         <div>
           <div class="mw-fld mw-fld--admin">
-            <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" placeholder=" " />
+            <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" />
             <label for="nav-note">Note (optional)</label>
           </div>
         </div>

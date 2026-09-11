@@ -54,6 +54,121 @@ sweep — for contexts with several primary-ish actions where a sweep on each wo
 
 ---
 
+## 2A. Finding 1 — row 190 was scoped as a styling conversion. It was a platform-wide accessibility repair.
+
+**This is the headline finding of the whole sweep, not a footnote to it.**
+
+Row 190 read as cosmetic: convert 72 labels to the floating-label pattern. Before converting
+anything, `scripts/verify-label-association.mjs` recorded a baseline by reading the
+**computed accessible name** of every form control from the accessibility tree — not the
+presence of a `for` attribute, the actual name a screen reader would announce.
+
+### The pre-conversion baseline, measured across the 26 pages
+
+| | Controls | Share |
+|---|---|---|
+| Correctly named | **45** | 21% |
+| **Named only by their placeholder** | **101** | 47% |
+| **No accessible name at all** | **71** | 33% |
+| **Total inspected** | **217** | |
+
+The three categories partition the population exactly — 45 + 101 + 71 = 217, no overlap —
+because in the accessibility tree a placeholder *does* become the accessible name when
+nothing better exists, so a control is in exactly one of these states.
+
+<sub>**A correction worth recording, since the point of a number is that it is checkable.**
+This finding was first reported as "99 with no accessible name". The real figure is **71**,
+read back from `scripts/label-association-baseline.json` rather than from notes. 99 appears
+to date from an intermediate run, before three compounding bugs in the probe were fixed —
+the decisive one being that `visibility: hidden` removes an element from the accessibility
+tree *entirely*, so every control inside a modal revealed that way reported as unnamed. The
+other two figures, 45 and 101, are confirmed exact.</sub>
+
+**79% of this platform's form controls could not be correctly announced.** That is the
+finding. A conversion "assertion" written to protect 72 labels turned out to be measuring a
+population where four out of five controls were already broken before anyone touched them.
+
+### Why placeholder-only is a real failure, not a lesser one
+
+A placeholder is not a name. It is *removed from the rendered field the moment the user
+types a character*, so the control loses its only identification at precisely the point the
+user most needs to confirm what they are filling in — and a user reviewing a half-completed
+form by keyboard hears nothing but "edit text". 101 controls were in this state. The
+conversion promoted each of those placeholders to a real `<label>`, which is why the
+post-conversion count of controls *gaining* a name is 170 rather than 72.
+
+### What this changes about how a task like this should be read
+
+The instruction was "add an assertion that every input has a correctly associated label —
+run it BEFORE the conversion to establish a **passing** baseline". The baseline did not
+pass. It could not have: 172 of 217 controls failed on the day the assertion was first run,
+against untouched code.
+
+Had the assertion been written after the conversion — or written to fit whatever the
+conversion produced — the 45/217 figure would never have existed, the repair would have been
+invisible, and the sweep would have been recorded as a styling change. **The number only
+exists because the check ran against code nobody had touched yet.** That ordering is the
+transferable lesson, and it is worth paying for on any future conversion of this shape.
+
+`scripts/label-association-baseline.json` holds the recorded baseline, all 217 keys, so a
+future pass can diff against the real starting state rather than this prose.
+
+---
+
+## 2B. Finding 2 — a shared stylesheet added in one pass silently misses the pages outside that pass's scope
+
+A second failure, structurally unrelated to the first, and worth recording **as a category**
+rather than as the one-off it looked like.
+
+This sweep created `control-patterns.css` and linked it on the 26 Tailwind pages, because
+those were the pages the sweep covered. `signup.html` is a custom-CSS public page and was
+correctly outside that scope. Row 189 then retrofitted signup's two document uploads to the
+shared `.mw-upload` component — and the markup arrived on a page that had never linked the
+stylesheet defining it.
+
+The result: on the one page where the upload is a **required step to open an account**, the
+component rendered with no styling and, critically, **no focus ring at all**. A keyboard
+user could reach the control — the native input and `<label for>` guaranteed that — but had
+no visible indication they had.
+
+**Nothing failed and nothing warned.** The markup was correct. The CSS was correct. The
+build had no step capable of noticing they had never been introduced.
+
+### The category
+
+> A shared stylesheet added in one pass is linked on exactly the pages that pass was scoped
+> to. Any later pass that uses the component on a page outside that scope inherits a silent
+> gap, and the symptom is missing *visual affordance* — which is exactly the class of defect
+> that does not announce itself in a test that checks behaviour or semantics.
+
+This is the same shape as the Tailwind CDN's silent-no-CSS failure (row 165) and as a CSS
+rule that matches but is out-specified (mobile Batch 2): **the code is right, the code is
+reachable, and the code does nothing.** This project has now hit that shape three times in
+three different mechanisms.
+
+### Closed by a standing assertion
+
+`scripts/verify-shared-stylesheet-coverage.mjs` (`npm run verify-shared-stylesheet-coverage`)
+is static, needs no browser, and runs in under a second. For every page it asks: does this
+page use a class that only a shared component stylesheet defines, and can it reach a
+definition? It follows `@import` transitively, counts a page's own inline `<style>` as a
+definition, and treats a script that *builds* markup as a user of the classes it writes — so
+`chat-widget.js`, whose classes appear in no HTML file at all, still imposes its stylesheet
+requirement on every page that loads it.
+
+It was proven against the real bug, not just a clean run: removing the `control-patterns.css`
+link from `signup.html` makes it fail by name (`signup.html uses classes defined only in
+control-patterns.css, which it never links: mw-upload, is-empty, mw-upload-input, …`), and
+it carries its own non-vacuity check so a future refactor cannot quietly render it inert.
+
+One design note for whoever extends it: ownership is **many-to-many on purpose**. A first
+version nominated a single owner per class and reported eleven healthy public pages as
+broken, because `.access-modal-close` is *defined* by `styles.css` and merely *qualified* by
+`tap-targets.css`. A page is satisfied if it reaches any sheet defining the class; what that
+still catches is the real failure, a page reaching none.
+
+---
+
 ## 3. Inventory
 
 ### 3.1 Public site (12 pages, custom CSS) — already substantially on-pattern
@@ -263,8 +378,40 @@ were not touched (`.mw-btn` uses `font-family: inherit`).
 
 ## 8. Still open
 
-| # | Item | Register row |
-|---|---|---|
-| 1 | Custom file-input component — **and the live keyboard-accessibility defect in signup.html's existing `.upload-box`** | 189 |
-| 2 | Floating-label conversion for the 72 dashboard/admin form controls | 190 |
-| 3 | Contrast coverage gap: `deploy-capital.html` and `admin-deposits.html` reported zero visible controls in their default state (panels hidden / queue empty). Their controls use recipes measured elsewhere, but they have not been measured *on those pages* | — |
+Rows 189 and 190 are **closed** — see §2A and §2B for what they turned into, and register
+rows 189, 190 and 191 for the full record.
+
+| # | Item | Register row | Status |
+|---|---|---|---|
+| 1 | Custom file-input component, and the live keyboard-accessibility defect in `signup.html`'s `.upload-box` | 189 | **CLOSED 2026-09-10.** Native `<input type="file">` + real `<label for>`, clip-hidden so it stays focusable and announced. Keyboard-only completion of the entire signup flow demonstrated, with a pointer-event counter proving zero mouse events. A second live defect (choice radios at `display:none`) was found and fixed because the criterion was otherwise unreachable. 43/43. |
+| 2 | Floating-label conversion | 190 | **CLOSED 2026-09-10**, and much larger than scoped — see §2A. 45 of 217 controls were correctly named beforehand; 170 gained a name. |
+| 3 | Shared-stylesheet page-coverage gap | 191 | **CLOSED 2026-09-10** by `npm run verify-shared-stylesheet-coverage` — see §2B. |
+| 4 | **Contrast coverage gap on `deploy-capital.html` and `admin-deposits.html`** | — | **STILL OPEN. Must be measured, not inferred.** |
+
+### 8.1 What remains on item 4, stated precisely so it is not re-derived
+
+Both pages reported **zero visible controls** in their default state: `deploy-capital.html`'s
+form panels are `display: none` until an option card is chosen, and `admin-deposits.html`'s
+queue is empty unless a pending deposit exists. Their controls use recipes measured on other
+pages, so there is no reason to expect a failure — but "no reason to expect one" is exactly
+the reasoning that left white-on-emerald-600 at 3.77:1 shipping across every admin Approve
+button until someone measured it (§7).
+
+An attempt was made during this sweep and is **not** recorded as a result, deliberately: the
+runner was a scratch script, its numbers were never written down, and it has since been
+deleted. Reporting remembered figures would be worse than reporting none. What it did leave
+behind is the knowledge of how to do it, which is the part worth keeping:
+
+- both pages need a **real authenticated session** seeded before navigation
+  (`CONTRAST_BOOTSTRAP_JS`), and `admin-deposits.html` additionally needs a **real pending
+  deposit row**, or the run measures an empty page and reports a confident zero;
+- the panels must be revealed **after** the page settles (`CONTRAST_PREPARE_JS`), which is
+  the hook §7 added for exactly this;
+- **reveal one surface at a time.** Force-revealing every modal at once stacks them, and the
+  sampler then reads one panel's white through another — that produced 33 bogus 1:1 readings
+  before it was understood;
+- give each Chrome launch its **own debug port**. A shared port across sequential launches
+  silently attaches to the previous instance.
+
+The empty-run guard already in the harness (a run that measures zero elements is a failure,
+not a pass) is what makes this safe to attempt again without risking a vacuous green.

@@ -8082,6 +8082,136 @@ row 74.
   work. Contrast: 64 real composited-pixel measurements on 8 pages including hover, 0 below
   4.5:1. `verify-tailwind-color-scoping` PASS. Fonts untouched (`.mw-btn` inherits).
 
+- **★★★ Accessible file input + floating labels — a styling task that measurement turned into
+  a platform-wide accessibility repair (2026-09-10, rows 189-191).** Two register rows were
+  taken in one pass, Part 1 (row 189) first because a keyboard-only or screen-reader user
+  genuinely could not open an account, and Part 2 (row 190) second because it is a much wider
+  but lower-severity change. **Three findings here generalise well beyond this task and are
+  the reason to read this entry at all.**
+
+  **★ FINDING 1 — THE REAL PRE-CONVERSION BASELINE: 45 OF 217 CONTROLS PROPERLY NAMED.**
+  Row 190 was scoped as a styling conversion of 72 labels. Running the label-association
+  assertion BEFORE touching anything — reading **computed accessible names from the
+  accessibility tree**, not the presence of a `for` attribute — found that across the 26
+  pages, of 217 form controls only **45 were correctly named**, **101 were named ONLY by
+  their placeholder**, and **71 had no accessible name at all**. The three categories
+  partition exactly (45+101+71=217). **79% of this platform's form controls could not be
+  correctly announced, and had not been since those pages were built.** A placeholder is not
+  a name: it is removed from the field the moment the user types, so a placeholder-only
+  control loses its only identification precisely when the user most needs it — which is why
+  the conversion promoted those placeholders to real labels and 170 controls gained a name,
+  not 72. **The number only exists because the check ran against code nobody had touched
+  yet.** The instruction asked for a *passing* baseline; the baseline did not pass and could
+  not have. Written afterwards, or written to fit what the conversion produced, the repair
+  would have been invisible and this would be recorded as a styling change. That ordering is
+  the transferable lesson for any future conversion of this shape. **A correction recorded
+  rather than quietly carried**: this was first reported as "99 with no accessible name"; the
+  real figure read back from `scripts/label-association-baseline.json` is **71**, with 99
+  apparently dating from an intermediate run before the probe's own bugs were fixed. 45 and
+  101 are exact. The baseline JSON is committed, so a future pass diffs against real recorded
+  state rather than against this prose.
+
+  **★ FINDING 2 — A SHARED STYLESHEET ADDED IN ONE PASS SILENTLY MISSES THE PAGES OUTSIDE
+  THAT PASS'S SCOPE.** Row 188 created `control-patterns.css` and linked it on the 26 Tailwind
+  pages, correctly, because that was its scope; `signup.html` is a custom-CSS public page and
+  was correctly outside it. Row 189 then retrofitted signup's uploads to the shared
+  `.mw-upload` component — and the markup landed on a page that had never linked the
+  stylesheet defining it. On the one page where that upload is a REQUIRED step to open an
+  account, the component rendered unstyled with **no focus ring at all**. Nothing failed and
+  nothing warned; the markup was right, the CSS was right, and no build step could notice they
+  had never been introduced. **This is the third distinct mechanism producing the same shape
+  in this project** — the code is right, the code is reachable, and the code does nothing —
+  after the Tailwind CDN emitting no CSS for an unrecognised utility (row 165) and a rule
+  out-specified by a later same-specificity rule (mobile Batch 2). Closed permanently by
+  **`npm run verify-shared-stylesheet-coverage`** (static, no browser, sub-second): for every
+  page, does it use a class only a shared component stylesheet defines, and can it reach a
+  definition? It follows `@import` transitively, counts a page's own inline `<style>`, and
+  treats a script that BUILDS markup as a user of the classes it writes — `chat-widget.js` is
+  the real case, since its classes appear in no HTML file at all. Proven against the real bug
+  by removing the link from signup.html and watching it fail by name, and it carries its own
+  non-vacuity check. **Design note for whoever extends it**: class ownership is many-to-many
+  ON PURPOSE — a first version nominated one owner per class and reported eleven healthy
+  public pages as broken, because `.access-modal-close` is *defined* by `styles.css` and
+  merely *qualified* by `tap-targets.css`.
+
+  **★ FINDING 3 — A COMPUTED STYLE READ DURING A TRANSITION IS THE OLD VALUE, AND THIS HAS
+  NOW COST TIME IN THREE SEPARATE TASKS. There is now a shared helper; use it.** The
+  floating-label contrast probe reported an IDENTICAL 4.77:1 for the resting and the focused
+  state — impossible, since focus repaints the label navy on white. Two causes, the first
+  masking the second: a headless page is not focused, so `:focus` never matched until
+  `Emulation.setFocusEmulationEnabled`; and once that was fixed, `.mw-fld > label` carries
+  `transition: color 0.16s`, so `getComputedStyle` immediately after `.focus()` still returned
+  the PRE-transition colour. Settled, the focused state reads its real **11.98:1**. Same shape
+  as row 176 (seam-artifact scenes animate opacity on long cycles, so sampling at an arbitrary
+  instant caught text mid-fade and reported a meaningless 1.42:1) and row 188 (the contrast
+  harness needed a post-settle hook because controls that only exist after a panel opens were
+  measured before they did). **`scripts/lib/settle.mjs` now exists so the fourth occurrence
+  does not have to rediscover it**: `SETTLE_SOURCE` is browser-side code defining
+  `__mwSettle(el)`, which waits on the element's REAL `getAnimations({subtree:true})`
+  `.finished` promises rather than guessing a sleep duration (a fixed sleep silently becomes
+  wrong the moment someone changes a duration), with a timeout only as a backstop against a
+  looping animation. It also exports `assertDistinct(before, after, what)` — **the cheap
+  non-vacuity guard that is what actually catches this class of bug**, since settling is
+  necessary but not sufficient and a probe can still read one state twice. The floating-label
+  pair now fails loudly if both readings are ever the same colour again. **The general rule:
+  whenever a before/after pair is EXPECTED to differ, assert that it does — a plausible
+  identical number is the failure mode, not an obvious one.**
+
+  **Part 1 — the component (row 189).** The design question was investigated rather than
+  assumed, and the answer is the native input: a visually-hidden-but-focusable
+  `<input type="file">` driven by real `<label for>` elements beats a `<button>` with ARIA
+  because it INHERITS rather than reimplements — tab order, focus, Space AND Enter activation,
+  click-to-open, form association, constraint validation. The deciding argument is the failure
+  mode: **if the JS never loads the native control still opens a picker and still submits,
+  whereas a button+ARIA control does nothing at all.** `upload-control.js` therefore adds only
+  what cannot be native (filename readout, Remove affordance, error association) and the
+  component is fully operable without it. **The hiding technique matters and the obvious one is
+  wrong**: `display:none` and `visibility:hidden` both remove an element from the tab order AND
+  the accessibility tree — that is the root defect being fixed — so the input uses the clip
+  technique. **A SECOND live keyboard defect was found and fixing it was required rather than
+  scope creep**: signup's account-type and choice radios were also `display:none`, so the flow
+  could not be completed by keyboard even with the uploads fixed. One implementation, applied
+  to documents/admin-documents/settings/support so there is no second pattern to drift.
+  **Verified 43/43, and the acceptance criterion was DEMONSTRATED, not asserted**: the entire
+  signup flow completed keyboard-only including both required uploads, with a pointer-event
+  counter proving zero mouse events. Three harness traps had to be solved first, each of which
+  produces a confident false result: a headless page is not focused; CDP key events need a
+  `char` event for DEFAULT ACTIONS, so Enter with only `rawKeyDown`+`keyUp` never activates a
+  button; and **keyboard activation of a button fires a genuinely TRUSTED `click`**, which gave
+  17 false positives until the counter was narrowed to `mousedown`/`pointerdown`/`mouseup`/
+  `pointerup`.
+
+  **Part 2 — the conversion (row 190).** Uniform, including controls built inside JS template
+  literals. `.mw-fld--static` is not a half-conversion: `:placeholder-shown` never matches a
+  `<select>` and is unreliable on date/time, so those keep their label permanently raised
+  rather than depending on a selector that cannot fire. **Three compounding bugs in the probe
+  had to be fixed before its numbers meant anything** — it first reported 221/246 unnamed — the
+  decisive one being that **`visibility: hidden` removes an element from the accessibility tree
+  ENTIRELY** (role→none, ignored→true, empty name), so every control inside a modal revealed
+  that way reported as unnamed; modals are revealed with `opacity: 0` now, which is safe for
+  geometry and name probes alike.
+
+  **Real bugs found and fixed during verification, disclosed rather than smoothed over.**
+  (1) **68 controls carried a DUPLICATE `placeholder` attribute** — browsers honour the first,
+  so the real hint text rendered underneath the resting label as overlapping text, and my first
+  grep found only 26 of them because the other 42 had `class` between the two attributes.
+  Collapsing them by deleting the hint would have lost real guidance the label cannot give
+  ("As it appears on your bank account" against a label of "Account Holder Name"), so instead
+  the informative placeholder is kept and `.mw-fld > .mw-field::placeholder` is transparent at
+  rest, fading in on focus once the label has lifted clear — `:placeholder-shown` keys on the
+  field being EMPTY, not on the text being legible, so the float is unaffected.
+  (2) **`asset-collection.html`'s product-card template referenced `p.id` where the variable in
+  scope is `product`** — a ReferenceError thrown per card, so the grid rendered EMPTY and two
+  suites failed with null-dereference TypeErrors that initially looked like leftover
+  test-product pollution (checked: only the 5 seeded products existed, so it was real).
+  (3) The focused placeholder colour was first set to `#9AA1A8`, measured **2.61:1**, and the
+  pre-existing `.mw-field::placeholder` was **2.84:1** — both below the 4.5:1 floor, and a
+  placeholder IS text; both are `#6B7178` now (4.93:1).
+  **Verified**: `verify-upload-accessibility` 43/43, `verify-label-association` compare-mode
+  clean (no control that HAD a name lost it, 245 inspected, none placeholder-only, 170 gained
+  a name), `verify-control-patterns` 41/41, `verify-shared-stylesheet-coverage` 2/2,
+  `verify-tailwind-color-scoping` PASS, `supabase-golden-path-regression` PASS (16/16).
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -8333,6 +8463,19 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   not a destructive bare `theme.colors` override. `scripts/verify-tailwind-color-scoping.js`
   is the standing, automatable check for both directions — checked directly (not assumed) to
   actually catch the exact regression by reintroducing it in a throwaway copy first.
+- **★ Never read a computed style without settling its transition first — use
+  `scripts/lib/settle.mjs`.** This exact bug has now cost real time in three separate tasks
+  (rows 176, 188, 190) and the fix was the same every time: a computed style read while a
+  transition is running returns the OLD value, and it is a perfectly plausible number, so
+  nothing throws and the assertion passes while measuring a state you did not intend. Row 190's
+  floating-label probe reported an identical 4.77:1 for rest AND focus; settled, focus reads its
+  real 11.98:1. `SETTLE_SOURCE` is browser-side code defining `__mwSettle(el)` that waits on the
+  element's real `getAnimations({subtree:true})` `.finished` promises — not a sleep, which
+  silently becomes wrong the moment someone changes a duration. **And settling is necessary but
+  not sufficient**: a probe can still be pointed at the wrong element and read one state twice,
+  so `assertDistinct(before, after, what)` from the same module is the non-vacuity guard that
+  actually catches it. **Whenever a before/after pair is EXPECTED to differ, assert that it
+  does.**
 - **★ Full-suite runs need ONE warm-up pass after a cold start — take measurements from the
   SECOND run onward.** Added 2026-09-09. A "cold start" is any `supabase start` after a
   `supabase stop`, including the very first run of a session. The stack is genuinely not at

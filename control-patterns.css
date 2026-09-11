@@ -281,7 +281,9 @@
   color: #1A1C1E;
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
 }
-.mw-field::placeholder { color: #9A9690; }
+.mw-field::placeholder { color: #6B7178; }  /* was #9A9690, a measured 2.84:1 — below the
+   4.5:1 floor for text, and a placeholder IS text. Pre-existing, fixed here because this
+   sweep owns this declaration and the same tone is already proven elsewhere (4.93:1). */
 .mw-field:hover:not(:disabled) { border-color: #C4BFB6; background: #FFFFFF; }
 .mw-field:focus {
   outline: none;
@@ -582,6 +584,24 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
 .mw-fld > textarea.mw-field:not(:placeholder-shown) + label { top: 9px; }
 
 .mw-fld > .mw-field:disabled + label { opacity: 0.55; }
+
+/* ★ A REAL PLACEHOLDER AND A RESTING LABEL OCCUPY THE SAME PIXELS.
+   The float pattern is usually taught as `placeholder=" "`, because at rest the label sits
+   centred over the field and any visible placeholder text renders straight through it. But
+   several of these fields carry placeholders that are genuine guidance the label cannot
+   give — "As it appears on your bank account" against a label of "Account Holder Name" —
+   and deleting 68 of those to satisfy a selector trick would be losing real content to
+   style.
+   It is not necessary. `:placeholder-shown` matches on whether the field is EMPTY, not on
+   whether the placeholder is legible, so hiding the text costs the float nothing: the hint
+   is transparent while the label is resting on top of it, and fades in once focus has
+   lifted the label clear. Fields whose placeholder was only ever the `" "` helper are
+   unaffected — there is nothing to reveal. */
+.mw-fld > .mw-field::placeholder {
+  color: transparent;
+  transition: color 0.16s ease;
+}
+.mw-fld > .mw-field:focus::placeholder { color: #6B7178; }  /* 4.93:1 on the focused white ground; #9AA1A8 measured 2.61:1 */
 
 /* The compact filter-bar variant is retired by this conversion: a raised label
    and a value cannot both fit in 40px. Every field is one height now, which is
