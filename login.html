@@ -8,12 +8,11 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- JetBrains Mono is genuinely used on this page: the client-portal eyebrow, the
-       account-recovery eyebrow and the loading screen's live status line. It was NOT
-       loaded here before the 2026-09-09 redesign, so anything reaching for it would have
-       silently fallen back — the same bug class as row 180. Weight 500 is what the
-       redesign actually uses. -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <!-- Inter only. JetBrains Mono was removed project-wide on 2026-09-10: it entered
+       through design mockups and was never an approved part of the type scheme.
+       Numeric alignment is handled by font-variant-numeric: tabular-nums, not by a
+       second family. Do not re-add it. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="engine-core.js"></script>
   <style>
     /* ==========================================================================================
@@ -153,8 +152,7 @@
     }
 
     .gate-eyebrow {
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+      font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
       color: #137053;                   /* 5.9:1 on the cream pane; --accent-teal is 4.4:1 */
       margin-bottom: 16px; display: block;
     }
@@ -280,7 +278,6 @@
 
     .loading-text { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 9px; }
     .loading-sub {
-      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 12px; font-weight: 500; letter-spacing: .06em; color: rgba(247,246,243,.78); min-height: 18px;
     }
     .load-bar { width: 200px; height: 2px; margin: 26px auto 0; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }

@@ -8,14 +8,11 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- JetBrains Mono is genuinely required here, not decorative: styles.css sets it on
-       .res-n, .res-kind and .res-dot (the Core Strategies numerals/labels and the How It
-       Works step numerals), and the portfolio-assembly artifact below uses it throughout.
-       It was NOT loaded on this page until 2026-09-09, so all of those had been silently
-       falling back since the Resources redesign shipped — measured, not assumed: the family
-       rendered at exactly the same width as a nonexistent one. Weights 400 (inherited by the
-       existing .res-* elements) and 500 (the artifact) are both genuinely in use. -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Inter only. JetBrains Mono was removed project-wide on 2026-09-10: it entered
+       through design mockups and was never an approved part of the type scheme.
+       Numeric alignment is handled by font-variant-numeric: tabular-nums, not by a
+       second family. Do not re-add it. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body>

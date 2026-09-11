@@ -121,12 +121,13 @@
     font-weight: 500;
     padding-right: 0.5rem;
     /* A ::before inherits from its ORIGINATING ELEMENT, so a cell that sets its own
-       font-family hands that family to its label too. On asset-performance.html the numeric
-       cells are JetBrains Mono, which rendered sentence-case prose labels ("Capital
-       Allocated", "Current value") in monospace — breaking the settled rule that mono is for
-       figures and for uppercase letter-spaced micro-labels, and these are neither. The label
-       is prose, so it states its own family rather than inheriting the cell's. Cells that are
-       already Inter are unaffected; the FIGURES inside the cards keep their own family. */
+       font-family hands that family to its label too. This rule was added when the numeric
+       cells on asset-performance.html were JetBrains Mono and handed that family to their
+       sentence-case prose labels ("Capital Allocated", "Current value").
+       That cause is GONE -- mono was removed project-wide on 2026-09-10 and no cell sets a
+       family any more -- but the declaration is kept deliberately: it costs nothing, it is
+       already what these labels should be, and it means a future cell that does set its own
+       family cannot silently drag prose along with it. */
     font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   /* An action cell (or any cell whose heading is genuinely blank) carries data-label="" and

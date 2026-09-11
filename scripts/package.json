@@ -54,7 +54,8 @@
     "verify-control-patterns": "node verify-control-patterns.mjs",
     "verify-upload-accessibility": "node verify-upload-accessibility.mjs",
     "verify-label-association": "node verify-label-association.mjs",
-    "verify-shared-stylesheet-coverage": "node verify-shared-stylesheet-coverage.mjs"
+    "verify-shared-stylesheet-coverage": "node verify-shared-stylesheet-coverage.mjs",
+    "verify-no-monospace": "node verify-no-monospace.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

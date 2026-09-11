@@ -1666,7 +1666,7 @@ body.has-overlay-header .hero {
   padding-left: 100%;
 }
 .hero-tape span {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 11.5px; color: #5B6670; letter-spacing: .02em;
 }
 .hero-tape b { color: #152F3E; font-weight: 500; }
@@ -1872,7 +1872,7 @@ body.has-overlay-header .hero {
 }
 .field-eyebrow {
   display: block; margin-bottom: 12px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
   font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
 }
 .field-top h2 {
@@ -1961,7 +1961,7 @@ body.has-overlay-header .hero {
 
 .fpanel-pg {
   position: absolute; right: 22px; top: 24px; z-index: 6;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 11px; letter-spacing: .14em; color: var(--ink-3);
   opacity: 0; transition: opacity .5s .2s;
 }
@@ -2114,7 +2114,7 @@ body.has-overlay-header .hero {
 }
 .approach .container { position: relative; z-index: 2; }
 .approach .eyebrow {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
   font-size: 11px; letter-spacing: .16em; color: #9FE1CB; margin-bottom: 20px;
 }
 
@@ -2141,7 +2141,7 @@ body.has-overlay-header .hero {
 .approach-esg p { font-size: 16.5px; line-height: 1.75; color: rgba(247, 246, 243, .88); }
 .approach-esg-attrib {
   display: block; margin-top: 16px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
   font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #9FE1CB;
 }
 
@@ -2159,7 +2159,7 @@ body.has-overlay-header .hero {
   width: 38px; height: 38px; border-radius: 50%;
   background: #0E2130; border: 1px solid rgba(159, 225, 203, .45);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 12px; color: #9FE1CB; margin-bottom: 22px;
   transition: background .35s, border-color .35s, color .35s, transform .35s;
 }
@@ -2196,7 +2196,7 @@ body.has-overlay-header .hero {
    as the quiet element because the name beside it is navy, not because it is faint. */
 .values-head > p { font-size: 14.5px; line-height: 1.75; color: #5C6367; max-width: 340px; }
 
-/* An editorial list, deliberately not cards: hairline dividers, a monospace numeral, the
+/* An editorial list, deliberately not cards: hairline dividers, a tabular numeral, the
    name and the description, with the row lifting and sliding right on hover. */
 .values-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgba(27,58,75,.14); }
 .values-row {
@@ -2207,7 +2207,7 @@ body.has-overlay-header .hero {
 }
 .values-row:hover { background: rgba(255, 255, 255, .55); padding-left: 16px; }
 .values-num {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 13px; letter-spacing: .1em; color: #5C6367; transition: color .35s;
 }
 .values-row:hover .values-num { color: var(--accent-teal); }
@@ -2330,7 +2330,7 @@ body.has-overlay-header .hero {
 .res-item:focus-within::before { transform: scaleY(1); }
 
 .res-n {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 12px; letter-spacing: .1em;
   color: #5C6367;            /* mockup #A6ADB2 measured 2.2:1 over this ground */
   padding-top: 5px;
@@ -2366,7 +2366,7 @@ body.has-overlay-header .hero {
 .res-item:focus-within h3 { color: #12283A; }
 .res-kind {
   display: block; margin-top: 4px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
   font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
   color: #5C6367;            /* mockup #A6ADB2, same measurement */
   transition: color .4s;
@@ -2452,12 +2452,11 @@ body.has-overlay-header .hero {
   border-bottom: 1px solid rgba(27, 58, 75, .14);
 }
 .hiw-cap b {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px; font-weight: 500; letter-spacing: .14em;
+  font-size: 10px; font-weight: 700; letter-spacing: .14em;
   text-transform: uppercase; color: #5C6367;
 }
 .hiw-cap i {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 11px; font-style: normal; color: var(--primary);
 }
 
@@ -2473,7 +2472,7 @@ body.has-overlay-header .hero {
 }
 .hiw-row {
   display: flex; justify-content: space-between;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   opacity: .22;
   transition: opacity .5s;
@@ -2537,7 +2536,7 @@ body.has-overlay-header .hero {
   background: var(--bg);
   border: 1px solid rgba(27, 58, 75, .22);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 10px; color: #5C6367;
   transition: background .4s cubic-bezier(.3, 1.3, .5, 1), border-color .4s, color .4s, transform .4s cubic-bezier(.3, 1.3, .5, 1);
 }
@@ -2644,7 +2643,6 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   padding: 6px 12px;
   border-radius: 8px;
   box-shadow: 0 8px 20px -10px rgba(0, 0, 0, .35);
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 /* ---- 1 ARRIVE — capital enters the vault ------------------------------------------------ */
@@ -2688,7 +2686,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   box-shadow: 0 10px 18px -6px rgba(0,0,0,.55), inset 0 2px 3px rgba(255,255,255,.5);
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 800; color: #5A3B00;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   animation: saCoin 10s cubic-bezier(.4,0,.2,1) infinite;
 }
 @keyframes saCoin {
@@ -2761,7 +2759,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-price {
   position: absolute; right: 5%; font-size: 13px; font-weight: 700; color: var(--bg);
   background: var(--accent-teal); padding: 5px 10px; border-radius: 6px; white-space: nowrap;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   box-shadow: 0 8px 18px -8px rgba(0,0,0,.5);
   animation: saPrc 8s cubic-bezier(.2,.9,.3,1) infinite;
 }
@@ -2789,7 +2787,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-radar .b1 { left: 62%; top: 30%; }
 .sa-radar .b2 { left: 30%; top: 62%; animation-delay: 1.6s; } .sa-radar .b2::after { animation-delay: 1.6s; }
 .sa-radar .b3 { left: 70%; top: 66%; animation-delay: 3.2s; } .sa-radar .b3::after { animation-delay: 3.2s; }
-.sa-readout { display: flex; flex-direction: column; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sa-readout { display: flex; flex-direction: column; gap: 10px; font-variant-numeric: tabular-nums; }
 .sa-readout .row {
   display: flex; gap: 12px; align-items: center; font-size: 12px; white-space: nowrap;
   padding: 5px 12px; border-radius: 6px;
@@ -2810,7 +2808,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   box-shadow: 0 18px 30px -10px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.5);
   display: flex; align-items: center; justify-content: center;
   color: #5A3B00; font-weight: 800; font-size: 9px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   animation: saRoll 8s cubic-bezier(.4,0,.6,1) infinite;
 }
 @keyframes saRoll { 0%{transform:translate(0,0) rotate(0) scale(1);opacity:0} 5%{opacity:1} 92%{opacity:1} 100%{transform:translate(calc(100vw + 60px),-46px) rotate(1080deg) scale(4);opacity:0} }
@@ -2824,7 +2822,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   background: linear-gradient(180deg, #FFFFFF, #F7F5F0); border-radius: 8px; overflow: hidden;
   box-shadow: 0 30px 60px -18px rgba(0,0,0,.5), inset 0 0 0 1px rgba(27,58,75,.08);
   padding: 18px 22px; color: var(--primary);
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
   animation: saChq 11s cubic-bezier(.4,0,.2,1) infinite;
 }
 .sa-chq::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(27,58,75,.1); border-radius: 5px; pointer-events: none; }

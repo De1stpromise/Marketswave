@@ -7924,9 +7924,10 @@ row 74.
   sell, summing back to exactly $100,000. `execute-sell` is the only writer of SELL rows and
   has always written `realized_return`, so no legacy row breaks it.
   **Things a future session needs to know before touching this:**
-  - **★ MONO IS RETIRED FROM THE CLIENT DASHBOARD ENTIRELY (2026-09-10). Neither
-    dashboard.html nor asset-performance.html requests a monospace face any more, and no
-    element on either page resolves to one.** It went in two steps on the same day, and the
+  - **★ MONO IS RETIRED FROM THE CLIENT DASHBOARD ENTIRELY (2026-09-10) — and, as of
+    2026-09-11, FROM THE WHOLE PROJECT.** Neither dashboard.html nor asset-performance.html
+    requests a monospace face any more, and no element on either page resolves to one; the
+    same is now true of every other page. It went in two steps on the same day, and the
     second step is the one that matters for anyone tempted to reintroduce it. Step one pulled
     mono back to figures only: heads, the asset-class line and the TOTAL label had all been
     mono, and at that density it read as a foreign typeface inside an Inter page rather than
@@ -7945,11 +7946,21 @@ row 74.
     obvious. The visual suite proves it on real rendered advance width rather than on the
     presence of the declaration, because the declaration is inert if the loaded face has no
     tnum table.
-  - **The rule that remains, and where it still applies:** mono is for figures, and for
-    uppercase micro-labels ONLY where they are sparse enough to read as an accent. Nothing in
-    the client app now meets that bar, but the PUBLIC SITE does and is deliberate —
-    `.res-kind`, `.res-n`, `.field-eyebrow`, `.approach .eyebrow`, `.values-num`, `.hiw-cap`
-    and the hero ticker are each ONE element per section or row. Leave them.
+  - **★★ THE "MONO = FIGURES AND UPPERCASE MICRO-LABELS" RULE IS WITHDRAWN (2026-09-11).
+    It was never an approved part of the type scheme.** This bullet used to say the rule
+    "remains" on the public site and to list `.res-kind`, `.res-n`, `.field-eyebrow`,
+    `.approach .eyebrow`, `.values-num`, `.hiw-cap` and the hero ticker as deliberate uses to
+    leave alone. **Every one of those has been converted and the family is gone from the
+    project.** The rule is left visible here rather than deleted, because deleting it would
+    leave a future session reading only the surrounding paragraphs with no idea the
+    convention had ever been reversed.
+    **What actually happened**: JetBrains Mono entered through design mockups, and the rule
+    was written afterwards to rationalise what was already on the page. That is the wrong
+    order — it made a mockup artifact look like a decision, and each new surface then
+    inherited it by citing the rule. **The real rule: the scheme is Inter. Numeric alignment
+    is `font-variant-numeric: tabular-nums`, not a second family.** See the dedicated entry
+    at the end of this section for the removal itself and the standing guard against
+    reintroduction.
   - **★ Row 186 is FIXED by the same identity, and row 186 itself was CORRECTED IN PLACE
     rather than ticked off.** Its stated root cause ("the engine discards a position's cost
     basis on sale") was factually wrong and its proposed fix (schema change + reconstruction
@@ -8212,6 +8223,74 @@ row 74.
   a name), `verify-control-patterns` 41/41, `verify-shared-stylesheet-coverage` 2/2,
   `verify-tailwind-color-scoping` PASS, `supabase-golden-path-regression` PASS (16/16).
 
+- **★★ JetBrains Mono removed from the project entirely; the "mono = figures" rule withdrawn
+  (2026-09-11, row 192).** The site's typeface is Inter. Mono entered through design mockups
+  and was then rationalised into a rule that was never an approved decision — the rule came
+  *after* the artifact and made it look deliberate, and every later surface inherited it by
+  citing the rule. Both are now gone.
+  **★ THE AUDIT CORRECTED THE BRIEF IN FOUR PLACES, which is the main reason to read this
+  before assuming where mono "must" still be.** It was NOT in the returns tables or dashboard
+  cards (row 187 had already retired it there on 2026-09-10 — those two pages were clean
+  before this task started, confirmed by grep across all three of their files). It was NOT on
+  any admin page. It was NOT in the branded email templates: `_shared/send-email.ts` and
+  `supabase/templates/recovery.html` both use a plain system sans stack
+  (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`) with
+  no webfont link at all, so there was nothing falling back and nothing to remove. And the one
+  monospace element that DOES survive is not JetBrains: `support.html`'s ticket id uses
+  Tailwind's generic `font-mono`. It is an identifier, not type-scheme styling, and it is
+  allowed BY NAME in the guard rather than by a blanket exemption that would also hide a real
+  regression.
+  **Where it actually was**: three Google Fonts `<link>`s (`index.html` 400/500/700,
+  `resources.html` 400/500, `login.html` 500 — no `@font-face` anywhere, so removing the URLs
+  stops the download), 19 declarations in `styles.css` and 2 inline in `login.html`, across
+  the hero ticker, the Core Services field, the Company Pitch/Our Values numerals, all seven
+  seam artifacts, the Resources strategy list, the How It Works artifact, and the login gate.
+  **Each use was replaced by what mono was actually doing, not just deleted.** Every element
+  inherits `--font` (Inter) from `body`, so removing the `font-family` line IS the family
+  change; what each rule then needed was the property carrying the real work.
+  **12 figure uses → `font-variant-numeric: tabular-nums`.** **6 uppercase micro-labels →
+  Inter 600/700**, keeping their existing `letter-spacing` and `text-transform` untouched.
+  Nothing was found where removal genuinely lost something: every figure use is 2–6 characters
+  (`01`, `17%`, `$2.4m`) with no column to hold, and the only genuinely tabular surfaces in the
+  project were already converted in row 187.
+  **★ THE ONE REAL RISK IS DROPPING THE FAMILY AND FORGETTING THE FIGURES.** Equal digit
+  advance was mono's only genuinely functional contribution. Inter's default figures are
+  PROPORTIONAL — measured on this machine, "1111111" against "0000000" staggers by **20.41px**
+  without `tabular-nums` and by **0px** with it. That measurement is the guard's own
+  non-vacuity control, so a future run cannot pass because the check went inert.
+  **Standing guard: `npm run verify-no-monospace`** (from `scripts/`). It asserts three
+  separate things, and they fail in genuinely different ways: no source file DECLARES or
+  REQUESTS the family; no RENDERED element on any of 10 pages resolves to a monospace family
+  (the worse case — a declaration without the request renders in a system fallback and merely
+  looks "a bit off", which is exactly how resources.html silently shipped a fallback for weeks
+  in row 180); and figures measure genuinely tabular by REAL rendered advance width, since a
+  `tabular-nums` declaration is inert if the loaded face carries no tnum table and asserting
+  the property string would prove nothing. The source check strips comments first, so the
+  deliberate "do not re-add" notes in `index.html`/`login.html`/`resources.html` naming the
+  family in prose do not trip it.
+  **`verify-login-redesign.mjs`'s own assertion was INVERTED, not deleted** — it required the
+  loading status line to BE JetBrains Mono; it now requires it to be Inter and not any
+  monospace, so that file keeps guarding the same line in the now-correct direction.
+  **Verified**: `verify-no-monospace.mjs` **55/55** — zero mono across all 10 public pages,
+  tabular figures confirmed on 7 representative selectors, and **zero horizontal overflow at
+  320/375/390** on index/resources/login (checked because `tabular-nums` changes digit advance
+  width, which is a real narrow-layout risk, each measurement behind Batch 1's viewport-
+  integrity guard and 320px through a real same-origin iframe since the top-level override
+  floors at 348px on this build). `audit-fonts.mjs` on all three touched pages: every Inter
+  weight genuinely loaded, **zero fallbacks, zero mono**. `verify-contrast.mjs` 120
+  measurements, 0 below 4.5:1 — unchanged, as expected, since only weights moved and no colour
+  did. Real before/after screenshots on the affected surfaces (Core Services field, Resources
+  strategy list, Our Values, the seam artifacts, the login gate): nothing reads worse — the
+  numerals still column-align and the uppercase labels are arguably crisper in Inter 700.
+  **Two disclosed verification notes, neither a product defect.** The ticker screenshot pair is
+  inconclusive: it is a marquee, and freezing it lands on a different track offset per run, so
+  the two frames are not comparable. Its correctness is established directly instead — 16 real
+  spans, all resolving to Inter, with `.hero-tape span` measured tabular by the guard. Separately,
+  the throwaway screenshot helper hit the page-vs-viewport clip trap row 173 already recorded
+  (`captureScreenshot`'s `clip` is in PAGE coordinates, so adding `scrollY` for a FIXED-position
+  hero layer lands nowhere near it and returns a blank frame); fixed in the helper by not
+  scrolling fixed elements, and worth knowing before anyone screenshots the hero again.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -8463,6 +8542,18 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   not a destructive bare `theme.colors` override. `scripts/verify-tailwind-color-scoping.js`
   is the standing, automatable check for both directions — checked directly (not assumed) to
   actually catch the exact regression by reintroducing it in a throwaway copy first.
+- **★ The type scheme is Inter. Do not introduce a second family — run
+  `npm run verify-no-monospace` (from `scripts/`) after any typography change.** JetBrains Mono
+  was removed project-wide on 2026-09-11 and the "mono = figures and uppercase micro-labels"
+  rule it was retro-fitted to justify is WITHDRAWN (see row 192). Numeric alignment is
+  `font-variant-numeric: tabular-nums`, which is what actually fixes digit advance — Inter's
+  default figures are proportional and stagger by a measured 20.41px without it. The risk this
+  guards is REINTRODUCTION specifically, and it is live: the design mockups this project builds
+  from still carry mono, and a future session copying one faithfully would bring it straight
+  back with nothing objecting. The guard fails on a declaration, on a `<link>`, and on any
+  rendered element resolving to a monospace family — that last one matters most, because a
+  declaration without a matching request renders in a system fallback and just looks slightly
+  off rather than broken (row 180).
 - **★ Never read a computed style without settling its transition first — use
   `scripts/lib/settle.mjs`.** This exact bug has now cost real time in three separate tasks
   (rows 176, 188, 190) and the fix was the same every time: a computed style read while a

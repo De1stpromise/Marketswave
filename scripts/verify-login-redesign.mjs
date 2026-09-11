@@ -320,7 +320,10 @@ async function main(ctx) {
   ok(L.lockAnim === 'lockOpen', 'lock shackle lifts on a cycle', L.lockAnim);
   ok(L.barAnim === 'barSlide', 'indeterminate progress bar animates', L.barAnim);
   ok(L.grainBlend === 'screen', 'loading grain is SCREEN (dark surface)', L.grainBlend);
-  ok(/JetBrains Mono/.test(L.monoFamily), 'status line uses JetBrains Mono', L.monoFamily.split(',')[0]);
+  // Inverted 2026-09-10: mono was removed project-wide, so this now guards the opposite
+  // direction -- that nothing quietly reintroduces a second family on this status line.
+  ok(/Inter/.test(L.monoFamily) && !/JetBrains|Mono|monospace/i.test(L.monoFamily),
+     'status line is Inter, not a monospace family', L.monoFamily.split(',')[0]);
   if (SHOTS) {
     const s2b = await cdp.send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(join(SHOTS, 'login-loading-1440.png'), Buffer.from(s2b.data, 'base64'));
