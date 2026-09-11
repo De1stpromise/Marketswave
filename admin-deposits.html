@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="control-patterns.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
+    /* Crypto deposit routing (2026-09-11): long case-sensitive strings, Inter with tabular
+       figures (row 192), break-all so a 62-char address never widens the card. */
+    .dep-addr { font-variant-numeric: tabular-nums; letter-spacing: .01em; word-break: break-all; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
@@ -80,7 +83,11 @@
         <p class="text-lg font-semibold text-slate-900">Credit Deposit</p>
         <button type="button" id="credit-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Client requested <span class="font-medium text-slate-900" id="credit-requested-label"></span>. Enter the actual confirmed amount landing in the account — this may differ due to fees, FX, or a partial transfer.</p>
+      <p class="text-sm text-slate-500 mb-4" id="credit-external-copy">Client requested <span class="font-medium text-slate-900" id="credit-requested-label"></span>. Enter the actual confirmed amount landing in the account — this may differ due to fees, FX, or a partial transfer.</p>
+      <!-- Crypto deposit routing (2026-09-11): a crypto request carries NO amount. The PM
+           determines what arrived from the chain, so the field starts empty rather than
+           pre-filled with a figure the client never gave. -->
+      <p class="text-sm text-slate-500 mb-4 hidden" id="credit-crypto-copy">This crypto request carries no amount — the client was not asked for one. Confirm the transfer on <span class="font-medium text-slate-900" id="credit-crypto-route"></span> and enter the USD value received.</p>
       <div class="mw-fld mw-fld--admin">
         <input type="number" id="credit-amount-input" step="0.01" min="0" class="mw-field mw-field-admin mb-1" placeholder=" " />
         <label for="credit-amount-input">Confirmed Amount (USD)</label>
@@ -212,6 +219,25 @@
         listEl.innerHTML = '<div class="divide-y divide-slate-100">' + requests.map(function (r) {
           var methodClass = METHOD_STYLES[r.method] || 'bg-slate-100 text-slate-600';
           var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
+          // Crypto deposit routing (2026-09-11): a routed crypto request carries no amount
+          // (requestedAmount is null - the old line called .toLocaleString() on it and would
+          // have thrown, taking the whole Pending list with it). It carries the route, the
+          // address the client was shown, and an optional hash instead - which is what a PM
+          // actually reconciles against.
+          var figure = r.requestedAmount == null
+            ? '<p class="text-base font-semibold text-slate-900 mb-1">' + r.currency + (r.network ? ' · ' + r.network : '') + ' <span class="text-sm font-normal text-slate-500 italic">— amount determined from the chain</span></p>'
+            : '<p class="text-lg font-semibold text-slate-900 mb-1">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</p>';
+          var routing = '';
+          if (r.method === 'crypto' && (r.depositAddress || r.requestedAmount == null)) {
+            routing = '<div class="mt-1 space-y-0.5 text-sm">' +
+              (r.depositAddress
+                ? '<p class="text-slate-600"><span class="text-slate-400">Sent to:</span> <span class="dep-addr">' + r.depositAddress + '</span>' + (r.depositAddressStatus === 'retired' ? ' <span class="text-xs font-medium px-2 py-0.5 rounded bg-amber-50 text-amber-800">address since retired</span>' : '') + '</p>'
+                : '<p class="text-slate-500">Sent to: <span class="italic">no address recorded (pre-routing request)</span></p>') +
+              (r.txHash
+                ? '<p class="text-slate-600"><span class="text-slate-400">Transaction hash:</span> <span class="dep-addr">' + r.txHash + '</span></p>'
+                : '<p class="text-amber-800"><span class="text-amber-700">No transaction hash provided</span> — match by amount and timing on the address above; if the address is shared, the chain alone will not attribute it.</p>') +
+              '</div>';
+          }
           return '<div class="px-6 py-5 flex flex-wrap items-start justify-between gap-4">' +
             '<div class="min-w-0">' +
               '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
@@ -219,12 +245,13 @@
                 '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + methodClass + '">' + methodLabel + '</span>' +
                 '<span class="text-xs text-slate-400">' + r.id + ' · Requested ' + toDateOnly(r.requestedAt) + '</span>' +
               '</div>' +
-              '<p class="text-lg font-semibold text-slate-900 mb-1">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</p>' +
+              figure +
+              routing +
               '<div class="mt-1 space-y-0.5">' + detailsHTML(r.details) + '</div>' +
             '</div>' +
             '<div class="flex gap-2 shrink-0">' +
               '<button type="button" class="reject-btn mw-btn mw-btn-secondary mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '">Reject</button>' +
-              '<button type="button" class="credit-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + r.requestedAmount + '" data-currency="' + r.currency + '">Credit</button>' +
+              '<button type="button" class="credit-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + r.clientId + '" data-id="' + r.id + '" data-requested="' + (r.requestedAmount == null ? '' : r.requestedAmount) + '" data-currency="' + r.currency + '" data-network="' + (r.network || '') + '" data-method="' + r.method + '">Credit</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
@@ -253,15 +280,22 @@
             var statusClass = STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-600';
             var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             var methodLabel = r.method === 'crypto' ? 'Crypto' : 'Bank Transfer';
+            // Crypto deposit routing (2026-09-11): with no requested amount there is nothing
+            // for the credited figure to "differ" from - the marker only applies when a
+            // client actually stated a figure.
             var creditedCell = r.status === 'credited'
-              ? formatUSD(r.creditedAmount) + (Math.round(r.creditedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
+              ? formatUSD(r.creditedAmount) + (r.requestedAmount != null && Math.round(r.creditedAmount) !== Math.round(r.requestedAmount) ? ' <span class="text-amber-600">(differs)</span>' : '')
               : '—';
+            var requestedCell = r.requestedAmount == null
+              ? '<span class="text-slate-400" title="A crypto request carries no amount">—</span>'
+              : r.requestedAmount.toLocaleString() + ' ' + r.currency;
+            var methodCell = r.method === 'crypto' && r.network ? 'Crypto <span class="text-xs text-slate-400 whitespace-nowrap">' + r.currency + ' · ' + r.network + '</span>' : methodLabel;
             var resolvedText = (r.resolvedAt ? toDateOnly(r.resolvedAt) : '—') + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '');
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 text-slate-500">' + r.clientName + ' (' + r.clientId + ')</td>' +
               '<td class="px-6 py-4 font-medium text-slate-900">' + r.id + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + methodLabel + '</td>' +
-              '<td class="px-6 py-4 text-right text-slate-500">' + r.requestedAmount.toLocaleString() + ' ' + r.currency + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + methodCell + '</td>' +
+              '<td class="px-6 py-4 text-right text-slate-500">' + requestedCell + '</td>' +
               '<td class="px-6 py-4 text-right text-slate-900">' + creditedCell + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
               '<td class="px-6 py-4 text-slate-500">' + resolvedText + '</td>' +
@@ -279,14 +313,22 @@
         if (dataPromise) return dataPromise;
         dataPromise = Promise.all([
           MarketswaveData.selectTable('deposit_requests'),
-          MarketswaveData.selectTable('clients')
+          MarketswaveData.selectTable('clients'),
+          // Crypto deposit routing (2026-09-11): the address each crypto request was sent to
+          // (RLS grants an admin every row), so the queue can show it beside the hash.
+          MarketswaveData.selectTable('deposit_addresses')
         ]).then(function (results) {
           var clientsById = {};
           results[1].forEach(function (c) { clientsById[c.id] = c.name; });
+          var addressesById = {};
+          results[2].forEach(function (a) { addressesById[a.id] = a; });
           return results[0].map(function (r) {
+            var addr = r.deposit_address_id ? addressesById[r.deposit_address_id] : null;
             return {
               id: r.id, clientId: r.client_id, clientName: clientsById[r.client_id] || r.client_id,
               method: r.method, requestedAmount: r.requested_amount, currency: r.currency,
+              network: r.network, txHash: r.tx_hash,
+              depositAddress: addr ? addr.address : null, depositAddressStatus: addr ? addr.status : null,
               details: r.details, status: r.status, requestedAt: r.requested_at,
               resolvedAt: r.resolved_at, creditedAmount: r.credited_amount,
               transactionId: r.transaction_id, reason: r.reason
@@ -321,11 +363,19 @@
       var activeCreditClientId = null;
       var activeCreditId = null;
 
-      function openCreditModal(clientId, id, requested, currency) {
+      function openCreditModal(clientId, id, requested, currency, network, method) {
         activeCreditClientId = clientId;
         activeCreditId = id;
-        creditRequestedLabel.textContent = Number(requested).toLocaleString() + ' ' + currency;
-        creditAmountInput.value = requested;
+        var isAmountless = requested === '' || requested === undefined || requested === null;
+        document.getElementById('credit-external-copy').classList.toggle('hidden', isAmountless);
+        document.getElementById('credit-crypto-copy').classList.toggle('hidden', !isAmountless);
+        if (isAmountless) {
+          document.getElementById('credit-crypto-route').textContent = currency + (network ? ' (' + network + ')' : '');
+          creditAmountInput.value = '';
+        } else {
+          creditRequestedLabel.textContent = Number(requested).toLocaleString() + ' ' + currency;
+          creditAmountInput.value = requested;
+        }
         creditError.classList.add('hidden');
         creditModal.classList.remove('hidden');
       }
@@ -338,6 +388,11 @@
         var amount = parseFloat(creditAmountInput.value);
         var requestId = activeCreditId;
         var btn = document.getElementById('credit-submit');
+        if (!isFinite(amount) || amount <= 0) {
+          creditError.textContent = 'Enter the amount received, in USD.';
+          creditError.classList.remove('hidden');
+          return;
+        }
         MarketswaveData.withButtonBusy(btn, 'Crediting...', function () {
           return MarketswaveData.callFunction('credit-deposit', { requestId: requestId, confirmedAmount: amount });
         }).then(function (result) {
@@ -389,7 +444,7 @@
       document.getElementById('pending-list').addEventListener('click', function (e) {
         var creditBtn = e.target.closest('.credit-btn');
         if (creditBtn) {
-          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.currency);
+          openCreditModal(creditBtn.dataset.client, creditBtn.dataset.id, creditBtn.dataset.requested, creditBtn.dataset.currency, creditBtn.dataset.network, creditBtn.dataset.method);
           return;
         }
         var rejectBtn = e.target.closest('.reject-btn');
