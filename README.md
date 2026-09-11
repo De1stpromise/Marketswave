@@ -1843,6 +1843,20 @@ supabase stop
 Leaves data intact (see Step 3) for next time. Use `supabase stop --no-backup` only if you
 deliberately want a clean slate next start.
 
+**★ This does NOT stop `supabase functions serve`.** That runs as a separate CLI process
+tree (`sh → node → supabase.exe`) which outlives the Docker stack and holds its edge-runtime
+listener until it is stopped explicitly — so a later `functions serve` fails to bind while
+the old one is still there. Find it by command line and stop it by PID:
+
+```
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'functions serve' } | Select-Object ProcessId, Name
+Stop-Process -Id <each PID>
+```
+
+Never a name-based kill: `node.exe` matches far more than this. The same applies to a
+`python -m http.server 8765` started for the visual/contrast harnesses — not part of the
+stack, and a genuine leftover once those runs are done.
+
 ---
 
 ## Emulator Bootstrap Runbook

@@ -8904,6 +8904,16 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   need a clean pair, that is three passes, not two, and each is ~25 minutes — budget for it.
   A `supabase stop`/`start` in the middle of a session resets this; the next run is a cold
   run again.
+- **★ `supabase stop` does NOT stop `supabase functions serve`.** Added 2026-09-11 after a
+  cleanup pass found it still alive after the stack was down. `functions serve` runs as a
+  separate CLI process tree — `sh → node → supabase.exe`, three PIDs, confirmed by their own
+  command lines — that outlives the Docker stack, and it keeps its edge-runtime listener held
+  until it is stopped explicitly. A session that runs `supabase stop` and assumes everything
+  is down leaves that tree running, and the next `functions serve` then fails to bind. Stop
+  it by PID (find it with `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine
+  -match 'functions serve' }`, never a name-based kill — `node.exe` matches far more than
+  this). The same goes for a `python -m http.server 8765` started for the visual/CDP
+  harnesses: it is not part of the stack and is a genuine leftover once those runs finish.
 - **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
   control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
   for two things that have each broken silently once: the three-tier geometry, and row 171's
