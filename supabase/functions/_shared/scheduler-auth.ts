@@ -37,12 +37,35 @@ export async function authorizeScheduledCall(req: Request): Promise<SchedulerCal
   // against the key this function already holds in its own environment. That is not a
   // weaker check than a signature verification: possessing the service_role key IS the
   // authorization, and anyone who has it can reach the database directly anyway.
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   if (serviceRoleKey && jwt === serviceRoleKey) {
     return { ok: true, status: 200, via: 'service_role' };
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  // ★ ...AND A CAPABILITY CHECK, because the string compare above is not enough on a real
+  // cloud project. It passed locally and returned 401 on real staging: a project can hold
+  // more than one valid service_role credential (a rotated key, or the newer sb_secret_*
+  // format alongside the legacy JWT), and the one the platform puts in this function's env
+  // need not be the one the caller holds. Confirmed by a real call, not assumed.
+  //
+  // So the fallback asks what the token can actually DO. The Admin Auth API is the right
+  // probe because it FAILS LOUDLY for anyone else — it returns a real "User not allowed"
+  // error for an ordinary session.
+  //
+  // ★ A TABLE READ WOULD HAVE BEEN A SECURITY BUG HERE, and it was the first thing written:
+  // an RLS denial on SELECT is not an error, it is an empty result set. "No error" from a
+  // blocked table read is therefore true for EVERY signed-in client, which would have
+  // handed any of them the platform's own authorization. The probe has to be something
+  // that genuinely errors when it is refused.
+  try {
+    const probe = createClient(supabaseUrl, jwt, { auth: { persistSession: false } });
+    const { error: probeError } = await probe.auth.admin.listUsers({ page: 1, perPage: 1 });
+    if (!probeError) return { ok: true, status: 200, via: 'service_role' };
+  } catch (_err) {
+    // Not a usable key at all; fall through to the ordinary admin check.
+  }
+
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const userClient = createClient(supabaseUrl, anonKey);
   const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(jwt);

@@ -90,21 +90,19 @@ async function main() {
   const script = extractInlineScript(path, 'Backend Migration Phase D — Stage 1');
   const D = dom.window.document;
 
-  console.log('1. Market Snapshot — real data replaces the loading placeholder\n');
+  // ★ SUPERSEDED 2026-09-11 (row 193). The Market Snapshot half of this file used to assert
+  // #market-snapshot-grid's six-card render. That card no longer exists: it became the merged
+  // Market Snapshot + Watchlist, whose own suites are verify-supabase-watchlist-alerts.js (the
+  // tables, the six Edge Functions, the scheduler) and verify-watchlist-ui-wiring.mjs (the real
+  // card's four write actions). Rather than delete the section and lose the fact that it was
+  // superseded, it now asserts the supersession itself — so a future session that reintroduces
+  // a #market-snapshot-grid, or loses the watchlist card, finds out here. get-market-snapshot
+  // ITSELF is still real and still guarded, by verify-supabase-market-data.js.
+  console.log('1. Market Snapshot — superseded by the merged watchlist card (row 193)\n');
   dom.window.eval(script);
-  const grid = D.getElementById('market-snapshot-grid');
-  // Poll for the REAL final content, not just the absence of the initial static placeholder
-  // — renderAsyncBundle() paints its own animate-pulse skeleton first (a real, distinct
-  // intermediate state), which would satisfy a weaker "loading text is gone" check before
-  // the actual async data has genuinely finished loading. A first draft of this test caught
-  // exactly that race.
-  await pollUntil(() => /SPY/.test(grid.innerHTML), 20000);
-  check('the loading placeholder is genuinely replaced with real final content, not just the async skeleton', grid.textContent.indexOf('Loading real market data') === -1 && !/animate-pulse/.test(grid.innerHTML));
-  // textContent, not innerHTML — jsdom serializes "&" as "&amp;" in innerHTML, a real
-  // regex-vs-serialization mismatch caught in this test's own first draft, not an app bug.
-  check('all 4 real symbols render with the honest SPY/QQQ labels (not the old fake "S&P 500"/"NASDAQ")', /SPY \(S&P 500 ETF\)/.test(grid.textContent) && /QQQ \(NASDAQ-100 ETF\)/.test(grid.textContent) && /BTC/.test(grid.textContent) && /ETH/.test(grid.textContent), grid.textContent.slice(0, 400));
-  check('the old hardcoded values are genuinely gone (5,248 / 16,742 / $67,420 / $3,418)', !/5,248/.test(grid.innerHTML) && !/16,742/.test(grid.innerHTML) && !/67,420/.test(grid.innerHTML) && !/3,418/.test(grid.innerHTML));
-  check('at least one real, live numeric value renders (not "NaN" or "undefined")', /\$[\d,]+/.test(grid.innerHTML) || /\d+\.\d+/.test(grid.innerHTML));
+  check('the old fixed six-symbol grid is genuinely gone, not merely unused', D.getElementById('market-snapshot-grid') === null);
+  check('the merged watchlist card is what replaced it', !!D.getElementById('watchlist-card') && !!D.getElementById('wl-rows'));
+  check('...and the Delayed label survived the merge — these prices are still cached, not live', !!D.querySelector('#watchlist-card .wl-delayed'));
 
   console.log('\n2. Currency Converter — a real conversion runs automatically on load, and on input change\n');
   const resultEl = D.getElementById('convert-result');

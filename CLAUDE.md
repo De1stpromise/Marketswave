@@ -8290,6 +8290,102 @@ row 74.
   (`captureScreenshot`'s `clip` is in PAGE coordinates, so adding `scrollY` for a FIXED-position
   hero layer lands nowhere near it and returns a blank frame); fixed in the helper by not
   scrolling fixed elements, and worth knowing before anyone screenshots the hero again.
+- **★★★ Market Snapshot + Watchlist merged into one feature, and THE FIRST SCHEDULER THIS
+  PROJECT HAS EVER HAD (2026-09-11, row 193).** The dashboard card is no longer six
+  hardcoded symbols: the six are a client-editable DEFAULT, any stock/ETF/coin either
+  provider can price can be added, and each row carries one price alert that fires ONCE by
+  email and then clears. Supersedes the separately-queued watchlist and price-alert items.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `products.ticker` + `supabase/functions/_shared/symbol-catalog.ts` IS THE SHARED
+    SYMBOL → PRODUCT PRIMITIVE. If you are building live-priced products, EXTEND THAT
+    MODULE — do not add a second lookup table.** `resolveSymbols()` answers "is this symbol
+    in the catalog?" (the Offered / Tracking-only badge); `productsWithTickers()` answers the
+    same question the other way, which is the direction the catalog work needs. Unique on
+    `upper(ticker)`: two products both claiming BTC would make Allocate ambiguous.
+    Backfilled for **Ethereum only** — the other seeded products are this project's own
+    fictional vehicles with no real ticker, and inventing one to light up a badge is the
+    fabricated-data failure mode this project has already removed twice. A PM sets the rest
+    from `admin-products.html`'s new Market Symbol field.
+  - **★ NEVER COMMA-JOIN A FINNHUB SYMBOL.** `/quote?symbol=AAPL,MSFT` does not error — it
+    returns `{"c":0,...}` with HTTP 200. A batching "optimisation" writes zeros into
+    `market_data_cache` and every row shows $0.00 with nothing reporting a failure. The same
+    shape is how Finnhub answers a symbol that does not exist, which is why
+    `add-watchlist-symbol` treats a zero price as "no such symbol" and refuses to store it.
+    CoinGecko's `simple/price` genuinely DOES batch, so crypto is one call however many
+    coins. Measured, not read: Finnhub free is 60/min (`X-Ratelimit-Limit`).
+  - **The refresh covers the UNION of symbols, never a per-client loop.** Ten clients
+    watching SPY cost one call. Adding a per-client loop silently multiplies provider cost
+    by the client count. The ceiling is derived from that: 30/min reserved for the scheduled
+    refresh × the 15-minute cycle = **450 distinct STOCK symbols platform-wide**, hence 25
+    per client. `refresh-market-data` reports the real distinct-stock count and remaining
+    headroom on every run — read that rather than trusting this paragraph's arithmetic.
+  - **★ THE SCHEDULER: `pg_cron` fires SQL, `pg_net` makes the HTTP call, and the
+    service_role key lives in `supabase_vault` — never in the committed migration.** Run
+    `npm run supabase-configure-scheduler` (from `scripts/`, `--staging` for the real cloud
+    project) to populate it. It writes through `public.set_scheduler_config()`, a
+    service_role-only RPC, rather than a direct Postgres connection — so the real cloud path
+    needs only the API key the operator already keeps, never the database password. Until it has run, `public.invoke_edge_function()` finds no
+    secret and returns null with a notice: cron jobs that exist and quietly do nothing,
+    which is correct for an unconfigured stack.
+  - **★ pg_net RUNS INSIDE THE POSTGRES CONTAINER.** On the local stack `127.0.0.1` there is
+    that container, not the host, so a scheduler pointed at the stack's own API URL fails
+    "Couldn't connect to server" every 15 minutes with nothing user-facing to notice —
+    watched real `net._http_response` rows fail exactly that way before it was fixed. Local
+    uses Kong's own network alias (`http://kong:8000/functions/v1`); a real cloud project
+    uses its public URL, because there is no container boundary to cross.
+  - **★ `getClaims()` CANNOT VALIDATE A service_role KEY.** It is a JWT signed with the same
+    secret, but it carries no `sub` and describes no user, so it returns 401 — which is what
+    the first version of `_shared/scheduler-auth.ts` did.
+  - **★ ...AND COMPARING THE BEARER TO `SUPABASE_SERVICE_ROLE_KEY` IS NOT ENOUGH EITHER.**
+    That passed locally and returned 401 on real staging: a project can hold more than one
+    valid service_role credential (a rotated key, or a newer key format alongside the legacy
+    JWT — real staging's is 219 chars against the local stack's 164), and the one the
+    platform puts in a function's env need not be the one the caller holds. The fallback
+    asks what the token can actually DO: `auth.admin.listUsers()`, which fails loudly for
+    anyone else.
+  - **★ A TABLE READ WOULD HAVE BEEN A SECURITY BUG THERE, and it was written first.** An
+    RLS denial on SELECT is not an error — it is an empty result set. "No error from a
+    blocked table read" is true for EVERY signed-in client, so that probe would have handed
+    any of them the platform's own authorization. Any capability probe must be something
+    that genuinely errors when refused.
+  - **Two cron jobs, deliberately not one.** Refresh on the quarter hour, alert sweep two
+    minutes later so it always reads prices the refresh has already written. Separate
+    because a provider outage must not also silence every alert the OTHER provider's prices
+    would legitimately have fired.
+  - **Alerts fire ONCE and clear, and the enforcement is in the database.** A partial unique
+    index on `(watchlist_symbol_id) where status = 'active'` is what actually stops two
+    near-simultaneous submits; the sweep claims an alert with an UPDATE conditioned on
+    `status = 'active'` plus `.select()`, so two overlapping sweeps cannot both mail it. A
+    FIRED alert is kept with the price and time it fired at; a CANCELLED one is deleted,
+    because it never fired and marking it fired would be a lie in the client's own history.
+  - **The six defaults are seeded against `clients.watchlist_seeded_at`, not against "has
+    zero rows right now"** — a client who deliberately empties their watchlist must get the
+    honest empty state, not watch the six reappear on the next load.
+  - **★ TEXT ON THE GLASS CARD NEVER REACHES ITS DECLARED COLOUR.** The symbol count read
+    2.67:1 and barely moved through three darker/heavier revisions; forcing the same element
+    to PURE BLACK at 20px measured its darkest real pixel at `#383838`. The card's
+    `backdrop-filter` composites the subtree and antialiasing caps coverage at roughly 78%,
+    so a secondary grey at 11px cannot pass there whichever grey it is. Do not tune a colour
+    until the measurement stops complaining — make the text genuinely bigger, or move it.
+  - **Measure the alert modal in its OWN contrast run.** It covers the page with a blurred
+    scrim, so anything behind it is sampled THROUGH that scrim: the first run reported
+    `.wl-name` at 3.6:1 with a WHITE foreground on mid-grey, a real measurement of a
+    genuinely obscured surface rather than a real failure.
+  - `watchlist-card.css` deliberately contains no button or input styling — every control is
+    a real `.mw-btn` / `.mw-field`, so `verify-control-patterns` keeps guarding it. Styling a
+    button there would put the card outside that guard.
+  **Verified**: `npm run supabase-verify-watchlist-alerts` 109/109 (real provider calls
+  throughout, both badge states, the ceiling, cross-client isolation, the full RLS matrix,
+  authorization on both scheduled functions, a real pg_cron statement reaching a real Edge
+  Function and coming back 200 through pg_net, and a real alert firing once, marked with the
+  real price it fired at, with a second sweep confirming no re-fire and no second mail);
+  `npm run verify-watchlist-ui-wiring` 47/47 (the REAL dashboard.html script in a real DOM —
+  real clicks on a real search result, bell, Set alert and Remove); `npm run
+  verify-watchlist-visual` 30/30 (contrast on both badge styles and both change directions
+  measured separately, fonts by real advance width, 1440/390/375/320 with a viewport-
+  integrity guard and 320px through a real same-origin iframe). One real alert email was
+  delivered to a real inbox with a real Resend id, separately from the suite — the suite
+  itself mails a deliberately malformed recipient so a regression run never mails anyone.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -8447,6 +8543,12 @@ itemized list rather than re-deriving it. Three more "did I break X" checks now 
 `node scripts/verify-supabase-market-data.js` (market data/currency), `node
 scripts/verify-supabase-email-notifications.js` (email logging), and `npm run
 verify-dashboard-market-currency-ui` (from `scripts/`, dashboard.html's own UI).
+**Merged Market Snapshot + Watchlist (2026-09-11, row 193)** made the market-data cache
+dynamic and gave this project its first scheduler. Three more "did I break X" checks:
+`npm run supabase-verify-watchlist-alerts` (the tables, the six Edge Functions, the symbol →
+product primitive, and the pg_cron/pg_net scheduler end to end), `npm run
+verify-watchlist-ui-wiring` (the real card's four write actions), and `npm run
+verify-watchlist-visual` (contrast on both badge styles, fonts, 1440/390/375/320).
 **Real PM-Published NAV (2026-09-06, row 143)** closed the full original Phase D market-
 data/NAV line item — Private Equity/Real Assets products now move only via a real published
 NAV, never the simulated tick. A fourth "did I break X" check: `node
@@ -8589,6 +8691,14 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   also checks both ends of every Tier A gradient against its own white label — a gradient can
   pass contrast at one end and fail at the other, which is exactly how white-on-emerald-600
   shipped at 3.77:1 for months. See `BUTTON_AUDIT.md` for the full reasoning.
+- **The scheduler needs configuring once per environment, and a fresh `supabase db reset`
+  wipes it.** `npm run supabase-configure-scheduler` (from `scripts/`, `--staging` for the
+  real cloud project) puts the Edge Functions base URL and the service_role key into
+  `supabase_vault`, which is where the committed migration's `public.invoke_edge_function()`
+  reads them from. Without it the two cron jobs exist and quietly do nothing — deliberately,
+  so an unconfigured stack is silent rather than erroring every 15 minutes. If prices stop
+  refreshing or alerts stop firing, check `vault.decrypted_secrets` and `net._http_response`
+  before suspecting the functions.
 - **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
   "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
   and the email tests genuinely send. Every other table returns to its exact starting count

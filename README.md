@@ -1749,6 +1749,53 @@ too, but this same consolidation (retiring any remaining lazy-establishment path
 the gate/logout behavior against the real cloud project) needs applying to staging as an
 explicit follow-up task before it can be considered fully complete there.
 
+### ★ The scheduler (2026-09-11) — configure it once, or nothing refreshes
+
+This project had no scheduler of any kind until the merged Market Snapshot + Watchlist
+feature. It has two cron jobs now:
+
+| job | schedule | what it does |
+|---|---|---|
+| `marketswave-refresh-market-data` | `*/15 * * * *` | re-prices the union of the six base symbols and every symbol any client watches |
+| `marketswave-check-price-alerts` | `2-59/15 * * * *` | fires any alert whose target the refreshed price has reached, once, by email |
+
+The jobs themselves come from the migration — they are schema. What a migration must never
+carry is the service_role key an Edge Function call needs, so `invoke_edge_function()` reads
+it out of `supabase_vault` instead. Put it there with:
+
+```
+cd scripts
+npm run supabase-configure-scheduler
+```
+
+and, for the real cloud project:
+
+```
+SUPABASE_STAGING_CREDENTIALS_FILE=/path/to/api-keys.json   node supabase-configure-scheduler.js --staging
+```
+
+The write goes through `public.set_scheduler_config()`, a service_role-only RPC, so this
+needs only the API key you already keep — no database password.
+
+Idempotent in both modes — re-run it after a key rotation, and after any `supabase db reset`,
+which wipes the vault along with everything else.
+
+**Until it has run, the cron jobs exist and quietly do nothing.** That is deliberate: an
+unconfigured stack should be silent rather than error every 15 minutes. If prices stop
+refreshing or alerts stop firing, look at these two before suspecting the functions:
+
+```
+select name from vault.decrypted_secrets;
+select id, status_code, error_msg, created from net._http_response order by id desc limit 5;
+```
+
+**★ A local gotcha worth knowing before you debug it the hard way.** pg_net runs INSIDE the
+Postgres container, so `127.0.0.1` there is that container and not your machine. A local
+scheduler pointed at the stack's own API URL fails with `Couldn't connect to server` every
+15 minutes, with nothing user-facing to notice. The configure script sets the local base URL
+to Kong's own network alias (`http://kong:8000/functions/v1`) for exactly this reason; a real
+cloud project uses its public URL, because there is no container boundary to cross.
+
 ### Step 9 — Stop the stack when you're done
 
 ```
