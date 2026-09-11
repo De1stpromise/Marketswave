@@ -90,8 +90,12 @@ async function main() {
     const { error: noCurrencyErr } = await clientSignIn.client.functions.invoke('request-deposit', { body: { method: 'bank', amount: 100 } });
     check('request-deposit requires a currency', noCurrencyErr && noCurrencyErr.context && noCurrencyErr.context.status === 400, noCurrencyErr && noCurrencyErr.message);
 
-    const details = { asset: 'BTC', network: 'mainnet' };
-    const { data: created, error: createErr } = await clientSignIn.client.functions.invoke('request-deposit', { body: { method: 'crypto', amount: 2500, currency: 'BTC', details } });
+    // Crypto deposit routing (2026-09-11): a crypto request no longer carries an amount and
+    // needs an assigned address, so these generic queue-mechanics checks run on the bank
+    // path (which is what they were exercising anyway); crypto has its own suite,
+    // verify-supabase-deposit-addresses.js.
+    const details = { bankName: 'Test Bank', accountNumber: '0001' };
+    const { data: created, error: createErr } = await clientSignIn.client.functions.invoke('request-deposit', { body: { method: 'bank', amount: 2500, currency: 'USD', details } });
     check('request-deposit succeeds with valid input', !createErr, createErr && createErr.message);
     check('created request is scoped to the caller’s own uid, never a client-supplied id', created && created.clientId === user.id, JSON.stringify(created));
     check('created request status defaults to pending', created && created.status === 'pending');
@@ -147,7 +151,7 @@ async function main() {
     const email2 = 'dep-credit-fresh-' + suffix + '@test.marketswave.local';
     const user2 = await createTestClient(admin, email2, password);
     const clientSignIn2 = await signIn(url, anonKey, email2, password);
-    const { data: request2 } = await clientSignIn2.client.functions.invoke('request-deposit', { body: { method: 'crypto', amount: 1000, currency: 'ETH', details: { asset: 'ETH' } } });
+    const { data: request2 } = await clientSignIn2.client.functions.invoke('request-deposit', { body: { method: 'bank', amount: 1000, currency: 'USD', details: { bankName: 'Fresh' } } });
     const { error: freshAccountErr } = await adminSignIn.client.functions.invoke('credit-deposit', { body: { requestId: request2.id, confirmedAmount: 1000 } });
     check('credit-deposit succeeds for a client with no pre-existing account_state row', !freshAccountErr, freshAccountErr && freshAccountErr.message);
     const { data: freshAccountState } = await admin.from('account_state').select('unallocated_capital').eq('client_id', user2.id).single();
@@ -167,7 +171,7 @@ async function main() {
     const user = await createTestClient(admin, email, password);
     const clientSignIn = await signIn(url, anonKey, email, password);
 
-    const { data: request } = await clientSignIn.client.functions.invoke('request-deposit', { body: { method: 'crypto', amount: 500, currency: 'BTC', details: { asset: 'BTC' } } });
+    const { data: request } = await clientSignIn.client.functions.invoke('request-deposit', { body: { method: 'bank', amount: 500, currency: 'USD', details: { bankName: 'Reject' } } });
     const { data: rejected, error: rejectErr } = await adminSignIn.client.functions.invoke('reject-deposit', { body: { requestId: request.id, reason: 'Unverifiable source of funds.' } });
     check('reject-deposit succeeds', !rejectErr, rejectErr && rejectErr.message);
     check('rejected request status is "rejected" with the reason preserved', rejected && rejected.status === 'rejected' && rejected.reason === 'Unverifiable source of funds.');
@@ -321,7 +325,7 @@ async function main() {
     await adminSignIn.client.functions.invoke('approve-withdrawal', { body: { requestId: wdA.id, approvedAmount: 1500 } });
     // B independently also has activity of its own — proves isolation isn't vacuous because B
     // never did anything.
-    const { data: depB } = await clientSignInB.client.functions.invoke('request-deposit', { body: { method: 'crypto', amount: 500, currency: 'BTC', details: { asset: 'BTC' } } });
+    const { data: depB } = await clientSignInB.client.functions.invoke('request-deposit', { body: { method: 'bank', amount: 500, currency: 'USD', details: { bankName: 'Reject' } } });
 
     const afterBAccount = JSON.stringify(await admin.from('account_state').select('*').eq('client_id', userB.id).single());
     const afterBWithdrawals = JSON.stringify(await admin.from('withdrawal_requests').select('*').eq('client_id', userB.id));

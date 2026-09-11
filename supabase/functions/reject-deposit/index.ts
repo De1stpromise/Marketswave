@@ -73,8 +73,18 @@ Deno.serve(async (req) => {
     if (clientRow) {
       const { html, text } = renderEmail({
         heading: 'An update on your Marketswave deposit request',
-        introParagraphs: ['Hi ' + clientRow.name + ', your deposit request could not be approved. Please contact support if you have any questions.'],
-        detailRows: [{ label: 'Amount requested', value: request.currency + ' ' + request.requested_amount.toLocaleString() }],
+        introParagraphs: [request.method === 'crypto'
+          ? 'Hi ' + clientRow.name + ', we were not able to confirm a crypto transfer for this deposit request, so it has been closed without a credit. If you did send funds, contact support@marketswave.net with the transaction hash and your Portfolio Manager will look again.'
+          : 'Hi ' + clientRow.name + ', your deposit request could not be approved. Please contact support if you have any questions.'],
+        // Crypto deposit routing (2026-09-11): a crypto request has no requested_amount
+        // (null), which the original line would have crashed on. Name the method and,
+        // for crypto, say plainly that no amount was involved.
+        detailRows: request.method === 'crypto'
+          ? [
+              { label: 'Method', value: 'Crypto — ' + request.currency + (request.network ? ' (' + request.network + ')' : '') },
+              { label: 'Amount', value: 'No amount was recorded for this request' }
+            ]
+          : [{ label: 'Amount requested', value: request.currency + ' ' + Number(request.requested_amount).toLocaleString() }],
         callout: reason ? { text: reason } : undefined,
         cta: { text: 'View your requests', href: siteLink('deploy-capital.html') },
         footerType: 'investment'
@@ -102,6 +112,9 @@ function toClientShape(row: Record<string, unknown>) {
     method: row.method,
     requestedAmount: row.requested_amount,
     currency: row.currency,
+    network: row.network,
+    depositAddressId: row.deposit_address_id,
+    txHash: row.tx_hash,
     details: row.details,
     status: row.status,
     requestedAt: row.requested_at,

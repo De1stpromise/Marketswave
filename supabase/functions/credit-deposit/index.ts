@@ -137,8 +137,14 @@ Deno.serve(async (req) => {
     if (clientRow) {
       const { html, text } = renderEmail({
         heading: 'Your deposit has been credited',
-        introParagraphs: ['Hi ' + clientRow.name + ', your deposit has been credited to your account and is now available as unallocated capital.'],
+        introParagraphs: [request.method === 'crypto'
+          ? 'Hi ' + clientRow.name + ', your crypto transfer has been confirmed on-chain and credited to your account. The amount below is the value received, and it is now available as unallocated capital.'
+          : 'Hi ' + clientRow.name + ', your deposit has been credited to your account and is now available as unallocated capital.'],
+        // Crypto deposit routing (2026-09-11): the wording names the real method. For a
+        // crypto request the amount credited is the PM's own on-chain determination — there
+        // is no requested figure to compare it against, so none is restated here.
         detailRows: [
+          { label: 'Method', value: methodLabel(request) },
           { label: 'Amount credited', value: '$' + round2(confirmedAmount).toLocaleString() },
           { label: 'Reference', value: txn.id }
         ],
@@ -168,6 +174,9 @@ function toClientShape(row: Record<string, unknown>) {
     method: row.method,
     requestedAmount: row.requested_amount,
     currency: row.currency,
+    network: row.network,
+    depositAddressId: row.deposit_address_id,
+    txHash: row.tx_hash,
     details: row.details,
     status: row.status,
     requestedAt: row.requested_at,
@@ -178,6 +187,15 @@ function toClientShape(row: Record<string, unknown>) {
     transactionId: row.transaction_id,
     reason: row.reason
   };
+}
+
+// Crypto deposit routing (2026-09-11): "Crypto — BTC (Bitcoin)" rather than a bare
+// "Crypto", so the email describes what was actually sent; bank transfers unchanged.
+function methodLabel(request: Record<string, unknown>): string {
+  if (request.method === 'crypto') {
+    return 'Crypto — ' + request.currency + (request.network ? ' (' + request.network + ')' : '');
+  }
+  return 'Bank Transfer';
 }
 
 function jsonResponse(body: unknown, status: number): Response {

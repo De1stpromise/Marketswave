@@ -835,3 +835,18 @@ entrypoint = "./functions/refresh-market-data/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/check-price-alerts/index.ts"
+
+[functions.add-deposit-address]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/add-deposit-address/index.ts"
+
+[functions.assign-deposit-address]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/assign-deposit-address/index.ts"
+
+[functions.remove-deposit-address-assignment]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/remove-deposit-address-assignment/index.ts"
