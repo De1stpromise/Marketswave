@@ -8637,6 +8637,49 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   `ACTIVE` on the real remote — it does NOT diff deployed code against local source, so
   editing an already-deployed function and forgetting to redeploy it still reports clean.
   Redeploying an edited function remains the operator's own responsibility to remember.
+- **★ Deployed-bytes check — after ANY push that touches a static file, fetch the affected
+  files from the live site and diff them against local.** Added 2026-09-11, after a removal
+  that was genuinely committed, genuinely pushed and genuinely verified was still visible on
+  the live dashboard. **The reason this needs to be a standing step: every verification
+  script in this project runs against the LOCAL file or the LOCAL Supabase stack, so a
+  passing suite says nothing whatsoever about what the live site is actually serving.** The
+  two are different questions and nothing else in the routine asks the second one.
+  This is the frontend half of the pair `verify-cloud-staging-parity` covers for the backend.
+  They exist separately because **a static push and an Edge Function deploy are two entirely
+  independent deployment paths** — row 163 shipped functions while the static site stayed
+  behind, and neither check catches the other's gap. "Static file" here means anything served
+  from the repo root: every `.html`, `.css` and browser-loaded `.js`.
+  The check itself, copy-paste with the files the push touched:
+
+      for f in dashboard.html watchlist-card.css; do
+        curl -s "https://marketswave.net/$f" -o "/tmp/live-$f"
+        cmp "/tmp/live-$f" "$f" && echo "$f: IDENTICAL" || echo "$f: DIFFERS"
+      done
+
+  **★ WAIT FOR THE REBUILD FIRST, or the check produces a false alarm on a perfectly good
+  push.** GitHub Pages took **~2 minutes** to rebuild in the measured case (commit at
+  13:11:36 UTC, origin `Last-Modified` 13:13:42 UTC). Run this ten seconds after `git push`
+  and it reports DIFFERS on a deploy that is entirely fine. Confirm the rebuild has landed
+  before believing a failure — `curl -sI https://marketswave.net/<file> | grep -i last-modified`
+  must show a time AFTER the commit:
+
+      git log -1 --format=%cI        # commit time
+      curl -sI https://marketswave.net/dashboard.html | grep -i last-modified
+
+  **A DIFFERS that survives a landed rebuild is the real signal** — the push did not reach
+  the site, or reached a different host — and is the point at which to stop and investigate
+  rather than assume propagation.
+  **Two things this check does NOT cover, so do not read a pass as more than it is.** (1) It
+  proves the ORIGIN is correct; it says nothing about what a given visitor's browser has
+  cached. GitHub Pages serves HTML with `Cache-Control: max-age=600` and no
+  `must-revalidate`, so a copy fetched before the rebuild stays fresh in that browser for ten
+  minutes, and a NAVIGATION to the page (a click through from `login.html`, or a restored
+  tab) serves it from disk with no network request at all — only an explicit reload
+  revalidates. That is exactly how a correct deploy can still look broken to the person
+  looking at it, and the answer is DevTools with "Disable cache" ticked, or a `?x=1` on the
+  URL, not a code change. (2) It compares only the files you name, so name every file the
+  push actually touched.
+
 - **Tailwind Color Scoping — run `npm run verify-tailwind-color-scoping` (from `scripts/`)
   before any push that adds/edits Tailwind classes on an admin page, or touches any page's
   own inline `tailwind.config` block.** Added 2026-09-07 after a real incident: `admin-
