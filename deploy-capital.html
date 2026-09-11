@@ -44,6 +44,24 @@
     }
     .withdraw-method-tab { border-color: #E2E8F0; color: #64748B; }
     .withdraw-method-tab.is-active { border-color: #1B3A4B; color: #1B3A4B; background: rgba(27, 58, 75, 0.06); }
+    /* Crypto deposit routing (2026-09-11). Plain CSS rather than utilities where a value is
+       not a Tailwind default (row 165: the CDN emits nothing for an unrecognised utility).
+       The address is Inter with tabular figures, never a monospace face (row 192). */
+    .dep-choice { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid #E4DFD7; border-radius: 12px; background: rgba(255,255,255,.6); cursor: pointer; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s; min-height: 44px; }
+    .dep-choice:hover { border-color: #B9B1A6; }
+    .dep-choice.is-selected { border-color: #16815F; background: rgba(22,129,95,.05); box-shadow: 0 0 0 3px rgba(22,129,95,.08); }
+    .dep-choice b { display: block; font-size: 13.5px; font-weight: 600; color: #1B3A4B; }
+    .dep-choice .dep-net { display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6367; margin-top: 2px; }
+    .dep-coin { width: 30px; height: 30px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .dep-coin--btc { background: #C8860A; }
+    .dep-coin--eth { background: #4A5F8E; }
+    .dep-coin--usdt { background: #149E7E; }
+    .dep-addr { font-variant-numeric: tabular-nums; letter-spacing: .02em; word-break: break-all; }
+    .dep-qr { width: 120px; height: 120px; border-radius: 10px; background: #fff; border: 1.5px solid #E4DFD7; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .dep-qr img, .dep-qr canvas { display: block; max-width: 100%; height: auto; }
+    .dep-pending-dot { width: 9px; height: 9px; border-radius: 9999px; background: #C8860A; margin-top: 5px; flex-shrink: 0; animation: depPulse 2.2s ease-in-out infinite; }
+    @keyframes depPulse { 50% { opacity: .35; } }
+    @media (prefers-reduced-motion: reduce) { .dep-pending-dot { animation: none; } }
   </style>
   <link rel="stylesheet" href="chat-widget.css" />
 </head>
@@ -88,7 +106,7 @@
               <svg class="w-6 h-6 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <h3 class="text-lg font-semibold text-navy mb-1">Crypto Deposit</h3>
-            <p class="text-sm text-slate-500">Transfer digital assets (BTC, ETH, USDT, etc.) to your Marketswave wallet.</p>
+            <p class="text-sm text-slate-500">Send Bitcoin, Ethereum or Tether to the deposit address assigned to you.</p>
           </button>
 
           <!-- Bank -->
@@ -116,46 +134,19 @@
           </button>
         </div>
 
-        <!-- Crypto Form -->
-        <div class="form-panel glass rounded-2xl p-6 max-w-xl" id="form-crypto">
-          <h3 class="font-semibold text-navy mb-1">Crypto Deposit</h3>
-          <p class="text-sm text-slate-500 mb-6">Select asset and amount. You will receive wallet details after submission.</p>
-
-          <div class="space-y-4">
-            <div>
-              <div class="mw-fld mw-fld--static">
-                <select id="crypto-asset" class="mw-field">
-                <option value="">Select asset</option>
-                <option value="BTC">Bitcoin (BTC)</option>
-                <option value="ETH">Ethereum (ETH)</option>
-                <option value="USDT">Tether (USDT)</option>
-                <option value="USDC">USD Coin (USDC)</option>
-              </select>
-                <label for="crypto-asset">Asset</label>
-              </div>
-            </div>
-            <div>
-              <div class="mw-fld">
-                <input type="number" id="crypto-amount" placeholder="0.00" class="mw-field">
-                <label for="crypto-amount">Amount</label>
-              </div>
-            </div>
-            <div>
-              <div class="mw-fld mw-fld--static">
-                <select id="crypto-network" class="mw-field">
-                <option value="">Select network</option>
-                <option value="ERC20">ERC-20</option>
-                <option value="TRC20">TRC-20</option>
-                <option value="BEP20">BEP-20</option>
-                <option value="Native">Native</option>
-              </select>
-                <label for="crypto-network">Network (if applicable)</label>
-              </div>
-            </div>
-            <div class="flex gap-3 pt-2">
-              <button type="button" class="btn-back mw-btn mw-btn-secondary mw-btn-grow">Back</button>
-              <button type="button" id="submit-crypto" class="mw-btn mw-btn-primary mw-btn-grow">Submit Request</button>
-            </div>
+        <!-- Crypto Form — Crypto deposit routing (2026-09-11). Four DISTINCT currency options
+             rendered from the real deposit_routes table (USDT TRC-20 and USDT ERC-20 are two
+             separate choices, never "USDT" plus a network toggle); the client's own assigned
+             address for the chosen route, or an honest empty state routing to the PM; an
+             optional transaction hash; and NO amount field - the PM determines what arrived
+             from the chain. The whole panel body is rebuilt by renderCryptoPanel() on every
+             render (a container fed through renderAsyncBundle() must be a full rebuild). -->
+        <div class="form-panel glass rounded-2xl p-6 max-w-2xl" id="form-crypto">
+          <h3 class="font-semibold text-navy mb-1">Which currency are you sending?</h3>
+          <p class="text-sm text-slate-500 mb-5">Each option has its own address. Sending to the wrong one cannot be reversed.</p>
+          <div id="crypto-address-region"></div>
+          <div class="flex gap-3 pt-5">
+            <button type="button" class="btn-back mw-btn mw-btn-secondary">Back</button>
           </div>
         </div>
 
@@ -440,6 +431,11 @@
        pages) -->
   <script src="https://cdn.jsdelivr.net/npm/motion@13.2.0/dist/motion.js"></script>
   <script src="motion-helpers.js"></script>
+  <!-- Crypto deposit routing (2026-09-11): qrcodejs, 19.9 KB (7.0 KB gzipped), renders the
+       deposit address as a QR locally in a canvas - no network call, the address never
+       leaves the page. Loaded on this page only; guarded at the call site so the card still
+       renders (without the QR) if the CDN is unreachable. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script>
     initDashboardSidebar('deploy-capital');
@@ -472,6 +468,7 @@
 
         if (card.dataset.method === 'crypto') {
           formCrypto.classList.add('is-active');
+          if (typeof loadCryptoPanel === 'function') loadCryptoPanel(false);
         } else if (card.dataset.method === 'bank') {
           formBank.classList.add('is-active');
         } else {
@@ -548,16 +545,23 @@
           MarketswaveData.callFunction('get-account-state').catch(function (err) {
             if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
             throw err;
-          })
+          }),
+          // Crypto deposit routing (2026-09-11): the four routes, and this client's OWN
+          // assigned addresses - RLS returns only addresses currently assigned to the caller,
+          // so a plain table read is the isolation guarantee, not a filter this page applies.
+          MarketswaveData.selectTable('deposit_routes'),
+          MarketswaveData.selectTable('deposit_addresses')
         ]).then(function (results) {
           return {
             depositRequests: results[0].map(function (r) {
-              return { id: r.id, method: r.method, requestedAmount: r.requested_amount, creditedAmount: r.credited_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
+              return { id: r.id, method: r.method, requestedAmount: r.requested_amount, creditedAmount: r.credited_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason, currency: r.currency, network: r.network, txHash: r.tx_hash };
             }),
             withdrawalRequests: results[1].map(function (r) {
               return { id: r.id, method: r.method, requestedAmount: r.requested_amount, approvedAmount: r.approved_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
             }),
-            account: results[2]
+            account: results[2],
+            routes: results[3].slice().sort(function (a, b) { return a.display_order - b.display_order; }),
+            myAddresses: results[4]
           };
         }).catch(function (err) {
           dataPromise = null;
@@ -570,8 +574,12 @@
         depositRequests = data.depositRequests;
         withdrawalRequests = data.withdrawalRequests;
         account = data.account;
+        depositRoutes = data.routes;
+        myDepositAddresses = data.myAddresses;
         dataLoaded = true;
       }
+      var depositRoutes = [];
+      var myDepositAddresses = [];
 
       // ---- My Funding Requests — Deposit + Withdrawal merged into one list, "show
       // everything" principle. Deposit's terminal success status is 'credited' (PM-entered
@@ -601,7 +609,8 @@
 
         const deposits = depositRequests.map(r => ({
           kind: 'Deposit', id: r.id, method: r.method, requestedAmount: r.requestedAmount,
-          resolvedAmount: r.creditedAmount, status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason
+          resolvedAmount: r.creditedAmount, status: r.status, requestedAt: r.requestedAt, resolvedAt: r.resolvedAt, reason: r.reason,
+          currency: r.currency, network: r.network
         }));
         const withdrawals = withdrawalRequests.map(r => ({
           kind: 'Withdrawal', id: r.id, method: r.method, requestedAmount: r.requestedAmount,
@@ -628,16 +637,25 @@
             const statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
             const kindClass = KIND_STYLES[r.kind] || 'bg-slate-100 text-slate-600';
             const isResolved = r.status === 'credited' || r.status === 'approved';
-            const amountCell = isResolved && r.resolvedAmount !== r.requestedAmount
-              ? formatUSD(r.resolvedAmount) + ' <span class="text-amber-600 text-xs">(requested ' + formatUSD(r.requestedAmount) + ')</span>'
-              : formatUSD(r.requestedAmount);
+            // Crypto deposit routing (2026-09-11): a crypto deposit request carries no amount
+            // (requestedAmount is null) - the PM determines what arrived from the chain. Say
+            // so rather than render a blank or $0; once credited, show the credited figure
+            // with nothing to compare it against.
+            const amountCell = r.requestedAmount == null
+              ? (isResolved ? formatUSD(r.resolvedAmount) : r.status === 'rejected' ? '<span class="text-slate-400">—</span>' : '<span class="text-slate-500 italic">Determined on receipt</span>')
+              : isResolved && r.resolvedAmount !== r.requestedAmount
+                ? formatUSD(r.resolvedAmount) + ' <span class="text-amber-600 text-xs">(requested ' + formatUSD(r.requestedAmount) + ')</span>'
+                : formatUSD(r.requestedAmount);
+            const methodCell = r.method === 'crypto'
+              ? 'Crypto' + (r.currency ? ' <span class="text-xs text-slate-400 whitespace-nowrap">' + r.currency + (r.network ? ' · ' + r.network : '') + '</span>' : '')
+              : 'Bank Transfer';
             const resolvedText = r.resolvedAt
               ? toDateOnly(r.resolvedAt) + (r.status === 'rejected' && r.reason ? ' — ' + r.reason : '')
               : '—';
             return '<tr class="hover:bg-slate-50/50">' +
               '<td class="px-6 py-4 font-medium text-navy">' + r.id + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + kindClass + '">' + r.kind + '</span></td>' +
-              '<td class="px-6 py-4 text-slate-500">' + (r.method === 'crypto' ? 'Crypto' : 'Bank Transfer') + '</td>' +
+              '<td class="px-6 py-4 text-slate-500">' + methodCell + '</td>' +
               '<td class="px-6 py-4 text-right">' + amountCell + '</td>' +
               '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + statusLabel + '</span></td>' +
               '<td class="px-6 py-4 text-slate-500">' + toDateOnly(r.requestedAt) + '</td>' +
@@ -665,27 +683,213 @@
       // request-deposit/index.ts and surfaces via the toast on failure — writeErrorMessage()
       // shows its exact real message verbatim for a genuine rejection, same discipline as
       // UI Wiring Stage 2's own Request Allocation/Sell. ----
-      document.getElementById('submit-crypto').addEventListener('click', () => {
-        const asset = document.getElementById('crypto-asset').value;
-        const amount = parseFloat(document.getElementById('crypto-amount').value);
-        const network = document.getElementById('crypto-network').value;
-        const btn = document.getElementById('submit-crypto');
-        if (!asset || !amount) {
-          alert('Please select an asset and enter an amount.');
+      // ---- Crypto deposit routing (2026-09-11): the routed crypto panel ----
+      // Rendered from the real deposit_routes + the client's own RLS-scoped deposit_addresses,
+      // fetched by loadFundingData() above. Every render rebuilds #crypto-address-region in
+      // full (it is fed through renderAsyncBundle(), whose skeleton phase replaces the
+      // container's content - a static child would not survive the first paint).
+      var cryptoSelected = null;          // { currency, network }
+      var cryptoJustSubmittedId = null;   // the request created by the last submit, if any
+
+      function esc(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function coinClass(currency) {
+        return { BTC: 'dep-coin--btc', ETH: 'dep-coin--eth', USDT: 'dep-coin--usdt' }[currency] || 'bg-slate-500';
+      }
+      // "Bitcoin network" -> "the Bitcoin network"; "TRC-20 · Tron" -> "the TRC-20 (Tron)
+      // network"; "ERC-20" -> "the ERC-20 network". Used in the warning so the network is
+      // named as prominently as the address, in words a client can act on.
+      function networkPhrase(route) {
+        var label = route.network_label.replace(/\s*network$/i, '').replace(' · ', ' (') + (route.network_label.indexOf(' · ') !== -1 ? ')' : '');
+        return 'the ' + label + ' network';
+      }
+      function addressFor(route) {
+        return myDepositAddresses.find(function (a) { return a.currency === route.currency && a.network === route.network && a.status !== 'retired'; }) || null;
+      }
+      function pendingRequestFor(route) {
+        return depositRequests
+          .filter(function (r) { return r.method === 'crypto' && r.status === 'pending' && r.currency === route.currency && r.network === route.network; })
+          .sort(function (a, b) { return new Date(b.requestedAt) - new Date(a.requestedAt); })[0] || null;
+      }
+      function formatSubmitted(iso) {
+        var d = new Date(iso);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+          d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function pendingCardHTML(route, req) {
+        return '<div id="crypto-pending-card" class="flex gap-3.5 p-4 rounded-xl mb-4" style="background:rgba(200,134,10,.07);border:1px solid rgba(200,134,10,.26);">' +
+          '<span class="dep-pending-dot" aria-hidden="true"></span>' +
+          '<div class="flex-1 min-w-0">' +
+            '<p class="text-sm font-semibold text-navy mb-1">Deposit awaiting confirmation</p>' +
+            '<p class="text-xs text-slate-600 leading-relaxed">We\'re verifying your transfer on ' + esc(networkPhrase(route)) + '. Once confirmed, your portfolio manager will credit the amount received to your account and you\'ll receive an email. There is no figure to show yet - the amount is determined from the chain, not from what was typed.</p>' +
+            '<div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 pt-3 text-xs text-slate-600" style="border-top:1px solid rgba(200,134,10,.22);">' +
+              '<span>Currency <b class="text-navy font-semibold">' + esc(route.currency_name) + ' · ' + esc(route.network_label) + '</b></span>' +
+              '<span>Submitted <b class="text-navy font-semibold">' + esc(formatSubmitted(req.requestedAt)) + '</b></span>' +
+              '<span class="min-w-0">Reference <b class="text-navy font-semibold dep-addr">' + esc(req.id) + '</b></span>' +
+              (req.txHash ? '<span class="min-w-0 w-full">Transaction hash <b class="text-navy font-semibold dep-addr">' + esc(req.txHash) + '</b></span>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      function emptyStateHTML(route) {
+        return '<div id="crypto-empty-state" class="text-center px-4 py-6">' +
+          '<div class="w-11 h-11 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(27,58,75,.06);">' +
+            '<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+          '</div>' +
+          '<p class="text-sm font-semibold text-navy mb-1">No ' + esc(route.currency_name) + ' (' + esc(route.network_label) + ') address assigned yet</p>' +
+          '<p class="text-xs text-slate-600 leading-relaxed mx-auto mb-4" style="max-width:44ch;">Your portfolio manager assigns a dedicated deposit address to each client, per currency and network. Message them to have yours set up - it usually takes a day.</p>' +
+          '<button type="button" id="crypto-empty-message-pm" class="mw-btn mw-btn-secondary mw-btn-sm">Message your portfolio manager</button>' +
+        '</div>';
+      }
+
+      function addressCardHTML(route, addr) {
+        return '<div id="crypto-address-card">' +
+          '<div class="flex gap-3 p-4 rounded-xl mb-4" style="background:rgba(200,134,10,.09);border:1px solid rgba(200,134,10,.3);">' +
+            '<svg class="w-4 h-4 shrink-0 mt-0.5" style="color:#B07908" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>' +
+            '<div><p id="crypto-warning-title" class="text-sm font-bold mb-0.5" style="color:#7A5207;">Send ' + esc(route.currency_name) + ' on ' + esc(networkPhrase(route)) + ' only</p>' +
+            '<p id="crypto-warning-body" class="text-xs leading-relaxed" style="color:#6B5416;">This address accepts ' + esc(route.currency_name) + ' sent over ' + esc(networkPhrase(route)) + '. Funds sent on any other network, or in any other currency, will be permanently lost and cannot be recovered.</p></div>' +
+          '</div>' +
+          '<div class="rounded-xl p-4 mb-2" style="border:1.5px solid #DED8CF;background:#FCFBF9;">' +
+            '<div class="flex items-center justify-between gap-2 mb-2">' +
+              '<span class="text-[10px] font-bold tracking-wide uppercase text-slate-600">Your ' + esc(route.currency_name) + ' deposit address</span>' +
+              '<span id="crypto-network-chip" class="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded bg-navy text-white whitespace-nowrap">' + esc(route.network_label) + '</span>' +
+            '</div>' +
+            '<div class="flex flex-col sm:flex-row gap-4 sm:items-start">' +
+              '<div class="flex-1 min-w-0">' +
+                '<p id="crypto-address-value" class="text-sm font-semibold text-navy dep-addr leading-relaxed">' + esc(addr.address) + '</p>' +
+                '<button type="button" id="crypto-copy-btn" class="mw-btn mw-btn-secondary mw-btn-sm mt-3" data-address="' + esc(addr.address) + '">' +
+                  '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy address' +
+                '</button>' +
+              '</div>' +
+              '<div id="crypto-qr" class="dep-qr self-center sm:self-start" aria-label="QR code of your ' + esc(route.currency_name) + ' deposit address"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="mw-fld mt-4">' +
+            '<input type="text" id="crypto-tx-hash" class="mw-field dep-addr" placeholder="Paste the transaction ID from your wallet" autocomplete="off" spellcheck="false" />' +
+            '<label for="crypto-tx-hash">Transaction hash (optional)</label>' +
+          '</div>' +
+          '<p id="crypto-hash-hint" class="text-xs text-slate-600 leading-relaxed mt-2"><b class="text-navy font-semibold">Strongly recommended.</b> Your wallet shows a transaction ID after sending. Adding it here lets us match your transfer to you directly and credit it faster. Without it we match by amount and timing, which can take longer - and this address may be shared with other clients, so the hash is what tells your transfer apart.</p>' +
+          '<div id="crypto-submit-row" class="flex flex-wrap gap-3 mt-5">' +
+            '<button type="button" id="submit-crypto" class="mw-btn mw-btn-primary">I\'ve completed this deposit</button>' +
+          '</div>' +
+        '</div>';
+      }
+
+      function cryptoPanelHTML() {
+        if (!cryptoSelected && depositRoutes.length) cryptoSelected = { currency: depositRoutes[0].currency, network: depositRoutes[0].network };
+        var route = depositRoutes.find(function (r) { return cryptoSelected && r.currency === cryptoSelected.currency && r.network === cryptoSelected.network; }) || depositRoutes[0];
+        if (!route) return '<p class="text-sm text-slate-500">Crypto deposits are not available right now.</p>';
+
+        var choices = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5" id="crypto-choices" role="radiogroup" aria-label="Currency">' +
+          depositRoutes.map(function (r) {
+            var sel = r.currency === route.currency && r.network === route.network;
+            return '<button type="button" role="radio" aria-checked="' + (sel ? 'true' : 'false') + '" class="dep-choice' + (sel ? ' is-selected' : '') + '" data-currency="' + esc(r.currency) + '" data-network="' + esc(r.network) + '">' +
+              '<span class="dep-coin ' + coinClass(r.currency) + '">' + esc(r.currency) + '</span>' +
+              '<span><b>' + esc(r.currency_name) + '</b><span class="dep-net">' + esc(r.network_label) + '</span></span>' +
+            '</button>';
+          }).join('') + '</div>';
+
+        var addr = addressFor(route);
+        var pending = pendingRequestFor(route);
+        var body;
+        if (!addr) {
+          body = (pending ? pendingCardHTML(route, pending) : '') + emptyStateHTML(route);
+        } else if (pending && cryptoJustSubmittedId === pending.id) {
+          // Just submitted: the pending view replaces the form, with a way back to the
+          // address for a client sending another transfer.
+          body = pendingCardHTML(route, pending) +
+            '<div class="flex flex-wrap gap-3"><a href="dashboard.html" class="mw-btn mw-btn-secondary mw-btn-sm">Return to Dashboard</a>' +
+            '<button type="button" id="crypto-another" class="mw-btn mw-btn-secondary mw-btn-sm">Send another deposit</button></div>';
+        } else {
+          body = (pending ? pendingCardHTML(route, pending) : '') + addressCardHTML(route, addr);
+        }
+        return choices + body;
+      }
+
+      function mountQr() {
+        var el = document.getElementById('crypto-qr');
+        var val = document.getElementById('crypto-address-value');
+        if (!el || !val) return;
+        if (typeof QRCode === 'undefined') { el.innerHTML = '<span class="text-[10px] text-slate-400 text-center px-2">QR unavailable</span>'; return; }
+        try {
+          var opts = { text: val.textContent, width: 112, height: 112 };
+          if (QRCode.CorrectLevel) opts.correctLevel = QRCode.CorrectLevel.M;
+          new QRCode(el, opts);
+        } catch (_e) { el.innerHTML = '<span class="text-[10px] text-slate-400 text-center px-2">QR unavailable</span>'; }
+      }
+
+      function renderCryptoPanel() {
+        var region = document.getElementById('crypto-address-region');
+        if (!region) return;
+        region.innerHTML = cryptoPanelHTML();
+        mountQr();
+      }
+
+      function loadCryptoPanel(forceReload) {
+        if (forceReload) dataPromise = null;
+        MarketswaveData.renderAsyncBundle(document.getElementById('crypto-address-region'), {
+          skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }),
+          load: loadFundingData,
+          render: function (data) {
+            applyFundingData(data);
+            renderCryptoPanel();
+          }
+        });
+      }
+      window.loadCryptoPanel = loadCryptoPanel;
+
+      document.getElementById('crypto-address-region').addEventListener('click', function (e) {
+        var choice = e.target.closest('.dep-choice');
+        if (choice) {
+          cryptoSelected = { currency: choice.dataset.currency, network: choice.dataset.network };
+          cryptoJustSubmittedId = null;
+          renderCryptoPanel();
           return;
         }
-        // currency = asset for a crypto request, same convention Withdraw already
-        // establishes below — the asset IS the unit the amount is denominated in.
-        MarketswaveData.withButtonBusy(btn, 'Submitting...', function () {
-          return MarketswaveData.callFunction('request-deposit', { method: 'crypto', amount: amount, currency: asset, details: { asset: asset, network: network || null } });
-        }).then(function (result) {
-          formSuccessMessage.textContent = 'Your deposit request (' + result.id + ') has been received. You will receive further instructions (wallet address or bank details) by email shortly.';
-          hideAllForms();
-          formSuccess.classList.add('is-active');
-          reloadFundingRequests(true);
-        }).catch(function (err) {
-          showFundingToast('Deposit Request Failed', MarketswaveData.writeErrorMessage(err), true);
-        });
+        if (e.target.closest('#crypto-another')) {
+          cryptoJustSubmittedId = null;
+          renderCryptoPanel();
+          return;
+        }
+        if (e.target.closest('#crypto-empty-message-pm')) {
+          // The real, shared chat widget (mounted on every client page) - the same route
+          // support.html's own "chat with us" already takes.
+          var bubble = document.getElementById('chat-widget-bubble');
+          if (bubble) bubble.click();
+          else showFundingToast('Message your portfolio manager', 'Open Support from the sidebar to send a message.', false);
+          return;
+        }
+        var copyBtn = e.target.closest('#crypto-copy-btn');
+        if (copyBtn) {
+          var text = copyBtn.dataset.address;
+          var done = function () { showFundingToast('Address copied', 'Paste it into your wallet, then check the network before sending.', false); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+          else done();
+          return;
+        }
+        var submit = e.target.closest('#submit-crypto');
+        if (submit) {
+          var route = depositRoutes.find(function (r) { return r.currency === cryptoSelected.currency && r.network === cryptoSelected.network; });
+          var hashEl = document.getElementById('crypto-tx-hash');
+          var txHash = hashEl ? hashEl.value.trim() : '';
+          // No amount is sent: the request carries only WHICH route was used and the
+          // optional hash; the server resolves the assigned address from the caller's own
+          // JWT and the PM enters what actually arrived at credit time.
+          MarketswaveData.withButtonBusy(submit, 'Submitting...', function () {
+            return MarketswaveData.callFunction('request-deposit', { method: 'crypto', currency: route.currency, network: route.network, txHash: txHash || null });
+          }).then(function (result) {
+            cryptoJustSubmittedId = result.id;
+            loadCryptoPanel(true);
+            reloadFundingRequests(true);
+          }).catch(function (err) {
+            showFundingToast('Deposit Not Recorded', MarketswaveData.writeErrorMessage(err), true);
+          });
+        }
       });
 
       document.getElementById('submit-bank').addEventListener('click', () => {
