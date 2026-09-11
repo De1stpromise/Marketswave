@@ -153,6 +153,10 @@ const TAG = `(() => {
   const out = [];
   let i = 0;
   document.querySelectorAll('input:not([type=hidden]), select, textarea').forEach((el) => {
+    // Skip controls the page hides from EVERYONE on the element itself — a spam honeypot is
+    // the real case here. Not an accessibility failure: no user is meant to reach it. An
+    // ancestor-hidden control (a modal) is still in scope and was revealed above.
+    if (el.style && el.style.display === 'none') return;
     const key = 'mwlbl-' + (i++);
     el.setAttribute('data-mwlbl', key);
     let how = [];
@@ -328,7 +332,14 @@ async function main() {
     }
     const gone = Object.keys(base).filter((k) => !(k in now));
     check('no control that HAD an accessible name lost it (' + Object.keys(base).length + ' in baseline)', regressed.length === 0, regressed.slice(0, 6).join(' | '));
-    check('controls present in the baseline still exist (' + gone.length + ' absent)', gone.length === 0, gone.slice(0, 8).join(' | '));
+    // A control disappearing only matters if it HAD a name. An unnamed one vanishing is the
+    // fix working: keys here are id-based, so giving a previously id-less control an id —
+    // which is how it gets a label at all — legitimately changes its key. Failing on that
+    // would punish exactly the repair this check exists to encourage.
+    const goneNamed = gone.filter((k) => base[k].ok);
+    check('no control that HAD a name has disappeared (' + gone.length + ' absent, ' + goneNamed.length + ' of them named)',
+      goneNamed.length === 0, goneNamed.slice(0, 8).join(' | '));
+    if (gone.length) console.log('  absent, but unnamed in the baseline, so not a regression: ' + gone.join(', '));
     const fixed = Object.keys(base).filter((k) => k in now && !base[k].ok && now[k].ok);
     if (fixed.length) console.log('\n  ' + fixed.length + ' control(s) GAINED an accessible name since the baseline:\n    ' + fixed.join('\n    '));
   }

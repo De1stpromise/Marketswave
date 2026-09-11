@@ -185,6 +185,22 @@ PROFILES.controls = [
   { label: 'HOVER Tier A admin label', sel: '.mw-btn-admin', limit: 4, hover: true },
 ];
 
+/* The accessible upload component and the floating-label pattern (rows 189/190,
+ * 2026-09-10). The floated label is 11px uppercase on the field's own ground, which is a
+ * genuinely new and genuinely small text surface — exactly the kind that passes by eye and
+ * fails when measured. Focus states are included because both the label colour AND the
+ * field ground change on focus. */
+PROFILES['controls-fields'] = [
+  { label: 'floating label (resting)', sel: '.mw-fld > label', limit: 10 },
+  { label: 'field value text', sel: '.mw-fld > .mw-field', limit: 10 },
+  { label: 'upload face', sel: '.mw-upload-face', limit: 4 },
+  { label: 'upload hint', sel: '.mw-upload-hint', limit: 4 },
+  { label: 'upload state', sel: '.mw-upload-state', limit: 4 },
+  { label: 'upload clear', sel: '.mw-upload-clear', limit: 4 },
+  { label: 'HOVER upload face', sel: '.mw-upload-face', limit: 4, hover: true },
+  { label: 'HOVER upload clear', sel: '.mw-upload-clear', limit: 4, hover: true },
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

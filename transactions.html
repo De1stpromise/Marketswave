@@ -120,16 +120,20 @@
         <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
           <div class="flex flex-wrap gap-3 items-end">
             <div>
-              <label for="filter-date-from" class="block text-xs text-slate-500 mb-1">Date From</label>
-              <input type="date" id="filter-date-from" name="date_from" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <input type="date" id="filter-date-from" name="date_from" class="mw-field mw-field-sm">
+                <label for="filter-date-from">Date From</label>
+              </div>
             </div>
             <div>
-              <label for="filter-date-to" class="block text-xs text-slate-500 mb-1">Date To</label>
-              <input type="date" id="filter-date-to" name="date_to" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <input type="date" id="filter-date-to" name="date_to" class="mw-field mw-field-sm">
+                <label for="filter-date-to">Date To</label>
+              </div>
             </div>
             <div>
-              <label for="filter-type" class="block text-xs text-slate-500 mb-1">Type</label>
-              <select id="filter-type" name="type" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <select id="filter-type" name="type" class="mw-field mw-field-sm">
                 <option value="">All Types</option>
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
@@ -138,12 +142,16 @@
                 <option value="Withdrawal">Withdrawal</option>
                 <option value="HYS Withdrawal">HYS Withdrawal</option>
               </select>
+                <label for="filter-type">Type</label>
+              </div>
             </div>
             <div>
-              <label for="filter-asset" class="block text-xs text-slate-500 mb-1">Asset</label>
-              <select id="filter-asset" name="asset" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <select id="filter-asset" name="asset" class="mw-field mw-field-sm">
                 <option value="">All Assets</option>
               </select>
+                <label for="filter-asset">Asset</label>
+              </div>
             </div>
             <button type="button" id="apply-filters" class="mw-btn mw-btn-primary">Apply Filters</button>
             <button type="button" id="reset-filters" class="mw-btn mw-btn-secondary">Reset</button>

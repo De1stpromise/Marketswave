@@ -53,7 +53,10 @@
           <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div class="relative flex-1 min-w-[220px] max-w-sm">
               <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input type="text" id="product-search" placeholder="Search by product name..." class="mw-field mw-field-admin pl-9" />
+              <div class="mw-fld mw-fld--admin">
+                <input type="text" id="product-search" placeholder="Search by product name..." class="mw-field mw-field-admin pl-9" placeholder=" " />
+                <label for="product-search">Search by product name</label>
+              </div>
             </div>
             <button type="button" id="open-add-modal" class="mw-btn mw-btn-secondary mw-btn-sm shrink-0">+ Add Product</button>
           </div>
@@ -101,55 +104,73 @@
       <p class="text-sm text-slate-500 mb-4">Adds a new product to the global catalog, immediately available for allocation on every client's Asset Collection page.</p>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
-          <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Atlas Infrastructure Fund" placeholder=" " />
+            <label for="add-name">Name</label>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
-            <select id="add-asset-class" class="mw-field mw-field-admin">
+            <div class="mw-fld mw-fld--static mw-fld--admin">
+              <select id="add-asset-class" class="mw-field mw-field-admin">
               <option value="Private Equity">Private Equity</option>
               <option value="Real Assets">Real Assets</option>
               <option value="Stocks & ETFs">Stocks & ETFs</option>
               <option value="Crypto">Crypto</option>
             </select>
+              <label for="add-asset-class">Asset Class</label>
+            </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
-            <select id="add-risk-tier" class="mw-field mw-field-admin">
+            <div class="mw-fld mw-fld--static mw-fld--admin">
+              <select id="add-risk-tier" class="mw-field mw-field-admin">
               <option value="conservative">Conservative</option>
               <option value="balanced">Balanced</option>
               <option value="aggressive">Aggressive</option>
             </select>
+              <label for="add-risk-tier">Risk Tier</label>
+            </div>
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
-          <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-investment-type" class="mw-field mw-field-admin" placeholder="Growth Fund" placeholder=" " />
+            <label for="add-investment-type">Investment Type</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
-          <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+          <div class="mw-fld mw-fld--admin">
+            <textarea id="add-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card" placeholder=" "></textarea>
+            <label for="add-description">Description</label>
+          </div>
         </div>
         <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
              see updateAddConditionalFields(), wired to add-asset-class's change event. -->
         <div id="add-logo-url-field" class="hidden">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
-          <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="add-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" placeholder=" " />
+            <label for="add-logo-url">Logo URL</label>
+          </div>
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="add-extended-description-field" class="hidden">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
-          <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+          <div class="mw-fld mw-fld--admin">
+            <textarea id="add-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup" placeholder=" "></textarea>
+            <label for="add-extended-description">Extended Description</label>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
-            <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" />
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="add-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder="1000" placeholder=" " />
+              <label for="add-minimum-investment">Minimum Investment (USD)</label>
+            </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Starting Unit Price (USD)</label>
-            <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" />
+            <div class="mw-fld mw-fld--admin">
+              <input type="number" id="add-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="100.00" placeholder=" " />
+              <label for="add-unit-price">Starting Unit Price (USD)</label>
+            </div>
           </div>
         </div>
         <p class="text-xs text-slate-400">Starting unit price is PM-entered, not a live market feed — this project has no real-time pricing data source (see the Backend Requirements Register). After creation, price moves only via the returns engine's own daily tick.</p>
@@ -173,51 +194,67 @@
       <p class="text-sm text-slate-500 mb-4" id="edit-modal-id"></p>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
-          <input type="text" id="edit-name" class="mw-field mw-field-admin" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="edit-name" class="mw-field mw-field-admin" placeholder=" " />
+            <label for="edit-name">Name</label>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
-            <select id="edit-asset-class" class="mw-field mw-field-admin">
+            <div class="mw-fld mw-fld--static mw-fld--admin">
+              <select id="edit-asset-class" class="mw-field mw-field-admin">
               <option value="Private Equity">Private Equity</option>
               <option value="Real Assets">Real Assets</option>
               <option value="Stocks & ETFs">Stocks & ETFs</option>
               <option value="Crypto">Crypto</option>
               <option value="Unallocated / Cash">Unallocated / Cash</option>
             </select>
+              <label for="edit-asset-class">Asset Class</label>
+            </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Risk Tier</label>
-            <select id="edit-risk-tier" class="mw-field mw-field-admin">
+            <div class="mw-fld mw-fld--static mw-fld--admin">
+              <select id="edit-risk-tier" class="mw-field mw-field-admin">
               <option value="conservative">Conservative</option>
               <option value="balanced">Balanced</option>
               <option value="aggressive">Aggressive</option>
             </select>
+              <label for="edit-risk-tier">Risk Tier</label>
+            </div>
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Investment Type</label>
-          <input type="text" id="edit-investment-type" class="mw-field mw-field-admin" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="edit-investment-type" class="mw-field mw-field-admin" placeholder=" " />
+            <label for="edit-investment-type">Investment Type</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
-          <textarea id="edit-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card"></textarea>
+          <div class="mw-fld mw-fld--admin">
+            <textarea id="edit-description" rows="2" class="mw-field mw-field-admin" placeholder="Short one-line summary shown on every client-facing card" placeholder=" "></textarea>
+            <label for="edit-description">Description</label>
+          </div>
         </div>
         <!-- Logo URL / Extended Description are conditionally shown based on Asset Class —
              see updateEditConditionalFields(), wired to edit-asset-class's change event. -->
         <div id="edit-logo-url-field" class="hidden">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Logo URL</label>
-          <input type="text" id="edit-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="edit-logo-url" class="mw-field mw-field-admin" placeholder="https://example.com/logo.png" placeholder=" " />
+            <label for="edit-logo-url">Logo URL</label>
+          </div>
           <p class="text-xs text-slate-400 mt-1">A hosted image link, not a file upload. Left blank, the client-facing card falls back to initials.</p>
         </div>
         <div id="edit-extended-description-field" class="hidden">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Extended Description</label>
-          <textarea id="edit-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup"></textarea>
+          <div class="mw-fld mw-fld--admin">
+            <textarea id="edit-extended-description" rows="4" class="mw-field mw-field-admin" placeholder="Longer text shown in the client-facing &quot;More info&quot; popup" placeholder=" "></textarea>
+            <label for="edit-extended-description">Extended Description</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Investment (USD)</label>
-          <input type="number" id="edit-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="number" id="edit-minimum-investment" step="1" min="0" class="mw-field mw-field-admin" placeholder=" " />
+            <label for="edit-minimum-investment">Minimum Investment (USD)</label>
+          </div>
         </div>
         <div class="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3">
           <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Current Unit Price</p>
@@ -248,17 +285,23 @@
       <p class="text-sm text-slate-500 mb-4" id="nav-modal-product-name"></p>
       <div class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">New Unit Price (USD)</label>
-          <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="number" id="nav-unit-price" step="0.01" min="0.01" class="mw-field mw-field-admin" placeholder="105.00" placeholder=" " />
+            <label for="nav-unit-price">New Unit Price (USD)</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Effective Date</label>
-          <input type="date" id="nav-effective-date" class="mw-field mw-field-admin" />
+          <div class="mw-fld mw-fld--static mw-fld--admin">
+            <input type="date" id="nav-effective-date" class="mw-field mw-field-admin" />
+            <label for="nav-effective-date">Effective Date</label>
+          </div>
           <p class="text-xs text-slate-400 mt-1">The real-world date this valuation is effective as of — may be earlier than today (e.g. a quarter-end appraisal published later).</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Note (optional)</label>
-          <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" />
+          <div class="mw-fld mw-fld--admin">
+            <input type="text" id="nav-note" class="mw-field mw-field-admin" placeholder="Q3 2026 appraisal" placeholder=" " />
+            <label for="nav-note">Note (optional)</label>
+          </div>
         </div>
       </div>
       <p class="text-xs text-red-500 hidden mt-3" id="nav-error"></p>

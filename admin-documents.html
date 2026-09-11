@@ -65,17 +65,21 @@
           </div>
           <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Client</label>
-              <select id="publish-client" class="mw-field mw-field-admin"></select>
+              <div class="mw-fld mw-fld--static mw-fld--admin">
+                <select id="publish-client" class="mw-field mw-field-admin"></select>
+                <label for="publish-client">Client</label>
+              </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
-              <select id="publish-category" class="mw-field mw-field-admin">
+              <div class="mw-fld mw-fld--static mw-fld--admin">
+                <select id="publish-category" class="mw-field mw-field-admin">
                 <option value="Contracts">Contracts</option>
                 <option value="Statements & Reports">Statements &amp; Reports</option>
                 <option value="Signature Required">Signature Required</option>
                 <option value="General">General</option>
               </select>
+                <label for="publish-category">Category</label>
+              </div>
             </div>
             <div class="md:col-span-2">
               <label for="publish-file" class="block text-sm font-medium text-slate-700 mb-1">Document File</label>
@@ -95,8 +99,10 @@
             </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Due Date <span class="text-slate-400 font-normal">(optional)</span></label>
-              <input type="date" id="publish-due-date" class="mw-field mw-field-admin" />
+              <div class="mw-fld mw-fld--static mw-fld--admin">
+                <input type="date" id="publish-due-date" class="mw-field mw-field-admin" />
+                <label for="publish-due-date">Due Date <span class="text-slate-400 font-normal">(optional)</span></label>
+              </div>
             </div>
             <div class="flex items-center gap-2 mt-6">
               <input type="checkbox" id="publish-signature-required" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />

@@ -53,9 +53,11 @@
           <p class="text-xs text-slate-400 mb-1">Current rate</p>
           <p class="text-2xl font-bold text-slate-900 mb-4" id="current-rate-display">—%</p>
 
-          <label class="block text-sm font-medium text-slate-700 mb-1">New Rate (%)</label>
           <div class="flex gap-3">
-            <input type="number" id="rate-input" step="0.01" min="0" class="mw-field mw-field-admin flex-1" />
+            <div class="mw-fld mw-fld--admin flex-1">
+              <input type="number" id="rate-input" step="0.01" min="0" class="mw-field mw-field-admin" placeholder=" " />
+              <label for="rate-input">New Rate (%)</label>
+            </div>
             <button type="button" id="save-rate-btn" class="mw-btn mw-btn-sm bg-amber-600 text-white hover:bg-amber-700">Save</button>
           </div>
           <p class="text-xs text-red-500 hidden mt-2" id="rate-error"></p>

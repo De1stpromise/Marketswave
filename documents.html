@@ -88,30 +88,38 @@
         <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
           <div class="flex flex-wrap gap-3 items-end">
             <div>
-              <label for="filter-category" class="block text-xs text-slate-500 mb-1">Category</label>
-              <select id="filter-category" name="category" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <select id="filter-category" name="category" class="mw-field mw-field-sm">
                 <option value="">All Categories</option>
                 <option value="Contracts">Contracts</option>
                 <option value="Signature Required">Signature Required</option>
                 <option value="Statements & Reports">Statements & Reports</option>
                 <option value="General">General</option>
               </select>
+                <label for="filter-category">Category</label>
+              </div>
             </div>
             <div>
-              <label for="filter-direction" class="block text-xs text-slate-500 mb-1">Direction</label>
-              <select id="filter-direction" name="direction" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <select id="filter-direction" name="direction" class="mw-field mw-field-sm">
                 <option value="">All</option>
                 <option value="from">From Marketswave</option>
                 <option value="upload">Uploaded by You</option>
               </select>
+                <label for="filter-direction">Direction</label>
+              </div>
             </div>
             <div>
-              <label for="filter-date-from" class="block text-xs text-slate-500 mb-1">Date From</label>
-              <input type="date" id="filter-date-from" name="date_from" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <input type="date" id="filter-date-from" name="date_from" class="mw-field mw-field-sm">
+                <label for="filter-date-from">Date From</label>
+              </div>
             </div>
             <div>
-              <label for="filter-date-to" class="block text-xs text-slate-500 mb-1">Date To</label>
-              <input type="date" id="filter-date-to" name="date_to" class="mw-field mw-field-sm">
+              <div class="mw-fld mw-fld--static">
+                <input type="date" id="filter-date-to" name="date_to" class="mw-field mw-field-sm">
+                <label for="filter-date-to">Date To</label>
+              </div>
             </div>
             <button type="button" id="apply-filters" class="mw-btn mw-btn-primary">Apply Filters</button>
             <button type="button" id="reset-filters" class="mw-btn mw-btn-secondary">Reset</button>
@@ -162,12 +170,14 @@
             </div>
               </div>
               <div>
-                <label for="upload-category" class="block text-xs text-slate-500 mb-1">Category</label>
-                <select id="upload-category" class="mw-field mw-field-sm">
+                <div class="mw-fld mw-fld--static">
+                  <select id="upload-category" class="mw-field mw-field-sm">
                   <option value="Contracts">Contracts</option>
                   <option value="Statements & Reports">Statements & Reports</option>
                   <option value="General">General</option>
                 </select>
+                  <label for="upload-category">Category</label>
+                </div>
               </div>
               <button type="button" id="submit-upload" class="mw-btn mw-btn-primary">Upload Document</button>
             </div>

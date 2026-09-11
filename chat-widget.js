@@ -56,13 +56,16 @@
       '    </div>' +
       '    <div id="chat-widget-precontact">' +
       '      <p>Enter your name and email to start a live chat with our team.</p>' +
+      '      <label class="cw-sr-only" for="chat-widget-name">Your name</label>' +
       '      <input type="text" id="chat-widget-name" placeholder="Your name" autocomplete="name">' +
+      '      <label class="cw-sr-only" for="chat-widget-email">Your email address</label>' +
       '      <input type="email" id="chat-widget-email" placeholder="you@example.com" autocomplete="email">' +
       '      <p id="chat-widget-precontact-error"></p>' +
       '      <button type="button" id="chat-widget-start-btn">Start Chat</button>' +
       '    </div>' +
       '    <div id="chat-widget-body" style="display:none;"></div>' +
       '    <div id="chat-widget-footer" style="display:none;">' +
+      '      <label class="cw-sr-only" for="chat-widget-input">Type a message</label>' +
       '      <input type="text" id="chat-widget-input" placeholder="Type a message...">' +
       '      <button type="button" id="chat-widget-send">Send</button>' +
       '    </div>' +

@@ -75,14 +75,18 @@
         <button type="button" id="update-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
       </div>
       <p class="text-sm text-slate-500 mb-4" id="update-request-label"></p>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-      <select id="update-status-input" class="mw-field mw-field-admin mb-3">
+      <div class="mw-fld mw-fld--static mw-fld--admin">
+        <select id="update-status-input" class="mw-field mw-field-admin mb-3">
         <option value="Open">Open</option>
         <option value="In Progress">In Progress</option>
         <option value="Resolved">Resolved</option>
       </select>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Response / Note <span class="text-slate-400 font-normal">(visible to the client)</span></label>
-      <textarea id="update-note-input" rows="4" class="mw-field mw-field-admin mb-2" placeholder="Optional note the client will see on this request..."></textarea>
+        <label for="update-status-input">Status</label>
+      </div>
+      <div class="mw-fld mw-fld--admin">
+        <textarea id="update-note-input" rows="4" class="mw-field mw-field-admin mb-2" placeholder="Optional note the client will see on this request..." placeholder=" "></textarea>
+        <label for="update-note-input">Response / Note <span class="text-slate-400 font-normal">(visible to the client)</span></label>
+      </div>
       <p class="text-xs text-red-500 hidden mb-2" id="update-error"></p>
       <div class="flex gap-3 mt-2">
         <button type="button" id="update-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>

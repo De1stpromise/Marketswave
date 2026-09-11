@@ -250,3 +250,22 @@
     right: -8px;
   }
 }
+
+/* Visually-hidden but present in the accessibility tree. The three chat inputs were named
+   only by their placeholder, which disappears the moment the user types — so the control
+   became unnamed exactly when its value most needed explaining. Real <label> elements
+   rather than aria-label: a label survives a refactor that a string attribute does not.
+   NOT display:none or visibility:hidden, either of which removes the label from the tree
+   entirely and would defeat the whole point. */
+.cw-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

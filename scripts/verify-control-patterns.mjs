@@ -93,6 +93,11 @@ async function connect() {
     return r.result && r.result.result ? r.result.result.value : undefined;
   };
   await send('Page.enable');
+  // Without this a headless page is not considered focused, so .focus() never matches
+  // :focus and any focus-state assertion silently measures the RESTING state twice.
+  // That is exactly what happened here first: rest and focused both read 4.77:1 when
+  // the focused label is navy on white and should be far higher.
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });  // lesson 3
   return { send, evaluate, close: () => { ws.close(); chrome.kill(); try { rmSync(profile, { recursive: true, force: true }); } catch (e) {} } };
@@ -156,6 +161,22 @@ const PROBE = `(() => {
   // be an artifact of this probe rather than the layout — height for those controls is
   // still covered by the tier checks in Parts 1 and 2.
   document.querySelectorAll('button, a.flex, a.inline-flex, select, textarea, input:not([type=checkbox]):not([type=radio]):not([type=hidden]), [role=button]').forEach((el) => {
+    // A .mw-upload-input is deliberately clipped to 1px — that is exactly what keeps it
+    // focusable while invisible (row 189). Its real tap target is the label face, which is
+    // measured in its place rather than skipping the pair and losing the coverage.
+    if (el.classList && el.classList.contains('mw-upload-input')) {
+      const face = el.parentElement && el.parentElement.querySelector('label.mw-upload-face');
+      if (face) {
+        const fr = face.getBoundingClientRect();
+        // A 0x0 face is inside a display:none modal at scan time — skipped like every other
+        // hidden control, matching the guard the main branch already applies.
+        if (fr.width === 0 && fr.height === 0) return;
+        if (fr.height < 43.5 || fr.width < 43.5) {
+          out.undersized.push({ cls: 'mw-upload-face (target for the clipped input)', tag: 'label', h: px(fr.height), w: px(fr.width) });
+        }
+      }
+      return;
+    }
     const r = el.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return;
     if (getComputedStyle(el).display === 'none') return;
@@ -444,6 +465,56 @@ async function main() {
       (gradStops || []).length >= 6 && weakStops.length === 0,
       JSON.stringify(weakStops));
 
+    // ---- Floating-label contrast (row 190), computed rather than sampled.
+    // The label is ONE flat colour on ONE flat field ground, so the arithmetic is exact and
+    // is not subject to the glyph-antialiasing and modal-overlap artifacts that make
+    // screenshot sampling bounce on this particular surface (a stacked modal reads one
+    // panel's white through another). Pixel sampling still covers it separately via
+    // verify-contrast.mjs's controls-fields profile; this is the deterministic guard.
+    await goto(cdp, BASE + '/documents.html', clientBootstrap);
+    const fldContrast = await cdp.evaluate([
+      '(async () => {',
+      '  const settle = () => new Promise((r) => setTimeout(r, 320));',
+      '  const lum = (c) => { const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }; return 0.2126*f(c[0]) + 0.7152*f(c[1]) + 0.0722*f(c[2]); };',
+      '  const ratio = (a, b) => { const p = [lum(a), lum(b)].sort((x, y) => y - x); return Math.round(((p[0] + 0.05) / (p[1] + 0.05)) * 100) / 100; };',
+      '  const rgb = (str) => String(str).split(/[^0-9]+/).filter(function (x) { return x !== ""; }).slice(0, 3).map(Number);',
+      '  const wrap = document.createElement("div");',
+      '  wrap.className = "mw-fld";',
+      '  const probeInput = document.createElement("input");',
+      '  probeInput.className = "mw-field"; probeInput.id = "__probe"; probeInput.setAttribute("placeholder", " ");',
+      '  const probeLabel = document.createElement("label");',
+      '  probeLabel.setAttribute("for", "__probe"); probeLabel.textContent = "Probe";',
+      '  wrap.appendChild(probeInput); wrap.appendChild(probeLabel);',
+      '  document.body.appendChild(wrap);',
+      '  const field = wrap.querySelector(".mw-field");',
+      '  const label = wrap.querySelector("label");',
+      '  const ground = rgb(getComputedStyle(field).backgroundColor);',
+      '  const rest = rgb(getComputedStyle(label).color);',
+      '  await settle();',
+      '  const restSettled = rgb(getComputedStyle(label).color);',
+      '  field.focus();',
+      '  await settle();',
+      '  const focusedGround = rgb(getComputedStyle(field).backgroundColor);',
+      '  const focused = rgb(getComputedStyle(label).color);',
+      '  const out = { restStable: JSON.stringify(rest) === JSON.stringify(restSettled), restOnGround: ratio(rest, ground), focusedOnGround: ratio(focused, focusedGround), rest: rest, focused: focused, ground: ground, focusedGround: focusedGround, matchesFocus: field.matches(":focus"), docHasFocus: document.hasFocus(), isActive: document.activeElement === field };',
+      '  wrap.remove();',
+      '  return out;',
+      '})()'
+    ].join(String.fromCharCode(10)));
+    check('floating label clears 4.5:1 at rest (' + fldContrast.restOnGround + ':1)',
+      fldContrast.restOnGround >= 4.5, JSON.stringify(fldContrast));
+    check('floating label clears 4.5:1 while FOCUSED, when its colour AND the ground both change (' + fldContrast.focusedOnGround + ':1, label rgb ' + fldContrast.focused.join() + ' on ' + fldContrast.focusedGround.join() + ', :focus matched=' + fldContrast.matchesFocus + ')',
+      fldContrast.focusedOnGround >= 4.5, JSON.stringify(fldContrast));
+    // ★ NON-VACUITY GUARD. The first two assertions above passed at an identical 4.77:1
+    // for both states, which is impossible: focus repaints the label navy on white. The
+    // probe was reading the RESTING colour twice, because `.mw-fld > label` carries
+    // `transition: ... color 0.16s` and getComputedStyle immediately after .focus()
+    // returns the pre-transition value. Same class as the mid-fade contrast trap in
+    // row 176. Without this guard the pair would keep passing while measuring nothing.
+    check('the focused reading is genuinely a DIFFERENT colour from rest, so the pair is not measuring one state twice',
+      JSON.stringify(fldContrast.focused) !== JSON.stringify(fldContrast.rest) && fldContrast.matchesFocus === true,
+      JSON.stringify(fldContrast));
+
     // ---------------------------------------------------------------- PART 5: still works
     console.log('\nPART 5 — every control still WORKS (real clicks, real state changes)\n');
     await goto(cdp, BASE + '/asset-collection.html', clientBootstrap);
@@ -497,14 +568,26 @@ async function main() {
 
     // file input: the ::file-selector-button half is the part that IS stylable
     await goto(cdp, BASE + '/documents.html', clientBootstrap);
+    // Row 189 replaced the bare native file input with the accessible .mw-upload component,
+    // so `.mw-file` and its ::file-selector-button styling no longer exist. What matters now
+    // is that the component's visible face is a real tap target and the input behind it is
+    // still a genuine, focusable file input.
     const fileCtl = await cdp.evaluate(`(() => {
       const f = document.getElementById('upload-file');
       if (!f) return { err: 'no file input' };
-      const b = getComputedStyle(f, '::file-selector-button');
-      return { isMwFile: f.classList.contains('mw-file'), btnH: b.height, btnRadius: b.borderTopLeftRadius, btnBg: b.backgroundColor, type: f.type };
+      const root = f.closest('.mw-upload');
+      const face = root && root.querySelector('label.mw-upload-face');
+      const cs = getComputedStyle(f);
+      const fr = face ? face.getBoundingClientRect() : null;
+      return { type: f.type, usesComponent: !!root, faceH: fr ? Math.round(fr.height) : 0,
+               faceRadius: face ? getComputedStyle(face).borderTopLeftRadius : '',
+               notDisplayNone: cs.display !== 'none', notVisHidden: cs.visibility !== 'hidden' };
     })()`);
-    check('file input: ::file-selector-button reaches Tier C height and radius', fileCtl.btnH === '40px' && fileCtl.btnRadius === '10px', JSON.stringify(fileCtl));
-    check('file input: stayed a REAL native <input type=file>, not replaced', fileCtl.type === 'file' && fileCtl.isMwFile === true, JSON.stringify(fileCtl));
+    check('file input: the component face is a real tap target at the minimum size',
+      fileCtl.faceH >= 44 && fileCtl.faceRadius === '12px', JSON.stringify(fileCtl));
+    check('file input: still a REAL native <input type=file>, focusable, not replaced by a proxy',
+      fileCtl.type === 'file' && fileCtl.usesComponent === true && fileCtl.notDisplayNone && fileCtl.notVisHidden,
+      JSON.stringify(fileCtl));
 
     // date input: box converged, native indicator deliberately kept
     await goto(cdp, BASE + '/transactions.html', clientBootstrap);

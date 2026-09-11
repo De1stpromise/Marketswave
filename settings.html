@@ -77,16 +77,20 @@
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
-              <input type="password" id="force-new-password" class="mw-field">
+              <div class="mw-fld">
+                <input type="password" id="force-new-password" class="mw-field" placeholder=" ">
+                <label for="force-new-password">New Password</label>
+              </div>
               <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
                 <div id="force-strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
               </div>
               <p class="text-xs mt-1" id="force-strength-text" style="color: #6B7178;">Enter a password</p>
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
-              <input type="password" id="force-confirm-password" class="mw-field">
+              <div class="mw-fld">
+                <input type="password" id="force-confirm-password" class="mw-field" placeholder=" ">
+                <label for="force-confirm-password">Confirm New Password</label>
+              </div>
             </div>
           </div>
           <p class="text-xs text-red-500 hidden mt-3" id="force-password-error"></p>
@@ -122,7 +126,10 @@
                 <p class="text-xs text-slate-500">Email</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="email-view"><span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span></p>
                 <div class="hidden mt-2" id="email-edit">
-                  <input type="email" id="email-input" class="mw-field mw-field-sm max-w-xs">
+                  <div class="mw-fld max-w-xs">
+                    <input type="email" id="email-input" class="mw-field mw-field-sm" placeholder=" ">
+                    <label for="email-input">Email address</label>
+                  </div>
                   <p class="text-xs text-red-500 hidden mt-1" id="email-error">Enter a valid email address.</p>
                 </div>
               </div>
@@ -138,7 +145,10 @@
                 <p class="text-xs text-slate-500">Phone</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="phone-view"><span class="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse"></span></p>
                 <div class="hidden mt-2" id="phone-edit">
-                  <input type="tel" id="phone-input" class="mw-field mw-field-sm max-w-xs">
+                  <div class="mw-fld max-w-xs">
+                    <input type="tel" id="phone-input" class="mw-field mw-field-sm" placeholder=" ">
+                    <label for="phone-input">Phone number</label>
+                  </div>
                   <p class="text-xs text-red-500 hidden mt-1" id="phone-error">Enter a valid phone number.</p>
                 </div>
               </div>
@@ -216,20 +226,26 @@
               </div>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
-                  <input type="password" id="current-password" class="mw-field">
+                  <div class="mw-fld">
+                    <input type="password" id="current-password" class="mw-field" placeholder=" ">
+                    <label for="current-password">Current Password</label>
+                  </div>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
-                  <input type="password" id="new-password" class="mw-field">
+                  <div class="mw-fld">
+                    <input type="password" id="new-password" class="mw-field" placeholder=" ">
+                    <label for="new-password">New Password</label>
+                  </div>
                   <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
                     <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
                   </div>
                   <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
-                  <input type="password" id="confirm-password" class="mw-field">
+                  <div class="mw-fld">
+                    <input type="password" id="confirm-password" class="mw-field" placeholder=" ">
+                    <label for="confirm-password">Confirm New Password</label>
+                  </div>
                 </div>
               </div>
               <p class="text-xs text-red-500 hidden mt-3" id="password-error"></p>
@@ -246,7 +262,7 @@
                 <div class="flex items-center gap-3">
                   <span id="twofa-status-badge" class="hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Enabled</span>
                   <label class="relative inline-flex items-center cursor-pointer mw-tap-toggle">
-                    <input type="checkbox" id="twofa-toggle" class="sr-only peer">
+                    <input type="checkbox" id="twofa-toggle" class="sr-only peer" aria-label="Enable two-factor authentication">
                     <div class="w-11 h-6 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
                       <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
                     </div>
@@ -273,7 +289,10 @@
                     <p class="text-lg font-semibold tracking-widest text-navy mb-3" id="twofa-demo-code">000000</p>
                     <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmation Code</label>
                     <div class="flex flex-wrap gap-2">
-                      <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="mw-field max-w-[9rem] tracking-widest">
+                      <div class="mw-fld">
+                        <input type="text" id="twofa-code" maxlength="6" placeholder="000000" class="mw-field max-w-[9rem] tracking-widest" placeholder=" ">
+                        <label for="twofa-code">000000</label>
+                      </div>
                       <button type="button" id="twofa-confirm" class="mw-btn mw-btn-primary">Confirm</button>
                     </div>
                     <p class="text-xs text-red-500 hidden mt-1.5" id="twofa-error">Enter the 6-digit code shown above.</p>
@@ -330,7 +349,7 @@
                   <td class="px-4 py-3 font-medium text-navy">Statements & Reports</td>
                   <td class="px-4 py-3 text-center">
                     <label class="relative inline-flex items-center cursor-pointer mw-tap-toggle">
-                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="statements" data-channel="email">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="statements" data-channel="email" aria-label="Email me about account statements">
                       <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
                         <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
                       </div>
@@ -341,7 +360,7 @@
                   <td class="px-4 py-3 font-medium text-navy">Allocation Approvals</td>
                   <td class="px-4 py-3 text-center">
                     <label class="relative inline-flex items-center cursor-pointer mw-tap-toggle">
-                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="allocations" data-channel="email">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="allocations" data-channel="email" aria-label="Email me about allocation updates">
                       <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
                         <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
                       </div>
@@ -352,7 +371,7 @@
                   <td class="px-4 py-3 font-medium text-navy">Document Uploads & Signatures</td>
                   <td class="px-4 py-3 text-center">
                     <label class="relative inline-flex items-center cursor-pointer mw-tap-toggle">
-                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="documents" data-channel="email">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="documents" data-channel="email" aria-label="Email me about new documents">
                       <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
                         <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
                       </div>
@@ -363,7 +382,7 @@
                   <td class="px-4 py-3 font-medium text-navy">Deadlines</td>
                   <td class="px-4 py-3 text-center">
                     <label class="relative inline-flex items-center cursor-pointer mw-tap-toggle">
-                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="deadlines" data-channel="email">
+                      <input type="checkbox" class="sr-only peer notif-toggle" data-notif="deadlines" data-channel="email" aria-label="Email me about upcoming deadlines">
                       <div class="w-9 h-5 bg-slate-200 rounded-full peer-checked:bg-navy transition-colors relative">
                         <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
                       </div>
@@ -404,12 +423,16 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New First Name</label>
-            <input type="text" id="cm-legalName-firstName" class="mw-field">
+            <div class="mw-fld">
+              <input type="text" id="cm-legalName-firstName" class="mw-field" placeholder=" ">
+              <label for="cm-legalName-firstName">New First Name</label>
+            </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New Last Name</label>
-            <input type="text" id="cm-legalName-lastName" class="mw-field">
+            <div class="mw-fld">
+              <input type="text" id="cm-legalName-lastName" class="mw-field" placeholder=" ">
+              <label for="cm-legalName-lastName">New Last Name</label>
+            </div>
           </div>
         </div>
       </div>
@@ -421,27 +444,37 @@
           <p class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5" id="cm-address-current">—</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">New Street</label>
-          <input type="text" id="cm-address-street" class="mw-field">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New City</label>
-            <input type="text" id="cm-address-city" class="mw-field">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New State</label>
-            <input type="text" id="cm-address-state" class="mw-field">
+          <div class="mw-fld">
+            <input type="text" id="cm-address-street" class="mw-field" placeholder=" ">
+            <label for="cm-address-street">New Street</label>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New ZIP</label>
-            <input type="text" id="cm-address-zip" class="mw-field">
+            <div class="mw-fld">
+              <input type="text" id="cm-address-city" class="mw-field" placeholder=" ">
+              <label for="cm-address-city">New City</label>
+            </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">New Country</label>
-            <input type="text" id="cm-address-country" class="mw-field">
+            <div class="mw-fld">
+              <input type="text" id="cm-address-state" class="mw-field" placeholder=" ">
+              <label for="cm-address-state">New State</label>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="mw-fld">
+              <input type="text" id="cm-address-zip" class="mw-field" placeholder=" ">
+              <label for="cm-address-zip">New ZIP</label>
+            </div>
+          </div>
+          <div>
+            <div class="mw-fld">
+              <input type="text" id="cm-address-country" class="mw-field" placeholder=" ">
+              <label for="cm-address-country">New Country</label>
+            </div>
           </div>
         </div>
       </div>
@@ -453,8 +486,10 @@
           <p class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5" id="cm-idDocument-current">—</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">New Document Type</label>
-          <input type="text" id="cm-idDocument-documentType" placeholder="e.g. Passport, Driver's License" class="mw-field">
+          <div class="mw-fld">
+            <input type="text" id="cm-idDocument-documentType" placeholder="e.g. Passport, Driver's License" class="mw-field" placeholder=" ">
+            <label for="cm-idDocument-documentType">New Document Type</label>
+          </div>
         </div>
         <div>
           <label for="cm-idDocument-file" class="block text-sm font-medium text-slate-700 mb-1.5">New Document File</label>
@@ -476,8 +511,10 @@
       </div>
 
       <div class="mt-4">
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Reason for Change <span class="text-slate-400 font-normal">(optional)</span></label>
-        <textarea id="change-modal-reason" rows="3" class="mw-field"></textarea>
+        <div class="mw-fld">
+          <textarea id="change-modal-reason" rows="3" class="mw-field" placeholder=" "></textarea>
+          <label for="change-modal-reason">Reason for Change <span class="text-slate-400 font-normal">(optional)</span></label>
+        </div>
       </div>
       <p class="text-xs text-red-500 hidden mt-2" id="change-modal-error"></p>
 

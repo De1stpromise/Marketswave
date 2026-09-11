@@ -116,8 +116,8 @@
           <p class="text-sm text-slate-500 mb-5">Report an issue with a transaction, your account, billing, or a document — we'll investigate and follow up.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-              <select id="dispute-category" class="mw-field">
+              <div class="mw-fld mw-fld--static">
+                <select id="dispute-category" class="mw-field">
                 <option value="">Select a category</option>
                 <option value="Transaction Issue">Transaction Issue</option>
                 <option value="Account Access">Account Access</option>
@@ -125,10 +125,14 @@
                 <option value="Document/Signature Issue">Document/Signature Issue</option>
                 <option value="Other">Other</option>
               </select>
+                <label for="dispute-category">Category</label>
+              </div>
             </div>
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-              <textarea id="dispute-description" rows="4" placeholder="Describe the issue in detail..." class="mw-field"></textarea>
+              <div class="mw-fld">
+                <textarea id="dispute-description" rows="4" placeholder="Describe the issue in detail..." class="mw-field" placeholder=" "></textarea>
+                <label for="dispute-description">Description</label>
+              </div>
             </div>
             <div class="md:col-span-2">
               <label for="dispute-evidence" class="block text-sm font-medium text-slate-700 mb-1.5">Evidence <span class="text-slate-400 font-normal">(optional)</span></label>
@@ -188,20 +192,26 @@
       </div>
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
-          <input type="text" id="callback-name" class="mw-field">
+          <div class="mw-fld">
+            <input type="text" id="callback-name" class="mw-field" placeholder=" ">
+            <label for="callback-name">Name</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
-          <input type="tel" id="callback-phone" class="mw-field">
+          <div class="mw-fld">
+            <input type="tel" id="callback-phone" class="mw-field" placeholder=" ">
+            <label for="callback-phone">Phone</label>
+          </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Best Time to Call</label>
-          <select id="callback-time" class="mw-field">
+          <div class="mw-fld mw-fld--static">
+            <select id="callback-time" class="mw-field">
             <option value="Morning">Morning (8am–12pm ET)</option>
             <option value="Afternoon">Afternoon (12pm–4pm ET)</option>
             <option value="Evening">Evening (4pm–8pm ET)</option>
           </select>
+            <label for="callback-time">Best Time to Call</label>
+          </div>
         </div>
         <p class="text-xs text-red-500 hidden" id="callback-error">Please provide a name and phone number.</p>
       </div>
