@@ -123,12 +123,15 @@ async function main() {
     check('the real card renders the six seeded defaults',
       ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'].every(function (s) { return rows.textContent.indexOf(s) !== -1; }),
       rows.textContent.slice(0, 300));
-    check('the visible count is real, not decorative',
-      /^·?\s*6 symbols$/.test(doc.getElementById('wl-count').textContent.trim()),
-      doc.getElementById('wl-count').textContent);
-    check('the ceiling is stated on screen, not only enforced on the server',
-      /up to 25 symbols/.test(doc.getElementById('wl-cap').textContent),
-      doc.getElementById('wl-cap').textContent);
+    check('six real rows are rendered', rows.querySelectorAll('.wl-row').length === 6,
+      String(rows.querySelectorAll('.wl-row').length));
+    // Removed 2026-09-11, and asserted absent so they cannot quietly come back: a client
+    // does not need a running tally of their own list. The ceiling is still enforced
+    // server-side and surfaces in the add flow - proven for real in section 5 below.
+    check('no symbol count and no ceiling caption are on the card',
+      !doc.getElementById('wl-count') && !doc.getElementById('wl-cap') &&
+      doc.querySelector('.wl-head h3').textContent.trim() === 'Market snapshot',
+      doc.querySelector('.wl-head h3').textContent);
     check('the Delayed label is still on the card — these prices are cached, not live',
       doc.querySelector('.wl-delayed').textContent.indexOf('Delayed') !== -1);
 
@@ -180,7 +183,8 @@ async function main() {
     check('...and a real row exists in Postgres, not just on screen', (nvdaStored.data || []).length === 1);
     check('the add panel closes and the search box clears after a successful add',
       addPanel.hidden === true && searchInput.value === '');
-    check('the visible count moved with it', /7 symbols$/.test(doc.getElementById('wl-count').textContent.trim()));
+    check('a seventh real row is rendered', rows.querySelectorAll('.wl-row').length === 7,
+      String(rows.querySelectorAll('.wl-row').length));
 
     // ---- The alert modal, and the once-and-clear promise it makes -------------------------
     console.log('\n2. Set a price alert through the real modal');
@@ -252,10 +256,53 @@ async function main() {
     check('the row disappears from the card', rows.textContent.indexOf('NVDA') === -1);
     check('...and is genuinely gone from Postgres',
       ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId).eq('symbol', 'NVDA')).data || []).length === 0);
-    check('the count moved back down', /6 symbols$/.test(doc.getElementById('wl-count').textContent.trim()));
+    check('the card is back to six real rows', rows.querySelectorAll('.wl-row').length === 6,
+      String(rows.querySelectorAll('.wl-row').length));
+
+    // ---- The ceiling, surfaced where it is relevant --------------------------------------
+    // The card no longer states the ceiling anywhere, by design. This is the one moment it
+    // is genuinely relevant, so this is the one place it has to be proven reachable: a real
+    // client at the limit, clicking a real search result, seeing the server's own real
+    // message on screen. add-watchlist-symbol checks the ceiling BEFORE it calls a provider,
+    // so the filler rows below cost no provider calls at all.
+    console.log('\n5. At the ceiling, the add flow says so');
+    const filler = [];
+    for (let i = 0; i < 19; i++) {
+      filler.push({
+        client_id: clientId, symbol: 'FILL' + String(i).padStart(2, '0'),
+        name: 'Ceiling filler ' + i, source: 'finnhub', asset_type: 'stock'
+      });
+    }
+    const { error: fillErr } = await admin.from('watchlist_symbols').insert(filler);
+    check('the client is genuinely at the 25-symbol ceiling', !fillErr &&
+      ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId)).data || []).length === 25,
+      fillErr && fillErr.message);
+
+    addToggle.click();
+    searchInput.value = 'nvidia';
+    searchInput.dispatchEvent(new win.Event('input', { bubbles: true }));
+    await pollUntil(function () { return results.querySelectorAll('.wl-res').length > 0; }, 30000);
+    const nvdaAgain = [...results.querySelectorAll('.wl-res')].find(function (r) {
+      return r.getAttribute('data-wl-add') === 'NVDA';
+    });
+    check('a result is still there to click at the ceiling - search is not pre-emptively blocked',
+      !!nvdaAgain, results.textContent.slice(0, 240));
+
+    const wlMessageEl = doc.getElementById('wl-message');
+    nvdaAgain.click();
+    await pollUntil(function () { return wlMessageEl.hidden === false; }, 30000);
+    check('the client is told at the moment it matters, in the add flow',
+      wlMessageEl.hidden === false && /up to 25 symbols/.test(wlMessageEl.textContent),
+      wlMessageEl.textContent);
+    check("...in the server's own words, not a guess the page made",
+      /Remove one to add another/.test(wlMessageEl.textContent), wlMessageEl.textContent);
+    check('...and nothing was added past the ceiling',
+      ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId)).data || []).length === 25);
+
+    await admin.from('watchlist_symbols').delete().eq('client_id', clientId).like('symbol', 'FILL%');
 
     // ---- The empty state ------------------------------------------------------------------
-    console.log('\n5. The empty state, and that it does not silently re-seed');
+    console.log('\n6. The empty state, and that it does not silently re-seed');
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
     const emptyDom = buildPageDom(dashPath);
     emptyDom.window.MarketswaveData = MarketswaveData;
@@ -268,7 +315,7 @@ async function main() {
       emptyRows.textContent.indexOf('SPY') === -1);
 
     // ---- A genuinely failed load ----------------------------------------------------------
-    console.log('\n6. A genuinely failed load');
+    console.log('\n7. A genuinely failed load');
     await supa.auth.signOut();
     const failDom = buildPageDom(dashPath);
     failDom.window.MarketswaveData = MarketswaveData;
@@ -279,7 +326,7 @@ async function main() {
       /Try Again/.test(failRows.textContent), failRows.textContent.slice(0, 200));
 
     // ---- The Allocate link's destination actually does something ---------------------------
-    console.log('\n7. The Allocate link lands somewhere that acts on it');
+    console.log('\n8. The Allocate link lands somewhere that acts on it');
     const collectionPath = fileURLToPath(new URL('../asset-collection.html', import.meta.url));
     const collDom = buildPageDom(collectionPath, '?product=PROD-0004');
     collDom.window.MarketswaveData = MarketswaveData;

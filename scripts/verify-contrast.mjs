@@ -217,8 +217,6 @@ PROFILES.watchlist = [
   { label: 'row change (gain)', sel: '.wl-px-c.wl-up', limit: 6 },
   { label: 'row change (loss)', sel: '.wl-px-c.wl-dn', limit: 6 },
   { label: 'Delayed label', sel: '.wl-delayed', limit: 1 },
-  { label: 'symbol count', sel: '.wl-count', limit: 1 },
-  { label: 'ceiling caption', sel: '.wl-cap', limit: 1 },
   { label: 'armed alert line', sel: '.wl-alertline', limit: 4 },
   { label: 'search result source', sel: '.wl-src', limit: 6 },
   { label: 'HOVER row name', sel: '.wl-name', limit: 6, hover: true },

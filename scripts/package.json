@@ -58,7 +58,8 @@
     "verify-no-monospace": "node verify-no-monospace.mjs",
     "supabase-configure-scheduler": "node supabase-configure-scheduler.js",
     "supabase-verify-watchlist-alerts": "node verify-supabase-watchlist-alerts.js",
-    "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs"
+    "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs",
+    "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

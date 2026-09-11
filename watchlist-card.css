@@ -36,25 +36,18 @@
   gap: 10px;
 }
 
-/* ★ MEASURED, NOT CHOSEN BY EYE — and the reason is worth recording, because it is not the
-   usual "pick a darker grey".
-   At 11px/500 #5C6367 this read 2.67:1; weight 600 moved it to 3.19:1; 12px to 3.61:1;
-   13px to 3.71:1 — barely moving, which is the signature of a measurement that is not
-   limited by the colour at all. Forcing the same element to PURE BLACK at 20px measured its
-   darkest real pixel at #383838, not #000000: text on this glass card never reaches its own
-   declared colour, because the card's backdrop-filter composites the subtree and the
-   antialiasing caps coverage at roughly 78%. A secondary grey at 11px therefore cannot pass
-   here no matter which grey it is.
-   So this is not a faint suffix any more. It is part of the heading, at the heading's own
-   size and colour, separated by a middot — legible on its own terms rather than tuned until
-   a measurement stopped complaining. */
-.wl-count {
-  font-size: 15px;
-  font-weight: 600;
-  color: inherit;
-  margin-left: 6px;
-  font-variant-numeric: tabular-nums;
-}
+/* ★ NO SYMBOL COUNT HERE, AND NO CEILING CAPTION BELOW THE LIST — both were removed on
+   2026-09-11 and should not come back. A client does not need a running tally of their own
+   list; it reads as inventory management rather than information. The per-client ceiling is
+   still enforced server-side and surfaces in the add flow, at the one moment it matters.
+   ★ KEEP THE MEASUREMENT THAT CAME WITH IT, because it applies to anything small you are
+   tempted to add to this card. The count read 2.67:1 at 11px/500 #5C6367; weight 600 moved
+   it to 3.19:1, 12px to 3.61:1, 13px to 3.71:1 — barely moving, which is the signature of a
+   measurement that is not limited by the colour at all. Forcing the same element to PURE
+   BLACK at 20px measured its darkest real pixel at #383838, not #000000: text on this glass
+   card never reaches its own declared colour, because the card's backdrop-filter composites
+   the subtree and antialiasing caps coverage at roughly 78%. A secondary grey at 11px cannot
+   pass here whichever grey it is — make it genuinely bigger, or do not put it here. */
 
 /* "Delayed" stays, and stays literal: these prices come out of a cache refreshed on a
    15-minute cycle, and a card that looked live would be claiming something untrue. */
@@ -209,16 +202,6 @@
   border-radius: 50%;
   background: #C8860A;
   flex-shrink: 0;
-}
-
-.wl-cap {
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(27, 58, 75, 0.08);
-  font-size: 11px;
-  color: #5C6367;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 
 .wl-empty {
