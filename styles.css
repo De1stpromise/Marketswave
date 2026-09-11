@@ -69,6 +69,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ★ FORM CONTROLS DO NOT INHERIT font-family. The user agent supplies its own default
+   instead (Arial on Windows), so `body { font-family: var(--font) }` above never reached a
+   single <button>, <input>, <select> or <textarea>. Every button on all 12 public pages had
+   therefore been rendering in Arial rather than Inter since the day they were built --
+   measured, not assumed: a probe across all 12 found `#get-access-btn`, `.nav-toggle` and
+   contact.html's form submit resolving to Arial, plus three radios on signup.html.
+
+   This is the standard reset, and it is deliberately `inherit` rather than a hardcoded
+   var(--font): a self-contained component that sets its own stack on its root keeps it
+   (chat-widget.css does exactly that), which a hardcoded family would silently override.
+
+   Scope note: this file is loaded ONLY by the 12 public pages. The dashboard and admin
+   families are Tailwind, whose preflight already applies the identical reset, so they were
+   never affected and are not touched by this. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 a {
   text-decoration: none;
   color: inherit;

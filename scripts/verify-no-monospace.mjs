@@ -46,7 +46,8 @@ const BASE = process.env.MONO_BASE_URL || 'http://127.0.0.1:8765';
 /* The pages that ever carried mono, plus the two the earlier retirement already cleaned —
  * included deliberately so a regression there is caught too, not assumed still fixed. */
 const PAGES = ['index.html', 'resources.html', 'login.html', 'about.html', 'services.html',
-  'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'thank-you.html'];
+  'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'thank-you.html',
+  'signup.html', 'reset-password.html'];
 
 /* Known, deliberate: Tailwind's generic font-mono on a ticket identifier. Not JetBrains, not
  * part of the type scheme, and not a webfont — so it is allowed BY NAME rather than by a
@@ -197,6 +198,38 @@ async function main() {
     }
   }
 
+  /* ------------------------------------- every control is Inter, not the UA default
+   * ★ FORM CONTROLS DO NOT INHERIT font-family. `body { font-family }` never reaches a
+   * <button>/<input>/<select>/<textarea> — the UA supplies its own default instead (Arial on
+   * Windows). That is not a mono problem, but it is the same failure this file exists to
+   * catch: an element silently rendering in a family nobody chose. It shipped that way on
+   * every public page from the day they were built until 2026-09-11, and it was invisible
+   * precisely because Arial is plausible rather than obviously wrong.
+   * styles.css now carries the standard `font-family: inherit` reset; this proves it holds. */
+  console.log('\n=== CONTROLS — nothing falls back to the user-agent default ===');
+  for (const page of PAGES) {
+    await cdp.send('Page.navigate', { url: BASE + '/' + page });
+    await sleep(2200);
+    await cdp.eval('document.fonts.ready');
+    const r = await cdp.eval(`(() => {
+      const bad = [];
+      document.querySelectorAll('button, input, select, textarea').forEach((el) => {
+        if (!el.getClientRects().length) return;
+        // Strip any quotes the computed value carries before testing, so the check never
+        // depends on how the engine happens to serialise a quoted family name.
+        const fam = (getComputedStyle(el).fontFamily || '').replace(/["']/g, '');
+        // A component that deliberately sets its own stack on its own root is fine -- the
+        // reset is INHERIT precisely so that keeps working (chat-widget.css does this).
+        if (/^Inter/i.test(fam)) return;
+        if (/^-apple-system|^system-ui|^ui-sans/i.test(fam)) return;
+        bad.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + ' => ' + fam.split(',')[0]);
+      });
+      return { bad: bad.slice(0, 6), count: bad.length, total: document.querySelectorAll('button, input, select, textarea').length };
+    })()`);
+    check(page + ': every control resolves to Inter or a component stack, never the UA default (' +
+      r.total + ' controls)', r.count === 0, r.bad.join(' | '));
+  }
+
   /* ---------------------------------------------- narrow viewports
    * tabular-nums does not just change the FAMILY, it changes each digit's advance width, so a
    * numeral that fitted before can be wider after. That is a real layout risk and the reason
@@ -204,7 +237,7 @@ async function main() {
   console.log('\n=== NARROW VIEWPORTS — tabular figures did not widen anything past the edge ===');
   for (const w of [390, 375]) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: w, height: 780, deviceScaleFactor: 1, mobile: true });
-    for (const page of ['index.html', 'resources.html', 'login.html']) {
+    for (const page of ['index.html', 'resources.html', 'login.html', 'contact.html', 'signup.html']) {
       await cdp.send('Page.navigate', { url: BASE + '/' + page });
       await sleep(2200);
       await cdp.eval('document.fonts.ready');
@@ -218,7 +251,7 @@ async function main() {
   /* 320px goes through a real same-origin iframe: the top-level override floors at 348px on
    * this build, so asking for 320 at the top level yields a confident false pass. */
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-  for (const page of ['index.html', 'resources.html', 'login.html']) {
+  for (const page of ['index.html', 'resources.html', 'login.html', 'contact.html', 'signup.html']) {
     await cdp.send('Page.navigate', { url: BASE + '/' + page });
     await sleep(1500);
     const r = await cdp.eval(`(async () => {
