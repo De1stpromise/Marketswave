@@ -67,7 +67,20 @@
 .gradient-text {
   color: var(--primary); /* fallback if background-clip:text isn't supported anywhere —
                              solid navy, never invisible text */
-  background: linear-gradient(135deg, var(--primary) 15%, var(--accent-teal) 55%, #C8860A 100%);
+  /* ★ THE RAMP'S OWN STOPS ARE MEASURED, AND TWO OF THEM WERE FAILING (fixed 2026-09-11).
+     This is TEXT, so every stop has to clear 4.5:1 on the ground it is painted on -- and the
+     decorative accents did not. On the hero ground, `#C8860A` measured 2.69:1 and
+     `var(--accent-teal)` (#16815F) 4.44:1. That was PRE-EXISTING, not caused by the glow
+     added behind the headline the same day: with the glow suppressed the gold still read
+     2.69:1, so the glow accounts for 0.09 of it. dashboard.html's own comment had already
+     recorded the same problem when this primitive was tried on the portfolio figure and
+     rejected -- the finding was known in one place and never fixed at the source.
+     The replacements are not new colours: #137254 is the teal row 180 derived for text after
+     --accent-teal failed the same way, and #8A5C07 is the gold row 151 established. Measured
+     on the lit hero ground: navy 9.91:1, teal 5.01:1, gold 4.93:1.
+     --accent-teal and #C8860A remain correct for DECORATION (blobs, rails, icon strokes);
+     what changed is only their use as a text fill here. */
+  background: linear-gradient(135deg, var(--primary) 15%, #137254 55%, #8A5C07 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

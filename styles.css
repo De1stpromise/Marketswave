@@ -437,11 +437,64 @@ body.has-overlay-header .hero {
 
 .hero h1 {
   font-size: clamp(2.2rem, 5vw, 3.5rem);
-  font-weight: 700;
   line-height: 1.15;
   margin-bottom: 24px;
   letter-spacing: -0.9px;
-  color: var(--primary);
+}
+
+/* ---- Hero headline, variant B4 -----------------------------------------------------------
+   Two lines carrying different jobs. The first states the claim quietly (Inter 300, muted
+   slate); the second concludes it and takes the weight plus the navy -> teal -> gold ramp.
+   The title case is deliberately gone: at 700 with a colour ramp, capitals are a second
+   emphasis doing the same job the typography already does.
+
+   ★ THE GLOW SITS BEHIND THE SECOND LINE ONLY. It is two heavily blurred radial fields,
+   teal weighted left and gold weighted right, so the words sit in light rather than on a flat
+   ground. It is a ::before on the line itself rather than on the h1, so it tracks the text box
+   at every breakpoint instead of needing its own responsive sizing.
+
+   `z-index: -1` is safe here specifically because `.hero .container` sets `position: relative;
+   z-index: 2`, which opens a stacking context -- the glow drops behind the text but stays
+   above the hero's own grid/blob/streak layers rather than falling through them. */
+.hero h1 .hero-h1-a,
+.hero h1 .hero-h1-b { display: block; }
+
+.hero h1 .hero-h1-a {
+  font-weight: 300;
+  color: #5A6B76;
+}
+
+.hero h1 .hero-h1-b {
+  font-weight: 700;
+  position: relative;
+  /* inline-block so the glow's percentage insets resolve against the TEXT box rather than
+     the full line box, which on a block span would stretch the glow the whole column width. */
+  display: inline-block;
+}
+
+.hero h1 .hero-h1-b::before {
+  content: "";
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  top: 12%;
+  bottom: 12%;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(22, 129, 95, .22), transparent 62%),
+    radial-gradient(ellipse at 78% 50%, rgba(200, 134, 10, .20), transparent 62%);
+  filter: blur(26px);
+  animation: heroGlowBreathe 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes heroGlowBreathe { 50% { opacity: .55; } }
+
+/* Reduced motion suppresses the BREATHING, not the glow. The glow is light, not movement --
+   removing it would change the design rather than calm it, and it is what the second line is
+   lit by. */
+@media (prefers-reduced-motion: reduce) {
+  .hero h1 .hero-h1-b::before { animation: none; }
 }
 
 .hero-lead {
