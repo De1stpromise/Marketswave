@@ -64,7 +64,11 @@ async function main() {
   check('the real market_data_cache table was actually populated by this call', true); // confirmed below
 
   const { data: cacheRows } = await admin.from('market_data_cache').select('*');
-  check('exactly 6 real rows now exist in market_data_cache', cacheRows && cacheRows.length === 6, JSON.stringify(cacheRows));
+  // Live pricing, part 1 (2026-09-11): market-priced PRODUCT tickers (VT locally) join the
+  // cache too, so "exactly 6" became "the 6 base symbols are all present" — the property
+  // under test (the base set is refreshed) is unchanged.
+  const baseSymbols = ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'];
+  check('all 6 base symbols now exist in market_data_cache (product tickers may add more)', cacheRows && baseSymbols.every((sym) => cacheRows.some((r) => r.symbol === sym)) && cacheRows.length >= 6, JSON.stringify(cacheRows && cacheRows.map((r) => r.symbol)));
 
   console.log('\n2. A second call within 15 minutes correctly hits the cache (no repeat external API call)\n');
   const { data: second, error: secondErr } = await client.functions.invoke('get-market-snapshot');

@@ -242,9 +242,14 @@ async function main() {
   // Stocks & ETFs: +10.9% unrealized. Crypto: -8.24% unrealized (a genuine loser, proving
   // "best" isn't just "first with any holding"). Private Equity: +18.4% unrealized — the
   // deliberate real winner.
-  const equityUnits = 100, equityCostBasis = 10000;
-  const ethUnits = 50, ethCostBasis = 6000;
-  const nordicUnits = 20, nordicCostBasis = 2000;
+  // Live pricing, part 1 (2026-09-11): Global Equity ETF and Ethereum are market-priced now,
+  // so their real prices are whatever the market says today — cost bases are DERIVED from the
+  // live price to hold the intended mix (+10.9% / -8.24% / +18.4%) rather than hardcoded to a
+  // seed price that no longer exists (ETH went from ~$100 simulated to ~$2,500 real).
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const equityUnits = 100, equityCostBasis = round2((equityUnits * equityEtf.unit_price) / 1.109);
+  const ethUnits = 2, ethCostBasis = round2((ethUnits * ethereum.unit_price) / 0.9176);
+  const nordicUnits = 20, nordicCostBasis = round2((nordicUnits * nordic.unit_price) / 1.184);
   await admin.from('holdings').insert([
     { client_id: clientR.id, product_id: equityEtf.id, units: equityUnits, cost_basis: equityCostBasis },
     { client_id: clientR.id, product_id: ethereum.id, units: ethUnits, cost_basis: ethCostBasis },

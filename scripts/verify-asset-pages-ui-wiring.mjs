@@ -308,7 +308,7 @@ async function main() {
     check('a real Sell button exists for the seeded Ethereum holding', !!ethereumSellBtn);
     const bodyBeforeRace = perfToastBodyEl.textContent;
     ethereumSellBtn.click();
-    check('the Sell modal opens showing the full 5 units as available (the client’s own current understanding)', performanceDom.window.document.getElementById('sell-available-units').textContent.indexOf('5.0000') !== -1, performanceDom.window.document.getElementById('sell-available-units').textContent);
+    check('the Sell modal opens showing the full 5 units as available (the client’s own current understanding)', /^5\.00(00)? units$/.test(performanceDom.window.document.getElementById('sell-available-units').textContent.trim()), performanceDom.window.document.getElementById('sell-available-units').textContent);
 
     // A genuine concurrent change — e.g. a real admin-approved partial sell via a completely
     // separate path — reduces the REAL holding out from under the client's own already-open

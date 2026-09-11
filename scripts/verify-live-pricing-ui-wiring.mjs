@@ -89,6 +89,13 @@ async function main() {
   const peBefore = { unit_price: pe.unit_price, last_tick_date: pe.last_tick_date, price_change_percent: pe.price_change_percent, price_as_of: pe.price_as_of };
   const navBefore = ((await admin.from('nav_publications').select('id').eq('product_id', 'PROD-0001')).data || []).map((r) => r.id);
   const badId = 'PROD-' + String(9500 + parseInt(suffix.slice(0, 2), 16)).padStart(4, '0');
+  // This test renders the LIVE (green) and STALE (grey) states on real products. A transient
+  // provider failure during a heavy suite run can leave Ethereum flagged quote_failed (which
+  // is correct behaviour, covered by its own assertions below on a seeded product) — that
+  // real state is captured and put back afterwards, so the rendering assertions here test
+  // the page, not CoinGecko's mood at the moment the suite happened to run.
+  const ethStatusBefore = (await admin.from('products').select('price_status, price_failure_reason, price_last_failed_at').eq('id', 'PROD-0004').single()).data;
+  await admin.from('products').update({ price_status: 'ok', price_failure_reason: null }).eq('id', 'PROD-0004');
 
   try {
     // Seed: two holders on the PE product (for the impact table) and A holding some Ethereum.
@@ -288,6 +295,7 @@ async function main() {
       if (error) console.log('  cleanup: ' + error.message);
     }
     for (const id of ids) { await admin.from('clients').delete().eq('id', id); await admin.auth.admin.deleteUser(id); }
+    if (ethStatusBefore) await admin.from('products').update(ethStatusBefore).eq('id', 'PROD-0004');
     // Restore ETH's freshness with a real refresh (PM token).
     const pmMod = await import('../admin-supabase-config.js');
     const { data: pmS } = await pmMod.supabase.auth.signInWithPassword({ email: pmMod.LOCAL_ADMIN_EMAIL, password: pmMod.LOCAL_ADMIN_PASSWORD });

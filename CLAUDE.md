@@ -8564,6 +8564,89 @@ row 74.
   63/63, and a 14/14 end-to-end proof run directly against the real deployed functions with
   the 4 pre-existing `clients` rows confirmed byte-identical before and after.
 
+- **★★ Product catalog — live pricing, part 1 of 2 (2026-09-11, row 199).** Stocks & ETFs
+  and Crypto now carry REAL market prices; PE / Real Assets stay on published valuations
+  (row 143), now publishable by percentage with an impact table. Part 2 (fund documents) is
+  not built. Built against an approved mockup in four commits (backend, admin UI, client
+  cards, verification).
+  **Things a future session needs to know before touching any of this:**
+  - **★ `products.pricing_model` IS IMMUTABLE, AND SO IS THE SYMBOL.** `market` (unit_price
+    = the market price of `ticker`), `appraisal` (PE/RA, moves only via `publish-nav`),
+    `fixed` (Cash), and `simulated` — LEGACY ONLY, not creatable, kept so an unmapped
+    pre-existing Stocks/Crypto row keeps behaving until a PM maps it. After the migration's
+    backfill no seeded product is left on it. `edit-product` refuses `pricingModel`, `ticker`,
+    `priceSource`, and `assetClass` on a market product (it is DERIVED from the symbol's
+    provider: Finnhub → Stocks & ETFs, CoinGecko → Crypto, so BTC cannot be filed under Real
+    Assets). A remapped symbol would silently re-price every holder — that is why.
+  - **★ THE PRICE PATH, and why every settlement caller re-reads.** The 15-minute refresh
+    (`refresh-market-data`) unions product tickers with the base symbols and every watchlist
+    (`productCacheEntries()`), then `syncMarketPricedProducts()` copies fresh cache values
+    onto product rows. Separately, `settleAllProducts()`/`settleOneProduct()` call
+    `readThroughMarketPrice()` for every market product — copying the cache onto the row
+    only when the cache is NEWER than `price_as_of`. That read-through is what makes
+    `execute-buy` (behind `approve-allocation`) execute at the APPROVAL-time price rather than
+    the request's figure — proven by moving the cache between request and approval. All
+    three live in `_shared/market-refresh.ts`; do not add a second price path.
+  - **★ A ZERO PRICE IS NOT A STALE PRICE.** Finnhub returns `{"c":0}` with HTTP 200 for an
+    unknown symbol (row 195). The provider layer already turns that into "no quote" (never
+    reaches the cache); `syncMarketPricedProducts()` then marks the product
+    `price_status = 'quote_failed'` with a reason and a time, KEEPING the last good
+    `unit_price`, and clears the flag when a real quote lands. The read-through also ignores
+    a `value <= 0` cache row. `admin-products.html` shows the flag in the list and explains
+    it in the expanded row; the client keeps seeing the last good price with its timestamp.
+  - **Precision**: `units`/`unit_price` are unconstrained Postgres `numeric` and
+    `execute-buy` stores `dollarAmount / unitPrice` unrounded — full precision at rest was
+    already true. The gap was DISPLAY: `formatUnits(units, assetClass)` in
+    `format-helpers.js` (crypto up to 8 dp, equities 4, else 2, trailing zeros trimmed, min
+    2). `get-returns-summary` no longer rounds `unitsSold` (units are not money). A market
+    product's `unit_price` is stored as the market's own figure, not `round2`'d.
+  - **Ceiling accounting holds with products added**: product stock symbols join the same
+    union keyed on symbol (a product and a watchlist row on SPY cost one call) and count
+    toward the same 450-distinct-stock ceiling; the refresh reports `productSymbols` and
+    `productStockSymbolsNotAlreadyWatched` alongside `headroom` on every run.
+  - **The one-time price jump is done IN THE MIGRATION** from `market_data_cache`, so
+    before/after is one recorded moment (row 199 has the staging figures). Locally
+    `PROD-0003 Global Equity ETF` was mapped to VT (Vanguard Total World; confirmed pricing on
+    Finnhub free) and `PROD-0004 Ethereum` to CoinGecko `ethereum`; on real staging
+    `PROD-0001 Bitcoin` (one real holder, Manuel Stormare: $79,436.98 → $77,340.00 at 21:45Z; the holding $5,664.16 → $5,514.64, −2.64%, units and cost basis untouched — the full record is row 199). A symbol not yet in the cache (VT
+    locally) keeps its old price with `price_as_of` null — "awaiting refresh" — until the
+    first refresh reaches it.
+  - **`lookup-product-symbol`** (admin-only) is the PM search: both providers, live prices
+    (all crypto in one call, top 4 stocks one call each), and on pick a verified exchange from
+    Finnhub `profile2` — which returns `{}` for ETFs on the free tier. **The exchange is
+    reported honestly or not at all**: `exchange: 'US listing', exchangeVerified: false`,
+    rendered as a VISIBLE fallback ("US listing · unverified") in the results, never a
+    confident label. The pick and `add-product`'s first price use CoinGecko's `simple/price`
+    (the `/coins/{id}` endpoint rate-limits first under repeated use — hit while running the
+    suite back-to-back); a provider 429 surfaces as a 503 whose real message
+    `writeErrorMessage()` now passes through.
+  - **`unitPriceSeries()` is honestly FLAT for a market product** — inverting a tick it
+    never followed would fabricate a walk. Real price history (a series, not one cached
+    value per symbol) is the open item; the Trend sparkline for market products will read as
+    a flat line until it exists.
+  - **`publish-nav`** takes `changePercent` XOR `newUnitPrice` (`round2(current × (1 +
+    pct/100))`), refuses market products with a message naming the rule ("that is what PE
+    and Real Assets are for"), and records `price_change_percent` so the client card can show
+    the last published % change. The admin modal's preview uses the same formula, and its
+    impact table is built from the real cross-client `holdings` read — cross-checked in
+    `verify-live-pricing-ui-wiring` against every holder's real post-publish value. The
+    table lists EVERY real holder, including the local demo client; a test that assumed only
+    its own two was the one that was wrong.
+  - **Five existing suites asserted the tick on PROD-0003/0004** (settlement determinism, the
+    invertible series, "the classes not carved out still tick"). Those properties belong to
+    the tick, not to a product, so `scripts/lib/simulated-test-product.mjs` gives each a
+    temporary genuinely-`simulated` product — the SAME id on both sides where the local
+    engine is cross-checked, since the tick seed is `productId|date`. The watchlist suite's
+    "clearing a ticker stores null" was INVERTED to "immutable after creation", not dropped.
+  - **Two real narrow-width breaks caught by measurement**: a five-figure crypto price beside
+    its change figure escaped a 320px card, and the impact table's four cells overflowed the
+    modal at 390px — both fixed by letting the row wrap.
+  **Verified**: `supabase-verify-market-priced-products` 62/62; `verify-live-pricing-ui-
+  wiring` 37/37; `verify-live-pricing-visual` 36/36 (86 composited-pixel measurements, Inter
+  only, 1440/390/375 + real 320px iframe). Full suite green after a warm-up pass; cloud
+  staging parity clean after `db push` + redeploying every importer of the changed shared
+  modules; deployed-bytes identical on every pushed static file.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

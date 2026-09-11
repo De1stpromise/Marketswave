@@ -230,15 +230,28 @@ export async function syncMarketPricedProducts(
   if (error) throw new Error('Could not read market-priced products: ' + error.message);
 
   const failedSymbols = new Set(failed.map((f) => String(f).trim().toUpperCase()));
+  // A provider-level failure (refreshSymbols() records it as 'finnhub: ...' / 'coingecko: ...')
+  // is a different situation from a symbol the provider does not know: it is transient (a
+  // rate limit, an outage) and the reason should say so, so a PM does not go hunting for a
+  // typo in a ticker that was fine ten minutes ago.
+  const providerFailure: Record<string, string> = {};
+  for (const f of failed) {
+    const m = /^(finnhub|coingecko):\s*(.*)$/i.exec(String(f));
+    if (m) providerFailure[m[1].toLowerCase()] = m[2];
+  }
   const result = { synced: 0, flagged: [] as string[], cleared: [] as string[] };
   for (const row of (data || []) as MarketPricedProductRow[]) {
     const symbol = String(row.ticker || '').trim().toUpperCase();
     if (failedSymbols.has(symbol)) {
+      const providerMsg = row.price_source ? providerFailure[row.price_source] : undefined;
+      const reason = providerMsg
+        ? (row.price_source === 'coingecko' ? 'CoinGecko' : 'Finnhub') + ' could not be reached on the last refresh (' + providerMsg.slice(0, 160) + '). This is a provider-side failure, not a problem with the symbol; the last known good price is retained and the flag clears on the next successful refresh.'
+        : 'The provider returned no usable price for ' + symbol + ' on the last refresh — for Finnhub that is what an unknown symbol looks like (a zero with HTTP 200). The last known good price is retained.';
       const { error: flagErr } = await admin
         .from('products')
         .update({
           price_status: 'quote_failed',
-          price_failure_reason: 'The provider returned no usable price for ' + symbol + ' on the last refresh. The last known good price is retained.',
+          price_failure_reason: reason,
           price_last_failed_at: new Date().toISOString()
         })
         .eq('id', row.id);

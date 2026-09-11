@@ -1834,6 +1834,43 @@ npm run verify-deposit-routing-ui-wiring       # the full end-to-end run through
 node verify-deposit-routing-visual.mjs         # contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 49
 ```
 
+### ★ Product catalog — live pricing, part 1 (2026-09-11)
+
+Stocks & ETFs and Crypto products are now MARKET-PRICED: a product carries a real symbol
+and its unit price is the market's, copied from `market_data_cache` by the 15-minute
+refresh and read through on every settlement call (so an approval executes at the
+approval-time price). Private Equity / Real Assets stay VALUED BY APPRAISAL and move only
+when a PM publishes a valuation. The model is chosen at creation and cannot be changed.
+
+Creating a product (`admin-products.html` → New product):
+
+1. Choose **Market-priced** or **Valued by appraisal** first.
+2. Market-priced: search a symbol (stocks/ETFs from Finnhub, coins from CoinGecko). Results
+   show live prices. An exchange reads **"US listing · unverified"** until the pick step can
+   verify it — Finnhub's `profile2` returns nothing for ETFs on the free tier, so an ETF
+   stays honestly unverified. The asset class is derived from the symbol and locked; the
+   first price is taken live. No starting price is typed.
+3. Valued by appraisal: PE / Real Assets only, a PM-entered starting price.
+
+Publishing a valuation (expand a PE/RA product → Publish valuation): enter a **percentage**
+(default) or a unit price; the preview shows the resulting price and the **impact table**
+lists every client holding the product — units, current value, new value, change, total —
+before you commit. Rationale and publisher attribution are recorded as before.
+
+**A quote that fails is never a zero.** If a refresh cannot price a symbol (Finnhub returns
+`c:0` for an unknown one), the product keeps its last good price and is flagged **"Quote
+failed"** in the admin list with the reason in its expanded row. Clients keep seeing the last
+good price with its timestamp. Check `refresh-market-data`'s response (`productsFlagged`)
+or the `products.price_status` column.
+
+Verification scripts, from `scripts/`:
+
+```
+npm run supabase-verify-market-priced-products   # backend: 62 (fractional units, approval re-read, zero-price guard, % publish cross-check)
+npm run verify-live-pricing-ui-wiring            # the real admin + client pages: 37
+node verify-live-pricing-visual.mjs              # contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 36
+```
+
 ### Step 9 — Stop the stack when you're done
 
 ```
