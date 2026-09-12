@@ -365,6 +365,60 @@ PROFILES['live-pricing-admin-nav'] = [
   { label: 'impact total', sel: '#nav-impact-total', limit: 1 }
 ];
 
+// Product catalog — fund documents, part 2 (2026-09-12). The client document: every text
+// surface the renderer paints — the navy hero (chip, title, 72%-alpha labels, figures), the
+// teal section headings, prose/list/strong, the terms table, the chart header in both tones
+// (a gaining and a losing product are each measured in their own run), the risk callout,
+// the download row, and the disclosure footer on its off-white ground.
+PROFILES['fund-document-client'] = [
+  { label: 'hero class chip', sel: '.fd-class', limit: 1 },
+  { label: 'hero title', sel: '.fd-hero h1', limit: 1 },
+  { label: 'hero figure label (72% cream)', sel: '.fd-meta > div', limit: 4 },
+  { label: 'hero figure', sel: '.fd-meta > div b', limit: 4 },
+  { label: 'section heading (teal)', sel: '.fd-section h2', limit: 8 },
+  { label: 'prose', sel: '.fd-section > p', limit: 4 },
+  { label: 'prose strong', sel: '.fd-section p strong', limit: 2 },
+  { label: 'list item', sel: '.fd-section li', limit: 3 },
+  { label: 'term key', sel: '.fd-term-k', limit: 4 },
+  { label: 'term value', sel: '.fd-term-v', limit: 4 },
+  { label: 'chart label', sel: '.fd-chart-a', limit: 1 },
+  { label: 'chart change (gain)', sel: '.fd-chart-b.is-gain', limit: 1 },
+  { label: 'chart change (loss)', sel: '.fd-chart-b.is-loss', limit: 1 },
+  { label: 'single-valuation note', sel: '.fd-chart-note', limit: 1 },
+  { label: 'risk callout', sel: '.fd-risk p', limit: 2 },
+  { label: 'download name', sel: '.fd-dl-nm b', limit: 1 },
+  { label: 'download meta', sel: '.fd-dl-nm span', limit: 1 },
+  { label: 'download button', sel: '.fd-dl-btn', limit: 1 },
+  { label: 'disclosure text', sel: '.fd-foot p', limit: 2 },
+  { label: 'full-disclosures link', sel: '.fd-foot-more a', limit: 1 }
+];
+// The PM authoring page: section headers/hints/pills, the editor toolbar, editor prose, the
+// counter in both states, the automatic-valuation note, the ordering note, the status chip
+// in its three states, custom-section heading inputs, and the inline server error.
+PROFILES['fund-document-admin'] = [
+  { label: 'section name', sel: '.sect .sh .n b', limit: 6 },
+  { label: 'section hint', sel: '.sect .sh .n span.hint', limit: 6 },
+  { label: 'required pill', sel: '.req:not(.opt):not(.auto)', limit: 2 },
+  { label: 'optional pill', sel: '.req.opt', limit: 1 },
+  { label: 'automatic pill', sel: '.req.auto', limit: 1 },
+  { label: 'toolbar button', sel: '.rte-btn', limit: 5 },
+  { label: 'editor prose', sel: '.rte-body p', limit: 3 },
+  { label: 'editor strong', sel: '.rte-body strong, .rte-body b', limit: 1 },
+  { label: 'counter', sel: '.rte-counter:not(.over)', limit: 2 },
+  { label: 'counter (over cap)', sel: '.rte-counter.over', limit: 1 },
+  { label: 'terms minimum (from product)', sel: '#terms-minimum', limit: 1 },
+  { label: 'terms minimum hint', sel: '#terms-minimum + p', limit: 1 },
+  { label: 'auto note title', sel: '.auto-note b', limit: 1 },
+  { label: 'auto note body', sel: '.auto-note p', limit: 1 },
+  { label: 'ordering note', sel: '.ordernote p', limit: 1 },
+  { label: 'custom heading input', sel: '.htitle', limit: 2 },
+  { label: 'status chip', sel: '#doc-status-chip', limit: 1 },
+  { label: 'publish hint', sel: '#doc-publish-hint', limit: 1 },
+  { label: 'inline server error', sel: '#doc-error', limit: 1 },
+  { label: 'attachment name', sel: '#attachment-name', limit: 1 },
+  { label: 'attachment meta', sel: '#attachment-meta', limit: 1 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

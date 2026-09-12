@@ -18,10 +18,10 @@
     .sect { border: 1px solid #E2E8F0; border-radius: 12px; margin-top: 16px; overflow: hidden; background: #fff; }
     .sect .sh { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; flex-wrap: wrap; }
     .sect .sh .n { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-    .sect .sh .n b { font-size: 13px; font-weight: 600; color: #0F172A; white-space: nowrap; }
-    .sect .sh .n span.hint { font-size: 11.5px; color: #64748B; }
+    .sect .sh .n b { font-size: 13px; font-weight: 700; color: #0F172A; white-space: nowrap; }
+    .sect .sh .n span.hint { font-size: 12px; color: #475569; }
     .sect .sb { padding: 14px 16px; }
-    .req { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; background: #FEF3C7; color: #92400E; white-space: nowrap; }
+    .req { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; background: #FEF3C7; color: #92400E; white-space: nowrap; }
     .req.opt { background: #F1F5F9; color: #475569; }
     .req.auto { background: rgba(19,114,84,.1); color: #166349; }
     .sect.cust .sh { background: #FBFCFD; }
@@ -37,9 +37,9 @@
     .auto-note p { font-size: 12px; color: #2F5A4C; line-height: 1.6; }
     .ordernote { display: flex; gap: 10px; padding: 11px 14px; border-radius: 9px; background: #F8FAFC; border: 1px solid #E2E8F0; margin-top: 14px; }
     .ordernote p { font-size: 11.5px; color: #475569; line-height: 1.6; }
-    .chip { font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 6px; background: #F1F5F9; color: #475569; white-space: nowrap; }
+    .chip { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 6px; background: #F1F5F9; color: #475569; white-space: nowrap; }
     .chip.on { background: #DCFCE7; color: #166534; }
-    .chip.dirty { background: #FEF3C7; color: #92400E; }
+    .chip.dirty { background: #FEF3C7; color: #78350F; }
     .fd-preview-scroll { max-height: calc(100vh - 120px); overflow-y: auto; }
   </style>
 </head>
@@ -76,7 +76,11 @@
                order; repeatable custom sections between Valuation history and Risks; every
                rich-text field is a structured model (rich-text.js), never HTML; the server
                (save-product-document) re-validates shape, caps and ORDER on every save. -->
-          <div class="glass rounded-2xl p-6" id="doc-editor">
+          <!-- A plain white card, deliberately NOT .glass: text inside a backdrop-filter layer
+               composites at reduced coverage (row 193), and this page is dense with 11-13px
+               labels, hints and toolbar glyphs — measured on glass, 14 of them fell below
+               4.5:1; on white every one clears it. Forms stay clean (row 151) regardless. -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm" id="doc-editor">
             <div class="flex items-start justify-between gap-4 flex-wrap mb-2">
               <div class="min-w-0">
                 <h2 class="text-lg font-semibold text-slate-900" id="doc-title">Fund document</h2>

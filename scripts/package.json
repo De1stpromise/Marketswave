@@ -68,7 +68,10 @@
     "verify-deposit-routing-visual": "node verify-deposit-routing-visual.mjs",
     "supabase-verify-market-priced-products": "node verify-supabase-market-priced-products.js",
     "verify-live-pricing-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-live-pricing-ui-wiring.mjs",
-    "verify-live-pricing-visual": "node verify-live-pricing-visual.mjs"
+    "verify-live-pricing-visual": "node verify-live-pricing-visual.mjs",
+    "supabase-verify-product-documents": "node verify-supabase-product-documents.js",
+    "verify-fund-document-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-fund-document-ui-wiring.mjs",
+    "verify-fund-document-visual": "node verify-fund-document-visual.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -1871,6 +1871,42 @@ npm run verify-live-pricing-ui-wiring            # the real admin + client pages
 node verify-live-pricing-visual.mjs              # contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 36
 ```
 
+### ★ Product catalog — fund documents, part 2 (2026-09-12)
+
+Every product can carry a full document a PM writes without touching layout. From
+`admin-products.html`, expand a product → **Write document** (or **Edit document**) opens
+`admin-fund-document.html?product=<id>`:
+
+- **Overview / Strategy / Risks** — rich text (bold, italic, bullets, numbers), capped at
+  600 / 2,000 / 1,200 characters; the counter under each editor is the cap the server
+  enforces.
+- **Terms & liquidity** — structured fields (horizon, valuation frequency, fees). The
+  minimum investment is read from the product and cannot be typed here.
+- **Valuation history** — nothing to write: generated from this product's published NAVs.
+  The note states how many exist and their date range. A market-priced product carries no
+  valuation history and the section is simply absent for clients.
+- **Custom sections** — add as many as needed, reorder with the arrows, delete. They always
+  render after Valuation history and before Risks; the server refuses any other placement.
+- **Attached documents** — choose a file and it uploads immediately (private bucket);
+  clients can download it once the document is published.
+
+**Save draft** keeps a working copy no client can see — even for a document that is already
+published, so a live document can be edited over several sessions. **Publish** validates the
+required sections and freezes a copy for clients. **Unpublish** hides it again and keeps the
+draft. **Preview** renders the draft through the exact renderer a client gets.
+
+Clients reach a published document from the **Fund document** link on the product's card
+in `asset-collection.html` → `fund-document.html?product=<id>`. The hero's figures (unit
+price, last valued / price as-of, minimum) come from the product row at request time.
+
+Verification scripts, from `scripts/`:
+
+```
+npm run supabase-verify-product-documents   # backend: 66 (RLS, injection refusals, caps, ordering, publish gating, NAV series, attachment)
+npm run verify-fund-document-ui-wiring      # the real authoring + client pages: 55
+npm run verify-fund-document-visual         # real Chart.js vs nav_publications, contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 48
+```
+
 ### Step 9 — Stop the stack when you're done
 
 ```

@@ -8566,9 +8566,9 @@ row 74.
 
 - **★★ Product catalog — live pricing, part 1 of 2 (2026-09-11, row 199).** Stocks & ETFs
   and Crypto now carry REAL market prices; PE / Real Assets stay on published valuations
-  (row 143), now publishable by percentage with an impact table. Part 2 (fund documents) is
-  not built. Built against an approved mockup in four commits (backend, admin UI, client
-  cards, verification).
+  (row 143), now publishable by percentage with an impact table. Part 2 (fund documents)
+  followed the next day — see row 200 below. Built against an approved mockup in four
+  commits (backend, admin UI, client cards, verification).
   **Things a future session needs to know before touching any of this:**
   - **★ `products.pricing_model` IS IMMUTABLE, AND SO IS THE SYMBOL.** `market` (unit_price
     = the market price of `ticker`), `appraisal` (PE/RA, moves only via `publish-nav`),
@@ -8646,6 +8646,101 @@ row 74.
   only, 1440/390/375 + real 320px iframe). Full suite green after a warm-up pass; cloud
   staging parity clean after `db push` + redeploying every importer of the changed shared
   modules; deployed-bytes identical on every pushed static file.
+
+- **★★ Product catalog — fund documents, part 2 of 2 (2026-09-12, row 200).** Every product
+  can carry a full document: fixed sections (Overview, Strategy, Terms & liquidity, Valuation
+  history, Risks, Attached documents), any number of repeatable custom sections, draft and
+  published states, a client-facing render with a dark hero whose figures come from the
+  PRODUCT. Built against an approved mockup in three commits (backend, pages, verification).
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE CONTENT IS A STRUCTURED JSON MODEL, NEVER HTML — that is the whole sanitisation
+    story, so do not "improve" it by storing HTML.** A rich-text field is `{ blocks: [ {type:
+    'p', runs:[{t, b?, i?}]} | {type:'ul'|'ol', items:[runs[]]} ] }`, defined once in
+    `supabase/functions/_shared/fund-document.ts`. There is no key that can carry a tag, an
+    attribute, a URL or a style, so a script cannot be REPRESENTED. In: the validator refuses
+    any unknown key or type outright (`{t:'x', href:'javascript:…'}` is a 400, not a strip).
+    Out: `rich-text.js`'s `render()` builds DOM with `createElement`/`textContent`; innerHTML
+    is never given PM-authored content anywhere. `<script>` typed into a paragraph is stored
+    as eight literal characters and painted as eight literal characters — proven on the real
+    client page. Rich text was investigated and reported: no editor library (Quill/TipTap
+    are 100-200 KB for four commands; DOMPurify would only exist to clean a permissive format
+    this model does not have); the editor is a contenteditable + `document.execCommand`
+    (deprecated in name, supported in every current engine) with paste intercepted as plain
+    text. Real cost: ~250 lines browser-side, ~120 lines Deno, zero dependencies.
+  - **★ TWO COPIES OF THE CONTENT PER ROW: `content` (working copy) and `published_content`
+    (frozen).** Save writes the first; Publish copies it into the second. A PM can keep
+    editing a LIVE document across sessions without hiding it or publishing half-finished
+    edits, and a client is never handed the working copy — `product_documents` has NO client
+    SELECT policy at all (a direct read returns nothing even for a published row) and
+    `get-product-document` hands out `published_content` only, 404 otherwise. Unpublish clears
+    the frozen copy and keeps the draft. `status` is a real column kept truthful by a CHECK.
+  - **★ ORDERING IS ENFORCED BY THE SERVER ON EVERY SAVE, not by the UI.** The payload is an
+    ORDERED `sections` array carrying fixed and custom sections alike; the validator requires
+    the fixed six in their fixed order, each exactly once, and refuses a custom section
+    anywhere but between `valuation` and `risks` — a custom section after Risks is a 400 with
+    the reason, proven directly. The client renderer paints sections in stored order and uses
+    ONE element/class for fixed and custom alike, so a reader cannot tell which is structural.
+  - **The hero's figures come from the PRODUCT row at request time** (unit price, last valued
+    / price as-of, minimum investment) and the Terms table's minimum likewise — the authoring
+    page shows it read-only with a link to the catalog. **One deliberate deviation from the
+    brief, stated**: the brief listed Horizon as a product figure, but no product carries a
+    horizon and inventing a column for it would put a document-only concept on every product
+    (including Cash). Horizon lives in the document's Terms, and the hero reads the SAME field
+    the Terms table reads, so the two cannot disagree either.
+  - **★ VALUATION HISTORY IS NEVER AUTHORED** — an authored `{key:'valuation', body}` is
+    refused with that reason. `get-product-document` builds the series from
+    `nav_publications` (oldest first) and the PM sees a note stating the real count and date
+    range. **Item 6, investigated and decided: for a market-priced product the section is
+    OMITTED ENTIRELY.** `market_data_cache` holds ONE value per symbol and `unitPriceSeries()`
+    is honestly flat for market products (row 199), so any chart would be a fabrication. The
+    payload shape is identical for every model: the day a stored price series exists, the
+    function fills `points` (source `market`) and the section appears with zero renderer
+    changes. With exactly ONE point (a PE product after the row-143 freeze) there is nothing
+    to chart, so the section states the single valuation and its date — never an empty chart.
+    With two or more it is a real Chart.js line chart, proven against the table point for
+    point in a real browser; a visually-hidden table of the points is what a screen reader
+    gets (and what jsdom renders).
+  - **The attachment is uploaded DIRECTLY from the authoring page** under admin-only policies
+    on a private `fund-documents` bucket (path `<product_id>/<uuid>/<filename>`), the same
+    direct-upload shape documents.html's own client uploads use; `save-product-document`
+    checks the referenced object genuinely exists before storing the reference. A client's
+    download is a signed URL `get-product-document` creates with the service role ONLY for a
+    published document's own attachment — a client cannot sign, list or upload in that bucket
+    directly (each proven). **`signedPath`, not just `url`**: the function's own SUPABASE_URL
+    is the stack-INTERNAL address locally (`http://kong:8000`, unreachable from a browser)
+    and the public one on real staging, so the page prepends the project URL it is itself
+    configured with. Note an already-issued signed URL outlives an unpublish until its 10
+    minutes expire — stated, not hidden.
+  - **The disclosure footer is EXISTING legal copy, verbatim**: the site footer's second
+    condensed paragraph ("Private placement investments are NOT bank deposits…") and the
+    investment email's `RISK_PARAGRAPH` from `_shared/send-email.ts`, plus a link to
+    `legal.html#disclosures`. The mockup's own footer sentence was new legal copy and was NOT
+    used. `fund-document.js`'s two strings were injected from those two sources by script.
+  - **★ THE AUTHORING FORM IS A PLAIN WHITE CARD, DELIBERATELY NOT `.glass`.** Measured on
+    glass, 14 of 38 text surfaces fell below 4.5:1 — 13px section names declared near-black
+    read as mid-grey, because text inside a backdrop-filter layer composites at reduced
+    coverage (row 193's finding, now seen a second time at smaller sizes). On white every
+    surface clears; forms stay clean anyway (row 151). Do not put a dense form on glass.
+  - **`.rte-*` is the editor's class namespace** — `returns-display.css` already owns `.rt`,
+    which the coverage guard caught. `rich-text.css`/`fund-document.css` are registered with
+    `verify-shared-stylesheet-coverage`; fund-document.html links rich-text.css it does not
+    strictly need (1 KB) rather than weakening that guard's script-keyed rule.
+  - **Caps are counted the way the PM sees them**: run text plus one per block/item boundary,
+    identically in Deno and the browser; proven at the boundary (600 accepted, two 300-char
+    paragraphs = 601 refused with the server's own message shown inline). Overview 600,
+    Strategy 2,000, Risks 1,200; custom bodies uncapped for a PM behind a 20,000 sanity
+    ceiling and 40 sections. Reorder is up/down arrows, not drag — the mockup's drag handle
+    was decorative and the project does not ship decorative controls.
+  **Verified**: `supabase-verify-product-documents` 66/66 (RLS, the injection refusals, caps,
+  ordering, publish gating, the NAV series growing by one real `publish-nav`, the attachment
+  end to end); `verify-fund-document-ui-wiring` 55/55 (the REAL pages' scripts: a document
+  authored, drafted, published, previewed, read by a real client, unpublished; the serialiser
+  keeping only text+marks from a pasted script/img-onerror/styled span/link; the card link
+  only for a published product); `verify-fund-document-visual` 48/48 (a real Chart.js instance
+  equal to `nav_publications`; 118 composited-pixel measurements across a gaining product, a
+  losing product and the authoring page, 0 below 4.5:1; Inter only with tabular figures
+  measured by advance width; 1440/390/375 + a real 320px iframe on both pages with a 60-char
+  unbroken token and the terms table collapsing to one column below 760px).
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
