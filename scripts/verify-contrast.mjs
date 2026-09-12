@@ -418,6 +418,50 @@ PROFILES['fund-document-admin'] = [
   { label: 'attachment meta', sel: '#attachment-meta', limit: 1 }
 ];
 
+// Portfolio overview (2026-09-12). Every text surface the value card, the pending panel and
+// the maturities panel put on the dashboard's glass — measured composited, because a grey
+// declared safe on white is not safe inside a backdrop-filter layer (rows 193/200). The
+// change pill is measured in BOTH tones (a gaining client and a losing client are separate
+// runs, row 187's discipline), and the range control in both its selected and unselected
+// states. The y-axis ticks are canvas text Chart.js paints in the same #475569 as the DOM
+// x-labels (.po-xl), which stand in for them here.
+PROFILES['portfolio-overview'] = [
+  { label: 'card label', sel: '#po-value-card .ret-k', limit: 1 },
+  { label: 'value figure', sel: '#po-value', limit: 1 },
+  { label: 'change pill (gain)', sel: '.po-pill.is-up', limit: 1 },
+  { label: 'since text', sel: '.po-since', limit: 1 },
+  { label: 'range control (selected)', sel: '.po-rg.is-on', limit: 1 },
+  { label: 'range control (unselected)', sel: '.po-rg:not(.is-on):not(:disabled)', limit: 2 },
+  { label: 'x-axis label', sel: '.po-xl span', limit: 3 },
+  { label: 'chart hint', sel: '#po-chart-hint', limit: 1 },
+  { label: 'panel title', sel: '.po-hd .po-t', limit: 2 },
+  { label: 'panel subtitle', sel: '.po-hd .po-s', limit: 2 },
+  { label: 'request title', sel: '.po-rt', limit: 3 },
+  { label: 'request detail', sel: '.po-rs', limit: 3 },
+  { label: 'request amount', sel: '.po-v', limit: 3 },
+  { label: 'pending chip', sel: '.po-chip:not(.is-internal)', limit: 2 },
+  { label: 'internal transfer chip', sel: '.po-chip.is-internal', limit: 1 },
+  { label: 'pocket name', sel: '.po-mn', limit: 2 },
+  { label: 'pocket value', sel: '.po-mv', limit: 2 },
+  { label: 'maturity date', sel: '.po-md', limit: 2 },
+  { label: 'interest accrued', sel: '.po-mi:not(.is-none)', limit: 1 },
+  { label: 'no-interest note', sel: '.po-mi.is-none', limit: 1 }
+];
+PROFILES['portfolio-overview-loss'] = [
+  { label: 'change pill (loss)', sel: '.po-pill.is-dn', limit: 1 }
+];
+// The new-client state and both empty states, on the same glass.
+PROFILES['portfolio-overview-new'] = [
+  { label: 'value figure', sel: '#po-value', limit: 1 },
+  { label: 'no-history pill', sel: '.po-pill.is-flat', limit: 1 },
+  { label: 'new-client heading', sel: '.po-newc b', limit: 1 },
+  { label: 'new-client explanation', sel: '.po-newc p', limit: 1 },
+  { label: 'new-client figure', sel: '.po-newc-fig', limit: 1 },
+  { label: 'new-client sub', sel: '.po-newc-sub', limit: 1 },
+  { label: 'empty-state heading', sel: '.po-empty b', limit: 2 },
+  { label: 'empty-state copy', sel: '.po-empty p', limit: 2 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

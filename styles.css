@@ -1228,7 +1228,10 @@ body.has-overlay-header .hero {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  /* Measured 4.05:1 as --text-muted on the placeholder's cream box inside the glass card
+     (audit-glass-sheen, 2026-09-12; not a sheen effect — identical with it hidden). Row 173's
+     own hero darkening, scoped the same way; the token itself is untouched. */
+  color: #5B6670;
   font-size: 0.95rem;
 }
 
@@ -3588,7 +3591,9 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 }
 
 .contact-form-lead {
-  color: var(--text-muted);
+  /* Measured 4.35:1 as --text-muted on the form panel's glass (audit-glass-sheen, 2026-09-12;
+     not a sheen effect — the same with it hidden). Same scoped darkening as the hero (row 173). */
+  color: #5B6670;
   font-size: 0.98rem;
   margin-bottom: 24px;
 }

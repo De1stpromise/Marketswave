@@ -61,6 +61,23 @@
   pointer-events: none;
 }
 
+/* ---- .glass-lift — the card's CONTENT sits above the sheen, not under it (2026-09-12).
+   The ::before sheen is positioned, so it composites OVER a card's in-flow content, and
+   its box covers the card's top-left (x to 40% of the width, y to 30% of the height) at up
+   to 0.8 alpha. Text placed there is washed out — MEASURED across every .glass on every
+   page (scripts/audit-glass-sheen.mjs): 165 text elements under a sheen, 53 below 4.5:1
+   with it composited that clear comfortably without it — a queue page's "Pending" heading
+   2.21:1 vs 17.05:1, the dashboard's "Market snapshot" 2.97:1 vs 11.57:1, the portfolio
+   value figure 4.02:1 vs 11.48:1. This is an OPT-IN containment fix, applied per card, the
+   same shape row 151 chose for the slate-500 override: the recipe itself is untouched and
+   every card that never had text in that corner renders byte-identically. Do not lift by
+   editing .glass::before — do add this class to any .glass card whose heading or figure
+   sits in that corner, and re-run the audit. ---- */
+.glass-lift > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ---- .gradient-text — navy -> teal -> gold headline accent. Apply to an inline
    element (a <span>) wrapping the text to be gradient-filled, not a block-level
    heading itself. ---- */

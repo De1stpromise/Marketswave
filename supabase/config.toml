@@ -865,3 +865,13 @@ entrypoint = "./functions/save-product-document/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-product-document/index.ts"
+
+[functions.get-portfolio-overview]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-portfolio-overview/index.ts"
+
+[functions.snapshot-portfolio-values]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/snapshot-portfolio-values/index.ts"

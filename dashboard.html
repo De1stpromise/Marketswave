@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="returns-display.css">
   <link rel="stylesheet" href="watchlist-card.css">
+  <link rel="stylesheet" href="portfolio-overview.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -138,6 +139,39 @@
             <p class="ret-k">Best performing class</p>
             <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="ret-sub" id="best-performing-return"><span class="inline-block h-4 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+          </div>
+        </div>
+
+        <!-- ★ Portfolio overview (2026-09-12): the value chart with real monthly anchors,
+             every request awaiting PM review across every domain, and the savings-pocket
+             maturities — one real read of get-portfolio-overview, rendered by
+             portfolio-overview.js. The value figure here and the hero's Total portfolio value
+             above are the same server figure by construction (one computation); the hero
+             stays SHORT per row 185's asserted constraint, so the chart lives in its own card.
+             The chart replaces the new-client explanation only once 3 real stored anchors
+             exist (a line through two points is not a chart) — today every client sees the
+             explanation, because the table's scheduled writer shipped with this row. -->
+        <div class="glass glass-lift rounded-2xl p-6 mb-6" id="po-value-card">
+          <div class="po-top">
+            <div>
+              <p class="ret-k">Portfolio value</p>
+              <div class="po-fig" id="po-value"><span class="inline-block h-8 w-44 bg-slate-200 rounded animate-pulse"></span></div>
+              <div class="po-sub" id="po-change"><span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span></div>
+            </div>
+            <div class="po-ranges hidden" id="po-ranges" role="group" aria-label="Chart range"></div>
+          </div>
+          <div class="po-chart hidden" id="po-chart-wrap"></div>
+          <div class="po-newc hidden" id="po-newc"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div class="glass glass-lift rounded-2xl p-6" id="po-pending-card">
+            <div class="po-hd"><div><div class="po-t">Pending requests</div><div class="po-s">Awaiting review by your portfolio manager</div></div></div>
+            <div id="po-pending"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
+          </div>
+          <div class="glass glass-lift rounded-2xl p-6" id="po-maturities-card">
+            <div class="po-hd"><div><div class="po-t">Upcoming maturities</div><div class="po-s">Savings pockets reaching term</div></div></div>
+            <div id="po-maturities"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
           </div>
         </div>
 
@@ -265,7 +299,7 @@
              action. "Delayed" stays — these prices come from a cache the scheduler refreshes
              every 15 minutes, and a card that looked live would be claiming something
              untrue. -->
-        <div class="glass rounded-2xl p-6" id="watchlist-card">
+        <div class="glass glass-lift rounded-2xl p-6" id="watchlist-card">
           <div class="wl-head">
             <h3 class="font-semibold text-navy">Market snapshot</h3>
             <div class="wl-head-right">
@@ -321,6 +355,7 @@
   <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
   <script src="chat-widget.js"></script>
+  <script src="portfolio-overview.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
        bundle-size investigation. Loaded here for the Notification Bell (all 10 client
        pages) -->
@@ -865,6 +900,27 @@
               '<p class="text-xs text-slate-500">' + detail + '</p></div>' +
               '</div>';
           }).join('');
+        }
+      });
+
+      // ---- ★ Portfolio overview (2026-09-12): one real read, three regions. The row's own
+      // helper (portfolio-overview.js) draws the chart, the pending list and the maturities;
+      // a failed read shows one error card with Try Again across all three regions.
+      var poValueEl = document.getElementById('po-value');
+      var poChangeEl = document.getElementById('po-change');
+      var poRangesEl = document.getElementById('po-ranges');
+      var poChartWrap = document.getElementById('po-chart-wrap');
+      var poNewcEl = document.getElementById('po-newc');
+      var poPendingEl = document.getElementById('po-pending');
+      var poMaturitiesEl = document.getElementById('po-maturities');
+      MarketswaveData.renderAsyncBundle([poValueEl, poPendingEl, poMaturitiesEl], {
+        skeletonHTML: MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2'], { gap: 'space-y-3' }),
+        load: function () { return MarketswaveData.callFunction('get-portfolio-overview'); },
+        render: function (overview) {
+          window.MarketswavePortfolioOverview.render(overview, {
+            valueEl: poValueEl, changeEl: poChangeEl, rangesEl: poRangesEl, chartWrap: poChartWrap,
+            newcEl: poNewcEl, pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
+          });
         }
       });
     })();

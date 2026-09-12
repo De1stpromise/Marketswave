@@ -8894,6 +8894,104 @@ row 74.
   the oldest age settling at 16.2 min), the same-minute halt, and the client catalog
   rendering every product through Load More.
 
+- **★★ Portfolio overview — value chart, pending requests, upcoming maturities (2026-09-12,
+  row 203).** `dashboard.html` now opens with a Portfolio value card (live figure, change since
+  the first recorded month, a real Chart.js line of monthly anchors with 3M/6M/1Y/All) and a
+  two-up row of Pending requests (every type, one cross-domain pending-only list) and Upcoming
+  maturities. Backend `get-portfolio-overview` on `_shared/portfolio-overview.ts`; front end
+  `portfolio-overview.js`/`.css` (`.po-*`). Built against an approved mockup showing both an
+  established client and a new client with no history.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE CHART'S TABLE HAD NO SCHEDULED WRITER, AND NOW IT DOES — but there is NO
+    BACKFILL, so every real client sees the new-client state until three month-starts have
+    passed.** `portfolio_value_snapshots` held 0 rows locally and 2 on staging (both $0, the day
+    those clients first opened an empty dashboard); its only writer was `get-portfolio-monthly-
+    change`, lazily, on a client's first dashboard load in a month. New `snapshot-portfolio-
+    values` runs from a THIRD cron job, `marketswave-snapshot-portfolio-values` at `5 0 1 * *`,
+    for every `status='active'` client, through the same `computeTotalPortfolioValue()` — so
+    the two writers agree and the unique index makes both idempotent. It takes
+    `monthStartDate`/`clientId` so a test can file a run under an earlier month; that always
+    records the value NOW under that label. Do not add a backfill: nothing honest exists to
+    backfill from. The scheduler needs the vault configured (row 193) or the job silently does
+    nothing, like the other two.
+  - **`CHART_MIN_ANCHORS = 3` real stored anchors.** The live current value is always the last
+    point and never counts. One anchor plus today is a line through two points, which is not
+    a chart — the card says so in the new-client state rather than drawing one.
+  - **Anchors are keyed by `month_start_date` and mean the value at the START of that month**
+    (00:05 UTC on the 1st ≈ the end of the previous month). The change pill reads "since
+    ‹first anchor month›", never "since inception" — inception has no anchor.
+  - **The pending panel is the ONLY cross-domain pending-only list; the per-domain FULL
+    histories stay and the bell is untouched.** Investigated first: `deploy-capital.html`,
+    `asset-performance.html` and `high-yield-savings.html` each keep a full request history
+    (a different question — what happened to my requests), `settings.html` keeps its per-field
+    Pending badges. Do not add a second pending list anywhere; extend `pendingRequests()` in
+    `_shared/portfolio-overview.ts` if a new request type ever appears — it is the one place
+    that unions the seven request tables.
+  - **AYW pockets EARN NOTHING (`hys-engine.ts`), so the flexible row says "No interest ·
+    flexible access"** — the mockup's "+$412 earned" was a placeholder that would have been a
+    fabricated figure. A fixed pocket shows pro-rata ACCRUED interest of `projected_interest`
+    with the maturity figure beside it. Every figure — amounts, days remaining, progress,
+    accrued — is computed server-side; the page only formats (row 185).
+  - **★ TEXT IN A `.glass` CARD'S TOP-LEFT CORNER SITS UNDER THE SHEEN.** `.glass::before`
+    is a positioned radial white highlight (to 0.8 alpha) over that corner, and it composites
+    OVER in-flow content. Navy `#1B3A4B` there measured **4.02:1 with the sheen, 11.48:1
+    without** — same glyphs, same card. The three overview cards carry `.glass-lift`, the
+    shared opt-in containment class the project-wide sweep introduced (next entry); the
+    recipe itself is untouched. The TPV hero passes (8.8:1) only because its layout keeps the
+    label out of that corner.
+  - **AYW pockets earning nothing is a DELIBERATE PRODUCT DECISION, not an engine gap —
+    checked, not assumed.** The original HYS spec (§4.13, Aug 19, 2026) defines As You Want
+    as "amount only, no minimum, no term, no rate"; the New Pocket step says "no fixed rate";
+    the pocket card shows "Projected Interest: N/A — no fixed rate"; `requestHYSDeposit()` and
+    `request-hys-deposit` store `rate null` / `projected_interest 0`; and
+    `computeHysWithdrawalAmount()` returns exactly the principal for an AYW pocket in BOTH the
+    local engine (`engine-core.js:2040`) and `_shared/hys-engine.ts:61` — four layers agree,
+    and `verify-supabase-hys` asserts it. So "No interest · flexible access" is the true label.
+    One wording gap, reported not changed: "no fixed rate" on the New Pocket step can be read
+    as "a variable rate applies", and nothing anywhere computes one — that copy should say
+    "no interest".
+  - **The y-axis ticks are canvas text** in the same `#475569` as the DOM x-labels; the
+    contrast profile measures `.po-xl` as their stand-in. The visually-hidden `#po-chart-table`
+    is what a screen reader (and jsdom) gets — keep it in step with the dataset.
+  **Verified**: `supabase-verify-portfolio-overview` 45/45, `verify-portfolio-overview-ui-
+  wiring` 26/26 (real page script, Chart.js stubbed to capture the dataset; ranges genuinely
+  filter), `verify-portfolio-overview-visual` 44/44 (a REAL Chart.js instance equal to the
+  table rows + the live value, a real hover tooltip with the exact date and value, a real 3M
+  click, 46 composited-pixel measurements across gain/loss/new-client with 0 below 4.5:1,
+  Inter only with tabular figures by advance width, 1440/390/375 + a real 320px iframe).
+
+- **★★ `.glass::before` sheen contrast sweep — one shared surface, 30 pages, 53 real
+  failures fixed with a scoped opt-in (2026-09-12, row 204).** Triggered by the overview's
+  own 4.02:1 finding; the same shape as row 151's 83 slate-500 failures. **Measured, not
+  inferred**: `scripts/audit-glass-sheen.mjs` (`npm run audit-glass-sheen`) enumerates every
+  `.glass` element on every page at runtime, reads each sheen's own box from
+  `getComputedStyle(el, '::before')`, and measures every text element whose glyph rect
+  intersects it on real composited pixels — first as rendered, then with
+  `.glass::before { display:none }` injected. The delta is the finding.
+  **Result**: 165 text elements sit under a sheen across 30 pages; **57 were below 4.5:1 with
+  it composited, 53 of them sheen-caused** (Δ 1.5–14.9). Every admin queue page's "Pending"/
+  "History" heading read 2.16–2.21:1 against 17.05:1 without; the dashboard's "Market
+  snapshot" 2.97:1 vs 11.57:1; `documents.html`'s "From Marketswave" 3.83:1 vs 11.57:1;
+  `support.html`'s "My Requests" 2.38:1 vs 11.57:1; `admin-products.html`'s filter labels and
+  pills 2.19–4.34:1 vs 6.92–17.26:1; `asset-collection.html`'s first product card 3.12–4.21:1.
+  **Passing but measured, for the record**: the TPV hero label 8.8:1 (8.73 without), every
+  `services.html` stat figure 11.47:1 (Δ 0 — under the box geometrically but beyond the
+  gradient's reach), `admin-advisory-fee.html` 17.19:1, `admin-login.html` 17.02:1, signup/
+  thank-you/reset-password 4.64–11.47:1 (Δ 0), `contact.html`'s "Send a Message" 5.48:1 vs
+  10.56 (affected, still passing). `index.html`'s 8 glass elements, `deploy-capital.html`'s
+  4, `admin.html`'s banner and `admin-inbox.html` have NO text under the sheen at all.
+  **The 4 non-sheen failures** (Δ 0): `about.html`'s three "Photo Coming Soon" placeholders
+  4.05:1 and `contact.html`'s form lead 4.35:1 — both `--text-muted` on a tinted ground,
+  darkened to `#5B6670` scoped to those two rules exactly as row 173 did for the hero (now
+  4.81:1 and 5.22:1).
+  **The fix is `.glass-lift` in `glass-primitives.css`** — `> * { position:relative;
+  z-index:1 }`, applied per card in markup to the 30 cards that failed (their Pending/History
+  siblings included). The recipe is untouched; a card without the class renders
+  byte-identically. The audit also reports any lifted card whose direct child was
+  absolutely/fixed positioned (the lift would re-flow it) — none were. **Re-run after the
+  lifts: 168 measured, 0 sheen failures.** Any future `.glass` card with a heading or figure
+  in its top-left needs the class, and the audit is the way to know.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

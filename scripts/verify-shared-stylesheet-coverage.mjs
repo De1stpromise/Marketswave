@@ -53,6 +53,8 @@ const SHARED = [
   // create their markup at runtime, so this is exactly the case this check exists for.
   'rich-text.css',
   'fund-document.css',
+  // Portfolio overview (2026-09-12): portfolio-overview.js builds every .po-* class at runtime.
+  'portfolio-overview.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

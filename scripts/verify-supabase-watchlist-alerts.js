@@ -522,8 +522,12 @@ async function main() {
     await pg.connect();
     try {
       const cronJobs = await pg.query('select jobname, schedule, active from cron.job order by jobname');
-      check('both cron jobs exist and are active',
-        cronJobs.rows.length === 2 && cronJobs.rows.every(function (r) { return r.active; }),
+      // The two market-data jobs, by name and active — not "exactly two rows": the monthly
+      // portfolio-value snapshot (2026-09-12, row 203) shares this schema and is asserted by its
+      // own suite, so a row count here would fail on every job added after this one.
+      const marketJobs = cronJobs.rows.filter(function (r) { return r.jobname === 'marketswave-refresh-market-data' || r.jobname === 'marketswave-check-price-alerts'; });
+      check('both market-data cron jobs exist and are active',
+        marketJobs.length === 2 && marketJobs.every(function (r) { return r.active; }),
         JSON.stringify(cronJobs.rows));
       check('the refresh runs every 15 minutes',
         cronJobs.rows.some(function (r) { return r.jobname === 'marketswave-refresh-market-data' && r.schedule === '*/15 * * * *'; }));

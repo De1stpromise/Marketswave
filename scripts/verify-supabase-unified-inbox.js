@@ -248,7 +248,10 @@ async function main() {
 
     await sleep(300); // let the subscription fully settle before inserting, avoiding a real race with the join itself
     const realtimeMessageBody = 'A real-time test message — ' + suffix;
-    await clientSignedIn.from('messages').insert({ conversation_id: realtimeConversationId, channel: 'chat', direction: 'inbound', body: realtimeMessageBody, sender_name: 'Real Inbox Client', sender_email: clientEmail });
+    const { error: realtimeInsertError } = await clientSignedIn.from('messages').insert({ conversation_id: realtimeConversationId, channel: 'chat', direction: 'inbound', body: realtimeMessageBody, sender_name: 'Real Inbox Client', sender_email: clientEmail });
+    // An insert that is refused fires no event at all — checked explicitly so a refused write
+    // reads as what it is, not as a Realtime delivery failure.
+    check('the client’s own direct message insert genuinely succeeded (a refused write would fire no event)', !realtimeInsertError, realtimeInsertError && realtimeInsertError.message);
 
     // Same reasoning as the SUBSCRIBED wait above. The assertion below is unchanged: the
     // event must genuinely arrive over Realtime and its body must match exactly, so a

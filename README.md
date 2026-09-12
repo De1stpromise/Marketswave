@@ -1758,6 +1758,7 @@ feature. It has two cron jobs now:
 |---|---|---|
 | `marketswave-refresh-market-data` | `*/15 * * * *` | re-prices the union of the six base symbols and every symbol any client watches |
 | `marketswave-check-price-alerts` | `2-59/15 * * * *` | fires any alert whose target the refreshed price has reached, once, by email |
+| `marketswave-snapshot-portfolio-values` | `5 0 1 * *` | records every active client's total portfolio value as that month's anchor in `portfolio_value_snapshots` — the value chart's data (2026-09-12) |
 
 The jobs themselves come from the migration — they are schema. What a migration must never
 carry is the service_role key an Edge Function call needs, so `invoke_edge_function()` reads
@@ -1983,6 +1984,66 @@ Proof, from `scripts/`: `npm run verify-harness-teardown` (35 assertions, real h
 Chrome, forced-failure controls — mid-run throw, mid-run exit, SIGKILL then sweep, a genuinely
 un-removable directory producing the warning rather than silence). Never call `mkdtempSync`
 directly from a `verify-*`/`audit-*` script — that same proof fails if one does.
+
+### ★ Portfolio overview (2026-09-12) — the value chart and where its data comes from
+
+`dashboard.html` opens with a **Portfolio value** card (the live figure, the change since the
+first recorded month, and a real Chart.js line of monthly anchors with 3M/6M/1Y/All), then a
+two-up row: **Pending requests** (every pending request of every type — deposit, withdrawal,
+allocation, sell, savings-pocket deposit/withdrawal, profile change — with internal transfers
+marked) and **Upcoming maturities** (fixed pockets with a progress bar and pro-rata accrued
+interest; flexible pockets stated as "No interest · flexible access"). Backend:
+`supabase/functions/get-portfolio-overview` (self-or-admin), built on
+`_shared/portfolio-overview.ts`. Front end: `portfolio-overview.js` + `portfolio-overview.css`
+(`.po-*`).
+
+**Where the chart's data comes from — read this before expecting a chart.** The chart plots
+`portfolio_value_snapshots`, one row per client per month, the value at the START of that
+month. Until this feature the table had exactly one writer — `get-portfolio-monthly-change`,
+which writes the current month's row lazily on a client's first dashboard load that month —
+so no client could accumulate history. Now the third cron job above, `marketswave-snapshot-
+portfolio-values`, runs `snapshot-portfolio-values` at 00:05 UTC on the 1st and writes the
+month's anchor for **every active client** (`clients.status = 'active'`), computed the same way
+the lazy writer computes it, so the two agree and the unique index makes both idempotent.
+**There is no backfill**: nothing honest exists to backfill from, so every client — including
+every real one on staging today — sees the new-client state until three real month-starts
+have passed. That state says so in plain words and shows the live current value.
+
+**The threshold is 3 stored anchors** (`CHART_MIN_ANCHORS` in `_shared/portfolio-overview.ts`).
+The live current value is always appended as the last point and never counts toward it — a
+line through one anchor and today is two points, and two points are not a chart.
+
+Run the writer by hand (a real admin JWT or the service_role key — it uses
+`_shared/scheduler-auth.ts` like the other scheduled functions):
+
+```
+curl -X POST http://127.0.0.1:54321/functions/v1/snapshot-portfolio-values   -H "Authorization: Bearer $SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{}'
+# → {"monthStartDate":"2026-09-01","clients":3,"inserted":3,"existing":0,"failed":[],"via":"service_role"}
+```
+
+It accepts `monthStartDate` (`YYYY-MM-01`) and `clientId`, which the verification uses to
+file a run under an earlier month. That is never a way to invent history: the value recorded
+is always the value NOW, and the chart labels every point by its stored date.
+
+Proof, from `scripts/`: `npm run supabase-verify-portfolio-overview` (45 — the writer, the
+history payload cross-checked against the table, every request type, the maturities maths),
+`npm run verify-portfolio-overview-ui-wiring` (26 — the real page in jsdom, Chart.js stubbed
+to capture the dataset; ranges genuinely filter), `npm run verify-portfolio-overview-visual`
+(44 — a REAL Chart.js instance equal to the table, a real hover tooltip, a real 3M click,
+contrast in both change tones and the new-client state, fonts, 1440/390/375 and a real 320px
+iframe; needs `supabase functions serve` and a static server on :8765).
+
+### ★ The `.glass` sheen — `npm run audit-glass-sheen` (2026-09-12)
+
+`.glass::before` paints a radial white highlight over every full glass card's top-left
+corner, and it composites OVER the card's content. Measured across the whole project, 53
+headings/labels/figures in that corner read below 4.5:1 with it (a queue page's "Pending"
+heading 2.21:1 against 17.05:1 without). The fix is the opt-in class `.glass-lift` on the
+card — its content is lifted one stacking level above the sheen; the recipe is untouched.
+**If you add a `.glass` card with a heading or figure in its top-left, add `glass-lift` too**,
+then run the audit from `scripts/` (needs the stack, `functions serve` and :8765): it measures
+every text element under every sheen on every page, as rendered and with the sheen hidden,
+and prints the full inventory with the delta. `SHEEN_PAGES=a.html,b.html` narrows it.
 
 ### Step 9 — Stop the stack when you're done
 
