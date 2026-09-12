@@ -8319,6 +8319,10 @@ row 74.
     refresh × the 15-minute cycle = **450 distinct STOCK symbols platform-wide**, hence 25
     per client. `refresh-market-data` reports the real distinct-stock count and remaining
     headroom on every run — read that rather than trusting this paragraph's arithmetic.
+    **Superseded 2026-09-12 (row 202)**: there is no ceiling any more — the refresh rotates
+    through the 30 oldest stock symbols per cycle, and what grows with the count is the
+    worst-case staleness (`ceil(S/30) × 15 min`), reported as the real oldest age after
+    each run. The 25-per-client limit stays, as a UX bound rather than a share of a ceiling.
   - **★ THE SCHEDULER: `pg_cron` fires SQL, `pg_net` makes the HTTP call, and the
     service_role key lives in `supabase_vault` — never in the committed migration.** Run
     `npm run supabase-configure-scheduler` (from `scripts/`, `--staging` for the real cloud
@@ -8358,6 +8362,10 @@ row 74.
     `status = 'active'` plus `.select()`, so two overlapping sweeps cannot both mail it. A
     FIRED alert is kept with the price and time it fired at; a CANCELLED one is deleted,
     because it never fired and marking it fired would be a lie in the client's own history.
+    **Alerts inherit the round-robin refresh (2026-09-12, row 202)**: the sweep reads the
+    CACHED price, and a stock symbol is only re-priced when its turn comes — an alert on a
+    symbol reached every 45 minutes fires with that granularity, later but never wrongly.
+    Crypto alerts are unaffected. A delayed alert is this design, not a bug.
   - **The six defaults are seeded against `clients.watchlist_seeded_at`, not against "has
     zero rows right now"** — a client who deliberately empties their watchlist must get the
     honest empty state, not watch the six reappear on the next load.
@@ -8603,7 +8611,10 @@ row 74.
   - **Ceiling accounting holds with products added**: product stock symbols join the same
     union keyed on symbol (a product and a watchlist row on SPY cost one call) and count
     toward the same 450-distinct-stock ceiling; the refresh reports `productSymbols` and
-    `productStockSymbolsNotAlreadyWatched` alongside `headroom` on every run.
+    `productStockSymbolsNotAlreadyWatched` alongside `headroom` on every run. **Superseded
+    2026-09-12 (row 202)**: the ceiling is gone — product stock symbols join the same
+    round-robin rotation, and `headroom` now means symbols addable before the worst-case
+    staleness grows by another 15-minute cycle.
   - **The one-time price jump is done IN THE MIGRATION** from `market_data_cache`, so
     before/after is one recorded moment (row 199 has the staging figures). Locally
     `PROD-0003 Global Equity ETF` was mapped to VT (Vanguard Total World; confirmed pricing on
@@ -8809,6 +8820,79 @@ row 74.
   run from clean HEAD leaked exactly one profile; the fixed code leaked none. The sweep was
   proven in a real harness too: a `mw-label-*` dir left by a hard death was removed by the
   next `verify-label-association` run once past the age guard.
+
+- **★★ Round-robin market refresh + the seeded catalog (2026-09-12, row 202).** Two parts,
+  sequenced: the refresh change removed the ceiling that would otherwise have constrained
+  the seeding. `refresh-market-data` no longer prices every stock symbol every cycle — it
+  prices the **N with the oldest cached price** and leaves the rest for the next cycle,
+  where they are naturally first in line. Then 27 real market-priced products were created
+  through the REAL creation path (`lookup-product-symbol` pick → `add-product`), never SQL.
+  **Things a future session needs to know before touching any of this:**
+  - **★ N = 30 PER RUN, DERIVED, NOT HARDCODED.** Finnhub's limit was re-measured live
+    (`x-ratelimit-limit: 60`, unchanged). A run completes well inside a minute, so a run's
+    spend is one minute's budget; half stays reserved for the interactive paths (search,
+    add-symbol, add-product's first price). `STOCK_SYMBOLS_PER_REFRESH_RUN =
+    floor(60 × 0.5)`. Worst-case staleness for S stock symbols is `ceil(S / 30) × 15 min`.
+    Crypto is untouched by all of this — CoinGecko batches, so every coin refreshes every
+    cycle at one call however many there are.
+  - **★ THE ROTATION IS A QUEUE, AND ONE MILLISECOND IS WHAT MAKES IT ONE.** The proof's
+    first run found a REAL starvation: every symbol refreshed in a run got the same
+    `last_updated`, the next run tie-broke among them alphabetically, and VGK/VPL/VT/VTI/
+    VXUS/WMT were skipped two runs running. `refreshSymbols()` now stamps refreshed rows
+    with strictly increasing timestamps in selection order (oldest-selected first), so
+    "sort by last_updated" IS "pop N from the front, push to the back". Do not "tidy" that
+    into a single shared timestamp — the sort would silently become alphabetical again.
+  - **★ THE HEALTH METRIC IS `oldestStockAfterRun`, reported on every run.** It is the real
+    age of the oldest stock symbol after the run, measured — not the theoretical figure. A
+    number that stabilises run over run is the proof the rotation cycles; one that keeps
+    growing means a subset is being starved. Proven: with 36 stocks (2 cycles) it read
+    61.2 min after the staggered first run and settled at 16.2 min on every run after —
+    exactly `(cycles − 1) × 15` plus the seconds the run took.
+  - **`get-watchlist`'s top-up now covers MISSING cache rows only, never merely stale
+    ones.** Under rotation a price older than 15 minutes is a normal state; topping up
+    "stale" would have turned every dashboard load into up to 25 Finnhub calls, unbounded by
+    client count — the exact spend the rotation exists to bound. A missing row is the rare
+    recovery case (both add paths write one on add).
+  - **A newly added symbol prices IMMEDIATELY** (confirmed for both paths, and one was
+    tightened): `add-product` already fetched a live first price and refused a zero, then
+    re-fetched the same quote to seed the cache; both it and `add-watchlist-symbol` now
+    write the quote they already hold via `writeQuoteToCache()` — no second call, no waiting
+    for a turn. Proven: VXUS created and priced in the product row AND the cache within the
+    same second, with no refresh run.
+  - **The fetch loop reads `x-ratelimit-remaining` on every response and halts the run if
+    the reserve has been eaten into AND work is left** — the unreached symbols are not
+    failures, they stay oldest. A reading of 29 on the very last response halts nothing
+    (the proof's first run flagged exactly that and it was fixed). A second run inside the
+    same minute is proven to stop short with zero failures and zero products flagged.
+  - **★ PRICE ALERTS INHERIT THE ROTATION — later, never wrongly.** `check-price-alerts`
+    compares against the CACHED price. An alert on a stock symbol the rotation reaches every
+    45 minutes fires with 45-minute granularity; a target crossed and re-crossed between two
+    refreshes is never seen. Recorded on register row 193 too, so a delayed alert is read as
+    this design, not as a bug. Crypto alerts are unaffected.
+  - **The seed is `scripts/supabase-seed-market-catalog.js`** (`--dry-run` verifies prices
+    only; `--staging` targets real cloud staging with the operator's credential files).
+    Every symbol is verified to price through the real pick step first — Finnhub answers an
+    unknown symbol with HTTP 200 and `{"c":0}` (row 195), and a product created against
+    one would sit permanently quote_failed. A provider RATE LIMIT is waited out and retried,
+    never treated as "does not price" (CoinGecko's public tier tripped after six picks in
+    nine seconds on the first dry run — the wrong reading would have dropped three real
+    coins). Already-offered symbols are skipped and the existing product left alone: VT
+    (PROD-0003 "Global Equity ETF") and ETH (PROD-0004) locally.
+  - **Fixed-income and commodity ETFs derive `Stocks & ETFs`.** The class is derived from
+    the provider, never typed, and the locked five-class engine has no bond or commodity
+    class — AGG/TLT/LQD/GLD/SLV/DBC sit under Stocks & ETFs, by construction.
+  - **What was seeded is verifiable from the instrument itself**: the fund's real name, a
+    one-line description of what it holds, and a minimum in the catalog's existing vocabulary
+    ($1,000 ETF / $100 digital asset). No performance figures, ratings or expense ratios.
+    PE / Real Assets are not seeded — they need a real name, strategy and valuation that
+    cannot be looked up.
+  **Verified**: `npm run verify-round-robin-refresh` (real provider calls, ~11 minutes —
+  mostly waiting out Finnhub's minute between simulated cycles so each run's budget is its
+  own) — the seeded catalog (27 products, all live, all derived correctly, none flagged),
+  immediate pricing of a new product, the rotation over six simulated cycles with the union
+  pushed to 36 stocks (every symbol in every full rotation, never the same subset twice,
+  the oldest age settling at 16.2 min), the same-minute halt, and the client catalog
+  rendering every product through Load More.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

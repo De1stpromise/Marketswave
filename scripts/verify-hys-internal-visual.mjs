@@ -173,8 +173,12 @@ async function connectChrome() {
   await new Promise((r) => ws.addEventListener('open', r));
   let id = 0;
   const pending = new Map();
+  const errors = [];
   ws.addEventListener('message', (e) => {
     const m = JSON.parse(e.data);
+    if (m.method === 'Runtime.exceptionThrown') errors.push('EXC ' + String((m.params.exceptionDetails.exception && m.params.exceptionDetails.exception.description) || m.params.exceptionDetails.text).slice(0, 300));
+    if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push('CONSOLE ' + (m.params.args || []).map((a) => a.value || a.description || '').join(' ').slice(0, 300));
+    if (m.method === 'Network.loadingFailed') errors.push('NETFAIL ' + m.params.requestId + ' ' + m.params.errorText);
     if (m.id && pending.has(m.id)) {
       const p = pending.get(m.id); pending.delete(m.id);
       m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result);
@@ -194,7 +198,7 @@ async function connectChrome() {
   // broken. Never measure through the cache.
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   trackChild(profile, chrome, ws);
-  return { send, evaluate, close: () => releaseTempDir(profile) };
+  return { send, evaluate, errors, close: () => releaseTempDir(profile) };
 }
 
 async function main() {
@@ -286,8 +290,10 @@ async function main() {
         await cdp.evaluate(PREPARE_CLIENT);
         const geom = await cdp.evaluate(GEOM_EXPR);
         if (geom.visible !== true) {
-          const diag = await cdp.evaluate('JSON.stringify({url:location.pathname,grid:(document.getElementById("pockets-grid")||{}).innerHTML.slice(0,160),cards:document.querySelectorAll(".np-funding-card").length,modalHidden:document.getElementById("new-pocket-modal").className})');
+          const diag = await cdp.evaluate('JSON.stringify({url:location.pathname,grid:(document.getElementById("pockets-grid")||{}).innerHTML.slice(0,120),cards:document.querySelectorAll(".np-funding-card").length,net:performance.getEntriesByType("resource").filter(function(r){return r.name.indexOf("/v1/")!==-1;}).map(function(r){return [r.name.slice(r.name.indexOf("/v1/")+4).split("?")[0].slice(0,40),Math.round(r.duration),r.responseStatus];})})');
           console.log('      DIAG ' + width + 'px: ' + diag);
+          console.log('      DIAG errors: ' + JSON.stringify(cdp.errors.slice(-12)));
+          console.log('      DIAG resources: ' + await cdp.evaluate('JSON.stringify(performance.getEntriesByType("resource").map(function(r){var n=r.name; var k=n.indexOf("//"); n=k>=0?n.slice(n.indexOf("/",k+2)):n; return n.slice(0,50)+":"+Math.round(r.duration)+":"+r.responseStatus;}))') + ' readyState=' + await cdp.evaluate('document.readyState') + ' scripts=' + await cdp.evaluate('document.scripts.length') + ' hasData=' + await cdp.evaluate('typeof window.MarketswaveData'));
         }
         check(width + 'px: the internal funding step genuinely rendered', geom.visible === true, JSON.stringify(geom));
         check(width + 'px: the real balance is shown, not a placeholder', geom.available === '$45,000.00', geom.available);

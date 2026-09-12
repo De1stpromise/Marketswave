@@ -276,6 +276,8 @@ async function main() {
     acDom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const A = acDom.window.document;
     await pollUntil(() => A.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(A.getElementById('asset-cards-grid').innerHTML), 30000);
+    // The seeded catalog (row 202) has more products than one page of nine: page through Load More.
+    { const lm = A.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
     const cardLink = A.querySelector('[data-product-id="' + productId + '"] .fund-document-link');
     check('★ the product\'s card carries a "Fund document" link to the client page', !!cardLink && cardLink.getAttribute('href') === 'fund-document.html?product=' + productId, cardLink && cardLink.getAttribute('href'));
     check('...a product with no published document shows no link at all', !A.querySelector('[data-product-id="PROD-0002"] .fund-document-link') && !!A.querySelector('[data-product-id="PROD-0002"]'));

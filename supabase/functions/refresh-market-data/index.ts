@@ -1,26 +1,33 @@
 // ★★ Merged Market Snapshot + Watchlist (2026-09-11) — THE SCHEDULED CACHE REFRESH.
+// ★★ ROUND-ROBIN since 2026-09-12 — see _shared/market-providers.ts for the derivation.
 //
 // Runs every 15 minutes from pg_cron (see the migration's own scheduler section). This is
-// what makes market_data_cache dynamic: it refreshes the UNION of
-//   - the six base symbols the public homepage ticker is served from, always, whether or
-//     not any client watches them; and
-//   - every distinct symbol any client currently has on their watchlist.
+// what makes market_data_cache dynamic: it works over the UNION of
+//   - the six base symbols the public homepage ticker is served from, always;
+//   - every distinct symbol any client currently has on their watchlist; and
+//   - every market-priced product's ticker.
 //
-// ★ THE UNION IS THE WHOLE POINT AND IT IS WHAT MAKES THE CEILING WORK. Ten clients
-// watching SPY cost one Finnhub call, not ten. The refresh has no per-client loop anywhere,
-// and adding one would silently multiply the provider cost by the client count.
+// ★ THE UNION IS THE WHOLE POINT. Ten clients watching SPY cost one Finnhub call, not ten.
+// The refresh has no per-client loop anywhere, and adding one would silently multiply the
+// provider cost by the client count.
 //
-// COST PER RUN, in the terms the free tiers actually charge in:
-//   crypto  — exactly ONE CoinGecko call, no matter how many coins (it genuinely batches).
-//   stocks  — one Finnhub call PER DISTINCT SYMBOL (it genuinely cannot batch; a
-//             comma-joined request returns a zero price with HTTP 200 rather than failing).
-// So distinct stock symbols is the only quantity that matters, which is why the reported
-// headroom below counts those and nothing else.
+// WHAT ONE RUN DOES, in the terms the free tiers actually charge in:
+//   crypto  — exactly ONE CoinGecko call, for EVERY coin in the union, every run (it
+//             genuinely batches, so there is nothing to ration).
+//   stocks  — one Finnhub call PER SYMBOL, for the N symbols whose cached price is OLDEST
+//             (N = STOCK_SYMBOLS_PER_REFRESH_RUN, derived from the measured rate limit).
+//             The rest keep their older timestamp and are naturally first in line next run.
+//
+// So there is no ceiling on distinct stock symbols any more; what grows with the count is
+// the worst-case staleness, and this run reports the REAL figure — the age of the oldest
+// stock symbol after the run — so the rotation is observable, not assumed. A figure that
+// stabilises run over run is the proof the rotation cycles; one that keeps growing means a
+// subset is being starved.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { authorizeScheduledCall } from '../_shared/scheduler-auth.ts';
-import { BASE_SYMBOLS, refreshSymbols, CacheEntry, productCacheEntries, syncMarketPricedProducts } from '../_shared/market-refresh.ts';
-import { PLATFORM_STOCK_SYMBOL_CEILING } from '../_shared/market-providers.ts';
+import { BASE_SYMBOLS, refreshSymbols, CacheEntry, productCacheEntries, syncMarketPricedProducts, selectStocksForRefresh, oldestStockAfterRun } from '../_shared/market-refresh.ts';
+import { STOCK_SYMBOLS_PER_REFRESH_RUN, REFRESH_INTERVAL_MINUTES, cyclesToCoverStocks, worstCaseStalenessMinutes } from '../_shared/market-providers.ts';
 import { normalizeSymbol } from '../_shared/symbol-catalog.ts';
 
 Deno.serve(async (req) => {
@@ -56,10 +63,8 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Product catalog — live pricing, part 1 (2026-09-11): every market-priced PRODUCT's
-    // ticker joins the same union, keyed on symbol, so a product and a watchlist row on
-    // the same symbol still cost one call. Product stock symbols count toward the same
-    // 450 ceiling as watchlist ones; the product share is reported separately below.
+    // Every market-priced PRODUCT's ticker joins the same union, keyed on symbol, so a
+    // product and a watchlist row on the same symbol still cost one call.
     const productEntries = await productCacheEntries(admin);
     let productSymbols = 0;
     let productStockSymbolsNew = 0;
@@ -71,20 +76,43 @@ Deno.serve(async (req) => {
     }
 
     const entries = Object.values(bySymbol);
-    const outcome = await refreshSymbols(admin, entries);
+    const allStocks = entries.filter((e) => e.asset_type === 'stock');
+    const allCryptos = entries.filter((e) => e.asset_type === 'crypto');
+
+    // ROTATION: the N oldest stocks this run, every coin every run.
+    const { selected, skipped } = await selectStocksForRefresh(admin, allStocks, STOCK_SYMBOLS_PER_REFRESH_RUN);
+    const outcome = await refreshSymbols(admin, selected.concat(allCryptos));
 
     // Copy fresh prices onto the market-priced products and flag any whose symbol could
-    // not be priced (a zero/absent quote never overwrites the last good price).
+    // not be priced (a zero/absent quote never overwrites the last good price). A product
+    // whose symbol was simply not selected this run is untouched — its last good price
+    // and honest timestamp stay exactly as they are.
     const productSync = await syncMarketPricedProducts(admin, outcome.failed);
 
-    // Reported on every run so the remaining headroom against the derived ceiling is an
-    // observable number rather than an assumption that was true when this was written.
+    // THE HEALTH METRIC: the oldest stock symbol's real age, measured after this run.
+    const oldest = await oldestStockAfterRun(admin, allStocks);
+    const selectedSet = new Set(selected.map((e) => e.symbol));
+    const refreshedStocks = outcome.updatedSymbols.filter((sym) => selectedSet.has(sym)).length;
+
     return jsonResponse({
       distinctSymbols: entries.length,
-      distinctStockSymbols: outcome.stockSymbols,
-      distinctCryptoSymbols: outcome.cryptoSymbols,
-      stockSymbolCeiling: PLATFORM_STOCK_SYMBOL_CEILING,
-      headroom: PLATFORM_STOCK_SYMBOL_CEILING - outcome.stockSymbols,
+      distinctStockSymbols: allStocks.length,
+      distinctCryptoSymbols: allCryptos.length,
+      // Rotation
+      stockSymbolsPerRun: STOCK_SYMBOLS_PER_REFRESH_RUN,
+      stockSymbolsSelected: selected.length,
+      stockSymbolsRefreshed: refreshedStocks,
+      stockSymbolsSkippedThisRun: skipped.length,
+      stockSymbolsAttempted: outcome.stockFetch.attempted,
+      haltedForRateLimit: outcome.stockFetch.haltedForRateLimit,
+      lowestRateLimitRemainingSeen: outcome.stockFetch.lowestRemainingSeen,
+      cyclesToCoverAllStocks: cyclesToCoverStocks(allStocks.length),
+      refreshIntervalMinutes: REFRESH_INTERVAL_MINUTES,
+      worstCaseStalenessMinutes: worstCaseStalenessMinutes(allStocks.length),
+      oldestStockAfterRun: oldest,   // { symbol, lastUpdated, ageMinutes } — ageMinutes null = never priced
+      // How many more distinct stock symbols fit before the worst case grows by one cycle.
+      headroom: cyclesToCoverStocks(allStocks.length) * STOCK_SYMBOLS_PER_REFRESH_RUN - allStocks.length,
+      // Counts
       updated: outcome.updated,
       failed: outcome.failed,
       productSymbols,

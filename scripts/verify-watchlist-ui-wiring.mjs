@@ -143,13 +143,14 @@ async function main() {
       return r.querySelector('.wl-tag').textContent === 'SPY';
     });
     check('a catalog symbol renders the Offered badge', ethRowEl.textContent.indexOf('Offered') !== -1);
+    // Since the seeded catalog (2026-09-12, row 202) SPY is a real product too; the
+    // Tracking-only state is proven on NVDA below, added through the real search.
+    check('SPY (seeded as SPDR S&P 500 ETF Trust) renders Offered as well', spyRowEl && spyRowEl.textContent.indexOf('Offered') !== -1);
     check('...and carries a real Allocate action pointing at the real product it resolved to',
       ethRowEl.querySelector('a.mw-btn') &&
       ethRowEl.querySelector('a.mw-btn').getAttribute('href') === 'asset-collection.html?product=PROD-0004',
       ethRowEl.querySelector('a.mw-btn') && ethRowEl.querySelector('a.mw-btn').getAttribute('href'));
-    check('a non-catalog symbol reads Tracking only', spyRowEl.textContent.indexOf('Tracking only') !== -1);
-    check('...and has no Allocate action at all, because there genuinely is no allocation path',
-      !spyRowEl.querySelector('a.mw-btn'));
+
     check('every row carries a real price, not a dash',
       [...rows.querySelectorAll('.wl-px-v')].every(function (el) { return el.textContent.trim() !== '—'; }));
 
@@ -183,6 +184,9 @@ async function main() {
     check('...and a real row exists in Postgres, not just on screen', (nvdaStored.data || []).length === 1);
     check('the add panel closes and the search box clears after a successful add',
       addPanel.hidden === true && searchInput.value === '');
+    { const nvdaRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) { return r.querySelector('.wl-tag').textContent === 'NVDA'; });
+      check('a non-catalog symbol (NVDA) reads Tracking only', !!nvdaRowEl && nvdaRowEl.textContent.indexOf('Tracking only') !== -1);
+      check('...and has no Allocate action at all, because there genuinely is no allocation path', !!nvdaRowEl && !nvdaRowEl.querySelector('a.mw-btn')); }
     check('a seventh real row is rendered', rows.querySelectorAll('.wl-row').length === 7,
       String(rows.querySelectorAll('.wl-row').length));
 

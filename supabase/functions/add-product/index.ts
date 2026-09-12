@@ -19,7 +19,7 @@ import { round2 } from '../_shared/portfolio-engine.ts';
 import { validateProductFields, toProductClientShape, PRICING_MODELS, APPRAISAL_ASSET_CLASSES, assetClassForSource, validateMaximumInvestment } from '../_shared/product-validation.ts';
 import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { lookupStockQuote, fetchCryptoQuotes, RateLimitedError } from '../_shared/market-providers.ts';
-import { refreshSymbols } from '../_shared/market-refresh.ts';
+import { writeQuoteToCache } from '../_shared/market-refresh.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -159,12 +159,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: insertErr.message }, 500);
     }
 
-    // Seed the cache row for the new symbol too (best-effort), so the very next read-through
-    // and the scheduled refresh both already know it — mirrors get-watchlist's own top-up.
-    if (pricingModel === 'market' && marketSymbol && marketSource) {
+    // ★ A NEW PRODUCT PRICES IMMEDIATELY (round-robin refresh, 2026-09-12). The product row
+    // above already carries the live first price; this writes that SAME quote into the cache
+    // so the very next read-through and the rotation both know the symbol — no second
+    // provider call (the old code re-fetched here), and no waiting for its turn.
+    if (pricingModel === 'market' && marketSymbol && marketSource && marketFirstPrice) {
       try {
-        await refreshSymbols(admin, [{ symbol: marketSymbol, name: String(body.name).trim(), source: marketSource, provider_id: marketProviderId, asset_type: marketSource === 'coingecko' ? 'crypto' : 'stock' }]);
-      } catch (_e) { /* the product already carries its real first price; the scheduler catches up */ }
+        await writeQuoteToCache(admin, { symbol: marketSymbol, name: String(body.name).trim(), source: marketSource, provider_id: marketProviderId, asset_type: marketSource === 'coingecko' ? 'crypto' : 'stock' }, marketFirstPrice);
+      } catch (_e) { /* the product already carries its real first price; the rotation catches up */ }
     }
 
     return jsonResponse(toProductClientShape(created), 200);

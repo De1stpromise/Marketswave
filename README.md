@@ -1796,6 +1796,53 @@ scheduler pointed at the stack's own API URL fails with `Couldn't connect to ser
 to Kong's own network alias (`http://kong:8000/functions/v1`) for exactly this reason; a real
 cloud project uses its public URL, because there is no container boundary to cross.
 
+### ★ Round-robin refresh and the seeded catalog (2026-09-12)
+
+**The refresh rotates.** `refresh-market-data` no longer prices every stock symbol every
+cycle. Each run prices the **30 stock symbols with the oldest cached price** and leaves the
+rest for the next cycle, where they are first in line — there is no longer a ceiling on how
+many distinct stock symbols the platform can carry; what grows with the count is the
+worst-case staleness, `ceil(stocks / 30) × 15 min`. Crypto is unaffected (CoinGecko batches,
+so every coin refreshes every cycle at one call). The 30 is derived from Finnhub's measured
+60/min limit at the 50% share the refresh may spend; the other half stays for search and
+add-symbol, and the run stops early if that reserve has already been eaten into that minute.
+
+**Read the run's own report, not the arithmetic.** Every run returns
+`oldestStockAfterRun` — the real age of the oldest symbol after it ran. That number settling
+run over run is the proof the rotation is cycling; a number that keeps growing means a subset
+is being starved. Alongside it: `distinctStockSymbols`, `stockSymbolsRefreshed`,
+`cyclesToCoverAllStocks`, `worstCaseStalenessMinutes`, `headroom` (symbols you can add before
+the worst case grows by another cycle).
+
+**Price alerts inherit the rotation.** An alert on a stock symbol the rotation reaches every
+45 minutes fires with 45-minute granularity — later, never wrongly. A delayed alert is this
+design, not a bug.
+
+**Seeding the catalog** — through the real creation path, never SQL:
+
+```
+cd scripts
+node supabase-seed-market-catalog.js --dry-run     # verifies every symbol prices, creates nothing
+node supabase-seed-market-catalog.js               # local stack, as pm@marketswave.local
+SUPABASE_STAGING_CREDENTIALS_FILE=/path/to/api-keys.json \
+SUPABASE_STAGING_PM_CREDENTIALS_FILE=/path/to/the-staging-pm-credentials-file \
+node supabase-seed-market-catalog.js --staging     # real cloud staging
+```
+
+Each symbol goes through `lookup-product-symbol` (the PM's own pick step — a symbol Finnhub
+answers with a zero is refused here, never created) and then `add-product` (the real
+validation, symbol resolution and asset-class derivation). A symbol already offered by an
+existing product is skipped and that product left alone; a provider rate limit is waited out
+and retried, never read as "does not price". Every seeded product carries the fund's real
+name and a one-line description of what it holds — nothing about performance.
+
+Proof, from `scripts/` (~12 minutes of real, paced provider calls, and it pauses the local
+pg_cron jobs while it runs so a scheduled refresh cannot land mid-measurement):
+
+```
+npm run verify-round-robin-refresh
+```
+
 ### ★ Crypto deposit routing (2026-09-11) — the address book and what a PM must do first
 
 A crypto deposit request no longer carries an amount. What it carries is WHICH address the

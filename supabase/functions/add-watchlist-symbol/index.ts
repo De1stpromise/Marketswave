@@ -16,7 +16,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { lookupStockQuote, lookupCrypto, PER_CLIENT_SYMBOL_LIMIT } from '../_shared/market-providers.ts';
-import { refreshSymbols } from '../_shared/market-refresh.ts';
+import { writeQuoteToCache } from '../_shared/market-refresh.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
     let resolvedSymbol = symbol;
     let resolvedProviderId: string | null = null;
 
+    let liveQuote: { price: number; changePercent: number | null } | null = null;
     if (source === 'coingecko') {
       let coin;
       try {
@@ -91,6 +92,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'That coin could not be found or is not currently priced.' }, 400);
       }
       name = coin.name;
+      liveQuote = coin.quote;
       resolvedSymbol = normalizeSymbol(coin.symbol);
       resolvedProviderId = providerId;
       assetType = 'crypto';
@@ -104,6 +106,7 @@ Deno.serve(async (req) => {
       if (!quote) {
         return jsonResponse({ error: symbol + ' is not a symbol we can price.' }, 400);
       }
+      liveQuote = quote;
       // Finnhub's /quote carries no name, so the caller's own search result supplies it —
       // still not free text: search-symbols is the only thing that produces it, and it
       // comes straight from the provider's own search response.
@@ -137,18 +140,22 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: insertErr.message }, 500);
     }
 
-    // Price it now rather than leaving the row blank until the next scheduled refresh.
-    // Best-effort: the row is genuinely added either way, and the card renders a dash for a
-    // price it does not have yet rather than pretending to a number.
-    try {
-      await refreshSymbols(admin, [{
-        symbol: resolvedSymbol,
-        name,
-        source,
-        provider_id: resolvedProviderId,
-        asset_type: assetType
-      }]);
-    } catch (_err) { /* see above */ }
+    // ★ A NEWLY ADDED SYMBOL PRICES IMMEDIATELY (round-robin refresh, 2026-09-12): the live
+    // quote fetched above to refuse a zero is written straight into the cache — no second
+    // provider call, and no waiting for the symbol's turn in the rotation. Best-effort: the
+    // row is genuinely added either way, and the card renders a dash for a price it does not
+    // have yet rather than pretending to a number.
+    if (liveQuote) {
+      try {
+        await writeQuoteToCache(admin, {
+          symbol: resolvedSymbol,
+          name,
+          source,
+          provider_id: resolvedProviderId,
+          asset_type: assetType
+        }, liveQuote);
+      } catch (_err) { /* see above */ }
+    }
 
     return jsonResponse({
       id: inserted.id,

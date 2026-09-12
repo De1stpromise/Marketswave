@@ -16,7 +16,7 @@
 // ---- Rounding — engine-core.js's round2() ------------------------------------------------
 // Product catalog — live pricing, part 1 (2026-09-11): the cache read-through for
 // market-priced products (see market-refresh.ts's own header for the two paths).
-import { readThroughMarketPrice, MarketPricedProductRow } from './market-refresh.ts';
+import { readThroughMarketPrice, readThroughMarketPrices, MarketPricedProductRow } from './market-refresh.ts';
 
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -165,13 +165,15 @@ export async function settleAllProducts(supabaseAdmin: any): Promise<ProductRow[
   const { data: products, error } = await supabaseAdmin.from('products').select('*');
   if (error) throw new Error('settleAllProducts: failed to read products: ' + error.message);
 
+  // Market-priced: read the latest cached market price through onto the rows. This is what
+  // makes an approval execute at the approval-time price (see market-refresh.ts). Batched —
+  // one cache query for every market product — since the seeded catalog (2026-09-12).
+  const live = await readThroughMarketPrices(supabaseAdmin, products as unknown as MarketPricedProductRow[]);
   const updated: ProductRow[] = [];
   for (const product of products as ProductRow[]) {
-    // Market-priced: read the latest cached market price through onto the row. This is what
-    // makes an approval execute at the approval-time price (see market-refresh.ts).
     if (product.pricing_model === 'market') {
-      const live = await readThroughMarketPrice(supabaseAdmin, product as unknown as MarketPricedProductRow);
-      updated.push({ ...product, unit_price: live.unitPrice, price_as_of: live.priceAsOf });
+      const l = live[product.id];
+      updated.push({ ...product, unit_price: l.unitPrice, price_as_of: l.priceAsOf });
       continue;
     }
     const result = settleProduct(product);

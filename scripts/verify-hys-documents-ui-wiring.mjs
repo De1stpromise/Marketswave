@@ -321,6 +321,10 @@ async function main() {
   })();
 
   console.log('\n8. My Pocket Requests — real merged deposit + withdrawal history');
+  // The list re-renders through the page's own reload-then-render chain, a later microtask
+  // than the write promise each request above awaited (the same race row 132 recorded for
+  // Documents) — poll for the settled count rather than reading the DOM immediately.
+  await pollUntil(function () { return requestsListEl.querySelectorAll('tbody tr').length === 5; }, 15000);
   check('the requests list shows all 5 real requests created above (2 deposits + 3 withdrawals)', requestsListEl.querySelectorAll('tbody tr').length === 5, requestsListEl.textContent.slice(0, 200));
   check('both Deposit and Withdrawal kind badges render', requestsListEl.textContent.indexOf('Deposit') !== -1 && requestsListEl.textContent.indexOf('Withdrawal') !== -1);
 

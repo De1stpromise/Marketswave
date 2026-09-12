@@ -158,6 +158,9 @@ async function main() {
   check('the loading skeleton genuinely appears immediately (asset-collection.html grid)', /animate-pulse/.test(grid.innerHTML), grid.innerHTML.slice(0, 200));
 
   await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML); }, 20000);
+  // The seeded catalog (row 202) has more products than one page of nine: page through
+  // Load More so the cards this test looks for are rendered wherever they fall.
+  { const lm = collectionDom.window.document.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
   check('real products render as cards after the real load completes', grid.innerHTML.indexOf('Nordic Growth Fund') !== -1 && grid.innerHTML.indexOf('Global Equity ETF') !== -1, grid.innerHTML.slice(0, 400));
 
   const etfCard = grid.querySelector('[data-product-id="' + equityEtf.id + '"]');

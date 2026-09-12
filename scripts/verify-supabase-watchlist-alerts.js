@@ -143,8 +143,10 @@ async function main() {
     const ethRow = first.body.symbols.find((r) => r.symbol === 'ETH');
     check('ETH resolves to the real catalog product (PROD-0004) and is therefore Offered',
       ethRow && ethRow.offered && ethRow.offered.productId === 'PROD-0004', JSON.stringify(ethRow && ethRow.offered));
-    check('SPY has no catalog product and is therefore Tracking only — the honest state, not a fabricated mapping',
-      spy && spy.offered === null);
+    // Since the seeded catalog (2026-09-12, row 202) every default symbol is a real product;
+    // the Tracking-only state is proven on NVDA below, added by the client and owned by none.
+    check('SPY resolves to its real seeded product (SPDR S&P 500 ETF Trust) and is Offered',
+      spy && spy.offered && /SPDR S&P 500/.test(spy.offered.productName), JSON.stringify(spy && spy.offered));
     check('an Offered row carries what an Allocate action genuinely needs (a product id and its real minimum)',
       ethRow.offered.minimumInvestment != null && ethRow.offered.productName);
 
@@ -375,10 +377,16 @@ async function main() {
       refresh.body.distinctSymbols >= 6, JSON.stringify(refresh.body));
     check('crypto costs one batched call however many coins are watched (CoinGecko genuinely batches)',
       refresh.body.distinctCryptoSymbols >= 3);
-    check('the ceiling it reports is derived from the measured Finnhub budget, not a guess (30/min x 15 min)',
-      refresh.body.stockSymbolCeiling === 450, String(refresh.body.stockSymbolCeiling));
-    check('real remaining headroom is reported on every run, so the margin is observable',
-      refresh.body.headroom === 450 - refresh.body.distinctStockSymbols);
+    // Round-robin refresh (2026-09-12): no ceiling any more. N per run is derived from the
+    // measured 60/min limit at the 50% share the refresh may spend; the real health metric
+    // is the oldest stock symbol's age after the run.
+    check('N per run is derived from the measured Finnhub limit (floor(60 x 0.5) = 30), not a guess',
+      refresh.body.stockSymbolsPerRun === 30, String(refresh.body.stockSymbolsPerRun));
+    check('the run reports the real oldest-stock age after it ran (the rotation health metric)',
+      refresh.body.oldestStockAfterRun && typeof refresh.body.oldestStockAfterRun.symbol === 'string' && refresh.body.oldestStockAfterRun.ageMinutes !== undefined, JSON.stringify(refresh.body.oldestStockAfterRun));
+    check('worst-case staleness and headroom are derived from the distinct stock count and N',
+      refresh.body.worstCaseStalenessMinutes === Math.ceil(refresh.body.distinctStockSymbols / 30) * 15 &&
+      refresh.body.headroom === Math.ceil(refresh.body.distinctStockSymbols / 30) * 30 - refresh.body.distinctStockSymbols, JSON.stringify({ w: refresh.body.worstCaseStalenessMinutes, h: refresh.body.headroom, s: refresh.body.distinctStockSymbols }));
     check('every symbol it attempted was genuinely priced', (refresh.body.failed || []).length === 0,
       JSON.stringify(refresh.body.failed));
 
@@ -447,23 +455,28 @@ async function main() {
     // =========================================================================================
     // Product catalog — live pricing, part 1 (2026-09-11): a symbol is now part of the
     // pricing model — chosen at creation via the search, priced live, immutable after.
+    // NVDA: owned by no catalog product (the seeded catalog does not include it). Client A
+    // removed it in Part 2, so it is re-added here first — then the mapping's Tracking-only
+    // -> Offered transition below is real, observed on a row the client genuinely watches.
+    const reAdd = await callFunction(url, a.token, 'add-watchlist-symbol', { symbol: 'NVDA', source: 'finnhub', name: 'NVIDIA Corporation' });
+    check('client A watches NVDA again (Tracking only — no product owns it yet)', reAdd.status === 200 && (await callFunction(url, a.token, 'get-watchlist')).body.symbols.find((r) => r.symbol === 'NVDA').offered === null, JSON.stringify(reAdd.body));
     const newProduct = await callFunction(url, pm.session.access_token, 'add-product', {
-      pricingModel: 'market', source: 'finnhub', symbol: 'spy',
+      pricingModel: 'market', source: 'finnhub', symbol: 'nvda',
       name: 'Watchlist Verify Equity ' + suffix,
       investmentType: 'Index Fund', riskTier: 'balanced', minimumInvestment: 1000
     });
     check('a PM can map a catalog product to a real market symbol', newProduct.status === 200,
       JSON.stringify(newProduct.body));
     if (newProduct.status === 200) createdProductIds.push(newProduct.body.id);
-    check('...stored uppercase, so a product entered as "spy" and a row stored as "SPY" are one mapping',
-      newProduct.body.ticker === 'SPY', String(newProduct.body.ticker));
+    check('...stored uppercase, so a product entered as "nvda" and a row stored as "NVDA" are one mapping',
+      newProduct.body.ticker === 'NVDA', String(newProduct.body.ticker));
 
     const nowOffered = await callFunction(url, a.token, 'get-watchlist');
     check('the watchlist row for that symbol now reads Offered, through the shared mapping alone',
-      nowOffered.body.symbols.find((r) => r.symbol === 'SPY').offered.productId === newProduct.body.id);
+      nowOffered.body.symbols.find((r) => r.symbol === 'NVDA').offered.productId === newProduct.body.id);
 
     const dupTicker = await callFunction(url, pm.session.access_token, 'add-product', {
-      pricingModel: 'market', source: 'finnhub', symbol: 'SPY',
+      pricingModel: 'market', source: 'finnhub', symbol: 'NVDA',
       name: 'Duplicate Ticker ' + suffix, investmentType: 'Index Fund',
       riskTier: 'balanced', minimumInvestment: 1000
     });
@@ -489,7 +502,7 @@ async function main() {
     check('a product\'s symbol cannot be cleared or remapped after creation (400)', clearTicker.status === 400, JSON.stringify(clearTicker.body));
     const stillOffered = await callFunction(url, a.token, 'get-watchlist');
     check('...and the watchlist row is still Offered through the unchanged mapping',
-      stillOffered.body.symbols.find((r) => r.symbol === 'SPY').offered.productId === newProduct.body.id);
+      stillOffered.body.symbols.find((r) => r.symbol === 'NVDA').offered.productId === newProduct.body.id);
 
     // =========================================================================================
     console.log('\n=== PART 10: the scheduler itself (this project had none) ===\n');

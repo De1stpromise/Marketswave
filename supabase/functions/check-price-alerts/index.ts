@@ -12,6 +12,15 @@
 // status = 'active' with .select(), so two overlapping sweeps cannot both claim the same
 // alert, and an email is only sent for an alert this run genuinely won. A repeating alert
 // on a volatile symbol would be a spam machine, and this sends real email.
+//
+// ★ ALERTS INHERIT THE ROUND-ROBIN REFRESH (2026-09-12). This sweep compares against the
+// CACHED price, and the refresh now prices the oldest N stock symbols per cycle rather than
+// all of them. An alert on a stock symbol the rotation reaches every 45 minutes can only
+// fire with 45-minute granularity: a target crossed and re-crossed between two refreshes
+// is never seen, and one crossed for good fires on the next cycle that reaches the symbol —
+// later, never wrongly. Crypto is unaffected (every coin refreshes every cycle). Recorded in
+// the Backend Requirements Register alongside the alert feature so a delayed alert is read
+// as this design, not as a bug.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { authorizeScheduledCall } from '../_shared/scheduler-auth.ts';

@@ -14,38 +14,62 @@
 //     $0.00 with nothing anywhere reporting a failure. Never comma-join a Finnhub symbol.
 //
 //   FINNHUB'S FREE RATE LIMIT IS 60 REQUESTS PER MINUTE — read from a real response's own
-//     X-Ratelimit-Limit header, not assumed. That is the budget the per-client symbol
-//     ceiling is derived from (see PER_CLIENT_SYMBOL_LIMIT below).
+//     X-Ratelimit-Limit header, not assumed (re-measured 2026-09-12, still 60). That is the
+//     budget the per-run refresh size is derived from (see STOCK_SYMBOLS_PER_REFRESH_RUN).
 //
 //   COINGECKO /simple/price GENUINELY BATCHES. Five ids in one call returned all five.
 //     Crypto therefore costs exactly one request regardless of how many coins are watched,
-//     which is why the ceiling maths only ever counts DISTINCT STOCK symbols.
+//     which is why the rotation only ever counts DISTINCT STOCK symbols — every coin is
+//     refreshed every cycle.
 //
 //   BOTH PROVIDERS' /search ENDPOINTS WORK ON THE FREE TIER. CoinGecko returns no rate
 //     limit headers at all, so its budget cannot be measured the way Finnhub's can — the
 //     conservative pacing below is the response to not knowing, not a measured figure.
 
-export const FINNHUB_RATE_LIMIT_PER_MINUTE = 60;
+export const FINNHUB_RATE_LIMIT_PER_MINUTE = 60; // re-measured 2026-09-12: x-ratelimit-limit: 60
 
-// Half the per-minute budget is deliberately left unspent by the scheduled refresh. The
-// same key serves interactive symbol search and add-symbol validation, which a client
-// triggers at an unpredictable moment; a refresh that consumed the whole minute would make
-// the search box fail exactly when someone is using it.
-export const FINNHUB_REFRESH_BUDGET_PER_MINUTE = 30;
+// ★★ ROUND-ROBIN REFRESH (2026-09-12). The scheduled refresh no longer prices every stock
+// symbol every cycle — it prices the N with the OLDEST cached price and leaves the rest for
+// the next cycle, where they are naturally first in line. There is no longer a ceiling on
+// how many distinct stock symbols the platform can carry; what grows instead is the
+// worst-case staleness, and refresh-market-data reports the REAL oldest age after every run.
+//
+// N IS DERIVED FROM THE MEASURED LIMIT, NOT HARDCODED. One run completes well inside a
+// minute (30 calls at concurrency 6 finish in seconds), so a run's spend is one minute's
+// budget. Half of that minute is deliberately left to the interactive paths — symbol search,
+// add-symbol validation, add-product's first price — which a client or PM triggers at an
+// unpredictable moment; a refresh that consumed the whole minute would make the search box
+// fail exactly when someone is using it. So:
+//
+//   STOCK_SYMBOLS_PER_REFRESH_RUN = floor(60 x 0.5) = 30
+//
+// and the worst-case staleness for S distinct stock symbols is
+//   ceil(S / 30) x 15 minutes            (30 symbols -> 15 min, 60 -> 30 min, 90 -> 45 min)
+//
+// The fetch loop also reads x-ratelimit-remaining on every response and stops the run early
+// if the reserve has already been eaten into by interactive traffic that minute; the symbols
+// it did not reach stay the oldest and lead the next cycle. Nothing is lost, only deferred.
+//
+// PRICE ALERTS INHERIT THIS ROTATION. check-price-alerts reads the cache; an alert on a
+// symbol that is refreshed every 45 minutes can only fire with that granularity — later,
+// never wrongly. Recorded in the Backend Requirements Register alongside the alert feature.
+export const FINNHUB_REFRESH_SHARE_OF_MINUTE = 0.5;
+export const STOCK_SYMBOLS_PER_REFRESH_RUN = Math.floor(FINNHUB_RATE_LIMIT_PER_MINUTE * FINNHUB_REFRESH_SHARE_OF_MINUTE);
+export const FINNHUB_INTERACTIVE_RESERVE = FINNHUB_RATE_LIMIT_PER_MINUTE - STOCK_SYMBOLS_PER_REFRESH_RUN;
 
 export const REFRESH_INTERVAL_MINUTES = 15;
 
-// DERIVED, NOT GUESSED. Sustainable distinct stock symbols platform-wide is
-//   FINNHUB_REFRESH_BUDGET_PER_MINUTE * REFRESH_INTERVAL_MINUTES = 30 * 15 = 450,
-// because the refresh spends its whole cycle, not one minute of it, and one call covers one
-// symbol for EVERY client watching it (the refresh works over the union of symbols, never
-// per client). 25 per client would need 18 clients with zero overlap in their watchlists to
-// reach 450; real overlap on the obvious names (SPY, BTC, AAPL) means the true number of
-// clients supported is considerably higher. refresh-market-data reports the real distinct
-// stock count on every run so the remaining headroom is observable rather than assumed.
+export function cyclesToCoverStocks(stockCount: number): number {
+  return stockCount <= 0 ? 0 : Math.ceil(stockCount / STOCK_SYMBOLS_PER_REFRESH_RUN);
+}
+export function worstCaseStalenessMinutes(stockCount: number): number {
+  return cyclesToCoverStocks(stockCount) * REFRESH_INTERVAL_MINUTES;
+}
+
+// The per-client limit is a UX bound, no longer a share of a platform ceiling: 25 rows is
+// what the card can present, and each client's symbols join the same union either way (ten
+// clients watching SPY still cost one call per rotation).
 export const PER_CLIENT_SYMBOL_LIMIT = 25;
-export const PLATFORM_STOCK_SYMBOL_CEILING =
-  FINNHUB_REFRESH_BUDGET_PER_MINUTE * REFRESH_INTERVAL_MINUTES;
 
 // Live pricing, part 1 (2026-09-11): a provider's 429 is a distinct, transient condition a PM
 // can act on ("try again in a minute") — surfaced as its own error class so callers return a
@@ -73,24 +97,44 @@ function finnhubKey(): string {
   return key;
 }
 
-// One symbol per call, by necessity (see the header). Concurrency is capped so a large
-// refresh cannot burst past the per-minute limit in its first second — 6 at a time against
-// a 30-per-minute budget leaves real headroom even if every request is fast.
+// One symbol per call, by necessity (see the header). Concurrency is capped so a run
+// cannot burst past the per-minute limit in its first second — 6 at a time against a
+// 30-per-run budget leaves real headroom even if every request is fast.
 const FINNHUB_CONCURRENCY = 6;
 
-export async function fetchStockQuotes(symbols: string[]): Promise<Record<string, Quote>> {
+export interface StockFetchStats {
+  attempted: number;
+  attemptedSymbols: string[];   // exactly which symbols a request went out for — a halted run
+                                // must distinguish "asked and got a zero" from "never asked"
+  haltedForRateLimit: boolean;
+  lowestRemainingSeen: number | null;
+}
+
+export async function fetchStockQuotes(symbols: string[], stats?: StockFetchStats): Promise<Record<string, Quote>> {
   const key = finnhubKey();
   const out: Record<string, Quote> = {};
   const queue = symbols.slice();
+  const st: StockFetchStats = stats || { attempted: 0, attemptedSymbols: [], haltedForRateLimit: false, lowestRemainingSeen: null };
+  st.attempted = 0; st.attemptedSymbols = []; st.haltedForRateLimit = false; st.lowestRemainingSeen = null;
 
   async function worker() {
-    while (queue.length > 0) {
+    while (queue.length > 0 && !st.haltedForRateLimit) {
       const symbol = queue.shift()!;
+      st.attempted++;
+      st.attemptedSymbols.push(symbol);
       try {
-        const quote = await fetchStockQuote(symbol, key);
+        const { quote, remaining } = await fetchStockQuoteWithHeaders(symbol, key);
         if (quote) out[symbol] = quote;
+        if (remaining !== null) {
+          if (st.lowestRemainingSeen === null || remaining < st.lowestRemainingSeen) st.lowestRemainingSeen = remaining;
+          // The reserve belongs to the interactive paths. If this minute's remaining budget
+          // is already inside it AND there is work left, stop here: the unreached symbols
+          // keep their older timestamps and lead the next cycle. (A reading of 29 on the
+          // very last response halts nothing — the flag means "symbols were deferred".)
+          if (remaining < FINNHUB_INTERACTIVE_RESERVE && queue.length > 0) st.haltedForRateLimit = true;
+        }
       } catch (_err) {
-        // A single symbol failing must not abandon the other 24 — the row simply keeps its
+        // A single symbol failing must not abandon the others — the row simply keeps its
         // previous cached price and last_updated, which the UI already renders honestly as
         // a delayed figure. refresh-market-data reports the failures it saw.
       }
@@ -101,8 +145,10 @@ export async function fetchStockQuotes(symbols: string[]): Promise<Record<string
   return out;
 }
 
-async function fetchStockQuote(symbol: string, key: string): Promise<Quote | null> {
+async function fetchStockQuoteWithHeaders(symbol: string, key: string): Promise<{ quote: Quote | null; remaining: number | null }> {
   const res = await fetch('https://finnhub.io/api/v1/quote?symbol=' + encodeURIComponent(symbol) + '&token=' + key);
+  const remainingHeader = res.headers.get('x-ratelimit-remaining');
+  const remaining = remainingHeader !== null && /^\d+$/.test(remainingHeader) ? Number(remainingHeader) : null;
   if (res.status === 429) throw new RateLimitedError('Finnhub is rate-limiting requests right now. Try again in a minute.');
   if (!res.ok) throw new Error('Finnhub quote for ' + symbol + ' failed: HTTP ' + res.status);
   const data = await res.json();
@@ -111,8 +157,12 @@ async function fetchStockQuote(symbol: string, key: string): Promise<Quote | nul
   // A real, genuinely unknown symbol comes back as c:0 rather than a 404 — the same
   // zero-shaped response a comma-joined batch produces. Treating 0 as "no such symbol" is
   // what stops a typo being stored as a permanently $0.00 watchlist row.
-  if (data.c === 0) return null;
-  return { price: data.c, changePercent: typeof data.dp === 'number' ? data.dp : null };
+  if (data.c === 0) return { quote: null, remaining };
+  return { quote: { price: data.c, changePercent: typeof data.dp === 'number' ? data.dp : null }, remaining };
+}
+
+async function fetchStockQuote(symbol: string, key: string): Promise<Quote | null> {
+  return (await fetchStockQuoteWithHeaders(symbol, key)).quote;
 }
 
 // Exposed separately from fetchStockQuotes so add-watchlist-symbol can distinguish

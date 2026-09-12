@@ -188,13 +188,14 @@ async function main() {
     // real symbol search, its class derived from the symbol and its first price taken live.
     // The PM-typed starting price no longer exists for this model.
     const searchInput = D.getElementById('add-symbol-search');
-    searchInput.value = 'solana';
+    // Litecoin: real, priced on CoinGecko, and NOT in the seeded catalog (SOL is PROD-0027 since row 202).
+    searchInput.value = 'litecoin';
     searchInput.dispatchEvent(new dom.window.Event('input'));
     await pollUntil(function () { return D.querySelectorAll('.symbol-result').length > 0; }, 30000);
-    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'SOL' && b.dataset.source === 'coingecko'; });
-    check('the real symbol search returns SOL from CoinGecko', !!solResult);
+    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'LTC' && b.dataset.source === 'coingecko'; });
+    check('the real symbol search returns LTC from CoinGecko', !!solResult);
     solResult.click();
-    await pollUntil(function () { return /Price will track SOL/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
+    await pollUntil(function () { return /Price will track LTC/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
     check('picking it shows the live preview and derives the asset class (Crypto)', D.getElementById('add-asset-class').value === 'Crypto' && D.getElementById('add-asset-class').disabled === true, 'preview label: ' + D.getElementById('add-live-preview-label').textContent + ' | results: ' + D.querySelectorAll('.symbol-result').length);
     D.getElementById('add-name').value = 'Test Digital Basket ' + suffix;
     D.getElementById('add-risk-tier').value = 'aggressive';
@@ -217,7 +218,7 @@ async function main() {
 
     const { data: row } = await admin.from('products').select('*').eq('id', cryptoProductId).single();
     check('the real products row genuinely has all three new columns set correctly', row.description === testDescription && row.logo_url === testLogoUrl && row.extended_description === null, JSON.stringify(row));
-    check('unit_price is the LIVE market price for SOL (never PM-typed), model market, ticker SOL', row.pricing_model === 'market' && row.ticker === 'SOL' && Number(row.unit_price) > 0 && Number(row.inception_unit_price) === Number(row.unit_price), JSON.stringify(row));
+    check('unit_price is the LIVE market price for LTC (never PM-typed), model market, ticker LTC', row.pricing_model === 'market' && row.ticker === 'LTC' && Number(row.unit_price) > 0 && Number(row.inception_unit_price) === Number(row.unit_price), JSON.stringify(row));
   });
 
   // ===========================================================================================
@@ -285,7 +286,10 @@ async function main() {
     const grid = D.getElementById('asset-cards-grid');
 
     dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML) && grid.innerHTML.indexOf(cryptoProductId) !== -1; }, 20000);
+    await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML) && grid.querySelectorAll('[data-product-id]').length > 0; }, 20000);
+    // The seeded catalog (row 202) has more products than one page of nine: page through Load
+    // More so the just-created product's card is rendered wherever it falls.
+    { const lm = D.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
 
     const cryptoCard = grid.querySelector('[data-product-id="' + cryptoProductId + '"]');
     check('the real Crypto product card renders at all', !!cryptoCard);

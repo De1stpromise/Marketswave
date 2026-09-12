@@ -113,8 +113,13 @@ async function main() {
       { client_id: clientId, symbol: 'ETH', name: 'Ethereum', source: 'coingecko', provider_id: 'ethereum', asset_type: 'crypto' },
       { client_id: clientId, symbol: 'SPY', name: 'S&P 500 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' },
       { client_id: clientId, symbol: 'BTC', name: 'Bitcoin', source: 'coingecko', provider_id: 'bitcoin', asset_type: 'crypto' },
-      { client_id: clientId, symbol: 'QQQ', name: 'Nasdaq 100 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' }
+      // Since the seeded catalog (2026-09-12, row 202) every base symbol is Offered; AAPL
+      // (in place of QQQ) is owned by no product, so it is what puts a real Tracking-only
+      // badge on screen. Four rows, deliberately: .wl-rows scrolls past 360px, and a fifth
+      // row's name was measured half-clipped (3.74:1 on a colour that measures 5.5:1 whole).
+      { client_id: clientId, symbol: 'AAPL', name: 'Apple Inc.', source: 'finnhub', provider_id: null, asset_type: 'stock' }
     ]);
+    await admin.from('market_data_cache').upsert({ symbol: 'AAPL', value: 200, change_percent: 0.5, source: 'finnhub', name: 'Apple Inc.', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString() }, { onConflict: 'symbol' });
     await admin.from('clients').update({ watchlist_seeded_at: new Date().toISOString() }).eq('id', clientId);
     // Force one row genuinely negative and one genuinely positive in the cache, so both
     // tones are painted. These are real cache rows, overwritten by the next scheduled
@@ -296,6 +301,7 @@ async function main() {
     if (cdp) await cdp.close();
     await admin.from('price_alerts').delete().eq('client_id', clientId);
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
+    await admin.from('market_data_cache').delete().eq('symbol', 'AAPL');
     await admin.from('account_state').delete().eq('client_id', clientId);
     await admin.from('clients').delete().eq('id', clientId);
     await admin.auth.admin.deleteUser(clientId);

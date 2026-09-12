@@ -246,6 +246,9 @@ async function main() {
     acDom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const C = acDom.window.document;
     await pollUntil(() => C.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(C.getElementById('asset-cards-grid').innerHTML), 30000);
+    // The seeded catalog (row 202) has more products than one page of nine: page through
+    // Load More so the cards this test looks for are rendered wherever they fall.
+    { const lm = C.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
     const card = (id) => C.querySelector('[data-product-id="' + id + '"]');
     const eth = card('PROD-0004'), nordic = card('PROD-0001'), vt = card('PROD-0003');
     check('Ethereum\'s card shows its ticker chip, a per-unit price and "Fractional units"', !!eth && eth.querySelector('.product-ticker') && eth.querySelector('.product-ticker').textContent === 'ETH' && /per unit/.test(eth.textContent) && !!eth.querySelector('.fractional-note'), eth && eth.textContent.slice(0, 200));

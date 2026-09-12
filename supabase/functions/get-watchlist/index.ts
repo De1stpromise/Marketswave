@@ -14,14 +14,17 @@
 //      Guarded on "this client has never had a row" rather than "has no rows now", so a
 //      client who deliberately empties their watchlist gets the honest empty state instead
 //      of having the six silently reappear on the next page load.
-//   2. TOPS UP STALE PRICES for this client's symbols only. The scheduler refreshes
-//      everything every 15 minutes; a symbol added 30 seconds ago would otherwise render
-//      with no price until the next quarter hour. Bounded to the stale subset, so a normal
-//      load with a warm cache costs zero provider calls.
+//   2. TOPS UP symbols that have NO cache row at all — never merely stale ones. Since the
+//      round-robin refresh (2026-09-12) a price older than 15 minutes is a normal state, not
+//      a gap: the scheduler prices the oldest N stocks each cycle and the card labels the
+//      rest as delayed. Topping up "stale" here would turn every dashboard load into up to
+//      25 Finnhub calls, unbounded by client count — the exact spend the rotation exists to
+//      bound. A missing row is different (add-watchlist-symbol writes one on add, so this is
+//      the rare recovery case), and it stays bounded to this client's own symbols.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { resolveSymbols, normalizeSymbol } from '../_shared/symbol-catalog.ts';
-import { BASE_SYMBOLS, isStale, refreshSymbols, CacheEntry } from '../_shared/market-refresh.ts';
+import { BASE_SYMBOLS, refreshSymbols, CacheEntry } from '../_shared/market-refresh.ts';
 import { PER_CLIENT_SYMBOL_LIMIT } from '../_shared/market-providers.ts';
 
 Deno.serve(async (req) => {
@@ -80,12 +83,9 @@ Deno.serve(async (req) => {
     const cacheBySymbol: Record<string, Record<string, unknown>> = {};
     for (const row of cacheRows || []) cacheBySymbol[row.symbol as string] = row;
 
-    // Top-up: only the rows this client watches that are missing or genuinely stale.
+    // Top-up: only the rows this client watches that have no cache row at all (see header).
     const staleEntries: CacheEntry[] = watched
-      .filter((r: Record<string, unknown>) => {
-        const cached = cacheBySymbol[normalizeSymbol(r.symbol)];
-        return !cached || isStale(cached.last_updated as string);
-      })
+      .filter((r: Record<string, unknown>) => !cacheBySymbol[normalizeSymbol(r.symbol)])
       .map((r: Record<string, unknown>) => ({
         symbol: normalizeSymbol(r.symbol),
         name: r.name as string,

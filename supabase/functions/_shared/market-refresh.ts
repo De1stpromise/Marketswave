@@ -6,7 +6,7 @@
 // Kept separate from _shared/market-providers.ts because that module is deliberately pure
 // provider access with no database dependency — a future provider swap changes that file
 // and not this one.
-import { fetchStockQuotes, fetchCryptoQuotes, Quote } from './market-providers.ts';
+import { fetchStockQuotes, fetchCryptoQuotes, Quote, StockFetchStats, STOCK_SYMBOLS_PER_REFRESH_RUN } from './market-providers.ts';
 
 export interface CacheEntry {
   symbol: string;
@@ -22,6 +22,8 @@ export interface RefreshOutcome {
   cryptoSymbols: number;
   updated: number;
   failed: string[];
+  updatedSymbols: string[];
+  stockFetch: StockFetchStats;
 }
 
 export const CACHE_MAX_AGE_MS = 15 * 60 * 1000;
@@ -29,9 +31,11 @@ export const CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 // The six symbols the card used to hardcode. They keep two jobs after this change:
 //   - they are the DEFAULT watchlist a client starts with (editable from the first click —
 //     the point of the merge is that this set is a starting position, not the feature);
-//   - they are refreshed on every scheduled run whether or not anyone watches them,
+//   - they are always part of the refresh union whether or not anyone watches them,
 //     because get-public-market-snapshot serves the homepage ticker out of exactly these
-//     rows and an unwatched symbol going stale would quietly stop the ticker.
+//     rows. Since the round-robin refresh (2026-09-12) they take their turn like every other
+//     stock symbol — the ticker is labelled delayed, and get-market-snapshot's own bounded
+//     top-up (three stocks, at most once per 15 minutes) keeps the dashboard's copy fresh.
 export const BASE_SYMBOLS: CacheEntry[] = [
   { symbol: 'SPY', name: 'S&P 500 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' },
   { symbol: 'QQQ', name: 'Nasdaq 100 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' },
@@ -55,7 +59,9 @@ export async function refreshSymbols(admin: any, entries: CacheEntry[]): Promise
     stockSymbols: stocks.length,
     cryptoSymbols: cryptos.length,
     updated: 0,
-    failed: []
+    failed: [],
+    updatedSymbols: [],
+    stockFetch: { attempted: 0, attemptedSymbols: [], haltedForRateLimit: false, lowestRemainingSeen: null }
   };
   if (entries.length === 0) return outcome;
 
@@ -66,7 +72,7 @@ export async function refreshSymbols(admin: any, entries: CacheEntry[]): Promise
   let cryptoQuotes: Record<string, Quote> = {};
 
   const results = await Promise.allSettled([
-    stocks.length ? fetchStockQuotes(stocks.map((s) => s.symbol)) : Promise.resolve({}),
+    stocks.length ? fetchStockQuotes(stocks.map((s) => s.symbol), outcome.stockFetch) : Promise.resolve({}),
     cryptos.length ? fetchCryptoQuotes(cryptos.map((c) => c.provider_id as string)) : Promise.resolve({})
   ]);
   if (results[0].status === 'fulfilled') stockQuotes = results[0].value as Record<string, Quote>;
@@ -74,16 +80,33 @@ export async function refreshSymbols(admin: any, entries: CacheEntry[]): Promise
   if (results[1].status === 'fulfilled') cryptoQuotes = results[1].value as Record<string, Quote>;
   else outcome.failed.push('coingecko: ' + String((results[1] as PromiseRejectedResult).reason));
 
-  const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
   const rows: Record<string, unknown>[] = [];
 
+  // ★ THE ROTATION IS A QUEUE, AND THIS IS WHAT MAKES IT ONE. Stocks arrive here in the
+  // order they were selected (oldest first). Each refreshed row is stamped with a strictly
+  // INCREASING timestamp in that order — one millisecond apart — so that "sort by
+  // last_updated" next run is exactly "pop N from the front, push them to the back". With a
+  // single shared timestamp the next run would tie-break among them by symbol, and the
+  // proof found the alphabetically-last symbols skipped two runs running (a real
+  // starvation, caught by verify-round-robin-refresh.mjs's first run). A millisecond of
+  // skew is invisible to every reader of last_updated and honest to within that.
+  let order = 0;
   for (const entry of stocks) {
     const quote = stockQuotes[entry.symbol];
     if (!quote) {
+      // A symbol the run stopped short of (rate-limit halt) was never asked for: it is not
+      // a failure, it simply stays the oldest and leads the next cycle. Only a symbol that
+      // WAS asked for and came back unpriced is recorded as failed — tracked by name, because
+      // a count cannot tell "asked and got a zero" from "never asked" (the first draft used
+      // a count, and verify-supabase-market-priced-products caught a genuinely unknown
+      // symbol going unflagged on a halted run).
+      if (outcome.stockFetch.attemptedSymbols.indexOf(entry.symbol) === -1) continue;
       if (outcome.failed.indexOf(entry.symbol) === -1) outcome.failed.push(entry.symbol);
       continue;
     }
-    rows.push(toRow(entry, quote, nowIso));
+    rows.push(toRow(entry, quote, new Date(nowMs + order++).toISOString()));
   }
   for (const entry of cryptos) {
     const quote = cryptoQuotes[entry.provider_id as string];
@@ -98,6 +121,7 @@ export async function refreshSymbols(admin: any, entries: CacheEntry[]): Promise
     const { error } = await admin.from('market_data_cache').upsert(rows, { onConflict: 'symbol' });
     if (error) throw new Error('Could not write market_data_cache: ' + error.message);
     outcome.updated = rows.length;
+    outcome.updatedSymbols = rows.map((r) => r.symbol as string);
   }
 
   return outcome;
@@ -114,6 +138,74 @@ function toRow(entry: CacheEntry, quote: Quote, nowIso: string) {
     asset_type: entry.asset_type,
     last_updated: nowIso
   };
+}
+
+// ============================================================================
+// ★★ ROUND-ROBIN REFRESH (2026-09-12). See market-providers.ts for the derivation of N.
+// ============================================================================
+
+export interface StockStaleness {
+  symbol: string;
+  lastUpdated: string | null;   // null = no cache row yet (never priced)
+  ageMinutes: number | null;    // null = never priced
+}
+
+async function stockCacheTimestamps(admin: any, stocks: CacheEntry[]): Promise<Record<string, string | null>> {
+  const symbols = stocks.map((s) => s.symbol);
+  const byTs: Record<string, string | null> = {};
+  for (const s of symbols) byTs[s] = null;
+  if (symbols.length === 0) return byTs;
+  const { data, error } = await admin.from('market_data_cache').select('symbol, last_updated').in('symbol', symbols);
+  if (error) throw new Error('Could not read market_data_cache timestamps: ' + error.message);
+  for (const row of data || []) byTs[row.symbol as string] = (row.last_updated as string) || null;
+  return byTs;
+}
+
+// The N stock symbols with the oldest cached price (a symbol with no cache row at all is
+// the oldest there is). Keyed on market_data_cache.last_updated rather than a product's
+// price_as_of because the union also carries watchlist-only symbols that have no product
+// row; a product's price_as_of is copied FROM the cache timestamp on read-through.
+export async function selectStocksForRefresh(
+  admin: any,
+  stocks: CacheEntry[],
+  n: number = STOCK_SYMBOLS_PER_REFRESH_RUN
+): Promise<{ selected: CacheEntry[]; skipped: CacheEntry[] }> {
+  const byTs = await stockCacheTimestamps(admin, stocks);
+  const ranked = stocks.slice().sort((a, b) => {
+    const ta = byTs[a.symbol] ? new Date(byTs[a.symbol] as string).getTime() : -1;
+    const tb = byTs[b.symbol] ? new Date(byTs[b.symbol] as string).getTime() : -1;
+    if (ta !== tb) return ta - tb;              // oldest first; never-priced (-1) before everything
+    return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0; // stable, deterministic tie-break
+  });
+  return { selected: ranked.slice(0, Math.max(0, n)), skipped: ranked.slice(Math.max(0, n)) };
+}
+
+// The real health metric, measured AFTER a run: how old is the oldest stock symbol now?
+// A number that stabilises across runs is the proof rotation is cycling; a number that
+// keeps growing means the same subset is being refreshed while others are starved.
+export async function oldestStockAfterRun(admin: any, stocks: CacheEntry[], now = Date.now()): Promise<StockStaleness | null> {
+  if (stocks.length === 0) return null;
+  const byTs = await stockCacheTimestamps(admin, stocks);
+  let oldest: StockStaleness | null = null;
+  for (const s of stocks) {
+    const ts = byTs[s.symbol];
+    const cur: StockStaleness = ts
+      ? { symbol: s.symbol, lastUpdated: ts, ageMinutes: Math.round(((now - new Date(ts).getTime()) / 60000) * 10) / 10 }
+      : { symbol: s.symbol, lastUpdated: null, ageMinutes: null };
+    if (!oldest) { oldest = cur; continue; }
+    if (cur.ageMinutes === null && oldest.ageMinutes !== null) { oldest = cur; continue; }
+    if (cur.ageMinutes !== null && oldest.ageMinutes !== null && cur.ageMinutes > oldest.ageMinutes) oldest = cur;
+  }
+  return oldest;
+}
+
+// Write ONE already-fetched quote into the cache. Used by the add paths (add-product,
+// add-watchlist-symbol), which have just fetched a live price to refuse a zero: writing
+// that same quote is what makes a newly added symbol price IMMEDIATELY, with no second
+// provider call and no wait for its turn in the rotation.
+export async function writeQuoteToCache(admin: any, entry: CacheEntry, quote: Quote): Promise<void> {
+  const { error } = await admin.from('market_data_cache').upsert([toRow(entry, quote, new Date().toISOString())], { onConflict: 'symbol' });
+  if (error) throw new Error('Could not write market_data_cache for ' + entry.symbol + ': ' + error.message);
 }
 
 // ============================================================================
@@ -214,6 +306,51 @@ export async function readThroughMarketPrice(admin: any, product: MarketPricedPr
     .eq('id', product.id);
   if (updateErr) throw new Error('Could not sync market price onto ' + product.id + ': ' + updateErr.message);
   return { unitPrice: Number(cached.value), priceAsOf: cached.last_updated, changePercent: cached.change_percent == null ? null : Number(cached.change_percent), changed: true };
+}
+
+// The batched form of readThroughMarketPrice() for settlement: ONE cache query for every
+// market-priced product, then a row update only where the cache is genuinely newer. Added
+// with the seeded catalog (2026-09-12): settleAllProducts() runs inside every read that
+// settles (get-account-state, get-holdings, the portfolio-value computations), and with 28
+// market products the per-product form was 28 sequential round trips on every such read.
+// Same rule as the single form — a zero/absent cache value never overwrites a good price,
+// and the product row only changes when the cache is newer than its price_as_of.
+export async function readThroughMarketPrices(
+  admin: any,
+  products: MarketPricedProductRow[]
+): Promise<Record<string, { unitPrice: number; priceAsOf: string | null; changed: boolean }>> {
+  const out: Record<string, { unitPrice: number; priceAsOf: string | null; changed: boolean }> = {};
+  const market = products.filter((p) => p.pricing_model === 'market' && p.ticker);
+  for (const p of products) out[p.id] = { unitPrice: Number(p.unit_price), priceAsOf: p.price_as_of, changed: false };
+  if (market.length === 0) return out;
+  const symbols = Array.from(new Set(market.map((p) => String(p.ticker).trim().toUpperCase())));
+  const { data: cached, error } = await admin
+    .from('market_data_cache')
+    .select('symbol, value, change_percent, last_updated')
+    .in('symbol', symbols);
+  if (error) throw new Error('Could not read market_data_cache for settlement: ' + error.message);
+  const bySymbol: Record<string, any> = {};
+  for (const row of cached || []) bySymbol[row.symbol as string] = row;
+  for (const p of market) {
+    const row = bySymbol[String(p.ticker).trim().toUpperCase()];
+    if (!row || !(Number(row.value) > 0)) continue;
+    const cacheTime = new Date(row.last_updated).getTime();
+    const rowTime = p.price_as_of ? new Date(p.price_as_of).getTime() : 0;
+    if (cacheTime <= rowTime) continue;
+    const { error: updateErr } = await admin
+      .from('products')
+      .update({
+        unit_price: Number(row.value),
+        price_as_of: row.last_updated,
+        price_change_percent: row.change_percent == null ? null : Number(row.change_percent),
+        price_status: 'ok',
+        price_failure_reason: null
+      })
+      .eq('id', p.id);
+    if (updateErr) throw new Error('Could not sync market price onto ' + p.id + ': ' + updateErr.message);
+    out[p.id] = { unitPrice: Number(row.value), priceAsOf: row.last_updated, changed: true };
+  }
+  return out;
 }
 
 // After a refresh: sync every market-priced product from the cache, and flag the ones whose
