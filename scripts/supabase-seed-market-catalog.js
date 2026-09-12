@@ -125,21 +125,23 @@ async function callFunctionOnce(url, token, name, body) {
   return { status: r.status, body: json };
 }
 
-// A provider rate limit is transient, not a verdict on the symbol: the function surfaces it
-// as a 503 with the provider's own "rate-limiting" message. Wait out the minute and retry
-// before deciding anything; only a genuine "no price" (400/404) is a reason to drop.
+// A provider rate limit (503/429) or a gateway hiccup (502/504) is transient, not a verdict
+// on the symbol. Wait out the minute and retry before deciding anything; only a genuine
+// "no price" (400/404) is a reason to drop.
 const RATE_LIMIT_WAIT_MS = 65000;
 async function callFunction(url, token, name, body) {
   let res = await callFunctionOnce(url, token, name, body);
   for (let attempt = 1; attempt <= 3 && isRateLimited(res); attempt++) {
-    console.log('        (provider rate-limited — waiting ' + Math.round(RATE_LIMIT_WAIT_MS / 1000) + 's, retry ' + attempt + '/3)');
+    console.log('        (transient ' + res.status + ' — waiting ' + Math.round(RATE_LIMIT_WAIT_MS / 1000) + 's, retry ' + attempt + '/3)');
     await sleep(RATE_LIMIT_WAIT_MS);
     res = await callFunctionOnce(url, token, name, body);
   }
   return res;
 }
 function isRateLimited(res) {
-  return res.status === 503 || res.status === 429 || /rate-limit/i.test((res.body && res.body.error) || '');
+  // 502/504 are the gateway, not the symbol: the first real staging run dropped ETH on a
+  // bare HTTP 502 and reported it as "did not price cleanly", which it never was.
+  return res.status === 503 || res.status === 502 || res.status === 504 || res.status === 429 || /rate-limit/i.test((res.body && res.body.error) || '');
 }
 
 async function main() {
