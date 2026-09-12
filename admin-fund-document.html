@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fund Document — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="rich-text.css">
+  <link rel="stylesheet" href="fund-document.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Section frames — from the approved mockup, slate palette. */
+    .sect { border: 1px solid #E2E8F0; border-radius: 12px; margin-top: 16px; overflow: hidden; background: #fff; }
+    .sect .sh { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; flex-wrap: wrap; }
+    .sect .sh .n { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .sect .sh .n b { font-size: 13px; font-weight: 600; color: #0F172A; white-space: nowrap; }
+    .sect .sh .n span.hint { font-size: 11.5px; color: #64748B; }
+    .sect .sb { padding: 14px 16px; }
+    .req { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; background: #FEF3C7; color: #92400E; white-space: nowrap; }
+    .req.opt { background: #F1F5F9; color: #475569; }
+    .req.auto { background: rgba(19,114,84,.1); color: #166349; }
+    .sect.cust .sh { background: #FBFCFD; }
+    .htitle { flex: 1; min-width: 0; border: none; background: transparent; font: 600 13px 'Inter', sans-serif; color: #0F172A; outline: none; padding: 8px 6px; border-radius: 6px; }
+    .htitle:focus { background: #fff; box-shadow: 0 0 0 2px rgba(180,83,9,.25); }
+    .htitle::placeholder { color: #64748B; font-weight: 500; }
+    .ib { width: 44px; height: 44px; border-radius: 8px; border: 1px solid #E2E8F0; background: #fff; color: #475569; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+    .ib:hover { color: #0F172A; border-color: #CBD5E1; }
+    .ib:disabled { opacity: .4; cursor: default; }
+    .ib.del:hover { color: #B4402C; border-color: #FCA5A5; background: #FEF2F2; }
+    .auto-note { display: flex; gap: 11px; padding: 13px 15px; border-radius: 10px; background: rgba(19,114,84,.06); border: 1px solid rgba(19,114,84,.2); }
+    .auto-note b { display: block; font-size: 12.5px; font-weight: 600; color: #166349; margin-bottom: 3px; }
+    .auto-note p { font-size: 12px; color: #2F5A4C; line-height: 1.6; }
+    .ordernote { display: flex; gap: 10px; padding: 11px 14px; border-radius: 9px; background: #F8FAFC; border: 1px solid #E2E8F0; margin-top: 14px; }
+    .ordernote p { font-size: 11.5px; color: #475569; line-height: 1.6; }
+    .chip { font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 6px; background: #F1F5F9; color: #475569; white-space: nowrap; }
+    .chip.on { background: #DCFCE7; color: #166534; }
+    .chip.dirty { background: #FEF3C7; color: #92400E; }
+    .fd-preview-scroll { max-height: calc(100vh - 120px); overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-8 relative">
+        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
+        <div class="max-w-4xl mx-auto">
+          <a href="admin-products.html" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition mb-4">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Back to Product Catalog
+          </a>
+
+          <!-- Product catalog — fund documents, part 2 (2026-09-12): the PM authoring view,
+               built from the approved fund_document.html mockup. Fixed sections in a fixed
+               order; repeatable custom sections between Valuation history and Risks; every
+               rich-text field is a structured model (rich-text.js), never HTML; the server
+               (save-product-document) re-validates shape, caps and ORDER on every save. -->
+          <div class="glass rounded-2xl p-6" id="doc-editor">
+            <div class="flex items-start justify-between gap-4 flex-wrap mb-2">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-slate-900" id="doc-title">Fund document</h2>
+                <p class="text-sm text-slate-600 mt-1 leading-relaxed">Sections are fixed so every fund reads the same way and clients can compare them. You write the words; the platform handles the layout.</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap" id="doc-savebar">
+                <span class="chip" id="doc-status-chip">Loading…</span>
+                <button type="button" id="doc-preview-btn" class="mw-btn mw-btn-secondary mw-btn-sm" disabled>Preview</button>
+              </div>
+            </div>
+
+            <div id="doc-loading" class="py-10 text-center text-sm text-slate-500">Loading the document…</div>
+
+            <div id="doc-form" class="hidden">
+              <div class="sect" data-section="overview">
+                <div class="sh"><div class="n"><b>Overview</b><span class="hint">Two or three sentences a client reads first</span></div><span class="req">Required</span></div>
+                <div class="sb" id="ed-overview"></div>
+              </div>
+
+              <div class="sect" data-section="strategy">
+                <div class="sh"><div class="n"><b>Strategy</b><span class="hint">How the fund invests and why</span></div><span class="req">Required</span></div>
+                <div class="sb" id="ed-strategy"></div>
+              </div>
+
+              <div class="sect" data-section="terms">
+                <div class="sh"><div class="n"><b>Terms &amp; liquidity</b><span class="hint">Structured fields, not prose — they render as a comparable table</span></div><span class="req">Required</span></div>
+                <div class="sb">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Minimum investment</p>
+                      <p class="text-sm font-semibold text-slate-900 tabular-nums" id="terms-minimum">—</p>
+                      <p class="text-[11px] text-slate-500 mt-0.5">From the product — change it in <a href="admin-products.html" class="underline">the catalog</a>, so the document can never disagree with what a client is actually asked to invest.</p>
+                    </div>
+                    <div class="mw-fld mw-fld--admin">
+                      <input type="text" id="terms-horizon" class="mw-field mw-field-admin" placeholder=" " maxlength="60" />
+                      <label for="terms-horizon">Expected horizon</label>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="mw-fld mw-fld--static mw-fld--admin">
+                      <select id="terms-frequency" class="mw-field mw-field-admin">
+                        <option value="">Select…</option>
+                      </select>
+                      <label for="terms-frequency">Valuation frequency</label>
+                    </div>
+                    <div class="mw-fld mw-fld--admin">
+                      <input type="text" id="terms-fees" class="mw-field mw-field-admin" placeholder=" " maxlength="120" />
+                      <label for="terms-fees">Fees</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sect" data-section="valuation">
+                <div class="sh"><div class="n"><b>Valuation history</b><span class="hint">Generated from published NAVs</span></div><span class="req auto">Automatic</span></div>
+                <div class="sb">
+                  <div class="auto-note">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#166349" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>
+                    <div><b>Nothing to write here</b><p id="valuation-note"></p></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="custom-sections"></div>
+
+              <button type="button" id="add-section-btn" class="mw-btn mw-btn-secondary mw-btn-block mt-4 border-dashed">+ Add a section</button>
+
+              <div class="ordernote">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                <p>Reorder your own sections with the arrows. They appear after Valuation history; Risks and Documents always come last, so a client reads them whatever else you write. The server enforces this order on every save.</p>
+              </div>
+
+              <div class="sect" data-section="risks">
+                <div class="sh"><div class="n"><b>Risks</b><span class="hint">Fund-specific risks, beyond the standard disclosures</span></div><span class="req">Required</span></div>
+                <div class="sb" id="ed-risks"></div>
+              </div>
+
+              <div class="sect" data-section="documents">
+                <div class="sh"><div class="n"><b>Attached documents</b><span class="hint">The formal factsheet or prospectus</span></div><span class="req opt">Optional</span></div>
+                <div class="sb">
+                  <div id="attachment-current" class="hidden flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 mb-3">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A5C07" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-slate-900 truncate" id="attachment-name"></p>
+                      <p class="text-xs text-slate-500" id="attachment-meta"></p>
+                    </div>
+                    <button type="button" id="attachment-remove" class="mw-btn mw-btn-secondary mw-btn-sm">Remove</button>
+                  </div>
+                  <div class="mw-upload is-empty mw-upload-admin" id="attachment-upload">
+                    <input type="file" id="attachment-file" class="mw-upload-input" aria-describedby="attachment-file-hint attachment-file-state">
+                    <label class="mw-upload-face" for="attachment-file">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <span id="attachment-face-label">Choose a file</span>
+                    </label>
+                    <p class="mw-upload-error" id="attachment-file-error" hidden></p>
+                    <div class="mw-upload-meta">
+                      <p class="mw-upload-hint" id="attachment-file-hint">Uploaded as soon as you choose it; clients can download it once the document is published.</p>
+                      <p class="mw-upload-state" id="attachment-file-state" role="status">No file chosen</p>
+                    </div>
+                    <button type="button" class="mw-upload-clear" hidden>Remove file</button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="doc-error" class="hidden mt-5 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800"></div>
+
+              <div class="flex gap-3 mt-5 flex-wrap">
+                <button type="button" id="doc-publish-btn" class="mw-btn mw-btn-admin">Publish document</button>
+                <button type="button" id="doc-save-btn" class="mw-btn mw-btn-secondary">Save draft</button>
+                <button type="button" id="doc-unpublish-btn" class="mw-btn mw-btn-secondary hidden">Unpublish</button>
+              </div>
+              <p class="text-xs text-slate-500 mt-3" id="doc-publish-hint"></p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Preview: the draft rendered through the exact renderer a client gets. -->
+  <div id="preview-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
+    <div class="absolute inset-0 bg-slate-900/60" id="preview-backdrop"></div>
+    <div class="relative w-full max-w-4xl">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-sm font-semibold text-white">Preview — exactly what a client will see</p>
+        <button type="button" id="preview-close" class="mw-btn mw-btn-sm bg-white text-slate-900">Close</button>
+      </div>
+      <div id="preview-root" class="bg-transparent"></div>
+    </div>
+  </div>
+
+  <!-- Unpublish confirm — a custom modal, never window.confirm(). -->
+  <div id="unpublish-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/60" id="unpublish-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <p class="text-lg font-semibold text-slate-900 mb-2">Unpublish this document?</p>
+      <p class="text-sm text-slate-600 mb-5">Clients will no longer see a document link for this product. Your draft is kept, so you can publish again later.</p>
+      <div class="flex gap-3 justify-end">
+        <button type="button" id="unpublish-cancel" class="mw-btn mw-btn-secondary mw-btn-sm">Cancel</button>
+        <button type="button" id="unpublish-confirm" class="mw-btn mw-btn-danger mw-btn-sm">Unpublish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="upload-control.js"></script>
+  <script src="rich-text.js"></script>
+  <script src="fund-document.js"></script>
+  <script>
+    initAdminSidebar('products');
+  </script>
+
+  <script>
+    // Product catalog — fund documents, part 2 (2026-09-12): the authoring page.
+    (function () {
+      if (typeof MarketswaveData === 'undefined' || typeof MarketswaveRichText === 'undefined') return;
+      MarketswaveData.useAdminClient();
+
+      var RT = MarketswaveRichText;
+      var CAPS = { overview: 600, strategy: 2000, risks: 1200 };
+      var FREQUENCIES = ['Continuous (market price)', 'Daily', 'Monthly', 'Quarterly', 'Semi-annual', 'Annual'];
+      var BUCKET = 'fund-documents';
+
+      var params = new URLSearchParams(window.location.search);
+      var productId = params.get('product') || '';
+
+      var $ = function (id) { return document.getElementById(id); };
+      var toast = $('admin-toast'), toastTitle = $('admin-toast-title'), toastBody = $('admin-toast-body'), toastTimer;
+      function showToast(title, body, isError) {
+        toastTitle.textContent = title; toastBody.textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError); toast.classList.toggle('bg-slate-900', !isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer); toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 5000);
+      }
+      function showError(message) { var e = $('doc-error'); e.textContent = message; e.classList.remove('hidden'); }
+      function clearError() { $('doc-error').classList.add('hidden'); }
+      function formatUSD(n) { return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); }
+      function formatBytes(n) { return n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / (1024 * 1024)).toFixed(1) + ' MB'; }
+      function formatDate(ymd) { if (!ymd) return '—'; return new Date(String(ymd).slice(0, 10) + 'T00:00:00Z').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+      function formatTime(iso) { return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+
+      var state = { product: null, valuation: null, doc: null, attachment: null, dirty: false, storageBase: '' };
+      var editors = { overview: null, strategy: null, risks: null };
+      var customs = []; // [{ root, heading, editor }]
+
+      if (!productId) {
+        $('doc-loading').textContent = 'No product selected — open a fund document from the Product Catalog.';
+        return;
+      }
+
+      FREQUENCIES.forEach(function (f) { var o = document.createElement('option'); o.value = f; o.textContent = f; $('terms-frequency').appendChild(o); });
+
+      // ---- status chip ----
+      function setDirty() { state.dirty = true; updateChip(); }
+      function updateChip() {
+        var chip = $('doc-status-chip');
+        chip.classList.remove('on', 'dirty');
+        if (state.dirty) { chip.textContent = 'Unsaved changes'; chip.classList.add('dirty'); return; }
+        if (state.doc && state.doc.status === 'published') { chip.textContent = 'Published ' + formatDate(state.doc.publishedAt); chip.classList.add('on'); return; }
+        if (state.doc) { chip.textContent = 'Draft · saved ' + formatTime(state.doc.updatedAt); return; }
+        chip.textContent = 'Not yet saved';
+      }
+      function updateActionLabels() {
+        var published = state.doc && state.doc.status === 'published';
+        $('doc-publish-btn').textContent = published ? 'Publish changes' : 'Publish document';
+        $('doc-unpublish-btn').classList.toggle('hidden', !published);
+        $('doc-publish-hint').textContent = published
+          ? 'Clients see the last published version. Save draft keeps your edits private until you publish them.'
+          : 'A product with no published document shows no document link to clients.';
+      }
+
+      // ---- custom sections ----
+      function customSectionEl(section) {
+        var root = document.createElement('div'); root.className = 'sect cust'; root.setAttribute('data-section', 'custom');
+        var sh = document.createElement('div'); sh.className = 'sh';
+        var n = document.createElement('div'); n.className = 'n';
+        var heading = document.createElement('input'); heading.type = 'text'; heading.className = 'htitle'; heading.placeholder = 'Section heading'; heading.maxLength = 80; heading.setAttribute('aria-label', 'Section heading');
+        heading.value = section && section.heading ? section.heading : '';
+        heading.addEventListener('input', setDirty);
+        n.appendChild(heading);
+        var acts = document.createElement('div'); acts.className = 'flex items-center gap-1.5';
+        function iconBtn(cls, label, svg) { var b = document.createElement('button'); b.type = 'button'; b.className = 'ib ' + cls; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = svg; return b; }
+        var up = iconBtn('cust-up', 'Move section up', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>');
+        var down = iconBtn('cust-down', 'Move section down', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>');
+        var del = iconBtn('del cust-del', 'Delete section', '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>');
+        acts.appendChild(up); acts.appendChild(down); acts.appendChild(del);
+        sh.appendChild(n); sh.appendChild(acts);
+        var sb = document.createElement('div'); sb.className = 'sb';
+        root.appendChild(sh); root.appendChild(sb);
+        var editor = RT.mountEditor(sb, { model: section && section.body ? section.body : { blocks: [] }, placeholder: 'Write this section…', label: 'Section body', onChange: setDirty });
+        var entry = { root: root, heading: heading, editor: editor };
+        up.addEventListener('click', function () { moveCustom(entry, -1); });
+        down.addEventListener('click', function () { moveCustom(entry, 1); });
+        del.addEventListener('click', function () { removeCustom(entry); });
+        return entry;
+      }
+      function renderCustoms() {
+        var host = $('custom-sections');
+        customs.forEach(function (c, i) {
+          host.appendChild(c.root);
+          c.root.querySelector('.cust-up').disabled = i === 0;
+          c.root.querySelector('.cust-down').disabled = i === customs.length - 1;
+        });
+      }
+      function moveCustom(entry, delta) {
+        var i = customs.indexOf(entry); var j = i + delta;
+        if (j < 0 || j >= customs.length) return;
+        customs.splice(i, 1); customs.splice(j, 0, entry);
+        renderCustoms(); setDirty();
+        entry.root.querySelector(delta < 0 ? '.cust-up' : '.cust-down').focus();
+      }
+      function removeCustom(entry) {
+        customs = customs.filter(function (c) { return c !== entry; });
+        if (entry.root.parentNode) entry.root.parentNode.removeChild(entry.root);
+        renderCustoms(); setDirty();
+      }
+      $('add-section-btn').addEventListener('click', function () {
+        var entry = customSectionEl(null);
+        customs.push(entry); renderCustoms(); setDirty();
+        entry.heading.focus();
+      });
+
+      // ---- attachment ----
+      function renderAttachment() {
+        var cur = $('attachment-current');
+        if (state.attachment) {
+          $('attachment-name').textContent = state.attachment.name;
+          $('attachment-meta').textContent = (state.attachment.contentType || 'file') + ' · ' + formatBytes(state.attachment.size || 0);
+          cur.classList.remove('hidden');
+          $('attachment-face-label').textContent = 'Replace the file';
+        } else {
+          cur.classList.add('hidden');
+          $('attachment-face-label').textContent = 'Choose a file';
+        }
+      }
+      $('attachment-remove').addEventListener('click', function () {
+        var old = state.attachment;
+        state.attachment = null; renderAttachment(); setDirty();
+        // Best-effort: drop the object unless the PUBLISHED document still points at it.
+        var publishedPath = publishedAttachmentPath();
+        if (old && old.path !== publishedPath) MarketswaveData.deleteFile(BUCKET, old.path).catch(function () {});
+      });
+      function publishedAttachmentPath() {
+        var pc = state.doc && state.doc.publishedContent;
+        var d = pc && (pc.sections || []).find(function (s) { return s.key === 'documents'; });
+        return d && d.attachment ? d.attachment.path : null;
+      }
+      $('attachment-file').addEventListener('change', function () {
+        var input = $('attachment-file');
+        var file = input.files && input.files[0];
+        if (!file) return;
+        var safeName = file.name.replace(/[^\w.\-() ]+/g, '_').slice(0, 120) || 'document';
+        var path = productId + '/' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + '/' + safeName;
+        $('attachment-file-state').textContent = 'Uploading ' + file.name + '…';
+        MarketswaveData.uploadFile(BUCKET, path, file).then(function () {
+          var old = state.attachment;
+          state.attachment = { path: path, name: safeName, size: file.size, contentType: file.type || 'application/octet-stream' };
+          renderAttachment(); setDirty();
+          input.value = ''; if (window.MarketswaveUpload) MarketswaveUpload.refresh($('attachment-upload'));
+          $('attachment-file-state').textContent = 'Uploaded — save or publish to keep it.';
+          if (old && old.path !== publishedAttachmentPath()) MarketswaveData.deleteFile(BUCKET, old.path).catch(function () {});
+        }).catch(function (err) {
+          if (window.MarketswaveUpload) MarketswaveUpload.setError($('attachment-upload'), 'Upload failed: ' + MarketswaveData.writeErrorMessage(err));
+        });
+      });
+
+      // ---- collect the document in canonical order ----
+      function collect() {
+        return { sections: [
+          { key: 'overview', body: editors.overview.getModel() },
+          { key: 'strategy', body: editors.strategy.getModel() },
+          { key: 'terms', horizon: $('terms-horizon').value.trim(), valuationFrequency: $('terms-frequency').value, fees: $('terms-fees').value.trim() },
+          { key: 'valuation' }
+        ].concat(customs.map(function (c) { return { key: 'custom', heading: c.heading.value.trim(), body: c.editor.getModel() }; }))
+         .concat([
+          { key: 'risks', body: editors.risks.getModel() },
+          { key: 'documents', attachment: state.attachment }
+        ]) };
+      }
+
+      // ---- load ----
+      function populate(content) {
+        var sections = (content && content.sections) || [];
+        function find(k) { return sections.find(function (s) { return s.key === k; }); }
+        var ov = find('overview'), st = find('strategy'), tm = find('terms'), rk = find('risks'), dc = find('documents');
+        editors.overview = RT.mountEditor($('ed-overview'), { model: ov ? ov.body : { blocks: [] }, cap: CAPS.overview, label: 'Overview', placeholder: 'Two or three sentences a client reads first…', onChange: setDirty });
+        editors.strategy = RT.mountEditor($('ed-strategy'), { model: st ? st.body : { blocks: [] }, cap: CAPS.strategy, label: 'Strategy', placeholder: 'How the fund invests and why…', onChange: setDirty });
+        editors.risks = RT.mountEditor($('ed-risks'), { model: rk ? rk.body : { blocks: [] }, cap: CAPS.risks, label: 'Risks', placeholder: 'Fund-specific risks…', onChange: setDirty });
+        $('terms-horizon').value = tm ? tm.horizon : '';
+        $('terms-frequency').value = tm ? tm.valuationFrequency : '';
+        $('terms-fees').value = tm ? tm.fees : '';
+        if (!tm && state.product && state.product.pricingModel === 'market') $('terms-frequency').value = 'Continuous (market price)';
+        ['terms-horizon', 'terms-frequency', 'terms-fees'].forEach(function (id) { $(id).addEventListener('input', setDirty); $(id).addEventListener('change', setDirty); });
+        customs = sections.filter(function (s) { return s.key === 'custom'; }).map(customSectionEl);
+        renderCustoms();
+        state.attachment = dc && dc.attachment ? dc.attachment : null;
+        renderAttachment();
+      }
+      function valuationNoteText() {
+        var v = state.valuation, p = state.product;
+        if (p && p.pricingModel === 'market') return p.name + ' is market-priced (' + (p.ticker || '') + '). The market cache holds one current price, not a history, so this document carries no valuation chart — the section is omitted for clients until a stored price series exists. Nothing to write here.';
+        if (!v || v.count === 0) return 'The chart is built from this product\'s published valuations — none yet. The section is omitted for clients until the first one is published (Publish valuation, in the catalog).';
+        if (v.count === 1) return 'The chart is built from this product\'s published valuations — currently 1, effective ' + formatDate(v.from) + '. Clients see that single valuation; a chart appears once a second one is published.';
+        return 'The chart is built from this product\'s published valuations — currently ' + v.count + ', from ' + formatDate(v.from) + ' to ' + formatDate(v.to) + '. It updates itself every time you publish a new one.';
+      }
+      function load() {
+        return Promise.all([
+          MarketswaveData.callFunction('get-product-document', { productId: productId, draft: true }),
+          MarketswaveData.getSupabaseClient()
+        ]).then(function (r) {
+          var data = r[0];
+          state.product = data.product; state.valuation = data.valuation; state.doc = data.document;
+          state.storageBase = r[1] && r[1].supabaseUrl ? String(r[1].supabaseUrl).replace(/\/$/, '') : '';
+          $('doc-title').textContent = data.product.name + ' · fund document';
+          document.title = data.product.name + ' — Fund Document — Marketswave PM Tool';
+          $('terms-minimum').textContent = formatUSD(data.product.minimumInvestment);
+          $('valuation-note').textContent = valuationNoteText();
+          populate(data.document ? data.document.content : null);
+          $('doc-loading').classList.add('hidden');
+          $('doc-form').classList.remove('hidden');
+          $('doc-preview-btn').disabled = false;
+          state.dirty = false; updateChip(); updateActionLabels();
+        }).catch(function (err) {
+          $('doc-loading').textContent = 'Could not load this document: ' + MarketswaveData.writeErrorMessage(err);
+        });
+      }
+      load();
+
+      // ---- save / publish / unpublish ----
+      function submit(action, btn, busyLabel, doneTitle) {
+        clearError();
+        return MarketswaveData.withButtonBusy(btn, busyLabel, function () {
+          var body = { productId: productId, action: action };
+          if (action !== 'unpublish') body.content = collect();
+          return MarketswaveData.callFunction('save-product-document', body);
+        }).then(function (result) {
+          state.doc = result.document;
+          state.dirty = false; updateChip(); updateActionLabels();
+          showToast(doneTitle, action === 'publish' ? 'Clients can read this document now.' : action === 'unpublish' ? 'Clients no longer see a document link for this product.' : 'Your draft is saved. Clients see nothing new until you publish.');
+        }).catch(function (err) {
+          showError(MarketswaveData.writeErrorMessage(err));
+        });
+      }
+      $('doc-save-btn').addEventListener('click', function () { submit('save', $('doc-save-btn'), 'Saving…', 'Draft saved'); });
+      $('doc-publish-btn').addEventListener('click', function () { submit('publish', $('doc-publish-btn'), 'Publishing…', 'Document published'); });
+      $('doc-unpublish-btn').addEventListener('click', function () { $('unpublish-modal').classList.remove('hidden'); });
+      $('unpublish-cancel').addEventListener('click', function () { $('unpublish-modal').classList.add('hidden'); });
+      $('unpublish-backdrop').addEventListener('click', function () { $('unpublish-modal').classList.add('hidden'); });
+      $('unpublish-confirm').addEventListener('click', function () {
+        $('unpublish-modal').classList.add('hidden');
+        submit('unpublish', $('doc-unpublish-btn'), 'Unpublishing…', 'Document unpublished');
+      });
+
+      // ---- preview: the draft, through the client renderer ----
+      function openPreview() {
+        var content = collect();
+        var att = state.attachment;
+        var attPromise = att ? MarketswaveData.getSignedDownloadUrl(BUCKET, att.path, 600).then(function (url) { return { name: att.name, size: att.size, contentType: att.contentType, url: url }; }).catch(function () { return { name: att.name, size: att.size, contentType: att.contentType, url: null }; }) : Promise.resolve(null);
+        attPromise.then(function (attachment) {
+          MarketswaveFundDocument.render($('preview-root'), { product: state.product, document: { sections: content.sections }, valuation: state.valuation, attachment: attachment }, { storageBase: state.storageBase });
+          $('preview-modal').classList.remove('hidden');
+        });
+      }
+      $('doc-preview-btn').addEventListener('click', openPreview);
+      $('preview-close').addEventListener('click', function () { $('preview-modal').classList.add('hidden'); });
+      $('preview-backdrop').addEventListener('click', function () { $('preview-modal').classList.add('hidden'); });
+    })();
+  </script>
+</body>
+</html>

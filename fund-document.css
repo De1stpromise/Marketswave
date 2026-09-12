@@ -1,0 +1,97 @@
+/* fund-document.css — the client-facing fund document (2026-09-12), built from the approved
+   fund_document.html mockup with this project's own locked tokens. Loaded by
+   fund-document.html and by admin-fund-document.html (whose Preview uses the same
+   renderer, so the same stylesheet). Plain CSS, deliberately — the Tailwind CDN emits no CSS
+   for a utility it does not recognise (row 165); a stylesheet cannot fail that way.
+
+   Every grey here was chosen against the measured floor, not the mockup's values: the
+   mockup's #7C868C / #8A9298 secondary greys read 3.0-3.6:1 on white and were replaced
+   with #5C6367 (row 180's proven tone); the hero's 50%-alpha labels read ~4.0:1 on navy and
+   are 72% here. Figures carry tabular-nums; the family is Inter throughout (row 192). */
+
+.fd-doc { background: #fff; border-radius: 18px; overflow: hidden; border: 1px solid rgba(27, 58, 75, .08);
+  box-shadow: 0 26px 60px -30px rgba(27, 58, 75, .3); color: #1B3A4B; font-family: 'Inter', sans-serif; }
+.fd-fig { font-variant-numeric: tabular-nums; }
+
+/* ---- hero ---- */
+.fd-hero { position: relative; padding: 38px 42px 32px; background: linear-gradient(160deg, #1B3A4B, #12283A); overflow: hidden; }
+.fd-hero-tex { position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+  background-size: 52px 52px; -webkit-mask-image: radial-gradient(ellipse at 30% 40%, #000, transparent 72%); mask-image: radial-gradient(ellipse at 30% 40%, #000, transparent 72%); }
+.fd-hero-glow { position: absolute; width: 420px; height: 420px; border-radius: 50%; filter: blur(110px); pointer-events: none;
+  background: radial-gradient(circle, #1D9E75, transparent 70%); opacity: .25; top: -160px; right: -90px; }
+.fd-hero-inner { position: relative; z-index: 2; }
+.fd-class { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 5px;
+  background: rgba(159, 225, 203, .18); color: #9FE1CB; margin-bottom: 14px; }
+.fd-hero h1 { font-size: 32px; font-weight: 600; letter-spacing: -.028em; color: #F7F6F3; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.fd-meta { display: flex; gap: 30px; margin-top: 22px; flex-wrap: wrap; }
+.fd-meta > div { font-size: 11px; color: rgba(247, 246, 243, .72); letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+.fd-meta > div b { display: block; font-size: 19px; font-weight: 600; color: #F7F6F3; letter-spacing: -.02em; margin-top: 5px; text-transform: none; }
+
+/* ---- body ---- */
+.fd-body { padding: 34px 42px 40px; }
+.fd-section { margin-bottom: 32px; }
+.fd-section:last-child { margin-bottom: 0; }
+.fd-section h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #16815F;
+  margin: 0 0 12px; padding-bottom: 9px; border-bottom: 1px solid rgba(27, 58, 75, .1); }
+.fd-section p { font-size: 14px; line-height: 1.78; color: #3E4A52; margin: 0; overflow-wrap: anywhere; }
+.fd-section p + p { margin-top: 12px; }
+.fd-section ul, .fd-section ol { margin: 12px 0 0 20px; padding: 0; }
+.fd-section ul { list-style: disc; }   /* Tailwind's preflight resets list-style; a bulleted list must show its bullets */
+.fd-section ol { list-style: decimal; }
+.fd-section li { font-size: 14px; line-height: 1.78; color: #3E4A52; margin-bottom: 7px; overflow-wrap: anywhere; }
+.fd-section strong { font-weight: 600; color: #12283A; }
+
+/* terms — a two-column comparable table, one column below 760px */
+.fd-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid rgba(27, 58, 75, .12); border-radius: 12px; overflow: hidden; }
+.fd-terms > div { padding: 15px 18px; border-bottom: 1px solid rgba(27, 58, 75, .09); min-width: 0; }
+.fd-terms > div:nth-child(odd) { border-right: 1px solid rgba(27, 58, 75, .09); }
+.fd-terms > div:nth-last-child(-n+2) { border-bottom: none; }
+.fd-term-k { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #5C6367; margin-bottom: 5px; }
+.fd-term-v { font-size: 15px; font-weight: 600; color: #12283A; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* valuation history */
+.fd-chart { border: 1px solid rgba(27, 58, 75, .12); border-radius: 12px; padding: 18px 20px 14px; }
+.fd-chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.fd-chart-a { font-size: 12.5px; color: #5C6367; }
+.fd-chart-b { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fd-chart-b.is-gain { color: #137254; }
+.fd-chart-b.is-loss { color: #A8452F; }
+.fd-chart-canvas { position: relative; height: 160px; }
+.fd-chart-note { font-size: 12.5px !important; color: #5C6367 !important; }
+.fd-chart-table { width: 100%; border-collapse: collapse; font-size: 13px; color: #3E4A52; }
+.fd-chart-table th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #5C6367; padding: 6px 0; border-bottom: 1px solid rgba(27, 58, 75, .1); }
+.fd-chart-table td { padding: 6px 0; border-bottom: 1px solid rgba(27, 58, 75, .06); }
+.fd-chart-table th:last-child, .fd-chart-table td:last-child { text-align: right; }
+.fd-visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+
+/* risks — the accented callout */
+.fd-risk { padding: 16px 18px; border-left: 3px solid #C8860A; background: rgba(200, 134, 10, .05); border-radius: 0 10px 10px 0; }
+.fd-risk p, .fd-risk li { font-size: 13px; line-height: 1.7; color: #4A5257; }
+
+/* documents — the download row */
+.fd-dl { display: flex; align-items: center; gap: 14px; padding: 15px 18px; border: 1px solid rgba(27, 58, 75, .12); border-radius: 12px; background: rgba(27, 58, 75, .02); flex-wrap: wrap; }
+.fd-dl-ic { width: 38px; height: 38px; border-radius: 9px; background: rgba(200, 134, 10, .12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fd-dl-nm { flex: 1; min-width: 0; }
+.fd-dl-nm b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; overflow-wrap: anywhere; }
+.fd-dl-nm span { font-size: 11.5px; color: #5C6367; }
+.fd-dl-btn { min-height: 44px; padding: 0 16px; border: 1.5px solid #DED8CF; border-radius: 10px; background: #fff; color: #3E4A52;
+  font: 600 12.5px 'Inter', sans-serif; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+.fd-dl-btn:hover { border-color: #1B3A4B; color: #1B3A4B; }
+.fd-dl-unavailable { font-size: 12px; color: #5C6367; }
+
+/* the disclosure footer — existing legal copy, verbatim */
+.fd-foot { padding: 22px 42px 30px; border-top: 1px solid rgba(27, 58, 75, .09); background: #FBFAF8; }
+.fd-foot p { font-size: 11px; line-height: 1.7; color: #5C6367; margin: 0 0 10px; }
+.fd-foot p:last-child { margin-bottom: 0; }
+.fd-foot-more a { color: #1B3A4B; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .fd-terms { grid-template-columns: minmax(0, 1fr); }
+  .fd-terms > div:nth-child(odd) { border-right: none; }
+  .fd-terms > div:nth-last-child(-n+2) { border-bottom: 1px solid rgba(27, 58, 75, .09); }
+  .fd-terms > div:last-child { border-bottom: none; }
+  .fd-hero, .fd-body, .fd-foot { padding-left: 22px; padding-right: 22px; }
+  .fd-hero h1 { font-size: 25px; }
+  .fd-meta { gap: 18px 24px; }
+}

@@ -569,6 +569,20 @@
         return '<p class="text-[11px] text-slate-500 mt-0.5">Simulated tick (legacy)</p>';
       }
 
+      // Product catalog — fund documents, part 2 (2026-09-12): each product's document
+      // status (none / draft / published), read once per list load from product_documents
+      // (admin-only SELECT) and shown in the expanded row with a link to the authoring page.
+      var documentStatusById = {};
+      function documentBlockHTML(p) {
+        var d = documentStatusById[p.id];
+        var label = !d ? 'No document yet' : d.status === 'published' ? 'Published ' + formatDisplayDate(d.published_at) : 'Draft · not visible to clients';
+        var cls = !d ? 'text-slate-600' : d.status === 'published' ? 'text-emerald-800' : 'text-amber-800';
+        return '<div class="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap" id="fund-doc-' + p.id + '">' +
+          '<div><p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Fund document</p><p class="text-sm ' + cls + ' fund-doc-status">' + label + '</p></div>' +
+          '<a class="fund-doc-link mw-btn mw-btn-sm border border-amber-300 text-amber-700 hover:bg-amber-50" href="admin-fund-document.html?product=' + encodeURIComponent(p.id) + '">' + (d ? 'Edit document' : 'Write document') + '</a>' +
+        '</div>';
+      }
+
       function expandedRowHTML(p) {
         var eligible = isNavEligible(p);
         var lastPriceLabel = eligible ? 'Last Valued (NAV)' : (p.pricingModel === 'market' ? 'Price as of' : 'Last Price Tick');
@@ -615,6 +629,7 @@
             '<div class="mt-4">' +
               '<button type="button" class="edit-btn mw-btn mw-btn-admin mw-btn-sm" data-id="' + p.id + '">Edit</button>' +
             '</div>' +
+            documentBlockHTML(p) +
             navSection +
           '</td>' +
         '</tr>';
@@ -643,8 +658,15 @@
       var dataPromise = null;
       function loadProducts() {
         if (dataPromise) return dataPromise;
-        dataPromise = MarketswaveData.selectTable('products').then(function (rows) {
-          return rows.map(mapProductRow);
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('products'),
+          // Fund documents (2026-09-12): status per product for the expanded row. A failure
+          // here must not take the catalog down — the row then reads "No document yet".
+          MarketswaveData.selectTable('product_documents').catch(function () { return []; })
+        ]).then(function (results) {
+          documentStatusById = {};
+          results[1].forEach(function (d) { documentStatusById[d.product_id] = d; });
+          return results[0].map(mapProductRow);
         }).catch(function (err) {
           dataPromise = null;
           throw err;

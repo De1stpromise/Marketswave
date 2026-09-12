@@ -202,6 +202,10 @@
       // async render() callback or from a control wired up inside it).
       var holdings = [];
       var allocatableProducts = [];
+      // Product catalog — fund documents, part 2 (2026-09-12): which products carry a
+      // PUBLISHED fund document, from get-product-document's list mode. A product with no
+      // published document simply shows no link — never a link to an empty page.
+      var publishedDocumentIds = {};
 
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
       function productById(id) { return allocatableProducts.find(function (p) { return p.id === id; }); }
@@ -340,6 +344,7 @@
           priceBlockHTML(product) +
           (product.description ? '<p class="text-sm text-slate-600 mb-1">' + product.description + '</p>' : '') +
           (showMoreInfo ? '<button type="button" class="more-info-link mw-btn mw-btn-secondary mw-btn-sm mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
+          (publishedDocumentIds[product.id] ? '<a class="fund-document-link mw-btn mw-btn-secondary mw-btn-sm mb-2" href="fund-document.html?product=' + encodeURIComponent(product.id) + '" data-product-id="' + product.id + '">Fund document</a>' : '') +
           '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
           '<p class="text-xs text-slate-500 mb-4">Minimum ' + formatUSD(product.minimumInvestment) + (product.maximumInvestment != null ? ' · Maximum ' + formatUSD(product.maximumInvestment) : '') + (product.pricingModel === 'market' ? ' · <span class="fractional-note">Fractional units</span>' : '') + '</p>' +
           '<div class="mt-auto">' +
@@ -399,8 +404,13 @@
         load: function () {
           return Promise.all([
             MarketswaveData.selectTable('products'),
-            MarketswaveData.callFunction('get-holdings')
+            MarketswaveData.callFunction('get-holdings'),
+            // A failure here must not take the whole catalog down — the cards still render,
+            // just without document links until the next load.
+            MarketswaveData.callFunction('get-product-document', {}).catch(function () { return { published: [] }; })
           ]).then(function (results) {
+            publishedDocumentIds = {};
+            ((results[2] && results[2].published) || []).forEach(function (d) { publishedDocumentIds[d.productId] = true; });
             return {
               products: results[0].map(function (p) {
                 return {

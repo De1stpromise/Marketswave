@@ -48,6 +48,11 @@ const SHARED = [
   'tap-targets.css',
   'responsive-tables.css',
   'chat-widget.css',
+  // Fund documents (2026-09-12): the editor (rich-text.js builds .rt/.rtbar/.rtbody/.counter)
+  // and the document renderer (fund-document.js builds every .fd-* class). Both scripts
+  // create their markup at runtime, so this is exactly the case this check exists for.
+  'rich-text.css',
+  'fund-document.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

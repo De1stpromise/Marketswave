@@ -1,0 +1,23 @@
+/* rich-text.css — the minimal rich-text editor rich-text.js mounts (2026-09-12). Admin pages
+   only (admin-fund-document.html today). Slate palette, matching the admin tool; plain CSS
+   for the same reason as every other shared component stylesheet (row 165). */
+.rte { border: 1.5px solid #DDE3EA; border-radius: 10px; background: #FCFCFD; overflow: hidden; }
+.rte:focus-within { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .12); }
+.rte-bar { display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid #EEF2F7; background: #fff; flex-wrap: wrap; }
+.rte-bar .rte-btn { min-width: 44px; min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: 8px; color: #475569;
+  font: 600 13px 'Inter', sans-serif; cursor: pointer; }
+.rte-bar .rte-btn.rte-i { font-style: italic; }
+.rte-bar .rte-btn:hover { background: #F1F5F9; color: #0F172A; }
+.rte-bar .rte-btn:focus-visible { outline: 2px solid #B45309; outline-offset: 1px; }
+.rte-bar .rte-sep { width: 1px; background: #E2E8F0; margin: 8px 5px; }
+.rte-body { padding: 13px 15px; font-size: 13.5px; line-height: 1.75; color: #334155; min-height: 96px; outline: none; overflow-wrap: anywhere; }
+.rte-body[data-placeholder]:empty::before { content: attr(data-placeholder); color: #64748B; pointer-events: none; }
+.rte-body p { margin: 0; }
+.rte-body p + p, .rte-body p + ul, .rte-body p + ol, .rte-body ul + p, .rte-body ol + p { margin-top: 10px; }
+.rte-body ul, .rte-body ol { margin: 9px 0 0 18px; padding: 0; }
+.rte-body ul { list-style: disc; }
+.rte-body ol { list-style: decimal; }
+.rte-body li { margin-bottom: 5px; }
+.rte-body strong, .rte-body b { font-weight: 700; color: #0F172A; }
+.rte-counter { font-size: 11.5px; color: #64748B; margin-top: 7px; text-align: right; font-variant-numeric: tabular-nums; }
+.rte-counter.over { color: #B91C1C; font-weight: 600; }
