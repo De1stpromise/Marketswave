@@ -9260,7 +9260,11 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
 
   **A DIFFERS that survives a landed rebuild is the real signal** — the push did not reach
   the site, or reached a different host — and is the point at which to stop and investigate
-  rather than assume propagation.
+  rather than assume propagation. **One false DIFFERS to rule out first (2026-09-12)**: a
+  working copy that is CRLF on disk (core.autocrlf=true leaves many files that way) compares
+  unequal to the LF bytes the site serves even when the deploy is perfect — 13 of 22 files
+  reported DIFFERS that way after the sheen-sweep push. Compare against the committed bytes
+  instead: `git show HEAD:$f | cmp - /tmp/live-$f`.
   **Two things this check does NOT cover, so do not read a pass as more than it is.** (1) It
   proves the ORIGIN is correct; it says nothing about what a given visitor's browser has
   cached. GitHub Pages serves HTML with `Cache-Control: max-age=600` and no
