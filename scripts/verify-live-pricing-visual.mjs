@@ -10,8 +10,7 @@
 //
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 import { execSync, spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
@@ -45,6 +44,7 @@ function runContrast(profile, page, label, bootstrap, prepare) {
     cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8',
     env: Object.assign({}, process.env, { CONTRAST_PROFILE: profile, CONTRAST_URL: BASE + '/' + page, CONTRAST_BOOTSTRAP_JS: bootstrap, CONTRAST_PREPARE_JS: prepare, CONTRAST_SETTLE_MS: '25000', CONTRAST_PORT: '9333' })
   });
+  forwardChildTeardown(res, 'verify-contrast');
   const out = (res.stdout || '') + (res.stderr || '');
   const tail = out.trim().split('\n').slice(-2).join(' | ');
   const m = out.match(/(\d+) measurements, (\d+) below/);
@@ -55,14 +55,16 @@ function runContrast(profile, page, label, bootstrap, prepare) {
 }
 function runFonts(page, label, bootstrap) {
   const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
+  forwardChildTeardown(res, 'audit-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check(label + ': no monospace family — the scheme is Inter (row 192)', !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
 }
 async function connectChrome() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-lpvis-'));
+  const profile = makeTempDir('mw-lpvis-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile, '--no-first-run', '--disable-extensions', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 80 && !wsUrl; i++) { try { const r = await fetch('http://127.0.0.1:' + PORT + '/json/list'); const page = (await r.json()).find((t) => t.type === 'page' && t.webSocketDebuggerUrl); if (page) wsUrl = page.webSocketDebuggerUrl; else await sleep(250); } catch (_e) { await sleep(250); } }
   if (!wsUrl) throw new Error('Could not reach headless Chrome on port ' + PORT);
@@ -72,7 +74,8 @@ async function connectChrome() {
   const send = (method, params) => new Promise((res, rej) => { const i = ++id; pending.set(i, { resolve: res, reject: rej }); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
   const evaluate = async (expr) => { const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' :: ' + expr.slice(0, 120)); return r.result.value; };
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); } };
+  trackChild(profile, chrome, ws);
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 const CARD_GEOM = `(() => { const cards=[...document.querySelectorAll('#asset-cards-grid [data-product-id]')]; const inner=window.innerWidth; const out={ inner, bodyScroll: document.body.scrollWidth, cards: cards.length, overflow: [] }; for (const c of cards){ const cr=c.getBoundingClientRect(); for (const sel of ['.product-price','.product-ticker','.price-source','.fractional-note','.price-change']) { const el=c.querySelector(sel); if(!el) continue; const r=el.getBoundingClientRect(); if (r.right > cr.right+0.5 || r.left < cr.left-0.5) out.overflow.push(c.dataset.productId+' '+sel+' '+Math.round(r.right)+'>'+Math.round(cr.right)); } } out.cols=new Set(cards.map(c=>Math.round(c.getBoundingClientRect().left))).size; return out; })()`;
@@ -162,7 +165,7 @@ async function main() {
       const ad = await cdp.evaluate(ADD_GEOM);
       check('390px: the New product modal with live search results does not scroll horizontally', ad.rows > 0 && ad.over.length === 0 && ad.modalScrollW <= ad.modalClientW + 1, JSON.stringify(ad));
       check('390px: the model segment meets the 44px floor', ad.segH.every((h) => h >= 44), JSON.stringify(ad.segH));
-    } finally { cdp.close(); }
+    } finally { await cdp.close(); }
   } finally {
     await admin.from('holdings').delete().eq('client_id', clientId);
     await admin.from('transactions').delete().eq('client_id', clientId);

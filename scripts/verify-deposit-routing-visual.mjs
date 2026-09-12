@@ -19,8 +19,7 @@
 //
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 import { execSync, spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
@@ -171,6 +170,7 @@ function runContrast(profile, page, label, bootstrap, prepare) {
       CONTRAST_SETTLE_MS: '25000', CONTRAST_PORT: '9333'
     })
   });
+  forwardChildTeardown(res, 'verify-contrast');
   const out = (res.stdout || '') + (res.stderr || '');
   const tail = out.trim().split('\n').slice(-2).join(' | ');
   const m = out.match(/(\d+) measurements, (\d+) below/);
@@ -185,6 +185,7 @@ function runFonts(page, label, bootstrap) {
     cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8',
     env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap })
   });
+  forwardChildTeardown(res, 'audit-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
@@ -192,9 +193,10 @@ function runFonts(page, label, bootstrap) {
 }
 
 async function connectChrome() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-deprt-'));
+  const profile = makeTempDir('mw-deprt-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile,
     '--no-first-run', '--disable-extensions', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 80 && !wsUrl; i++) {
     try {
@@ -220,7 +222,8 @@ async function connectChrome() {
   };
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); } };
+  trackChild(profile, chrome, ws);
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 async function main() {
@@ -337,7 +340,7 @@ async function main() {
         if (width < 1024) check('address book 390px: the table has become cards', a.cardMode !== 'table-row', a.cardMode);
       }
     } finally {
-      cdp.close();
+      await cdp.close();
     }
   } finally {
     await admin.from('deposit_requests').delete().in('client_id', ids);

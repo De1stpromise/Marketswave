@@ -30,8 +30,8 @@
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { makeTempDir, releaseAll } from './lib/harness-teardown.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
@@ -99,7 +99,9 @@ async function loadPage(htmlPath, url, supabaseConfigTempPath) {
   globalThis.document = dom.window.document;
 
   const moduleCode = extractModuleScript(htmlPath);
-  const tempDir = mkdtempSync(path.join(tmpdir(), 'ms-reset-flow-test-'));
+  // Registered with the shared teardown on creation — a throw between here and the caller's
+  // own bookkeeping (the documented standalone Firebase-import failure) used to leak it.
+  const tempDir = makeTempDir('ms-reset-flow-test-');
   writeFileSync(path.join(tempDir, 'supabase-config.js'), readFileSync(supabaseConfigTempPath, 'utf8'));
   // supabase-endpoint.js (homepage design round 2, 2026-09-08) holds the environment
   // resolution and both project configs, which supabase-config.js now imports and
@@ -110,10 +112,6 @@ async function loadPage(htmlPath, url, supabaseConfigTempPath) {
   writeFileSync(modulePath, moduleCode);
   await import('file://' + modulePath.replace(/\\/g, '/'));
   return { dom, tempDir };
-}
-
-function cleanupTempDir(tempDir) {
-  try { rmSync(tempDir, { recursive: true, force: true }); } catch (_e) {}
 }
 
 async function fetchMailpitLinkFor(recipientEmail, sinceMs) {
@@ -152,7 +150,7 @@ async function main() {
   // verify-admin-real-login.mjs's "genuinely fresh instance per simulated page load"
   // discipline for the module-cache side, while sharing nothing else).
   const supabaseConfigSrc = readFileSync(path.join(PROJECT_ROOT, 'supabase-config.js'), 'utf8');
-  const supabaseConfigTemp = path.join(mkdtempSync(path.join(tmpdir(), 'ms-reset-flow-cfg-')), 'supabase-config.js');
+  const supabaseConfigTemp = path.join(makeTempDir('ms-reset-flow-cfg-'), 'supabase-config.js');
   writeFileSync(supabaseConfigTemp, supabaseConfigSrc);
 
   const suffix = crypto.randomBytes(4).toString('hex');
@@ -165,8 +163,6 @@ async function main() {
   await admin.from('clients').insert({ id: created.user.id, name: 'Reset Flow Verify Client', email, phone: '+1-555-0910', account_type: 'Individual Account', status: 'active' });
   console.log('Test client ready: ' + created.user.id + ' (' + email + ')\n');
 
-  let allTempDirs = [];
-
   try {
     // =========================================================================================
     // PART 1 — login.html's real "Forgot Password" panel: real resetPasswordForEmail() call
@@ -175,7 +171,6 @@ async function main() {
     {
       const since = Date.now();
       const { dom, tempDir } = await loadPage(path.join(PROJECT_ROOT, 'login.html'), 'http://127.0.0.1:8765/login.html', supabaseConfigTemp);
-      allTempDirs.push(tempDir);
       const doc = dom.window.document;
 
       doc.getElementById('forgot-password-link').dispatchEvent(new dom.window.Event('click', { bubbles: true, cancelable: true }));
@@ -228,7 +223,6 @@ async function main() {
       check('the real verify link redirects to reset-password.html with a real #access_token fragment', finalUrl.startsWith('http://127.0.0.1:8765/reset-password.html#') && finalUrl.includes('access_token=') && finalUrl.includes('type=recovery'), finalUrl.slice(0, 80) + '...');
 
       const { dom, tempDir } = await loadPage(path.join(PROJECT_ROOT, 'reset-password.html'), finalUrl, supabaseConfigTemp);
-      allTempDirs.push(tempDir);
       const doc = dom.window.document;
 
       check('reset-password.html starts on the "checking" step', doc.querySelector('[data-reset-step="checking"]').classList.contains('is-active'));
@@ -278,7 +272,6 @@ async function main() {
     console.log('\n--- Part 3: reset-password.html with no recovery token (direct navigation) ---\n');
     {
       const { dom, tempDir } = await loadPage(path.join(PROJECT_ROOT, 'reset-password.html'), 'http://127.0.0.1:8765/reset-password.html', supabaseConfigTemp);
-      allTempDirs.push(tempDir);
       const doc = dom.window.document;
 
       const reachedInvalid = await waitFor(function () {
@@ -307,8 +300,7 @@ async function main() {
       check('the SAME recovery token, used a second time, is genuinely refused by the real server (no fresh access_token issued)', !loc2.includes('access_token='), 'status ' + res2.status + ', location: ' + loc2);
     }
   } finally {
-    for (const dir of allTempDirs) cleanupTempDir(dir);
-    cleanupTempDir(path.dirname(supabaseConfigTemp));
+    await releaseAll(); // every dir this run registered, reported if any cannot be removed
     await admin.from('clients').delete().eq('id', created.user.id);
     await admin.auth.admin.deleteUser(created.user.id);
   }

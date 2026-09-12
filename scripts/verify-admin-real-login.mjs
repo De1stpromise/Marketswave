@@ -41,8 +41,8 @@
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { makeTempDir, releaseAll } from './lib/harness-teardown.mjs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
@@ -83,8 +83,10 @@ function readLocalStackCredentials() {
 }
 
 // ---- Real, byte-for-byte-unmodified temp copies (see the file header for why) ----
+// Registered with the shared teardown the moment it is created: this script makes ~10 of
+// these per run and, until 2026-09-12, removed none of them (624 were found leaked).
 function makeTempAdminDir() {
-  return mkdtempSync(path.join(tmpdir(), 'ms-admin-login-test-'));
+  return makeTempDir('ms-admin-login-test-');
 }
 
 function copyRealFile(name, destDir) {
@@ -387,6 +389,7 @@ async function main() {
   // empty" behavior, which cannot happen while any of those real, correctly-scheduled
   // refresh timers remain pending. An explicit exit here bypasses that reliance entirely,
   // the same way the failure branch already did. ----
+  await releaseAll();
   if (failed > 0) process.exit(1);
   process.exit(0);
 }

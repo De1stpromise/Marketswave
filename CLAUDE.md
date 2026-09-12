@@ -8742,6 +8742,74 @@ row 74.
   measured by advance width; 1440/390/375 + a real 320px iframe on both pages with a 60-char
   unbroken token and the terms table collapsing to one column below 760px).
 
+- **★★ Shared harness teardown — 1,333 leaked temp directories, two root causes, one helper
+  (2026-09-12, row 201).** A cleanup pass after the fund-documents task found 684 headless-
+  Chrome profiles (`mw-*`) and 649 jsdom temp-module dirs (`ms-*`) in `%TEMP%`, accumulated
+  over weeks with nothing reporting it. Every one of the ~20 harnesses that creates a temp
+  directory now goes through `scripts/lib/harness-teardown.mjs`.
+  **The two causes, both now structurally closed:**
+  - **`chrome.kill()` returning is not Windows releasing the profile's lock files.** Every
+    harness called `rmSync` on the very next line, while the browser was still being torn
+    down, and the delete hit `EPERM` on the lock/LevelDB files. The helper awaits the child's
+    REAL exit event before removing.
+  - **`try { rmSync(dir, {force:true}) } catch (e) {}` swallowed that failure.** A leak per
+    run, for weeks, and not one line of output. The helper never swallows: a failed removal
+    is a `TEARDOWN WARNING` on stderr naming the directory and the error code. A warning
+    nobody reads is still better than silence — a run that leaks says so.
+  **Things a future session needs to know before touching any harness:**
+  - **A directory is REGISTERED THE MOMENT IT IS CREATED** (`makeTempDir(prefix)`), not at
+    the finally. `verify-password-reset-flow` HAD a removing finally and still leaked 25
+    dirs, because the documented standalone Firebase-import failure threw between `mkdtemp`
+    and the bookkeeping the finally iterated. Registration first; nothing in between.
+  - **Three paths cover a registered dir**: the normal `await releaseTempDir(dir)`; a
+    `process.on('exit')` hook for a throw / uncaught rejection / `process.exit()` mid-run
+    (synchronous, so it cannot await the child — a 6s explicit retry loop is the browser's
+    time to let go); and an ENTRY SWEEP in `makeTempDir` for a hard kill (SIGKILL, a machine
+    freeze), which runs no JavaScript at all and so can only be cleaned by the NEXT run.
+  - **★ Do not rely on `rmSync({maxRetries})` for this.** On Windows Node handles `EPERM` on
+    a file with ONE chmod-and-retry — the backoff loop only covers `EBUSY`/`ENOTEMPTY` — so
+    the first attempt, a few milliseconds after `TerminateProcess`, fails outright. Measured:
+    the same removal succeeds 250ms later. The helper's own loop treats every "still held"
+    code the same.
+  - **Chrome does NOT outlive a hard-killed harness.** libuv spawns a Windows child inside a
+    job object that ends it with the parent (unless `detached`), so after a hard kill the
+    leak is the directory alone. The orphan hunt (kill by PID any process whose command line
+    references the dir, each logged by name and command line) is kept for the `detached`
+    case, but the proof's first run expected an orphan and there was none.
+  - **The sweep has two guards so a concurrent sibling is safe**: older than 10 minutes, AND
+    it must `rename` cleanly first — Windows refuses to rename a directory with an open
+    handle inside it, which is exactly a live Chrome profile. A same-prefix dir younger than
+    10 minutes is left alone even if it is stale; the run after that gets it.
+  - **★ A parent that `spawnSync`s a child harness must forward the child's stderr.** The
+    six visual suites run `verify-contrast.mjs`/`audit-fonts.mjs` as children and printed
+    only the child's last stdout line — so a child's `TEARDOWN WARNING` vanished, silence one
+    level up. `forwardChildTeardown(res, label)` after every child spawn re-emits them.
+  - **A leaked dir does not change the exit code** (the warning is the contract);
+    `releaseTempDir` returns a boolean for a harness that wants a leak to fail the run —
+    `verify-login-redesign` does, matching its own documented contract for leaked test data.
+  - **`verify-returns-display-visual` had `process.exit(1)` INSIDE its try**, and
+    `process.exit()` skips a `finally` — so a failing run also never removed its test
+    account. Moved after the finally. The same shape may exist elsewhere; the exit hook now
+    covers the DIRECTORY on that path regardless, but not DB rows.
+  - **On Windows, a Node holder does NOT block deletion** — Node opens files with
+    `FILE_SHARE_DELETE`. The proof's un-removable control holds the file from PowerShell with
+    `FileShare.None`; a first draft using a Node holder passed for the wrong reason.
+  - Git Bash's `/tmp` IS `%TEMP%`: a `/tmp/mw-*.log` written by a shell counts as residue
+    to any sweep that keys on the prefix. Name shell logs something else.
+  **Verified**: `npm run verify-harness-teardown` (from `scripts/`) 35/35 — forced-failure
+  controls against a REAL headless Chrome: the normal path proves the browser's exit was
+  genuinely awaited before removal; a mid-run throw and a mid-run `process.exit()` both
+  still remove the dir; a hard-killed (SIGKILL) run leaks the dir and the next run's sweep
+  removes it; a genuinely un-removable dir produces a visible warning naming it, and the
+  helper returns false rather than claiming success; no `verify-*`/`audit-*` script calls
+  `mkdtempSync` directly or swallows a removal any more. Then every migrated harness run for
+  real with residue counted after each: zero across all of them, including a FAILING
+  `verify-contrast` run (pre-existing `readout key #2` 4.46:1 on resources.html, identical on
+  clean HEAD — reported, not fixed). **Control on the old code**: the same `verify-contrast`
+  run from clean HEAD leaked exactly one profile; the fixed code leaked none. The sweep was
+  proven in a real harness too: a `mw-label-*` dir left by a hard death was removed by the
+  next `verify-label-association` run once past the age guard.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -9092,6 +9160,17 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   -match 'functions serve' }`, never a name-based kill — `node.exe` matches far more than
   this). The same goes for a `python -m http.server 8765` started for the visual/CDP
   harnesses: it is not part of the stack and is a genuine leftover once those runs finish.
+- **★ Every harness temp directory goes through `scripts/lib/harness-teardown.mjs` — never a
+  bare `mkdtempSync`, never a `try { rmSync } catch {}`.** Added 2026-09-12 after 1,333
+  leaked directories were found in `%TEMP%`: `chrome.kill()` returns before Windows releases
+  the profile, so the removal on the next line failed, and an empty catch hid it for weeks.
+  `makeTempDir(prefix)` registers on creation; `releaseTempDir(dir)` awaits the child's real
+  exit before removing and prints a `TEARDOWN WARNING` if it cannot; a process `exit` hook
+  and an entry sweep cover a mid-run throw and a hard kill. A parent that `spawnSync`s a
+  child harness calls `forwardChildTeardown(res, label)` so the child's warning is not
+  discarded with its stderr. `npm run verify-harness-teardown` (from `scripts/`) is the
+  standing proof and fails if any `verify-*`/`audit-*` script calls `mkdtempSync` directly.
+  When checking a run for leaks, grep its log for `TEARDOWN` — that line is the contract.
 - **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
   control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
   for two things that have each broken silently once: the three-tier geometry, and row 171's

@@ -24,8 +24,8 @@
  * better than the glyph actually has.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { runVerifyMain } from './lib/run-verify.mjs';
 
@@ -69,10 +69,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-  const profile = mkdtempSync(join(tmpdir(), 'mw-hero-'));
+  const profile = makeTempDir('mw-hero-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--disable-extensions', '--hide-scrollbars',
     'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
     try {
@@ -81,8 +82,9 @@ async function main() {
       if (pg) wsUrl = pg.webSocketDebuggerUrl; else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('no CDP page target'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('no CDP page target'); }
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Network.enable');
@@ -222,7 +224,7 @@ async function main() {
   check('the breathing animation is suppressed (' + rm.anim + ')', rm.anim === 'none', rm.anim);
   check('the glow itself REMAINS — it is light, not movement', /radial-gradient/.test(rm.bg) && rm.opacity !== '0', JSON.stringify(rm));
 
-  ws.close(); chrome.kill();
+  await releaseTempDir(profile);
   console.log('\n' + passed + ' passed, ' + failures.length + ' failed');
   if (failures.length) { console.log('HERO HEADLINE: FAIL'); process.exit(1); }
   console.log('HERO HEADLINE: PASS');

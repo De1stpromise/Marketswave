@@ -12,8 +12,8 @@
  * body produces a false positive (already learned once, mobile fixes Batch 3).
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -52,11 +52,12 @@ class CDP {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-resverify-'));
+  const profile = makeTempDir('mw-resverify-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  trackChild(profile, chrome);
 
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
@@ -66,9 +67,10 @@ async function main() {
       if (pg) wsUrl = pg.webSocketDebuggerUrl; else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('no page target'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('no page target'); }
 
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Log.enable');
@@ -149,8 +151,7 @@ async function main() {
     }
   }
 
-  ws.close(); chrome.kill();
-  try { rmSync(profile, { recursive: true, force: true }); } catch (e) {}
+  await releaseTempDir(profile);
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   console.log(fail ? 'RESOURCES REDESIGN: FAIL' : 'RESOURCES REDESIGN: PASS');
   process.exit(fail ? 1 : 0);

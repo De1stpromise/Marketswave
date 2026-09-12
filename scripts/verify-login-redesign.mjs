@@ -13,8 +13,8 @@
  * network stalled, it must sit on "Authenticating" and NOT cycle.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
@@ -88,13 +88,14 @@ async function main(ctx) {
   const pendingEmail = await makeClient('pending_review');
   const rejectedEmail = await makeClient('rejected');
 
-  const profile = mkdtempSync(join(tmpdir(), 'mw-login-'));
+  const profile = makeTempDir('mw-login-');
   ctx.profile = profile;
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
   ctx.chrome = chrome;
+  trackChild(profile, chrome);
 
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
@@ -107,6 +108,7 @@ async function main(ctx) {
   if (!wsUrl) { chrome.kill(); throw new Error('no page target'); }
   const ws = new WebSocket(wsUrl);
   ctx.ws = ws;
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Log.enable');
@@ -456,9 +458,10 @@ async function main(ctx) {
  * call process.exit() any more: exiting from inside the try is what would skip a finally.
  */
 async function cleanup(ctx) {
-  if (ctx.ws) { try { ctx.ws.close(); } catch (e) {} }
-  if (ctx.chrome) { try { ctx.chrome.kill(); } catch (e) {} }
-  if (ctx.profile) { try { rmSync(ctx.profile, { recursive: true, force: true }); } catch (e) {} }
+  // releaseTempDir closes the socket, kills Chrome, AWAITS its real exit, then removes the
+  // profile — and reports rather than swallows a failure. A leaked profile fails this run the
+  // same way leaked test data already does (this script's own documented contract above).
+  if (ctx.profile) { if (!(await releaseTempDir(ctx.profile))) ctx.leaked = true; ctx.ws = null; ctx.chrome = null; }
   if (!ctx.admin) return;
 
   const ids = new Set(ctx.made);

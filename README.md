@@ -1907,6 +1907,36 @@ npm run verify-fund-document-ui-wiring      # the real authoring + client pages:
 npm run verify-fund-document-visual         # real Chart.js vs nav_publications, contrast/fonts/1440/390/375/320 (needs :8765 + Chrome): 48
 ```
 
+### ★ Harness temp directories — the shared teardown (2026-09-12)
+
+Every verification script that creates a temp directory (a headless-Chrome profile for the
+CDP harnesses, a temp module copy for the jsdom ones) goes through
+`scripts/lib/harness-teardown.mjs`:
+
+```js
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
+const profile = makeTempDir('mw-example-');          // registered the moment it exists
+const chrome = spawn(CHROME, ['--user-data-dir=' + profile, ...]);
+trackChild(profile, chrome, ws);                     // ws optional
+...
+await releaseTempDir(profile);                       // waits for Chrome to REALLY exit, then removes
+```
+
+It exists because 1,333 of these directories were found leaked in `%TEMP%`. Two causes:
+`chrome.kill()` returns before Windows releases the profile's lock files, so a removal on the
+next line fails; and `try { rmSync(...) } catch (e) {}` swallowed that failure for weeks. The
+helper awaits the child's real exit, retries removal for up to 6s, and if it still cannot
+remove the directory it prints `TEARDOWN WARNING: [...] temp directory NOT removed (...)` on
+stderr — grep a suite log for `TEARDOWN` to see whether any run leaked. A throw or
+`process.exit()` mid-run is covered by a process `exit` hook; a hard kill (`taskkill /F`, a
+machine freeze) runs no JavaScript, so the NEXT run of any harness with the same prefix sweeps
+what it left (`teardown: swept N stale mw-x-* ...`).
+
+Proof, from `scripts/`: `npm run verify-harness-teardown` (35 assertions, real headless
+Chrome, forced-failure controls — mid-run throw, mid-run exit, SIGKILL then sweep, a genuinely
+un-removable directory producing the warning rather than silence). Never call `mkdtempSync`
+directly from a `verify-*`/`audit-*` script — that same proof fails if one does.
+
 ### Step 9 — Stop the stack when you're done
 
 ```

@@ -46,8 +46,7 @@
  * result belongs to is printed alongside it.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -78,10 +77,11 @@ class CDP {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-fontaudit-'));
+  const profile = makeTempDir('mw-fontaudit-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
 
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
@@ -91,9 +91,10 @@ async function main() {
       if (pg) wsUrl = pg.webSocketDebuggerUrl; else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('no page target'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('no page target'); }
 
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
@@ -167,8 +168,7 @@ async function main() {
     }
   }
 
-  ws.close(); chrome.kill();
-  try { rmSync(profile, { recursive: true, force: true }); } catch (e) {}
+  await releaseTempDir(profile);
   console.log('\n' + (anyFallback ? 'FONT AUDIT: FALLBACK DETECTED' : 'FONT AUDIT: all requested families genuinely loaded'));
   process.exit(anyFallback ? 1 : 0);
 }

@@ -35,8 +35,7 @@
  * Requires a static server already serving the project (default http://127.0.0.1:8765).
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -545,12 +544,13 @@ async function measure(cdp, t) {
 }
 
 async function main() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-contrast-'));
+  const profile = makeTempDir('mw-contrast-');
   const chrome = spawn(CHROME, [
     '--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile,
     '--no-first-run', '--no-default-browser-check', '--disable-extensions',
     '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank',
   ], { stdio: 'ignore' });
+  trackChild(profile, chrome);
 
   // Connect to a PAGE target, not the browser target - the browser-level endpoint does not
   // implement Page/Runtime/Input, and reports them as "wasn't found".
@@ -563,9 +563,10 @@ async function main() {
       else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('Chrome did not expose a page debugging endpoint'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('Chrome did not expose a page debugging endpoint'); }
 
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
 
@@ -632,9 +633,7 @@ async function main() {
     }
   }
 
-  ws.close();
-  chrome.kill();
-  try { rmSync(profile, { recursive: true, force: true }); } catch (e) {}
+  await releaseTempDir(profile);
   report(results);
 }
 

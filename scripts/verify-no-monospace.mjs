@@ -32,8 +32,8 @@
  * scheme. It is listed explicitly rather than silently skipped.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, readdirSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
@@ -113,10 +113,11 @@ async function main() {
     unexpected.length === 0, unexpected.join(', '));
 
   // ---------------------------------------------------------------- rendered
-  const profile = mkdtempSync(join(tmpdir(), 'mw-nomono-'));
+  const profile = makeTempDir('mw-nomono-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
     try {
@@ -125,8 +126,9 @@ async function main() {
       if (pg) wsUrl = pg.webSocketDebuggerUrl; else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('no CDP page target'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('no CDP page target'); }
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Network.enable');
@@ -291,7 +293,7 @@ async function main() {
     control.proportionalGap + 'px, with tnum by ' + control.tabularGap + 'px',
     control.proportionalGap > 1 && control.tabularGap < 0.5, JSON.stringify(control));
 
-  ws.close(); chrome.kill();
+  await releaseTempDir(profile);
   console.log('\n' + passed + ' passed, ' + failures.length + ' failed');
   if (failures.length) { console.log('NO MONOSPACE: FAIL'); process.exit(1); }
   console.log('NO MONOSPACE: PASS');

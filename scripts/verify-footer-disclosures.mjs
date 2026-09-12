@@ -10,8 +10,8 @@
  * this text is that it gets read.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -84,11 +84,12 @@ const PROBE = `(() => {
 })()`;
 
 async function main() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-fd-'));
+  const profile = makeTempDir('mw-fd-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  trackChild(profile, chrome);
 
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
@@ -98,8 +99,9 @@ async function main() {
       if (pg) wsUrl = pg.webSocketDebuggerUrl; else await sleep(250);
     } catch (e) { await sleep(250); }
   }
-  if (!wsUrl) { chrome.kill(); throw new Error('no page target'); }
+  if (!wsUrl) { await releaseTempDir(profile); throw new Error('no page target'); }
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', rej); });
   const cdp = new CDP(ws);
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
@@ -151,8 +153,7 @@ async function main() {
   ok(Number(t.grainOpacity) > 0 && Number(t.grainOpacity) <= 0.5, 'grain is barely perceptible', t.grainOpacity);
   ok(Number(t.zIndex) >= 2, 'legal text sits above both decorative layers', 'z-index ' + t.zIndex);
 
-  ws.close(); chrome.kill();
-  try { rmSync(profile, { recursive: true, force: true }); } catch (e) {}
+  await releaseTempDir(profile);
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   console.log(fail ? 'FOOTER DISCLOSURES: FAIL' : 'FOOTER DISCLOSURES: PASS');
   process.exit(fail ? 1 : 0);

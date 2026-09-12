@@ -18,8 +18,7 @@
 //
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 import { execSync, spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
@@ -127,6 +126,7 @@ function runContrast(profile, page, label, bootstrap, prepare) {
       CONTRAST_PORT: '9333'
     })
   });
+  forwardChildTeardown(res, 'verify-contrast');
   const out = (res.stdout || '') + (res.stderr || '');
   const tail = out.trim().split('\n').slice(-2).join(' | ');
   const m = out.match(/(\d+) measurements, (\d+) below/);
@@ -145,6 +145,7 @@ function runFonts(page, label, bootstrap) {
       AUDIT_BOOTSTRAP_JS: bootstrap
     })
   });
+  forwardChildTeardown(res, 'audit-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back (every requested family genuinely loads)',
@@ -154,10 +155,11 @@ function runFonts(page, label, bootstrap) {
 }
 
 async function connectChrome() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-wlvis-'));
+  const profile = makeTempDir('mw-wlvis-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--disable-extensions',
     '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 80 && !wsUrl; i++) {
     try {
@@ -191,7 +193,8 @@ async function connectChrome() {
   // Row 172's lesson: a stale cached copy of a just-edited file reported a correct batch as
   // broken. Never measure through the cache.
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); } };
+  trackChild(profile, chrome, ws);
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 async function main() {
@@ -305,7 +308,7 @@ async function main() {
       check('320px: the internal funding step still renders', narrow.visible === true, JSON.stringify(narrow));
       check('320px: no horizontal overflow', narrow.bodyScroll <= narrow.inner + 1, JSON.stringify(narrow));
     } finally {
-      cdp.close();
+      await cdp.close();
     }
 
   } finally {

@@ -25,7 +25,8 @@
 import { execSync, spawn } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,11 +54,12 @@ function readLocalStackCredentials() {
 }
 
 async function connect() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-upl-'));
+  const profile = makeTempDir('mw-upl-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
     await sleep(300);
@@ -69,6 +71,7 @@ async function connect() {
   }
   if (!wsUrl) throw new Error('Chrome did not expose a debug target');
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0;
   const pending = new Map();
@@ -94,7 +97,7 @@ async function connect() {
   // this reason). setFocusEmulationEnabled makes the page behave as the foreground tab.
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); try { rmSync(profile, { recursive: true, force: true }); } catch (e) {} } };
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 /* A real keypress is three events. A lone keyDown does not reliably drive default actions
@@ -506,7 +509,7 @@ async function main() {
     }
 
   } finally {
-    if (cdp) cdp.close();
+    if (cdp) await cdp.close();
     for (const id of createdIds) {
       for (const t of ['documents', 'holdings', 'account_state']) await admin.from(t).delete().eq('client_id', id);
       await admin.from('clients').delete().eq('id', id);

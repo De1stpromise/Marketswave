@@ -71,7 +71,8 @@
     "verify-live-pricing-visual": "node verify-live-pricing-visual.mjs",
     "supabase-verify-product-documents": "node verify-supabase-product-documents.js",
     "verify-fund-document-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-fund-document-ui-wiring.mjs",
-    "verify-fund-document-visual": "node verify-fund-document-visual.mjs"
+    "verify-fund-document-visual": "node verify-fund-document-visual.mjs",
+    "verify-harness-teardown": "node verify-harness-teardown.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

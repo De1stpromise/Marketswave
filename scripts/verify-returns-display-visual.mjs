@@ -14,8 +14,8 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
@@ -74,11 +74,12 @@ function readLocalStackCredentials() {
 
 // ---- minimal CDP client (same shape verify-contrast.mjs uses) ------------------------------
 async function connect() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-returns-'));
+  const profile = makeTempDir('mw-returns-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
     await sleep(300);
@@ -91,6 +92,7 @@ async function connect() {
   }
   if (!wsUrl) throw new Error('Chrome did not expose a debug target');
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0;
   const pending = new Map();
@@ -109,7 +111,7 @@ async function connect() {
     return r.result && r.result.result ? r.result.result.value : undefined;
   };
   await send('Page.enable');
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); try { rmSync(profile, { recursive: true, force: true }); } catch (e) {} } };
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 async function main() {
@@ -182,6 +184,7 @@ async function main() {
           CONTRAST_PORT: String(PORT + 10)
         })
       });
+      forwardChildTeardown(res, 'verify-contrast');
       const out = res.stdout || '';
       const tail = out.trim().split('\n').slice(-2).join(' | ');
       const m = out.match(/(\d+) measurements, (\d+) below/);
@@ -461,9 +464,10 @@ async function main() {
 
     console.log('\n' + pass + ' passed, ' + fail + ' failed');
     console.log(fail ? 'RETURNS DISPLAY VISUAL: FAIL' : 'RETURNS DISPLAY VISUAL: PASS');
-    if (fail) process.exit(1);
+    // The exit used to sit here, inside the try — and process.exit() skips a finally, so a
+    // FAILING run never reached the cleanup below and leaked its test account. Exit after.
   } finally {
-    if (cdp) cdp.close();
+    if (cdp) await cdp.close();
     if (clientId) {
       await admin.from('transactions').delete().eq('client_id', clientId);
       await admin.from('holdings').delete().eq('client_id', clientId);
@@ -474,6 +478,7 @@ async function main() {
       else console.log('cleanup: test account removed');
     }
   }
+  if (fail) process.exit(1);
 }
 
 // Two full Chrome spawns for contrast plus four real viewport navigations —

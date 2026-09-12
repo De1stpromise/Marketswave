@@ -25,8 +25,8 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { makeTempDir, trackChild, releaseTempDir } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
@@ -61,11 +61,12 @@ async function sweepResidue(admin, re) {
 }
 
 async function connect() {
-  const profile = mkdtempSync(join(tmpdir(), 'mw-controls-'));
+  const profile = makeTempDir('mw-controls-');
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT,
     '--user-data-dir=' + profile, '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--force-device-scale-factor=1', '--hide-scrollbars', 'about:blank'],
     { stdio: 'ignore' });
+  trackChild(profile, chrome);
   let wsUrl = null;
   for (let i = 0; i < 60 && !wsUrl; i++) {
     await sleep(300);
@@ -77,6 +78,7 @@ async function connect() {
   }
   if (!wsUrl) throw new Error('Chrome did not expose a debug target');
   const ws = new WebSocket(wsUrl);
+  trackChild(profile, chrome, ws);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
   let id = 0;
   const pending = new Map();
@@ -101,7 +103,7 @@ async function connect() {
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });  // lesson 3
-  return { send, evaluate, close: () => { ws.close(); chrome.kill(); try { rmSync(profile, { recursive: true, force: true }); } catch (e) {} } };
+  return { send, evaluate, close: () => releaseTempDir(profile) };
 }
 
 // Lesson 2: never measure without proving the viewport is the one that was asked for.
@@ -678,7 +680,7 @@ async function main() {
     }
 
   } finally {
-    if (cdp) cdp.close();
+    if (cdp) await cdp.close();
     if (clientId) {
       await admin.from('documents').delete().eq('client_id', clientId);
       await admin.from('holdings').delete().eq('client_id', clientId);
