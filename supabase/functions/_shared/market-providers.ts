@@ -238,7 +238,7 @@ export async function searchCrypto(query: string): Promise<SymbolSearchResult[]>
 
 // Confirms a CoinGecko id genuinely prices, and returns its real display name — the crypto
 // counterpart of lookupStockQuote(), used before a symbol is stored.
-export async function lookupCrypto(providerId: string): Promise<{ name: string; symbol: string; quote: Quote } | null> {
+export async function lookupCrypto(providerId: string): Promise<{ name: string; symbol: string; quote: Quote; imageUrl: string | null } | null> {
   const res = await fetch('https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(providerId) +
     '?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false');
   if (res.status === 404) return null;
@@ -249,6 +249,10 @@ export async function lookupCrypto(providerId: string): Promise<{ name: string; 
   return {
     name: String(data.name || providerId),
     symbol: String(data.symbol || providerId).toUpperCase(),
+    // Asset logos (2026-09-13): the same response already carries the coin's image, so the
+    // crypto logo costs no extra call — it is captured here and stored by the add paths.
+    imageUrl: typeof data?.image?.large === 'string' ? data.image.large
+      : (typeof data?.image?.small === 'string' ? data.image.small : null),
     quote: {
       price,
       changePercent: typeof data.market_data?.price_change_percentage_24h === 'number'

@@ -17,6 +17,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 import { normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { lookupStockQuote, lookupCrypto, PER_CLIENT_SYMBOL_LIMIT } from '../_shared/market-providers.ts';
 import { writeQuoteToCache } from '../_shared/market-refresh.ts';
+import { resolveAndStoreLogo } from '../_shared/asset-logos.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -81,6 +82,7 @@ Deno.serve(async (req) => {
     let resolvedProviderId: string | null = null;
 
     let liveQuote: { price: number; changePercent: number | null } | null = null;
+    let coinImageUrl: string | null = null;
     if (source === 'coingecko') {
       let coin;
       try {
@@ -93,6 +95,7 @@ Deno.serve(async (req) => {
       }
       name = coin.name;
       liveQuote = coin.quote;
+      coinImageUrl = coin.imageUrl;
       resolvedSymbol = normalizeSymbol(coin.symbol);
       resolvedProviderId = providerId;
       assetType = 'crypto';
@@ -156,6 +159,23 @@ Deno.serve(async (req) => {
         }, liveQuote);
       } catch (_err) { /* see above */ }
     }
+
+    // ★ Asset logos (2026-09-13, row 207): resolved ONCE at add time and stored on the
+    // shared cache row (one logo per symbol, however many clients watch it), so the card
+    // never asks a provider. A symbol already carrying a logo is left alone; a symbol no
+    // provider covers stays null and renders its monogram. Best-effort, like the quote.
+    try {
+      const { data: cached } = await admin.from('market_data_cache').select('logo_url').eq('symbol', resolvedSymbol).maybeSingle();
+      if (cached && !cached.logo_url) {
+        const logoPath = await resolveAndStoreLogo(admin, {
+          kind: assetType === 'crypto' ? 'crypto' : 'ticker',
+          symbol: resolvedSymbol,
+          coingeckoImageUrl: coinImageUrl,
+          coingeckoId: resolvedProviderId
+        });
+        if (logoPath) await admin.from('market_data_cache').update({ logo_url: logoPath }).eq('symbol', resolvedSymbol);
+      }
+    } catch (_err) { /* the symbol is added either way; resolve-asset-logos can backfill it */ }
 
     return jsonResponse({
       id: inserted.id,

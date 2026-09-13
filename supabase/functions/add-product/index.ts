@@ -20,6 +20,7 @@ import { validateProductFields, toProductClientShape, PRICING_MODELS, APPRAISAL_
 import { validateTicker, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { lookupStockQuote, fetchCryptoQuotes, RateLimitedError } from '../_shared/market-providers.ts';
 import { writeQuoteToCache } from '../_shared/market-refresh.ts';
+import { resolveAndStoreLogo } from '../_shared/asset-logos.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -150,6 +151,20 @@ Deno.serve(async (req) => {
     if (typeof body.description === 'string' && body.description.trim()) insertRow.description = body.description.trim();
     if (typeof body.extendedDescription === 'string' && body.extendedDescription.trim()) insertRow.extended_description = body.extendedDescription.trim();
     if (typeof body.logoUrl === 'string' && body.logoUrl.trim()) insertRow.logo_url = body.logoUrl.trim();
+
+    // ★ Asset logos (2026-09-13, row 207): a market-priced product gets its logo resolved
+    // ONCE, here, and stored in this project's own bucket — the page never asks a provider.
+    // A PM-typed logoUrl wins; a symbol no provider covers stores null and renders its
+    // monogram. Best-effort: a resolver failure never blocks creating the product.
+    if (pricingModel === 'market' && marketSymbol && !insertRow.logo_url) {
+      try {
+        insertRow.logo_url = await resolveAndStoreLogo(admin, {
+          kind: marketSource === 'coingecko' ? 'crypto' : 'ticker',
+          symbol: marketSymbol,
+          coingeckoId: marketSource === 'coingecko' ? marketProviderId : null
+        });
+      } catch (_e) { /* the product is created without a logo; resolve-asset-logos can backfill it */ }
+    }
 
     const { data: created, error: insertErr } = await admin.from('products').insert(insertRow).select().single();
     if (insertErr) {

@@ -875,3 +875,7 @@ entrypoint = "./functions/get-portfolio-overview/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/snapshot-portfolio-values/index.ts"
+
+[functions.resolve-asset-logos]
+enabled = true
+verify_jwt = false

@@ -139,6 +139,7 @@ Deno.serve(async (req) => {
           price: cached ? Number(cached.value) : null,
           changePercent: cached && cached.change_percent != null ? Number(cached.change_percent) : null,
           lastUpdated: cached ? cached.last_updated : null,
+          logoUrl: cached && cached.logo_url ? cached.logo_url : null,
           offered: offered
             ? {
                 productId: offered.productId,
