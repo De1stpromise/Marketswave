@@ -1844,6 +1844,38 @@ pg_cron jobs while it runs so a scheduled refresh cannot land mid-measurement):
 npm run verify-round-robin-refresh
 ```
 
+### ★ Visitor presence (2026-09-13) — who is on the site, what is stored, and the two rules a PM cannot bypass
+
+`admin-presence.html` shows live visitors and a rolling 30-day history: current page and
+journey, time on site, device/browser, where they came from, first or returning, country and
+city — and a signed-in client's real name. **Nothing that identifies an anonymous visitor is
+stored**: the visitor is a random cookie uuid, the session a random uuid, and the IP is used
+once inside `track-visit` to derive country/city and then discarded (no column holds one).
+Every public and client page loads `site-presence.js` (page events, a 15-second heartbeat, a
+leave beacon on pagehide). Sessions are deleted after 30 days by `purge_visitor_data()` on a
+daily pg_cron job — nothing to configure.
+
+Locally every visitor is `127.0.0.1`, so location reads "Unknown location"; the geolocation
+chain (`ipwho.is`, then `ipinfo.io` — set `IPINFO_TOKEN` in `supabase/functions/.env` and as
+a staging secret for 50k lookups/month) is exercised by the backend suite with a public IP.
+
+**Proactive chat**: a PM can message a live visitor from the presence page. The server
+refuses a message in a session's first 30 seconds and any second invitation per session
+(`send-proactive-message`, 409) — the page greys the button with the same reason, but the UI
+is not the constraint. The message reaches the visitor on their next heartbeat (≤ 15 s), their
+widget opens with it, they reply with a name and email, and the thread continues in the inbox.
+
+**Notifications**: browser notifications are requested on the presence page only (a prompt
+on admin load gets denied); the sidebar shows a live count and raises one per arrival on any
+admin page; "Mute arrivals" silences them. Email goes out only for notable visitors — a
+signed-in client, a returning visitor, anyone on `/signup`, a session past five minutes — at
+most once per session and never twice within two minutes, so the shared sending domain is
+never spammed.
+
+Checks: `npm run supabase-verify-visitor-presence` (backend: capture, RLS, retention, the
+two rules, the conversation) and `npm run verify-visitor-presence-visual` (two real
+browsers end to end; `VP_SHOTS=<dir>` saves screenshots).
+
 ### ★ The bundled portfolio card (2026-09-13) — what the dashboard's top card reads, and what "capital in" means
 
 The dashboard opens with ONE card: a header (title, as-of — deliberately no export control:

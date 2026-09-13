@@ -9301,6 +9301,96 @@ row 74.
   27/27, `audit-glass-sheen` dashboard 19 measured 0 below, control patterns 41/41,
   stylesheet coverage, Tailwind scoping PASS.
 
+- **★★★ Visitor presence — live presence, a rolling 30-day history, and proactive chat with
+  someone browsing (2026-09-13, row 209).** Built against the approved `visitor_presence`
+  mockup in four commits (schema + retention + RLS; capture + proactive functions; the admin
+  page + sidebar + notifications; verification + docs). New tables `visitors`/`visitor_sessions`,
+  four Edge Functions (`track-visit`, `get-visitor-presence`, `send-proactive-message`,
+  `accept-chat-invitation`), `site-presence.js` on every public and client page,
+  `admin-presence.html` + a Presence item with a live count in `admin-sidebar.js`, and an
+  invitation path in the chat widget.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE IP NEVER LEAVES `track-visit`.** It is read once (`cf-connecting-ip`, else the
+    first `x-forwarded-for`), handed to the geolocation chain on a session's FIRST page, and
+    dropped. No column holds an IP or a user-agent string; the backend suite asserts nothing
+    IP-shaped is stored. **Geo chain** (`_shared/visitor-presence.ts`): `ipwho.is` (keyless,
+    city-level, ~10k/month) then `ipinfo.io` (keyless ~1k/day; `IPINFO_TOKEN` lifts it to
+    50k/month). One lookup per session start. **Accuracy, stated up front**: country is
+    reliable; city is "usually right on fixed broadband" and a VPN or mobile carrier resolves
+    to its exit/gateway — my own connection here resolved to Sofia (a CDN77 exit). Locally
+    every visitor is 127.0.0.1 → "Unknown location", honestly.
+  - **★ NOT A REALTIME PRESENCE CHANNEL, deliberately.** Supabase Realtime presence shares the
+    whole state with every channel member, so visitors joining one would each see every
+    other visitor — the exact thing point 7 forbids. Visitors never open a channel: they
+    heartbeat to `track-visit` every 15 s. The PM's page and sidebar use Realtime
+    `postgres_changes` on `visitor_sessions` (admin-only RLS, REPLICA IDENTITY FULL). **Closed
+    tab vs stale connection**: `pagehide` sends a leave beacon (`sendBeacon` as `text/plain`
+    — a beacon cannot preflight, so the function accepts that type — falling back to a
+    keepalive fetch) and the tracking script stops its heartbeat timer the moment it leaves
+    (a heartbeat landing after the beacon resurrected the session once in verification); a
+    stale connection sends nothing and simply drops out of "live" 45 s after its last
+    heartbeat, its duration measured to that heartbeat, never padded.
+  - **How visits are counted**: a random uuid in a first-party cookie (`mw_vid`, 400 days) is
+    the visitor; a VISIT is a session — a new one starts on the first page load with no
+    activity in the previous 30 minutes, held in localStorage so tabs share it; `visitors.
+    visit_count` is the number of sessions that cookie has started within the retained 30
+    days ("Returning · 3rd visit"). After 30 days unseen the visitor row is purged too, so a
+    return after that is honestly a first visit again.
+  - **Referrer and search term**: read from `document.referrer` on the session's first page.
+    A browser's default referrer policy sends only the ORIGIN cross-site (and nothing at all
+    from an https search to an http page), so "Google" appears and the term almost never does
+    — the parser handles a term when one is present; the field is honest, not decorative.
+  - **Retention is a plain SQL function on cron** (`purge_visitor_data()`, daily 03:15,
+    `marketswave-purge-visitor-data`) — no vault secret, no Edge Function hop, so it works
+    the moment the migration applies; sessions by `started_at`, visitors by `last_seen_at`.
+    EXECUTE is revoked from anon/authenticated.
+  - **Notable-visitor email thresholds** (one per session, `notified_at` claimed by a
+    conditional update so racing heartbeats cannot double-send): a signed-in client; a
+    returning visitor (visit ≥ 2); anyone on `/signup`; a session past FIVE minutes. Plus a
+    burst guard: never two presence emails within two minutes across all sessions. An
+    ordinary first page view sends nothing — the sending domain's reputation is shared with
+    transactional mail.
+  - **★ ETIQUETTE IS SERVER-SIDE.** `send-proactive-message` refuses (409) inside the first
+    30 s of a session, for a session that is not live, and for any second invitation — the
+    claim is `update … where invitation_sent_at is null`, so two PMs clicking at once cannot
+    both send. If the visitor replied, the refusal says so and hands back the conversation id
+    (the inbox is where the PM continues). The page mirrors the same reasons.
+  - **The invitation reaches the visitor on their next heartbeat** (≤ 15 s), raised as a
+    `mw:chat-invitation` DOM event that the widget opens. An anonymous visitor supplies name
+    and email at their first reply; `accept-chat-invitation` binds their anonymous session to
+    the conversation (`visitor_auth_id`, set once, guarded by the invitation token) so the
+    existing conversation RLS carries everything after. A signed-in client's invitation lands
+    in THEIR existing conversation (`findOrCreateConversation` by real email). For this,
+    `conversations.contact_email` became nullable (partial unique index) — an anonymous
+    invitee has no email yet.
+  - **Browser notifications are requested ONLY on admin-presence.html**, with the reason,
+    never on admin load; the sidebar raises them on every admin page (`tag` per session, so
+    open tabs do not duplicate); `mw_presence_mute` in localStorage silences the
+    notification, not the count. The Inbox item has NO unread badge today — the brief's
+    "like the inbox's unread count" describes the inbox page, not its nav item; Presence is
+    the first nav item with a live badge.
+  - **Two verification traps recorded**: (1) PostgREST batch inserts need identical key sets
+    per row — a first draft mixed them, the insert silently failed and the purge looked
+    broken; (2) a live page rebuilds its table under the contrast sampler — `verify-contrast`
+    now reports an element that vanished between its two passes instead of crashing, and the
+    presence page swaps only the action cell when a countdown ends. The 9.5px uppercase
+    column headings composited at 1.81:1 under the sheen corner — the panel carries
+    `.glass-lift` and the headings are 10.5px slate-700.
+  **Verified**: `supabase-verify-visitor-presence` 61/61 (capture through the real
+  function with a public IP, the IP provably absent, UA/referrer/journey/visit counting, the
+  leave beacon; the four email thresholds + one-per-session + burst guard; the RLS matrix
+  with a real client session and a real anonymous session; retention against aged rows and
+  the cron row; both etiquette rules refused server-side, a real conversation, acceptance,
+  an inbound reply threading, the post-reply refusal, a client's invitation in their own
+  thread); `verify-visitor-presence-visual` 52/52 in TWO real headless browsers (the second
+  browser appearing live via Realtime and leaving on its beacon; the notification permission
+  flow; a real Notification per arrival and none when muted; the compose panel, the real
+  send, the widget opening by itself, the reply threading in the real inbox; 61 composited
+  contrast measurements incl. the open modal, 0 below 4.5:1; Inter only; 1440/390/375 + a
+  real 320px iframe with rows as cards); control patterns 41/41, Tailwind scoping,
+  stylesheet coverage, no-monospace, sheen audit PASS; the full regression suite (see the
+  register row).
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
