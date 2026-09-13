@@ -383,6 +383,7 @@ async function main() {
       w.clientScopedKey = (key) => key + ':' + client.id;
       const shared = await MarketswaveData.getSupabaseClient();
       await shared.auth.signInWithPassword({ email: client.email, password: PASSWORD });
+      w.eval(readFileSync(ROOT + 'asset-mark.js', 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
       w.eval(extractInlineScript(ROOT + 'asset-performance.html', 'get-returns-summary'));
       return { dom, w };
     }

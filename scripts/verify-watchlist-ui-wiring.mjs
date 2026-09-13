@@ -114,6 +114,7 @@ async function main() {
     const script = extractInlineScript(dashPath, 'MARKET SNAPSHOT + WATCHLIST');
 
     const rows = doc.getElementById('wl-rows');
+    win.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     win.eval(script);
 
     check('the loading skeleton paints immediately, before any promise resolves',
@@ -145,8 +146,12 @@ async function main() {
       doc.querySelector('.wl-delayed').textContent.indexOf('Delayed') !== -1);
 
     // ---- Offered vs Tracking only, and the real Allocate action ---------------------------
+    // Real cards only: a reload paints skeleton .wl-card placeholders (aria-hidden, no
+    // data-wl-card, no ticker), and reading .wl-tag off one of those is a null dereference
+    // that looks like a page bug. A poll that resolves mid-reload (the dot poll below does —
+    // a skeleton has no dot either) must not hand a skeleton to this.
     function cardFor(sym) {
-      return [...rows.querySelectorAll('.wl-card')].find(function (r) {
+      return [...rows.querySelectorAll('.wl-card[data-wl-card]')].find(function (r) {
         return r.querySelector('.wl-tag').textContent === sym;
       });
     }
@@ -295,7 +300,7 @@ async function main() {
     check('the alert is cleared and the modal closes', modal.hidden === true);
     check('...and no alert row survives — a cancelled alert never fired, so it is not kept as one',
       ((await admin.from('price_alerts').select('id').eq('client_id', clientId)).data || []).length === 0);
-    await pollUntil(function () { return !rows.querySelector('.wl-dot'); }, 30000);
+    await pollUntil(function () { return !rows.querySelector('.wl-dot') && !/animate-pulse/.test(rows.innerHTML); }, 30000);
     check('the gold dot leaves the BTC face once the alert is cleared', !rows.querySelector('.wl-dot'));
 
     // ---- Remove a symbol ------------------------------------------------------------------
@@ -359,6 +364,7 @@ async function main() {
     const emptyDom = buildPageDom(dashPath);
     emptyDom.window.MarketswaveData = MarketswaveData;
     const emptyRows = emptyDom.window.document.getElementById('wl-rows');
+    emptyDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     emptyDom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(emptyRows.innerHTML); }, 30000);
     check('a client who has removed everything sees the honest empty state',
@@ -372,6 +378,7 @@ async function main() {
     const failDom = buildPageDom(dashPath);
     failDom.window.MarketswaveData = MarketswaveData;
     const failRows = failDom.window.document.getElementById('wl-rows');
+    failDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     failDom.window.eval(script);
     await pollUntil(function () { return /Try Again/.test(failRows.textContent); }, 30000);
     check('a real failure shows the shared error card with a real retry, never a blank card',
@@ -385,6 +392,7 @@ async function main() {
     collDom.window.getClientInitials = function (name) { return name.slice(0, 2).toUpperCase(); };
     await supa.auth.signInWithPassword({ email, password });
     const collGrid = collDom.window.document.getElementById('asset-cards-grid');
+    collDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     collDom.window.eval(extractInlineScript(collectionPath, 'UI Wiring — Stage 2'));
     await pollUntil(function () { return !/animate-pulse/.test(collGrid.innerHTML); }, 30000);
     check('arriving with ?product= pre-filters the collection to that real product',

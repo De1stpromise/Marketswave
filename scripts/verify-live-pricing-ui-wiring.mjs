@@ -121,6 +121,7 @@ async function main() {
       const dom = buildPageDom(apPath);
       dom.window.MarketswaveData = MarketswaveData;
       dom.window.eval(formatHelpersSource);
+      dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
       dom.window.eval(extractInlineScript(apPath, 'Products Catalog Fix'));
       return dom;
     }
@@ -243,6 +244,7 @@ async function main() {
     acDom.window.MarketswaveData = MarketswaveData;
     acDom.window.getAuthenticatedClientId = () => A.id;
     acDom.window.eval(engineCoreSource);
+    acDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     acDom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const C = acDom.window.document;
     await pollUntil(() => C.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(C.getElementById('asset-cards-grid').innerHTML), 30000);
@@ -265,6 +267,7 @@ async function main() {
     apDom.window.getAuthenticatedClientId = () => A.id;
     apDom.window.eval(engineCoreSource);
     apDom.window.eval(formatHelpersSource);
+    apDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     apDom.window.eval(extractInlineScript(apPath2, 'Returns Display'));
     const P = apDom.window.document;
     await pollUntil(() => /Ethereum/.test(P.body.textContent) && !/animate-pulse/.test(P.getElementById('return-table-body') ? P.getElementById('return-table-body').innerHTML : ''), 30000);

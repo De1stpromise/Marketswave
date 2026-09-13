@@ -73,10 +73,24 @@
   function getSupabaseClient() {
     if (!clientPromise) {
       clientPromise = import('./supabase-config.js').then(function (mod) {
-        return mod.supabase;
+        return configureAssetMarks(mod.supabase);
       });
     }
     return clientPromise;
+  }
+
+  // ★ Asset logos (2026-09-13, row 207): a stored logo_url is a storage PATH
+  // (/storage/v1/object/public/asset-logos/…), never an absolute URL, because the backend's
+  // own SUPABASE_URL is the stack-internal address locally and the public one on staging —
+  // only the page knows the origin it is itself configured with. The moment either client
+  // resolves (client-facing or admin), hand that origin to asset-mark.js so every mark it
+  // renders afterwards points at the right project. Pages that never load asset-mark.js
+  // are unaffected (the global is simply absent).
+  function configureAssetMarks(client) {
+    if (typeof window !== 'undefined' && window.AssetMark && client && client.supabaseUrl) {
+      window.AssetMark.configure({ storageBase: String(client.supabaseUrl) });
+    }
+    return client;
   }
 
   // ---- useAdminClient() (added Admin UI Wiring Stage 1, 2026-09-03) — the "small, clearly-
@@ -106,7 +120,7 @@
   function useAdminClient() {
     clientPromise = import('./admin-supabase-config.js').then(function (mod) {
       return mod.ensureSupabaseAdminSignedIn().then(function () {
-        return mod.supabase;
+        return configureAssetMarks(mod.supabase);
       });
     });
   }

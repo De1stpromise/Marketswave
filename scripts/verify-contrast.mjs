@@ -254,6 +254,27 @@ PROFILES['watchlist-modal'] = [
 ];
 
 
+// ★ Asset logos (2026-09-13, row 207). The monogram is white bold text at 7–15px on a
+// gradient well, which is the hardest text case on the site: antialiasing at that size eats
+// coverage, and the mockup's own light stops (#C8860A gold 3.06:1, #1D8A66 green and
+// #4A7FA5 blue 4.3:1) failed before that even started. Every hue is darkened in
+// asset-mark.css; this profile is what proves the composited result. Runs on any page with
+// marks — asset-collection.html (40px), dashboard.html (34px cards, 28px in an open drawer),
+// asset-performance.html (28px) — plus the attribution line's own two surfaces.
+PROFILES['asset-marks'] = [
+  { label: 'monogram', sel: '.mk-mono .mk-t', limit: 16 },
+  { label: 'logo credit', sel: '.asset-logo-credit', limit: 1 },
+  { label: 'logo credit link', sel: '.asset-logo-credit a', limit: 1 },
+];
+// The synthetic strip verify-asset-logos-visual.mjs injects: every size × every length on a
+// plain .glass card WITHOUT .glass-lift, positioned so the marks sit under the sheen's
+// brightest part. The real cards carry .glass-lift (row 204), which composites the sheen
+// BENEATH their content — so this is the honest answer to "does a monogram survive the
+// sheen" for any future card that does not carry the lift.
+PROFILES['asset-marks-sheen'] = [
+  { label: 'sheen monogram', sel: '#mk-sheen-strip .mk-t', limit: 16 },
+];
+
 // ★ Savings deposit from unallocated capital (2026-09-11). The internal funding step is a
 // genuinely new surface: a figure block on a slate-50 panel inside a white modal, plus a
 // disabled-state error line. Measured rather than assumed safe because the amounts sit on a

@@ -55,6 +55,9 @@ const SHARED = [
   'fund-document.css',
   // Portfolio overview (2026-09-12): portfolio-overview.js builds every .po-* class at runtime.
   'portfolio-overview.css',
+  // Asset marks (2026-09-13, row 207): asset-mark.js builds every .mk* class at runtime, and
+  // the pages that call it render the markup inside their own inline scripts.
+  'asset-mark.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

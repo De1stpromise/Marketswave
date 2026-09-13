@@ -99,6 +99,7 @@ async function main() {
   // a #market-snapshot-grid, or loses the watchlist card, finds out here. get-market-snapshot
   // ITSELF is still real and still guarded, by verify-supabase-market-data.js.
   console.log('1. Market Snapshot — superseded by the merged watchlist card (row 193)\n');
+  dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
   dom.window.eval(script);
   check('the old fixed six-symbol grid is genuinely gone, not merely unused', D.getElementById('market-snapshot-grid') === null);
   check('the merged watchlist card is what replaced it', !!D.getElementById('watchlist-card') && !!D.getElementById('wl-rows'));

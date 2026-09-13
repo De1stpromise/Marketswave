@@ -258,6 +258,7 @@ async function main() {
     dom.window.MarketswaveData = MarketswaveData;
     dom.window.getAuthenticatedClientId = () => cu.user.id;
     dom.window.eval(readFileSync(fileURLToPath(new URL('engine-core.js', root)), 'utf8'));
+    dom.window.eval(readFileSync(new URL('asset-mark.js', root), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     dom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const D = dom.window.document;
     await pollUntil(() => D.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(D.getElementById('asset-cards-grid').innerHTML), 30000);

@@ -24,6 +24,9 @@
 .fd-class { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 5px;
   background: rgba(159, 225, 203, .18); color: #9FE1CB; margin-bottom: 14px; }
 .fd-hero h1 { font-size: 32px; font-weight: 600; letter-spacing: -.028em; color: #F7F6F3; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.fd-hero-id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.fd-hero-titles { min-width: 0; }
+.fd-hero-mark { flex-shrink: 0; }
 .fd-meta { display: flex; gap: 30px; margin-top: 22px; flex-wrap: wrap; }
 .fd-meta > div { font-size: 11px; color: rgba(247, 246, 243, .72); letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
 .fd-meta > div b { display: block; font-size: 19px; font-weight: 600; color: #F7F6F3; letter-spacing: -.02em; margin-top: 5px; text-transform: none; }

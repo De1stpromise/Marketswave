@@ -113,6 +113,7 @@ async function main() {
       dom.window.MarketswaveData = MarketswaveData;
       dom.window.eval(uploadSource);
       dom.window.eval(richTextSource);
+      dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
       dom.window.eval(fundDocSource);
       dom.window.eval(extractInlineScript(afdPath, 'the authoring page'));
       return dom;
@@ -228,6 +229,7 @@ async function main() {
     const apDom = buildPageDom(apPath);
     apDom.window.MarketswaveData = MarketswaveData;
     apDom.window.eval(formatHelpersSource);
+    apDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     apDom.window.eval(extractInlineScript(apPath, 'Products Catalog Fix'));
     const P = apDom.window.document;
     await pollUntil(() => P.querySelectorAll('.product-row').length > 0, 30000);
@@ -249,6 +251,7 @@ async function main() {
       d.window.MarketswaveData = MarketswaveData;
       d.window.getAuthenticatedClientId = () => clientId;
       d.window.eval(richTextSource);
+      d.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
       d.window.eval(fundDocSource);
       d.window.eval(extractInlineScript(fdPath, 'the client-facing render'));
       return d;
@@ -273,6 +276,7 @@ async function main() {
     acDom.window.MarketswaveData = MarketswaveData;
     acDom.window.getAuthenticatedClientId = () => clientId;
     acDom.window.eval(engineCoreSource);
+    acDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
     acDom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const A = acDom.window.document;
     await pollUntil(() => A.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(A.getElementById('asset-cards-grid').innerHTML), 30000);

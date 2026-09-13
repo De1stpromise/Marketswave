@@ -1,0 +1,86 @@
+/* ★ Asset mark (2026-09-13, row 207) — ONE circular well wherever an asset is named:
+   catalog cards, watchlist blocks, holdings rows, the fund-document hero, the admin
+   catalog. A real logo where a provider has one (asset-mark.js renders the <img>), a
+   deterministic MONOGRAM where none does — and a failed image load swaps to the monogram
+   in place, so the well is never a broken image and never a gap. Markup is built ONLY by
+   asset-mark.js (AssetMark.html); this sheet is the mockup's own recipe, ported.
+
+   Four sizes: mk-l 46px · mk-m 40px · mk-s 34px · mk-xs 28px. The monogram font-size is set
+   on the WELL (as the em base) and the label steps down from it by ticker length — 3 chars
+   at 92%, 4 chars at 76% with tighter tracking — so a long ticker sits inside the well
+   rather than crowding it. line-height:1 removes the font's internal leading, which
+   otherwise pushes the glyphs visibly below the optical centre of a circle. */
+.mk {
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-flex;
+  /* Above the .glass::before sheen wherever the well sits. A mark is an opaque object — a
+     logo tinted pink by a highlight is wrong, and a white monogram under the sheen's
+     brightest part measured 2.08:1 (rust) and 2.84:1 (teal) on a card without .glass-lift.
+     The lift (row 204) already covers the real cards' whole content; this covers the mark
+     itself on any card that does not carry it. z-index:1 is scoped to the nearest stacking
+     context (the glass card's own backdrop-filter creates one), so it never climbs above a
+     modal, a drawer or the sidebar. */
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  vertical-align: middle;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(27, 58, 75, 0.14), inset 0 0 0 1px rgba(27, 58, 75, 0.07);
+  line-height: 1;
+  padding: 0;
+}
+.mk img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.mk-l  { width: 46px; height: 46px; font-size: 15.2px; }
+.mk-m  { width: 40px; height: 40px; font-size: 13px; }
+.mk-s  { width: 34px; height: 34px; font-size: 11.4px; }
+.mk-xs { width: 28px; height: 28px; font-size: 9.8px; }
+
+/* Monogram: white bold text on a brand-palette gradient, the hue chosen deterministically
+   from the ticker (or, for a fund with no ticker, from its name's initials) by
+   asset-mark.js — so a given asset's mark is the same on every page and never re-rolls. */
+.mk-mono { color: #fff; box-shadow: 0 1px 3px rgba(27, 58, 75, 0.18); }
+.mk-t {
+  display: block;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+.mk-len3 { font-size: 0.92em; }
+.mk-len4 { font-size: 0.76em; letter-spacing: -0.045em; }
+
+/* The seven hues. These are the mockup's palette family (navy, green, gold, blue, violet,
+   rust, teal) with every stop DARKENED: white bold text at 7–15px is antialiased hard, and
+   the mockup's own light stops measured 3.06:1 (gold) and 4.3:1 (green, blue) — below the
+   4.5:1 floor before antialiasing even ate into them. Every light stop here computes ≥6.4:1
+   against white, and the composited result is measured on real pixels by
+   verify-asset-logos-visual (a monogram sits on a .glass card under the sheen). */
+.mk-h0 { background: linear-gradient(135deg, #2C4E63, #1B3A4B); }
+.mk-h1 { background: linear-gradient(135deg, #126B4F, #0F5A42); }
+.mk-h2 { background: linear-gradient(135deg, #7F5405, #6E4804); }
+.mk-h3 { background: linear-gradient(135deg, #35617D, #2A5470); }
+.mk-h4 { background: linear-gradient(135deg, #63548F, #4F4477); }
+.mk-h5 { background: linear-gradient(135deg, #96462F, #7E3A2A); }
+.mk-h6 { background: linear-gradient(135deg, #31655A, #264E46); }
+
+/* Attribution. Elbstream's terms ask for a visible "Logos provided by Elbstream" credit,
+   at least 12pt, on every page that shows one of its logos. 12pt is 16px CSS. Rendered
+   once per page, quiet but never below the 4.5:1 floor. */
+.asset-logo-credit {
+  display: block;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #5C6367;
+  margin-top: 14px;
+}
+.asset-logo-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.asset-logo-credit a:hover { color: #1B3A4B; }

@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="asset-mark.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -109,6 +110,9 @@
           <div class="text-center mt-6">
             <button type="button" id="load-more-btn" class="hidden mw-btn mw-btn-secondary">Load More</button>
           </div>
+          <!-- Elbstream's attribution: required, at least 12pt, on every page that shows one of
+               its logos (asset-mark.css / asset-mark.js). -->
+          <p class="asset-logo-credit">Logos provided by <a href="https://elbstream.com" target="_blank" rel="noopener">Elbstream</a></p>
 
         </div>
 
@@ -140,6 +144,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="asset-mark.js"></script>
   <script src="supabase-data.js"></script>
   <script src="chat-widget.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
@@ -240,20 +245,15 @@
       var categoryFilter = '';
       var visibleCount = PAGE_SIZE;
 
-      // Logo box (Stocks & ETFs/Crypto only) — real image if logoUrl is set, otherwise
-      // initials derived from the product name via the same getClientInitials() logic
-      // client identity avatars already use elsewhere. Both nodes are always rendered when a
-      // logo is present; the fallback stays hidden until the image actually fails to load
-      // (wired via a real 'error' listener after render, not an inline handler — this
-      // project doesn't use inline event attributes anywhere else), so a bad/broken logoUrl
-      // degrades to initials instead of a broken-image icon.
+      // ★ Asset mark (2026-09-13, row 207): the shared circular well from asset-mark.js —
+      // a real logo where one was resolved (logoUrl, stored server-side at creation or by
+      // the backfill), the deterministic monogram otherwise. EVERY product gets one now,
+      // including Private Equity / Real Assets (initials from the name — no ticker, no
+      // provider will ever have a logo for them, so the monogram is their permanent mark,
+      // not a fallback). A failed image load is swapped to the monogram by asset-mark.js's
+      // own document-level listener — nothing to wire here after render.
       function logoBoxHTML(product) {
-        var initials = (typeof getClientInitials === 'function') ? getClientInitials(product.name) : '';
-        var hasLogo = !!product.logoUrl;
-        return '<div class="w-7 h-7 rounded-md bg-slate-100 flex-shrink-0 overflow-hidden flex items-center justify-center">' +
-          (hasLogo ? '<img src="' + product.logoUrl + '" alt="" class="product-logo-img w-full h-full object-cover" data-product-id="' + product.id + '">' : '') +
-          '<span class="product-logo-fallback text-slate-500 text-[10px] font-semibold' + (hasLogo ? ' hidden' : '') + '">' + initials + '</span>' +
-          '</div>';
+        return AssetMark.html({ name: product.name, ticker: product.ticker, logoUrl: product.logoUrl, size: 'm' });
       }
 
       // ---- Live pricing, part 1 (2026-09-11): the price block and its SOURCE line ----
@@ -317,13 +317,9 @@
         }
         var allocatedLine = holding ? 'Allocated: ' + formatUSD(Math.round(holding.costBasis)) : 'Not yet allocated';
 
-        // Logo box (Stocks & ETFs/Crypto) and "More info" popup link (Private Equity/Real
-        // Assets) are mutually exclusive by category, both minimal by design — neither
-        // competes with Request Allocation for visual weight. Both degrade cleanly when the
-        // underlying field is unset: no logo box renders for a product missing logoUrl
-        // outside its category (not applicable), and no "More info" link renders at all when
-        // extendedDescription is empty, rather than opening on nothing.
-        var showLogo = product.assetClass === 'Stocks & ETFs' || product.assetClass === 'Crypto';
+        // The "More info" popup link (Private Equity/Real Assets) is minimal by design — it
+        // never competes with Request Allocation for visual weight — and renders only when
+        // extendedDescription is set, rather than opening on nothing.
         var showMoreInfo = (product.assetClass === 'Private Equity' || product.assetClass === 'Real Assets') && product.extendedDescription;
 
         // flex flex-col + mt-auto on the CTA block — unchanged from the original card,
@@ -331,8 +327,8 @@
         // the content above it takes (description length now varies this further).
         return '<div class="border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition flex flex-col" data-product-id="' + product.id + '">' +
           '<div class="flex items-start justify-between mb-3">' +
-          '<div class="flex items-start gap-2.5">' +
-          (showLogo ? logoBoxHTML(product) : '') +
+          '<div class="flex items-start gap-3">' +
+          logoBoxHTML(product) +
           '<div><p class="font-medium text-navy">' + product.name + '</p>' +
           '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
           '</div>' +
@@ -378,17 +374,6 @@
         noResultsEl.classList.add('hidden');
         cardsGrid.innerHTML = visible.map(cardHTML).join('');
         loadMoreBtn.classList.toggle('hidden', visibleCount >= filtered.length);
-
-        // Real 'error' listener per rendered logo image (not an inline onerror attribute —
-        // this project doesn't use inline event handlers anywhere else) — falls back to the
-        // adjacent initials span rather than showing a broken-image icon.
-        cardsGrid.querySelectorAll('.product-logo-img').forEach(function (img) {
-          img.addEventListener('error', function () {
-            img.classList.add('hidden');
-            var fallback = img.nextElementSibling;
-            if (fallback) fallback.classList.remove('hidden');
-          });
-        });
       }
 
       // ---- Async load: product catalog + holdings, the real replacement for the old

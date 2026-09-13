@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="responsive-tables.css">
   <link rel="stylesheet" href="returns-display.css">
+  <link rel="stylesheet" href="asset-mark.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -180,6 +181,9 @@
                transactions.html's own ledger empty-row). -->
           <div class="overflow-x-auto" id="closed-positions-region"></div>
         </div>
+        <!-- Elbstream's attribution: required, at least 12pt, on every page that shows one of
+             its logos (asset-mark.css / asset-mark.js). -->
+        <p class="asset-logo-credit">Logos provided by <a href="https://elbstream.com" target="_blank" rel="noopener">Elbstream</a></p>
 
         <!-- My Requests
              Glass Language Extension (2026-09-07): deliberately left plain -- renders a real
@@ -246,6 +250,7 @@
   <script src="dashboard-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="asset-mark.js"></script>
   <script src="supabase-data.js"></script>
   <script src="format-helpers.js"></script>
   <script src="responsive-tables.js"></script>
@@ -407,15 +412,10 @@
       var tableBody = document.getElementById('return-table-body');
       var tableFoot = document.getElementById('return-table-foot');
 
-      // Locked asset-class palette, identical to dashboard.html's allocation pie, so the
-      // swatch beside a holding means the same thing on both screens. Decorative only —
-      // every figure carries its own sign and label, so nothing depends on colour.
-      var ASSET_CLASS_COLORS = {
-        'Private Equity': '#8B5A0F',
-        'Real Assets': '#1B3D2A',
-        'Stocks & ETFs': '#C8860A',
-        'Crypto': '#D4A843'
-      };
+      // ★ Asset mark (2026-09-13, row 207): the 3px asset-class swatch that used to sit
+      // beside each holding is replaced by the shared circular well (asset-mark.js) — a real
+      // logo where one was resolved, the deterministic monogram otherwise. The asset class
+      // still reads in words on the line below the name, so nothing depended on the colour.
 
       // Live pricing, part 1 (2026-09-11): per-asset unit precision now lives in
       // format-helpers.js (window.formatUnits) — crypto 8dp, equities 4dp, else 2dp,
@@ -458,7 +458,7 @@
       // The name cell is shared by the Return Table and the closed-positions panel, so the
       // two genuinely render one component rather than two copies that can drift apart.
       function positionNameCellHTML(p, extraHTML) {
-        var swatch = ASSET_CLASS_COLORS[p.assetClass] || '#8A9298';
+        var product = productById(p.productId) || {};
         // Asset class and investment type are separate fields a PM can legitimately set to
         // the SAME value — real staging has exactly that today (Bitcoin, "Crypto" /
         // "Crypto"), which rendered as "Crypto · Crypto". Collapse on equality rather
@@ -470,8 +470,8 @@
           metaParts = [metaParts[0]];
         }
         return '<div class="flex items-center gap-3">' +
-            '<span aria-hidden="true" class="shrink-0 rounded-sm" style="width:3px;height:30px;background:' + swatch + '"></span>' +
-            '<span class="block">' +
+            AssetMark.html({ name: p.name, ticker: product.ticker, logoUrl: product.logoUrl, size: 'xs' }) +
+            '<span class="block min-w-0">' +
               '<b class="block font-semibold text-navy">' + p.name + '</b>' +
               '<span class="block rt-meta">' + metaParts.join(' \u00b7 ') + '</span>' +
               (extraHTML || '') +
@@ -723,7 +723,7 @@
             ledger: results[3],
             tpv: results[4].totalPortfolioValue,
             products: results[5].map(function (p) {
-              return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price, lastTickDate: p.last_tick_date };
+              return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price, lastTickDate: p.last_tick_date, ticker: p.ticker, logoUrl: p.logo_url };
             }),
             allocationRequests: results[6].map(function (r) {
               return { id: r.id, productId: r.product_id, requestedAmount: r.requested_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };

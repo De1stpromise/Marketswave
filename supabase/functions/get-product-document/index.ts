@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
       investmentType: product.investment_type,
       pricingModel: product.pricing_model,
       ticker: product.ticker,
+      logoUrl: product.logo_url ?? null, // a storage PATH or a PM-typed absolute URL (asset-mark.js)
       unitPrice: Number(product.unit_price),
       priceAsOf: product.price_as_of,
       lastTickDate: product.last_tick_date,

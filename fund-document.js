@@ -85,8 +85,21 @@
     hero.appendChild(el('div', 'fd-hero-tex'));
     hero.appendChild(el('div', 'fd-hero-glow'));
     var inner = el('div', 'fd-hero-inner');
-    inner.appendChild(el('span', 'fd-class', product.assetClass));
-    inner.appendChild(el('h1', null, product.name));
+    // ★ Asset mark (2026-09-13, row 207): the shared circular well beside the title — the
+    // same logo or monogram the catalog card shows. AssetMark.html() escapes everything it
+    // interpolates, so this is the one innerHTML in this file and it never carries
+    // PM-authored content; without asset-mark.js the hero simply has no mark.
+    var ident = el('div', 'fd-hero-id');
+    if (typeof AssetMark !== 'undefined') {
+      var markHost = el('div', 'fd-hero-mark');
+      markHost.innerHTML = AssetMark.html({ name: product.name, ticker: product.ticker, logoUrl: product.logoUrl, size: 'l' });
+      ident.appendChild(markHost);
+    }
+    var titles = el('div', 'fd-hero-titles');
+    titles.appendChild(el('span', 'fd-class', product.assetClass));
+    titles.appendChild(el('h1', null, product.name));
+    ident.appendChild(titles);
+    inner.appendChild(ident);
     var meta = el('div', 'fd-meta');
     function fig(label, value) {
       var d = el('div', null, label); d.appendChild(el('b', 'fd-fig', value)); meta.appendChild(d);
@@ -241,6 +254,15 @@
     doc.appendChild(body);
     doc.appendChild(renderFooter());
     container.appendChild(doc);
+    // Elbstream's attribution (asset-mark.js): required, at least 12pt, on every page that
+    // shows one of its logos. A sibling of the document, not a child of .fd-foot, whose own
+    // 11px paragraph rule would otherwise out-specify the credit's 16px.
+    if (typeof AssetMark !== 'undefined') {
+      var credit = el('p', 'asset-logo-credit', 'Logos provided by ');
+      var link = el('a', null, 'Elbstream'); link.href = 'https://elbstream.com'; link.target = '_blank'; link.rel = 'noopener';
+      credit.appendChild(link);
+      container.appendChild(credit);
+    }
     return doc;
   }
 

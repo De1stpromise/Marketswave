@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="responsive-tables.css">
+  <link rel="stylesheet" href="asset-mark.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -88,6 +89,9 @@
           <div id="products-list"></div>
 
         </div>
+        <!-- Elbstream's attribution: required, at least 12pt, on every page that shows one of
+             its logos (asset-mark.css / asset-mark.js). -->
+        <p class="asset-logo-credit">Logos provided by <a href="https://elbstream.com" target="_blank" rel="noopener">Elbstream</a></p>
 
       </main>
     </div>
@@ -388,6 +392,7 @@
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
+  <script src="asset-mark.js"></script>
   <script src="supabase-data.js"></script>
   <script src="responsive-tables.js"></script>
   <script>
@@ -706,8 +711,15 @@
             var tier = TIER_BADGE[p.riskTier] || { label: p.riskTier || '—', cls: 'bg-slate-100 text-slate-600' };
             var summaryRow = '<tr class="product-row cursor-pointer hover:bg-slate-50/50" data-id="' + p.id + '">' +
               '<td class="px-6 py-4">' +
-                '<p class="font-medium text-slate-900">' + p.name + '</p>' +
-                '<p class="text-xs text-slate-400">' + p.id + ' · ' + p.investmentType + '</p>' +
+                // ★ Asset mark (2026-09-13, row 207): the same well the client sees, so a PM
+                // reviewing the catalog sees exactly the mark a client will — logo or monogram.
+                '<div class="flex items-center gap-3">' +
+                  AssetMark.html({ name: p.name, ticker: p.ticker, logoUrl: p.logoUrl, size: 'xs' }) +
+                  '<div class="min-w-0">' +
+                    '<p class="font-medium text-slate-900">' + p.name + '</p>' +
+                    '<p class="text-xs text-slate-400">' + p.id + ' · ' + p.investmentType + '</p>' +
+                  '</div>' +
+                '</div>' +
               '</td>' +
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + classCls + '">' + p.assetClass + '</span></td>' +
               '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + tier.cls + '">' + tier.label + '</span></td>' +

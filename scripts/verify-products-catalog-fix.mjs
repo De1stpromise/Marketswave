@@ -176,6 +176,7 @@ async function main() {
     const script = extractInlineScript(path, 'Products Catalog Fix');
     const D = dom.window.document;
 
+    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML); }, 20000);
 
@@ -235,6 +236,7 @@ async function main() {
     const script = extractInlineScript(path, 'Products Catalog Fix');
     const D = dom.window.document;
 
+    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML); }, 20000);
 
@@ -285,6 +287,7 @@ async function main() {
     const D = dom.window.document;
     const grid = D.getElementById('asset-cards-grid');
 
+    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML) && grid.querySelectorAll('[data-product-id]').length > 0; }, 20000);
     // The seeded catalog (row 202) has more products than one page of nine: page through Load
@@ -293,7 +296,7 @@ async function main() {
 
     const cryptoCard = grid.querySelector('[data-product-id="' + cryptoProductId + '"]');
     check('the real Crypto product card renders at all', !!cryptoCard);
-    check('its real logo <img src> matches exactly what the PM entered through the real admin UI', cryptoCard && cryptoCard.querySelector('.product-logo-img') && cryptoCard.querySelector('.product-logo-img').getAttribute('src') === 'https://example.test/products-fix-' + suffix + '-logo.png', cryptoCard ? cryptoCard.innerHTML.slice(0, 300) : null);
+    check('its real logo <img src> matches exactly what the PM entered through the real admin UI', cryptoCard && cryptoCard.querySelector('.mk img') && cryptoCard.querySelector('.mk img').getAttribute('src') === 'https://example.test/products-fix-' + suffix + '-logo.png', cryptoCard ? cryptoCard.innerHTML.slice(0, 300) : null);
     check('its real description text renders verbatim', cryptoCard && cryptoCard.textContent.indexOf('A diversified digital-asset basket added by the real Products Catalog Fix test') !== -1);
 
     // Trigger the tab/category selector to Private Equity so the PE card is definitely within
@@ -365,6 +368,7 @@ async function main() {
     const script = extractInlineScript(path, 'Products Catalog Fix');
     const D = dom.window.document;
 
+    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML) && D.getElementById('products-list').innerHTML.indexOf(peProductId) !== -1; }, 20000);
 

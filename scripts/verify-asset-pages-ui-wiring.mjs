@@ -154,6 +154,7 @@ async function main() {
   const collectionScript = extractInlineScript(collectionPath, 'UI Wiring — Stage 2');
   const grid = collectionDom.window.document.getElementById('asset-cards-grid');
 
+  collectionDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
   collectionDom.window.eval(collectionScript);
   check('the loading skeleton genuinely appears immediately (asset-collection.html grid)', /animate-pulse/.test(grid.innerHTML), grid.innerHTML.slice(0, 200));
 
@@ -247,6 +248,7 @@ async function main() {
   const tpvEl = performanceDom.window.document.getElementById('perf-tpv-amount');
   const myRequestsListEl = performanceDom.window.document.getElementById('my-requests-list');
 
+  performanceDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
   performanceDom.window.eval(performanceScript);
   check('the loading skeleton genuinely appears immediately (Return Table)', /animate-pulse/.test(tableBody.innerHTML), tableBody.innerHTML.slice(0, 200));
   check('the loading skeleton genuinely appears immediately (summary cards)', /animate-pulse/.test(tpvEl.innerHTML), tpvEl.innerHTML);
