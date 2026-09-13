@@ -9369,6 +9369,21 @@ row 74.
     notification, not the count. The Inbox item has NO unread badge today — the brief's
     "like the inbox's unread count" describes the inbox page, not its nav item; Presence is
     the first nav item with a live badge.
+  - **★ THREE THINGS THE LIVE SITE TAUGHT THAT THE LOCAL STACK COULD NOT** (all fixed the same
+    day, each proven on the real domain). (1) The first page event takes ~4.4 s there (cold
+    function + geo lookup) and a click-through aborted it — every event is now `keepalive`,
+    and the referrer rides the page event until the server has acknowledged the session.
+    (2) Two page events for a brand-new session therefore RACE: both insert, and the loser
+    (23505) returned the winner's row without applying its own page — a page dropped, the
+    journey reordered, the visit counted twice. The loser now applies its event, journey steps
+    keep the browser's own timestamp (`at`, when within a minute of the server clock) and
+    stay time-ordered, and `visit_count` is written only after a successful insert; the
+    backend suite fires two concurrent page events to prove it. (3) **On a LOCAL origin the
+    beacon is OFF unless `localStorage.mw_presence_local = '1'`**: the full regression suite
+    drives dozens of real headless browsers through these pages, and the first full run left
+    60 real sessions, armed the two-minute email guard against the presence suite, and kept
+    every client page's network busy enough that the sheen audit reported "did not settle".
+    Production hosts are unaffected; the presence visual suite opts its visitor browser in.
   - **Two verification traps recorded**: (1) PostgREST batch inserts need identical key sets
     per row — a first draft mixed them, the insert silently failed and the purge looked
     broken; (2) a live page rebuilds its table under the contrast sampler — `verify-contrast`
@@ -9376,7 +9391,7 @@ row 74.
     presence page swaps only the action cell when a countdown ends. The 9.5px uppercase
     column headings composited at 1.81:1 under the sheen corner — the panel carries
     `.glass-lift` and the headings are 10.5px slate-700.
-  **Verified**: `supabase-verify-visitor-presence` 61/61 (capture through the real
+  **Verified**: `supabase-verify-visitor-presence` 62/62 (capture through the real
   function with a public IP, the IP provably absent, UA/referrer/journey/visit counting, the
   leave beacon; the four email thresholds + one-per-session + burst guard; the RLS matrix
   with a real client session and a real anonymous session; retention against aged rows and
@@ -9388,8 +9403,19 @@ row 74.
   send, the widget opening by itself, the reply threading in the real inbox; 61 composited
   contrast measurements incl. the open modal, 0 below 4.5:1; Inter only; 1440/390/375 + a
   real 320px iframe with rows as cards); control patterns 41/41, Tailwind scoping,
-  stylesheet coverage, no-monospace, sheen audit PASS; the full regression suite (see the
-  register row).
+  stylesheet coverage, no-monospace, sheen audit PASS. Full regression suite: 59 of 65
+  scripts green in-run; the six non-green were all re-run green in isolation and traced —
+  `supabase-verify-pm-attribution` (a CRLF working-copy of `add-product/index.ts` failing its
+  static byte match, normalised; plus the known row-179 intermittent), the three asset-logos
+  suites (`supabase-verify-market-data` deletes and recreates the base symbols' cache rows,
+  dropping their stored logos — pre-existing cross-suite order pollution, logos restored via
+  the backfill), the presence backend suite (the burst guard armed by other suites' browser
+  sessions — the opt-in above and the suite's own window reset close it), and the sheen audit
+  (client pages "did not settle" behind the 15-second heartbeat, and dashboard readings near
+  1.4:1 both with and without the sheen that did not reproduce in isolation: 19 measured, 0
+  below). Also proven on the LIVE site: a real headless browser's visit landed a real session
+  on real staging with city derived and no IP stored, both pages of a 1.5-second click-through
+  in order, and the leave beacon ending it.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
