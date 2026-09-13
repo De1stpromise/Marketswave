@@ -959,7 +959,7 @@
       var WL_RESULTS = document.getElementById('wl-results');
       var WL_MODAL = document.getElementById('wl-alert-modal');
 
-      var wlState = { symbols: [], alertTarget: null, direction: 'above' };
+      var wlState = { symbols: [], alertTarget: null, direction: 'above', openId: null };
       var wlSearchTimer = null;
 
       var BELL_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
@@ -990,35 +990,65 @@
         WL_MESSAGE.hidden = false;
       }
 
-      function wlRowSkeleton() {
-        return '<div class="wl-row">' +
-          '<div class="wl-sym">' + MarketswaveData.skeleton.block('w-12', { height: 'h-4' }) +
-          MarketswaveData.skeleton.block('w-28', { height: 'h-3' }) + '</div>' +
-          '<div class="wl-px">' + MarketswaveData.skeleton.block('w-16', { height: 'h-4' }) + '</div>' +
-          '<div class="wl-act">' + MarketswaveData.skeleton.block('w-20', { height: 'h-8' }) + '</div>' +
-          '<div></div></div>';
+      // ★★ Block grid + drawer (2026-09-12, Variant B, row 206). Each card at rest shows
+      // ticker, name, price, change and the Offered / Tracking-only badge; a gold dot marks
+      // an active alert. Tapping a card opens ONE drawer (badge repeated, Allocate where
+      // offered, alert controls, remove) inserted beneath the card's OWN ROW — never below
+      // the whole grid. Allocation is deliberately demoted into the drawer: this card is
+      // for glancing, and a primary action on every card turns a snapshot into a shopping
+      // list. Presentation only — every read and write below is unchanged.
+      function wlCardSkeleton() {
+        return '<div class="wl-card" aria-hidden="true">' +
+          MarketswaveData.skeleton.block('w-12', { height: 'h-4' }) +
+          MarketswaveData.skeleton.block('w-24', { height: 'h-3' }) +
+          '<div class="mt-3">' + MarketswaveData.skeleton.block('w-20', { height: 'h-5' }) + '</div>' +
+          MarketswaveData.skeleton.block('w-14', { height: 'h-3' }) +
+          '</div>';
       }
 
-      function wlRowHTML(row) {
+      function wlBadgeHTML(row) {
+        return row.offered
+          ? '<span class="wl-badge">Offered</span>'
+          : '<span class="wl-badge wl-track">Tracking only</span>';
+      }
+
+      function wlCardHTML(row) {
         var change = row.changePercent;
         var changeClass = change == null ? 'wl-flat' : (change >= 0 ? 'wl-up' : 'wl-dn');
         var changeText = change == null ? '—'
           : (change >= 0 ? '+' : '−') + Math.abs(change).toFixed(2) + '%';
+        var open = wlState.openId === row.id;
+        var dot = row.alert
+          ? '<span class="wl-dot" title="Price alert set"><span class="sr-only">Price alert set</span></span>'
+          : '';
 
-        var badge = row.offered
-          ? '<span class="wl-badge">Offered</span>'
-          : '<span class="wl-badge wl-track">Tracking only</span>';
+        return '<div class="wl-card' + (open ? ' is-open' : '') + '" role="button" tabindex="0"' +
+            ' aria-expanded="' + (open ? 'true' : 'false') + '"' +
+            ' aria-label="' + wlEscape(row.symbol + ', ' + row.name + ' — show details') + '"' +
+            ' data-wl-id="' + wlEscape(row.id) + '" data-wl-card="' + wlEscape(row.id) + '">' +
+          dot +
+          '<span class="wl-tag">' + wlEscape(row.symbol) + '</span>' +
+          '<span class="wl-name">' + wlEscape(row.name) + '</span>' +
+          '<div class="wl-px-v">' + wlEscape(wlPrice(row.price, row.assetType)) + '</div>' +
+          '<div class="wl-foot">' +
+            '<span class="wl-px-c ' + changeClass + '">' + changeText + '</span>' +
+            wlBadgeHTML(row) +
+          '</div>' +
+        '</div>';
+      }
 
+      function wlDrawerHTML(row) {
         var allocate = row.offered
           ? '<a class="mw-btn mw-btn-sm mw-btn-primary" href="asset-collection.html?product=' +
             encodeURIComponent(row.offered.productId) + '">Allocate</a>'
           : '';
-
         var bellClass = 'mw-btn mw-btn-sm mw-btn-secondary wl-bell' + (row.alert ? ' is-on' : '');
+        var bellText = row.alert
+          ? 'Alert ' + (row.alert.direction === 'above' ? 'above ' : 'below ') + wlPrice(row.alert.targetPrice, row.assetType)
+          : 'Set alert';
         var bellLabel = row.alert
           ? 'Edit the price alert on ' + row.symbol
           : 'Set a price alert on ' + row.symbol;
-
         var alertLine = '';
         if (row.alert) {
           alertLine = '<div class="wl-alertline"><i></i>Alert when ' +
@@ -1026,23 +1056,51 @@
             '<b>' + wlEscape(wlPrice(row.alert.targetPrice, row.assetType)) + '</b>' +
             ' — we will email you once, then it clears</div>';
         }
-
-        return '<div class="wl-row" data-wl-id="' + wlEscape(row.id) + '">' +
-          '<div class="wl-sym">' +
-            '<span class="wl-tag">' + wlEscape(row.symbol) + '</span>' +
-            '<span class="wl-name">' + wlEscape(row.name) + '</span>' +
-            badge +
+        return '<div class="wl-drawer" id="wl-drawer" data-wl-drawer="' + wlEscape(row.id) + '">' +
+          '<div class="wl-drawer-top">' +
+            '<b>' + wlEscape(row.name) + ' · ' + wlEscape(row.symbol) + '</b>' +
+            wlBadgeHTML(row) +
           '</div>' +
-          '<div class="wl-px">' +
-            '<div class="wl-px-v">' + wlEscape(wlPrice(row.price, row.assetType)) + '</div>' +
-            '<div class="wl-px-c ' + changeClass + '">' + changeText + '</div>' +
+          '<div class="wl-drawer-row">' + allocate +
+            '<button type="button" class="' + bellClass + '" data-wl-bell="' + wlEscape(row.id) + '" title="' + wlEscape(bellLabel) + '" aria-label="' + wlEscape(bellLabel) + '">' + BELL_SVG + ' ' + wlEscape(bellText) + '</button>' +
+            '<button type="button" class="mw-btn mw-btn-sm mw-btn-secondary wl-remove" data-wl-remove="' + wlEscape(row.id) + '" aria-label="Remove ' + wlEscape(row.symbol) + ' from your watchlist">' + X_SVG + ' Remove</button>' +
           '</div>' +
-          '<div class="wl-act">' + allocate +
-            '<button type="button" class="' + bellClass + '" data-wl-bell="' + wlEscape(row.id) + '" title="' + wlEscape(bellLabel) + '" aria-label="' + wlEscape(bellLabel) + '">' + BELL_SVG + '</button>' +
-          '</div>' +
-          '<button type="button" class="wl-x" data-wl-remove="' + wlEscape(row.id) + '" title="Remove ' + wlEscape(row.symbol) + '" aria-label="Remove ' + wlEscape(row.symbol) + ' from your watchlist">' + X_SVG + '</button>' +
           alertLine +
         '</div>';
+      }
+
+      // Places the one drawer beneath the OPEN card's own row. The row is read from real
+      // layout — every card whose top edge matches the open card's is on its row — so the
+      // rule holds at three columns, two and one without the script knowing the column
+      // count; the drawer is inserted after the LAST card of that row and spans every
+      // column via CSS. With no layout engine (jsdom) every card reports the same top, so the
+      // drawer lands after the last card — the correct answer for a one-row list.
+      function placeDrawer() {
+        var existing = WL_ROWS.querySelector('.wl-drawer');
+        if (existing) existing.parentNode.removeChild(existing);
+        Array.prototype.forEach.call(WL_ROWS.querySelectorAll('.wl-card.is-open, .wl-card[aria-expanded="true"]'), function (c) {
+          c.classList.remove('is-open');
+          c.setAttribute('aria-expanded', 'false');
+        });
+        if (!wlState.openId) return;
+        var row = wlState.symbols.filter(function (s) { return s.id === wlState.openId; })[0];
+        var card = WL_ROWS.querySelector('.wl-card[data-wl-card="' + wlState.openId + '"]');
+        if (!row || !card) { wlState.openId = null; return; }
+        card.classList.add('is-open');
+        card.setAttribute('aria-expanded', 'true');
+        var cards = Array.prototype.slice.call(WL_ROWS.querySelectorAll('.wl-card'));
+        var top = card.offsetTop;
+        var anchor = card;
+        for (var i = cards.indexOf(card) + 1; i < cards.length; i++) {
+          if (cards[i].offsetTop !== top) break;
+          anchor = cards[i];
+        }
+        anchor.insertAdjacentHTML('afterend', wlDrawerHTML(row));
+      }
+
+      function toggleDrawer(id) {
+        wlState.openId = wlState.openId === id ? null : id;
+        placeDrawer();
       }
 
       // No symbol count and no ceiling caption, deliberately. A client does not need a
@@ -1054,16 +1112,31 @@
         wlState.symbols = result.symbols || [];
 
         if (wlState.symbols.length === 0) {
+          wlState.openId = null;
           WL_ROWS.innerHTML = '<p class="wl-empty">You are not tracking any symbols.<br>Add one to follow its price and set alerts.</p>';
           return;
         }
 
-        WL_ROWS.innerHTML = wlState.symbols.map(wlRowHTML).join('');
+        WL_ROWS.innerHTML = wlState.symbols.map(wlCardHTML).join('');
+        // A re-render after a write (alert set/cleared) keeps the same drawer open, now
+        // showing the updated state; a removed symbol has no card, so its drawer closes.
+        placeDrawer();
+      }
+
+      // The row a card belongs to changes when the column count does, so the drawer is
+      // re-placed whenever the grid's own width changes.
+      if (typeof ResizeObserver !== 'undefined') {
+        var wlResizeRaf = null;
+        new ResizeObserver(function () {
+          if (!wlState.openId) return;
+          if (wlResizeRaf) return;
+          wlResizeRaf = requestAnimationFrame(function () { wlResizeRaf = null; placeDrawer(); });
+        }).observe(WL_ROWS);
       }
 
       function loadWatchlist() {
         return MarketswaveData.renderAsyncBundle(WL_ROWS, {
-          skeletonHTML: new Array(4).fill(wlRowSkeleton()).join(''),
+          skeletonHTML: new Array(6).fill(wlCardSkeleton()).join(''),
           load: function () { return MarketswaveData.callFunction('get-watchlist'); },
           render: renderWatchlist
         });
@@ -1135,16 +1208,19 @@
         });
       });
 
-      // ---- Remove a symbol, and open the alert modal ---------------------------------
+      // ---- Open/close a card's drawer; remove a symbol; open the alert modal ---------
+      // The drawer's own controls carry data-wl-remove / data-wl-bell and sit OUTSIDE the
+      // card element, so a click on them never reaches the card toggle.
       WL_ROWS.addEventListener('click', function (event) {
         var removeBtn = event.target.closest('[data-wl-remove]');
         if (removeBtn) {
           wlMessage('');
-          MarketswaveData.withButtonBusy(removeBtn, '', function () {
+          MarketswaveData.withButtonBusy(removeBtn, 'Removing…', function () {
             return MarketswaveData.callFunction('remove-watchlist-symbol', {
               id: removeBtn.getAttribute('data-wl-remove')
             });
           }).then(function () {
+            wlState.openId = null;
             return loadWatchlist();
           }).catch(function (err) {
             wlMessage(MarketswaveData.writeErrorMessage(err));
@@ -1152,7 +1228,17 @@
           return;
         }
         var bellBtn = event.target.closest('[data-wl-bell]');
-        if (bellBtn) openAlertModal(bellBtn.getAttribute('data-wl-bell'));
+        if (bellBtn) { openAlertModal(bellBtn.getAttribute('data-wl-bell')); return; }
+        var card = event.target.closest('[data-wl-card]');
+        if (card) toggleDrawer(card.getAttribute('data-wl-card'));
+      });
+      // Keyboard: a card is role=button, so Enter and Space open it like a real button.
+      WL_ROWS.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        var card = event.target.closest('[data-wl-card]');
+        if (!card) return;
+        event.preventDefault();
+        toggleDrawer(card.getAttribute('data-wl-card'));
       });
 
       // ---- The alert modal ----------------------------------------------------------

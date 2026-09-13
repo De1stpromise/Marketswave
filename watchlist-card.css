@@ -70,50 +70,101 @@
   flex-shrink: 0;
 }
 
+/* ★★ Block grid + drawer (2026-09-12, Variant B). The list is a three-up grid of compact
+   cards; tapping a card opens ONE drawer, inserted beneath that card's own row (not below
+   the whole grid — see placeDrawer() in dashboard.html). Allocation is deliberately demoted
+   into the drawer: Asset & Performance and the catalog own allocation, this card is for
+   glancing, and a primary action on every card turns a snapshot into a shopping list. */
 .wl-rows {
   margin-top: 12px;
-  max-height: 360px;
+  max-height: 420px;
   overflow-y: auto;
   scrollbar-width: thin;
+  /* Column count follows the CARD's own width, not the viewport — the sidebar takes a
+     different share of the viewport at every breakpoint, and the drawer's "beneath the
+     card's own row" rule only holds if the columns are decided where the cards live. */
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+  align-content: start;
+  padding: 2px 2px 4px;
 }
+/* Everything that is not a card spans the full row: the drawer, the empty state, and the
+   shared error card renderAsyncBundle paints on a failed load. */
+.wl-rows > :not(.wl-card) { grid-column: 1 / -1; }
 .wl-rows::-webkit-scrollbar { width: 6px; }
 .wl-rows::-webkit-scrollbar-thumb { background: rgba(27, 58, 75, 0.18); border-radius: 3px; }
-
-.wl-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto 34px;
-  gap: 14px;
-  align-items: center;
-  padding: 12px 6px;
-  border-top: 1px solid rgba(27, 58, 75, 0.08);
-  transition: background 0.25s;
+@container (max-width: 599px) {
+  .wl-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.wl-row:hover { background: rgba(255, 255, 255, 0.55); }
+@container (max-width: 399px) {
+  .wl-rows { grid-template-columns: minmax(0, 1fr); }
+}
 
-.wl-sym {
-  display: flex;
-  align-items: center;
-  gap: 11px;
+.wl-card {
+  position: relative;
+  border: 1px solid rgba(27, 58, 75, 0.09);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 14px 15px;
+  cursor: pointer;
   min-width: 0;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  /* A real control, not a hover affordance: role=button + tabindex in the markup, and the
+     whole face is the target — comfortably past the 44px floor on every side. */
 }
+.wl-card:hover { background: rgba(255, 255, 255, 0.78); border-color: rgba(27, 58, 75, 0.18); }
+.wl-card:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
+.wl-card.is-open { border-color: #16815F; box-shadow: 0 0 0 3px rgba(22, 129, 95, 0.1); }
+
 .wl-tag {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #12283A;
-  min-width: 46px;
   letter-spacing: 0.01em;
 }
+.wl-card .wl-tag { display: block; padding-right: 14px; } /* keeps the ticker clear of the alert dot */
 .wl-name {
-  font-size: 12.5px;
+  font-size: 12px;
   color: #5C6367;
+  margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.wl-card .wl-name { display: block; }
+.wl-px-v {
+  font-size: 19px;
+  font-weight: 600;
+  color: #12283A;
+  font-variant-numeric: tabular-nums;
+  margin-top: 11px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.wl-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  min-width: 0;
+}
+.wl-px-c {
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wl-up { color: #137254; }
+.wl-dn { color: #A8452F; }
+.wl-flat { color: #5C6367; }
 
-/* Offered = this symbol is a real product in the catalog, so the row carries a real
+/* Offered = this symbol is a real product in the catalog, so its drawer carries a real
    Allocate action. Tracking only = it is not, and there is genuinely no allocation path —
-   the badge is the honest explanation for why that row has no Allocate button. */
+   the badge is the honest explanation for why that drawer has no Allocate button. It sits
+   on the card FACE (so at rest you know what you are looking at) AND repeats in the drawer
+   (context for the Allocate decision). */
 .wl-badge {
   font-size: 9px;
   font-weight: 700;
@@ -131,69 +182,68 @@
   color: #4A5560;
 }
 
-.wl-px { text-align: right; }
-.wl-px-v {
-  font-size: 14px;
-  font-weight: 700;
-  color: #12283A;
-  font-variant-numeric: tabular-nums;
+/* The gold dot marks a symbol with an active alert. It carries sr-only text; the drawer
+   states the alert in full. */
+.wl-dot {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #C8860A;
 }
-.wl-px-c {
-  font-size: 11.5px;
-  font-weight: 600;
-  margin-top: 2px;
-  font-variant-numeric: tabular-nums;
-}
-.wl-up { color: #137254; }
-.wl-dn { color: #A8452F; }
-.wl-flat { color: #5C6367; }
 
-.wl-act {
-  display: flex;
-  gap: 7px;
-  align-items: center;
+/* The drawer is a grid item spanning every column; JS inserts it directly after the last
+   card of the open card's row, so it always sits beneath that row. */
+.wl-drawer {
+  border: 1px solid rgba(22, 129, 95, 0.25);
+  border-radius: 13px;
+  background: rgba(22, 129, 95, 0.04);
+  padding: 14px 16px;
+  min-width: 0;
 }
+.wl-drawer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+.wl-drawer-top b {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #12283A;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wl-drawer-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.wl-drawer-row .wl-remove { margin-left: auto; }
 
 /* The bell is a Tier C control from control-patterns.css; only its "an alert is armed on
-   this row" state is defined here, because that state is specific to this feature. */
+   this symbol" state is defined here, because that state is specific to this feature. */
 .wl-bell.is-on {
   background: rgba(200, 134, 10, 0.14);
   border-color: rgba(200, 134, 10, 0.5);
   color: #7A5206;
 }
 
-/* Remove appears on hover at pointer widths and is permanently visible on touch, where
-   there is no hover to reveal it. */
-.wl-x {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: #8A8177;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s, background 0.2s, color 0.2s;
-}
-.wl-row:hover .wl-x,
-.wl-x:focus-visible { opacity: 1; }
-.wl-x:hover { background: rgba(168, 69, 47, 0.1); color: #A8452F; }
-@media (hover: none) {
-  .wl-x { opacity: 1; }
-}
-
-/* A row's armed alert, stated in full underneath it — including that it fires once. */
+/* The armed alert restated in full inside the drawer — including that it fires once. */
 .wl-alertline {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 0 0;
-  font-size: 11.5px;
+  margin-top: 10px;
+  font-size: 12px;
   color: #7A5206;
+  line-height: 1.5;
 }
 .wl-alertline b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .wl-alertline i {
@@ -297,21 +347,4 @@
   font-size: 12.5px;
   color: #A8452F;
   line-height: 1.6;
-}
-
-@media (max-width: 640px) {
-  .wl-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px 12px;
-  }
-  .wl-act {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-  .wl-x {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .wl-name { font-size: 12px; }
 }

@@ -9254,6 +9254,20 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   sessions of undocumented work until the copies were noticed and deleted (Aug 20, 2026). If
   an edit to either file fails, report the failure and stop — do not fall back to writing a
   new file as a workaround.
+- **★★ VERIFICATION GATES — what blocks a push, and what does not (standing convention,
+  2026-09-12).** BLOCKS a push: the pre-push secrets audit; targeted verification of what the
+  task actually touched — the suites covering the changed surface, not the whole platform;
+  cloud staging parity, when a migration or function changed; the deployed-bytes check, after
+  any static file is pushed. DOES NOT block a push — run it AFTER, or on a cadence: the full
+  regression suite (80+ minutes for warm-up plus real pass, ~72 scripts mostly unrelated to
+  any given change — run it after pushing and raise a follow-up commit if it surfaces
+  anything); the cold-start warm-up pass (only meaningful when the full suite runs); a second
+  consecutive clean pass (only ever required for a specific proof, never routinely).
+  **COMMIT EARLY, ALWAYS.** A commit is a local save point, not a publication. Finished work
+  never sits in the working tree waiting on verification — this project has had a machine
+  freeze and a network drop, and work has sat uncommitted for hours more than once. Judgment
+  applies: a change that touches money movement, auth, RLS or the settlement engine gets the
+  full suite BEFORE pushing; presentation, copy and additive UI do not.
 - **Cloud Staging Parity — run `npm run verify-cloud-staging-parity` (from `scripts/`)
   before any push that touches `supabase/migrations/`, `supabase/functions/`, or any page
   that calls Supabase.** Added 2026-09-05 after a real incident (row 137): every Phase B/UI-

@@ -123,8 +123,17 @@ async function main() {
     check('the real card renders the six seeded defaults',
       ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'].every(function (s) { return rows.textContent.indexOf(s) !== -1; }),
       rows.textContent.slice(0, 300));
-    check('six real rows are rendered', rows.querySelectorAll('.wl-row').length === 6,
-      String(rows.querySelectorAll('.wl-row').length));
+    check('six real cards are rendered', rows.querySelectorAll('.wl-card').length === 6,
+      String(rows.querySelectorAll('.wl-card').length));
+    // Block grid + drawer (2026-09-12, row 206): the face is for glancing. Allocation lives
+    // in the drawer, never on a card; the badge is on the face AND repeated in the drawer.
+    check('no Allocate action sits on any card face — allocation is demoted into the drawer',
+      rows.querySelectorAll('.wl-card a.mw-btn').length === 0);
+    check('no drawer is open before anything is tapped', !rows.querySelector('.wl-drawer'));
+    check('every card is a real button for keyboard and touch (role=button, tabindex, aria-expanded=false)',
+      [...rows.querySelectorAll('.wl-card')].every(function (c) {
+        return c.getAttribute('role') === 'button' && c.getAttribute('tabindex') === '0' && c.getAttribute('aria-expanded') === 'false';
+      }));
     // Removed 2026-09-11, and asserted absent so they cannot quietly come back: a client
     // does not need a running tally of their own list. The ceiling is still enforced
     // server-side and surfaces in the add flow - proven for real in section 5 below.
@@ -136,22 +145,53 @@ async function main() {
       doc.querySelector('.wl-delayed').textContent.indexOf('Delayed') !== -1);
 
     // ---- Offered vs Tracking only, and the real Allocate action ---------------------------
-    const ethRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) {
-      return r.querySelector('.wl-tag').textContent === 'ETH';
-    });
-    const spyRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) {
-      return r.querySelector('.wl-tag').textContent === 'SPY';
-    });
-    check('a catalog symbol renders the Offered badge', ethRowEl.textContent.indexOf('Offered') !== -1);
+    function cardFor(sym) {
+      return [...rows.querySelectorAll('.wl-card')].find(function (r) {
+        return r.querySelector('.wl-tag').textContent === sym;
+      });
+    }
+    const ethRowEl = cardFor('ETH');
+    const spyRowEl = cardFor('SPY');
+    check('a catalog symbol renders the Offered badge on its face', !!ethRowEl.querySelector('.wl-badge') && ethRowEl.textContent.indexOf('Offered') !== -1);
     // Since the seeded catalog (2026-09-12, row 202) SPY is a real product too; the
     // Tracking-only state is proven on NVDA below, added through the real search.
     check('SPY (seeded as SPDR S&P 500 ETF Trust) renders Offered as well', spyRowEl && spyRowEl.textContent.indexOf('Offered') !== -1);
-    check('...and carries a real Allocate action pointing at the real product it resolved to',
-      ethRowEl.querySelector('a.mw-btn') &&
-      ethRowEl.querySelector('a.mw-btn').getAttribute('href') === 'asset-collection.html?product=PROD-0004',
-      ethRowEl.querySelector('a.mw-btn') && ethRowEl.querySelector('a.mw-btn').getAttribute('href'));
 
-    check('every row carries a real price, not a dash',
+    // ---- The drawer: one at a time, beneath the card, toggles closed, keyboard ------------
+    console.log('\n0. The drawer');
+    spyRowEl.click();
+    let drawer = rows.querySelector('.wl-drawer');
+    check('tapping a card opens a drawer', !!drawer);
+    check('...exactly one drawer exists', rows.querySelectorAll('.wl-drawer').length === 1);
+    check('...inside the grid, directly after a card (beneath a row, never outside the list)',
+      drawer.parentNode === rows && drawer.previousElementSibling && drawer.previousElementSibling.classList.contains('wl-card'));
+    check('...the tapped card is marked open (aria-expanded=true, .is-open)',
+      spyRowEl.getAttribute('aria-expanded') === 'true' && spyRowEl.classList.contains('is-open'));
+    check('...and the drawer names the symbol and repeats the badge',
+      /SPY/.test(drawer.querySelector('.wl-drawer-top').textContent) && !!drawer.querySelector('.wl-badge'));
+
+    ethRowEl.click();
+    drawer = rows.querySelector('.wl-drawer');
+    check('tapping a second card moves the one drawer — still exactly one', rows.querySelectorAll('.wl-drawer').length === 1);
+    check('...now for ETH', drawer.getAttribute('data-wl-drawer') === ethRowEl.getAttribute('data-wl-card'));
+    check('...and the first card is no longer marked open',
+      spyRowEl.getAttribute('aria-expanded') === 'false' && !spyRowEl.classList.contains('is-open') &&
+      ethRowEl.getAttribute('aria-expanded') === 'true');
+    check('the drawer carries a real Allocate action pointing at the real product ETH resolved to',
+      drawer.querySelector('a.mw-btn') &&
+      drawer.querySelector('a.mw-btn').getAttribute('href') === 'asset-collection.html?product=PROD-0004',
+      drawer.querySelector('a.mw-btn') && drawer.querySelector('a.mw-btn').getAttribute('href'));
+    check('...an alert control and a Remove control', !!drawer.querySelector('[data-wl-bell]') && !!drawer.querySelector('[data-wl-remove]'));
+
+    ethRowEl.click();
+    check('tapping the open card again closes its drawer', !rows.querySelector('.wl-drawer') && ethRowEl.getAttribute('aria-expanded') === 'false');
+
+    spyRowEl.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    check('Enter on a focused card opens its drawer (keyboard)', !!rows.querySelector('.wl-drawer') && spyRowEl.getAttribute('aria-expanded') === 'true');
+    spyRowEl.dispatchEvent(new win.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+    check('Space toggles it closed again', !rows.querySelector('.wl-drawer'));
+
+    check('every card carries a real price, not a dash',
       [...rows.querySelectorAll('.wl-px-v')].every(function (el) { return el.textContent.trim() !== '—'; }));
 
     // ---- Add a symbol, through the real search --------------------------------------------
@@ -184,21 +224,25 @@ async function main() {
     check('...and a real row exists in Postgres, not just on screen', (nvdaStored.data || []).length === 1);
     check('the add panel closes and the search box clears after a successful add',
       addPanel.hidden === true && searchInput.value === '');
-    { const nvdaRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) { return r.querySelector('.wl-tag').textContent === 'NVDA'; });
-      check('a non-catalog symbol (NVDA) reads Tracking only', !!nvdaRowEl && nvdaRowEl.textContent.indexOf('Tracking only') !== -1);
-      check('...and has no Allocate action at all, because there genuinely is no allocation path', !!nvdaRowEl && !nvdaRowEl.querySelector('a.mw-btn')); }
-    check('a seventh real row is rendered', rows.querySelectorAll('.wl-row').length === 7,
-      String(rows.querySelectorAll('.wl-row').length));
+    { const nvdaRowEl = cardFor('NVDA');
+      check('a non-catalog symbol (NVDA) reads Tracking only on its face', !!nvdaRowEl && nvdaRowEl.textContent.indexOf('Tracking only') !== -1);
+      nvdaRowEl.click();
+      const nvdaDrawer = rows.querySelector('.wl-drawer');
+      check('...its drawer repeats Tracking only', !!nvdaDrawer && /Tracking only/.test(nvdaDrawer.querySelector('.wl-drawer-top').textContent));
+      check('...and has no Allocate action at all, because there genuinely is no allocation path', !!nvdaDrawer && !nvdaDrawer.querySelector('a.mw-btn'));
+      nvdaRowEl.click(); }
+    check('a seventh real card is rendered', rows.querySelectorAll('.wl-card').length === 7,
+      String(rows.querySelectorAll('.wl-card').length));
 
     // ---- The alert modal, and the once-and-clear promise it makes -------------------------
     console.log('\n2. Set a price alert through the real modal');
     const modal = doc.getElementById('wl-alert-modal');
     check('the alert modal starts hidden', modal.hidden === true);
 
-    const btcRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) {
-      return r.querySelector('.wl-tag').textContent === 'BTC';
-    });
-    btcRowEl.querySelector('[data-wl-bell]').click();
+    const btcRowEl = cardFor('BTC');
+    check('no gold dot on BTC before an alert exists', !btcRowEl.querySelector('.wl-dot'));
+    btcRowEl.click();
+    rows.querySelector('.wl-drawer [data-wl-bell]').click();
     check('clicking the bell opens the modal for that row', modal.hidden === false);
     check('...named for the real symbol', doc.getElementById('wl-alert-title').textContent === 'Alert me on BTC');
     check('...stating plainly that the alert fires once and then clears, at the moment of deciding',
@@ -229,14 +273,16 @@ async function main() {
       JSON.stringify(alertRow));
 
     await pollUntil(function () { return rows.textContent.indexOf('Alert when below') !== -1; }, 30000);
-    check('the armed alert is shown on its own row',
-      rows.textContent.indexOf('Alert when below') !== -1, rows.textContent.slice(0, 400));
+    check('the re-render keeps the BTC drawer open, now showing the armed alert',
+      rows.querySelector('.wl-drawer') && rows.querySelector('.wl-drawer').getAttribute('data-wl-drawer') === cardFor('BTC').getAttribute('data-wl-card') &&
+      rows.querySelector('.wl-drawer').textContent.indexOf('Alert when below') !== -1, rows.textContent.slice(0, 400));
     check('...restating that it fires once and then clears',
-      /email you once, then it clears/.test(rows.textContent));
-    const armedBell = [...rows.querySelectorAll('.wl-row')].find(function (r) {
-      return r.querySelector('.wl-tag').textContent === 'BTC';
-    }).querySelector('[data-wl-bell]');
-    check('...and the bell on that row shows its armed state', armedBell.classList.contains('is-on'));
+      /email you once, then it clears/.test(rows.querySelector('.wl-drawer').textContent));
+    check('a gold dot now marks the BTC card face (with sr-only text, not colour alone)',
+      !!cardFor('BTC').querySelector('.wl-dot') && /Price alert set/.test(cardFor('BTC').querySelector('.wl-dot').textContent));
+    check('...and no other card carries a dot', rows.querySelectorAll('.wl-dot').length === 1);
+    const armedBell = rows.querySelector('.wl-drawer [data-wl-bell]');
+    check('...and the bell in the drawer shows its armed state and the real target', armedBell.classList.contains('is-on') && /below/.test(armedBell.textContent), armedBell.textContent);
 
     // ---- Clearing it ----------------------------------------------------------------------
     console.log('\n3. Clear the alert');
@@ -249,19 +295,21 @@ async function main() {
     check('the alert is cleared and the modal closes', modal.hidden === true);
     check('...and no alert row survives — a cancelled alert never fired, so it is not kept as one',
       ((await admin.from('price_alerts').select('id').eq('client_id', clientId)).data || []).length === 0);
+    await pollUntil(function () { return !rows.querySelector('.wl-dot'); }, 30000);
+    check('the gold dot leaves the BTC face once the alert is cleared', !rows.querySelector('.wl-dot'));
 
     // ---- Remove a symbol ------------------------------------------------------------------
     console.log('\n4. Remove a symbol');
-    const nvdaRowEl = [...rows.querySelectorAll('.wl-row')].find(function (r) {
-      return r.querySelector('.wl-tag').textContent === 'NVDA';
-    });
-    nvdaRowEl.querySelector('[data-wl-remove]').click();
+    const nvdaRowEl = cardFor('NVDA');
+    nvdaRowEl.click();
+    rows.querySelector('.wl-drawer [data-wl-remove]').click();
     await pollUntil(function () { return rows.textContent.indexOf('NVDA') === -1; }, 30000);
-    check('the row disappears from the card', rows.textContent.indexOf('NVDA') === -1);
+    check('the card disappears from the grid', rows.textContent.indexOf('NVDA') === -1);
+    check('...and its drawer closes with it', !rows.querySelector('.wl-drawer'));
     check('...and is genuinely gone from Postgres',
       ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId).eq('symbol', 'NVDA')).data || []).length === 0);
-    check('the card is back to six real rows', rows.querySelectorAll('.wl-row').length === 6,
-      String(rows.querySelectorAll('.wl-row').length));
+    check('the grid is back to six real cards', rows.querySelectorAll('.wl-card').length === 6,
+      String(rows.querySelectorAll('.wl-card').length));
 
     // ---- The ceiling, surfaced where it is relevant --------------------------------------
     // The card no longer states the ceiling anywhere, by design. This is the one moment it
