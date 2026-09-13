@@ -85,85 +85,99 @@
           <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
         </div>
 
-        <!-- Top Stats Row -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <!-- ★ THE BUNDLED PORTFOLIO CARD (2026-09-13). The three summary cards (Total portfolio
+             value, Total return, Best performing class) and the separate "Portfolio value over
+             time" chart card became ONE glass card, per the approved bundled_card_v2 mockup:
+             a header (title, as-of indicator, CSV export), a three-cell band, then the chart
+             section under a rule — the chart now carrying a stepped, dashed capital-in
+             reference line derived from the ledger (deposits, withdrawals and transfers into
+             savings — see _shared/portfolio-overview.ts for exactly what counts and why), the
+             capital events as dots on the portfolio line, a three-row tooltip, and a period-
+             stats footer that recomputes with the range controls.
 
-          <!-- Total Portfolio Value - Prominent. Client Dashboard Visual Treatment
-               (2026-09-06): the dark navy gradient card became a light .glass card,
-               matching the restrained public-site language rather than a forked "dark
-               glass" variant — its own hero distinctiveness now comes from size
-               position, and text-3xl weight, not a color inversion. It is now one of three
-               .gradient-text was tried on the dollar figure itself and DELIBERATELY
-               REVERTED, per instruction to prioritize legibility over decorative
-               richness for a real financial figure: measured contrast at the gradient's
-               gold stop (#C8860A) against this card's light glass background comes out
-               to ~2.8:1, below WCAG's 4.5:1 minimum for text — a real, disclosed
-               legibility risk on this page's single most important number, not a
-               subjective taste call. Solid navy (matching every other card's own
-               dollar-figure treatment) is used instead. Every OTHER text color below was
-               still updated from white/white-on-navy to navy/slate for legibility on the
-               new light surface. -->
-          <div class="glass rounded-2xl p-6">
-            <p class="ret-k">Total portfolio value</p>
-            <p class="text-3xl font-semibold tracking-tight text-navy" id="tpv-amount"><span class="inline-block h-8 w-48 bg-slate-200 rounded animate-pulse"></span></p>
-            <div class="flex items-center gap-2 mt-3">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500" id="tpv-monthly-change">
-                <span class="inline-block h-4 w-20 bg-slate-200 rounded animate-pulse"></span>
-              </span>
-              <span class="text-sm text-slate-400">Updated just now</span>
+             Every id the earlier cards carried is kept (tpv-amount, tpv-monthly-change,
+             total-return-*, best-performing-*, po-*) — the existing suites and contrast
+             profiles read them by id. The value figure sits top-left of a full glass card,
+             exactly the sheen's failing case (row 204): the card carries .glass-lift and the
+             figure is measured with the sheen composited.
+
+             THE CHART SECTION NEVER RESTATES THE VALUE (2026-09-12) — the band's lead cell is
+             the one place on the page the figure appears. -->
+        <div class="glass glass-lift rounded-2xl mb-8" id="po-value-card">
+          <div class="po-hd">
+            <span class="po-title">Portfolio</span>
+            <div class="po-hr">
+              <span class="po-asof" id="po-asof"><i aria-hidden="true"></i>Updated just now</span>
+              <button type="button" class="mw-btn mw-btn-sm po-ib" id="po-export" title="Export value history (CSV)" aria-label="Export value history as CSV" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>
+              </button>
             </div>
           </div>
 
-          <!-- Total return — the point of this card is DISCLOSURE, not a new calculation.
-               The realised figure below is byte-for-byte the same realised-only number this
-               card used to show alone (still #asset-returns-amount, still
-               account_state.asset_returns, still never blended with anything). It simply no
-               longer stands on its own carrying a question it cannot answer: a client holding
-               well-performing positions for two years saw $0 here and had no way to tell that
-               was an accounting boundary rather than a portfolio that had done nothing.
-               .glass-subtle: a dense 3-card row, matching the calmer-sibling precedent. -->
-          <div class="glass-subtle rounded-2xl p-6">
-            <p class="ret-k">Total return</p>
-            <div class="ret-top">
-              <span class="ret-v" id="total-return-amount"><span class="inline-block h-7 w-24 bg-slate-200 rounded animate-pulse"></span></span>
-              <span id="total-return-pct"></span>
+          <div class="po-band">
+            <!-- (a) Total portfolio value. Solid navy, never gradient text (row 147: measured
+                 ~2.8:1 at the gold stop). Both horizons beneath it: since the first recorded
+                 month as a pill (withheld under the chart threshold, row 205), and this month
+                 as a figure (withheld when the month opened at $0 — the same bug on a shorter
+                 horizon — where it reads "New this month"). -->
+            <div class="po-cell po-lead">
+              <p class="ret-k">Total portfolio value</p>
+              <p class="ret-v" id="tpv-amount"><span class="inline-block h-9 w-56 bg-slate-200 rounded animate-pulse"></span></p>
+              <div class="po-x">
+                <span class="po-sub" id="po-change" hidden></span>
+                <span id="tpv-monthly-change"><span class="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse"></span></span>
+              </div>
             </div>
-            <p class="ret-sub" id="total-return-split">
-              <span class="inline-block h-4 w-48 bg-slate-200 rounded animate-pulse"></span>
-            </p>
+
+            <!-- (b) Total return — DISCLOSURE, not a new calculation: the realised figure is
+                 byte-for-byte account_state.asset_returns (still #asset-returns-amount) and is
+                 never blended with the unrealised one. The split bar shows their ratio by
+                 magnitude; the sparkline top-right is the RETURN series (value minus capital
+                 in) from the same snapshot anchors the chart draws, so it cannot climb on a
+                 deposit. -->
+            <div class="po-cell" id="po-return-cell">
+              <svg class="po-msp" id="po-spark" viewBox="0 0 70 26" preserveAspectRatio="none" aria-hidden="true" hidden></svg>
+              <p class="ret-k">Total return</p>
+              <div class="ret-top">
+                <span class="ret-v" id="total-return-amount"><span class="inline-block h-7 w-28 bg-slate-200 rounded animate-pulse"></span></span>
+                <span id="total-return-pct"></span>
+              </div>
+              <p class="ret-sub" id="total-return-split"><span class="inline-block h-4 w-44 bg-slate-200 rounded animate-pulse"></span></p>
+              <div class="po-split" id="po-split" hidden aria-hidden="true"><i class="is-u"></i><i class="is-r"></i></div>
+            </div>
+
+            <!-- (c) Best performing class — ONLY that: the class, its percentage as a pill,
+                 and "of N classes". The ranking that used to be proposed here duplicated the
+                 allocation pie. The figure was ALWAYS unrealised and says so in the markup so
+                 the word cannot go missing on an error path; the "Most resilient class ·
+                 every class is down" relabel for the all-negative case (row 205) stays. -->
+            <div class="po-cell">
+              <p class="ret-k" id="best-performing-label">Best performing class</p>
+              <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+              <p class="ret-sub" id="best-performing-return"><span class="inline-block h-4 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            </div>
           </div>
 
-          <!-- Best performing class. This figure was ALWAYS unrealised and, before row 130,
-               never said so; the word now sits permanently in the markup rather than being
-               appended by script, so it cannot go missing on an error path. -->
-          <div class="glass-subtle rounded-2xl p-6">
-            <p class="ret-k" id="best-performing-label">Best performing class</p>
-            <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="ret-sub" id="best-performing-return"><span class="inline-block h-4 w-28 bg-slate-200 rounded animate-pulse"></span></p>
-          </div>
-        </div>
-
-        <!-- ★ Portfolio overview (2026-09-12): the value chart with real monthly anchors,
-             every request awaiting PM review across every domain, and the savings-pocket
-             maturities — one real read of get-portfolio-overview, rendered by
-             portfolio-overview.js. The value figure here and the hero's Total portfolio value
-             above are the same server figure by construction (one computation); the hero
-             stays SHORT per row 185's asserted constraint, so the chart lives in its own card.
-             The chart replaces the new-client explanation only once 3 real stored anchors
-             exist (a line through two points is not a chart) — today every client sees the
-             explanation, because the table's scheduled writer shipped with this row. -->
-        <div class="glass glass-lift rounded-2xl p-6 mb-6" id="po-value-card">
-          <!-- No figure in this card, deliberately: the Total portfolio value card above
-               states it once. This card answers "how has it changed" (2026-09-12). -->
-          <div class="po-top">
-            <div>
-              <p class="ret-k">Portfolio value over time</p>
-              <div class="po-sub" id="po-change"><span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span></div>
+          <!-- Chart section. The chart replaces the new-client explanation only once 3 real
+               stored anchors exist (a line through two points is not a chart); the period
+               stats are suppressed under the threshold too — there is nothing to compute. -->
+          <div class="po-chart-sec">
+            <div class="po-ch-h">
+              <div class="po-ch-l">
+                <span class="ret-k po-ch-title">Value over time</span>
+                <div class="po-leg" id="po-legend" hidden>
+                  <span><i></i>Portfolio</span>
+                  <span><i class="is-dash"></i>Capital in</span>
+                  <span><i class="is-dot"></i>Deposit</span>
+                  <span id="po-legend-out" hidden><i class="is-dot-out"></i>Withdrawal / transfer out</span>
+                </div>
+              </div>
+              <div class="po-ranges hidden" id="po-ranges" role="group" aria-label="Chart range"></div>
             </div>
-            <div class="po-ranges hidden" id="po-ranges" role="group" aria-label="Chart range"></div>
+            <div class="po-chart hidden" id="po-chart-wrap"></div>
+            <div class="po-newc hidden" id="po-newc"></div>
+            <div class="po-pf" id="po-stats" hidden></div>
           </div>
-          <div class="po-chart hidden" id="po-chart-wrap"></div>
-          <div class="po-newc hidden" id="po-newc"></div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -523,7 +537,7 @@
       // ---- Total Portfolio Value ----
       var tpvEl = document.getElementById('tpv-amount');
       MarketswaveData.renderAsyncBundle(tpvEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-48', { height: 'h-8' }),
+        skeletonHTML: MarketswaveData.skeleton.text('w-56', { height: 'h-9' }),
         load: loadDashboardData,
         render: function (data) {
           // Motion UI Components (2026-09-08): a genuine "hero number reveal" — this fetch
@@ -744,7 +758,23 @@
           } else {
             totalReturnEl.textContent = signedUSD(r.total);
           }
-          totalReturnEl.className = 'ret-v';
+          // The figure carries the sign explicitly (signedUSD) and, in the bundled band,
+          // the gain/loss tone as well — never colour alone.
+          totalReturnEl.className = 'ret-v' + (r.total > 0 ? ' is-gain' : r.total < 0 ? ' is-loss' : '');
+
+          // The 4px split bar: unrealised against realised, by magnitude. Both at $0 means
+          // there is no ratio to show, so the bar stays hidden rather than painting a guess.
+          var splitEl = document.getElementById('po-split');
+          if (splitEl) {
+            var au = Math.abs(r.unrealized), ar = Math.abs(r.realized), tot = au + ar;
+            if (tot > 0) {
+              splitEl.children[0].style.width = ((au / tot) * 100).toFixed(1) + '%';
+              splitEl.children[1].style.width = ((ar / tot) * 100).toFixed(1) + '%';
+              splitEl.hidden = false;
+            } else {
+              splitEl.hidden = true;
+            }
+          }
 
           // No cost basis means no honest denominator — show no pill rather than a
           // fabricated 0%.
@@ -789,38 +819,23 @@
           // "Most resilient class" and says so, rather than hiding a real, honest figure.
           var allDown = pct < 0;
           document.getElementById('best-performing-label').textContent = allDown ? 'Most resilient class' : 'Best performing class';
+          // "of N classes" — N is the number of classes the client genuinely holds (a real
+          // cost basis), the same set the server picked the best from. ONLY that: a ranking
+          // here would duplicate the allocation pie below.
+          var held = (r.byClass || []).filter(function (c) { return c.costBasis > 0; }).length;
           bestClassReturnEl.className = 'ret-sub';
           bestClassReturnEl.innerHTML =
-            '<span class="ret-fig ret-u' + (allDown ? ' is-loss' : '') + '" style="font-weight:700">' +
+            '<span class="ret-pc ret-u' + (allDown ? ' is-loss' : ' is-gain') + '">' +
               signedPct(pct) +
-            '</span> unrealised' + (allDown ? ' · every class is down' : '');
+            '</span> unrealised' + (allDown ? ' · every class is down' : '') +
+            (held ? ' · of ' + held + (held === 1 ? ' class' : ' classes') : '');
         }
       });
 
-      // ---- Total Portfolio Value's "this month" change — a real per-client monthly anchor
-      // (get-portfolio-monthly-change, new this fix), a genuinely separate call from
-      // loadDashboardData() since it's its own real domain (portfolio_value_snapshots), not
-      // part of the account_state/holdings/products/transactions bundle above. ----
-      var monthlyChangeEl = document.getElementById('tpv-monthly-change');
-      MarketswaveData.renderAsyncBundle(monthlyChangeEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-20'),
-        load: function () {
-          return MarketswaveData.callFunction('get-portfolio-monthly-change');
-        },
-        render: function (result) {
-          if (result.changePercent === null) {
-            monthlyChangeEl.textContent = 'New this month';
-            monthlyChangeEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500';
-            return;
-          }
-          var isUp = result.changePercent > 0;
-          var isFlat = result.changePercent === 0;
-          var sign = isUp ? '+' : '';
-          monthlyChangeEl.textContent = sign + result.changePercent.toFixed(1) + '% this month';
-          monthlyChangeEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' +
-            (isFlat ? 'bg-slate-100 text-slate-500' : (isUp ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'));
-        }
-      });
+      // ---- "This month" (2026-09-13): folded into the bundled card's one overview read
+      // (get-portfolio-overview writes the current month's anchor for the caller's own read,
+      // the job get-portfolio-monthly-change used to do lazily). Rendered below with the
+      // rest of the card by portfolio-overview.js into #tpv-monthly-change. ----
 
       // ---- Risk Metrics: Cash Reserve + Allocation Utilization (Set Risk Profile is the
       // separate, purely-local read above). ----
@@ -920,18 +935,26 @@
       // helper (portfolio-overview.js) draws the chart, the pending list and the maturities;
       // a failed read shows one error card with Try Again across all three regions.
       var poChangeEl = document.getElementById('po-change');
+      var poThisMonthEl = document.getElementById('tpv-monthly-change');
       var poRangesEl = document.getElementById('po-ranges');
       var poChartWrap = document.getElementById('po-chart-wrap');
       var poNewcEl = document.getElementById('po-newc');
       var poPendingEl = document.getElementById('po-pending');
       var poMaturitiesEl = document.getElementById('po-maturities');
-      MarketswaveData.renderAsyncBundle([poChangeEl, poPendingEl, poMaturitiesEl], {
+      // The this-month span is the band's own dependency on this read: it is where the
+      // skeleton paints and, on a failed read, where the error card with Try Again lands.
+      MarketswaveData.renderAsyncBundle([poThisMonthEl, poPendingEl, poMaturitiesEl], {
         skeletonHTML: MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2'], { gap: 'space-y-3' }),
         load: function () { return MarketswaveData.callFunction('get-portfolio-overview'); },
         render: function (overview) {
           window.MarketswavePortfolioOverview.render(overview, {
-            changeEl: poChangeEl, rangesEl: poRangesEl, chartWrap: poChartWrap,
-            newcEl: poNewcEl, pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
+            changeEl: poChangeEl, thisMonthEl: poThisMonthEl,
+            sparkEl: document.getElementById('po-spark'),
+            legendEl: document.getElementById('po-legend'), legendOutEl: document.getElementById('po-legend-out'),
+            rangesEl: poRangesEl, chartWrap: poChartWrap, newcEl: poNewcEl,
+            statsEl: document.getElementById('po-stats'),
+            exportBtn: document.getElementById('po-export'), asOfEl: document.getElementById('po-asof'),
+            pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
           });
         }
       });

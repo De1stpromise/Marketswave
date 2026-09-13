@@ -1,6 +1,7 @@
 // ★ Portfolio overview (2026-09-12) — the ONE place the overview's figures are computed:
-// the value history, the cross-domain pending-request union, and the savings-pocket
-// maturity figures. Every one of them is server-side by design (row 185: asset-collection's
+// the value history (and, since the bundled card of 2026-09-13, the capital-in reference
+// series, per-anchor return, this-month change and per-range period stats), the
+// cross-domain pending-request union, and the savings-pocket maturity figures. Every one of them is server-side by design (row 185: asset-collection's
 // card badge is the last client-side money computation and no new one is added).
 //
 // portfolio_value_snapshots holds ONE row per client per calendar month — `month_start_date`
@@ -19,26 +20,157 @@ export const CHART_MIN_ANCHORS = 3;
 
 function round2(n: number): number { return Math.round(n * 100) / 100; }
 
+export interface ValuePoint {
+  date: string;          // the anchor's month_start_date (the point's x position)
+  value: number;         // value_at_anchor
+  capitalIn: number;     // net capital in as of the moment the anchor was RECORDED (see below)
+  return: number;        // value - capitalIn: the gap between the two chart lines at this point
+}
+export interface CapitalEvent {
+  date: string;                                        // the ledger row's created_at
+  kind: 'deposit' | 'withdrawal' | 'transfer_out';
+  amount: number;                                      // always positive; kind carries direction
+  cumulativeAfter: number;                             // net capital in once this row landed
+}
+export interface PeriodStats {
+  points: number;                                      // anchors in range + today
+  high: { date: string; value: number; live: boolean };
+  low: { date: string; value: number; live: boolean };
+  months: number;                                      // full anchor-to-anchor months in range
+  bestMonth: { month: string; percent: number } | null;
+  worstMonth: { month: string; percent: number } | null;
+}
 export interface ValueHistory {
   currentValue: number;
-  anchors: { date: string; value: number }[];      // oldest first, real stored rows only
+  anchors: ValuePoint[];                             // oldest first, real stored rows only
   anchorCount: number;
   chartReady: boolean;
   minAnchors: number;
   firstAnchor: { date: string; value: number } | null;
   changeSinceFirst: { amount: number; percent: number | null } | null;
+  thisMonth: { anchorValue: number; amount: number; percent: number | null } | null;
+  capitalIn: { current: number; events: CapitalEvent[] };
+  live: { date: string; value: number; capitalIn: number; return: number };
+  periodStats: Record<'3' | '6' | '12' | 'all', PeriodStats | null>;
   clientSince: string | null;
 }
 
-export async function valueHistory(admin: any, clientId: string): Promise<ValueHistory> {
-  const currentValue = round2(await computeTotalPortfolioValue(admin, clientId));
-  const { data: rows, error } = await admin
-    .from('portfolio_value_snapshots')
-    .select('month_start_date, value_at_anchor')
+// ---------------------------------------------------------------------------------------
+// ★ CAPITAL IN (2026-09-13) — the chart's dashed reference line, derived from the ledger.
+//
+// The portfolio line is computeTotalPortfolioValue(): unallocated + allocated + asset_returns.
+// It does NOT include savings pockets. "Capital in" is therefore the NET EXTERNAL CAPITAL
+// THAT HAS ENTERED THE PORTFOLIO THAT LINE MEASURES, and only three ledger types move it:
+//
+//   DEPOSIT          +total_value   external money credited to unallocated capital
+//   WITHDRAWAL       -total_value   external money paid out of unallocated capital
+//   HYS_TRANSFER_IN  -total_value   unallocated capital moved INTO a savings pocket — it leaves
+//                                   the measured portfolio, so it must leave this line too, or
+//                                   the gap would show a "loss" of exactly the transferred
+//                                   amount that never happened (a real staging client has
+//                                   DEPOSIT 100,000 then HYS_TRANSFER_IN 5,000: capital in
+//                                   must read 95,000)
+//   HYS_DEPOSIT / HYS_WITHDRAWAL     EXCLUDED: external money into / out of a pool the
+//                                   portfolio line never included (an external pocket deposit
+//                                   moves TPV by exactly nothing)
+//   BUY / SELL                       EXCLUDED: internal reallocations, TPV-conserving
+//
+// With that definition the gap is EXACTLY the return, by the engine's own accounting:
+//   unallocated = ΣDEPOSIT - ΣWITHDRAWAL - ΣHYS_TRANSFER_IN - Σbuy cost + Σsold cost portion
+//   allocated   = held cost basis + unrealised = (Σbuy cost - Σsold cost portion) + unrealised
+//   TPV - capitalIn = unrealised + asset_returns = get-returns-summary's `total`
+// The verification asserts that identity against the real functions, not just this comment.
+//
+// AS-OF TIME. An anchor's capitalIn is the sum of rows created BEFORE the anchor was RECORDED
+// (portfolio_value_snapshots.created_at), not before its label date: the lazy writer records
+// "the value now" under the 1st's label on a client's first visit of the month, so a deposit
+// credited on the 3rd is already inside a value labelled the 1st. Pairing that value with the
+// capital in as of the 1st would overstate the return at that point by the deposit.
+// ---------------------------------------------------------------------------------------
+const CAPITAL_IN_SIGN: Record<string, number> = { DEPOSIT: 1, WITHDRAWAL: -1, HYS_TRANSFER_IN: -1 };
+const EVENT_KIND: Record<string, CapitalEvent['kind']> = { DEPOSIT: 'deposit', WITHDRAWAL: 'withdrawal', HYS_TRANSFER_IN: 'transfer_out' };
+
+async function capitalInEvents(admin: any, clientId: string): Promise<CapitalEvent[]> {
+  const { data, error } = await admin
+    .from('transactions')
+    .select('type, total_value, created_at')
     .eq('client_id', clientId)
-    .order('month_start_date', { ascending: true });
-  if (error) throw new Error('Could not read portfolio_value_snapshots: ' + error.message);
-  const anchors = (rows || []).map((r: any) => ({ date: String(r.month_start_date), value: round2(Number(r.value_at_anchor)) }));
+    .in('type', Object.keys(CAPITAL_IN_SIGN))
+    .order('created_at', { ascending: true });
+  if (error) throw new Error('Could not read the ledger for capital in: ' + error.message);
+  let cum = 0;
+  const events: CapitalEvent[] = [];
+  for (const r of data || []) {
+    const amount = round2(Math.abs(Number(r.total_value)));
+    cum = round2(cum + CAPITAL_IN_SIGN[r.type] * amount);
+    events.push({ date: String(r.created_at), kind: EVENT_KIND[r.type], amount, cumulativeAfter: cum });
+  }
+  return events;
+}
+
+// Net capital in as of an instant: the cumulative after the last event strictly before it.
+function capitalInAsOf(events: CapitalEvent[], at: Date): number {
+  let cum = 0;
+  const t = at.getTime();
+  for (const e of events) {
+    if (new Date(e.date).getTime() < t) cum = e.cumulativeAfter; else break;
+  }
+  return cum;
+}
+
+// The range filter, shared with portfolio-overview.js's pointsFor(): an anchor is in an N-month
+// range when its label date is on or after today minus N months (same day of month).
+export function rangeCutoff(months: number, now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+}
+
+const RANGE_MONTHS: Record<'3' | '6' | '12' | 'all', number | null> = { '3': 3, '6': 6, '12': 12, all: null };
+
+// Period stats for one range: high and low over the points the chart shows for it (anchors in
+// range plus today's live value), and the best and worst FULL month. A month's figure is its
+// return NET OF CAPITAL FLOWS on the month's opening value — (V1 - V0 - flow) / V0 — so a month
+// that grew only because a deposit landed does not read as the best month on the very card
+// whose reference line exists to make that distinction. A month opening at $0 has no rate and
+// is skipped; the partial current month (last anchor to today) is not a month and is excluded.
+function periodStatsFor(points: ValuePoint[], live: ValueHistory['live']): PeriodStats | null {
+  if (points.length === 0) return null;
+  const all = points.map((p) => ({ date: p.date, value: p.value, live: false })).concat([{ date: live.date, value: live.value, live: true }]);
+  let high = all[0], low = all[0];
+  for (const p of all) { if (p.value > high.value) high = p; if (p.value < low.value) low = p; }
+  let best: PeriodStats['bestMonth'] = null, worst: PeriodStats['worstMonth'] = null, months = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1];
+    // Only consecutive calendar months are "a month": a gap (a missing anchor) is skipped.
+    const da = new Date(a.date + 'T00:00:00Z'), db = new Date(b.date + 'T00:00:00Z');
+    const consecutive = (db.getUTCFullYear() * 12 + db.getUTCMonth()) - (da.getUTCFullYear() * 12 + da.getUTCMonth()) === 1;
+    if (!consecutive || a.value <= 0) continue;
+    months++;
+    const flow = round2(b.capitalIn - a.capitalIn);
+    const percent = Math.round(((b.value - a.value - flow) / a.value) * 10000) / 100;
+    const month = a.date.slice(0, 7);
+    if (best === null || percent > best.percent) best = { month, percent };
+    if (worst === null || percent < worst.percent) worst = { month, percent };
+  }
+  return { points: all.length, high, low, months, bestMonth: best, worstMonth: worst };
+}
+
+export async function valueHistory(admin: any, clientId: string, opts?: { now?: Date }): Promise<ValueHistory> {
+  const now = opts && opts.now ? opts.now : new Date();
+  const currentValue = round2(await computeTotalPortfolioValue(admin, clientId));
+  const [snap, events] = await Promise.all([
+    admin
+      .from('portfolio_value_snapshots')
+      .select('month_start_date, value_at_anchor, created_at')
+      .eq('client_id', clientId)
+      .order('month_start_date', { ascending: true }),
+    capitalInEvents(admin, clientId)
+  ]);
+  if (snap.error) throw new Error('Could not read portfolio_value_snapshots: ' + snap.error.message);
+  const anchors: ValuePoint[] = (snap.data || []).map((r: any) => {
+    const value = round2(Number(r.value_at_anchor));
+    const capitalIn = capitalInAsOf(events, new Date(r.created_at));
+    return { date: String(r.month_start_date), value, capitalIn, return: round2(value - capitalIn) };
+  });
   const { data: client } = await admin.from('clients').select('created_at').eq('id', clientId).maybeSingle();
   const first = anchors.length ? anchors[0] : null;
   const chartReady = anchors.length >= CHART_MIN_ANCHORS;
@@ -51,14 +183,46 @@ export async function valueHistory(admin: any, clientId: string): Promise<ValueH
   const change = chartReady && first
     ? { amount: round2(currentValue - first.value), percent: first.value > 0 ? Math.round(((currentValue - first.value) / first.value) * 10000) / 100 : null }
     : null;
+
+  // THIS MONTH: the current month's anchor against the live value — the horizon the old
+  // get-portfolio-monthly-change badge answered, folded into the one overview read. Same rule
+  // as that function: a $0 anchor with money now is "new this month" (percent null — and the
+  // AMOUNT is withheld too, since "+$94,874 this month" is the row-205 bug on a shorter
+  // horizon); a $0 anchor with $0 now is a flat 0%. No anchor row yet means null.
+  const thisMonthRow = anchors.find((a) => a.date === monthStartIso(now)) || null;
+  const thisMonth = thisMonthRow
+    ? (thisMonthRow.value > 0
+      ? { anchorValue: thisMonthRow.value, amount: round2(currentValue - thisMonthRow.value), percent: Math.round(((currentValue - thisMonthRow.value) / thisMonthRow.value) * 10000) / 100 }
+      : (currentValue === 0 ? { anchorValue: 0, amount: 0, percent: 0 } : { anchorValue: 0, amount: round2(currentValue), percent: null }))
+    : null;
+
+  const capitalInNow = events.length ? events[events.length - 1].cumulativeAfter : 0;
+  const live = { date: now.toISOString().slice(0, 10), value: currentValue, capitalIn: capitalInNow, return: round2(currentValue - capitalInNow) };
+
+  // Period stats per range, computed only once the chart itself is shown — below the threshold
+  // there is nothing to compute, and the card says so instead (brief point 4).
+  const periodStats: ValueHistory['periodStats'] = { '3': null, '6': null, '12': null, all: null };
+  if (chartReady) {
+    for (const key of Object.keys(RANGE_MONTHS) as Array<keyof typeof RANGE_MONTHS>) {
+      const months = RANGE_MONTHS[key];
+      const pts = months === null ? anchors : anchors.filter((a) => new Date(a.date + 'T00:00:00Z') >= rangeCutoff(months, now));
+      // A range with fewer than two anchors is disabled on the page; no stats for it either.
+      periodStats[key] = pts.length >= 2 ? periodStatsFor(pts, live) : null;
+    }
+  }
+
   return {
     currentValue,
     anchors,
     anchorCount: anchors.length,
     chartReady,
     minAnchors: CHART_MIN_ANCHORS,
-    firstAnchor: first,
+    firstAnchor: first ? { date: first.date, value: first.value } : null,
     changeSinceFirst: change,
+    thisMonth,
+    capitalIn: { current: capitalInNow, events },
+    live,
+    periodStats,
     clientSince: client && client.created_at ? String(client.created_at) : null
   };
 }

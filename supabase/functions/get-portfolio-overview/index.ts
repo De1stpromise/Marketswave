@@ -1,6 +1,8 @@
 // ★ Portfolio overview (2026-09-12) — one read for dashboard.html's overview row: the value
-// history (real monthly anchors from portfolio_value_snapshots plus the live current value),
-// every request of every type awaiting PM review, and the savings-pocket maturities. Every
+// history (real monthly anchors from portfolio_value_snapshots plus the live current value —
+// and, since the bundled card of 2026-09-13, the capital-in reference series from the ledger,
+// the this-month change and per-range period stats), every request of every type awaiting PM
+// review, and the savings-pocket maturities. Every
 // figure is computed in _shared/portfolio-overview.ts; nothing here is a client-side money
 // computation (row 185).
 //
@@ -9,7 +11,7 @@
 // getUser()).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { valueHistory, pendingRequests, pocketMaturities } from '../_shared/portfolio-overview.ts';
+import { valueHistory, pendingRequests, pocketMaturities, writeMonthAnchor, monthStartIso } from '../_shared/portfolio-overview.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,6 +44,19 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    // ★ Bundled card (2026-09-13): the band's "this month" figure needs the current month's
+    // anchor, which get-portfolio-monthly-change used to write lazily on a client's first
+    // dashboard visit of the month. That lazy write now happens here — but ONLY for the
+    // caller's OWN read. Row 130's reason for keeping it out of get-total-portfolio-value
+    // holds for this function too: an admin browsing a client's overview must never set that
+    // client's real monthly anchor as a side effect of looking. The scheduled run
+    // (snapshot-portfolio-values) covers every client regardless; this is the first-visit
+    // gap-filler, idempotent on the same unique index.
+    if (targetClientId === callerId) {
+      await writeMonthAnchor(admin, callerId, monthStartIso(new Date()));
+    }
+
     const [history, pending, maturities] = await Promise.all([
       valueHistory(admin, targetClientId),
       pendingRequests(admin, targetClientId),
