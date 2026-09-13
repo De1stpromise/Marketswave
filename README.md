@@ -1844,6 +1844,53 @@ pg_cron jobs while it runs so a scheduled refresh cannot land mid-measurement):
 npm run verify-round-robin-refresh
 ```
 
+### ★ Asset logos (2026-09-13) — the backfill, and what to run when a mark is wrong
+
+Every asset name on the dashboard, the catalog, the holdings table, the admin catalog and a
+fund document carries one circular mark: a real logo where a provider has one, a
+deterministic monogram where none does. The bytes are resolved ONCE, server-side, and stored
+in this project's own public `asset-logos` bucket; the record keeps a storage PATH and the
+page prefixes its own project origin. A dashboard load makes zero provider requests.
+
+New rows resolve their mark at creation (`add-product`, `add-watchlist-symbol`). Rows that
+predate the feature need the one-time backfill, run as a PM against the environment whose
+rows you mean — it is admin-only and RESUMABLE:
+
+```js
+// as a signed-in PM (local: pm@marketswave.local; staging: the real staging PM)
+const { data } = await supabase.functions.invoke('resolve-asset-logos', { body: { action: 'backfill', limit: 10 } });
+// → { symbols: [{ symbol, outcome: 'kept'|'resolved'|'monogram'|'rate-limited'|'error', logoUrl }], processed, remaining }
+// call again until remaining === 0  (coins are paced at 5s each; a CoinGecko 429 reports
+// 'rate-limited' and is simply left for the next call — never an Elbstream fallback)
+```
+
+`{ action: 'backfill', force: true, symbols: ['ETH', 'SOL'] }` re-resolves exactly those
+rows (a PM-typed absolute URL is never overwritten). With `force`, `remaining` never reaches
+0 by construction — pass the exact symbols you mean and stop.
+
+**When a mark looks wrong, diagnose before assuming a provider has nothing:**
+
+```js
+await supabase.functions.invoke('resolve-asset-logos', { body: { action: 'diagnose', kind: 'crypto', symbol: 'ETH', coingeckoId: 'ethereum' } });
+// → every provider in the chain, in order, with the URL it offered and what it answered
+```
+
+That is how the one real staging-only finding surfaced: CoinGecko's `/coins/{id}` answers
+HTTP 403 (a Cloudflare block page) to Supabase's edge egress while `/coins/markets` — the
+endpoint the resolver uses now — answers normally; from a home IP both work, so the local
+backfill never showed it.
+
+The provider chain lives in `supabase/functions/_shared/asset-logos.ts` (`PROVIDERS`):
+CoinGecko for coins, Elbstream for everything, Brandfetch's Logo API only when
+`BRANDFETCH_API_KEY` detects as a public Logo API client id — a Brand API key (100 lifetime
+requests) is detected and kept out of the chain. Elbstream's terms want the "Logos provided
+by Elbstream" line (≥12pt) on every page that shows one; every integrated page carries it.
+
+Checks: `npm run supabase-verify-asset-logos` (backend), `npm run
+verify-asset-logos-ui-wiring` (the real pages in jsdom), `npm run verify-asset-logos-visual`
+(real Chrome: decoded logos, the broken-image fallback, centring at four sizes, contrast
+under the sheen, 320/375/390 — `AL_SHOTS=<dir>` also saves screenshots for a human look).
+
 ### ★ Crypto deposit routing (2026-09-11) — the address book and what a PM must do first
 
 A crypto deposit request no longer carries an amount. What it carries is WHICH address the

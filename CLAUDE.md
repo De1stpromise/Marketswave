@@ -9096,6 +9096,125 @@ row 74.
   once by email and clears); `audit-glass-sheen` on `dashboard.html` 16 measured, 0 below;
   stylesheet coverage, Tailwind scoping PASS.
 
+- **★★ Asset logos — one circular well wherever an asset is named, a real logo where a
+  provider has one, a deterministic monogram where none does (2026-09-13, row 207).** Built
+  against the approved `asset_logos.html` mockup. Catalog cards (every product, Private
+  Equity and Real Assets included), the watchlist face and drawer, the Return Table and
+  closed positions (the 3px class swatch is gone; the class still reads in words), the admin
+  catalog list and the fund-document hero all render `AssetMark.html()` from the new shared
+  `asset-mark.js` / `asset-mark.css`. The bytes are resolved ONCE, server-side, through a
+  provider chain, stored in this project's own public `asset-logos` bucket, and the record
+  keeps a storage PATH — a dashboard load makes zero provider requests.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE INVESTIGATION THAT DECIDED THE PROVIDER, and the two Brandfetch products that are
+    easy to confuse.** Brandfetch has a **Logo API** (`cdn.brandfetch.io/{ticker|crypto}/X?c=
+    CLIENT_ID` — a PUBLIC client id, no attribution, free to ~1M/month) and a **Brand API**
+    (`api.brandfetch.io/v2/brands/ticker/X` — a SECRET bearer key, **100 lifetime free
+    requests**, then $99/month). Measured against the REAL catalog rather than household
+    names, the Logo API covered **2 of 29** (SPY, BTC — AAPL answered 200): its index is
+    company brands and 21 of the 29 products are FUNDS. Elbstream answered **21/21 ETFs and
+    8/8 coins**, with a genuine 404 for an unknown symbol, keyless; it returns the ISSUER's
+    mark for an ETF (SPDR/State Street for SPY/XLF/GLD, Vanguard for VGK, iShares for TLT —
+    what every brokerage shows), and its terms want "Logos provided by Elbstream" at ≥12pt on
+    every page showing one (`.asset-logo-credit`, 16px, on each integrated page). Ticker
+    Logos was rejected (wrong ETF mapping); LogoKit could not be tested (403 without a
+    token). `BRANDFETCH_API_KEY` on staging was FIRST the Logo API client id, then replaced
+    with a Brand API key — the opposite of the intent. The chain detects which it holds
+    (`detectCredential()`) and keeps a Brand API key OUT of the resolve path: spending
+    lifetime quota per resolve would be wrong. **For an equity-heavy catalog (Apple, Tesla,
+    Nvidia) the Logo API is the better provider — the correct client id is the value that was
+    originally set before it was replaced; setting it back enables that provider with no code
+    change.**
+  - **★ THE CHAIN IS PROVIDER-AGNOSTIC — add a source as one entry in `PROVIDERS`** in
+    `_shared/asset-logos.ts`, never a hardcoded URL elsewhere. Order: CoinGecko (crypto only,
+    the coin's own 250px image), Elbstream (everything), Brandfetch Logo API (only when the
+    secret detects as a client id). First real image wins; none means the record stores NULL
+    and the page renders the monogram — never a placeholder URL. `resolve-asset-logos`
+    (admin-only) has a `diagnose` action that walks every provider for one symbol and reports
+    what each answered — use it before assuming a provider "has nothing".
+  - **★ CoinGecko `/coins/{id}` ANSWERS HTTP 403 TO SUPABASE'S EDGE EGRESS on real staging** —
+    a Cloudflare HTML block page — while `/coins/markets` (the same family the price refresh
+    uses) answers normally; from a home IP both work, which is why the local backfill never
+    showed it and the first staging backfill silently resolved every coin through Elbstream
+    at 128px. `coingeckoImage()` uses `/coins/markets?ids=` first. A CoinGecko **429** is
+    `ProviderRateLimited` — "try later", NEVER an Elbstream fallback (the first local backfill
+    tripped it on the eighth coin and quietly left Elbstream marks on coins CoinGecko covers).
+    The backfill paces coins at 5s and is RESUMABLE: `{ action:'backfill', limit, symbols,
+    force }` → `{ processed, remaining }`; call until `remaining` is 0. With `force` and a
+    `symbols` list, `remaining` never reaches 0 by construction (the same first `limit`
+    symbols re-resolve every call) — pass the exact symbols you mean.
+  - **★ A STORED `logo_url` IS A PATH, NOT A URL** (`/storage/v1/object/public/asset-logos/
+    <kind>/<SYMBOL>.<ext>`), because the function's own `SUPABASE_URL` is the stack-internal
+    address locally (`http://kong:8000`) and the public one on staging — the same finding
+    fund documents recorded for signed URLs. `supabase-data.js` calls
+    `AssetMark.configure({ storageBase })` with the resolved client's own `supabaseUrl` the
+    moment either client (client-facing or admin) resolves; a PM-typed absolute URL is used
+    as-is. In a jsdom harness each page window is its own copy of asset-mark.js and must be
+    configured per window (see `verify-asset-logos-ui-wiring`'s `loadAssetMark()`).
+  - **The refresh upsert never clobbers a stored `logo_url`** — its payload does not carry
+    the column and PostgREST only SETs the columns present; asserted, not assumed.
+    `add-product` and `add-watchlist-symbol` resolve at creation, best-effort (a product or
+    symbol is still created without its mark). `get-watchlist` and `get-product-document`
+    expose `logoUrl`.
+  - **THE MONOGRAM TEXT.** A ticker wins (SPY, VGK, NVDA; capped at 4). A fund with no ticker
+    takes INITIALS FROM ITS NAME: articles/connectives (the, of, and, a, an, for, in, on, &)
+    always dropped; generic vehicle words (fund, trust, partners, holdings, group, capital,
+    inc, llc, ltd, plc, corp, co, etf, shares, index, lp) dropped ONLY when three characters
+    remain without them — so "Nordic Growth Fund" → NGF (the brief's own example) and
+    "Global Infrastructure Partners" → GIP, while "European Real Estate Trust" → ERE; a word
+    of letters gives its first letter, an all-digit word its whole number ("Real Estate Fund
+    3" → RE3), capped at 4; a one-word name takes three letters ("Meridian" → MER, "The Fund"
+    → FUN); fewer than two characters falls back to the raw name's first three letters/digits;
+    nothing renders empty ("" → "?"). Roman numerals are ordinary words (NGF III → NGI).
+    **The hue is FNV-1a of the monogram TEXT mod 7** — not the product id — so a mark never
+    re-rolls and the watchlist's SPY and the catalog's SPY agree.
+  - **★ EVERY GRADIENT STOP IS DARKER THAN THE MOCKUP'S, and the well sits ABOVE the sheen.**
+    White bold text at 7–15px is antialiased hard; measured against white the mockup's gold
+    was 3.06:1 and its green/blue 4.3:1 before that even started. Every light stop in
+    `asset-mark.css` computes ≥ 6.4:1. Then, measured on a plain `.glass` card WITHOUT
+    `.glass-lift`, monograms under the sheen's brightest part read **2.08:1 (rust) and 2.84:1
+    (teal)** — so `.mk` carries `position:relative; z-index:1`, scoped to the card's own
+    stacking context (its backdrop-filter creates one), never above a modal or the sidebar.
+    Re-measured: 16/16 under the sheen pass, lowest 7.23:1. Do not remove either.
+  - **Typography per the mockup, with one clarification**: line-height 1 (the em box IS the
+    label box, so the vertical centre holds), the well's font-size is the em base (l 15.2 /
+    m 13 / s 11.4 / xs 9.8 = the mockup's 3-char sizes ÷ 0.92) and the label steps down —
+    3 chars 92%, 4 chars 76% with −.045em tracking. Measured: |dx| ≤ 1, |dy| ≤ 1.5, glyphs
+    ≥ 12% of the well clear of the circle, at every size and length.
+  - **A failed image is one document-level capture listener**, not per-page wiring: an
+    `<img>` error inside any `.mk` swaps the well to the monogram carried on its own
+    `data-mk-mono`/`data-mk-hue` attributes. Images are EAGER — a lazy well would sit empty
+    until scrolled into view, which is the gap the brief rules out.
+  - **Deliberately NOT given a mark, stated rather than implied**: the transactions ledger,
+    the pending-request panels, My Requests, the admin queue rows — rows about an EVENT where
+    the asset is a field, not surfaces about the asset. Search results in the watchlist's add
+    panel likewise (transient suggestions, no `logoUrl` until added). Extend
+    `AssetMark.html()` to any of them later if wanted; nothing else is needed.
+  - **`.wl-head` already existed** on the watchlist card as the card's header — the new
+    per-card row is `.wl-card-head` / `.wl-card-id`. The watchlist skeleton now paints a
+    round placeholder beside two lines; `verify-watchlist-ui-wiring`'s `cardFor()` reads
+    `.wl-card[data-wl-card]` only, since a reload paints skeleton `.wl-card`s with no ticker.
+  **Verified**: `supabase-verify-asset-logos` **24/24** (401/403; the bucket public to read,
+  closed to client uploads and deletes; the resumable backfill contract; a symbol nobody
+  has staying null; diagnose walking the chain; add-watchlist-symbol and add-product
+  resolving at creation; the refresh upsert leaving `logo_url` alone);
+  `verify-asset-logos-ui-wiring` **57/57** (the initials rule clause by clause, ticker
+  precedence, hue spread, escaping, the configure hand-off, every catalog card carrying one
+  well, NGF on the catalog / holdings / admin with the same hue, a real `error` event
+  swapping a real catalog well); `verify-asset-logos-visual` **102/102** (real decoded
+  logos for 29 real symbols, a REAL broken storage path falling back in the real render
+  path, centring and step-down at 4 sizes × 3 lengths, contrast on every page and under the
+  sheen, Inter only, 390/375 + a real 320px iframe). Existing suites through the new markup:
+  `verify-watchlist-ui-wiring` 74/74, `verify-watchlist-visual` 84/84,
+  `verify-asset-pages-ui-wiring` 36/36, `verify-products-catalog-fix` 37/37,
+  `verify-live-pricing-ui-wiring` 37/37, `verify-live-pricing-visual` 36/36,
+  `verify-fund-document-ui-wiring` 55/55, `verify-fund-document-visual` 48/48,
+  `verify-returns-display` 105/105, `verify-returns-display-visual` 148/148,
+  `verify-dashboard-market-currency-ui` 10/10; stylesheet coverage (asset-mark.css
+  registered), Tailwind scoping PASS. Migration + 8 functions on real cloud staging, parity
+  clean; the staging backfill run as the staging PM: 29/29 products carry a stored mark, the
+  8 coins re-resolved to CoinGecko's 250px images after the 403 finding.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
