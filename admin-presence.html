@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Who's on the site — Marketswave PM Tool</title>
+  <!-- ★ Visitor presence (2026-09-13, register row 209). Live visitors and a rolling 30-day
+       history — region and journey, never identity — with a PM able to open a real inbox
+       conversation with someone browsing. One read (get-visitor-presence) per tab plus
+       Supabase Realtime on visitor_sessions for live changes; the etiquette (30 seconds
+       before a first message, one invitation per session) is shown here with the same
+       reasons the server refuses with, and enforced there, not here. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="responsive-tables.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    .tab-pill { cursor: pointer; user-select: none; }
+    .tab-pill.is-active { background: #1E293B; color: #fff; border-color: #1E293B; }
+    .tab-pill.is-active .tab-n { background: rgba(255,255,255,.2); color: #fff; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 7px rgba(34,197,94,.7); animation: presence-pulse 2s ease-in-out infinite; }
+    @keyframes presence-pulse { 50% { opacity: .35; } }
+    @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+    .av { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: #334155; position: relative; }
+    .av.is-anon { background: linear-gradient(135deg, #94A3B8, #64748B); }
+    .av .on { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: #22C55E; border: 2px solid #fff; }
+    .tagc { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; margin-left: 7px; vertical-align: middle; }
+    .flagbox { width: 22px; height: 16px; border-radius: 3px; background: #E2E8F0; font-size: 9px; font-weight: 700; color: #475569; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .trail { font-size: 10.5px; color: #64748B; margin-top: 3px; display: flex; align-items: center; gap: 5px; overflow-wrap: anywhere; }
+    .trail svg { width: 9px; height: 9px; flex-shrink: 0; }
+    .snip { height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid #E2E8F0; background: #fff; color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8 shrink-0">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+        <div class="flex items-center gap-4">
+          <p class="text-xs text-slate-500" id="realtime-status">Connecting…</p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <div class="blob blob--sm blob--gold" style="top:-60px; right:-80px;" aria-hidden="true"></div>
+
+        <div class="flex items-end justify-between gap-4 mb-5 flex-wrap relative">
+          <div>
+            <h2 class="text-xl font-bold tracking-tight text-slate-900">Who's on the site</h2>
+            <p class="text-sm text-slate-600 mt-1">Live visitors and recent sessions. No personal identifiers are stored.</p>
+          </div>
+          <span class="inline-flex items-center gap-2 text-xs font-semibold text-green-800 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full num" id="live-pill"><i class="live-dot" aria-hidden="true"></i><span id="live-pill-text">Loading…</span></span>
+        </div>
+
+        <!-- Browser notifications: asked for HERE, with the reason, never on admin load. -->
+        <div id="notif-block" class="glass-subtle rounded-xl p-4 mb-5 flex items-center justify-between gap-4 flex-wrap relative">
+          <div class="text-sm text-slate-700" id="notif-copy">
+            <b class="font-semibold text-slate-900">Browser notifications.</b> With these on, you'll get a desktop notification each time a visitor arrives — while the PM tool is open in any tab. Nothing personal is included: just the page and the location.
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" id="notif-enable" class="mw-btn mw-btn-admin mw-btn-sm">Turn on notifications</button>
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer" id="mute-label">
+              <input type="checkbox" id="mute-toggle" class="h-4 w-4 rounded border-slate-300">
+              Mute arrivals
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 relative" id="stat-strip">
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">On the site now</p><p class="text-2xl font-bold tracking-tight num" id="st-live">—</p><p class="text-[10.5px] text-slate-600 mt-1" id="st-live-x"></p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Sessions today</p><p class="text-2xl font-bold tracking-tight num" id="st-today">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-today-x"></p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Median time on site</p><p class="text-2xl font-bold tracking-tight num" id="st-median">—</p><p class="text-[10.5px] text-slate-600 mt-1">across today</p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Most viewed page</p><p class="text-lg font-bold tracking-tight num truncate" id="st-page">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-page-x"></p></div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5 mb-4 relative" id="tabs" role="tablist">
+          <button type="button" class="tab-pill mw-btn mw-btn-sm is-active border border-slate-200 bg-white text-slate-600" data-tab="live" role="tab" aria-selected="true">Live <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="live">0</span></button>
+          <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="today" role="tab" aria-selected="false">Today <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="today">0</span></button>
+          <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="week" role="tab" aria-selected="false">Last 7 days <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="week">0</span></button>
+          <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="clients" role="tab" aria-selected="false">Clients only <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="clients">0</span></button>
+        </div>
+
+        <!-- .glass-lift: the first column heading sits in the sheen corner (row 204). -->
+        <div class="glass glass-lift rounded-2xl relative overflow-hidden" id="presence-panel">
+          <div id="presence-list" class="overflow-x-auto"></div>
+          <div class="flex items-center justify-between px-5 py-3 border-t border-slate-100 text-[11.5px] text-slate-600 flex-wrap gap-2" id="presence-foot">
+            <span>Sessions are kept for <b class="font-semibold text-slate-700">30 days</b>, then deleted automatically. IP addresses are used to derive location and are never stored.</span>
+            <span class="num"><b class="font-semibold text-slate-700" id="foot-live">0</b> live · <b class="font-semibold text-slate-700" id="foot-today">0</b> today</span>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Proactive chat compose -->
+  <div id="message-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="message-modal-title">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center gap-3 mb-1">
+        <span class="av is-anon" id="mm-avatar" style="width:30px;height:30px;font-size:10px">?</span>
+        <h3 class="text-sm font-semibold text-slate-900" id="message-modal-title">Message this visitor</h3>
+      </div>
+      <p class="text-xs text-slate-600 mb-3.5">They'll see your message appear in the chat widget. If they don't reply, you won't be able to message them again this session.</p>
+      <div class="flex gap-4 px-3 py-2.5 bg-slate-50 rounded-lg mb-3.5 flex-wrap text-[11px] text-slate-600" id="mm-context">
+        <div>On page<b class="block text-xs text-slate-900 font-semibold mt-0.5 num" id="mm-page">—</b></div>
+        <div>Time on site<b class="block text-xs text-slate-900 font-semibold mt-0.5 num" id="mm-time">—</b></div>
+        <div>Location<b class="block text-xs text-slate-900 font-semibold mt-0.5" id="mm-loc">—</b></div>
+        <div>Visit<b class="block text-xs text-slate-900 font-semibold mt-0.5 num" id="mm-visit">—</b></div>
+      </div>
+      <div class="flex gap-1.5 mb-2.5 flex-wrap" id="mm-snips">
+        <button type="button" class="snip" data-snip="help">Offer help</button>
+        <button type="button" class="snip" data-snip="goals">Ask about their goals</button>
+        <button type="button" class="snip" data-snip="minimums">Explain minimums</button>
+      </div>
+      <div class="mw-fld mw-fld--admin">
+        <textarea id="mm-text" class="mw-field mw-field-admin" rows="3" placeholder="Write a short, relevant message"></textarea>
+        <label for="mm-text">Your message</label>
+      </div>
+      <p class="text-xs text-red-600 mt-2 hidden" id="mm-error"></p>
+      <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
+        <span class="text-[10.5px] text-slate-600 flex-1 min-w-[12rem]" id="mm-rule">One invitation per session.</span>
+        <div class="flex gap-2">
+          <button type="button" id="mm-cancel" class="mw-btn mw-btn-outline mw-btn-sm">Cancel</button>
+          <button type="button" id="mm-send" class="mw-btn mw-btn-admin mw-btn-sm">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+    <p class="font-medium text-sm" id="admin-toast-title">Done</p>
+    <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="engine-core.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="responsive-tables.js"></script>
+  <script>
+    initAdminSidebar('presence');
+  </script>
+
+  <script>
+    // Visitor presence (2026-09-13). One read per tab (get-visitor-presence) plus Realtime
+    // on visitor_sessions for live changes; a 5-second re-derivation of "live" and the
+    // 30-second countdown so a row that stops heartbeating drops out without a reload.
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
+
+      var toast = document.getElementById('admin-toast');
+      var toastTimer;
+      function showToast(title, body, isError) {
+        document.getElementById('admin-toast-title').textContent = title;
+        document.getElementById('admin-toast-body').textContent = body;
+        toast.classList.toggle('bg-red-700', !!isError);
+        toast.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
+      }
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+      function fmtDur(sec) { sec = Math.max(0, Math.round(sec)); var m = Math.floor(sec / 60), s = sec % 60; return m + 'm ' + (s < 10 ? '0' : '') + s + 's'; }
+      function initials(name) { return (name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join('') || '?'; }
+      function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+      var ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      var DESKTOP = '<svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+      var PHONE = '<svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>';
+
+      var state = { tab: 'live', data: null, rules: { liveWindowSeconds: 45, minSecondsBeforeMessage: 30 }, asOfLocal: Date.now() };
+      var listEl = document.getElementById('presence-list');
+
+      function describeVisitor(s) {
+        if (s.clientName) return { name: s.clientName, sub: 'Signed in', tag: '<span class="tagc bg-blue-100 text-blue-800">Client</span>', anon: false };
+        var sub = s.visitNumber >= 2 ? 'Returning · ' + ordinal(s.visitNumber) + ' visit' : 'First visit';
+        return { name: 'Visitor', sub: sub, tag: '<span class="tagc bg-slate-100 text-slate-600">Anonymous</span>', anon: true };
+      }
+      function liveNow(s) {
+        // Re-derived locally from the server's lastSeenAt against the clock since the read.
+        if (s.endedAt) return false;
+        var elapsed = (Date.now() - state.asOfLocal) / 1000;
+        var age = (new Date(state.data.asOf).getTime() - new Date(s.lastSeenAt).getTime()) / 1000 + elapsed;
+        return age <= state.rules.liveWindowSeconds;
+      }
+      function ageNow(s) { return s.ageSeconds + (Date.now() - state.asOfLocal) / 1000; }
+      function durationNow(s) { return liveNow(s) ? s.durationSeconds + (Date.now() - state.asOfLocal) / 1000 : s.durationSeconds; }
+
+      function render() {
+        var d = state.data;
+        if (!d) return;
+        var sessions = d.sessions.slice();
+        if (state.tab === 'live') sessions = sessions.filter(liveNow);
+        var liveCount = state.tab === 'live' ? sessions.length : d.counts.live;
+        document.getElementById('live-pill-text').textContent = liveCount + ' on the site now';
+        document.getElementById('st-live').textContent = String(d.stats.liveNow);
+        document.getElementById('st-live-x').textContent = d.stats.liveClients + (d.stats.liveClients === 1 ? ' client' : ' clients') + ' · ' + d.stats.liveAnonymous + ' anonymous';
+        document.getElementById('st-today').textContent = String(d.stats.sessionsToday);
+        var delta = d.stats.sessionsToday - d.stats.sessionsYesterday;
+        document.getElementById('st-today-x').textContent = (delta >= 0 ? '↑ ' : '↓ ') + Math.abs(delta) + ' vs yesterday';
+        document.getElementById('st-median').textContent = d.stats.medianSecondsToday === null ? '—' : fmtDur(d.stats.medianSecondsToday);
+        document.getElementById('st-page').textContent = d.stats.mostViewedToday ? d.stats.mostViewedToday.path : '—';
+        document.getElementById('st-page-x').textContent = d.stats.mostViewedToday ? d.stats.mostViewedToday.sessions + (d.stats.mostViewedToday.sessions === 1 ? ' session today' : ' sessions today') : 'no sessions yet today';
+        ['live', 'today', 'week', 'clients'].forEach(function (k) { document.querySelector('[data-count="' + k + '"]').textContent = String(k === 'live' ? d.stats.liveNow : d.counts[k]); });
+        document.getElementById('foot-live').textContent = String(d.stats.liveNow);
+        document.getElementById('foot-today').textContent = String(d.stats.sessionsToday);
+
+        if (!sessions.length) {
+          listEl.innerHTML = '<div class="py-14 text-center"><p class="text-sm font-semibold text-slate-900">' + (state.tab === 'live' ? 'Nobody on the site right now' : state.tab === 'clients' ? 'No client sessions in the last 7 days' : 'No sessions yet') + '</p><p class="text-xs text-slate-600 mt-1">' + (state.tab === 'live' ? 'Visitors appear here the moment they arrive.' : 'Sessions are kept for 30 days.') + '</p></div>';
+          return;
+        }
+        var rows = sessions.map(function (s) {
+          var who = describeVisitor(s);
+          var live = liveNow(s);
+          var age = ageNow(s);
+          var trail = s.journey.length > 1 ? s.journey.map(function (j) { return esc(j.p === '/' ? 'index' : j.p.replace(/^\//, '')); }).join(' → ') : 'just arrived';
+          var loc = s.city ? esc(s.city) + ', ' + esc(s.country) : (s.country ? esc(s.country) : 'Unknown location');
+          var mobile = /iPhone|iPad|Android/.test(s.device || '');
+          var wait = Math.ceil(state.rules.minSecondsBeforeMessage - age);
+          var actionHTML;
+          if (s.invitationSentAt && s.conversationId) {
+            actionHTML = '<a href="admin-inbox.html" class="mw-btn mw-btn-outline mw-btn-sm">Open thread</a>';
+          } else if (!live) {
+            actionHTML = '<span class="text-[10.5px] text-slate-600">Left</span>';
+          } else if (age < state.rules.minSecondsBeforeMessage) {
+            actionHTML = '<span class="text-[10.5px] text-slate-600 num" data-wait="' + s.id + '">Wait ' + wait + 's</span><button type="button" class="mw-btn mw-btn-admin mw-btn-sm" disabled data-message="' + s.id + '">Message</button>';
+          } else {
+            actionHTML = '<button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-message="' + s.id + '">Message</button>';
+          }
+          return '<tr class="hover:bg-slate-50/60" data-session="' + s.id + '" data-live="' + (live ? '1' : '0') + '">' +
+            '<td class="align-middle"><div class="flex items-center gap-2.5"><span class="av' + (who.anon ? ' is-anon' : '') + '">' + (who.anon ? '?' : esc(initials(who.name))) + (live ? '<span class="on" aria-hidden="true"></span>' : '') + '</span><div class="min-w-0"><b class="block text-[13px] font-semibold text-slate-900">' + esc(who.name) + who.tag + '</b><span class="block text-[11px] text-slate-600 mt-0.5">' + esc(who.sub) + (live ? '' : ' · left') + '</span></div></div></td>' +
+            '<td class="align-middle"><span class="inline-flex items-center text-[12.5px] text-slate-700"><code class="font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-[12px]" style="font-family:Inter,sans-serif">' + esc(s.currentPath) + '</code></span><div class="trail">' + ARROW + '<span>' + trail + '</span></div></td>' +
+            '<td class="align-middle"><span class="inline-flex items-center gap-2 text-[12.5px] text-slate-700"><span class="flagbox">' + esc(s.countryCode || '—') + '</span>' + loc + '</span></td>' +
+            '<td class="align-middle"><span class="inline-flex items-center gap-1.5 text-[12px] text-slate-700">' + (mobile ? PHONE : DESKTOP) + esc(s.device) + ' · ' + esc(s.browser) + '</span></td>' +
+            '<td class="align-middle text-[12px] text-slate-700">' + esc(s.referrerLabel || 'Direct') + (s.searchTerm ? ' · <b class="font-semibold text-slate-900">“' + esc(s.searchTerm) + '”</b>' : '') + '</td>' +
+            '<td class="align-middle num text-[12.5px] text-slate-700 font-medium" data-dur="' + s.id + '">' + fmtDur(durationNow(s)) + '<span class="block text-[10.5px] text-slate-600 font-normal mt-0.5">' + s.pageCount + (s.pageCount === 1 ? ' page' : ' pages') + '</span></td>' +
+            '<td class="align-middle text-right"><div class="flex gap-2 justify-end items-center">' + actionHTML + '</div></td>' +
+            '</tr>';
+        }).join('');
+        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-white/85"><tr>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Visitor</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Currently on</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Location</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Device</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Came from</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Time</th>' +
+          '<th class="text-right text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Action</th>' +
+          '</tr></thead><tbody class="[&>tr>td]:px-4 [&>tr>td]:py-3 [&>tr]:border-t [&>tr]:border-slate-100">' + rows + '</tbody></table>';
+      }
+
+      // Every second: durations, the 30-second countdown, and rows that stop being live.
+      setInterval(function () {
+        if (!state.data) return;
+        var needRender = false;
+        document.querySelectorAll('[data-session]').forEach(function (tr) {
+          var s = state.data.sessions.find(function (x) { return x.id === tr.dataset.session; });
+          if (!s) return;
+          var live = liveNow(s);
+          if ((tr.dataset.live === '1') !== live) needRender = true;
+          var dur = tr.querySelector('[data-dur]'); if (dur && live) dur.firstChild.textContent = fmtDur(durationNow(s));
+          var w = tr.querySelector('[data-wait]');
+          if (w) {
+            var wait = Math.ceil(state.rules.minSecondsBeforeMessage - ageNow(s));
+            if (wait <= 0) { w.remove(); var mb = tr.querySelector('button[data-message]'); if (mb) mb.disabled = false; } // in place: the rest of the table is untouched
+            else w.textContent = 'Wait ' + wait + 's';
+          }
+        });
+        if (needRender) render();
+      }, 1000);
+
+      var loading = null;
+      function load() {
+        if (loading) return loading;
+        loading = MarketswaveData.callFunction('get-visitor-presence', { tab: state.tab === 'live' ? 'week' : state.tab }).then(function (d) {
+          // The week read carries every live session too; "live" is re-derived locally.
+          state.data = d; state.rules = d.rules; state.asOfLocal = Date.now();
+          render();
+        }).catch(function (err) {
+          listEl.innerHTML = '<div class="p-6 text-sm text-red-700">Could not load presence: ' + esc(MarketswaveData.writeErrorMessage(err)) + '</div>';
+        }).finally(function () { loading = null; });
+        return loading;
+      }
+      document.getElementById('tabs').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-tab]'); if (!b) return;
+        state.tab = b.dataset.tab;
+        document.querySelectorAll('[data-tab]').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+        load();
+      });
+
+      // Realtime: a new or changed session re-reads (cheap — one call) and, for an INSERT,
+      // notifies. The sidebar badge is kept by admin-sidebar.js on every admin page.
+      var reloadTimer = null;
+      function scheduleReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400); }
+      load().then(function () { return MarketswaveData.getSupabaseClient(); }).then(function (client) {
+        var statusEl = document.getElementById('realtime-status');
+        client.channel('admin-presence-live')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'visitor_sessions' }, function () { scheduleReload(); })
+          .subscribe(function (status) { statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status; });
+      });
+
+      // ---- browser notifications: permission asked HERE, with the reason
+      var notifBtn = document.getElementById('notif-enable');
+      var notifCopy = document.getElementById('notif-copy');
+      var muteToggle = document.getElementById('mute-toggle');
+      function paintNotif() {
+        var perm = window.Notification ? Notification.permission : 'unsupported';
+        if (perm === 'granted') { notifBtn.hidden = true; notifCopy.innerHTML = '<b class="font-semibold text-slate-900">Browser notifications are on.</b> You’ll get a desktop notification each time a visitor arrives, while the PM tool is open in any tab — just the page and the location, nothing personal.'; }
+        else if (perm === 'denied') { notifBtn.hidden = true; notifCopy.innerHTML = '<b class="font-semibold text-slate-900">Browser notifications are blocked</b> for this site in your browser settings. Allow them there to be told when a visitor arrives.'; }
+        else if (perm === 'unsupported') { notifBtn.hidden = true; notifCopy.innerHTML = '<b class="font-semibold text-slate-900">Browser notifications aren’t available</b> in this browser.'; }
+        else notifBtn.hidden = false;
+        muteToggle.checked = localStorage.getItem('mw_presence_mute') === '1';
+      }
+      notifBtn.addEventListener('click', function () {
+        if (!window.Notification) return;
+        Notification.requestPermission().then(function () { paintNotif(); });
+      });
+      muteToggle.addEventListener('change', function () { localStorage.setItem('mw_presence_mute', muteToggle.checked ? '1' : '0'); });
+      paintNotif();
+
+      // ---- proactive chat
+      var modal = document.getElementById('message-modal');
+      var mmText = document.getElementById('mm-text');
+      var mmError = document.getElementById('mm-error');
+      var current = null;
+      var SNIPS = {
+        help: 'Hi — I’m a portfolio manager at Marketswave. If anything on this page is unclear, I’m happy to help.',
+        goals: 'Hi — I’m a portfolio manager at Marketswave. What are you hoping to achieve with your capital over the next few years? I can point you to the right place.',
+        minimums: 'Hi — I noticed you’re looking at how accounts work. Minimum investments vary by product (from $1,000 for ETFs); happy to explain what applies to you.'
+      };
+      function openModal(s) {
+        current = s;
+        var who = describeVisitor(s);
+        document.getElementById('mm-avatar').textContent = who.anon ? '?' : initials(who.name);
+        document.getElementById('mm-avatar').classList.toggle('is-anon', who.anon);
+        document.getElementById('message-modal-title').textContent = who.anon ? 'Message this visitor' : 'Message ' + who.name;
+        document.getElementById('mm-page').textContent = s.currentPath;
+        document.getElementById('mm-time').textContent = fmtDur(durationNow(s));
+        document.getElementById('mm-loc').textContent = s.city ? s.city + ', ' + (s.countryCode || s.country) : (s.country || 'Unknown');
+        document.getElementById('mm-visit').textContent = s.clientName ? 'Client' : ordinal(s.visitNumber);
+        document.getElementById('mm-rule').textContent = 'One invitation per session. They’ve been browsing ' + fmtDur(durationNow(s)) + ', so this is a reasonable moment.';
+        mmText.value = /^\/signup/.test(s.currentPath) ? 'Hi — I noticed you’re partway through opening an account. If anything’s unclear about the process or the minimums, I’m happy to help.' : SNIPS.help;
+        mmError.classList.add('hidden');
+        modal.classList.remove('hidden');
+        mmText.focus();
+      }
+      function closeModal() { modal.classList.add('hidden'); current = null; }
+      listEl.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-message]'); if (!b || b.disabled) return;
+        var s = state.data && state.data.sessions.find(function (x) { return x.id === b.dataset.message; });
+        if (s) openModal(s);
+      });
+      document.getElementById('mm-snips').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-snip]'); if (!b) return;
+        mmText.value = SNIPS[b.dataset.snip] || '';
+        mmText.focus();
+      });
+      document.getElementById('mm-cancel').addEventListener('click', closeModal);
+      modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+      document.getElementById('mm-send').addEventListener('click', function () {
+        if (!current) return;
+        var sessionId = current.id;
+        MarketswaveData.withButtonBusy(this, 'Sending…', function () {
+          return MarketswaveData.callFunction('send-proactive-message', { sessionId: sessionId, message: mmText.value.trim() });
+        }).then(function () {
+          closeModal();
+          showToast('Message Sent', 'It will appear in their chat widget. Their reply will thread in the inbox.');
+          load();
+        }).catch(function (err) {
+          mmError.textContent = MarketswaveData.writeErrorMessage(err);
+          mmError.classList.remove('hidden');
+          load();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

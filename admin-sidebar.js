@@ -218,6 +218,17 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       group: 'user-admin-relations'
     },
     {
+      // ★ Visitor presence (2026-09-13). Directly after Inbox — the two are the same kind of
+      // tool (live, people-facing, not a money queue); a proactive message from here lands in
+      // the inbox. The live count badge (#sidebar-presence-count) is kept by
+      // startPresenceWatch() below on every admin page, not only this one.
+      key: 'presence',
+      href: 'admin-presence.html',
+      label: 'Presence',
+      icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+      group: 'user-admin-relations'
+    },
+    {
       key: 'documents',
       href: 'admin-documents.html',
       label: 'Documents',
@@ -284,9 +295,14 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
 
   function navLinkHTML(item, activePage) {
     var cls = item.key === activePage ? ACTIVE : INACTIVE;
+    // The presence item carries a live count of visitors on the site, like an unread count —
+    // starts hidden/0 (honest until the first real read), never a fake interim value.
+    var badge = item.key === 'presence'
+      ? '<span id="sidebar-presence-count" class="ml-auto hidden min-w-[1.5rem] text-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300" style="font-variant-numeric: tabular-nums" aria-label="visitors on the site now">0</span>'
+      : '';
     return '<a href="' + item.href + '" class="' + cls + '">' +
       '<svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + item.icon + '"/></svg>' +
-      item.label +
+      item.label + badge +
       '</a>';
   }
 
@@ -341,6 +357,50 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       if (!authenticated) return;
       renderAdminSidebar(activePage);
     });
+  }
+
+  // ★ Visitor presence (2026-09-13). On EVERY admin page: keeps the sidebar's live count and
+  // raises a browser notification per arriving visitor — while the PM tool is open in any
+  // tab. Permission is never requested here (a prompt on load gets denied); it is asked on
+  // admin-presence.html, with the reason. Mute (localStorage mw_presence_mute) silences the
+  // notification, not the count. A `tag` per session collapses duplicates across open tabs.
+  // Reads go through the real admin session under RLS (admin-only), via Realtime
+  // postgres_changes on visitor_sessions plus a 30-second recount — a session that stops
+  // heartbeating leaves the count without any event.
+  var LIVE_WINDOW_SECONDS = 45;
+  function startPresenceWatch() {
+    var badge = document.getElementById('sidebar-presence-count');
+    if (!badge) return;
+    var supabase = null;
+    function paint(n) {
+      badge.textContent = String(n);
+      badge.classList.toggle('hidden', !(n > 0));
+    }
+    function recount() {
+      if (!supabase) return;
+      var since = new Date(Date.now() - LIVE_WINDOW_SECONDS * 1000).toISOString();
+      supabase.from('visitor_sessions').select('id', { count: 'exact', head: true }).gte('last_seen_at', since).is('ended_at', null)
+        .then(function (r) { if (!r.error) paint(r.count || 0); });
+    }
+    function notify(row) {
+      if (!window.Notification || Notification.permission !== 'granted') return;
+      if (localStorage.getItem('mw_presence_mute') === '1') return;
+      var where = [row.city, row.country].filter(Boolean).join(', ') || 'Unknown location';
+      var who = row.client_name ? row.client_name + ' (client)' : (Number(row.visit_number) >= 2 ? 'Returning visitor' : 'New visitor');
+      try {
+        var n = new Notification(who + ' on the site', { body: (row.current_path || '/') + ' · ' + where, tag: 'mw-visitor-' + row.id, silent: true });
+        n.onclick = function () { window.focus(); location.href = 'admin-presence.html' + currentEnvQuery(); };
+      } catch (e) { /* notifications unavailable in this context */ }
+    }
+    import('./admin-supabase-config.js').then(function (mod) {
+      supabase = mod.supabase;
+      recount();
+      setInterval(recount, 30000);
+      supabase.channel('admin-sidebar-presence')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visitor_sessions' }, function (payload) { recount(); notify(payload.new); })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'visitor_sessions' }, function () { recount(); })
+        .subscribe();
+    }).catch(function () { /* the count stays hidden: never a fake number */ });
   }
 
   function renderAdminSidebar(activePage) {
@@ -433,6 +493,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     });
 
     preserveEnvParamInPageLinks();
+    startPresenceWatch();
   }
 
   window.initAdminSidebar = initAdminSidebar;

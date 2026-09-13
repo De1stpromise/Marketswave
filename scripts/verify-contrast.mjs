@@ -466,6 +466,51 @@ PROFILES['fund-document-admin'] = [
 // client and a losing client, row 187's discipline); the range control in both states; the
 // three-row tooltip in its own hovered run. The y-axis ticks are canvas text Chart.js paints
 // in the same #475569 as the DOM x-labels (.po-xl), which stand in for them here.
+// Visitor presence (2026-09-13) — admin-presence.html. The stat strip and the table sit on
+// glass; the compose modal is opened by the prepare hook. Both tag colours, the live pill,
+// the trail and the 30-second wait note are measured on real composited pixels.
+PROFILES['visitor-presence'] = [
+  // First: the two surfaces that only exist for a moment (the wait note counts down to
+  // nothing after 30 s), measured before the run's own duration removes them.
+  { label: 'wait note', sel: '[data-wait]', limit: 1 },
+  { label: 'message button (enabled)', sel: 'button[data-message]:not(:disabled)', limit: 1 },
+  { label: 'page title', sel: 'main h2', limit: 1 },
+  { label: 'page subtitle', sel: 'main h2 + p', limit: 1 },
+  { label: 'live pill', sel: '#live-pill-text', limit: 1 },
+  { label: 'notification copy', sel: '#notif-copy', limit: 1 },
+  { label: 'mute label', sel: '#mute-label', limit: 1 },
+  { label: 'stat label', sel: '#stat-strip p:first-child', limit: 4 },
+  { label: 'stat value', sel: '#st-live, #st-today, #st-median, #st-page', limit: 4 },
+  { label: 'stat sub', sel: '#st-live-x, #st-today-x, #st-page-x', limit: 3 },
+  { label: 'tab (selected)', sel: '.tab-pill.is-active', limit: 1 },
+  { label: 'tab (unselected)', sel: '.tab-pill:not(.is-active)', limit: 2 },
+  { label: 'column heading', sel: '#presence-list th', limit: 3 },
+  { label: 'visitor name', sel: '#presence-list td b', limit: 3 },
+  { label: 'client tag', sel: '.tagc.bg-blue-100', limit: 1 },
+  { label: 'anonymous tag', sel: '.tagc.bg-slate-100', limit: 1 },
+  { label: 'visitor sub-line', sel: '#presence-list td b + span', limit: 3 },
+  { label: 'current page', sel: '#presence-list code', limit: 2 },
+  { label: 'journey trail', sel: '.trail span', limit: 3 },
+  { label: 'flag box', sel: '.flagbox', limit: 2 },
+  { label: 'location', sel: '#presence-list td:nth-child(3) > span', limit: 2 },
+  { label: 'device', sel: '#presence-list td:nth-child(4) > span', limit: 2 },
+  { label: 'referrer', sel: '#presence-list td:nth-child(5)', limit: 2 },
+  { label: 'duration', sel: '[data-dur]', limit: 3 },
+  { label: 'footer rule', sel: '#presence-foot > span:first-child', limit: 1 },
+  { label: 'footer counts', sel: '#presence-foot > span:last-child', limit: 1 }
+];
+PROFILES['visitor-presence-modal'] = [
+  { label: 'modal title', sel: '#message-modal-title', limit: 1 },
+  { label: 'modal explanation', sel: '#message-modal-title ~ p', limit: 1 },
+  { label: 'context label', sel: '#mm-context > div', limit: 4 },
+  { label: 'context value', sel: '#mm-context b', limit: 4 },
+  { label: 'snippet', sel: '.snip', limit: 3 },
+  { label: 'textarea text', sel: '#mm-text', limit: 1 },
+  { label: 'rule note', sel: '#mm-rule', limit: 1 },
+  { label: 'send button', sel: '#mm-send', limit: 1 },
+  { label: 'cancel button', sel: '#mm-cancel', limit: 1 }
+];
+
 PROFILES['portfolio-overview'] = [
   { label: 'card title', sel: '.po-title', limit: 1 },
   { label: 'as-of indicator', sel: '#po-asof', limit: 1 },
@@ -639,16 +684,20 @@ async function measure(cdp, t) {
   const fg = await cdp.eval('window.__sample(' + JSON.stringify(await shot()) + ', ' + JSON.stringify(box) + ')');
 
   // Pass 2 - Trap 2: remove the glyphs only, never the box.
-  await cdp.eval([
-    '(() => { const el = ' + pick + ';',
+  // A live page can re-render between the two passes (admin-presence.html rebuilds its table
+  // when a row's state changes); an element that vanished is reported as such rather than
+  // crashing the whole run on a null dereference.
+  const stillThere = await cdp.eval([
+    '(() => { const el = ' + pick + '; if (!el) return false;',
     '  el.dataset.savedStyle = el.style.cssText;',
     '  el.style.setProperty("color", "transparent", "important");',
     '  el.style.setProperty("-webkit-text-fill-color", "transparent", "important");',
-    '  el.style.setProperty("text-shadow", "none", "important"); })()',
+    '  el.style.setProperty("text-shadow", "none", "important"); return true; })()',
   ].join('\n'));
+  if (!stillThere) return null;
   await sleep(120);
   const bg = await cdp.eval('window.__sample(' + JSON.stringify(await shot()) + ', ' + JSON.stringify(box) + ')');
-  await cdp.eval('(() => { const el = ' + pick + '; el.style.cssText = el.dataset.savedStyle || ""; delete el.dataset.savedStyle; })()');
+  await cdp.eval('(() => { const el = ' + pick + '; if (!el) return; el.style.cssText = el.dataset.savedStyle || ""; delete el.dataset.savedStyle; })()');
 
   if (t.hover) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
 

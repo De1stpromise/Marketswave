@@ -78,7 +78,7 @@
     return p;
   }
   async function send(event, extra) {
-    if (!endpoint) return null;
+    if (!endpoint || (left && event !== 'leave')) return null;
     var headers = { 'Content-Type': 'application/json', apikey: anonKey };
     if (token) headers.Authorization = 'Bearer ' + token;
     try {
@@ -92,8 +92,11 @@
       return data;
     } catch (e) { return null; }
   }
+  var left = false;
   function leave() {
-    if (!endpoint) return;
+    if (!endpoint || left) return;
+    left = true;
+    if (timer) clearInterval(timer); // no heartbeat may follow the beacon and resurrect the session
     var body = JSON.stringify(payload('leave'));
     var ok = false;
     try { if (navigator.sendBeacon) ok = navigator.sendBeacon(endpoint + '/functions/v1/track-visit', new Blob([body], { type: 'text/plain' })); } catch (e) { ok = false; }
