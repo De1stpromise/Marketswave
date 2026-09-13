@@ -209,6 +209,13 @@ async function main() {
     const script = extractInlineScript(path, 'UI Wiring — Stage 1');
     const D = dom.window.document;
     const badge = D.getElementById('tpv-monthly-change');
+    // Bundled card (2026-09-13): the this-month figure is rendered by portfolio-overview.js
+    // from the one get-portfolio-overview read (which writes the month anchor for the
+    // caller's own read, the job get-portfolio-monthly-change used to do), so that helper is
+    // loaded into the page like the real <script src> would; Chart.js is stubbed (no canvas).
+    dom.window.Chart = function () { return { destroy() {}, update() {} }; };
+    dom.window.Chart.getChart = () => null;
+    dom.window.eval(readFileSync(fileURLToPath(new URL('../portfolio-overview.js', import.meta.url)), 'utf8'));
 
     // This context's own MarketswaveData still resolves the ADMIN-independent local bootstrap
     // client session used throughout this file (a plain client session, not admin) — reuse it
@@ -220,8 +227,8 @@ async function main() {
 
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(badge.innerHTML); }, 20000);
-    check('the real badge shows the real +50.0% figure (clientM\'s own real current state)', badge.textContent.trim() === '+50.0% this month', badge.textContent);
-    check('the real badge uses the real "up" styling (emerald)', badge.className.indexOf('emerald') !== -1, badge.className);
+    check('the real this-month figure shows the real +$5,000 (+50.0%) (clientM\'s own real current state against the stable anchor)', /\+\$5,000/.test(badge.textContent) && /\+50\.0%/.test(badge.textContent) && /this month/.test(badge.textContent), badge.textContent);
+    check('the real figure uses the real "up" tone', !!badge.querySelector('b.is-up'), badge.innerHTML);
   })();
 
   // ===========================================================================================

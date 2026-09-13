@@ -42,7 +42,9 @@
   var GAIN = '#137254';
   var LOSS = '#A8452F';
   var NAVY = '#1B3A4B';
-  var CAPITAL = '#7C868C';
+  // Measured composited on the glass card, the mockup's #7C868C at 1.4px read 2.48:1 — a thin
+  // dashed stroke never reaches its declared colour through antialiasing. #5C6367 at 1.6px.
+  var CAPITAL = '#5C6367';
   var GOLD = '#C8860A';
   var DAY = 86400000;
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -114,13 +116,12 @@
   // This month — the current month's anchor against the live value, as a figure. A month that
   // opened at $0 with money now has no honest change figure ("+$94,874 this month" is the
   // row-205 bug on a shorter horizon): it reads "New this month" instead.
-  function renderThisMonth(h, thisMonthEl, changeShown) {
+  function renderThisMonth(h, thisMonthEl) {
     thisMonthEl.textContent = '';
     thisMonthEl.className = 'po-tm';
     var t = h.thisMonth;
     if (!t) { thisMonthEl.hidden = true; return; }
     thisMonthEl.hidden = false;
-    if (changeShown) thisMonthEl.appendChild(el('span', 'po-sep', '\u00b7'));
     if (t.percent === null) { thisMonthEl.appendChild(el('span', null, 'New this month')); return; }
     var b = el('b', tone(t.amount), signed(Math.round(t.amount), function (a) { return formatUSD(a); }));
     thisMonthEl.appendChild(b);
@@ -132,9 +133,13 @@
   // same points the chart plots. A sparkline that climbed on a deposit would contradict the
   // very cell it decorates. Gated on the chart threshold like everything else drawn from
   // the anchors.
+  // NOTE: the sparkline is an <svg>; `hidden` as an IDL property lives on HTMLElement, not
+  // SVGElement, so `sparkEl.hidden = false` would set a JS expando and leave the attribute
+  // (and the UA's [hidden] { display:none }) in place — caught in a real browser, passed
+  // vacuously in jsdom. The attribute is toggled directly.
   function renderSparkline(h, sparkEl) {
     sparkEl.textContent = '';
-    if (!h.chartReady) { sparkEl.hidden = true; return; }
+    if (!h.chartReady) { sparkEl.setAttribute('hidden', ''); return; }
     var series = h.anchors.map(function (a) { return a.return; }).concat([h.live.return]);
     var min = Math.min.apply(null, series), max = Math.max.apply(null, series);
     var span = max - min || 1;
@@ -148,7 +153,7 @@
     path.setAttribute('d', d);
     path.setAttribute('stroke', series[series.length - 1] >= series[0] ? GAIN : LOSS);
     sparkEl.appendChild(path);
-    sparkEl.hidden = false;
+    sparkEl.removeAttribute('hidden');
   }
 
   // ---------------------------------------------------------------- chart
@@ -274,7 +279,9 @@
 
       xl.textContent = '';
       xl.appendChild(el('span', null, fmtMonYY(parseDate(first.date))));
-      if (pts.length > 2) xl.appendChild(el('span', null, fmtMonYY(parseDate(pts[Math.floor((pts.length - 1) / 2)].date))));
+      // The x axis is linear in time, so the centre label is the date at the axis midpoint —
+      // not the middle POINT, which sits wherever its month falls.
+      if (pts.length > 2) xl.appendChild(el('span', null, fmtMonYY(new Date((xOf(first.date) + xOf(last.date)) / 2 * DAY))));
       xl.appendChild(el('span', null, 'Today'));
 
       table.textContent = '';
@@ -377,7 +384,7 @@
             label: 'Capital in',
             data: capital,
             borderColor: CAPITAL,
-            borderWidth: 1.4,
+            borderWidth: 1.6,
             borderDash: [4, 4],
             tension: 0,
             pointRadius: 0,
@@ -563,7 +570,7 @@
   function render(payload, els, opts) {
     var h = payload.history;
     renderChange(h, els.changeEl);
-    if (els.thisMonthEl) renderThisMonth(h, els.thisMonthEl, !els.changeEl.hidden);
+    if (els.thisMonthEl) renderThisMonth(h, els.thisMonthEl);
     if (els.sparkEl) renderSparkline(h, els.sparkEl);
     if (h.chartReady) {
       els.newcEl.classList.add('hidden');

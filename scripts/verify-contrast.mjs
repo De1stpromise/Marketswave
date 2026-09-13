@@ -458,21 +458,42 @@ PROFILES['fund-document-admin'] = [
   { label: 'attachment meta', sel: '#attachment-meta', limit: 1 }
 ];
 
-// Portfolio overview (2026-09-12). Every text surface the value card, the pending panel and
-// the maturities panel put on the dashboard's glass — measured composited, because a grey
-// declared safe on white is not safe inside a backdrop-filter layer (rows 193/200). The
-// change pill is measured in BOTH tones (a gaining client and a losing client are separate
-// runs, row 187's discipline), and the range control in both its selected and unselected
-// states. The y-axis ticks are canvas text Chart.js paints in the same #475569 as the DOM
-// x-labels (.po-xl), which stand in for them here.
+// Portfolio overview (2026-09-12; bundled card 2026-09-13). Every text surface the bundled
+// card, the pending panel and the maturities panel put on the dashboard's glass — measured
+// composited, because a grey declared safe on white is not safe inside a backdrop-filter
+// layer (rows 193/200), and because the band's lead figure sits top-left of a full glass card,
+// exactly the sheen's failing case (row 204). Both change tones are separate runs (a gaining
+// client and a losing client, row 187's discipline); the range control in both states; the
+// three-row tooltip in its own hovered run. The y-axis ticks are canvas text Chart.js paints
+// in the same #475569 as the DOM x-labels (.po-xl), which stand in for them here.
 PROFILES['portfolio-overview'] = [
-  { label: 'card label', sel: '#po-value-card .ret-k', limit: 1 },
-  { label: 'change pill (gain)', sel: '.po-pill.is-up', limit: 1 },
+  { label: 'card title', sel: '.po-title', limit: 1 },
+  { label: 'as-of indicator', sel: '#po-asof', limit: 1 },
+  { label: 'band label', sel: '.po-band .ret-k', limit: 3 },
+  { label: 'value figure (38px, under the sheen corner)', sel: '#tpv-amount', limit: 1 },
+  { label: 'since pill (gain)', sel: '.po-pill.is-up', limit: 1 },
   { label: 'since text', sel: '.po-since', limit: 1 },
+  { label: 'this-month figure', sel: '#tpv-monthly-change b', limit: 1 },
+  { label: 'this-month text', sel: '#tpv-monthly-change span', limit: 2 },
+  { label: 'return figure (gain)', sel: '#total-return-amount', limit: 1 },
+  { label: 'return pill', sel: '#total-return-pct', limit: 1 },
+  { label: 'return context line', sel: '#total-return-split', limit: 1 },
+  { label: 'unrealised figure', sel: '#total-unrealized-amount', limit: 1 },
+  { label: 'realised figure', sel: '#asset-returns-amount', limit: 1 },
+  { label: 'best class name', sel: '.ret-class', limit: 1 },
+  { label: 'best class pill', sel: '#best-performing-return .ret-pc', limit: 1 },
+  { label: 'best class context', sel: '#best-performing-return', limit: 1 },
+  { label: 'chart title', sel: '.po-ch-title', limit: 1 },
+  { label: 'legend item', sel: '.po-leg > span', limit: 4 },
   { label: 'range control (selected)', sel: '.po-rg.is-on', limit: 1 },
   { label: 'range control (unselected)', sel: '.po-rg:not(.is-on):not(:disabled)', limit: 2 },
   { label: 'x-axis label', sel: '.po-xl span', limit: 3 },
   { label: 'chart hint', sel: '#po-chart-hint', limit: 1 },
+  { label: 'period stat label', sel: '.po-pf .ret-k', limit: 4 },
+  { label: 'period stat value', sel: '.po-pv:not(.is-up):not(.is-dn)', limit: 2 },
+  { label: 'period stat value (gain)', sel: '.po-pv.is-up', limit: 1 },
+  { label: 'period stat value (loss)', sel: '.po-pv.is-dn', limit: 1 },
+  { label: 'period stat sub', sel: '.po-ps', limit: 4 },
   { label: 'panel title', sel: '.po-hd .po-t', limit: 2 },
   { label: 'panel subtitle', sel: '.po-hd .po-s', limit: 2 },
   { label: 'request title', sel: '.po-rt', limit: 3 },
@@ -487,11 +508,30 @@ PROFILES['portfolio-overview'] = [
   { label: 'no-interest note', sel: '.po-mi.is-none', limit: 1 }
 ];
 PROFILES['portfolio-overview-loss'] = [
-  { label: 'change pill (loss)', sel: '.po-pill.is-dn', limit: 1 }
+  { label: 'since pill (loss)', sel: '.po-pill.is-dn', limit: 1 },
+  { label: 'this-month figure (loss)', sel: '#tpv-monthly-change b.is-dn', limit: 1 },
+  { label: 'return figure (loss)', sel: '#total-return-amount.is-loss', limit: 1 },
+  { label: 'return pill (loss)', sel: '#total-return-pct.is-loss', limit: 1 },
+  { label: 'unrealised figure (loss)', sel: '#total-unrealized-amount.is-loss', limit: 1 },
+  { label: 'best class pill (loss — "Most resilient class")', sel: '#best-performing-return .ret-pc.is-loss', limit: 1 },
+  { label: 'period stat value (loss)', sel: '.po-pv.is-dn', limit: 1 }
 ];
-// The new-client state and both empty states, on the same glass.
+// The three-row tooltip, measured hovered: the prepare hook (the visual suite) moves the real
+// pointer onto an anchor first, so the tooltip is genuinely open when sampled.
+PROFILES['portfolio-overview-tip'] = [
+  { label: 'tooltip date', sel: '.po-tip.is-on .po-td', limit: 1 },
+  { label: 'tooltip row label', sel: '.po-tip.is-on .po-tr span', limit: 3 },
+  { label: 'tooltip row figure', sel: '.po-tip.is-on .po-tr b:not(.is-up):not(.is-dn)', limit: 2 },
+  { label: 'tooltip return (gain)', sel: '.po-tip.is-on .po-tr b.is-up', limit: 1 }
+];
+// The new-client state and both empty states, on the same glass: the band still renders.
 PROFILES['portfolio-overview-new'] = [
-  { label: 'card label', sel: '#po-value-card .ret-k', limit: 1 },
+  { label: 'band label', sel: '.po-band .ret-k', limit: 3 },
+  { label: 'value figure', sel: '#tpv-amount', limit: 1 },
+  { label: 'this-month ("New this month")', sel: '#tpv-monthly-change span', limit: 1 },
+  { label: 'return figure (flat $0)', sel: '#total-return-amount', limit: 1 },
+  { label: 'best class dash', sel: '.ret-class', limit: 1 },
+  { label: 'chart title', sel: '.po-ch-title', limit: 1 },
   { label: 'new-client heading', sel: '.po-newc b', limit: 1 },
   { label: 'new-client explanation', sel: '.po-newc p', limit: 1 },
   { label: 'new-client sub', sel: '.po-newc-sub', limit: 1 },

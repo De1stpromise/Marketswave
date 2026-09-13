@@ -31,7 +31,9 @@
 .po-hr { display: flex; align-items: center; gap: 8px; }
 .po-asof { font-size: 11px; color: #5C6367; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .po-asof i { width: 6px; height: 6px; border-radius: 50%; background: #137254; box-shadow: 0 0 6px rgba(19, 114, 84, 0.5); }
-.po-ib.mw-btn { min-width: 0; width: 34px; height: 34px; padding: 0; border: 1.5px solid #D6D0C6; background: rgba(255, 255, 255, 0.6); color: #5C6367; border-radius: 8px; }
+/* Tier C geometry (40px, verify-control-patterns): the mockup's 30px icon button is a real
+   button here and follows the vocabulary. */
+.po-ib.mw-btn { min-width: 0; width: 40px; height: 40px; padding: 0; border: 1.5px solid #D6D0C6; background: rgba(255, 255, 255, 0.6); color: #5C6367; }
 .po-ib.mw-btn:disabled { opacity: 0.45; }
 
 .po-band { display: grid; grid-template-columns: 1.35fr 1fr 1fr; padding: 18px 28px 22px; }
@@ -48,6 +50,10 @@
 .po-x b.is-dn { color: #A8452F; }
 .po-x[hidden], .po-sub[hidden] { display: none; }
 .po-sub { display: inline-flex; align-items: center; gap: 8px; }
+/* The separator between the two horizons trails the since-span, so a wrapped line never
+   opens with a lone middot. */
+.po-sub:not([hidden]):has(+ .po-tm:not([hidden]))::after { content: '\00b7'; margin-left: 2px; color: #5C6367; }
+.po-tm > b { margin-right: 4px; }
 .po-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; }
 .po-pill.is-up { background: rgba(19, 114, 84, 0.10); color: #137254; }
 .po-pill.is-dn { background: rgba(168, 69, 47, 0.10); color: #A8452F; }
@@ -76,7 +82,7 @@
 .po-leg { display: flex; gap: 14px; font-size: 11px; color: #5C6367; flex-wrap: wrap; }
 .po-leg span { display: flex; align-items: center; gap: 6px; }
 .po-leg i { width: 14px; height: 2.5px; border-radius: 2px; display: block; background: #137254; }
-.po-leg i.is-dash { background: repeating-linear-gradient(90deg, #7C868C 0 3px, transparent 3px 6px); }
+.po-leg i.is-dash { background: repeating-linear-gradient(90deg, #5C6367 0 3px, transparent 3px 6px); }
 .po-leg i.is-dot { width: 8px; height: 8px; border-radius: 50%; background: #C8860A; }
 .po-leg i.is-dot-out { width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1.5px solid #C8860A; box-sizing: border-box; }
 .po-leg[hidden] { display: none; }
@@ -121,6 +127,13 @@
 .po-newc b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; margin-bottom: 4px; }
 .po-newc p { font-size: 12.5px; color: #5C6367; line-height: 1.65; }
 .po-newc .po-newc-sub { font-size: 12px; color: #5C6367; margin-top: 10px; }
+
+/* tap-targets.css floors every button at 44px below lg, but .po-ib.mw-btn's own min-width: 0
+   (0,2,0) out-specifies that floor (0,0,1) — the exact trap row 188 recorded. Re-declared
+   here at the same breakpoint so the export control reaches the floor. */
+@media (max-width: 1023.98px) {
+  .po-ib.mw-btn { width: 44px; height: 44px; min-width: 44px; }
+}
 
 @container (max-width: 820px) {
   .po-band { grid-template-columns: 1fr; gap: 16px; }

@@ -194,7 +194,7 @@ async function main() {
     check('★ the 4px split bar shows unrealised against realised by magnitude — here 0% / 100% (this seed has no holdings; the whole return is realised cash)', !split.hidden && parseFloat(split.children[0].style.width) === 0 && parseFloat(split.children[1].style.width) === 100, split.outerHTML);
     const spark = D.getElementById('po-spark');
     const sparkPath = spark.querySelector('path');
-    check('★ the sparkline is the RETURN series: five points (four anchors + today) in one path, gain-toned since it ends above where it began', !spark.hidden && sparkPath && sparkPath.getAttribute('d').split(/[ML]/).filter(Boolean).length === 5 && sparkPath.getAttribute('stroke') === '#137254', spark.outerHTML);
+    check('★ the sparkline is the RETURN series: five points (four anchors + today) in one path, gain-toned since it ends above where it began', !spark.hasAttribute('hidden') && sparkPath && sparkPath.getAttribute('d').split(/[ML]/).filter(Boolean).length === 5 && sparkPath.getAttribute('stroke') === '#137254', spark.outerHTML);
     // (c) Best performing class — only the class, the pill, and "of N classes".
     const bpr = D.getElementById('best-performing-return');
     check('no holdings: the class cell reads an honest em dash and "No holdings yet", no pill, no ranking', D.getElementById('best-performing-class').textContent.trim() === '\u2014' && /No holdings yet/.test(bpr.textContent) && !bpr.querySelector('.ret-pc') && card.querySelectorAll('.po-cell:last-child .ret-sub').length === 1, bpr.textContent);
@@ -269,7 +269,7 @@ async function main() {
     check('★ no since-figure and no pill under the threshold — a lone $0 anchor plus a funded account never reads as "+$52,000 since"', bChange.hidden === true && bChange.querySelector('.po-pill') === null && !/\$/.test(bChange.textContent), bChange.outerHTML);
     const bTm = b.D.getElementById('tpv-monthly-change');
     check('★ this month reads "New this month" — the month opened at $0, so there is no honest change figure either (same gating, shorter horizon)', !bTm.hidden && bTm.textContent.trim() === 'New this month', bTm.textContent);
-    check('the sparkline, legend, chart, range controls and period stats are all hidden', b.D.getElementById('po-spark').hidden && b.D.getElementById('po-legend').hidden && b.D.getElementById('po-chart-wrap').classList.contains('hidden') && b.D.getElementById('po-ranges').classList.contains('hidden') && b.D.getElementById('po-stats').hidden && b.D.getElementById('po-stats').textContent === '');
+    check('the sparkline, legend, chart, range controls and period stats are all hidden', b.D.getElementById('po-spark').hasAttribute('hidden') && b.D.getElementById('po-legend').hidden && b.D.getElementById('po-chart-wrap').classList.contains('hidden') && b.D.getElementById('po-ranges').classList.contains('hidden') && b.D.getElementById('po-stats').hidden && b.D.getElementById('po-stats').textContent === '');
     const newc = b.D.getElementById('po-newc');
     check('the explanation is shown, honest about the threshold and how snapshots work', !newc.classList.contains('hidden') && /appears after 3 monthly points \(1 so far\)/.test(newc.textContent) && /start of each month/.test(newc.textContent), newc.textContent);
     check('...with the client-since date and NO repeated figure — the band already states it', !newc.querySelector('.po-newc-fig') && !/\$/.test(newc.textContent) && /Client since/.test(newc.querySelector('.po-newc-sub').textContent), newc.textContent);

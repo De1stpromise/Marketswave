@@ -341,8 +341,10 @@ async function main() {
     const bestPct = D.getElementById('best-performing-return').textContent.trim();
     check('best performing class names the real class',
       D.getElementById('best-performing-class').textContent.trim() === 'Private Equity');
-    check('best performing figure says the word "unrealised" after the percentage',
-      /^\+[\d.]+%\s+unrealised$/.test(bestPct), bestPct);
+    // Bundled card (2026-09-13): the percentage is a pill, followed by "unrealised" and
+    // "of N classes" — N being the classes with a real cost basis (three seeded here).
+    check('best performing figure says the word "unrealised" after the percentage, then "of 3 classes" — only that, no ranking',
+      /^\+[\d.]+%\s+unrealised · of 3 classes$/.test(bestPct) && D.querySelector('#best-performing-return .ret-pc'), bestPct);
     check('cards stay SHORT: no allocation breakdown, ranking or sparkline was added to them',
       D.querySelectorAll('#total-return-split svg, #best-performing-return svg').length === 0);
 

@@ -11,7 +11,15 @@
 //      since the first anchor is the table arithmetic; chartReady flips at exactly 3 anchors;
 //      the change figure is WITHHELD under the threshold (the live-site "+$94,874 since Sep
 //      2026" bug: a lone $0 anchor written before funding); a $0 first anchor yields
-//      percent null, never Infinity, once the threshold is met;
+//      percent null, never Infinity, once the threshold is met; the per-range period stats
+//      are the table arithmetic (high/low with dates, best/worst full month);
+//   2b. CAPITAL IN (bundled card, 2026-09-13): the reference series is derived from ledger
+//      rows written by the REAL functions — credit-deposit counts, approve-withdrawal and an
+//      internal credit-hys-deposit subtract, an EXTERNAL credit-hys-deposit is ignored, a BUY
+//      moves nothing — and THE IDENTITY holds: live value minus capital in equals
+//      get-returns-summary's total return, before and after a real buy; an anchor's capital
+//      in is taken as of the moment it was RECORDED; the this-month figure follows the same
+//      $0-anchor gating; a PM's cross-client read never writes the client's month anchor;
 //   3. PENDING REQUESTS: five real request types created through the real functions appear
 //      with the right type, amount (null for an amount-less crypto deposit), units and
 //      internal-transfer flag; a rejected one disappears; cross-client isolation;
@@ -118,7 +126,7 @@ async function main() {
     check('get-portfolio-overview returns for A', ovA.status === 200, JSON.stringify(ovA.body));
     const h = ovA.body.history;
     const table = (await admin.from('portfolio_value_snapshots').select('month_start_date, value_at_anchor').eq('client_id', A.id).order('month_start_date')).data;
-    check('★ anchors equal the table rows, point for point, oldest first', JSON.stringify(h.anchors) === JSON.stringify(table.map((r) => ({ date: r.month_start_date, value: round2(Number(r.value_at_anchor)) }))), JSON.stringify({ api: h.anchors, table }));
+    check('★ anchors equal the table rows, point for point, oldest first', JSON.stringify(h.anchors.map((a) => ({ date: a.date, value: a.value }))) === JSON.stringify(table.map((r) => ({ date: r.month_start_date, value: round2(Number(r.value_at_anchor)) }))), JSON.stringify({ api: h.anchors, table }));
     check('...and match the values the writer was asked to record', JSON.stringify(h.anchors.map((a) => a.value)) === JSON.stringify(expected.map((e) => e.value)), JSON.stringify(h.anchors));
     const tpv = await callFunction(url, A.token, 'get-total-portfolio-value', {});
     check('currentValue equals get-total-portfolio-value (the same server computation)', Math.abs(h.currentValue - Number(tpv.body.totalPortfolioValue)) < 0.01, JSON.stringify({ h: h.currentValue, tpv: tpv.body }));
@@ -126,23 +134,29 @@ async function main() {
     check('chartReady with 4 anchors (threshold 3)', h.chartReady === true && h.anchorCount === 4 && h.minAnchors === 3);
     check('clientSince is the real clients.created_at', !!h.clientSince);
 
-    const ovB0 = await callFunction(url, B.token, 'get-portfolio-overview', {});
+    // B is read THROUGH THE PM here: a client's own read writes this month's anchor (the lazy
+    // writer folded into the overview, 2026-09-13), a PM's cross-client read never does — so
+    // the PM read is what lets the under-threshold states be observed as such.
+    const readB = () => callFunction(url, pm.token, 'get-portfolio-overview', { clientId: B.id });
+    const ovB0 = await readB();
     check('B with no anchors: chartReady false, no first anchor, no change', ovB0.body.history.chartReady === false && ovB0.body.history.anchorCount === 0 && ovB0.body.history.firstAnchor === null && ovB0.body.history.changeSinceFirst === null, JSON.stringify(ovB0.body.history));
+    check('...and no this-month figure either, with no anchor row yet', ovB0.body.history.thisMonth === null, JSON.stringify(ovB0.body.history.thisMonth));
     for (const off of [3, 2]) await callFunction(url, pm.token, 'snapshot-portfolio-values', { monthStartDate: monthStart(off), clientId: B.id });
-    const ovB2 = await callFunction(url, B.token, 'get-portfolio-overview', {});
+    const ovB2 = await readB();
     check('B with 2 anchors is STILL under the threshold — a line through two points is not a chart', ovB2.body.history.chartReady === false && ovB2.body.history.anchorCount === 2, JSON.stringify(ovB2.body.history));
     // ★ The live-site bug (2026-09-12): B's anchors were written at $0, before any funding.
     // With the old payload the page read "+$52,000 since <month>" — the whole balance as a
     // gain. Under the threshold the change is withheld outright, not caveated.
     await admin.from('account_state').update({ unallocated_capital: 52000 }).eq('client_id', B.id);
-    const ovB2f = await callFunction(url, B.token, 'get-portfolio-overview', {});
+    const ovB2f = await readB();
     check('★ under the threshold changeSinceFirst is NULL even with two $0 anchors and a now-funded account — never "+$52,000 since"', ovB2f.body.history.changeSinceFirst === null && ovB2f.body.history.currentValue === 52000 && ovB2f.body.history.firstAnchor.value === 0, JSON.stringify(ovB2f.body.history));
     // The real scheduled run — no clientId, this month — is what tips B over the threshold.
     const allRun = await callFunction(url, pm.token, 'snapshot-portfolio-values', { monthStartDate: monthStart(0) });
     const pRows = (await admin.from('portfolio_value_snapshots').select('id').eq('client_id', P.id)).data;
-    check('a whole-catalog run covers every ACTIVE client and skips the pending_review one', allRun.status === 200 && allRun.body.clients >= 2 && allRun.body.inserted >= 1 && pRows.length === 0, JSON.stringify({ clients: allRun.body.clients, inserted: allRun.body.inserted, pendingRows: pRows.length }));
+    const bRowsNow = (await admin.from('portfolio_value_snapshots').select('id').eq('client_id', B.id)).data;
+    check('a whole-catalog run covers every ACTIVE client (B gained its third anchor) and skips the pending_review one', allRun.status === 200 && allRun.body.clients >= 2 && allRun.body.inserted >= 1 && bRowsNow.length === 3 && pRows.length === 0, JSON.stringify({ clients: allRun.body.clients, inserted: allRun.body.inserted, bRows: bRowsNow.length, pendingRows: pRows.length }));
     const ovB3 = await callFunction(url, B.token, 'get-portfolio-overview', {});
-    check('B flips to chartReady at exactly 3 anchors, the third written by the scheduled run', ovB3.body.history.chartReady === true && ovB3.body.history.anchorCount === 3, JSON.stringify(ovB3.body.history));
+    check('B flips to chartReady at exactly 3 anchors, the third written by the scheduled run (B\'s own read finds it existing, writes nothing)', ovB3.body.history.chartReady === true && ovB3.body.history.anchorCount === 3, JSON.stringify(ovB3.body.history));
     check('...and only now does the change appear — a $0 first anchor yields percent null (never Infinity) with the amount reported', ovB3.body.history.changeSinceFirst && ovB3.body.history.changeSinceFirst.percent === null && ovB3.body.history.changeSinceFirst.amount === round2(ovB3.body.history.currentValue - 0), JSON.stringify(ovB3.body.history.changeSinceFirst));
     const cross = await callFunction(url, B.token, 'get-portfolio-overview', { clientId: A.id });
     check('a client cannot read another client\'s overview (403)', cross.status === 403);
@@ -150,6 +164,87 @@ async function main() {
     check('a PM can read any client\'s overview', pmRead.status === 200 && pmRead.body.clientId === A.id);
     const noAuth = await callFunction(url, null, 'get-portfolio-overview', {});
     check('anonymous is refused (401)', noAuth.status === 401);
+
+    // A's four anchors carry no ledger rows, so its month figures are plain value changes:
+    // 100,000 -> 104,000 (+4.0%), -> 101,500 (-2.4%), -> 110,000 (+8.37%); high is today's
+    // 120,000, low the first anchor. Computed here from the plan, not read off the server.
+    const psA = (await callFunction(url, A.token, 'get-portfolio-overview', {})).body.history.periodStats;
+    check('★ period stats (All): high = today 120,000, low = the first anchor 100,000, best month +8.37% (the third), worst −2.4% (the second)',
+      psA && psA.all && psA.all.high.live === true && psA.all.high.value === 120000 && psA.all.low.value === 100000 && psA.all.low.date === monthStart(3)
+      && psA.all.months === 3 && psA.all.bestMonth.percent === 8.37 && psA.all.bestMonth.month === monthStart(1).slice(0, 7) && psA.all.worstMonth.percent === -2.4 && psA.all.worstMonth.month === monthStart(2).slice(0, 7), JSON.stringify(psA && psA.all));
+    check('period stats (3M) cover only the two months in range, so the best month is still +8.37% but the low is 101,500', psA['3'] && psA['3'].months === 2 && psA['3'].low.value === 101500 && psA['3'].bestMonth.percent === 8.37, JSON.stringify(psA['3']));
+    check('B under the threshold carries no period stats at all', ovB2f.body.history.periodStats.all === null && ovB2f.body.history.periodStats['3'] === null, JSON.stringify(ovB2f.body.history.periodStats));
+
+    // ================================================================================
+    console.log('\n2b. Capital in — derived from the ledger through the real functions');
+    // ================================================================================
+    const C = await makeClient('c', 'Overview Client C', 0);
+    const dep = await callFunction(url, C.token, 'request-deposit', { method: 'bank', amount: 100000, currency: 'USD', details: { bank: 'Test Bank' } });
+    const cred = await callFunction(url, pm.token, 'credit-deposit', { requestId: dep.body.id, confirmedAmount: 100000 });
+    check('seed: a real 100,000 bank deposit credited through credit-deposit', dep.status === 200 && cred.status === 200, JSON.stringify([dep.body, cred.body]));
+    const cwd = await callFunction(url, C.token, 'request-withdrawal', { method: 'bank', amount: 4000, currency: 'USD', destinationDetails: { bank: 'Test Bank', account: '9' } });
+    const capp = await callFunction(url, pm.token, 'approve-withdrawal', { requestId: cwd.body.id, approvedAmount: 4000 });
+    check('seed: a real 4,000 withdrawal approved through approve-withdrawal', cwd.status === 200 && capp.status === 200, JSON.stringify([cwd.body, capp.body]));
+    const chi = await callFunction(url, C.token, 'request-hys-deposit', { pocketType: 'ayw', amount: 6000, method: 'internal', details: {} });
+    const chic = await callFunction(url, pm.token, 'credit-hys-deposit', { requestId: chi.body.id, confirmedAmount: 6000 });
+    check('seed: a real 6,000 INTERNAL transfer into a savings pocket credited (HYS_TRANSFER_IN)', chi.status === 200 && chic.status === 200, JSON.stringify([chi.body, chic.body]));
+    const che = await callFunction(url, C.token, 'request-hys-deposit', { pocketType: 'ayw', amount: 5000, method: 'bank', details: { bank: 'Test Bank' } });
+    const chec = await callFunction(url, pm.token, 'credit-hys-deposit', { requestId: che.body.id, confirmedAmount: 5000 });
+    check('seed: a real 5,000 EXTERNAL pocket deposit credited (HYS_DEPOSIT)', che.status === 200 && chec.status === 200, JSON.stringify([che.body, chec.body]));
+    for (const r of [chic, chec]) if (r.body && r.body.pocketId) pocketIds.push(r.body.pocketId);
+    const cPockets = (await admin.from('hys_pockets').select('id').eq('client_id', C.id)).data || [];
+    cPockets.forEach((p) => { if (pocketIds.indexOf(p.id) === -1) pocketIds.push(p.id); });
+
+    let ovC = (await callFunction(url, C.token, 'get-portfolio-overview', {})).body;
+    let retC = (await callFunction(url, C.token, 'get-returns-summary', {})).body;
+    const ledgerC = (await admin.from('transactions').select('type, total_value').eq('client_id', C.id).order('created_at')).data;
+    check('the ledger holds the four rows the real functions wrote (DEPOSIT, WITHDRAWAL, HYS_TRANSFER_IN, HYS_DEPOSIT)', ledgerC.map((t) => t.type).join(',') === 'DEPOSIT,WITHDRAWAL,HYS_TRANSFER_IN,HYS_DEPOSIT', JSON.stringify(ledgerC));
+    check('★ capital in now = 100,000 − 4,000 − 6,000 = 90,000: the external pocket deposit changed nothing', ovC.history.capitalIn.current === 90000, JSON.stringify(ovC.history.capitalIn));
+    check('...as three events (deposit, withdrawal, transfer_out) with a running cumulative — never a fourth for the pocket deposit', ovC.history.capitalIn.events.map((e) => e.kind + ':' + e.cumulativeAfter).join(' ') === 'deposit:100000 withdrawal:96000 transfer_out:90000', JSON.stringify(ovC.history.capitalIn.events));
+    check('the live value is the account\'s real 90,000 (unallocated after those flows) and the live return 0', ovC.history.live.value === 90000 && ovC.history.live.return === 0, JSON.stringify(ovC.history.live));
+    check('★ THE IDENTITY, no holdings: live value − capital in === get-returns-summary total (0)', Math.abs(ovC.history.live.return - retC.total) < 0.005, JSON.stringify({ gap: ovC.history.live.return, total: retC.total }));
+
+    // A real BUY: capital in must not move, and the identity must survive whatever the price did.
+    const calo = await callFunction(url, C.token, 'request-allocation', { productId: 'PROD-0003', dollarAmount: 3000 });
+    const capA = await callFunction(url, pm.token, 'approve-allocation', { requestId: calo.body.id });
+    check('seed: a real 3,000 allocation executed through approve-allocation (execute-buy)', calo.status === 200 && capA.status === 200, JSON.stringify([calo.body, capA.body]));
+    ovC = (await callFunction(url, C.token, 'get-portfolio-overview', {})).body;
+    retC = (await callFunction(url, C.token, 'get-returns-summary', {})).body;
+    check('★ a BUY moves capital in by nothing (still 90,000) — an internal reallocation is not money in', ovC.history.capitalIn.current === 90000 && ovC.history.capitalIn.events.length === 3, JSON.stringify(ovC.history.capitalIn));
+    check('★ THE IDENTITY after the buy: live value − capital in === get-returns-summary total (unrealised + realised), to the cent', Math.abs(ovC.history.live.return - retC.total) < 0.005, JSON.stringify({ gap: ovC.history.live.return, total: retC.total, unrealized: retC.unrealized, realized: retC.realized }));
+
+    // The lazy anchor write happens on the client's OWN read, and its capital in is taken as of
+    // the moment it was recorded — a later deposit does not leak back into it.
+    const cRows = (await admin.from('portfolio_value_snapshots').select('month_start_date, value_at_anchor').eq('client_id', C.id)).data;
+    check('★ C\'s own overview read wrote this month\'s anchor (the lazy writer folded into the overview)', cRows.length === 1 && cRows[0].month_start_date === monthStart(0) && Math.abs(Number(cRows[0].value_at_anchor) - ovC.history.currentValue) < 0.01, JSON.stringify(cRows));
+    const thisAnchor = ovC.history.anchors.find((a) => a.date === monthStart(0));
+    check('that anchor pairs its value with the capital in as of when it was recorded (90,000) and a return equal to the live one', thisAnchor && thisAnchor.capitalIn === 90000 && Math.abs(thisAnchor.return - ovC.history.live.return) < 0.01, JSON.stringify(thisAnchor));
+    const dep2 = await callFunction(url, C.token, 'request-deposit', { method: 'bank', amount: 2000, currency: 'USD', details: { bank: 'Test Bank' } });
+    const cred2 = await callFunction(url, pm.token, 'credit-deposit', { requestId: dep2.body.id, confirmedAmount: 2000 });
+    check('seed: a further real 2,000 deposit credited AFTER the anchor was recorded', dep2.status === 200 && cred2.status === 200);
+    const ovC2 = (await callFunction(url, C.token, 'get-portfolio-overview', {})).body;
+    const thisAnchor2 = ovC2.history.anchors.find((a) => a.date === monthStart(0));
+    check('★ the anchor\'s capital in is unchanged (as of its own created_at) while capital in NOW is 92,000', thisAnchor2.capitalIn === 90000 && thisAnchor2.value === thisAnchor.value && ovC2.history.capitalIn.current === 92000, JSON.stringify({ anchor: thisAnchor2, now: ovC2.history.capitalIn.current }));
+    check('this month = live value − that anchor: +2,000 (a value change that includes the deposit, the same horizon the old badge answered)', ovC2.history.thisMonth && Math.abs(ovC2.history.thisMonth.amount - 2000) < 0.01 && ovC2.history.thisMonth.anchorValue === thisAnchor.value, JSON.stringify(ovC2.history.thisMonth));
+    const retC2 = (await callFunction(url, C.token, 'get-returns-summary', {})).body;
+    check('the identity still holds after the second deposit', Math.abs(ovC2.history.live.return - retC2.total) < 0.005, JSON.stringify({ gap: ovC2.history.live.return, total: retC2.total }));
+    check('anchors, events and the live point all carry a capitalIn and return field (the CSV export\'s columns)', ovC2.history.anchors.every((a) => typeof a.capitalIn === 'number' && typeof a.return === 'number') && typeof ovC2.history.live.capitalIn === 'number');
+
+    // A $0 anchor with money now: "new this month" — percent null AND amount withheld.
+    const E = await makeClient('e', 'Overview Client E', 0);
+    await callFunction(url, pm.token, 'snapshot-portfolio-values', { monthStartDate: monthStart(0), clientId: E.id });
+    await admin.from('account_state').update({ unallocated_capital: 40000 }).eq('client_id', E.id);
+    const ovE = (await callFunction(url, E.token, 'get-portfolio-overview', {})).body;
+    check('★ this month for a $0 anchor and a now-funded account: percent null, amount reported but flagged by that null — the page renders "New this month", never "+$40,000 this month"', ovE.history.thisMonth && ovE.history.thisMonth.percent === null && ovE.history.thisMonth.anchorValue === 0, JSON.stringify(ovE.history.thisMonth));
+
+    // A PM's cross-client read must NOT write the client's anchor as a side effect of looking.
+    const D = await makeClient('d', 'Overview Client D', 1000);
+    const pmD = await callFunction(url, pm.token, 'get-portfolio-overview', { clientId: D.id });
+    const dRows0 = (await admin.from('portfolio_value_snapshots').select('id').eq('client_id', D.id)).data;
+    check('★ a PM reading D\'s overview writes NO anchor for D (rows: ' + dRows0.length + ')', pmD.status === 200 && dRows0.length === 0, JSON.stringify(pmD.body && pmD.body.history && pmD.body.history.anchorCount));
+    await callFunction(url, D.token, 'get-portfolio-overview', {});
+    const dRows1 = (await admin.from('portfolio_value_snapshots').select('id').eq('client_id', D.id)).data;
+    check('...while D\'s own read writes exactly one', dRows1.length === 1, String(dRows1.length));
 
     // ================================================================================
     console.log('\n3. Pending requests — five real types through the real functions');
