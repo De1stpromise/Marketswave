@@ -29,7 +29,7 @@
   var SESSION_KEY = 'mw_session';
   var IDLE_MS = 30 * 60 * 1000;
   var HEARTBEAT_MS = 15000;
-  var endpoint = null, anonKey = null, token = null, started = false, timer = null, invitationSeen = {};
+  var endpoint = null, anonKey = null, token = null, started = false, timer = null, invitationSeen = {}, acked = false;
 
   function uuid() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -82,9 +82,13 @@
     var headers = { 'Content-Type': 'application/json', apikey: anonKey };
     if (token) headers.Authorization = 'Bearer ' + token;
     try {
-      var res = await fetch(endpoint + '/functions/v1/track-visit', { method: 'POST', headers: headers, body: JSON.stringify(payload(event, extra)), keepalive: event === 'leave' });
+      // keepalive on every event: the first page event on the live site takes ~4 s (a cold
+      // function plus the geolocation lookup), and a click-through before it completes would
+      // otherwise abort it — losing the first page and, with it, the referrer.
+      var res = await fetch(endpoint + '/functions/v1/track-visit', { method: 'POST', headers: headers, body: JSON.stringify(payload(event, extra)), keepalive: true });
       if (!res.ok) return null;
       var data = await res.json();
+      if (data && data.ok) acked = true;
       if (data && data.invitation && !invitationSeen[data.invitation.conversationId]) {
         invitationSeen[data.invitation.conversationId] = true;
         window.dispatchEvent(new CustomEvent('mw:chat-invitation', { detail: Object.assign({ sessionId: current.id }, data.invitation) }));
@@ -117,7 +121,9 @@
     if (localOptOut()) return;
     try { await resolveEndpoint(); } catch (e) { return; }
     var s = session();
-    await send('page', s.isNew ? { referrer: document.referrer || null } : null);
+    // The referrer rides the page event until the server has acknowledged the session, so a
+    // first event that did not land does not lose it.
+    await send('page', (s.isNew || !acked) ? { referrer: document.referrer || null } : null);
     timer = setInterval(function () { if (document.visibilityState !== 'hidden') send('heartbeat'); }, HEARTBEAT_MS);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') send('heartbeat'); });
     window.addEventListener('pagehide', leave);
