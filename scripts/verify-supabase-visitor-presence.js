@@ -135,6 +135,19 @@ async function main() {
     const iph = (await admin.from('visitor_sessions').select('device, browser, referrer_label').eq('id', s3).single()).data;
     check('an iPhone Safari UA parses as iPhone · Safari, no referrer is Direct', iph.device === 'iPhone' && iph.browser === 'Safari' && iph.referrer_label === 'Direct', JSON.stringify(iph));
 
+    // The cold-start race, measured on the live site: two page events for a brand-new session
+    // in flight at once (a click-through before the first, ~4 s, event lands). Both pages must
+    // survive, in the order they happened, and the visit must count once.
+    const vR = uuid(), sR = uuid(); visitorIds.push(vR); sessionIds.push(sR);
+    const t1 = new Date(Date.now() - 2000).toISOString(), t2 = new Date(Date.now() - 500).toISOString();
+    const [ra, rb] = await Promise.all([
+      track({ event: 'page', sessionId: sR, visitorId: vR, path: '/services.html', at: t1, referrer: 'https://www.linkedin.com/' }),
+      track({ event: 'page', sessionId: sR, visitorId: vR, path: '/about.html', at: t2 })
+    ]);
+    const rrow = (await admin.from('visitor_sessions').select('journey, current_path, page_count, visit_number').eq('id', sR).single()).data;
+    const rvis = (await admin.from('visitors').select('visit_count').eq('id', vR).single()).data;
+    check('★ two page events racing to create a session: both land, in time order, current page is the later one, and the visit is counted ONCE', ra.status === 200 && rb.status === 200 && rrow.journey.map((j) => j.p).join(',') === '/services,/about' && rrow.current_path === '/about' && rrow.page_count === 2 && rrow.visit_number === 1 && rvis.visit_count === 1, JSON.stringify({ ra: ra.body, rb: rb.body, rrow, rvis }));
+
     // A signed-in client: the real name, from their real JWT.
     const s4 = uuid(), v3 = uuid(); sessionIds.push(s4); visitorIds.push(v3);
     const p7 = await track({ event: 'page', sessionId: s4, visitorId: v3, path: '/dashboard.html' }, { token: client.token, headers: { 'X-Forwarded-For': '8.8.8.8', 'User-Agent': UA_MAC, 'Origin': 'http://127.0.0.1:8765' } });

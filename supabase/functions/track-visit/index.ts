@@ -74,18 +74,14 @@ Deno.serve(async (req) => {
     let session: any = existing;
     if (!session) {
       if (event !== 'page') return json({ ok: false, unknownSession: true }, 200); // a heartbeat for a purged/unknown session: start over on the next page
-      // ---- new session: the visitor row first (visit_count is how "3rd visit" is counted —
-      // the number of sessions this cookie has started, within the retained 30 days).
-      const { data: visitor } = await admin.from('visitors').select('*').eq('id', visitorId).maybeSingle();
-      let visitNumber = 1;
-      if (!visitor) {
-        const { error } = await admin.from('visitors').insert({ id: visitorId, first_seen_at: nowIso, last_seen_at: nowIso, visit_count: 1 });
-        if (error && error.code !== '23505') throw new Error('visitors insert: ' + error.message);
-        if (error) { const { data: v2 } = await admin.from('visitors').select('visit_count').eq('id', visitorId).single(); visitNumber = Number(v2.visit_count) + 1; await admin.from('visitors').update({ visit_count: visitNumber, last_seen_at: nowIso }).eq('id', visitorId); }
-      } else {
-        visitNumber = Number(visitor.visit_count) + 1;
-        await admin.from('visitors').update({ visit_count: visitNumber, last_seen_at: nowIso }).eq('id', visitorId);
-      }
+      // ---- new session. visit_number is the count of sessions this cookie has already
+      // started (within the retained 30 days) plus one; visitors.visit_count is written to the
+      // same figure only AFTER the session insert succeeds, so two page events racing to
+      // create the same session cannot count it twice.
+      const { error: vErr } = await admin.from('visitors').insert({ id: visitorId, first_seen_at: nowIso, last_seen_at: nowIso, visit_count: 0 });
+      if (vErr && vErr.code !== '23505') throw new Error('visitors insert: ' + vErr.message);
+      const { count: priorSessions } = await admin.from('visitor_sessions').select('id', { count: 'exact', head: true }).eq('visitor_id', visitorId);
+      const visitNumber = (priorSessions || 0) + 1;
       // Geo from the IP — once, here, and the IP is not referenced again.
       const geo = await geolocate(clientIpFrom(req));
       const ua = parseUserAgent(req.headers.get('user-agent'));
@@ -95,29 +91,26 @@ Deno.serve(async (req) => {
         id: sessionId, visitor_id: visitorId, visit_number: visitNumber,
         client_id: clientId, client_name: clientName,
         started_at: nowIso, last_seen_at: nowIso, ended_at: null,
-        current_path: path, journey: [{ p: path, t: nowIso }], page_count: 1,
+        current_path: path, journey: [{ p: path, t: clientTime(body, nowIso) }], page_count: 1,
         country_code: geo.countryCode, country: geo.country, city: geo.city,
         device: ua.device, browser: ua.browser,
         referrer_host: ref.host, referrer_label: ref.label, search_term: ref.searchTerm
       };
       const { data: inserted, error: insErr } = await admin.from('visitor_sessions').insert(row).select('*').single();
       if (insErr) {
-        if (insErr.code === '23505') { const { data: raced } = await admin.from('visitor_sessions').select('*').eq('id', sessionId).single(); session = raced; }
-        else throw new Error('visitor_sessions insert: ' + insErr.message);
-      } else session = inserted;
-    } else {
-      const patch: Record<string, unknown> = { last_seen_at: nowIso, ended_at: null };
-      if (clientId && !session.client_id) { patch.client_id = clientId; patch.client_name = clientName; }
-      if (event === 'page') {
-        const journey = Array.isArray(session.journey) ? session.journey.slice() : [];
-        if (!journey.length || journey[journey.length - 1].p !== path) journey.push({ p: path, t: nowIso });
-        patch.current_path = path;
-        patch.journey = journey.slice(-60);
-        patch.page_count = journey.length;
+        // Two page events racing on a cold start (measured on the live site: the first takes
+        // ~4 s, a click-through sends the second before it lands): both find no session and
+        // both insert; the loser must APPLY its own page to the row the winner created rather
+        // than return it untouched — that dropped a page and reordered the journey once.
+        if (insErr.code !== '23505') throw new Error('visitor_sessions insert: ' + insErr.message);
+        const { data: raced } = await admin.from('visitor_sessions').select('*').eq('id', sessionId).single();
+        session = await applyEvent(admin, raced, event, path, nowIso, clientTime(body, nowIso), clientId, clientName);
+      } else {
+        session = inserted;
+        await admin.from('visitors').update({ visit_count: visitNumber, last_seen_at: nowIso }).eq('id', visitorId);
       }
-      const { data: updated, error: updErr } = await admin.from('visitor_sessions').update(patch).eq('id', sessionId).select('*').single();
-      if (updErr) throw new Error('visitor_sessions update: ' + updErr.message);
-      session = updated;
+    } else {
+      session = await applyEvent(admin, session, event, path, nowIso, clientTime(body, nowIso), clientId, clientName);
     }
 
     // ---- notable-visitor email, at most once per session
@@ -146,6 +139,35 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
+
+// The browser's own timestamp for a page event, when it is sane (within a minute of the
+// server clock) — a page event that lost the cold-start race still lands in the journey at
+// the moment it happened, not the moment it arrived.
+function clientTime(body: any, nowIso: string): string {
+  const t = typeof body.at === 'string' ? new Date(body.at).getTime() : NaN;
+  const now = new Date(nowIso).getTime();
+  return Number.isFinite(t) && Math.abs(now - t) < 60000 ? new Date(t).toISOString() : nowIso;
+}
+
+// A page or heartbeat event applied to an existing session row. Journey steps are kept in
+// time order; a page that repeats its predecessor (a reload) is not a new step; the current
+// page is the latest step.
+async function applyEvent(admin: any, session: any, event: string, path: string, nowIso: string, atIso: string, clientId: string | null, clientName: string | null) {
+  const patch: Record<string, unknown> = { last_seen_at: nowIso, ended_at: null };
+  if (clientId && !session.client_id) { patch.client_id = clientId; patch.client_name = clientName; }
+  if (event === 'page') {
+    let journey = Array.isArray(session.journey) ? session.journey.slice() : [];
+    journey.push({ p: path, t: atIso });
+    journey.sort((a: any, b: any) => String(a.t).localeCompare(String(b.t)));
+    journey = journey.filter((step: any, i: number) => i === 0 || step.p !== journey[i - 1].p);
+    patch.current_path = journey[journey.length - 1].p;
+    patch.journey = journey.slice(-60);
+    patch.page_count = journey.length;
+  }
+  const { data: updated, error: updErr } = await admin.from('visitor_sessions').update(patch).eq('id', session.id).select('*').single();
+  if (updErr) throw new Error('visitor_sessions update: ' + updErr.message);
+  return updated;
+}
 
 const REASON_TEXT: Record<string, string> = {
   client: 'A signed-in client is browsing the site',

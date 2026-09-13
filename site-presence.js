@@ -73,7 +73,7 @@
   function payload(event, extra) {
     var s = session();
     current = s;
-    var p = { event: event, sessionId: s.id, visitorId: visitorId(), path: pagePath() };
+    var p = { event: event, sessionId: s.id, visitorId: visitorId(), path: pagePath(), at: new Date().toISOString() };
     if (extra) for (var k in extra) p[k] = extra[k];
     return p;
   }
