@@ -145,10 +145,9 @@ const GEOM = `(() => {
   const cells = [...document.querySelectorAll('.po-cell')].map(c => { const r = c.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; });
   const stats = [...document.querySelectorAll('#po-stats > div')].map(c => { const r = c.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right }; });
   const figs = [...document.querySelectorAll('#tpv-amount, #total-return-amount, .ret-class, #tpv-monthly-change, #total-return-split, #best-performing-return')].map(e => e.getBoundingClientRect().right);
-  const exp = document.getElementById('po-export').getBoundingClientRect();
   return { inner: window.innerWidth, bodyScroll: document.body.scrollWidth, canvasW: Math.round(cv.width), canvasRight: cv.right, cardRight: card.right, cardLeft: card.left, cardW: card.width,
     pend: { l: pend.left, t: pend.top, b: pend.bottom, r: pend.right }, mat: { l: mat.left, t: mat.top, r: mat.right }, maxRowRight: Math.max(...rows), rangeHeights: rg,
-    cells, stats, maxFigRight: Math.max(...figs), exportH: Math.round(exp.height), exportW: Math.round(exp.width),
+    cells, stats, maxFigRight: Math.max(...figs), noExport: !document.getElementById('po-export') && !document.querySelector('.po-hd button'),
     sparkShown: !document.getElementById('po-spark').hidden && getComputedStyle(document.getElementById('po-spark')).display !== 'none',
     chartPts: (Chart.getChart('po-chart') || { data: { datasets: [{ data: [] }] } }).data.datasets[0].data.length };
 })()`;
@@ -443,12 +442,13 @@ async function main() {
           check(width + 'px: pending and maturities sit side by side (two-up)', Math.abs(g.pend.t - g.mat.t) < 2 && g.mat.l > g.pend.r - 1, JSON.stringify(g));
           check(width + 'px: ★ the band is three cells across, the value cell the widest, the sparkline shown', g.cells.length === 3 && Math.abs(g.cells[0].t - g.cells[1].t) < 2 && Math.abs(g.cells[1].t - g.cells[2].t) < 2 && g.cells[1].l > g.cells[0].r - 1 && (g.cells[0].r - g.cells[0].l) > (g.cells[1].r - g.cells[1].l) && g.sparkShown, JSON.stringify(g.cells));
           check(width + 'px: the four period stats sit in one row', g.stats.length === 4 && g.stats.every((c) => Math.abs(c.t - g.stats[0].t) < 2), JSON.stringify(g.stats));
+          check(width + 'px: the header carries no export control', g.noExport === true);
         } else {
           check(width + 'px: pending and maturities stack in one column', g.mat.t >= g.pend.b - 1 && Math.abs(g.mat.l - g.pend.l) < 2, JSON.stringify(g));
           check(width + 'px: ★ the band collapses to ONE column — each cell below the last, the sparkline hidden', g.cells.length === 3 && g.cells[1].t >= g.cells[0].b - 1 && g.cells[2].t >= g.cells[1].b - 1 && Math.abs(g.cells[1].l - g.cells[0].l) < 2 && !g.sparkShown, JSON.stringify(g.cells));
           check(width + 'px: the period stats wrap to two rows of two', g.stats.length === 4 && Math.abs(g.stats[0].t - g.stats[1].t) < 2 && g.stats[2].t > g.stats[0].t + 10, JSON.stringify(g.stats));
           check(width + 'px: no figure in the band escapes the card', g.maxFigRight <= g.cardRight + 1, JSON.stringify({ maxFigRight: g.maxFigRight, cardRight: g.cardRight }));
-          check(width + 'px: range controls and the export control meet the 44px floor', g.rangeHeights.every((h) => h >= 44) && g.exportH >= 44 && g.exportW >= 44, JSON.stringify({ rg: g.rangeHeights, exportH: g.exportH, exportW: g.exportW }));
+          check(width + 'px: range controls meet the 44px floor', g.rangeHeights.every((h) => h >= 44), JSON.stringify(g.rangeHeights));
         }
         await shot(cdp, '06-layout-' + width);
       }

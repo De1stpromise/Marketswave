@@ -180,7 +180,7 @@ async function main() {
     const { D, captured } = await loadDashboardAs(A);
     const card = D.getElementById('po-value-card');
     check('★ ONE card: the three summary cards and the chart card are gone; the band and the chart section live inside #po-value-card', card.querySelector('.po-band') && card.querySelector('.po-chart-sec') && card.querySelectorAll('.po-cell').length === 3 && !D.querySelector('.glass-subtle') && D.querySelectorAll('#tpv-amount').length === 1 && card.contains(D.getElementById('tpv-amount')), card.className);
-    check('header: "Portfolio", an as-of indicator reading "Updated just now", and an enabled export control', card.querySelector('.po-title').textContent === 'Portfolio' && /Updated just now/.test(D.getElementById('po-asof').textContent) && D.getElementById('po-export').disabled === false);
+    check('header: "Portfolio", an as-of indicator reading "Updated just now", and NO export control (Documents & Reporting owns export)', card.querySelector('.po-title').textContent === 'Portfolio' && /Updated just now/.test(D.getElementById('po-asof').textContent) && !D.getElementById('po-export') && !card.querySelector('.po-hd button'));
     // (a) Total portfolio value: the figure, since-first pill, this-month figure.
     check('the value figure is the real $128,000, once, in the lead cell', D.getElementById('tpv-amount').textContent.trim() === '$128,000' && card.querySelector('.po-lead').contains(D.getElementById('tpv-amount')));
     const change = D.getElementById('po-change');
@@ -241,11 +241,6 @@ async function main() {
     await sleep(50);
     check('All restores the full series and the All stats', JSON.stringify(captured.slice(-1)[0].data.datasets[0].data.map((p) => p.y)) === JSON.stringify(expectedAll) && /Best month\+12\.0%/.test(statCells()[2]));
 
-    // Export: CSV of the snapshot series, built from the payload already on the page.
-    const csv = D.defaultView.MarketswavePortfolioOverview.buildCSV(h);
-    const csvLines = csv.trim().split(/\r?\n/);
-    check('★ the export is a CSV of the snapshot series: header + four anchors + today, each with value, capital in and return', csvLines[0] === 'Date,Portfolio value,Capital in,Return' && csvLines.length === 6 && csvLines[1] === monthStart(3) + ',100000.00,100000.00,0.00' && csvLines[4] === monthStart(0) + ',118000.00,95000.00,23000.00' && /\(live\),128000\.00,110000\.00,18000\.00$/.test(csvLines[5]), csv);
-
     const rows = [...D.querySelectorAll('#po-pending .po-row')];
     check('the pending panel lists the three real requests (server count ' + server.pending.length + ')', rows.length === server.pending.length && rows.length === 3, String(rows.length));
     const hysRow = rows.find((r) => r.dataset.requestType === 'hys_deposit');
@@ -275,7 +270,6 @@ async function main() {
     check('...with the client-since date and NO repeated figure — the band already states it', !newc.querySelector('.po-newc-fig') && !/\$/.test(newc.textContent) && /Client since/.test(newc.querySelector('.po-newc-sub').textContent), newc.textContent);
     check('no line chart was created for the new client', b.captured.filter((c) => c.type === 'line').length === 0);
     check('the value appears exactly once on the page — in the band\'s lead cell, nowhere in the chart section', b.D.querySelectorAll('#po-value-card .po-lead #tpv-amount').length === 1 && !/\$52,000/.test(bCard.querySelector('.po-chart-sec').textContent), bCard.querySelector('.po-chart-sec').textContent);
-    check('the export control is enabled (today\'s live point alone is exportable) and the CSV carries the live row', b.D.getElementById('po-export').disabled === false && /\(live\),52000\.00,52000\.00,0\.00/.test(b.D.defaultView.MarketswavePortfolioOverview.buildCSV((await callFunction(url, B.token, 'get-portfolio-overview', {})).body.history)));
     check('both side panels show their empty states', /Nothing pending/.test(b.D.getElementById('po-pending').textContent) && /No savings pockets yet/.test(b.D.getElementById('po-maturities').textContent));
   } finally {
     if (pocketIds.length) await admin.from('hys_pockets').delete().in('id', pocketIds);

@@ -88,7 +88,7 @@
         <!-- ★ THE BUNDLED PORTFOLIO CARD (2026-09-13). The three summary cards (Total portfolio
              value, Total return, Best performing class) and the separate "Portfolio value over
              time" chart card became ONE glass card, per the approved bundled_card_v2 mockup:
-             a header (title, as-of indicator, CSV export), a three-cell band, then the chart
+             a header (title, as-of indicator), a three-cell band, then the chart
              section under a rule — the chart now carrying a stepped, dashed capital-in
              reference line derived from the ledger (deposits, withdrawals and transfers into
              savings — see _shared/portfolio-overview.ts for exactly what counts and why), the
@@ -106,11 +106,11 @@
         <div class="glass glass-lift rounded-2xl mb-8" id="po-value-card">
           <div class="po-hd">
             <span class="po-title">Portfolio</span>
+            <!-- No export control here (2026-09-13): there is no history to export yet, and
+                 Documents & Reporting owns getting data out of the platform — a CSV button in
+                 a card corner would be a second, lesser export path competing with the real one. -->
             <div class="po-hr">
               <span class="po-asof" id="po-asof"><i aria-hidden="true"></i>Updated just now</span>
-              <button type="button" class="mw-btn mw-btn-sm po-ib" id="po-export" title="Export value history (CSV)" aria-label="Export value history as CSV" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>
-              </button>
             </div>
           </div>
 
@@ -953,7 +953,7 @@
             legendEl: document.getElementById('po-legend'), legendOutEl: document.getElementById('po-legend-out'),
             rangesEl: poRangesEl, chartWrap: poChartWrap, newcEl: poNewcEl,
             statsEl: document.getElementById('po-stats'),
-            exportBtn: document.getElementById('po-export'), asOfEl: document.getElementById('po-asof'),
+            asOfEl: document.getElementById('po-asof'),
             pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
           });
         }

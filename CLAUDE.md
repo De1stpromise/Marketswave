@@ -9217,7 +9217,7 @@ row 74.
 
 - **★★ The bundled portfolio card — the dashboard's three summary cards and the value chart
   become ONE card, with a capital-in reference line (2026-09-13, row 208).** Built against the
-  approved `bundled_card_v2` mockup: header (title, "Updated just now", CSV export), a
+  approved `bundled_card_v2` mockup: header (title, "Updated just now"), a
   three-cell band (value 38px with both horizons; return 24px with the unrealised/realised
   split bar and a return-series sparkline; best class as a pill with "of N classes" — and
   nothing more), then the chart under a rule with a legend, range controls and a period-stats
@@ -9274,11 +9274,14 @@ row 74.
     5.82, sparkline 4.21, deposit dot 3.06.
   - **The band collapses by the CARD's width** (`@container` on `#po-value-card`, never on
     the band — row 206) at 820px, so it stacks whether the width is lost to a phone or the
-    sidebar. The export button is a real `.mw-btn-sm` (Tier C 40px); below `lg` it needs its
-    own 44px re-declaration because `.po-ib.mw-btn { min-width: 0 }` out-specifies
-    tap-targets.css's floor — the row-188 trap, hit again.
-  - **Export is a CSV of the snapshot series** (date, value, capital in, return; one row per
-    anchor plus today), built from the payload already on the page — no second read.
+    sidebar.
+  - **There is NO export control on the card, and the mockup's was removed the same day at
+    the user's own direction.** Two reasons, both this project's standing discipline: today
+    there is no history to export, so the button offered something that did not exist; and
+    Documents & Reporting owns getting data out of the platform — a CSV button in a card
+    corner is a second, lesser export path competing with the real one. If data export is
+    genuinely wanted later, it belongs in Documents & Reporting, not here. Both suites assert
+    the header carries no button.
   **Verified**: `supabase-verify-portfolio-overview` 74/74; `verify-portfolio-overview-ui-
   wiring` 52/52 (real page script, datasets checked against the table and the ledger, range
   controls genuinely recomputing the footer, the CSV, the new-client state); `verify-

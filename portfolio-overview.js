@@ -2,14 +2,14 @@
 // bundled portfolio card and its two side panels from ONE real read of
 // get-portfolio-overview: the band's change figures (since the first recorded month, and
 // this month), the return-series sparkline, the value chart with its capital-in reference
-// line and capital events, the per-range period stats, the CSV export, the cross-domain
+// line and capital events, the per-range period stats, the cross-domain
 // pending-requests panel, and the upcoming-maturities panel. Every figure arrives computed
 // from the server; this file only formats and draws (row 185: no client-side money
 // computation — the period stats are looked up by range key, never recomputed here).
 //
 // Plain global, same convention as dashboard-sidebar.js / fund-document.js:
 //   window.MarketswavePortfolioOverview.render(payload, { changeEl, thisMonthEl, sparkEl,
-//     legendEl, rangesEl, chartWrap, newcEl, statsEl, exportBtn, asOfEl,
+//     legendEl, rangesEl, chartWrap, newcEl, statsEl, asOfEl,
 //     pendingEl, maturitiesEl })
 //
 // THE CHART THRESHOLD. A line through two points is not a chart. The server reports
@@ -451,29 +451,6 @@
     newcEl.appendChild(body);
   }
 
-  // ---------------------------------------------------------------- export
-  // CSV of the snapshot series: one row per recorded anchor plus today, with the capital in
-  // and return the server paired with each. Built from the payload already on the page —
-  // no second read, nothing recomputed.
-  function buildCSV(h) {
-    var rows = [['Date', 'Portfolio value', 'Capital in', 'Return']];
-    h.anchors.forEach(function (a) { rows.push([a.date, a.value.toFixed(2), a.capitalIn.toFixed(2), a.return.toFixed(2)]); });
-    if (h.live) rows.push([h.live.date + ' (live)', h.live.value.toFixed(2), h.live.capitalIn.toFixed(2), h.live.return.toFixed(2)]);
-    return rows.map(function (r) { return r.map(function (c) { return /[",\n]/.test(c) ? '"' + String(c).replace(/"/g, '""') + '"' : c; }).join(','); }).join('\r\n') + '\r\n';
-  }
-  function wireExport(h, btn) {
-    if (!btn) return;
-    btn.disabled = !h.anchors.length && !h.live;
-    btn.onclick = function () {
-      var csv = buildCSV(h);
-      if (typeof Blob === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
-      var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-      var a = el('a'); a.href = url; a.download = 'marketswave-portfolio-value-' + (h.live ? h.live.date : 'history') + '.csv';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    };
-  }
-
   // ---------------------------------------------------------------- as-of indicator
   var asOfTimer = null;
   function renderAsOf(asOfEl, at) {
@@ -586,11 +563,10 @@
       els.newcEl.classList.remove('hidden');
       renderNewClient(h, els.newcEl);
     }
-    wireExport(h, els.exportBtn);
     renderAsOf(els.asOfEl, opts && opts.at ? opts.at : Date.now());
     renderPending(payload.pending || [], els.pendingEl);
     renderMaturities(payload.maturities || [], els.maturitiesEl);
   }
 
-  window.MarketswavePortfolioOverview = { render: render, formatUSD: formatUSD, pointsFor: pointsFor, capitalSeriesFor: capitalSeriesFor, eventPointsFor: eventPointsFor, buildCSV: buildCSV };
+  window.MarketswavePortfolioOverview = { render: render, formatUSD: formatUSD, pointsFor: pointsFor, capitalSeriesFor: capitalSeriesFor, eventPointsFor: eventPointsFor };
 })();

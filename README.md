@@ -1846,8 +1846,9 @@ npm run verify-round-robin-refresh
 
 ### ★ The bundled portfolio card (2026-09-13) — what the dashboard's top card reads, and what "capital in" means
 
-The dashboard opens with ONE card: a three-cell band (Total portfolio value with both
-horizons, Total return with its split and sparkline, Best performing class) and, beneath a
+The dashboard opens with ONE card: a header (title, as-of — deliberately no export control:
+Documents & Reporting owns getting data out), a three-cell band (Total portfolio value with
+both horizons, Total return with its split and sparkline, Best performing class) and, beneath a
 rule, the value chart with a dashed **capital-in** reference line, capital events as dots, a
 three-row tooltip, range controls and a period-stats footer. Everything comes from one read,
 `get-portfolio-overview`, computed in `supabase/functions/_shared/portfolio-overview.ts`.
