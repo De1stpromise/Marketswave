@@ -427,9 +427,16 @@
         var heading = document.getElementById('welcome-heading');
         if (!heading || typeof getClient !== 'function' || typeof getAuthenticatedClientId !== 'function') return;
         var client = getClient(getAuthenticatedClientId());
-        if (!client) return;
-        var firstName = client.name.trim().split(/\s+/)[0];
-        heading.textContent = 'Welcome Back, ' + firstName;
+        if (client) { heading.textContent = 'Welcome Back, ' + client.name.trim().split(/\s+/)[0]; return; }
+        // No local mirror (login.html writes it; a cleared localStorage with a session still
+        // in place, or any harness bootstrap, has none): read the real name from the client's
+        // own `clients` row instead of leaving the skeleton pulsing forever — found 2026-09-13
+        // as the reason the sheen audit's "settled" wait timed out on every dashboard load.
+        if (typeof MarketswaveData === 'undefined') { heading.textContent = 'Welcome Back'; return; }
+        MarketswaveData.selectTable('clients').then(function (rows) {
+          var row = rows && rows[0];
+          heading.textContent = row && row.name ? 'Welcome Back, ' + String(row.name).trim().split(/\s+/)[0] : 'Welcome Back';
+        }).catch(function () { heading.textContent = 'Welcome Back'; });
       })();
 
       // Set Risk Profile (unchanged — a purely local-only feature with no Supabase
