@@ -9275,6 +9275,12 @@ row 74.
   - **The band collapses by the CARD's width** (`@container` on `#po-value-card`, never on
     the band — row 206) at 820px, so it stacks whether the width is lost to a phone or the
     sidebar.
+  - **ONE held class: "Asset class", the class, its figure — nothing comparative.** A client
+    holding only Crypto read "Most resilient class · −2.7% unrealised · every class is down ·
+    of 1 class" — three qualifiers on one holding, and every one a comparison against classes
+    that do not exist. With a single held class the label is "Asset class" and the sub-line is
+    the figure alone; "of N classes" appears only for two or more; the row-205 relabel and
+    "every class is down" only for two or more. Asserted for one, two and three classes.
   - **There is NO export control on the card, and the mockup's was removed the same day at
     the user's own direction.** Two reasons, both this project's standing discipline: today
     there is no history to export, so the button offered something that did not exist; and

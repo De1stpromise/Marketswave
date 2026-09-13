@@ -258,9 +258,16 @@ async function main() {
     await backdateAnchors(L, [3, 2, 1, 0]);
     await admin.from('transactions').insert([{ client_id: L.id, type: 'DEPOSIT', total_value: 120000, status: 'completed', created_at: msAt(4, 15) }]);
     const { data: prod } = await admin.from('products').select('id, unit_price').eq('id', 'PROD-0003').single();
-    const lUnits = 20000 / Number(prod.unit_price);
-    await admin.from('holdings').insert({ client_id: L.id, product_id: 'PROD-0003', units: lUnits, cost_basis: 40000 });
-    await admin.from('account_state').update({ unallocated_capital: 70000, allocated_capital: 20000, asset_returns: -10000 }).eq('client_id', L.id);
+    // TWO losing classes (an ETF at half its cost basis, a coin at 80%): the "Most resilient
+    // class · every class is down" wording is a comparison and only appears for two or more
+    // held classes — a single class reads "Asset class" with the figure alone (2026-09-13).
+    const { data: eth } = await admin.from('products').select('id, unit_price').eq('id', 'PROD-0004').single();
+    const lUnits = 16000 / Number(prod.unit_price), lEthUnits = 4000 / Number(eth.unit_price);
+    await admin.from('holdings').insert([
+      { client_id: L.id, product_id: 'PROD-0003', units: lUnits, cost_basis: 32000 },
+      { client_id: L.id, product_id: 'PROD-0004', units: lEthUnits, cost_basis: 5000 }
+    ]);
+    await admin.from('account_state').update({ unallocated_capital: 83000, allocated_capital: 20000, asset_returns: -10000 }).eq('client_id', L.id); // TPV 93,000 = 120,000 in − 27,000 total return (−17,000 unrealised, −10,000 realised): a possible account
 
     // N: new — one $0 anchor written before the account was funded, funded this month.
     const N = await makeClient('n', 'Overview Visual N', 0);
@@ -314,6 +321,8 @@ async function main() {
       const liveValue = Number(value.replace(/[^0-9.]/g, ''));
       check('★ the real portfolio dataset equals the table rows + today\'s live value', JSON.stringify(live) === JSON.stringify(tableValues.concat([liveValue])), JSON.stringify({ live, tableValues, liveValue }));
       check('the live value is stated once, in the band\'s lead cell, at the account\'s real $128,000', liveValue === 128000 && (await cdp.evaluate('document.querySelectorAll("#tpv-amount").length')) === 1, value);
+      // The return figure counts up (Motion) like the value: settle on the real figure first.
+      await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){if(document.getElementById("total-return-amount").textContent.trim()==="+$18,000")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
       const band = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);return {title:document.querySelector(".po-title").textContent,asof:g("po-asof").textContent,change:g("po-change").textContent,tm:g("tpv-monthly-change").textContent,ret:g("total-return-amount").textContent.trim(),retCls:g("total-return-amount").className,pct:g("total-return-pct").textContent,split:[...g("po-split").children].map(i=>i.style.width),splitHidden:g("po-split").hidden,cls:g("best-performing-class").textContent.trim(),clsSub:g("best-performing-return").textContent,chartTitle:document.querySelector(".po-ch-title").textContent,legend:[...document.querySelectorAll(".po-leg > span")].filter(e=>!e.hidden).map(e=>e.textContent),dollarsInChartHead:(document.querySelector(".po-ch-h").textContent.match(/\\$/g)||[]).length,glassLift:g("po-value-card").classList.contains("glass-lift")};})()');
       check('★ ONE card, .glass-lift, titled "Portfolio", "Updated just now", chart section titled "Value over time" with no dollar figure in its head', band.title === 'Portfolio' && /Updated just now/.test(band.asof) && band.chartTitle === 'Value over time' && band.dollarsInChartHead === 0 && band.glassLift === true, JSON.stringify(band));
       check('the band: since pill +$28,000 · +28.0%, this month +$10,000 (+8.5%), return +$18,000 gain-toned, split 0%/100%, class "—"', /\+\$28,000 · \+28\.0%/.test(band.change) && /\+\$10,000/.test(band.tm) && /\+8\.5%/.test(band.tm) && band.ret === '+$18,000' && /is-gain/.test(band.retCls) && !band.splitHidden && parseFloat(band.split[0]) === 0 && parseFloat(band.split[1]) === 100 && band.cls === '\u2014', JSON.stringify(band));
@@ -407,8 +416,9 @@ async function main() {
       await cdp.evaluate(WAIT_OVERVIEW(true));
       await sleep(600);
       await shot(cdp, '04-losing-client');
+      await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){if(document.getElementById("total-return-amount").textContent.trim()==="\u2212$27,000")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
       const lb = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);return {ret:g("total-return-amount").textContent.trim(),retCls:g("total-return-amount").className,label:g("best-performing-label").textContent,clsSub:g("best-performing-return").textContent,pill:g("po-change").textContent,tm:g("tpv-monthly-change").textContent,stats:[...document.querySelectorAll("#po-stats > div")].map(d=>d.textContent.replace(/\\s+/g," ").trim()),spark:document.getElementById("po-spark").querySelector("path").getAttribute("stroke")};})()');
-      check('★ the losing client: return −$30,000 loss-toned, "Most resilient class · every class is down" with a loss pill, since pill and this-month negative, worst month negative, sparkline loss-toned', lb.ret === '\u2212$30,000' && /is-loss/.test(lb.retCls) && lb.label === 'Most resilient class' && /every class is down/.test(lb.clsSub) && /\u2212/.test(lb.pill) && /\u2212/.test(lb.tm) && /Worst month\u2212/.test(lb.stats[3]) && lb.spark === '#A8452F', JSON.stringify(lb));
+      check('★ the losing client: return −$27,000 loss-toned, "Most resilient class · every class is down" with a loss pill, since pill and this-month negative, worst month negative, sparkline loss-toned', lb.ret === '\u2212$27,000' && /is-loss/.test(lb.retCls) && lb.label === 'Most resilient class' && /every class is down/.test(lb.clsSub) && /\u2212/.test(lb.pill) && /\u2212/.test(lb.tm) && /Worst month\u2212/.test(lb.stats[3]) && lb.spark === '#A8452F', JSON.stringify(lb));
 
       // The new client on screen: the band renders, the chart area explains, nothing else.
       await cdp.send('Page.navigate', { url: BASE + '/' });

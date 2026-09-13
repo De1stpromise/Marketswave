@@ -375,6 +375,36 @@ async function main() {
     check('the negative figure renders in the loss tone', !!bestReturnEl.querySelector('.is-loss'));
   })();
 
+  console.log('\n2c. A real client holding ONE class, losing — no comparative qualifier at all');
+  // Bundled card (2026-09-13): a client holding only Crypto read "Most resilient class ·
+  // −2.7% unrealised · every class is down · of 1 class" — three qualifiers on one holding,
+  // every one of them a comparison against classes that do not exist. With a single held
+  // class the label is "Asset class" and the sub-line is the figure alone.
+  const clientR4 = await createTestClient(admin, 'ReturnsOneClass', suffix);
+  createdClientIds.push(clientR4.id);
+  await admin.from('account_state').insert({ client_id: clientR4.id, unallocated_capital: 1000, allocated_capital: 0, asset_returns: 0 });
+  const sEthUnits = 1.5, sEthCostBasis = round2((sEthUnits * ethereum.unit_price) / 0.973);
+  await admin.from('holdings').insert([{ client_id: clientR4.id, product_id: ethereum.id, units: sEthUnits, cost_basis: sEthCostBasis }]);
+  await (async function () {
+    const path = fileURLToPath(new URL('../dashboard.html', import.meta.url));
+    const dom = buildPageDom(path);
+    dom.window.MarketswaveData = MarketswaveData;
+    dom.window.clientScopedKey = function (key) { return key + ':' + clientR4.id; };
+    const script = extractInlineScript(path, 'UI Wiring — Stage 1');
+    const D = dom.window.document;
+    const bestClassEl = D.getElementById('best-performing-class');
+    const bestReturnEl = D.getElementById('best-performing-return');
+    const labelEl = D.getElementById('best-performing-label');
+    const sharedClient = await MarketswaveData.getSupabaseClient();
+    await sharedClient.auth.signInWithPassword({ email: clientR4.email, password: 'VerifyDashFix-2026!' });
+    dom.window.eval(script);
+    await pollUntil(function () { return !/animate-pulse/.test(bestClassEl.innerHTML); }, 20000);
+    check('the one class (Crypto) is named', bestClassEl.textContent === 'Crypto', bestClassEl.textContent);
+    check('★ with ONE held class the label is "Asset class" — neither "Best performing" nor "Most resilient", both comparisons against nothing', labelEl.textContent === 'Asset class', labelEl.textContent);
+    check('★ the sub-line is the figure alone: "−x.x% unrealised" — no "every class is down", no "of 1 class"', /^\u2212[\d.]+%\s+unrealised$/.test(bestReturnEl.textContent.trim()), bestReturnEl.textContent);
+    check('the negative figure still renders as a loss-toned pill', !!bestReturnEl.querySelector('.ret-pc.is-loss'));
+  })();
+
   // ===========================================================================================
   // PART 3 — Empty-state pie chart: genuine $0 vs. real unallocated-cash-only
   // ===========================================================================================

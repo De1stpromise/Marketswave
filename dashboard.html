@@ -150,7 +150,9 @@
                  and "of N classes". The ranking that used to be proposed here duplicated the
                  allocation pie. The figure was ALWAYS unrealised and says so in the markup so
                  the word cannot go missing on an error path; the "Most resilient class ·
-                 every class is down" relabel for the all-negative case (row 205) stays. -->
+                 every class is down" relabel for the all-negative case (row 205) stays — for
+                 TWO or more classes. With one held class every comparative qualifier goes and
+                 the label reads "Asset class" (see the render). -->
             <div class="po-cell">
               <p class="ret-k" id="best-performing-label">Best performing class</p>
               <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
@@ -818,17 +820,23 @@
           // maximum, so a negative best means EVERY class is down: the card is relabelled
           // "Most resilient class" and says so, rather than hiding a real, honest figure.
           var allDown = pct < 0;
-          document.getElementById('best-performing-label').textContent = allDown ? 'Most resilient class' : 'Best performing class';
           // "of N classes" — N is the number of classes the client genuinely holds (a real
           // cost basis), the same set the server picked the best from. ONLY that: a ranking
           // here would duplicate the allocation pie below.
           var held = (r.byClass || []).filter(function (c) { return c.costBasis > 0; }).length;
+          // ONE held class (2026-09-13): "Best performing", "Most resilient" and "every class
+          // is down" are all comparisons against classes that do not exist — a client holding
+          // only Crypto once read "Most resilient class · −2.7% unrealised · every class is
+          // down · of 1 class", three qualifiers on one holding. The honest whole of it is the
+          // class and its figure: label "Asset class", no comparative wording, no count.
+          var single = held === 1;
+          document.getElementById('best-performing-label').textContent = single ? 'Asset class' : (allDown ? 'Most resilient class' : 'Best performing class');
           bestClassReturnEl.className = 'ret-sub';
           bestClassReturnEl.innerHTML =
             '<span class="ret-pc ret-u' + (allDown ? ' is-loss' : ' is-gain') + '">' +
               signedPct(pct) +
-            '</span> unrealised' + (allDown ? ' · every class is down' : '') +
-            (held ? ' · of ' + held + (held === 1 ? ' class' : ' classes') : '');
+            '</span> unrealised' + (allDown && !single ? ' · every class is down' : '') +
+            (held > 1 ? ' · of ' + held + ' classes' : '');
         }
       });
 
