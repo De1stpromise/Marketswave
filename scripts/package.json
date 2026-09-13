@@ -79,6 +79,7 @@
     "verify-round-robin-refresh": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-round-robin-refresh.mjs",
     "supabase-seed-market-catalog": "node supabase-seed-market-catalog.js",
     "supabase-verify-portfolio-overview": "node verify-supabase-portfolio-overview.js",
+    "supabase-verify-visitor-presence": "node verify-supabase-visitor-presence.js",
     "verify-portfolio-overview-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-portfolio-overview-ui-wiring.mjs",
     "verify-portfolio-overview-visual": "node verify-portfolio-overview-visual.mjs",
     "audit-glass-sheen": "node audit-glass-sheen.mjs"

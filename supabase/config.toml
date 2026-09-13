@@ -879,3 +879,24 @@ entrypoint = "./functions/snapshot-portfolio-values/index.ts"
 [functions.resolve-asset-logos]
 enabled = true
 verify_jwt = false
+
+
+[functions.track-visit]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/track-visit/index.ts"
+
+[functions.get-visitor-presence]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-visitor-presence/index.ts"
+
+[functions.send-proactive-message]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-proactive-message/index.ts"
+
+[functions.accept-chat-invitation]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/accept-chat-invitation/index.ts"

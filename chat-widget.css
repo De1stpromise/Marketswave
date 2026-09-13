@@ -269,3 +269,6 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* Proactive chat (2026-09-13): the PM's message shown above the pre-chat form. */
+#chat-widget-precontact #chat-widget-invitation { margin: 0 0 12px; }

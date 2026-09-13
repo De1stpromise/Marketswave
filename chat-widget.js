@@ -15,6 +15,15 @@
 // inventing a third one. Styling stays plain CSS (chat-widget.css), never Tailwind, so it
 // never blurs the actual styling boundary, only the "which pages load a backend SDK" one —
 // and only for this one, narrowly-scoped, genuinely site-wide feature.
+//
+// ★ PROACTIVE CHAT (Visitor presence, 2026-09-13). A PM can open a conversation with a
+// visitor from admin-presence.html. site-presence.js raises the pending invitation as a
+// `mw:chat-invitation` DOM event (it rides on the visitor's own heartbeat); this widget then
+// opens with the PM's message shown and asks an anonymous visitor for name and email before
+// their first reply — accept-chat-invitation binds their anonymous session to the thread,
+// after which everything below (send, realtime) is the ordinary path. A signed-in client's
+// invitation already sits in their own conversation, so the ordinary authenticated start
+// simply finds it.
 (function () {
   'use strict';
 
@@ -88,6 +97,7 @@
     const sendBtn = document.getElementById('chat-widget-send');
 
     let conversationId = null;
+    let pendingInvitation = null;
     let authorizedForHistory = false;
     let realtimeChannel = null;
     let renderedMessageIds = new Set();
@@ -223,6 +233,55 @@
       panel.classList.remove('is-open');
     });
 
+    // ---- proactive invitation: accept it with the anonymous session + the token
+    async function acceptInvitation(name, email) {
+      setStatus('Connecting...');
+      const client = await getClient();
+      const { data: sessionData } = await client.auth.getSession();
+      if (!sessionData || !sessionData.session) {
+        const { error: anonErr } = await client.auth.signInAnonymously();
+        if (anonErr) { setStatus('Offline'); precontactError.textContent = 'Unable to connect right now. Please try again.'; precontactError.classList.add('is-visible'); return; }
+      }
+      const { data, error } = await client.functions.invoke('accept-chat-invitation', { body: { sessionId: pendingInvitation.sessionId, token: pendingInvitation.token, contactName: name, contactEmail: email } });
+      if (error || !data) {
+        setStatus('Offline');
+        let msg = 'Unable to connect right now. Please try again.';
+        try { const j = error && error.context ? await error.context.json() : null; if (j && j.error) msg = j.error; } catch (e) { /* generic */ }
+        precontactError.textContent = msg;
+        precontactError.classList.add('is-visible');
+        return;
+      }
+      pendingInvitation = null;
+      openConversation(client, data.contactName, data.contactEmail, data.conversationId, data.messages, true);
+    }
+    function showInvitation(inv) {
+      pendingInvitation = inv;
+      panelOpen = true;
+      panel.classList.add('is-open');
+      clearUnread();
+      if (isAuthenticatedContext()) {
+        // The PM's message is already in this client's own conversation.
+        if (!conversationId) startChat(null);
+        return;
+      }
+      // Anonymous: show the message above the pre-chat form, and ask for name + email to reply.
+      let preview = document.getElementById('chat-widget-invitation');
+      if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'chat-widget-invitation';
+        preview.className = 'chat-widget-msg-row is-outbound';
+        precontact.insertBefore(preview, precontact.firstChild);
+      }
+      preview.innerHTML = '';
+      const b = document.createElement('div'); b.className = 'chat-widget-msg-bubble'; b.textContent = inv.message || 'A Marketswave advisor would like to help.';
+      preview.appendChild(b);
+      precontact.querySelector('p').textContent = 'A Marketswave advisor sent you a message. Enter your name and email to reply.';
+      startBtn.textContent = 'Reply';
+      precontact.style.display = '';
+      setStatus('Online');
+    }
+    window.addEventListener('mw:chat-invitation', function (e) { if (e.detail && e.detail.conversationId) { showInvitation(e.detail); bumpUnread(); } });
+
     startBtn.addEventListener('click', function () {
       const name = nameInput.value.trim();
       const email = emailInput.value.trim();
@@ -238,7 +297,7 @@
         return;
       }
       startBtn.disabled = true;
-      startChat({ contactEmail: email, contactName: name }).finally(function () {
+      (pendingInvitation ? acceptInvitation(name, email) : startChat({ contactEmail: email, contactName: name })).finally(function () {
         startBtn.disabled = false;
       });
     });
