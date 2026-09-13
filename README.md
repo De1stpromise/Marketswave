@@ -1844,6 +1844,30 @@ pg_cron jobs while it runs so a scheduled refresh cannot land mid-measurement):
 npm run verify-round-robin-refresh
 ```
 
+### ★ The bundled portfolio card (2026-09-13) — what the dashboard's top card reads, and what "capital in" means
+
+The dashboard opens with ONE card: a three-cell band (Total portfolio value with both
+horizons, Total return with its split and sparkline, Best performing class) and, beneath a
+rule, the value chart with a dashed **capital-in** reference line, capital events as dots, a
+three-row tooltip, range controls and a period-stats footer. Everything comes from one read,
+`get-portfolio-overview`, computed in `supabase/functions/_shared/portfolio-overview.ts`.
+
+**Capital in** is the net external capital that entered the portfolio the chart measures —
+`+DEPOSIT −WITHDRAWAL −HYS_TRANSFER_IN` from the ledger. External pocket deposits/withdrawals
+and BUY/SELL never move it. The gap between the two lines is therefore exactly the return
+(`unrealised + realised`), and the suite asserts that identity through the real functions.
+
+The chart (and the since-pill, sparkline and period stats with it) appears once a client has
+three real monthly anchors in `portfolio_value_snapshots`; the scheduled writer
+(`snapshot-portfolio-values`, 00:05 UTC on the 1st) adds one per month, and a client's own
+first dashboard visit of a month writes that month's anchor if the schedule has not yet. A PM
+reading a client's overview never writes one.
+
+Checks: `npm run supabase-verify-portfolio-overview` (backend, incl. the capital-in identity),
+`npm run verify-portfolio-overview-ui-wiring` (the real page in jsdom), `npm run
+verify-portfolio-overview-visual` (real Chrome: the real chart, tooltip, ranges, contrast
+under the sheen, 320/375/390/1440 — `PO_SHOTS=<dir>` saves screenshots for a human look).
+
 ### ★ Asset logos (2026-09-13) — the backfill, and what to run when a mark is wrong
 
 Every asset name on the dashboard, the catalog, the holdings table, the admin catalog and a

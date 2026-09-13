@@ -9215,6 +9215,83 @@ row 74.
   clean; the staging backfill run as the staging PM: 29/29 products carry a stored mark, the
   8 coins re-resolved to CoinGecko's 250px images after the 403 finding.
 
+- **★★ The bundled portfolio card — the dashboard's three summary cards and the value chart
+  become ONE card, with a capital-in reference line (2026-09-13, row 208).** Built against the
+  approved `bundled_card_v2` mockup: header (title, "Updated just now", CSV export), a
+  three-cell band (value 38px with both horizons; return 24px with the unrealised/realised
+  split bar and a return-series sparkline; best class as a pill with "of N classes" — and
+  nothing more), then the chart under a rule with a legend, range controls and a period-stats
+  footer. The three separate cards and the separate chart card are gone. `get-portfolio-
+  overview` is the one read; the old `get-portfolio-monthly-change` call on the dashboard is
+  folded into it.
+  **Things a future session needs to know before touching any of this:**
+  - **★ WHAT "CAPITAL IN" IS, AND WHY THE TRANSFER SUBTRACTS.** The portfolio line is
+    `computeTotalPortfolioValue()` = unallocated + allocated + asset_returns — savings pockets
+    are NOT in it. So capital in is the net external capital that entered THAT measure:
+    `+DEPOSIT −WITHDRAWAL −HYS_TRANSFER_IN`. A transfer into a pocket leaves the measured
+    portfolio; count it as capital still in and the chart shows a "loss" of exactly that
+    amount that never happened (a real staging client has DEPOSIT 100,000 then
+    HYS_TRANSFER_IN 5,000 — capital in must read 95,000). `HYS_DEPOSIT`/`HYS_WITHDRAWAL` are
+    external money into/out of a pool the line never included and are EXCLUDED; BUY/SELL are
+    TPV-conserving and excluded. With that definition **the gap between the lines IS the
+    return, exactly**: `TPV − capitalIn = unrealised + asset_returns = get-returns-summary's
+    total`. The backend suite asserts that identity through the real credit/approve
+    functions, before and after a real buy — and it is how a seed error was caught: a seed
+    that set `unallocated_capital` by hand carried $18,000 no ledger row explained, and the
+    identity correctly refused it. **Seed a possible account, or the test will tell you.**
+  - **An anchor's capital in is taken as of `portfolio_value_snapshots.created_at`, not its
+    label date.** The lazy writer records "the value now" under the 1st's label on a client's
+    first visit of the month, so a deposit on the 3rd is already inside a value labelled the
+    1st; pairing it with capital in as of the 1st overstates the return at that point.
+  - **The lazy month-anchor write moved into `get-portfolio-overview` — for the CALLER'S OWN
+    read only.** Row 130's reason for keeping it out of `get-total-portfolio-value` holds
+    here: a PM browsing a client's overview must never set that client's real anchor by
+    looking. Asserted (a PM read writes nothing; the client's own read writes one). A
+    consequence for any suite: a client's own overview read creates this month's anchor, so
+    an under-threshold state must be observed through a PM read.
+  - **Period stats are SERVER-side per range (`periodStats['3'|'6'|'12'|'all']`), looked up
+    by key on the page — never recomputed client-side** (row 185). Best/worst month is the
+    month's return NET OF FLOWS on its opening value, `(V1 − V0 − flow) / V0`: a month that
+    grew only because a deposit landed does not read as the best month on the very card whose
+    reference line exists to make that distinction. Only consecutive full months count; the
+    partial current month is not a month; a month opening at $0 has no rate.
+  - **This month follows row 205's gating on a shorter horizon**: a $0 anchor with money now
+    renders "New this month", never "+$40,000 this month". It IS a value change (includes
+    deposits), like the since pill — the chart is where flows are separated.
+  - **★ `<svg>` HAS NO `hidden` IDL PROPERTY.** `sparkEl.hidden = false` sets a JS expando
+    on an SVGElement and leaves the attribute — and the UA's `[hidden]{display:none}` — in
+    place. The sparkline never appeared in a real browser while jsdom's `spark.hidden` check
+    passed vacuously. Toggle the attribute; assert `hasAttribute('hidden')`.
+  - **The portfolio line is straight segments (tension 0) on purpose**: the event dots sit on
+    the line at a linearly interpolated y, exact only for straight segments; and a straight
+    line between monthly points is the honest picture of "one point a month". Capital in
+    steps with a duplicate x at each event (no reliance on Chart.js stepped semantics). The
+    x axis is linear in time, so the centre x-label is the date at the axis midpoint, not the
+    middle point.
+  - **Graphical objects are measured at 3:1 on composited pixels**, not only text: the
+    mockup's `#7C868C` at 1.4px composited at **2.48:1** (a thin dashed stroke never reaches
+    its declared colour through antialiasing) — it is `#5C6367` at 1.6px (3.34:1). Split bar
+    5.82, sparkline 4.21, deposit dot 3.06.
+  - **The band collapses by the CARD's width** (`@container` on `#po-value-card`, never on
+    the band — row 206) at 820px, so it stacks whether the width is lost to a phone or the
+    sidebar. The export button is a real `.mw-btn-sm` (Tier C 40px); below `lg` it needs its
+    own 44px re-declaration because `.po-ib.mw-btn { min-width: 0 }` out-specifies
+    tap-targets.css's floor — the row-188 trap, hit again.
+  - **Export is a CSV of the snapshot series** (date, value, capital in, return; one row per
+    anchor plus today), built from the payload already on the page — no second read.
+  **Verified**: `supabase-verify-portfolio-overview` 74/74; `verify-portfolio-overview-ui-
+  wiring` 52/52 (real page script, datasets checked against the table and the ledger, range
+  controls genuinely recomputing the footer, the CSV, the new-client state); `verify-
+  portfolio-overview-visual` 70/70 (real Chart.js: portfolio dataset = table rows + live,
+  capital-in stepping at the ledger dates, dots within a pixel of the drawn line, the real
+  three-row tooltip and the deposit tooltip, a real 3M click recomputing the stats; 93
+  composited contrast measurements across gain/loss/tooltip/new-client with 0 below 4.5:1,
+  the 38px figure under the sheen 14.6:1; 1440/390/375 + a real 320px iframe with the band
+  asserted at 3 then 1 columns); `verify-dashboard-real-data-fixes` 44/44, `verify-returns-
+  display` 105/105, `verify-returns-display-visual` 148/148, `verify-dashboard-ui-wiring`
+  27/27, `audit-glass-sheen` dashboard 19 measured 0 below, control patterns 41/41,
+  stylesheet coverage, Tailwind scoping PASS.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
