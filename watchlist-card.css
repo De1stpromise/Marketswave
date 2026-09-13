@@ -20,6 +20,11 @@
      (see .wl-rows) rather than the card growing without limit down the page. */
   display: flex;
   flex-direction: column;
+  /* The CARD is the query container for the grid's column count, deliberately not
+     .wl-rows itself: an @container rule applies to a container's DESCENDANTS, and an
+     element can never query its own size — the first version put container-type on
+     .wl-rows and the grid silently stayed at three columns at 390px. Measured, not read. */
+  container-type: inline-size;
 }
 
 .wl-head {
@@ -80,10 +85,10 @@
   max-height: 420px;
   overflow-y: auto;
   scrollbar-width: thin;
-  /* Column count follows the CARD's own width, not the viewport — the sidebar takes a
-     different share of the viewport at every breakpoint, and the drawer's "beneath the
-     card's own row" rule only holds if the columns are decided where the cards live. */
-  container-type: inline-size;
+  /* Column count follows the CARD's own width (the @container rules below, queried
+     against #watchlist-card), not the viewport — the sidebar takes a different share of
+     the viewport at every breakpoint, and the drawer's "beneath the card's own row" rule
+     only holds if the columns are decided where the cards live. */
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 11px;

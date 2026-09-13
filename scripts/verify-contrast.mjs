@@ -207,19 +207,38 @@ PROFILES['controls-fields'] = [
  * a green tint and Tracking only is slate on a navy tint, two genuinely different stacks.
  * The add panel and the alert modal are opened by CONTRAST_PREPARE_JS before sampling —
  * without that most of this profile is display:none and the run passes on nothing. */
+/* Block grid + drawer (2026-09-12, row 206): the CARD FACE is measured here — every card
+ * sits in the top-left quadrant of a full .glass card, so the sheen is composited over it
+ * exactly as a client sees it (#watchlist-card carries .glass-lift; the measurement is what
+ * proves that holds). The drawer is its own profile below, measured in two runs so BOTH
+ * badge states are sampled inside it, not one as a stand-in for the other. */
 PROFILES.watchlist = [
-  { label: 'row ticker', sel: '.wl-tag', limit: 8 },
-  { label: 'row name', sel: '.wl-name', limit: 8 },
-  { label: 'badge Offered', sel: '.wl-badge:not(.wl-track)', limit: 6 },
-  { label: 'badge Tracking only', sel: '.wl-badge.wl-track', limit: 6 },
-  { label: 'row price', sel: '.wl-px-v', limit: 8 },
-  { label: 'row change (gain)', sel: '.wl-px-c.wl-up', limit: 6 },
-  { label: 'row change (loss)', sel: '.wl-px-c.wl-dn', limit: 6 },
+  { label: 'card ticker', sel: '.wl-card .wl-tag', limit: 8 },
+  { label: 'card name', sel: '.wl-card .wl-name', limit: 8 },
+  { label: 'badge Offered', sel: '.wl-card .wl-badge:not(.wl-track)', limit: 6 },
+  { label: 'badge Tracking only', sel: '.wl-card .wl-badge.wl-track', limit: 6 },
+  { label: 'card price', sel: '.wl-card .wl-px-v', limit: 8 },
+  { label: 'card change (gain)', sel: '.wl-card .wl-px-c.wl-up', limit: 6 },
+  { label: 'card change (loss)', sel: '.wl-card .wl-px-c.wl-dn', limit: 6 },
+  { label: 'OPEN card ticker', sel: '.wl-card.is-open .wl-tag', limit: 2 },
+  { label: 'OPEN card name', sel: '.wl-card.is-open .wl-name', limit: 2 },
   { label: 'Delayed label', sel: '.wl-delayed', limit: 1 },
-  { label: 'armed alert line', sel: '.wl-alertline', limit: 4 },
   { label: 'search result source', sel: '.wl-src', limit: 6 },
-  { label: 'HOVER row name', sel: '.wl-name', limit: 6, hover: true },
-  { label: 'HOVER row price', sel: '.wl-px-v', limit: 6, hover: true },
+  { label: 'HOVER card name', sel: '.wl-card .wl-name', limit: 6, hover: true },
+  { label: 'HOVER card price', sel: '.wl-card .wl-px-v', limit: 6, hover: true },
+];
+
+/* The drawer sits on a faint green tint inside the glass card. Run once with an Offered
+ * card open (Allocate present, armed alert line) and once with a Tracking-only card open. */
+PROFILES['watchlist-drawer'] = [
+  { label: 'drawer title', sel: '.wl-drawer-top b', limit: 1 },
+  { label: 'drawer badge Offered', sel: '.wl-drawer .wl-badge:not(.wl-track)', limit: 1 },
+  { label: 'drawer badge Tracking only', sel: '.wl-drawer .wl-badge.wl-track', limit: 1 },
+  { label: 'drawer Allocate', sel: '.wl-drawer a.mw-btn', limit: 1 },
+  { label: 'drawer bell (unarmed)', sel: '.wl-drawer .wl-bell:not(.is-on)', limit: 1 },
+  { label: 'drawer bell (armed)', sel: '.wl-drawer .wl-bell.is-on', limit: 1 },
+  { label: 'drawer Remove', sel: '.wl-drawer .wl-remove', limit: 1 },
+  { label: 'armed alert line', sel: '.wl-alertline', limit: 1 },
 ];
 
 /* The alert modal is measured in its OWN run, not alongside the card. It covers the page

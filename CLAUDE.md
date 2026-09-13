@@ -9038,6 +9038,64 @@ row 74.
   `verify-returns-display-visual` 148/148, `audit-glass-sheen` on `dashboard.html` 17 measured
   0 below, stylesheet coverage and Tailwind scoping PASS.
 
+- **★★ Market snapshot — block grid with a per-row drawer, Variant B (2026-09-12, row 206).**
+  Presentation only. The dashboard's watchlist card is a three-up grid of compact cards
+  (ticker, name, price, change, the Offered / Tracking-only badge, a gold dot for an active
+  alert); tapping a card opens one drawer — the badge repeated, Allocate where offered, the
+  alert control, Remove. Built against the approved mockup with its two specified deltas: the
+  drawer inserts beneath the card's OWN row, and the badge stays on the card face as well.
+  Every feature survives through the new surface — editable symbols, two-provider search,
+  one alert per symbol firing once, remove, the scrolling list, the Delayed label, the
+  server-side ceiling — and `verify-watchlist-ui-wiring` drives each of them through it.
+  **Things a future session needs to know before touching this card:**
+  - **★ AN `@container` RULE APPLIES TO A CONTAINER'S DESCENDANTS — AN ELEMENT CANNOT QUERY
+    ITS OWN SIZE.** The first version put `container-type: inline-size` on `.wl-rows` and
+    queried `.wl-rows` in the same rule; nothing errored and the grid silently stayed at
+    three columns at 390px. `#watchlist-card` is the container; the rules target `.wl-rows`
+    beneath it. The column count is asserted per width (3 at 1440, 2 at 560, 1 at 390/375/
+    320), not just read, so a broken query cannot pass as "one column".
+  - **The drawer's row is read from REAL LAYOUT, not from a column count.** `placeDrawer()`
+    takes every card whose `offsetTop` equals the tapped card's as that card's row and
+    inserts the drawer after the last of them; the drawer spans the grid via
+    `.wl-rows > :not(.wl-card) { grid-column: 1 / -1 }` (which also spans the empty state
+    and the shared error card). A `ResizeObserver` re-places it when the grid's width — and
+    so its column count — changes. In jsdom every `offsetTop` is 0, so the drawer lands after
+    the last card: the right answer for a one-row list, which is what the ui-wiring suite
+    sees; the real-row proof is the visual suite's job.
+  - **The skeleton also paints `.wl-card` placeholders.** Any readiness check must key on
+    `.wl-card[data-wl-card]`, or it fires during the skeleton and measures nothing.
+  - **The drawer's controls sit OUTSIDE the card element**, so a click on Remove or the bell
+    never reaches the card's own toggle; the one click handler on `#wl-rows` dispatches on
+    `data-wl-remove` / `data-wl-bell` first and `data-wl-card` last. Keyboard: the card is
+    `role=button` + `tabindex=0`, Enter/Space toggle. One drawer at a time; the same card
+    toggles it closed; after a write the re-render keeps the same drawer open (so a
+    just-set alert shows in it), and a removed symbol has no card, so its drawer closes.
+  - **Allocation is demoted into the drawer on purpose** — `verify-watchlist-ui-wiring`
+    asserts no `a.mw-btn` on any card face. Asset & Performance and the catalog own
+    allocation; a primary action on every card turns a snapshot into a shopping list.
+  - **Contrast was measured with the sheen composited**, on the face (32 surfaces, including
+    the open card's own top-left corner and both badge states) and inside the drawer in two
+    runs (an Offered card with an armed alert; a Tracking-only card), 0 below 4.5:1. The
+    sheen audit shows the first-row tickers at 14.97:1 with the sheen vs 14.84 without — the
+    `.glass-lift` on `#watchlist-card` is what makes that true. The card name is 12px
+    `#5C6367`, not the mockup's 11px: the file's own standing measurement says an 11px
+    secondary grey cannot pass on this glass card whichever grey it is.
+  - **Two harness traps fixed in the visual suite, both false failures**: the 320px iframe
+    read card tops BEFORE the tap and compared after, and the web font finishing loading
+    between the two reads shifted every top by a pixel (`cols: 0`) — every rect is now read
+    after the tap and one settle; and the iframe step used a fixed 2.5s sleep after
+    navigation, which under a second concurrent headless Chrome was not enough for the host
+    page to have a `<body>` — it polls for readiness now.
+  **Verified**: `verify-watchlist-ui-wiring` **74/74** (was 52 — drawer one-at-a-time,
+  toggle, keyboard, badge on face and in drawer, no Allocate on any face, the gold dot
+  appearing on set and leaving on clear, Remove closing its drawer, plus every prior
+  add/alert/clear/remove/ceiling-409/empty/error assertion through the new surface);
+  `verify-watchlist-visual` **84/84** (contrast as above; Inter only; 3/2/1 columns with
+  the drawer beneath the tapped row and above the next at 1440/560/390/375 via real pointer
+  taps, and a real 320px iframe); `supabase-verify-watchlist-alerts` 111/111 (an alert fires
+  once by email and clears); `audit-glass-sheen` on `dashboard.html` 16 measured, 0 below;
+  stylesheet coverage, Tailwind scoping PASS.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -9268,6 +9326,15 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   freeze and a network drop, and work has sat uncommitted for hours more than once. Judgment
   applies: a change that touches money movement, auth, RLS or the settlement engine gets the
   full suite BEFORE pushing; presentation, copy and additive UI do not.
+  **WHEN the full regression suite runs**: after a BATCH of related work, not after each task
+  (three small changes in a session get one suite run at the end, not three); before or after
+  anything touching the money path — settlement, allocation, deposits, withdrawals, NAV
+  publication, approval gates — regardless of batch size; after any change to a shared module
+  (`_shared/*`, `glass-primitives.css`, `control-patterns.css`), since a targeted suite cannot
+  see the blast radius of something with importers everywhere; before a real deployment
+  milestone. NOT after presentation work, copy changes, additive UI or documentation-only
+  changes — those get their targeted suites and nothing more. Running 72 scripts to verify a
+  retitled card costs 80 minutes and real tokens for no information.
 - **Cloud Staging Parity — run `npm run verify-cloud-staging-parity` (from `scripts/`)
   before any push that touches `supabase/migrations/`, `supabase/functions/`, or any page
   that calls Supabase.** Added 2026-09-05 after a real incident (row 137): every Phase B/UI-
