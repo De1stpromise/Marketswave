@@ -9417,6 +9417,76 @@ row 74.
   on real staging with city derived and no IP stored, both pages of a 1.5-second click-through
   in order, and the leave beacon ending it.
 
+- **★★ The sheen audit's 1.4:1 was a VACUOUS MEASUREMENT, and both pixel probes could hand
+  back a confident wrong number under a timing condition (2026-09-13, row 210).** Identical
+  readings with and without the sheen were exactly what row 190's `assertDistinct` exists to
+  catch — the probe was measuring a box that held no glyphs. Root cause: `dashboard.html`'s
+  welcome heading resolved ONLY through the local mirror `login.html` writes; a real session
+  with no mirror (a harness bootstrap, or a cleared localStorage) left its skeleton pulsing
+  forever, the audit's settle wait timed out on every dashboard load, and async content then
+  pushed the measured element out from under a rect read before the shift. Fixed at the
+  source (the heading reads the client's own row and falls back to a plain greeting — a real
+  edge case for a real client too) AND in both probes, which now refuse to produce a number
+  they cannot stand behind.
+  **Things a future session needs to know before touching `verify-contrast.mjs` or
+  `audit-glass-sheen.mjs`:**
+  - **★ A BEFORE/AFTER RECT PAIR AROUND BOTH SCREENSHOTS IS NOT A GUARD.** With a 150ms
+    layout toggle (`SHEEN_CHAOS_SHIFT_MS=150`) the element sat at the same position for both
+    reads and elsewhere during a screenshot in between — the probe reported **1.09:1 for an
+    element that measures 5.86:1**, the confident wrong number the user asked whether the probe
+    could produce. Each screenshot is now bracketed by its OWN rect read (four reads); a shift
+    during either screenshot is caught whatever position the element returns to.
+  - **★ THE BRACKETING READS MUST NOT SCROLL.** `scrollIntoView` re-centres the element on
+    every call, so four scrolling reads agree by construction while the page shifts underneath
+    the screenshots between them — proven: four scrolling reads still produced the 1.09:1.
+    The sheen audit's `rectNoScroll()` exists for this; the initial read is the only one that
+    scrolls.
+  - **★ "DID HIDING THE GLYPHS CHANGE ANYTHING" IS A PIXEL-DISTRIBUTION TEST, NOT AN EXTREMES
+    TEST.** The first version compared only the box's darkest and lightest pixels and called
+    four legible dashboard elements vacuous: a legend swatch in the text's own navy keeps the
+    darkest pixel put, and a white-on-navy range pill's rounded corners keep the card ground as
+    the lightest. Both samplers now return a 16-bin luminance histogram and the guard counts
+    pixels that moved between bins (`>= max(6, 0.5% of the box)`). The sheen audit is less
+    exposed because its box is a Range-derived glyph rect; `verify-contrast` measures the
+    element's whole bounding box, which is where swatches and corners live.
+  - **`lum()` returns 0–1.** The very first draft of the guard compared luminance deltas
+    against `> 2`, which no element can satisfy — every element on the dashboard reported
+    UNMEASURED, including in the chaos run, so that run "proved" nothing. A guard's own
+    non-vacuity has to be shown with a control that is EXPECTED to pass.
+  - **UNMEASURED is a verdict, not a ratio.** A measurement that fails either guard retries
+    (three attempts in the sheen audit, one in `verify-contrast`, 700ms apart — the page may
+    settle), and one that still cannot be made prints `UNMEASURED` with the reason (`box moved
+    (x,y → x,y)` or `N of M pixels moved at x,y w×h`) and FAILS the run. A measurement that
+    recovered on a retry prints `(retried)` so a one-off shift is visible rather than silent.
+    The nine visual parents forward a child's `UNMEASURED` lines (they used to forward only
+    `FAIL` lines, so the reasons vanished one level up — the same gap `forwardChildTeardown`
+    closed for teardown warnings), and the overview parent reports a child that printed NOTHING
+    with its `spawnSync` status rather than reading it as a silent failure.
+  - **Two verification-only chaos hooks are the standing proof; run them after touching either
+    probe.** `SHEEN_CHAOS_BLANK=1` / `CONTRAST_CHAOS_BLANK=1` make every glyph transparent
+    BEFORE measuring (the never-painted skeleton) — expect every target UNMEASURED with "0 of N
+    pixels moved" and exit 1 (19/19 and 120/120 confirmed). `SHEEN_CHAOS_SHIFT_MS=150` toggles
+    a 300px block at the top of the page every 150ms — expect UNMEASURED for every element the
+    toggle reaches and figures IDENTICAL to a normal run for the rest (Chrome's scroll anchoring
+    keeps content below the insertion stationary, so those are genuinely stable). A slower
+    toggle (2500) is dodged by the retry budget and prints `(retried)` instead — that is the
+    designed recovery, not a gap. `CONTRAST_CHAOS_BLANK` across all four widths of the default
+    profile takes ~16 minutes because every target retries; use `CONTRAST_WIDTHS=1440`.
+  - **A test client's seeded value must not depend on a market-priced product.** The overview
+    visual suite's losing client held VT and ETH at `16000 / unit_price` read at seed time; the
+    quarter-hour `refresh-market-data` cron fired between seed and render and the page showed
+    −$27,002 against an asserted −$27,000. Row 199's `simulated-test-product.mjs` is the
+    established answer (a simulated price is a pure function of id and date); the suite now
+    uses two of them and deletes them in its `finally`. Two `PROD-SIM-*` leftovers from
+    `verify-supabase-nav-publications.js` were also found and removed — that suite's documented
+    exit-127 libuv abort skips its own `finally`, so its simulated products can outlive it.
+  **Verified**: dashboard sheen audit 19 measured / 0 below with no "did not settle" (the
+  earlier 1.4:1 does not recur because the page now settles); chaos runs as above;
+  `verify-contrast` default profile 120 / 0 unchanged; overview visual 71/71 (64 measurements
+  on the gain profile, the four previously-vacuous elements measuring again); presence visual
+  52/52 (a live re-rendering table under the tightened guard); dashboard ui-wiring and
+  real-data-fixes PASS. The two probe clients from the investigation were deleted.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
