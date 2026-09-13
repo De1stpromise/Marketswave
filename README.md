@@ -1855,7 +1855,10 @@ Every public and client page loads `site-presence.js` (page events, a 15-second 
 leave beacon on pagehide). Sessions are deleted after 30 days by `purge_visitor_data()` on a
 daily pg_cron job — nothing to configure.
 
-Locally every visitor is `127.0.0.1`, so location reads "Unknown location"; the geolocation
+**Local dev**: on `127.0.0.1`/`localhost` the beacon is OFF unless you set
+`localStorage.mw_presence_local = '1'` in the visitor's browser — the verification harnesses
+drive real browsers through these pages constantly and would otherwise leave sessions (and
+notable-visitor emails) behind on every run. Locally every visitor is `127.0.0.1`, so location reads "Unknown location"; the geolocation
 chain (`ipwho.is`, then `ipinfo.io` — set `IPINFO_TOKEN` in `supabase/functions/.env` and as
 a staging secret for 50k lookups/month) is exercised by the backend suite with a public IP.
 

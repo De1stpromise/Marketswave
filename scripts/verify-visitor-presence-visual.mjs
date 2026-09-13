@@ -143,6 +143,8 @@ async function main() {
 
     // The visitor: a second, independent browser with its own cookies, a Google referrer.
     visitor = await connectChrome(9462, 'mw-vp-visitor-');
+    // The beacon is opt-in on a local origin (see site-presence.js): this browser IS the visitor.
+    await visitor.send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{localStorage.setItem("mw_presence_local","1")}catch(e){}' });
     await visitor.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
     await visitor.send('Page.navigate', { url: BASE + '/services.html', referrer: 'https://www.google.com/search?q=wealth+management+stockholm' });
     await sleep(2500);

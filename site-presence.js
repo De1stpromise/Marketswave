@@ -103,8 +103,18 @@
     if (!ok) { try { fetch(endpoint + '/functions/v1/track-visit', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true }); } catch (e) { /* best effort */ } }
   }
 
+  // On a LOCAL origin the beacon is off unless opted in (localStorage mw_presence_local =
+  // '1'): dozens of verification harnesses drive real headless browsers through these pages
+  // against the local stack, and every one would otherwise leave real sessions — and, for a
+  // signed-in test client, real notable-visitor emails — behind. Production hosts are
+  // unaffected; local presence work sets the flag (README).
+  function localOptOut() {
+    if (!/^(127\.0\.0\.1|localhost)$/.test(location.hostname)) return false;
+    try { return localStorage.getItem('mw_presence_local') !== '1'; } catch (e) { return true; }
+  }
   async function start() {
     if (started) return; started = true;
+    if (localOptOut()) return;
     try { await resolveEndpoint(); } catch (e) { return; }
     var s = session();
     await send('page', s.isNew ? { referrer: document.referrer || null } : null);

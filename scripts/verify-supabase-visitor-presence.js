@@ -81,6 +81,13 @@ async function main() {
   await admin.from('clients').insert({ id: cu.user.id, name: 'Presence Client ' + suffix, email: clientEmail, phone: '+1', account_type: 'Individual Account', status: 'active' });
   const client = await signIn(url, anonKey, clientEmail, password);
 
+  // Every browser-driven suite now creates REAL sessions (site-presence.js runs on every
+  // client page a headless Chrome loads, and a signed-in test client is a notable visitor),
+  // so inside a full-suite run the two-minute burst guard can already be armed by another
+  // script's session. Those are other tests' artefacts: age their notifications out of the
+  // window before measuring this suite's own email behaviour.
+  await admin.from('visitor_sessions').update({ notified_at: new Date(Date.now() - 10 * 60000).toISOString() }).gte('notified_at', new Date(Date.now() - 5 * 60000).toISOString());
+
   try {
     // ================================================================================
     console.log('1. Capture — region and behaviour, never the IP');
