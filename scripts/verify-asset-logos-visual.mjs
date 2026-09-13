@@ -338,7 +338,7 @@ async function main() {
       console.log('  ' + label + ' -> ' + o.trim().split('\n').slice(-2).join(' | '));
       check(label + ': contrast measured real elements (not an empty run)', !!m && Number(m[1]) > 0, o.slice(-400));
       check(label + ': every measured figure clears 4.5:1', /CONTRAST: PASS/.test(o), o.slice(-400));
-      o.split('\n').filter((l) => /FAIL\s+\d/.test(l)).forEach((l) => console.log('      ' + l.trim()));
+      o.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
       // The lowest figure of the run, so the writeup carries a real number, not just PASS.
       const lowest = o.split('\n').filter((l) => /(PASS|FAIL)\s+[\d.]+:1/.test(l))
         .sort((a, b) => parseFloat(a.match(/([\d.]+):1/)[1]) - parseFloat(b.match(/([\d.]+):1/)[1]))[0];

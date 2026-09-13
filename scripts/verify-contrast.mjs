@@ -626,6 +626,9 @@ class CDP {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Pixels that changed luminance bin between two samples of the same box (half the L1
+// distance between the two histograms — each moved pixel leaves one bin and enters another).
+const pixelsShifted = (a, b) => a.reduce((acc, v, i) => acc + Math.abs(v - b[i]), 0) / 2;
 
 const SAMPLER = [
   'window.__sample = (dataUri, rect) => new Promise((resolve) => {',
@@ -643,7 +646,8 @@ const SAMPLER = [
   '    for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i+1], d[i+2]]);',
   '    const L = (p) => 0.2126*p[0] + 0.7152*p[1] + 0.0722*p[2];',
   '    px.sort((a, b) => L(a) - L(b));',
-  '    resolve({ darkest: px[0], lightest: px[px.length-1], median: px[Math.floor(px.length/2)], n: px.length });',
+  '    const hist = new Array(16).fill(0); px.forEach((p) => { hist[Math.min(15, Math.floor(L(p) / 16))]++; });',
+  '    resolve({ darkest: px[0], lightest: px[px.length-1], median: px[Math.floor(px.length/2)], n: px.length, hist });',
   '  };',
   '  img.src = dataUri;',
   '});',
@@ -680,8 +684,14 @@ async function measure(cdp, t) {
 
   const shot = async () => 'data:image/png;base64,' + (await cdp.send('Page.captureScreenshot', { format: 'png' })).data;
 
+  // The box is re-read around EACH screenshot (see the non-vacuity note below): a page
+  // toggling layout faster than one measurement can sit at the same position for a single
+  // before/after pair and elsewhere for a screenshot in between.
+  const readBox = () => cdp.eval('(() => { const el = ' + pick + '; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()');
+
   // Pass 1 - normal render. Darkest pixel in the box is the glyph core.
-  const fg = await cdp.eval('window.__sample(' + JSON.stringify(await shot()) + ', ' + JSON.stringify(box) + ')');
+  const shot1 = await shot(); const box1 = await readBox();
+  const fg = await cdp.eval('window.__sample(' + JSON.stringify(shot1) + ', ' + JSON.stringify(box) + ')');
 
   // Pass 2 - Trap 2: remove the glyphs only, never the box.
   // A live page can re-render between the two passes (admin-presence.html rebuilds its table
@@ -696,8 +706,25 @@ async function measure(cdp, t) {
   ].join('\n'));
   if (!stillThere) return null;
   await sleep(120);
-  const bg = await cdp.eval('window.__sample(' + JSON.stringify(await shot()) + ', ' + JSON.stringify(box) + ')');
+  const box2a = await readBox(); const shot2 = await shot();
+  const bg = await cdp.eval('window.__sample(' + JSON.stringify(shot2) + ', ' + JSON.stringify(box) + ')');
   await cdp.eval('(() => { const el = ' + pick + '; if (!el) return; el.style.cssText = el.dataset.savedStyle || ""; delete el.dataset.savedStyle; })()');
+
+  // ★ NON-VACUITY (2026-09-13, from the sheen audit's own finding): the box must not have
+  // moved around EITHER screenshot (four reads), and hiding the glyphs must have CHANGED the sampled
+  // pixels — otherwise the box held no glyphs (the page was still laying out) and any ratio
+  // computed from it is a confident wrong number. Reported as unmeasured, never as a ratio.
+  const after = await readBox();
+  const differs = (q) => !q || Math.abs(q.x - box.x) > 1 || Math.abs(q.y - box.y) > 1 || Math.abs(q.w - box.w) > 1 || Math.abs(q.h - box.h) > 1;
+  const moved = [box1, box2a, after].some(differs);
+  // "Changed" is a pixel-DISTRIBUTION test, not an extremes test: a legend swatch in the same
+  // navy as its text keeps the darkest pixel put, and a white-on-navy pill's rounded corners
+  // keep the card ground as the lightest pixel — both are real, legible elements whose glyphs
+  // genuinely vanished, and an extremes-only check calls them vacuous. Hiding real glyphs
+  // moves pixels between luminance bins; that is what is counted.
+  const shifted = pixelsShifted(fg.hist, bg.hist);
+  const changed = shifted >= Math.max(6, fg.n * 0.005);
+  if (moved || !changed) return { unmeasured: moved ? 'box moved during measurement (' + Math.round(box.x) + ',' + Math.round(box.y) + ' → ' + (after ? Math.round(after.x) + ',' + Math.round(after.y) : 'gone') + ')' : 'hiding the glyphs changed nothing in the box (' + shifted + ' of ' + fg.n + ' pixels moved at ' + Math.round(box.x) + ',' + Math.round(box.y) + ' ' + Math.round(box.w) + '×' + Math.round(box.h) + ') — no glyphs were sampled' };
 
   if (t.hover) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
 
@@ -770,6 +797,11 @@ async function main() {
       await cdp.eval(process.env.CONTRAST_PREPARE_JS);
       await sleep(Number(process.env.CONTRAST_PREPARE_SETTLE_MS || 900));
     }
+    // CONTRAST_CHAOS_BLANK=1: a VERIFICATION-ONLY hook — every glyph on the page is made
+    // transparent BEFORE measuring, the page whose text never painted. Both passes then sample
+    // the same pixels and the non-vacuity guard must report every target UNMEASURED with 0
+    // pixels moved, never a ratio. Not for normal runs.
+    if (process.env.CONTRAST_CHAOS_BLANK) await cdp.eval('document.head.appendChild(Object.assign(document.createElement("style"), { textContent: "body, body * { color: transparent !important; -webkit-text-fill-color: transparent !important; }" })); true');
 
     // Viewport-integrity guard: this project has had a run report a clean PASS while the
     // browser was silently clamped to a different width. Fail loudly instead.
@@ -798,7 +830,10 @@ async function main() {
     ].join('\n'));
 
     for (const t of targets) {
-      const m = await measure(cdp, t);
+      // An unmeasured element (the box moved or held no glyphs) is retried once after a settle
+      // nap — the page may have been mid-layout — and then recorded as UNMEASURED.
+      let m = await measure(cdp, t);
+      if (m && m.unmeasured) { await sleep(700); m = await measure(cdp, t); }
       if (m) results.push(Object.assign({ width }, t, m));
     }
   }
@@ -807,7 +842,9 @@ async function main() {
   report(results);
 }
 
-function report(rows) {
+function report(allRows) {
+  const unmeasured = allRows.filter((r) => r.unmeasured);
+  const rows = allRows.filter((r) => !r.unmeasured);
   const fail = rows.filter((r) => r.ratio < THRESHOLD);
   for (const w of [...new Set(rows.map((r) => r.width))]) {
     console.log('\n=== viewport ' + w + 'px ===');
@@ -819,7 +856,8 @@ function report(rows) {
         ' fg=' + rgb(r.fg).padEnd(18) + ' bg=' + rgb(r.bg));
     }
   }
-  console.log('\n' + rows.length + ' measurements, ' + fail.length + ' below ' + THRESHOLD + ':1');
+  unmeasured.forEach((r) => console.log('  UNMEASURED  ' + r.label.padEnd(26) + ' — ' + r.unmeasured));
+  console.log('\n' + rows.length + ' measurements, ' + fail.length + ' below ' + THRESHOLD + ':1' + (unmeasured.length ? ', ' + unmeasured.length + ' UNMEASURED (box moved or held no glyphs — the page never settled; not a contrast result)' : ''));
   // A run that measured NOTHING is not a pass. It means the page never loaded, or no selector
   // matched anything - and reporting PASS there is a vacuous green that would hide a real
   // regression rather than catch it. Seen intermittently on login.html, whose auth module is
@@ -828,8 +866,8 @@ function report(rows) {
     console.log('CONTRAST: FAIL (no measurements taken — page did not load, or no selector matched)');
     process.exit(1);
   }
-  console.log(fail.length ? 'CONTRAST: FAIL' : 'CONTRAST: PASS');
-  process.exit(fail.length ? 1 : 0);
+  console.log(fail.length || unmeasured.length ? 'CONTRAST: FAIL' : 'CONTRAST: PASS');
+  process.exit(fail.length || unmeasured.length ? 1 : 0);
 }
 
 main().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });

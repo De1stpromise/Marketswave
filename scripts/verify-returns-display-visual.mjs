@@ -192,7 +192,7 @@ async function main() {
       check(label + ': contrast measured real elements (not an empty run)', !!m && Number(m[1]) > 0, tail);
       check(label + ': every measured figure clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
       // Print any failing lines so a regression names itself.
-      out.split('\n').filter((l) => /FAIL\s+\d/.test(l)).forEach((l) => console.log('      ' + l.trim()));
+      out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
     }
 
     // ===================================================================================

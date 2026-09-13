@@ -24,6 +24,7 @@
 // Set PO_SHOTS=<dir> to also save screenshots of each state for a human look.
 import { execSync, spawnSync, spawn } from 'node:child_process';
 import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
+import { createSimulatedTestProduct, deleteSimulatedTestProduct } from './lib/simulated-test-product.mjs';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -78,10 +79,13 @@ function runContrast(profile, label, bootstrap, prepare) {
   const out = (res.stdout || '') + (res.stderr || '');
   const tail = out.trim().split('\n').slice(-2).join(' | ');
   const m = out.match(/(\d+) measurements, (\d+) below/);
+  // A child that printed NOTHING is not a measurement result of any kind — say what spawnSync
+  // itself reported, so an empty run is never read as a silent contrast failure.
+  if (!out.trim()) console.log('  ' + label + ' -> child printed nothing: status=' + res.status + ' signal=' + res.signal + ' error=' + (res.error ? res.error.message : 'none'));
   console.log('  ' + label + ' -> ' + tail);
   check(label + ': measured real elements (not an empty run)', !!m && Number(m[1]) > 0, tail);
   check(label + ': every measured surface clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
-  out.split('\n').filter((l) => /FAIL\s+\d/.test(l)).forEach((l) => console.log('      ' + l.trim()));
+  out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 
 function runFonts(label, bootstrap) {
@@ -186,6 +190,7 @@ async function main() {
   if (pmErr) throw new Error('PM sign-in: ' + pmErr.message);
   const pmToken = pmSess.session.access_token;
   const suffix = crypto.randomBytes(3).toString('hex');
+  const simIds = [];
   const storageKey = 'sb-' + new URL(url).hostname.split('.')[0] + '-auth-token';
   const ids = [], pocketIds = [];
 
@@ -257,15 +262,20 @@ async function main() {
     await anchors(L, [[3, 120000], [2, 115000], [1, 112000], [0, 104000]]);
     await backdateAnchors(L, [3, 2, 1, 0]);
     await admin.from('transactions').insert([{ client_id: L.id, type: 'DEPOSIT', total_value: 120000, status: 'completed', created_at: msAt(4, 15) }]);
-    const { data: prod } = await admin.from('products').select('id, unit_price').eq('id', 'PROD-0003').single();
     // TWO losing classes (an ETF at half its cost basis, a coin at 80%): the "Most resilient
     // class · every class is down" wording is a comparison and only appears for two or more
     // held classes — a single class reads "Asset class" with the figure alone (2026-09-13).
-    const { data: eth } = await admin.from('products').select('id, unit_price').eq('id', 'PROD-0004').single();
-    const lUnits = 16000 / Number(prod.unit_price), lEthUnits = 4000 / Number(eth.unit_price);
+    // ★ Held in two temporary genuinely-SIMULATED products, never PROD-0003/PROD-0004: those
+    // are market-priced, and the quarter-hour refresh-market-data cron moved their price
+    // between this seed and the render (−$27,002 against an expected −$27,000, one real
+    // run). A simulated product's price is a pure function of (id, date) — stable within a run.
+    const simEtf = await createSimulatedTestProduct(admin, suffix + 'E');
+    const simCoin = await createSimulatedTestProduct(admin, suffix + 'C', { asset_class: 'Crypto', risk_tier: 'aggressive', investment_type: 'Coin' });
+    simIds.push(simEtf.id, simCoin.id);
+    const lUnits = 16000 / Number(simEtf.unit_price), lEthUnits = 4000 / Number(simCoin.unit_price);
     await admin.from('holdings').insert([
-      { client_id: L.id, product_id: 'PROD-0003', units: lUnits, cost_basis: 32000 },
-      { client_id: L.id, product_id: 'PROD-0004', units: lEthUnits, cost_basis: 5000 }
+      { client_id: L.id, product_id: simEtf.id, units: lUnits, cost_basis: 32000 },
+      { client_id: L.id, product_id: simCoin.id, units: lEthUnits, cost_basis: 5000 }
     ]);
     await admin.from('account_state').update({ unallocated_capital: 83000, allocated_capital: 20000, asset_returns: -10000 }).eq('client_id', L.id); // TPV 93,000 = 120,000 in − 27,000 total return (−17,000 unrealised, −10,000 realised): a possible account
 
@@ -503,6 +513,7 @@ async function main() {
     for (const t of ['withdrawal_requests', 'allocation_requests', 'hys_deposit_requests', 'portfolio_value_snapshots', 'holdings', 'transactions', 'account_state']) await admin.from(t).delete().in('client_id', ids);
     await admin.from('clients').delete().in('id', ids);
     for (const id of ids) { const { error } = await admin.auth.admin.deleteUser(id); if (error) console.error('CLEANUP: ' + error.message); }
+    for (const id of simIds) await deleteSimulatedTestProduct(admin, id);
   }
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');

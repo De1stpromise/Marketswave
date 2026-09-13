@@ -45,6 +45,7 @@ function readLocalStackCredentials() {
   return { url: status.API_URL, anonKey: status.ANON_KEY, serviceRoleKey: status.SERVICE_ROLE_KEY };
 }
 
+const pixelsShifted = (a, b) => a.reduce((acc, v, i) => acc + Math.abs(v - b[i]), 0) / 2;
 const lum = (c) => { const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const ratio = (a, b) => { const p = [lum(a), lum(b)].sort((x, y) => y - x); return (p[0] + 0.05) / (p[1] + 0.05); };
 
@@ -110,6 +111,15 @@ window.__sheen = (() => {
     const tr = textRect(el); if (!tr) return null;
     return { x: tr.left, y: tr.top, w: tr.right - tr.left, h: tr.bottom - tr.top };
   }
+  // The bracketing reads around each screenshot must NOT scroll: scrollIntoView re-centres the
+  // element on every call, so four scrolling reads agree by construction even while the page
+  // shifts underneath the screenshots taken between them (proven: SHEEN_CHAOS_SHIFT_MS=150
+  // still produced 1.09:1 with four scrolling reads).
+  function rectNoScroll(key) {
+    const el = document.querySelector('[data-sheen-el="' + key + '"]'); if (!el) return null;
+    const tr = textRect(el); if (!tr) return null;
+    return { x: tr.left, y: tr.top, w: tr.right - tr.left, h: tr.bottom - tr.top };
+  }
   function hideGlyphs(key) { const el = document.querySelector('[data-sheen-el="' + key + '"]'); el.dataset.saved = el.style.cssText; el.style.setProperty('color', 'transparent', 'important'); el.style.setProperty('-webkit-text-fill-color', 'transparent', 'important'); el.style.setProperty('text-shadow', 'none', 'important'); }
   function showGlyphs(key) { const el = document.querySelector('[data-sheen-el="' + key + '"]'); el.style.cssText = el.dataset.saved || ''; delete el.dataset.saved; }
   function sheen(on) { let st = document.getElementById('__sheen-off'); if (on) { if (st) st.remove(); } else if (!st) { st = document.createElement('style'); st.id = '__sheen-off'; st.textContent = '.glass::before{display:none !important}'; document.head.appendChild(st); } }
@@ -124,11 +134,12 @@ window.__sheen = (() => {
       for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
       const L = (p) => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
       px.sort((a, b) => L(a) - L(b));
-      resolve({ darkest: px[0], lightest: px[px.length - 1], median: px[Math.floor(px.length / 2)] });
+      const hist = new Array(16).fill(0); px.forEach((p) => { hist[Math.min(15, Math.floor(L(p) / 16))]++; });
+      resolve({ darkest: px[0], lightest: px[px.length - 1], median: px[Math.floor(px.length / 2)], n: px.length, hist });
     };
     img.src = dataUri;
   });
-  return { inventory, rect, hideGlyphs, showGlyphs, sheen, sample };
+  return { inventory, rect, rectNoScroll, hideGlyphs, showGlyphs, sheen, sample };
 })();`;
 
 async function connectChrome() {
@@ -223,18 +234,52 @@ async function main() {
     const results = [];
     try {
       const shot = async () => 'data:image/png;base64,' + (await cdp.send('Page.captureScreenshot', { format: 'png' })).data;
+      // ★ NON-VACUITY (2026-09-13). A full-suite run once reported the dashboard near 1.4:1
+      // both WITH and WITHOUT the sheen — identical readings, the signature of a box that held
+      // no glyphs at all (row 190's assertDistinct lesson), not of a contrast failure. The
+      // mechanism: the page was still laying out (a skeleton that never resolved kept the
+      // settle wait from ever passing), the element's rect was read, async content then
+      // pushed it, and both screenshots sampled empty background. Two guards, so the probe
+      // can never hand back a confident wrong number: (1) the box is re-read around EACH
+      // screenshot and must not have moved; (2) hiding the glyphs must CHANGE the sampled
+      // pixels — if it does not, the box contained no glyphs. Either failure retries (the
+      // page may settle), and a measurement that still cannot be made is reported as
+      // UNMEASURED, a verdict of its own that fails the sweep, never as a ratio.
       async function measure(key) {
-        const r = await cdp.evaluate('window.__sheen.rect(' + JSON.stringify(key) + ')');
-        if (!r) return null;
-        const fg = await cdp.evaluate('window.__sheen.sample(' + JSON.stringify(await shot()) + ',' + JSON.stringify(r) + ')');
-        await cdp.evaluate('window.__sheen.hideGlyphs(' + JSON.stringify(key) + ')');
-        await sleep(80);
-        const bg = await cdp.evaluate('window.__sheen.sample(' + JSON.stringify(await shot()) + ',' + JSON.stringify(r) + ')');
-        await cdp.evaluate('window.__sheen.showGlyphs(' + JSON.stringify(key) + ')');
-        const bgc = bg.median;
-        const dDark = Math.abs(lum(fg.darkest) - lum(bgc)), dLight = Math.abs(lum(fg.lightest) - lum(bgc));
-        const fgc = dLight > dDark ? fg.lightest : fg.darkest;
-        return { ratio: Math.round(ratio(fgc, bgc) * 100) / 100, fg: fgc, bg: bgc };
+        let lastReason = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt) await sleep(700);
+          // ★ EACH screenshot is bracketed by its own rect read. A before/after pair around BOTH
+          // screenshots is not enough: a page toggling layout faster than one measurement
+          // (~300ms) can be at the same position for both reads and elsewhere for a screenshot
+          // in between — proven with SHEEN_CHAOS_SHIFT_MS=150, which handed back a confident
+          // 1.09:1 for an element that measures 5.86:1. Four reads leave a window no wider than
+          // one screenshot's own latency.
+          const rd = () => cdp.evaluate('window.__sheen.rectNoScroll(' + JSON.stringify(key) + ')');
+          const r = await cdp.evaluate('window.__sheen.rect(' + JSON.stringify(key) + ')');
+          if (!r) return null;
+          const s1 = await shot(); const r1 = await rd();
+          const fg = await cdp.evaluate('window.__sheen.sample(' + JSON.stringify(s1) + ',' + JSON.stringify(r) + ')');
+          await cdp.evaluate('window.__sheen.hideGlyphs(' + JSON.stringify(key) + ')');
+          await sleep(80);
+          const r2a = await rd(); const s2 = await shot(); const r2 = await rd();
+          const bg = await cdp.evaluate('window.__sheen.sample(' + JSON.stringify(s2) + ',' + JSON.stringify(r) + ')');
+          await cdp.evaluate('window.__sheen.showGlyphs(' + JSON.stringify(key) + ')');
+          const differs = (q) => !q || Math.abs(q.x - r.x) > 1 || Math.abs(q.y - r.y) > 1 || Math.abs(q.w - r.w) > 1 || Math.abs(q.h - r.h) > 1;
+          const moved = [r1, r2a, r2].some(differs);
+          // "Changed" is a pixel-DISTRIBUTION test (pixels that moved between luminance bins),
+          // not an extremes test — see verify-contrast.mjs for the two real elements an
+          // extremes-only check wrongly calls vacuous.
+          const shifted = pixelsShifted(fg.hist, bg.hist);
+          const changed = shifted >= Math.max(6, fg.n * 0.005);
+          if (moved) { lastReason = 'box moved during measurement (' + Math.round(r.x) + ',' + Math.round(r.y) + ' → ' + (r2 ? Math.round(r2.x) + ',' + Math.round(r2.y) : 'gone') + ')'; continue; }
+          if (!changed) { lastReason = 'hiding the glyphs changed nothing in the box (' + shifted + ' of ' + fg.n + ' pixels moved) — no glyphs were sampled'; continue; }
+          const bgc = bg.median;
+          const dDark = Math.abs(lum(fg.darkest) - lum(bgc)), dLight = Math.abs(lum(fg.lightest) - lum(bgc));
+          const fgc = dLight > dDark ? fg.lightest : fg.darkest;
+          return { ratio: Math.round(ratio(fgc, bgc) * 100) / 100, fg: fgc, bg: bgc, attempts: attempt + 1 };
+        }
+        return { unmeasured: lastReason };
       }
       // Warm-up load: the first Edge Function invocations compile on first call.
       await cdp.send('Page.navigate', { url: BASE + '/' }); await sleep(500);
@@ -250,6 +295,19 @@ async function main() {
         const where = await cdp.evaluate('location.pathname');
         if (!where.endsWith('/' + page)) { console.log('== ' + page + ': redirected to ' + where + ' — skipped'); continue; }
         await cdp.evaluate(HELPERS);
+        // SHEEN_CHAOS_SHIFT_MS=<n>: a VERIFICATION-ONLY hook reproducing the page that never
+        // settles (the full-suite run's own failure mode): <n> ms after settling a 300px block
+        // is inserted at the top of the page, and from then on it toggles between 300px and 0
+        // every <n> ms, so every retry also lands on a moving layout. The guard above must
+        // report UNMEASURED for every element measured after the first shift, never a number.
+        // A ONE-OFF shift is a different case, covered by the retry: it prints "(retried)" on
+        // the line it recovered. Not for normal runs.
+        if (process.env.SHEEN_CHAOS_SHIFT_MS) await cdp.evaluate('setTimeout(() => { const d = document.createElement("div"); d.style.height = "300px"; d.id = "__chaos"; (document.querySelector("main") || document.body).prepend(d); setInterval(() => { d.style.height = d.style.height === "0px" ? "300px" : "0px"; }, ' + Number(process.env.SHEEN_CHAOS_SHIFT_MS) + '); }, ' + Number(process.env.SHEEN_CHAOS_SHIFT_MS) + '); true');
+        // SHEEN_CHAOS_BLANK=1: the other VERIFICATION-ONLY hook — every text under a sheen is
+        // made transparent BEFORE measuring, the page whose glyphs never painted (a skeleton that
+        // never resolved). Both passes then sample the same pixels and the distribution guard
+        // must report every element UNMEASURED with 0 pixels moved, never a number.
+        if (process.env.SHEEN_CHAOS_BLANK) await cdp.evaluate('document.head.appendChild(Object.assign(document.createElement("style"), { textContent: "[data-sheen-el], [data-sheen-el] * { color: transparent !important; -webkit-text-fill-color: transparent !important; }" })); true');
         const inv = await cdp.evaluate('window.__sheen.inventory()');
         const nCards = await cdp.evaluate('document.querySelectorAll(".glass").length');
         console.log('== ' + page + ' — ' + nCards + ' .glass element(s), ' + inv.length + ' with text under the sheen' + (settled ? '' : ' (page did not fully settle)'));
@@ -262,10 +320,16 @@ async function main() {
             const off = await measure(el.key);
             await cdp.evaluate('window.__sheen.sheen(true)');
             if (!on || !off) continue;
+            if (on.unmeasured || off.unmeasured) {
+              results.push({ page, card: card.card, el: el.label, on: null, off: null, delta: 0, verdict: 'UNMEASURED', reason: on.unmeasured || off.unmeasured });
+              console.log('  UNMEASURED  ' + (card.lifted ? '[lifted] ' : '') + card.card + '  ›  ' + el.label + '  — ' + (on.unmeasured || off.unmeasured));
+              continue;
+            }
             const delta = Math.round((off.ratio - on.ratio) * 100) / 100;
             const verdict = on.ratio < 4.5 ? 'FAIL' : 'pass';
             results.push({ page, card: card.card, el: el.label, on: on.ratio, off: off.ratio, delta, verdict });
-            console.log('  ' + verdict.padEnd(4) + '  with ' + String(on.ratio).padStart(6) + ':1   without ' + String(off.ratio).padStart(6) + ':1   Δ ' + String(delta).padStart(6) + '   ' + (card.lifted ? '[lifted] ' : '') + card.card + '  ›  ' + el.label);
+            const retried = (on.attempts > 1 || off.attempts > 1) ? '  (retried — the box moved or held no glyphs on a first attempt, then settled)' : '';
+            console.log('  ' + verdict.padEnd(4) + '  with ' + String(on.ratio).padStart(6) + ':1   without ' + String(off.ratio).padStart(6) + ':1   Δ ' + String(delta).padStart(6) + '   ' + (card.lifted ? '[lifted] ' : '') + card.card + '  ›  ' + el.label + retried);
           }
         }
       }
@@ -275,13 +339,15 @@ async function main() {
 
     console.log('\n=== SUMMARY ===');
     const byPage = {};
-    for (const r of results) { (byPage[r.page] = byPage[r.page] || { n: 0, fail: 0, maxDelta: 0 }); byPage[r.page].n++; if (r.verdict === 'FAIL') byPage[r.page].fail++; byPage[r.page].maxDelta = Math.max(byPage[r.page].maxDelta, r.delta); }
-    for (const [p, s] of Object.entries(byPage)) console.log('  ' + p.padEnd(32) + s.n + ' measured, ' + s.fail + ' below 4.5:1 with the sheen, largest Δ ' + s.maxDelta);
+    for (const r of results) { (byPage[r.page] = byPage[r.page] || { n: 0, fail: 0, maxDelta: 0, unmeasured: 0 }); if (r.verdict === 'UNMEASURED') { byPage[r.page].unmeasured++; continue; } byPage[r.page].n++; if (r.verdict === 'FAIL') byPage[r.page].fail++; byPage[r.page].maxDelta = Math.max(byPage[r.page].maxDelta, r.delta); }
+    for (const [p, s] of Object.entries(byPage)) console.log('  ' + p.padEnd(32) + s.n + ' measured, ' + s.fail + ' below 4.5:1 with the sheen, largest Δ ' + s.maxDelta + (s.unmeasured ? ', ' + s.unmeasured + ' unmeasured' : ''));
     const fails = results.filter((r) => r.verdict === 'FAIL');
-    console.log('\n' + results.length + ' measurements under the sheen across ' + Object.keys(byPage).length + ' pages, ' + fails.length + ' below 4.5:1 with the sheen composited.');
+    const unmeasured = results.filter((r) => r.verdict === 'UNMEASURED');
+    console.log('\n' + (results.length - unmeasured.length) + ' measurements under the sheen across ' + Object.keys(byPage).length + ' pages, ' + fails.length + ' below 4.5:1 with the sheen composited' + (unmeasured.length ? ', ' + unmeasured.length + ' UNMEASURED (the box held no glyphs or moved — the page never settled; not a contrast result)' : '') + '.');
     fails.forEach((r) => console.log('  FAIL  ' + r.page + '  ' + r.card + '  ›  ' + r.el + '  with ' + r.on + ':1, without ' + r.off + ':1'));
-    console.log(fails.length ? '\nSHEEN SWEEP: FAIL' : '\nSHEEN SWEEP: PASS');
-    process.exitCode = fails.length ? 1 : 0;
+    unmeasured.forEach((r) => console.log('  UNMEASURED  ' + r.page + '  ' + r.card + '  ›  ' + r.el + '  — ' + r.reason));
+    console.log(fails.length || unmeasured.length ? '\nSHEEN SWEEP: FAIL' : '\nSHEEN SWEEP: PASS');
+    process.exitCode = fails.length || unmeasured.length ? 1 : 0;
   } finally {
     for (const t of ['support_requests', 'documents', 'hys_withdrawal_requests', 'profile_change_requests', 'hys_pockets', 'hys_deposit_requests', 'sell_requests', 'allocation_requests', 'withdrawal_requests', 'deposit_requests', 'watchlist_symbols', 'portfolio_value_snapshots', 'holdings', 'transactions', 'account_state', 'conversations']) {
       const { error } = await admin.from(t).delete().eq('client_id', clientId);

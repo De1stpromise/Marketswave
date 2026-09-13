@@ -51,7 +51,7 @@ function runContrast(profile, page, label, bootstrap, prepare) {
   console.log('  ' + label + ' -> ' + tail);
   check(label + ': measured real elements (not an empty run)', !!m && Number(m[1]) > 0, tail);
   check(label + ': every measured surface clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
-  out.split('\n').filter((l) => /FAIL\s+\d/.test(l)).forEach((l) => console.log('      ' + l.trim()));
+  out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(page, label, bootstrap) {
   const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
