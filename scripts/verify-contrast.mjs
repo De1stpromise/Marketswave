@@ -427,7 +427,6 @@ PROFILES['fund-document-admin'] = [
 // x-labels (.po-xl), which stand in for them here.
 PROFILES['portfolio-overview'] = [
   { label: 'card label', sel: '#po-value-card .ret-k', limit: 1 },
-  { label: 'value figure', sel: '#po-value', limit: 1 },
   { label: 'change pill (gain)', sel: '.po-pill.is-up', limit: 1 },
   { label: 'since text', sel: '.po-since', limit: 1 },
   { label: 'range control (selected)', sel: '.po-rg.is-on', limit: 1 },
@@ -452,11 +451,9 @@ PROFILES['portfolio-overview-loss'] = [
 ];
 // The new-client state and both empty states, on the same glass.
 PROFILES['portfolio-overview-new'] = [
-  { label: 'value figure', sel: '#po-value', limit: 1 },
-  { label: 'no-history pill', sel: '.po-pill.is-flat', limit: 1 },
+  { label: 'card label', sel: '#po-value-card .ret-k', limit: 1 },
   { label: 'new-client heading', sel: '.po-newc b', limit: 1 },
   { label: 'new-client explanation', sel: '.po-newc p', limit: 1 },
-  { label: 'new-client figure', sel: '.po-newc-fig', limit: 1 },
   { label: 'new-client sub', sel: '.po-newc-sub', limit: 1 },
   { label: 'empty-state heading', sel: '.po-empty b', limit: 2 },
   { label: 'empty-state copy', sel: '.po-empty p', limit: 2 }

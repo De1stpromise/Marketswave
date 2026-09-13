@@ -9,7 +9,9 @@
 //   2. the VALUE HISTORY: get-portfolio-overview's anchors equal the table rows, point for
 //      point and oldest first; currentValue equals get-total-portfolio-value; the change
 //      since the first anchor is the table arithmetic; chartReady flips at exactly 3 anchors;
-//      a $0 first anchor yields percent null, never Infinity;
+//      the change figure is WITHHELD under the threshold (the live-site "+$94,874 since Sep
+//      2026" bug: a lone $0 anchor written before funding); a $0 first anchor yields
+//      percent null, never Infinity, once the threshold is met;
 //   3. PENDING REQUESTS: five real request types created through the real functions appear
 //      with the right type, amount (null for an amount-less crypto deposit), units and
 //      internal-transfer flag; a rejected one disappears; cross-client isolation;
@@ -129,13 +131,19 @@ async function main() {
     for (const off of [3, 2]) await callFunction(url, pm.token, 'snapshot-portfolio-values', { monthStartDate: monthStart(off), clientId: B.id });
     const ovB2 = await callFunction(url, B.token, 'get-portfolio-overview', {});
     check('B with 2 anchors is STILL under the threshold — a line through two points is not a chart', ovB2.body.history.chartReady === false && ovB2.body.history.anchorCount === 2, JSON.stringify(ovB2.body.history));
-    check('...and a $0 first anchor yields percent null (never Infinity) with the amount still reported', ovB2.body.history.changeSinceFirst.percent === null && ovB2.body.history.changeSinceFirst.amount === round2(ovB2.body.history.currentValue - 0), JSON.stringify(ovB2.body.history.changeSinceFirst));
+    // ★ The live-site bug (2026-09-12): B's anchors were written at $0, before any funding.
+    // With the old payload the page read "+$52,000 since <month>" — the whole balance as a
+    // gain. Under the threshold the change is withheld outright, not caveated.
+    await admin.from('account_state').update({ unallocated_capital: 52000 }).eq('client_id', B.id);
+    const ovB2f = await callFunction(url, B.token, 'get-portfolio-overview', {});
+    check('★ under the threshold changeSinceFirst is NULL even with two $0 anchors and a now-funded account — never "+$52,000 since"', ovB2f.body.history.changeSinceFirst === null && ovB2f.body.history.currentValue === 52000 && ovB2f.body.history.firstAnchor.value === 0, JSON.stringify(ovB2f.body.history));
     // The real scheduled run — no clientId, this month — is what tips B over the threshold.
     const allRun = await callFunction(url, pm.token, 'snapshot-portfolio-values', { monthStartDate: monthStart(0) });
     const pRows = (await admin.from('portfolio_value_snapshots').select('id').eq('client_id', P.id)).data;
     check('a whole-catalog run covers every ACTIVE client and skips the pending_review one', allRun.status === 200 && allRun.body.clients >= 2 && allRun.body.inserted >= 1 && pRows.length === 0, JSON.stringify({ clients: allRun.body.clients, inserted: allRun.body.inserted, pendingRows: pRows.length }));
     const ovB3 = await callFunction(url, B.token, 'get-portfolio-overview', {});
     check('B flips to chartReady at exactly 3 anchors, the third written by the scheduled run', ovB3.body.history.chartReady === true && ovB3.body.history.anchorCount === 3, JSON.stringify(ovB3.body.history));
+    check('...and only now does the change appear — a $0 first anchor yields percent null (never Infinity) with the amount reported', ovB3.body.history.changeSinceFirst && ovB3.body.history.changeSinceFirst.percent === null && ovB3.body.history.changeSinceFirst.amount === round2(ovB3.body.history.currentValue - 0), JSON.stringify(ovB3.body.history.changeSinceFirst));
     const cross = await callFunction(url, B.token, 'get-portfolio-overview', { clientId: A.id });
     check('a client cannot read another client\'s overview (403)', cross.status === 403);
     const pmRead = await callFunction(url, pm.token, 'get-portfolio-overview', { clientId: A.id });

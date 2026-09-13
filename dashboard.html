@@ -136,7 +136,7 @@
                never said so; the word now sits permanently in the markup rather than being
                appended by script, so it cannot go missing on an error path. -->
           <div class="glass-subtle rounded-2xl p-6">
-            <p class="ret-k">Best performing class</p>
+            <p class="ret-k" id="best-performing-label">Best performing class</p>
             <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
             <p class="ret-sub" id="best-performing-return"><span class="inline-block h-4 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
@@ -152,10 +152,11 @@
              exist (a line through two points is not a chart) — today every client sees the
              explanation, because the table's scheduled writer shipped with this row. -->
         <div class="glass glass-lift rounded-2xl p-6 mb-6" id="po-value-card">
+          <!-- No figure in this card, deliberately: the Total portfolio value card above
+               states it once. This card answers "how has it changed" (2026-09-12). -->
           <div class="po-top">
             <div>
-              <p class="ret-k">Portfolio value</p>
-              <div class="po-fig" id="po-value"><span class="inline-block h-8 w-44 bg-slate-200 rounded animate-pulse"></span></div>
+              <p class="ret-k">Portfolio value over time</p>
               <div class="po-sub" id="po-change"><span class="inline-block h-4 w-40 bg-slate-200 rounded animate-pulse"></span></div>
             </div>
             <div class="po-ranges hidden" id="po-ranges" role="group" aria-label="Chart range"></div>
@@ -776,11 +777,18 @@
           }
           bestClassEl.textContent = r.bestClass.assetClass;
           var pct = r.bestClass.unrealizedPercent;
+          // The server picks the class with the HIGHEST unrealised return, which is correct
+          // arithmetic even when that return is negative — but "Best performing · −2.2%"
+          // reads as a contradiction (found on the live site, 2026-09-12). The best is the
+          // maximum, so a negative best means EVERY class is down: the card is relabelled
+          // "Most resilient class" and says so, rather than hiding a real, honest figure.
+          var allDown = pct < 0;
+          document.getElementById('best-performing-label').textContent = allDown ? 'Most resilient class' : 'Best performing class';
           bestClassReturnEl.className = 'ret-sub';
           bestClassReturnEl.innerHTML =
-            '<span class="ret-fig ret-u' + (pct < 0 ? ' is-loss' : '') + '" style="font-weight:700">' +
+            '<span class="ret-fig ret-u' + (allDown ? ' is-loss' : '') + '" style="font-weight:700">' +
               signedPct(pct) +
-            '</span> unrealised';
+            '</span> unrealised' + (allDown ? ' · every class is down' : '');
         }
       });
 
@@ -906,19 +914,18 @@
       // ---- ★ Portfolio overview (2026-09-12): one real read, three regions. The row's own
       // helper (portfolio-overview.js) draws the chart, the pending list and the maturities;
       // a failed read shows one error card with Try Again across all three regions.
-      var poValueEl = document.getElementById('po-value');
       var poChangeEl = document.getElementById('po-change');
       var poRangesEl = document.getElementById('po-ranges');
       var poChartWrap = document.getElementById('po-chart-wrap');
       var poNewcEl = document.getElementById('po-newc');
       var poPendingEl = document.getElementById('po-pending');
       var poMaturitiesEl = document.getElementById('po-maturities');
-      MarketswaveData.renderAsyncBundle([poValueEl, poPendingEl, poMaturitiesEl], {
+      MarketswaveData.renderAsyncBundle([poChangeEl, poPendingEl, poMaturitiesEl], {
         skeletonHTML: MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2'], { gap: 'space-y-3' }),
         load: function () { return MarketswaveData.callFunction('get-portfolio-overview'); },
         render: function (overview) {
           window.MarketswavePortfolioOverview.render(overview, {
-            valueEl: poValueEl, changeEl: poChangeEl, rangesEl: poRangesEl, chartWrap: poChartWrap,
+            changeEl: poChangeEl, rangesEl: poRangesEl, chartWrap: poChartWrap,
             newcEl: poNewcEl, pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
           });
         }

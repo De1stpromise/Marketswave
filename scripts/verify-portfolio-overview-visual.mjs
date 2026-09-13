@@ -49,7 +49,7 @@ const monthStart = (offset) => { const d = new Date(); return new Date(Date.UTC(
 
 // Waits for the overview bundle to have rendered — the value figure no longer a skeleton and,
 // when a chart is expected, a real Chart.js instance bound to the canvas.
-const WAIT_OVERVIEW = (needChart) => '(async()=>{for(let i=0;i<200;i++){const v=document.getElementById("po-value");const p=document.getElementById("po-pending");const ok=v&&p&&!/animate-pulse/.test(v.innerHTML)&&!/animate-pulse/.test(p.innerHTML)' + (needChart ? '&&window.Chart&&Chart.getChart("po-chart")' : '') + ';if(ok)return true;await new Promise(r=>setTimeout(r,250));}return false;})()';
+const WAIT_OVERVIEW = (needChart) => '(async()=>{for(let i=0;i<200;i++){const v=document.getElementById("po-change");const p=document.getElementById("po-pending");const ok=v&&p&&!/animate-pulse/.test(v.innerHTML)&&!/animate-pulse/.test(p.innerHTML)' + (needChart ? '&&window.Chart&&Chart.getChart("po-chart")' : '') + ';if(ok)return true;await new Promise(r=>setTimeout(r,250));}return false;})()';
 
 function runContrast(profile, label, bootstrap) {
   const res = spawnSync(process.execPath, ['verify-contrast.mjs'], {
@@ -219,10 +219,16 @@ async function main() {
 
       const live = await cdp.evaluate('Chart.getChart("po-chart").data.datasets[0].data');
       const labels = await cdp.evaluate('Chart.getChart("po-chart").data.labels');
-      const value = await cdp.evaluate('document.getElementById("po-value").textContent.trim()');
+      // The live value is read from the Total portfolio value card — the ONLY place the page
+      // states it (2026-09-12): the overview card itself carries no figure. That card counts
+      // up (Motion), so wait for it to settle on the real figure.
+      await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){const t=document.getElementById("tpv-amount").textContent.trim();if(t==="$120,000"||t==="$120,000.00")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
+      const value = await cdp.evaluate('document.getElementById("tpv-amount").textContent.trim()');
       const liveValue = Number(value.replace(/[^0-9.]/g, ''));
       check('★ the real chart dataset equals the table rows + today\'s live value', JSON.stringify(live) === JSON.stringify(tableValues.concat([liveValue])), JSON.stringify({ live, tableValues, liveValue }));
-      check('the live value shown is the account\'s real $120,000', liveValue === 120000, value);
+      check('the live value is stated once, in the Total portfolio value card, at the account\'s real $120,000', liveValue === 120000, value);
+      const figures = await cdp.evaluate('(()=>{const card=document.getElementById("po-value-card");const top=card.querySelector(".po-top").textContent.replace(/[+\\u2212]\\$[\\d,]+ \\u00b7 [+\\u2212]?[\\d.]+%/g,"");return {title:card.querySelector(".ret-k").textContent.trim(),dollarsInHead:(top.match(/\\$/g)||[]).length,hasValueEl:!!document.getElementById("po-value")};})()');
+      check('★ the overview card is titled "Portfolio value over time" and repeats no dollar figure', figures.title === 'Portfolio value over time' && figures.dollarsInHead === 0 && !figures.hasValueEl, JSON.stringify(figures));
       check('labels: one per point, last is Today', labels.length === live.length && labels[labels.length - 1] === 'Today', JSON.stringify(labels));
       const chartType = await cdp.evaluate('Chart.getChart("po-chart").config.type');
       const gridShown = await cdp.evaluate('(()=>{const c=Chart.getChart("po-chart");return {y:c.options.scales.y.grid.color, ticks:c.scales.y.ticks.map(t=>t.label)};})()');
@@ -252,8 +258,8 @@ async function main() {
       check('★ a real click on 3M redraws the real chart with only the anchors in range + today', JSON.stringify(after.data) === JSON.stringify(expect3) && after.data.length < live.length && after.on === '3' && after.pressed === 'true', JSON.stringify({ after, expect3 }));
 
       // Tabular figures, by real rendered advance width (a declaration alone proves nothing).
-      const tab = await cdp.evaluate('(()=>{const f=document.getElementById("po-value");const cs=getComputedStyle(f);const c=document.createElement("canvas").getContext("2d");c.font=cs.fontWeight+" "+cs.fontSize+" "+cs.fontFamily;const w=(s)=>c.measureText(s).width;const s=document.createElement("span");s.style.cssText="position:absolute;visibility:hidden;font:"+cs.font+";font-variant-numeric:"+cs.fontVariantNumeric;document.body.appendChild(s);s.textContent="1111111";const a=s.getBoundingClientRect().width;s.textContent="0000000";const b=s.getBoundingClientRect().width;s.remove();return {a,b,fvn:cs.fontVariantNumeric,family:cs.fontFamily};})()');
-      check('the value figure renders tabular figures (1111111 and 0000000 the same width)', Math.abs(tab.a - tab.b) < 0.5 && /tabular/.test(tab.fvn), JSON.stringify(tab));
+      const tab = await cdp.evaluate('(()=>{const f=document.querySelector(".po-mv");const cs=getComputedStyle(f);const c=document.createElement("canvas").getContext("2d");c.font=cs.fontWeight+" "+cs.fontSize+" "+cs.fontFamily;const w=(s)=>c.measureText(s).width;const s=document.createElement("span");s.style.cssText="position:absolute;visibility:hidden;font:"+cs.font+";font-variant-numeric:"+cs.fontVariantNumeric;document.body.appendChild(s);s.textContent="1111111";const a=s.getBoundingClientRect().width;s.textContent="0000000";const b=s.getBoundingClientRect().width;s.remove();return {a,b,fvn:cs.fontVariantNumeric,family:cs.fontFamily};})()');
+      check('the pocket value figures render tabular (1111111 and 0000000 the same width)', Math.abs(tab.a - tab.b) < 0.5 && /tabular/.test(tab.fvn), JSON.stringify(tab));
 
       console.log('\n=== LAYOUT — 1440/390/375 ===\n');
       for (const width of [1440, 390, 375]) {
@@ -289,7 +295,7 @@ async function main() {
         document.body.appendChild(f);
         await new Promise(r => f.addEventListener('load', r));
         const d = f.contentDocument, w = f.contentWindow;
-        for (let i = 0; i < 200; i++) { const v = d.getElementById('po-value'); const p = d.getElementById('po-pending'); if (v && p && !/animate-pulse/.test(v.innerHTML) && !/animate-pulse/.test(p.innerHTML) && w.Chart && w.Chart.getChart('po-chart')) break; await nap(250); }
+        for (let i = 0; i < 200; i++) { const v = d.getElementById('po-change'); const p = d.getElementById('po-pending'); if (v && p && !/animate-pulse/.test(v.innerHTML) && !/animate-pulse/.test(p.innerHTML) && w.Chart && w.Chart.getChart('po-chart')) break; await nap(250); }
         const c = w.Chart && w.Chart.getChart('po-chart');
         const card = d.getElementById('po-value-card').getBoundingClientRect();
         const cv = d.getElementById('po-chart').getBoundingClientRect();

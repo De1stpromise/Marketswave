@@ -5,16 +5,24 @@
 // this file only formats and draws (row 185: no client-side money computation).
 //
 // Plain global, same convention as dashboard-sidebar.js / fund-document.js:
-//   window.MarketswavePortfolioOverview.render(payload, { valueEl, changeEl, rangesEl,
+//   window.MarketswavePortfolioOverview.render(payload, { changeEl, rangesEl,
 //     chartWrap, newcEl, pendingEl, maturitiesEl })
 //
 // THE CHART THRESHOLD. A line through two points is not a chart. The server reports
 // `history.chartReady` (>= CHART_MIN_ANCHORS = 3 real stored anchors); below that the card
-// shows the honest explanation and the current value as a figure. Today's live value is
+// shows the honest explanation and no change figure — the server itself withholds
+// `changeSinceFirst` under the threshold, since a lone $0 anchor written before an account
+// was funded once read as "+$94,874 since Sep 2026" on the live site. Today's live value is
 // appended as the terminal point when the chart IS shown, and never counts toward the
-// threshold. The range controls (3M / 6M / 1Y / All) genuinely FILTER the series by date and
-// the axes rescale to the filtered points; a range that would leave fewer than two anchors
-// is disabled rather than drawn as a dot.
+// threshold.
+//
+// THIS SECTION NEVER STATES THE CURRENT VALUE. The Total portfolio value card above it
+// answers "what am I worth"; this card answers "how has it changed" — it once repeated the
+// figure three times on one screen (2026-09-12) and now shows it nowhere.
+//
+// The range controls (3M / 6M / 1Y / All) genuinely FILTER the series by date and the axes
+// rescale to the filtered points; a range that would leave fewer than two anchors is
+// disabled rather than drawn as a dot.
 (function () {
   'use strict';
 
@@ -63,14 +71,16 @@
     return s;
   }
 
-  // ---------------------------------------------------------------- value + change
-  function renderValue(h, valueEl, changeEl) {
-    valueEl.textContent = formatUSD(Math.round(h.currentValue));
+  // ---------------------------------------------------------------- change since first anchor
+  // Shown only once the chart is (the server sends changeSinceFirst null below the
+  // threshold); with nothing to show the region is hidden rather than filled with a caveat.
+  function renderChange(h, changeEl) {
     changeEl.textContent = '';
-    if (!h.firstAnchor || !h.changeSinceFirst) {
-      changeEl.appendChild(el('span', 'po-pill is-flat', 'No monthly history yet'));
+    if (!h.chartReady || !h.firstAnchor || !h.changeSinceFirst) {
+      changeEl.hidden = true;
       return;
     }
+    changeEl.hidden = false;
     var c = h.changeSinceFirst;
     var pill = el('span', 'po-pill ' + (c.amount > 0 ? 'is-up' : c.amount < 0 ? 'is-dn' : 'is-flat'));
     var amt = (c.amount > 0 ? '+' : c.amount < 0 ? '−' : '') + formatUSD(Math.abs(Math.round(c.amount)));
@@ -223,10 +233,8 @@
     var body = el('div');
     body.appendChild(el('b', null, h.anchorCount === 0 ? 'Your value chart appears after your first full month' : 'Your value chart appears after ' + h.minAnchors + ' monthly points (' + h.anchorCount + ' so far)'));
     body.appendChild(el('p', null, 'We record your portfolio’s total value at the start of each month. Once ' + h.minAnchors + ' of those points exist, this becomes a chart of how it has changed over time — a line through one or two points would not tell you anything real.'));
-    body.appendChild(el('div', 'po-newc-fig', formatUSD(Math.round(h.currentValue))));
-    var sub = 'Current value';
-    if (h.clientSince) sub += ' · client since ' + fmtDay(new Date(h.clientSince));
-    body.appendChild(el('div', 'po-newc-sub', sub));
+    // No figure here: the Total portfolio value card already states it (see the header).
+    if (h.clientSince) body.appendChild(el('div', 'po-newc-sub', 'Client since ' + fmtDay(new Date(h.clientSince))));
     newcEl.appendChild(body);
   }
 
@@ -309,7 +317,7 @@
 
   function render(payload, els, opts) {
     var h = payload.history;
-    renderValue(h, els.valueEl, els.changeEl);
+    renderChange(h, els.changeEl);
     if (h.chartReady) {
       els.newcEl.classList.add('hidden');
       els.chartWrap.classList.remove('hidden');

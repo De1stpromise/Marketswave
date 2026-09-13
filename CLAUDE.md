@@ -8914,12 +8914,17 @@ row 74.
     records the value NOW under that label. Do not add a backfill: nothing honest exists to
     backfill from. The scheduler needs the vault configured (row 193) or the job silently does
     nothing, like the other two.
-  - **`CHART_MIN_ANCHORS = 3` real stored anchors.** The live current value is always the last
-    point and never counts. One anchor plus today is a line through two points, which is not
-    a chart — the card says so in the new-client state rather than drawing one.
+  - **`CHART_MIN_ANCHORS = 3` real stored anchors, and the CHANGE FIGURE is gated on the SAME
+    threshold (fixed 2026-09-12, row 205).** The live current value is always the last point
+    and never counts. One anchor plus today is a line through two points, which is not a
+    chart — the card says so in the new-client state rather than drawing one. Under the
+    threshold `changeSinceFirst` is `null` and the page renders no change figure and no pill
+    at all: the live site showed "+$94,874 since Sep 2026" against a single $0 anchor written
+    before the account was funded, so the whole balance read as a gain.
   - **Anchors are keyed by `month_start_date` and mean the value at the START of that month**
     (00:05 UTC on the 1st ≈ the end of the previous month). The change pill reads "since
-    ‹first anchor month›", never "since inception" — inception has no anchor.
+    ‹first anchor month›", never "since inception" — inception has no anchor — and it exists
+    only once the chart does.
   - **The pending panel is the ONLY cross-domain pending-only list; the per-domain FULL
     histories stay and the bell is untouched.** Investigated first: `deploy-capital.html`,
     `asset-performance.html` and `high-yield-savings.html` each keep a full request history
@@ -8991,6 +8996,47 @@ row 74.
   absolutely/fixed positioned (the lift would re-flow it) — none were. **Re-run after the
   lifts: 168 measured, 0 sheen failures.** Any future `.glass` card with a heading or figure
   in its top-left needs the class, and the audit is the way to know.
+
+- **★★ Portfolio overview — three findings from the live site, one fix set (2026-09-12, row
+  205).** Reported by the user against the real deployed dashboard.
+  **1. REAL BUG — "+$94,874 since Sep 2026".** The only anchor was a $0 snapshot written the day
+  the client first opened an empty dashboard, before any funding, so the whole balance read as
+  a gain since that month. The change figure had been gated on `first` existing at all; the
+  chart on three anchors. If three points are needed before a chart means anything, one is not
+  enough for a change figure: `changeSinceFirst` is now `null` unless `chartReady`, computed in
+  `_shared/portfolio-overview.ts` where every other figure is, and `portfolio-overview.js`'s
+  `renderChange()` sets `#po-change` `hidden` (no pill, no "since") unless the server sent one.
+  **Do not reintroduce a client-side fallback** — the page never had the anchors to decide
+  this correctly, which is how the bug shipped.
+  **2. The value was on screen three times** — the Total portfolio value summary card, a big
+  "Portfolio value $94,874" heading in the chart card, and again inside the new-client
+  explanation panel. The summary card answers "what am I worth"; the chart section answers
+  "how has it changed". **The chart card is now titled "Portfolio value over time" and states
+  no figure anywhere** — `#po-value` is gone from the markup (a comment marks where it was and
+  why), `.po-fig`/`.po-newc-fig` are deleted from the CSS, and the new-client panel keeps only
+  "Client since ‹date›". The header comment in `portfolio-overview.js` says it in capitals: THIS
+  SECTION NEVER STATES THE CURRENT VALUE. The visual suite asserts `dollarsInHead === 0` on the
+  card's header and reads the live value from `#tpv-amount` alone.
+  **3. "Best performing class: Crypto · −2.2% unrealised" — decided: RELABEL, not suppress.**
+  The arithmetic is right (best = max, so a negative best means every class is down) and the
+  figure is real and honest; hiding it would hide the one class the client would most want to
+  see. When the best class's unrealised % is negative the card's label reads **"Most resilient
+  class"** and the sub-line ends "· every class is down"; with a genuine winner it stays "Best
+  performing class" with no suffix (`dashboard.html`, `#best-performing-label`). The negative
+  figure keeps its U+2212 sign and the loss tone.
+  **Verified**: `supabase-verify-portfolio-overview` **48/48** (B funded to $52,000 after two $0
+  anchors: `changeSinceFirst === null`, `currentValue === 52000`, `firstAnchor.value === 0`;
+  once the whole-catalog run tips B over the threshold the change appears with `percent
+  null` — a $0 first anchor has no percentage); `verify-portfolio-overview-ui-wiring` **27/27**
+  (title, no `#po-value`, no `$` in the card head, `#po-change.hidden` for the new client, no
+  `.po-newc-fig`, the value present exactly once on the page); `verify-portfolio-overview-
+  visual` **45/45** (the same on a real Chart.js page; 43 composited-pixel measurements, 0
+  below 4.5:1); `verify-dashboard-real-data-fixes` **44/44** — a new section 2b seeds a client
+  with every class under water (−12% / −2.2% / −30%) and asserts the relabel, the suffix, the
+  named class still Crypto, the minus sign and the loss tone, while the positive-mix section
+  asserts the original label survives with no suffix; `verify-returns-display` 105/105,
+  `verify-returns-display-visual` 148/148, `audit-glass-sheen` on `dashboard.html` 17 measured
+  0 below, stylesheet coverage and Tailwind scoping PASS.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

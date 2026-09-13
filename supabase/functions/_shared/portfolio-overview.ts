@@ -41,15 +41,21 @@ export async function valueHistory(admin: any, clientId: string): Promise<ValueH
   const anchors = (rows || []).map((r: any) => ({ date: String(r.month_start_date), value: round2(Number(r.value_at_anchor)) }));
   const { data: client } = await admin.from('clients').select('created_at').eq('id', clientId).maybeSingle();
   const first = anchors.length ? anchors[0] : null;
+  const chartReady = anchors.length >= CHART_MIN_ANCHORS;
+  // The change figure is subject to the SAME threshold as the chart. Found on the live site
+  // (2026-09-12): a client whose only anchor was the $0 snapshot written before their account
+  // was funded read "+$94,874 since Sep 2026" — the entire portfolio presented as a gain. One
+  // anchor cannot say how a portfolio has changed any more than it can draw a chart, so below
+  // the threshold there is no change figure at all, never a number the page has to caveat.
   // Percent is null, never Infinity, when the first anchor was a genuine $0.
-  const change = first
+  const change = chartReady && first
     ? { amount: round2(currentValue - first.value), percent: first.value > 0 ? Math.round(((currentValue - first.value) / first.value) * 10000) / 100 : null }
     : null;
   return {
     currentValue,
     anchors,
     anchorCount: anchors.length,
-    chartReady: anchors.length >= CHART_MIN_ANCHORS,
+    chartReady,
     minAnchors: CHART_MIN_ANCHORS,
     firstAnchor: first,
     changeSinceFirst: change,

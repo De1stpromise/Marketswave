@@ -96,7 +96,7 @@ async function main() {
     await shared.auth.signInWithPassword({ email: client.email, password });
     dom.window.eval(script);
     const D = dom.window.document;
-    await pollUntil(() => !/animate-pulse/.test(D.getElementById('po-value').innerHTML) && !/animate-pulse/.test(D.getElementById('po-pending').innerHTML), 30000);
+    await pollUntil(() => !/animate-pulse/.test(D.getElementById('po-change').innerHTML) && !/animate-pulse/.test(D.getElementById('po-pending').innerHTML), 30000);
     return { dom, D, captured };
   }
 
@@ -124,10 +124,11 @@ async function main() {
     console.log('1. Established client — chart, ranges, pending, maturities');
     // ================================================================================
     const { D, captured } = await loadDashboardAs(A);
-    const valueText = D.getElementById('po-value').textContent.trim();
-    check('the value figure is the server currentValue', valueText === '$' + Math.round(server.history.currentValue).toLocaleString('en-US'), valueText + ' vs ' + server.history.currentValue);
+    // The card states NO figure (2026-09-12): the Total portfolio value card above it already
+    // does, and this section answers "how has it changed", not "what am I worth".
+    check('★ the card is titled "Portfolio value over time" and states no dollar figure outside the chart', D.querySelector('#po-value-card .ret-k').textContent.trim() === 'Portfolio value over time' && !D.getElementById('po-value') && !/\$/.test(D.querySelector('#po-value-card .po-top').textContent.replace(/\+\$[\d,]+ · [+−]?[\d.]+%/, '')), D.querySelector('#po-value-card .po-top').textContent);
     const change = D.getElementById('po-change');
-    check('the change pill shows the server change and names the first anchor month', /\+\$20,000 · \+20\.0%/.test(change.textContent) && change.textContent.indexOf('since ' + fmtMonYYYY(server.history.firstAnchor.date)) !== -1, change.textContent);
+    check('the change pill shows the server change and names the first anchor month', !change.hidden && /\+\$20,000 · \+20\.0%/.test(change.textContent) && change.textContent.indexOf('since ' + fmtMonYYYY(server.history.firstAnchor.date)) !== -1, change.textContent);
     check('the chart is shown and the new-client explanation hidden', !D.getElementById('po-chart-wrap').classList.contains('hidden') && D.getElementById('po-newc').classList.contains('hidden'));
     const line = captured.filter((c) => c.type === 'line');
     check('a real line chart config was handed to Chart.js', line.length >= 1);
@@ -174,14 +175,20 @@ async function main() {
     // ================================================================================
     console.log('\n2. New client — under the threshold');
     // ================================================================================
-    await callFunction(url, pmToken, 'snapshot-portfolio-values', { monthStartDate: monthStart(0), clientId: B.id }); // one anchor: still under 3
+    // ★ The live-site bug (2026-09-12), reproduced exactly: the one anchor is a $0 snapshot
+    // written BEFORE the account was funded. The page used to read "+$52,000 since <month>".
+    await admin.from('account_state').update({ unallocated_capital: 0 }).eq('client_id', B.id);
+    await callFunction(url, pmToken, 'snapshot-portfolio-values', { monthStartDate: monthStart(0), clientId: B.id }); // one $0 anchor: still under 3
+    await admin.from('account_state').update({ unallocated_capital: 52000 }).eq('client_id', B.id);
     const b = await loadDashboardAs(B);
+    const bChange = b.D.getElementById('po-change');
+    check('★ no change figure and no pill at all under the threshold — a lone $0 anchor plus a funded account never reads as "+$52,000 since"', bChange.hidden === true && bChange.querySelector('.po-pill') === null && !/\$/.test(bChange.textContent), bChange.outerHTML);
     check('the chart and range controls are hidden', b.D.getElementById('po-chart-wrap').classList.contains('hidden') && b.D.getElementById('po-ranges').classList.contains('hidden'));
     const newc = b.D.getElementById('po-newc');
     check('the explanation is shown, honest about the threshold and how snapshots work', !newc.classList.contains('hidden') && /appears after 3 monthly points \(1 so far\)/.test(newc.textContent) && /start of each month/.test(newc.textContent), newc.textContent);
-    check('...with the current value as a figure and the client-since date', /\$52,000/.test(newc.querySelector('.po-newc-fig').textContent) && /client since/.test(newc.querySelector('.po-newc-sub').textContent), newc.textContent);
+    check('...with the client-since date and NO repeated figure — the Total portfolio value card already states it', !newc.querySelector('.po-newc-fig') && !/\$/.test(newc.textContent) && /Client since/.test(newc.querySelector('.po-newc-sub').textContent), newc.textContent);
     check('no line chart was created for the new client', b.captured.filter((c) => c.type === 'line').length === 0);
-    check('the value figure still shows the live value above the explanation', b.D.getElementById('po-value').textContent.trim() === '$52,000');
+    check('the value appears exactly once on the page — in the Total portfolio value card, not this section', b.D.getElementById('po-value') === null && !/\$52,000/.test(b.D.getElementById('po-value-card').textContent), b.D.getElementById('po-value-card').textContent);
     check('both side panels show their empty states', /Nothing pending/.test(b.D.getElementById('po-pending').textContent) && /No savings pockets yet/.test(b.D.getElementById('po-maturities').textContent));
   } finally {
     if (pocketIds.length) await admin.from('hys_pockets').delete().in('id', pocketIds);

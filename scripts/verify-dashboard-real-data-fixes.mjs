@@ -289,6 +289,10 @@ async function main() {
     // words, that it is unrealised, which is the whole point of row 130's own fix.
     check('Best Performing Class shows the real, correctly-computed unrealised % (+18.4%)', bestReturnEl.textContent.indexOf('+18.4%') === 0 && bestReturnEl.textContent.indexOf('unrealised') !== -1, bestReturnEl.textContent);
     check('the real losing class (Crypto, ' + expectedEthPct.toFixed(1) + '%) was correctly NOT chosen as best', bestClassEl.textContent !== 'Crypto');
+    // Portfolio overview fix set (2026-09-12): with a genuinely positive best class the card
+    // keeps its original label — the "Most resilient class" relabel (2b below) must never fire
+    // here, or a real winner would be described as merely resilient.
+    check('with a real winner the label still reads "Best performing class" and carries no "every class is down" suffix', D.getElementById('best-performing-label').textContent === 'Best performing class' && bestReturnEl.textContent.indexOf('every class is down') === -1, D.getElementById('best-performing-label').textContent + ' | ' + bestReturnEl.textContent);
   })();
 
   console.log('\n2a. A real client with NO holdings at all — honest "—" / "No holdings yet", not a fabricated best class');
@@ -317,6 +321,51 @@ async function main() {
     check('Asset Returns shows a real, honest $0 for a client who has never sold anything', assetReturnsEl.textContent === '$0', assetReturnsEl.textContent);
     check('Best Performing Class shows an honest "—", never a fabricated class', bestClassEl.textContent === '—', bestClassEl.textContent);
     check('the sub-line honestly says "No holdings yet"', bestReturnEl.textContent === 'No holdings yet', bestReturnEl.textContent);
+  })();
+
+  console.log('\n2b. A real client whose EVERY class is losing — the best of them is relabelled, not hidden');
+  // Portfolio overview fix set (2026-09-12): "Best performing class: Crypto · -2.2% unrealised"
+  // is correct arithmetic and odd presentation — a "best performer" that is losing. The decision
+  // was to RELABEL rather than suppress: the figure is real and honest, and hiding it would hide
+  // the one class the client would most want to see. Best = max, so a negative best implies every
+  // class is negative, and the card says so in words. Seeded with every class genuinely under water.
+  const clientR3 = await createTestClient(admin, 'ReturnsAllDown', suffix);
+  createdClientIds.push(clientR3.id);
+  await admin.from('account_state').insert({ client_id: clientR3.id, unallocated_capital: 1000, allocated_capital: 0, asset_returns: 0 });
+  // Stocks & ETFs: -12%. Crypto: -2.2% (the "best" of a bad set). Private Equity: -30%.
+  const dEquityUnits = 100, dEquityCostBasis = round2((dEquityUnits * equityEtf.unit_price) / 0.88);
+  const dEthUnits = 2, dEthCostBasis = round2((dEthUnits * ethereum.unit_price) / 0.978);
+  const dNordicUnits = 20, dNordicCostBasis = round2((dNordicUnits * nordic.unit_price) / 0.70);
+  await admin.from('holdings').insert([
+    { client_id: clientR3.id, product_id: equityEtf.id, units: dEquityUnits, cost_basis: dEquityCostBasis },
+    { client_id: clientR3.id, product_id: ethereum.id, units: dEthUnits, cost_basis: dEthCostBasis },
+    { client_id: clientR3.id, product_id: nordic.id, units: dNordicUnits, cost_basis: dNordicCostBasis }
+  ]);
+  const dEquityPct = ((dEquityUnits * equityEtf.unit_price - dEquityCostBasis) / dEquityCostBasis) * 100;
+  const dEthPct = ((dEthUnits * ethereum.unit_price - dEthCostBasis) / dEthCostBasis) * 100;
+  const dNordicPct = ((dNordicUnits * nordic.unit_price - dNordicCostBasis) / dNordicCostBasis) * 100;
+  check('the all-down seed genuinely has every class negative, Crypto the least negative (test sanity check)', dEquityPct < 0 && dEthPct < 0 && dNordicPct < 0 && dEthPct > dEquityPct && dEthPct > dNordicPct, JSON.stringify({ dEquityPct, dEthPct, dNordicPct }));
+  await (async function () {
+    const path = fileURLToPath(new URL('../dashboard.html', import.meta.url));
+    const dom = buildPageDom(path);
+    dom.window.MarketswaveData = MarketswaveData;
+    dom.window.clientScopedKey = function (key) { return key + ':' + clientR3.id; };
+    const script = extractInlineScript(path, 'UI Wiring — Stage 1');
+    const D = dom.window.document;
+    const bestClassEl = D.getElementById('best-performing-class');
+    const bestReturnEl = D.getElementById('best-performing-return');
+    const labelEl = D.getElementById('best-performing-label');
+
+    const sharedClient = await MarketswaveData.getSupabaseClient();
+    await sharedClient.auth.signInWithPassword({ email: clientR3.email, password: 'VerifyDashFix-2026!' });
+
+    dom.window.eval(script);
+    await pollUntil(function () { return !/animate-pulse/.test(bestClassEl.innerHTML); }, 20000);
+    check('the least-negative class (Crypto) is still the one named — the figure is NOT suppressed', bestClassEl.textContent === 'Crypto', bestClassEl.textContent);
+    check('★ the card is relabelled "Most resilient class" when every class is down', labelEl.textContent === 'Most resilient class', labelEl.textContent);
+    check('the figure keeps its real negative percentage with a U+2212 minus and the word "unrealised"', /^\u2212[\d.]+%\s+unrealised/.test(bestReturnEl.textContent), bestReturnEl.textContent);
+    check('...and says in words that every class is down', bestReturnEl.textContent.indexOf('every class is down') !== -1, bestReturnEl.textContent);
+    check('the negative figure renders in the loss tone', !!bestReturnEl.querySelector('.is-loss'));
   })();
 
   // ===========================================================================================
