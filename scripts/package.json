@@ -39,6 +39,7 @@
     "verify-view-as-client-isolation": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-view-as-client-isolation.mjs",
     "verify-pm-self-service-security": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-pm-self-service-security.mjs",
     "supabase-verify-market-data": "node verify-supabase-market-data.js",
+    "supabase-verify-asset-logos": "node verify-supabase-asset-logos.js",
     "supabase-verify-email-notifications": "node verify-supabase-email-notifications.js",
     "verify-dashboard-market-currency-ui": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-market-currency-ui.mjs",
     "supabase-verify-unified-inbox": "node verify-supabase-unified-inbox.js",

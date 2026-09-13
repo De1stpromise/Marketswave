@@ -29,6 +29,8 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { fileURLToPath } from 'node:url';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const BASE = process.env.AL_BASE || 'http://127.0.0.1:8765';
 const PORT = Number(process.env.AL_PORT || 9498);
@@ -91,7 +93,17 @@ async function connectChrome() {
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   trackChild(profile, chrome, ws);
-  return { send, evaluate, close: () => releaseTempDir(profile) };
+  // AL_SHOTS=<dir>: save a screenshot of each page visited — for a human look, never an
+  // assertion. Off by default so a routine run leaves nothing behind.
+  const shot = async (name, sel) => {
+    if (!process.env.AL_SHOTS) return;
+    mkdirSync(process.env.AL_SHOTS, { recursive: true });
+    if (sel) await evaluate('(() => { const el = document.querySelector(' + JSON.stringify(sel) + '); if (el) el.scrollIntoView({ block: "start" }); return true; })()');
+    await sleep(300);
+    const r = await send('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(join(process.env.AL_SHOTS, name + '.png'), Buffer.from(r.data, 'base64'));
+  };
+  return { send, evaluate, shot, close: () => releaseTempDir(profile) };
 }
 
 async function main() {
@@ -205,6 +217,7 @@ async function main() {
     await cdp.evaluate('(async () => { for (let i = 0; i < 10; i++) { const b = document.getElementById("load-more-btn"); if (!b || b.classList.contains("hidden")) break; b.click(); await new Promise(r => setTimeout(r, 300)); } return true; })()');
     await cdp.evaluate('(async () => { const imgs = [...document.querySelectorAll(".mk img")]; for (let i = 0; i < 50; i++) { if (imgs.every(im => im.complete)) return true; await new Promise(r => setTimeout(r, 200)); } return false; })()');
     await sleep(400);
+    await cdp.shot('catalog-1440', '#asset-cards-grid');
     const acMarks = await cdp.evaluate(MARKS_JS);
     const acReal = acMarks.filter((m) => m.img && m.img.complete && m.img.nw > 0);
     check('real logos genuinely decoded on the catalog (≥ 20 wells hold a real, non-zero-size image from the asset-logos bucket — 21 ETFs + 8 coins were backfilled)',
@@ -230,6 +243,9 @@ async function main() {
     // ---- dashboard.html: watchlist cards at 34px, the broken path, the no-provider symbol ----
     const dbReady = await loadAndWait('/dashboard.html', '#wl-rows .wl-card[data-wl-card] .mk');
     check('dashboard.html rendered the watchlist cards with marks', dbReady);
+    await cdp.evaluate('(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "AAPL"); if (c) c.click(); return true; })()');
+    await sleep(400);
+    await cdp.shot('watchlist-1440', '#watchlist-card');
     const dbMarks = await cdp.evaluate(MARKS_JS);
     const wlBtc = dbMarks.find((m) => m.mono === 'BTC');
     check('BTC on the watchlist shows the same real decoded logo, at 34×34', !!wlBtc && !wlBtc.isMono && wlBtc.img.nw > 0 && wlBtc.w === 34 && wlBtc.h === 34, JSON.stringify(wlBtc));
@@ -258,6 +274,7 @@ async function main() {
     // ---- asset-performance.html: holdings rows at 28px ----
     const apReady = await loadAndWait('/asset-performance.html', '#return-table-body .mk');
     check('asset-performance.html rendered the Return Table with marks', apReady);
+    await cdp.shot('holdings-1440', '#return-table-body');
     const apMarks = await cdp.evaluate(MARKS_JS);
     const apNgf = apMarks.find((m) => m.mono === 'NGF');
     const apBtc = apMarks.find((m) => m.mono === 'BTC');
@@ -284,6 +301,7 @@ async function main() {
       '})()'
     ].join('');
     const strip = await cdp.evaluate(STRIP_JS);
+    await cdp.shot('strip-sizes');
     const SIZE_PX = { l: 46, m: 40, s: 34, xs: 28 };
     const BASE_FS = { l: 15.2, m: 13, s: 11.4, xs: 9.8 };
     for (const m of strip) {
@@ -375,6 +393,7 @@ async function main() {
       if (!mobileReady) continue;
       const real = await cdp.evaluate('window.innerWidth');
       check(width + 'px: the browser genuinely reports that width', real === width, 'got ' + real);
+      await cdp.shot('catalog-' + width, '#asset-cards-grid');
       const g = await cdp.evaluate(GEOM_JS);
       check(width + 'px: catalog cards rendered', g.cards > 0, JSON.stringify(g));
       check(width + 'px: every well keeps its designed 40px (never squeezed by the card)', g.markWidths.length === 1 && g.markWidths[0] === 40, JSON.stringify(g.markWidths));

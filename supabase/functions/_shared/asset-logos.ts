@@ -127,19 +127,40 @@ interface LogoProvider {
 // CoinGecko's public tier rate-limits a burst of coin lookups (the backfill's first run
 // tripped it on the eighth coin and silently fell through to Elbstream), so a 429 is waited
 // out once, then surfaced as "try later" — never treated as "no image".
+// What CoinGecko last answered, for `diagnose` — "offered nothing" alone cannot separate
+// "no image on the coin" from "the request was refused" (a 401/403 from a cloud egress IP
+// looks identical to a coin without an image from the outside).
+let lastCoingeckoAnswer: string | null = null;
+
+// /coins/markets, NOT /coins/{id}. Both carry the coin's 250px image, but on real cloud
+// staging /coins/{id} answers HTTP 403 (a Cloudflare HTML block page) to Supabase's edge
+// egress while /coins/markets — the same family of endpoint the price refresh already uses
+// — answers normally. Measured with `diagnose` on 2026-09-13; from a home IP both work,
+// which is why the local backfill never showed it. Falls through to /coins/{id} only when
+// markets returns no row for the id.
 async function coingeckoImage(id: string): Promise<string | null> {
-  const url = 'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) +
-    '?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false';
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(url);
-    if (res.status === 429) {
-      if (attempt === 0) { await new Promise((r) => setTimeout(r, 12000)); continue; }
-      throw new ProviderRateLimited('CoinGecko rate-limited the lookup for ' + id);
+  const urls = [
+    'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=' + encodeURIComponent(id),
+    'https://api.coingecko.com/api/v3/coins/' + encodeURIComponent(id) +
+      '?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false'
+  ];
+  for (const url of urls) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      lastCoingeckoAnswer = 'HTTP ' + res.status;
+      if (res.status === 429) {
+        if (attempt === 0) { await new Promise((r) => setTimeout(r, 12000)); continue; }
+        throw new ProviderRateLimited('CoinGecko rate-limited the lookup for ' + id);
+      }
+      if (!res.ok) { lastCoingeckoAnswer += ' ' + (await res.text().catch(() => '')).slice(0, 160); break; }
+      const data = await res.json();
+      const row = Array.isArray(data) ? data.find((c: any) => c && c.id === id) : data;
+      const image = row && (typeof row.image === 'string' ? row.image
+        : (typeof row.image?.large === 'string' ? row.image.large
+          : (typeof row.image?.small === 'string' ? row.image.small : null)));
+      if (image) return String(image).split('?')[0]; // the cache-buster query is not part of the image
+      break;
     }
-    if (!res.ok) return null;
-    const data = await res.json();
-    return typeof data?.image?.large === 'string' ? data.image.large
-      : (typeof data?.image?.small === 'string' ? data.image.small : null);
   }
   return null;
 }
@@ -255,7 +276,7 @@ export async function diagnoseLogo(src: LogoSource): Promise<Array<Record<string
     if (!provider.covers(src)) { steps.push({ provider: provider.name, skipped: 'does not cover this kind' }); continue; }
     let urls: string[] = [];
     try { urls = await provider.urls(src); } catch (e) { steps.push({ provider: provider.name, error: (e as Error).message }); continue; }
-    if (urls.length === 0) { steps.push({ provider: provider.name, offered: 'nothing' }); continue; }
+    if (urls.length === 0) { steps.push({ provider: provider.name, offered: 'nothing', answer: provider.name === 'coingecko' ? lastCoingeckoAnswer : undefined }); continue; }
     for (const url of urls) {
       try {
         const res = await fetch(url, { redirect: 'follow' });
