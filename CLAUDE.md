@@ -9530,7 +9530,12 @@ row 74.
   zero quote, as expected; the country ETFs (KSA, FLSA, UAE, QAT, KWT) carry that exposure.
   **The 7 drops are Finnhub's own answer (HTTP 200 + `{"c":0}`), reported not guessed**: MMC,
   SPLG, GULF, ORAN, SMNEY, BMWYY, CYBR — a current ticker for any of them can be seeded in
-  one line. **Unresolvable lines, per the brief**: TQQQ (3x leverage, excluded), IBIT/FBTC
+  one line. **MMC and CYBR retried 2026-09-14**: MMC was a ticker change (Marsh McLennan
+  trades as MRSH now; seeded, local PROD-0331 / staging PROD-0328), CYBR a real delisting
+  (merged into Palo Alto Networks 2026-02-11; PANW already offered). The seeder's new
+  `--only SYM,SYM` is how to retry a few entries without a 70-minute pass. A zero quote on a
+  liquid US name is worth one retry — but check the symbol list and a name search before
+  calling it a feed gap; both of these were the symbol, not the feed. **Unresolvable lines, per the brief**: TQQQ (3x leverage, excluded), IBIT/FBTC
   (BTC is offered directly), GOOG (GOOGL is the listing), every Europe-domiciled UCITS, the
   Gulf home listings, USDT/USDC/LEO (stablecoins), PEPE/BONK/SHIB/DOGE (meme coins).
   **Minimums**: $100 for large-cap US stocks, broad/major-sector ETFs and major crypto; $500
