@@ -82,6 +82,9 @@ Deno.serve(async (req) => {
       .from('conversations')
       .select('id, client_id, visitor_auth_id, contact_email, contact_name, status')
       .ilike('contact_email', contactEmail)
+      // PM tool revamp, part 1 (2026-09-14): a contact's GENERAL thread — never one of their
+      // tickets, which share the email and would make maybeSingle() throw.
+      .neq('kind', 'ticket')
       .maybeSingle();
     if (findErr) return jsonResponse({ error: findErr.message }, 500);
 

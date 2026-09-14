@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     const { data: convo, error: convoErr } = await admin
       .from('conversations')
-      .select('id, client_id, visitor_auth_id, contact_email, contact_name, last_notified_at')
+      .select('id, client_id, visitor_auth_id, contact_email, contact_name, last_notified_at, kind, display_id')
       .eq('id', conversationId)
       .maybeSingle();
     if (convoErr) return jsonResponse({ error: convoErr.message }, 500);
@@ -87,15 +87,20 @@ Deno.serve(async (req) => {
     const adminEmails = await getAdminEmails(admin);
     let notified = false;
     if (adminEmails.length > 0) {
+      // PM tool revamp, part 1 (2026-09-14): a client's reply on their own TICKET (support.html's
+      // thread) comes through this same path — the email names the ticket and deep-links it.
+      const isTicket = convo.kind === 'ticket';
       const { html, text } = renderEmail({
-        heading: 'New chat message',
-        introParagraphs: [(convo.contact_name || 'A visitor') + ' (' + convo.contact_email + ') has sent a new message in Live Chat.'],
-        cta: { text: 'Open the inbox', href: siteLink('admin-inbox.html') },
+        heading: isTicket ? 'New reply on ' + (convo.display_id || 'a ticket') : 'New chat message',
+        introParagraphs: [(convo.contact_name || 'A visitor') + ' (' + convo.contact_email + ') has ' + (isTicket ? 'replied on ticket ' + (convo.display_id || '') + '.' : 'sent a new message in Live Chat.')],
+        cta: { text: 'Open in the inbox', href: siteLink('admin-inbox.html?c=' + convo.id) },
         footerType: 'general'
       });
       const result = await sendEmail(admin, {
         to: adminEmails,
-        subject: 'New Marketswave chat message from ' + (convo.contact_name || convo.contact_email),
+        subject: isTicket
+          ? 'New reply on Marketswave ticket ' + (convo.display_id || '') + ' from ' + (convo.contact_name || convo.contact_email)
+          : 'New Marketswave chat message from ' + (convo.contact_name || convo.contact_email),
         html,
         text,
         relatedEntityType: 'conversation',

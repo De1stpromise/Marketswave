@@ -43,7 +43,26 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { verifySvixWebhook } from '../_shared/webhook-verify.ts';
-import { findOrCreateConversation } from '../_shared/conversations.ts';
+import { resolveInboundConversation } from '../_shared/conversations.ts';
+
+// ★ PM tool revamp, part 1 (2026-09-14). Two changes:
+//   - WHICH THREAD an inbound email joins is resolveInboundConversation()'s decision now:
+//     the message it replies to (In-Reply-To / References against stored message_ids — a
+//     PM's reply or a ticket status email), then a DISP id in the subject from the ticket's
+//     own client, then the sender's general thread. Before this, a reply to a ticket email
+//     always became a new, unlinked conversation.
+//   - DELIVERY STATE: Resend's email.delivered / email.opened / email.bounced /
+//     email.complained events (same webhook endpoint, same Svix signature) are matched to
+//     the outbound message by resend_id and recorded — the "Delivered · opened 17:22" line
+//     under an email card. Any event type this function does not handle is acknowledged
+//     with 200 so Svix does not retry it. Whether those events arrive at all depends on the
+//     event types the real Resend webhook is subscribed to — a dashboard setting, not code.
+const DELIVERY_EVENTS: Record<string, 'delivered' | 'opened' | 'bounced' | 'complained'> = {
+  'email.delivered': 'delivered',
+  'email.opened': 'opened',
+  'email.bounced': 'bounced',
+  'email.complained': 'complained'
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -73,6 +92,26 @@ Deno.serve(async (req) => {
     }
 
     const payload = JSON.parse(rawBody);
+    if (DELIVERY_EVENTS[payload.type]) {
+      const status = DELIVERY_EVENTS[payload.type];
+      const resendId = payload.data && payload.data.email_id;
+      if (!resendId) return jsonResponse({ ignored: true, type: payload.type, reason: 'no email_id' }, 200);
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const admin = createClient(supabaseUrl, serviceRoleKey);
+      const at = (payload.created_at && new Date(payload.created_at).toString() !== 'Invalid Date') ? new Date(payload.created_at).toISOString() : new Date().toISOString();
+      const patch: Record<string, unknown> = {};
+      if (status === 'delivered') { patch.delivered_at = at; }
+      if (status === 'opened') { patch.opened_at = at; }
+      // opened outranks delivered; a bounce/complaint always wins.
+      const { data: existing } = await admin.from('messages').select('id, delivery_status').eq('resend_id', resendId).maybeSingle();
+      if (!existing) return jsonResponse({ ignored: true, type: payload.type, reason: 'no message with that resend_id' }, 200);
+      const rank: Record<string, number> = { sent: 0, delivered: 1, opened: 2, bounced: 3, complained: 3 };
+      if ((rank[status] || 0) >= (rank[existing.delivery_status || 'sent'] || 0)) patch.delivery_status = status;
+      const { error: updErr } = await admin.from('messages').update(patch).eq('id', existing.id);
+      if (updErr) return jsonResponse({ error: updErr.message }, 500);
+      return jsonResponse({ recorded: status, messageId: existing.id }, 200);
+    }
     if (payload.type !== 'email.received') {
       // Not an event this function cares about — acknowledge with 200 so Svix doesn't retry.
       return jsonResponse({ ignored: true, type: payload.type }, 200);
@@ -122,6 +161,7 @@ Deno.serve(async (req) => {
     }
 
     const inReplyTo = extractHeader(fullEmail.headers, 'in-reply-to');
+    const references = extractHeader(fullEmail.headers, 'references');
 
     // Real body text — prefer the real plain-text part; a real HTML-only inbound email (no
     // separate text part) falls back to a simple tag-stripped rendering of the HTML, matching
@@ -138,9 +178,11 @@ Deno.serve(async (req) => {
     // findOrCreateConversation() resolves it by looking up the real sender's email — there
     // is no authenticated caller here to already know it from, unlike the compose flow.
     let conversationId: string;
+    let matchedBy: string;
     try {
-      const result = await findOrCreateConversation(admin, { email: fromEmail, name: fromName, subject: rawSubject });
+      const result = await resolveInboundConversation(admin, { fromEmail, fromName, subject: rawSubject, inReplyTo, references });
       conversationId = result.conversationId;
+      matchedBy = result.matchedBy;
     } catch (err) {
       return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
     }
@@ -163,7 +205,7 @@ Deno.serve(async (req) => {
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
 
-    return jsonResponse({ conversationId: conversationId, messageId: insertedMessage.id }, 200);
+    return jsonResponse({ conversationId: conversationId, messageId: insertedMessage.id, matchedBy: matchedBy }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }

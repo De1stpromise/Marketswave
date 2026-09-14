@@ -1,3 +1,10 @@
+// ★ RETIRED (2026-09-14, PM tool revamp, part 1). Tickets are conversations now: a status
+// change is admin-update-conversation (which also inserts the inline system line and sends
+// this file's own client email, content preserved) and a PM note is a real reply through
+// send-conversation-reply that the client can answer. No page or script calls this function
+// any more; it stays deployed and byte-for-byte unchanged below as reference for the old
+// support_requests shape, the same treatment the Firebase integration received.
+//
 // Backend Migration Phase B — Stage 6 (2026-09-02).
 //
 // Real Edge Function port of engine-core.js's updateSupportRequestForClient(clientId,

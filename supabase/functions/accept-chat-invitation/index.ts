@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
     const patch: Record<string, unknown> = { visitor_auth_id: callerId, contact_name: contactName };
     if (!convo.contact_email) {
-      const { data: taken } = await admin.from('conversations').select('id').ilike('contact_email', contactEmail).maybeSingle();
+      const { data: taken } = await admin.from('conversations').select('id').ilike('contact_email', contactEmail).neq('kind', 'ticket').maybeSingle();
       if (!taken) patch.contact_email = contactEmail;
     }
     // Set once: a conditional update on visitor_auth_id IS NULL (or already this caller).

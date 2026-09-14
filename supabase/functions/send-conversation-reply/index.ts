@@ -34,9 +34,20 @@
 // behavior for every existing reply caller that doesn't pass it; compose mode's own UI
 // surfaces this as a real selector at send time, per instruction ("an explicit choice, not a
 // guess").
+//
+// ★ PM tool revamp, part 1 (2026-09-14). Three changes, all additive:
+//   - `channel` may be passed explicitly ('chat' | 'email'): the composer picks its channel
+//     and defaults to whichever is live, so the PM's choice is honoured; omitted, the
+//     most-recent-message inference above still applies (system lines skipped).
+//   - a TICKET reply threads under the ticket's own subject ("Re: DISP-0003 · Transaction
+//     Issue") — the conversation's stored subject already carries it, so the existing
+//     "Re:" logic covers tickets with no special case.
+//   - every email reply sets reply_to to the support address and stores its resend_id, so a
+//     client hitting Reply reaches the inbound receiver (not the catch-all), and Resend's
+//     delivered/opened webhooks can mark the message.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail, renderEmail } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, fetchResendMessageId, SUPPORT_REPLY_TO } from '../_shared/send-email.ts';
 import { findOrCreateConversation } from '../_shared/conversations.ts';
 
 Deno.serve(async (req) => {
@@ -71,6 +82,10 @@ Deno.serve(async (req) => {
     const replyText = body && typeof body.body === 'string' ? body.body.trim() : '';
     const footerType: 'investment' | 'general' = body && body.footerType === 'investment' ? 'investment' : 'general';
     const isCompose = !conversationId && !!clientId;
+    const requestedChannel: string | undefined = body && body.channel;
+    if (requestedChannel !== undefined && requestedChannel !== 'chat' && requestedChannel !== 'email') {
+      return jsonResponse({ error: "channel must be 'chat' or 'email'." }, 400);
+    }
 
     if (!conversationId && !clientId) return jsonResponse({ error: 'Either conversationId or clientId is required.' }, 400);
     if (!replyText) return jsonResponse({ error: 'A message is required.' }, 400);
@@ -109,7 +124,8 @@ Deno.serve(async (req) => {
           email: clientRow.email,
           name: clientRow.name,
           subject: composeSubject,
-          clientId: clientRow.id
+          clientId: clientRow.id,
+          kind: 'email'
         });
       } catch (err) {
         return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
@@ -139,16 +155,22 @@ Deno.serve(async (req) => {
     let channel: 'chat' | 'email';
     if (isCompose) {
       channel = 'email';
+    } else if (requestedChannel === 'chat' || requestedChannel === 'email') {
+      channel = requestedChannel;
     } else {
       const { data: recentMessage, error: recentErr } = await admin
         .from('messages')
         .select('channel')
         .eq('conversation_id', conversationId)
+        .neq('channel', 'system')
         .order('sent_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (recentErr) return jsonResponse({ error: recentErr.message }, 500);
       channel = recentMessage ? (recentMessage.channel as 'chat' | 'email') : 'chat';
+    }
+    if (channel === 'email' && !conversation.contact_email) {
+      return jsonResponse({ error: 'This contact has no email address yet — reply by chat.' }, 400);
     }
 
     if (channel === 'chat') {
@@ -207,6 +229,7 @@ Deno.serve(async (req) => {
       text: text,
       relatedEntityType: 'conversation',
       relatedEntityId: conversationId,
+      replyTo: SUPPORT_REPLY_TO,
       headers: {
         ...(inReplyTo ? { 'In-Reply-To': inReplyTo } : {}),
         ...(references ? { 'References': references } : {})
@@ -226,21 +249,7 @@ Deno.serve(async (req) => {
     // that already succeeded, it only means this one message's own message_id stays null
     // (a future reply from them would then thread as a reply to the last message that DID
     // capture one, still correct, just one link short of the real end).
-    let realMessageId: string | null = null;
-    if (sendResult.resendId) {
-      try {
-        const resendApiKey = Deno.env.get('RESEND_API_KEY')!;
-        const sentRes = await fetch('https://api.resend.com/emails/' + sendResult.resendId, {
-          headers: { 'Authorization': 'Bearer ' + resendApiKey }
-        });
-        if (sentRes.ok) {
-          const sentBody = await sentRes.json();
-          realMessageId = sentBody.message_id || null;
-        }
-      } catch (_err) {
-        // Best-effort, per the comment above.
-      }
-    }
+    const realMessageId: string | null = await fetchResendMessageId(sendResult.resendId);
 
     const { data: inserted, error: insertErr } = await admin
       .from('messages')
@@ -252,7 +261,9 @@ Deno.serve(async (req) => {
         sender_name: 'Portfolio Manager',
         sender_email: adminEmail,
         message_id: realMessageId,
-        in_reply_to: inReplyTo
+        in_reply_to: inReplyTo,
+        resend_id: sendResult.resendId,
+        delivery_status: 'sent'
       })
       .select('id')
       .single();

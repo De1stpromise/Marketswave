@@ -37,6 +37,13 @@ export async function sendEmail(
     // via Resend's own API reference that POST /emails accepts a generic `headers` object of
     // arbitrary header-name/value pairs, passed straight through here unmodified.
     headers?: Record<string, string>;
+    // ★ PM tool revamp, part 1 (2026-09-14). Where a human reply to this email should land.
+    // Every email still goes out FROM noreply@ (the verified sender), but a conversation
+    // email — a PM's reply, a ticket status line — sets reply_to to the support address, so
+    // a client hitting Reply reaches the inbox's own inbound receiver instead of the
+    // domain-wide catch-all as an address nothing recognises. Omit it on a genuinely
+    // automated notification; the footer's "do not reply" line then stays true.
+    replyTo?: string;
   }
 ): Promise<{ sent: boolean; resendId: string | null; error: string | null }> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
@@ -64,6 +71,7 @@ export async function sendEmail(
         // call sites might not have migrated yet mid-refactor; every real call site in this
         // project passes it via renderEmail()'s own { html, text } pair.
         ...(params.text ? { text: params.text } : {}),
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
         ...(params.headers ? { headers: params.headers } : {})
       })
     });
@@ -191,6 +199,29 @@ const COLORS = {
 // ★ Resolved 2026-09-07 — see this file's own header comment above ("FOOTER SUPPORT ADDRESS
 // — RESOLVED"). A real, confirmed-monitored inbox on the now-verified marketswave.net domain.
 const FOOTER_SUPPORT_EMAIL = 'support@marketswave.net';
+// The reply-to for every CONVERSATION email (PM tool revamp, part 1, 2026-09-14) — the
+// monitored inbox address the inbound receiver (receive-inbound-email) is subscribed to.
+export const SUPPORT_REPLY_TO = 'Marketswave Support <' + FOOTER_SUPPORT_EMAIL + '>';
+
+// The real RFC822 Message-ID Resend assigned to a sent email — needed so a future reply to
+// it threads back to the right conversation (the recipient's own In-Reply-To will carry this
+// exact value). Extracted from send-conversation-reply's own inline fetch (2026-09-14) so a
+// ticket status email, which a client may also reply to, can record one the same way.
+// Best-effort: null on any failure — the send already happened; a missing id only means a
+// reply to THIS message falls back to the subject's DISP id / the sender's general thread.
+export async function fetchResendMessageId(resendId: string | null): Promise<string | null> {
+  if (!resendId) return null;
+  try {
+    const apiKey = Deno.env.get('RESEND_API_KEY');
+    if (!apiKey) return null;
+    const res = await fetch('https://api.resend.com/emails/' + resendId, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body.message_id || null;
+  } catch (_err) {
+    return null;
+  }
+}
 
 // ★ Resolved 2026-09-07 — see this file's own header comment above ("SENDER ADDRESS —
 // RESOLVED"). Override per environment via an EMAIL_FROM_ADDRESS secret if this domain's own
