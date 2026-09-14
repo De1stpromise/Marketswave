@@ -253,7 +253,7 @@ async function main() {
       await sleep(800);
       const n = await cdp.evaluate(NARROW_EXPR('?c=' + t1));
       check('320px: the iframe genuinely reports 320px', n.reported === 320, JSON.stringify(n));
-      check('320px: rows render, the rail is a strip, no overflow before opening a thread', n.before.rows >= 3 && n.before.railHorizontal && n.before.bodyScroll <= 320, JSON.stringify(n.before));
+      check('320px: the two seeded tickets render (the deep link lands in the Tickets view), the rail is a strip, no overflow before opening a thread', n.before.rows >= 2 && n.before.railHorizontal && n.before.bodyScroll <= 320, JSON.stringify(n.before));
       check('320px: with a thread open, the list hides and nothing escapes the viewport', n.threadOpen && n.listHidden && n.afterBodyScroll <= 320 && n.maxMsgRight <= 321 && n.taRight <= 321, JSON.stringify(n));
     } finally {
       clearInterval(keepAlive);
