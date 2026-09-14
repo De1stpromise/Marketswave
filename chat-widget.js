@@ -139,16 +139,44 @@
       if (msg.direction === 'outbound') bumpUnread();
     }
 
+    // PM tool revamp, part 1 (2026-09-14): typing indicators ride a Realtime BROADCAST channel
+    // per conversation ('typing-<id>', shared with the PM inbox) — no row is written for a
+    // keystroke. The visitor's own typing is sent at most every 2 s; the PM's shows for 3 s.
+    let typingChannel = null;
+    let typingSentAt = 0;
+    let typingHideTimer = null;
+    function subscribeTyping(client, convoId) {
+      if (typingChannel) client.removeChannel(typingChannel);
+      typingChannel = client
+        .channel('typing-' + convoId, { config: { broadcast: { self: false } } })
+        .on('broadcast', { event: 'typing' }, function (payload) {
+          if (!payload || !payload.payload || payload.payload.from !== 'pm') return;
+          setStatus('Portfolio Manager is typing…');
+          clearTimeout(typingHideTimer);
+          typingHideTimer = setTimeout(function () { setStatus('Online'); }, 3000);
+        })
+        .subscribe();
+    }
+    function sendTyping() {
+      if (!typingChannel) return;
+      const now = Date.now();
+      if (now - typingSentAt < 2000) return;
+      typingSentAt = now;
+      typingChannel.send({ type: 'broadcast', event: 'typing', payload: { from: 'contact', at: now } }).catch(function () {});
+    }
+
     function subscribeRealtime(client, convoId) {
       if (realtimeChannel) client.removeChannel(realtimeChannel);
       realtimeChannel = client
         .channel('chat-widget-' + convoId)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + convoId }, function (payload) {
+          if (payload.new && payload.new.channel === 'system') return; // status lines are for tickets on support.html
           addMessage(payload.new);
         })
         .subscribe(function (status) {
           if (status === 'SUBSCRIBED') setStatus('Online');
         });
+      subscribeTyping(client, convoId);
     }
 
     function openConversation(client, resolvedContactName, resolvedContactEmail, resolvedConvoId, history, authorized) {
@@ -167,6 +195,9 @@
         addSystemMessage('Continuing an existing conversation for this email — send a message to reach our team.');
       }
       subscribeRealtime(client, resolvedConvoId);
+      // Tell site-presence.js which thread this visitor is in, so the PM inbox can show their
+      // presence and current page beside the conversation (verified server-side by track-visit).
+      try { window.dispatchEvent(new CustomEvent('mw:chat-conversation', { detail: { conversationId: resolvedConvoId } })); } catch (e) { /* no CustomEvent: no presence link */ }
     }
 
     async function startChat(anonymousBody) {
@@ -217,6 +248,8 @@
       // to call after every single message with no client-side throttling needed.
       client.functions.invoke('notify-new-chat-message', { body: { conversationId: conversationId } }).catch(function () {});
     }
+
+    input.addEventListener('input', function () { if (input.value.trim()) sendTyping(); });
 
     bubble.addEventListener('click', function () {
       panelOpen = !panelOpen;

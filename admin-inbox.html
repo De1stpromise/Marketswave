@@ -10,18 +10,12 @@
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-inbox.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .convo-row.is-active { background: #F1F5F9; }
-    .convo-row:hover { background: #F8FAFC; }
     .filter-pill { cursor: pointer; user-select: none; }
     .filter-pill.is-active { background: #0F172A; color: #fff; }
-    .inbox-msg-row { display: flex; }
-    .inbox-msg-row.is-inbound { justify-content: flex-start; }
-    .inbox-msg-row.is-outbound { justify-content: flex-end; }
-    .inbox-msg-bubble { max-width: 75%; padding: 9px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; word-wrap: break-word; }
-    .inbox-msg-row.is-inbound .inbox-msg-bubble { background: #F1F5F9; color: #0F172A; border-bottom-left-radius: 4px; }
-    .inbox-msg-row.is-outbound .inbox-msg-bubble { background: #1B3A4B; color: #F7F6F3; border-bottom-right-radius: 4px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
@@ -42,69 +36,103 @@
           <p class="text-xs text-slate-500" id="live-date-time"></p>
         </div>
         <div class="flex items-center gap-4">
-          <p class="text-xs text-slate-400" id="realtime-status">Connecting…</p>
-          <button type="button" id="new-message-btn" class="mw-btn mw-btn-admin mw-btn-sm">+ New Message</button>
+          <p class="text-xs text-slate-500" id="realtime-status">Connecting…</p>
         </div>
       </header>
 
-      <main class="flex-1 overflow-hidden flex">
+      <main class="flex-1 overflow-hidden min-h-0">
+        <div class="ibx-shell" id="inbox-shell">
 
-        <!-- ========== LEFT: conversation list ========== -->
-        <div class="w-full max-w-sm border-r border-slate-200 bg-white flex flex-col overflow-hidden shrink-0">
-          <div class="p-4 border-b border-slate-100 space-y-3">
-            <div class="mw-fld mw-fld--admin">
-              <input type="text" id="inbox-search" placeholder="Search name, email, or message…" class="mw-field mw-field-admin mw-field-sm">
-              <label for="inbox-search">Search name, email, or message</label>
+          <!-- ========== RAIL: the five views. A thread appears in the view of its most recent
+               message (a chat that moves to email moves with it); tickets are their own view;
+               All holds everything not archived. Counts are conversations needing a reply. ========== -->
+          <nav class="ibx-rail" aria-label="Inbox views" id="inbox-rail">
+            <button type="button" class="ibx-rb is-on" data-view="chats" title="Live chats" aria-pressed="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="ibx-rl">Chats</span><span class="ibx-cnt" data-count="chats" hidden>0</span></button>
+            <button type="button" class="ibx-rb" data-view="email" title="Email" aria-pressed="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg><span class="ibx-rl">Email</span><span class="ibx-cnt" data-count="email" hidden>0</span></button>
+            <button type="button" class="ibx-rb" data-view="tickets" title="Tickets" aria-pressed="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg><span class="ibx-rl">Tickets</span><span class="ibx-cnt" data-count="tickets" hidden>0</span></button>
+            <button type="button" class="ibx-rb" data-view="all" title="All conversations" aria-pressed="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="ibx-rl">All</span><span class="ibx-cnt" data-count="all" hidden>0</span></button>
+            <button type="button" class="ibx-rb" data-view="archive" title="Archive" aria-pressed="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg><span class="ibx-rl">Archive</span><span class="ibx-cnt" data-count="archive" hidden>0</span></button>
+            <div class="ibx-sp"></div>
+            <button type="button" class="ibx-rb" id="inbox-notify-btn" title="Browser notifications for new messages"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ibx-rl" id="inbox-notify-label">Notify</span></button>
+            <div class="ibx-me" id="inbox-me" title="Signed in">PM</div>
+          </nav>
+
+          <!-- ========== LIST ========== -->
+          <section class="ibx-list" aria-label="Conversations">
+            <div class="ibx-lhead">
+              <div class="ibx-t">
+                <b id="inbox-view-title">Live chats</b>
+                <button type="button" id="new-message-btn" class="mw-btn mw-btn-admin mw-btn-sm">+ New</button>
+              </div>
+              <div class="ibx-search">
+                <span class="ibx-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+                <label for="inbox-search" class="sr-only">Search conversations</label>
+                <input type="search" id="inbox-search" placeholder="Search conversations" autocomplete="off">
+              </div>
             </div>
-            <div class="flex flex-wrap gap-1.5 text-xs font-medium" id="status-filters">
-              <span class="filter-pill is-active px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="all">All</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="unread">Unread</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="open">Open</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="resolved">Resolved</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-status-filter="archived">Archived</span>
+            <div class="ibx-filters" id="inbox-filters" role="group" aria-label="Filters"></div>
+            <div class="ibx-convs" id="convo-list"></div>
+          </section>
+
+          <!-- ========== THREAD ========== -->
+          <section class="ibx-thread" aria-label="Conversation">
+            <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
+            <div id="thread-empty-state" class="flex-1 flex items-center justify-center text-slate-500 text-sm">
+              Select a conversation to view the thread.
             </div>
-            <div class="flex flex-wrap gap-1.5 text-xs font-medium" id="channel-filters">
-              <span class="filter-pill is-active px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="all">All Channels</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="chat">Chat</span>
-              <span class="filter-pill px-2.5 py-1 rounded-full bg-slate-100 text-slate-600" data-channel-filter="email">Email</span>
+
+            <div id="thread-view" class="flex-1 flex flex-col min-h-0 hidden">
+              <div class="ibx-thead">
+                <div class="ibx-who">
+                  <button type="button" class="ibx-ib ibx-back" id="thread-back-btn" aria-label="Back to the list">‹</button>
+                  <div class="ibx-av" id="thread-avatar"></div>
+                  <div class="min-w-0">
+                    <div class="ibx-nm"><span id="thread-contact-name"></span><span class="ibx-caseid" id="thread-caseid" hidden></span><span class="ibx-lv" id="thread-online" hidden><i></i>Online</span></div>
+                    <div class="ibx-sub" id="thread-sub"><b id="thread-contact-email"></b></div>
+                  </div>
+                </div>
+                <div class="ibx-tacts">
+                  <label class="sr-only" for="thread-status-select">Ticket status</label>
+                  <select class="ibx-sel" id="thread-status-select" hidden>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <span class="ibx-stp" id="thread-status-badge" hidden></span>
+                  <a class="ibx-ib" id="thread-profile-link" href="admin-clients.html" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Open profile</a>
+                  <button type="button" class="ibx-ib" id="thread-resolve-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Resolve</button>
+                  <button type="button" class="ibx-ib" id="thread-archive-btn">Archive</button>
+                  <button type="button" class="ibx-ib" id="thread-reopen-btn" hidden>Reopen</button>
+                </div>
+              </div>
+
+              <div class="ibx-ctx" id="thread-context"></div>
+
+              <div class="ibx-msgs" id="thread-messages"></div>
+
+              <div class="ibx-composer" id="thread-composer">
+                <div class="ibx-ctop">
+                  <div class="ibx-ctabs" role="group" aria-label="Reply channel">
+                    <button type="button" class="ibx-ctab is-on" data-channel="chat" aria-pressed="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat</button>
+                    <button type="button" class="ibx-ctab" data-channel="email" aria-pressed="false"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg> Email</button>
+                  </div>
+                  <div class="ibx-hint" id="composer-hint"></div>
+                </div>
+                <div class="ibx-cbox">
+                  <label for="thread-reply-input" class="sr-only">Reply</label>
+                  <textarea id="thread-reply-input" placeholder="Reply…"></textarea>
+                  <div class="ibx-cfoot">
+                    <div class="ibx-left"><span class="ibx-subj" id="composer-subject" hidden></span></div>
+                    <button type="button" class="ibx-send" id="thread-reply-send">Send <kbd>⏎</kbd></button>
+                  </div>
+                </div>
+              </div>
+              <div class="ibx-closed" id="thread-closed-note" hidden></div>
             </div>
-          </div>
-          <div class="flex-1 overflow-y-auto" id="convo-list"></div>
+          </section>
         </div>
-
-        <!-- ========== RIGHT: thread ========== -->
-        <div class="flex-1 flex flex-col overflow-hidden relative">
-          <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
-
-          <div id="thread-empty-state" class="flex-1 flex items-center justify-center text-slate-400 text-sm">
-            Select a conversation to view the thread.
-          </div>
-
-          <div id="thread-view" class="flex-1 flex flex-col overflow-hidden hidden">
-            <div class="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
-              <div class="min-w-0">
-                <p class="font-semibold text-slate-900" id="thread-contact-name"></p>
-                <p class="text-xs text-slate-500" id="thread-contact-email"></p>
-                <p class="text-xs text-slate-400 truncate hidden" id="thread-subject"></p>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <span class="text-xs font-medium px-2.5 py-1 rounded-full" id="thread-status-badge"></span>
-                <button type="button" id="thread-resolve-btn" class="mw-btn mw-btn-admin mw-btn-sm">Resolve</button>
-                <button type="button" id="thread-archive-btn" class="mw-btn mw-btn-secondary mw-btn-sm">Archive</button>
-                <button type="button" id="thread-reopen-btn" class="mw-btn mw-btn-secondary mw-btn-sm hidden">Reopen</button>
-              </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-6 space-y-3" id="thread-messages"></div>
-            <div class="border-t border-slate-200 bg-white p-4 flex gap-2 shrink-0">
-              <div class="mw-fld mw-fld--admin">
-                <input type="text" id="thread-reply-input" placeholder="Reply…" class="mw-field mw-field-admin mw-field-sm flex-1">
-                <label for="thread-reply-input">Reply</label>
-              </div>
-              <button type="button" id="thread-reply-send" class="mw-btn mw-btn-admin">Send</button>
-            </div>
-          </div>
-        </div>
-
       </main>
     </div>
   </div>
@@ -227,15 +255,17 @@
   </script>
 
   <script>
-    // Unified Communications Inbox — Stage 1 (2026-09-07). A genuinely live PM inbox: real
-    // Supabase Realtime subscriptions on both conversations and messages (no polling), real
-    // search across contact name/email/message body, real status actions and unread
-    // tracking. All conversations + all messages are held in memory (fetched once via
-    // MarketswaveData.selectTable(), which already routes through useAdminClient()'s
-    // cross-client-RLS admin session) and kept live by the two Realtime subscriptions below
-    // — the same "fetch once, keep live via Realtime, filter/search client-side" shape this
-    // project's own Client List already established for its own search/filter, extended here
-    // with a genuine live feed on top.
+    // PM tool revamp, part 1 — the inbox, with ticketing consolidated into it (2026-09-14).
+    // Built against two approved mockups (pm_inbox_final.html for chat/email, inbox_tickets.html
+    // for tickets). This is the FIRST page of the revamp and sets the vocabulary the later
+    // pages copy — PM_TOOL_VOCABULARY.md at the project root records those patterns.
+    //
+    // Data: every conversation + every message the admin session can see, fetched once, kept
+    // live by Realtime (INSERT on messages, INSERT/UPDATE on conversations, UPDATE on messages
+    // for delivery state), filtered and grouped client-side — the same "fetch once, keep live"
+    // shape the Stage 1 inbox and the Client List already used. Presence comes from the same
+    // visitor_sessions rows admin-presence.html reads; typing rides a Realtime broadcast
+    // channel per conversation, shared with the chat widget.
     (function () {
       if (typeof MarketswaveData === 'undefined') return;
       MarketswaveData.useAdminClient();
@@ -253,257 +283,599 @@
         clearTimeout(toastTimer);
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
       }
-
-      function timeAgo(iso) {
-        if (!iso) return '';
-        var diffMs = Date.now() - new Date(iso).getTime();
-        var mins = Math.floor(diffMs / 60000);
-        if (mins < 1) return 'just now';
-        if (mins < 60) return mins + 'm ago';
-        var hours = Math.floor(mins / 60);
-        if (hours < 24) return hours + 'h ago';
-        var days = Math.floor(hours / 24);
-        return days + 'd ago';
-      }
-
-      var conversations = []; // in-memory, kept live by Realtime
-      var messages = [];      // in-memory, kept live by Realtime
-      var conversationsById = {};
-      var activeConversationId = null;
-      var statusFilter = 'all';
-      var channelFilter = 'all';
-      var searchTerm = '';
-
-      function reindexConversations() {
-        conversationsById = {};
-        conversations.forEach(function (c) { conversationsById[c.id] = c; });
-      }
-
-      function lastMessageFor(conversationId) {
-        var own = messages.filter(function (m) { return m.conversation_id === conversationId; });
-        if (!own.length) return null;
-        return own.reduce(function (a, b) { return new Date(a.sent_at) > new Date(b.sent_at) ? a : b; });
-      }
-
-      function matchesSearch(convo) {
-        if (!searchTerm) return true;
-        var term = searchTerm.toLowerCase();
-        if ((convo.contact_name || '').toLowerCase().indexOf(term) !== -1) return true;
-        if ((convo.contact_email || '').toLowerCase().indexOf(term) !== -1) return true;
-        var ownMessages = messages.filter(function (m) { return m.conversation_id === convo.id; });
-        return ownMessages.some(function (m) { return (m.body || '').toLowerCase().indexOf(term) !== -1; });
-      }
-
-      function matchesStatusFilter(convo) {
-        if (statusFilter === 'all') return true;
-        if (statusFilter === 'unread') return convo.unread_by_pm === true;
-        return convo.status === statusFilter;
-      }
-
-      function matchesChannelFilter(convo) {
-        if (channelFilter === 'all') return true;
-        var ownMessages = messages.filter(function (m) { return m.conversation_id === convo.id; });
-        return ownMessages.some(function (m) { return m.channel === channelFilter; });
-      }
-
-      function renderConvoList() {
-        var listEl = document.getElementById('convo-list');
-        var filtered = conversations
-          .filter(matchesStatusFilter)
-          .filter(matchesChannelFilter)
-          .filter(matchesSearch)
-          .sort(function (a, b) {
-            var at = a.last_message_at || a.created_at;
-            var bt = b.last_message_at || b.created_at;
-            return new Date(bt) - new Date(at);
-          });
-
-        if (filtered.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-10 text-center">No conversations match.</p>';
-          return;
-        }
-
-        listEl.innerHTML = filtered.map(function (c) {
-          var last = lastMessageFor(c.id);
-          var preview = last ? escapeHtml(last.body).slice(0, 64) : 'No messages yet';
-          var isActive = c.id === activeConversationId;
-          var unreadDot = c.unread_by_pm ? '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>' : '';
-          var statusClass = c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : (c.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700');
-          return '<div class="convo-row cursor-pointer px-4 py-3.5 border-b border-slate-50 ' + (isActive ? 'is-active' : '') + '" data-convo-id="' + c.id + '">' +
-            '<div class="flex items-center justify-between gap-2">' +
-              '<p class="text-sm font-medium text-slate-900 truncate">' + escapeHtml(c.contact_name || c.contact_email) + '</p>' +
-              unreadDot +
-            '</div>' +
-            '<p class="text-xs text-slate-400 truncate">' + escapeHtml(c.contact_email) + '</p>' +
-            '<p class="text-xs text-slate-500 truncate mt-1">' + preview + '</p>' +
-            '<div class="flex items-center gap-2 mt-1.5">' +
-              '<span class="text-[10px] font-medium px-2 py-0.5 rounded-full ' + statusClass + '">' + c.status + '</span>' +
-              '<span class="text-[10px] text-slate-400">' + timeAgo(c.last_message_at || c.created_at) + '</span>' +
-            '</div>' +
-          '</div>';
-        }).join('');
-
-        listEl.querySelectorAll('.convo-row').forEach(function (row) {
-          row.addEventListener('click', function () {
-            openConversation(row.getAttribute('data-convo-id'));
-          });
-        });
-      }
-
       function escapeHtml(value) {
         var div = document.createElement('div');
         div.textContent = String(value == null ? '' : value);
         return div.innerHTML;
       }
 
-      function renderThread() {
-        var convo = conversationsById[activeConversationId];
-        if (!convo) return;
-        document.getElementById('thread-empty-state').classList.add('hidden');
-        document.getElementById('thread-view').classList.remove('hidden');
-        document.getElementById('thread-contact-name').textContent = convo.contact_name || convo.contact_email;
-        document.getElementById('thread-contact-email').textContent = convo.contact_email;
-        var subjectEl = document.getElementById('thread-subject');
-        subjectEl.textContent = convo.subject ? 'Subject: ' + convo.subject : '';
-        subjectEl.classList.toggle('hidden', !convo.subject);
+      // ---------------------------------------------------------------- state
+      var conversations = [];
+      var messages = [];
+      var byId = {};
+      var messagesByConvo = {};
+      var activeId = null;
+      var view = 'chats';            // chats | email | tickets | all | archive
+      var filter = 'all';
+      var searchTerm = '';
+      var replyChannel = 'chat';
+      var pmEmail = '';
+      var presenceSessions = [];     // live visitor_sessions rows
+      var contextCache = {};         // per client: pending count + last activity
+      var typingChannel = null;
+      var typingHideTimer = null;
+      var typingSentAt = 0;
+      var LIVE_WINDOW_MS = 45000;
 
-        var badge = document.getElementById('thread-status-badge');
-        var statusClass = convo.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : (convo.status === 'archived' ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-700');
-        badge.className = 'text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass;
-        badge.textContent = convo.status;
+      var VIEW_TITLES = { chats: 'Live chats', email: 'Email', tickets: 'Tickets', all: 'All conversations', archive: 'Archive' };
+      var STATUS_LABELS = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved', archived: 'Archived' };
+      var TICKET_CATEGORIES = ['Transaction Issue', 'Account Access', 'Billing/Fees', 'Document/Signature Issue', 'Other', 'Callback Request'];
 
-        document.getElementById('thread-resolve-btn').classList.toggle('hidden', convo.status === 'resolved');
-        document.getElementById('thread-archive-btn').classList.toggle('hidden', convo.status === 'archived');
-        document.getElementById('thread-reopen-btn').classList.toggle('hidden', convo.status === 'open');
+      // ---------------------------------------------------------------- derived
+      function reindex() {
+        byId = {}; messagesByConvo = {};
+        conversations.forEach(function (c) { byId[c.id] = c; });
+        messages.forEach(function (m) { (messagesByConvo[m.conversation_id] = messagesByConvo[m.conversation_id] || []).push(m); });
+        Object.keys(messagesByConvo).forEach(function (k) { messagesByConvo[k].sort(function (a, b) { return new Date(a.sent_at) - new Date(b.sent_at); }); });
+      }
+      function ownMessages(id) { return messagesByConvo[id] || []; }
+      function lastRealMessage(id) {
+        var own = ownMessages(id);
+        for (var i = own.length - 1; i >= 0; i--) if (own[i].channel !== 'system') return own[i];
+        return null;
+      }
+      // Which rail view a conversation belongs to: archive by status, tickets by kind, and
+      // otherwise the channel of its MOST RECENT real message — so a thread moves views as
+      // its channel changes.
+      function viewOf(c) {
+        if (c.status === 'archived') return 'archive';
+        if (c.kind === 'ticket') return 'tickets';
+        var last = lastRealMessage(c.id);
+        var channel = last ? last.channel : c.kind;
+        return channel === 'email' ? 'email' : 'chats';
+      }
+      function inView(c, v) {
+        if (v === 'all') return c.status !== 'archived';
+        return viewOf(c) === v;
+      }
+      function senderType(c) {
+        if (c.client_id) return 'client';
+        if (c.visitor_auth_id) return 'anon';
+        return 'ext';
+      }
+      function initials(name) {
+        var words = String(name || '').trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return '?';
+        if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+        return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+      }
+      function sessionFor(c) {
+        var now = Date.now();
+        var live = presenceSessions.filter(function (s) { return !s.ended_at && (now - new Date(s.last_seen_at).getTime()) < LIVE_WINDOW_MS; });
+        var hit = null;
+        if (c.client_id) hit = live.find(function (s) { return s.client_id === c.client_id; });
+        if (!hit) hit = live.find(function (s) { return s.conversation_id === c.id; });
+        return hit || null;
+      }
+      function timeAgo(iso) {
+        if (!iso) return '';
+        var mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+        if (mins < 1) return 'now';
+        if (mins < 60) return mins + 'm';
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + 'h';
+        var days = Math.floor(hours / 24);
+        return days + 'd';
+      }
+      function fmtTime(iso) { return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+      function fmtDay(iso) {
+        var d = new Date(iso), today = new Date();
+        var sameDay = d.toDateString() === today.toDateString();
+        if (sameDay) return 'Today';
+        var y = new Date(today); y.setDate(today.getDate() - 1);
+        if (d.toDateString() === y.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      }
+      function fmtDate(iso) { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }
+      function fmtDateTime(iso) { return fmtDate(iso) + ', ' + fmtTime(iso); }
+      function fmtBytes(n) { n = Number(n || 0); if (n < 1024) return n + ' B'; if (n < 1048576) return Math.round(n / 1024) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
 
-        var ownMessages = messages.filter(function (m) { return m.conversation_id === activeConversationId; }).sort(function (a, b) { return new Date(a.sent_at) - new Date(b.sent_at); });
-        var threadEl = document.getElementById('thread-messages');
-        threadEl.innerHTML = ownMessages.map(function (m) {
-          var channelTag = '<span class="text-[9px] uppercase tracking-wide font-semibold opacity-60">' + (m.channel === 'email' ? 'Email' : 'Chat') + '</span><br>';
-          return '<div class="inbox-msg-row is-' + m.direction + '"><div class="inbox-msg-bubble">' + channelTag + escapeHtml(m.body) + '</div></div>';
-        }).join('');
-        threadEl.scrollTop = threadEl.scrollHeight;
+      // ---------------------------------------------------------------- rail
+      function renderRail() {
+        document.querySelectorAll('#inbox-rail .ibx-rb[data-view]').forEach(function (b) {
+          var v = b.getAttribute('data-view');
+          b.classList.toggle('is-on', v === view);
+          b.setAttribute('aria-pressed', v === view ? 'true' : 'false');
+          var n = conversations.filter(function (c) { return c.unread_by_pm && inView(c, v); }).length;
+          var cnt = b.querySelector('.ibx-cnt');
+          cnt.textContent = String(n);
+          cnt.hidden = !(n > 0);
+        });
+        document.getElementById('inbox-view-title').textContent = VIEW_TITLES[view];
+        document.getElementById('inbox-search').placeholder = view === 'tickets' ? 'Search tickets' : 'Search conversations';
+      }
+      function setView(v) {
+        view = v; filter = 'all';
+        renderRail(); renderFilters(); renderList();
       }
 
-      function openConversation(id) {
-        activeConversationId = id;
-        renderConvoList();
-        renderThread();
-        var convo = conversationsById[id];
-        if (convo && convo.unread_by_pm) {
-          MarketswaveData.callFunction('admin-update-conversation', { conversationId: id, markRead: true }).then(function (updated) {
-            convo.unread_by_pm = updated.unread_by_pm;
-            renderConvoList();
-          }).catch(function () {});
+      // ---------------------------------------------------------------- filters
+      function filterDefs() {
+        var base = conversations.filter(function (c) { return inView(c, view); });
+        var count = function (fn) { return base.filter(fn).length; };
+        if (view === 'tickets') {
+          var defs = [
+            { key: 'all', label: 'All', n: base.length },
+            { key: 'waiting', label: 'Waiting on me', n: count(function (c) { return c.unread_by_pm; }) },
+            { key: 'status:open', label: 'Open', n: count(function (c) { return c.status === 'open'; }) },
+            { key: 'status:in_progress', label: 'In progress', n: count(function (c) { return c.status === 'in_progress'; }) },
+            { key: 'status:resolved', label: 'Resolved', n: count(function (c) { return c.status === 'resolved'; }) }
+          ];
+          TICKET_CATEGORIES.forEach(function (cat) { defs.push({ key: 'cat:' + cat, label: cat.replace('/', ' / '), n: null }); });
+          return defs;
         }
+        return [
+          { key: 'all', label: 'All', n: base.length },
+          { key: 'waiting', label: 'Waiting on me', n: count(function (c) { return c.unread_by_pm; }) },
+          { key: 'clients', label: 'Clients', n: null },
+          { key: 'visitors', label: 'Visitors', n: null },
+          { key: 'unknown', label: 'Unknown senders', n: null }
+        ];
+      }
+      function renderFilters() {
+        var el = document.getElementById('inbox-filters');
+        el.innerHTML = filterDefs().map(function (f) {
+          return '<button type="button" class="ibx-fp' + (f.key === filter ? ' is-on' : '') + '" data-filter="' + escapeHtml(f.key) + '" aria-pressed="' + (f.key === filter) + '">' + escapeHtml(f.label) + (f.n != null ? ' <span class="ibx-n">' + f.n + '</span>' : '') + '</button>';
+        }).join('');
+      }
+      function matchesFilter(c) {
+        if (filter === 'all') return true;
+        if (filter === 'waiting') return !!c.unread_by_pm;
+        if (filter === 'clients') return senderType(c) === 'client';
+        if (filter === 'visitors') return senderType(c) === 'anon';
+        if (filter === 'unknown') return senderType(c) === 'ext';
+        if (filter.indexOf('status:') === 0) return c.status === filter.slice(7);
+        if (filter.indexOf('cat:') === 0) return c.category === filter.slice(4);
+        return true;
+      }
+      function matchesSearch(c) {
+        if (!searchTerm) return true;
+        var t = searchTerm.toLowerCase();
+        if ((c.contact_name || '').toLowerCase().indexOf(t) !== -1) return true;
+        if ((c.contact_email || '').toLowerCase().indexOf(t) !== -1) return true;
+        if ((c.display_id || '').toLowerCase().indexOf(t) !== -1) return true;
+        if ((c.subject || '').toLowerCase().indexOf(t) !== -1) return true;
+        return ownMessages(c.id).some(function (m) { return (m.body || '').toLowerCase().indexOf(t) !== -1; });
       }
 
-      function updateStatus(status) {
-        if (!activeConversationId) return;
-        MarketswaveData.callFunction('admin-update-conversation', { conversationId: activeConversationId, status: status }).then(function (updated) {
-          var convo = conversationsById[activeConversationId];
-          if (convo) {
-            convo.status = updated.status;
-            convo.resolved_by = updated.resolved_by;
-            convo.resolved_by_email = updated.resolved_by_email;
+      // ---------------------------------------------------------------- list
+      function rowHTML(c) {
+        var last = lastRealMessage(c.id);
+        var type = senderType(c);
+        var session = sessionFor(c);
+        var name = c.contact_name || c.contact_email || 'Visitor';
+        if (type === 'anon' && session && (session.city || session.country)) name = (c.contact_name || 'Visitor') + ' · ' + (session.city || session.country);
+        var avClass = type === 'anon' ? ' is-anon' : (type === 'ext' ? ' is-ext' : '');
+        var unread = !!c.unread_by_pm;
+        var preview = last ? last.body.replace(/\s+/g, ' ') : (c.subject || 'No messages yet');
+        var row2;
+        if (view === 'tickets' || c.kind === 'ticket') {
+          row2 = '<span class="ibx-caseid">' + escapeHtml(c.display_id || '—') + '</span><span class="ibx-stp s-' + escapeHtml(c.status) + '">' + escapeHtml(STATUS_LABELS[c.status] || c.status) + '</span>';
+        } else {
+          var tag = type === 'client' ? '<span class="ibx-tag t-cl">Client</span>' : (type === 'anon' ? '<span class="ibx-tag t-an">Anonymous</span>' : '<span class="ibx-tag t-ex">Unknown sender</span>');
+          row2 = tag;
+        }
+        var wait = (type === 'anon' && session && session.current_path) ? '<span class="ibx-wait">On ' + escapeHtml(session.current_path) + '</span>' : '';
+        return '<button type="button" class="convo-row' + (c.id === activeId ? ' is-active' : '') + '" data-convo-id="' + c.id + '" data-view-of="' + viewOf(c) + '">' +
+          '<div class="ibx-av' + avClass + '">' + escapeHtml(type === 'anon' && !c.contact_name ? '?' : initials(name)) + (session ? '<span class="ibx-on" title="Online now"></span>' : '') + '</div>' +
+          '<div class="ibx-cb">' +
+            '<div class="ibx-cr1"><span class="ibx-cn' + (unread ? ' is-un' : '') + '">' + escapeHtml(name) + '</span><span class="ibx-ct' + (unread ? ' is-hot' : '') + '">' + timeAgo(c.last_message_at || c.created_at) + '</span></div>' +
+            '<div class="ibx-cr2">' + row2 + '<span class="ibx-cp' + (unread ? ' is-un' : '') + '">' + escapeHtml(preview) + '</span>' + (unread ? '<span class="ibx-dot bg-amber-500" title="Needs a reply"></span>' : '') + '</div>' +
+          '</div>' + wait +
+        '</button>';
+      }
+      function renderList() {
+        var el = document.getElementById('convo-list');
+        var rows = conversations.filter(function (c) { return inView(c, view); }).filter(matchesFilter).filter(matchesSearch)
+          .sort(function (a, b) { return new Date(b.last_message_at || b.created_at) - new Date(a.last_message_at || a.created_at); });
+        if (!rows.length) {
+          el.innerHTML = '<p class="ibx-empty">' + (searchTerm ? 'Nothing matches that search.' : (view === 'archive' ? 'Nothing archived.' : 'Nothing here yet.')) + '</p>';
+          return;
+        }
+        var needs = rows.filter(function (c) { return c.unread_by_pm; });
+        var earlier = rows.filter(function (c) { return !c.unread_by_pm; });
+        var html = '';
+        if (needs.length) html += '<div class="ibx-grp">Needs a reply</div>' + needs.map(rowHTML).join('');
+        if (earlier.length) html += '<div class="ibx-grp">' + (needs.length ? 'Earlier' : (view === 'archive' ? 'Archived' : 'Conversations')) + '</div>' + earlier.map(rowHTML).join('');
+        el.innerHTML = html;
+      }
+      document.getElementById('convo-list').addEventListener('click', function (e) {
+        var row = e.target.closest('.convo-row');
+        if (row) openConversation(row.getAttribute('data-convo-id'));
+      });
+      document.getElementById('inbox-filters').addEventListener('click', function (e) {
+        var pill = e.target.closest('.ibx-fp');
+        if (!pill) return;
+        filter = pill.getAttribute('data-filter');
+        renderFilters(); renderList();
+      });
+      document.getElementById('inbox-rail').addEventListener('click', function (e) {
+        var b = e.target.closest('.ibx-rb[data-view]');
+        if (b) setView(b.getAttribute('data-view'));
+      });
+      document.getElementById('inbox-search').addEventListener('input', function (e) {
+        searchTerm = e.target.value.trim();
+        renderList();
+      });
+
+      // ---------------------------------------------------------------- thread
+      function channelChip(m, isOpening) {
+        if (isOpening) return '<span class="ibx-chan ch-ticket">Ticket opened</span>';
+        if (m.channel === 'email') return '<span class="ibx-chan ch-email">Email</span>';
+        return '<span class="ibx-chan ch-chat">Chat</span>';
+      }
+      function attachmentHTML(m) {
+        if (!m.attachment_name) return '';
+        if (!m.attachment_path) return '<span class="ibx-att is-missing">📎 ' + escapeHtml(m.attachment_name) + ' <span>(filed before evidence files were stored — no file attached)</span></span>';
+        return '<button type="button" class="ibx-att thread-attachment" data-path="' + escapeHtml(m.attachment_path) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><b>' + escapeHtml(m.attachment_name) + '</b>' + (m.attachment_size ? '<span>' + fmtBytes(m.attachment_size) + '</span>' : '') + '</button>';
+      }
+      function deliveryHTML(m) {
+        if (m.direction !== 'outbound' || m.channel !== 'email') return '';
+        var s = m.delivery_status;
+        var text;
+        if (s === 'opened') text = 'Delivered · opened ' + fmtTime(m.opened_at);
+        else if (s === 'delivered') text = 'Delivered ' + fmtTime(m.delivered_at);
+        else if (s === 'bounced') text = 'Bounced';
+        else if (s === 'complained') text = 'Marked as spam';
+        else text = 'Sent';
+        var ok = s === 'opened' || s === 'delivered';
+        return '<div class="ibx-status">' + (ok ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + escapeHtml(text) + '</div>';
+      }
+      function messageHTML(c, m, isOpening) {
+        if (m.channel === 'system') {
+          return '<div class="ibx-sysline"><i></i>' + escapeHtml(m.body) + ' · ' + fmtTime(m.sent_at) + '</div>';
+        }
+        var out = m.direction === 'outbound';
+        var who = out ? (m.sender_email || 'Portfolio Manager') : (m.sender_email || c.contact_email || '');
+        var meta = out
+          ? '<span class="ibx-time">' + fmtTime(m.sent_at) + '</span><span class="ibx-addr">' + escapeHtml(who) + (m.channel === 'email' ? ' via support@marketswave.net' : '') + '</span>' + channelChip(m, false)
+          : channelChip(m, isOpening) + (m.channel === 'email' ? '<span class="ibx-addr">from ' + escapeHtml(who) + '</span>' : '') + '<span class="ibx-time">' + fmtTime(m.sent_at) + '</span>';
+        var body;
+        if (m.channel === 'email') {
+          body = '<div class="ibx-mail"><div class="ibx-mch"><span class="ibx-s">' + escapeHtml(c.subject ? (/^re:/i.test(c.subject) || out === false ? c.subject : 'Re: ' + c.subject) : '(no subject)') + '</span></div><div class="ibx-mcb">' + escapeHtml(m.body) + attachmentHTML(m) + '</div></div>' + deliveryHTML(m);
+        } else {
+          body = '<div class="ibx-bub' + (isOpening ? ' is-opening' : '') + '">' + (isOpening ? '<div class="ibx-oh">' + escapeHtml(c.category || 'Ticket') + '</div>' : '') + escapeHtml(m.body) + attachmentHTML(m) + '</div>';
+        }
+        var av = out ? initials(pmEmail || 'PM') : initials(c.contact_name || c.contact_email || '?');
+        return '<div class="ibx-m' + (out ? ' is-out' : '') + (isOpening ? ' is-opening' : '') + '" data-message-id="' + m.id + '"><div class="ibx-mav">' + escapeHtml(av) + '</div><div class="ibx-mb"><div class="ibx-meta">' + meta + '</div>' + body + '</div></div>';
+      }
+      function renderMessages(c) {
+        var el = document.getElementById('thread-messages');
+        var own = ownMessages(c.id);
+        var opening = c.kind === 'ticket' ? own.find(function (m) { return m.channel !== 'system'; }) : null;
+        var html = '', lastDay = null;
+        own.forEach(function (m) {
+          var day = new Date(m.sent_at).toDateString();
+          if (day !== lastDay) { html += '<div class="ibx-daysep"><span>' + escapeHtml(fmtDay(m.sent_at)) + '</span></div>'; lastDay = day; }
+          html += messageHTML(c, m, m === opening);
+        });
+        html += '<div class="ibx-typing" id="thread-typing" hidden><div class="ibx-mav">' + escapeHtml(initials(c.contact_name || '?')) + '</div><div class="ibx-tb"><i></i><i></i><i></i></div></div><p class="ibx-typinglbl" id="thread-typing-label" hidden></p>';
+        el.innerHTML = html;
+        el.scrollTop = el.scrollHeight;
+      }
+      document.getElementById('thread-messages').addEventListener('click', function (e) {
+        var att = e.target.closest('.thread-attachment');
+        if (!att) return;
+        MarketswaveData.getSignedDownloadUrl('documents', att.getAttribute('data-path'), 60).then(function (signedUrl) {
+          window.open(signedUrl, '_blank', 'noopener');
+        }).catch(function (err) { showToast('Download Failed', MarketswaveData.writeErrorMessage(err), true); });
+      });
+
+      function renderHeader(c) {
+        var type = senderType(c);
+        var session = sessionFor(c);
+        var av = document.getElementById('thread-avatar');
+        av.className = 'ibx-av' + (type === 'anon' ? ' is-anon' : (type === 'ext' ? ' is-ext' : ''));
+        av.innerHTML = escapeHtml(type === 'anon' && !c.contact_name ? '?' : initials(c.contact_name || c.contact_email)) + (session ? '<span class="ibx-on"></span>' : '');
+        document.getElementById('thread-contact-name').textContent = c.contact_name || c.contact_email || 'Visitor';
+        var caseid = document.getElementById('thread-caseid');
+        caseid.textContent = c.display_id || ''; caseid.hidden = !c.display_id;
+        document.getElementById('thread-online').hidden = !session;
+        var parts = [];
+        if (c.contact_email) parts.push('<b id="thread-contact-email">' + escapeHtml(c.contact_email) + '</b>');
+        else parts.push('<b id="thread-contact-email">no email yet</b>');
+        if (type === 'client' && c.created_at) parts.push('Client');
+        if (type === 'anon') parts.push('Anonymous visitor');
+        if (type === 'ext') parts.push('No account');
+        if (session && (session.city || session.country)) parts.push(escapeHtml([session.city, session.country].filter(Boolean).join(', ')));
+        parts.push(session ? 'Last seen just now' : ('Last message ' + timeAgo(c.last_message_at || c.created_at) + ' ago'));
+        document.getElementById('thread-sub').innerHTML = parts.join('<span class="ibx-sep">·</span>');
+
+        var isTicket = c.kind === 'ticket';
+        var sel = document.getElementById('thread-status-select');
+        sel.hidden = !isTicket; sel.value = c.status;
+        var badge = document.getElementById('thread-status-badge');
+        badge.hidden = isTicket; badge.className = 'ibx-stp s-' + c.status; badge.textContent = STATUS_LABELS[c.status] || c.status;
+        document.getElementById('thread-resolve-btn').hidden = isTicket || c.status === 'resolved';
+        document.getElementById('thread-archive-btn').hidden = isTicket || c.status === 'archived';
+        document.getElementById('thread-reopen-btn').hidden = isTicket || c.status === 'open';
+        var link = document.getElementById('thread-profile-link');
+        link.hidden = type !== 'client';
+        link.href = 'admin-clients.html?client=' + encodeURIComponent(c.client_id || '') + (typeof currentEnvQuery === 'function' ? currentEnvQuery().replace(/^\?/, '&') : '');
+      }
+
+      // The context strip: three facts and a link out. "Open profile" hands off to the client
+      // profile rather than embedding it here — deliberate and settled.
+      function renderContext(c) {
+        var el = document.getElementById('thread-context');
+        var own = ownMessages(c.id).filter(function (m) { return m.channel !== 'system'; });
+        var convoFact = '<div class="ibx-ctxi">Conversation<b>' + own.length + ' message' + (own.length === 1 ? '' : 's') + ' · opened ' + fmtDate(c.created_at) + '</b></div>';
+        if (c.kind === 'ticket') {
+          el.innerHTML = '<div class="ibx-ctxi">Category<b>' + escapeHtml(c.category || '—') + '</b></div>' +
+            '<div class="ibx-ctxi">Opened<b>' + fmtDateTime(c.created_at) + '</b></div>' +
+            '<div class="ibx-ctxi">Assigned<b>' + escapeHtml(c.resolved_by_email || 'Unassigned') + '</b></div>' +
+            '<div class="ibx-ctxi">Messages<b>' + own.length + '</b></div>';
+          return;
+        }
+        var type = senderType(c);
+        if (type === 'client') {
+          var cached = contextCache[c.client_id];
+          el.innerHTML = '<div class="ibx-ctxi">Pending requests<b id="ctx-pending">' + (cached ? escapeHtml(cached.pending) : '…') + '</b></div>' +
+            '<div class="ibx-ctxi">Last activity<b id="ctx-activity">' + (cached ? escapeHtml(cached.activity) : '…') + '</b></div>' + convoFact +
+            '<div class="ibx-ctxi is-link"><a href="' + document.getElementById('thread-profile-link').href + '">Open profile →</a></div>';
+          if (!cached) loadClientContext(c.client_id).then(function () { if (activeId === c.id) renderContext(c); });
+          return;
+        }
+        var session = sessionFor(c);
+        el.innerHTML = '<div class="ibx-ctxi">Visitor<b>' + (session ? 'On ' + escapeHtml(session.current_path || '/') : 'Not on the site now') + '</b></div>' +
+          '<div class="ibx-ctxi">Location<b>' + escapeHtml(session ? ([session.city, session.country].filter(Boolean).join(', ') || 'Unknown') : '—') + '</b></div>' + convoFact +
+          (session ? '<div class="ibx-ctxi is-link"><a href="admin-presence.html' + (typeof currentEnvQuery === 'function' ? currentEnvQuery() : '') + '">View on presence →</a></div>' : '');
+      }
+      var APPROVAL_GATE_TABLES = ['deposit_requests', 'withdrawal_requests', 'allocation_requests', 'sell_requests', 'hys_deposit_requests', 'hys_withdrawal_requests', 'profile_change_requests'];
+      function loadClientContext(clientId) {
+        return Promise.all(APPROVAL_GATE_TABLES.map(function (t) {
+          return MarketswaveData.selectTable(t, function (q) { return q.eq('client_id', clientId).eq('status', 'pending'); }).catch(function () { return []; });
+        }).concat([
+          MarketswaveData.selectTable('transactions', function (q) { return q.eq('client_id', clientId).order('created_at', { ascending: false }).limit(1); }).catch(function () { return []; })
+        ])).then(function (results) {
+          var pending = 0, first = null;
+          results.slice(0, APPROVAL_GATE_TABLES.length).forEach(function (rows, i) { pending += rows.length; if (!first && rows.length) first = { table: APPROVAL_GATE_TABLES[i], row: rows[0] }; });
+          var pendingText = pending === 0 ? 'None' : pending + ' pending';
+          if (first) {
+            var label = first.table.replace('_requests', '').replace('hys_', 'savings ').replace('_', ' ');
+            var amt = first.row.requested_amount || first.row.dollar_amount || first.row.amount;
+            pendingText = pending + ' · ' + label + (amt ? ' $' + Number(amt).toLocaleString('en-US') : '');
           }
-          renderConvoList();
-          renderThread();
-          showToast('Conversation Updated', 'Marked as ' + status + '.');
-        }).catch(function (err) {
-          showToast('Update Failed', MarketswaveData.writeErrorMessage(err), true);
+          var tx = results[APPROVAL_GATE_TABLES.length][0];
+          var activity = tx ? (String(tx.type || '').toLowerCase().replace('_', ' ') + ' · ' + fmtDate(tx.created_at)) : 'No transactions yet';
+          contextCache[clientId] = { pending: pendingText, activity: activity };
         });
       }
 
-      // Unified Communications Inbox — Stage 2 (2026-09-07). Routes through the real
-      // send-conversation-reply Edge Function instead of a direct client-side insert — a real
-      // email reply needs a real server-side round trip to Resend (to capture the real
-      // RFC822 message_id for threading) before the row can even be written, which a
-      // client-side insert can't do; the function decides chat-vs-email automatically from
-      // the conversation's own most recent message, so the PM never has to choose. The
-      // resulting row arrives back into this page's own real-time subscription exactly like
-      // any other new message — no local insert/re-render needed here.
+      // ---------------------------------------------------------------- composer
+      function contactReachableNow(c) { return !!sessionFor(c); }
+      function defaultChannel(c) {
+        if (contactReachableNow(c)) return 'chat';
+        var last = lastRealMessage(c.id);
+        if (last && last.channel === 'email') return c.contact_email ? 'email' : 'chat';
+        if (c.kind === 'email' && !last) return c.contact_email ? 'email' : 'chat';
+        return 'chat';
+      }
+      function renderComposer(c) {
+        var closed = c.status === 'resolved' || c.status === 'archived';
+        var composer = document.getElementById('thread-composer');
+        var note = document.getElementById('thread-closed-note');
+        composer.hidden = closed && c.kind === 'ticket' && c.status === 'archived';
+        note.hidden = !(c.status === 'archived');
+        note.textContent = 'This conversation is archived. Reopen it to reply.';
+        var emailTab = document.querySelector('.ibx-ctab[data-channel="email"]');
+        emailTab.disabled = !c.contact_email;
+        emailTab.title = c.contact_email ? '' : 'No email address for this contact yet';
+        if (replyChannel === 'email' && !c.contact_email) replyChannel = 'chat';
+        document.querySelectorAll('.ibx-ctab').forEach(function (t) {
+          var on = t.getAttribute('data-channel') === replyChannel;
+          t.classList.toggle('is-on', on); t.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        var first = (c.contact_name || 'them').split(' ')[0];
+        var hint = document.getElementById('composer-hint');
+        var subj = document.getElementById('composer-subject');
+        if (replyChannel === 'chat') {
+          hint.innerHTML = contactReachableNow(c)
+            ? '<span class="ibx-lv"><i></i></span>' + escapeHtml(first) + ' is online — chat will reach them now'
+            : escapeHtml(first) + ' is not online — chat waits until they return' + (c.contact_email ? '; email reaches them now' : '');
+          subj.hidden = true;
+        } else {
+          var subject = c.subject ? (/^re:/i.test(c.subject) ? c.subject : 'Re: ' + c.subject) : 'Re: Your message to Marketswave';
+          hint.innerHTML = 'Email will reach <b>' + escapeHtml(c.contact_email) + '</b>';
+          subj.textContent = 'Subject: ' + subject;
+          subj.hidden = false;
+        }
+        document.getElementById('thread-reply-input').placeholder = 'Reply to ' + first + '…';
+      }
+      document.querySelectorAll('.ibx-ctab').forEach(function (t) {
+        t.addEventListener('click', function () {
+          if (t.disabled) return;
+          replyChannel = t.getAttribute('data-channel');
+          if (byId[activeId]) renderComposer(byId[activeId]);
+        });
+      });
       function sendReply() {
         var input = document.getElementById('thread-reply-input');
         var text = input.value.trim();
-        if (!text || !activeConversationId) return;
-        input.value = '';
-        var sendBtn = document.getElementById('thread-reply-send');
-        MarketswaveData.withButtonBusy(sendBtn, 'Sending…', function () {
-          return MarketswaveData.callFunction('send-conversation-reply', { conversationId: activeConversationId, body: text });
+        if (!text || !activeId) return;
+        var btn = document.getElementById('thread-reply-send');
+        var channel = replyChannel;
+        MarketswaveData.withButtonBusy(btn, 'Sending…', function () {
+          return MarketswaveData.callFunction('send-conversation-reply', { conversationId: activeId, body: text, channel: channel });
+        }).then(function () {
+          input.value = '';
+          if (channel === 'email') showToast('Email Sent', 'Your reply was sent — it threads under the conversation\'s subject.');
         }).catch(function (err) {
           showToast('Reply Failed', MarketswaveData.writeErrorMessage(err), true);
         });
       }
+      document.getElementById('thread-reply-send').addEventListener('click', sendReply);
+      document.getElementById('thread-reply-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+      });
+      document.getElementById('thread-reply-input').addEventListener('input', function (e) {
+        if (e.target.value.trim()) sendTyping();
+      });
 
-      document.getElementById('inbox-search').addEventListener('input', function (e) {
-        searchTerm = e.target.value.trim();
-        renderConvoList();
+      // Typing indicators — a Realtime broadcast channel per conversation, shared with the chat
+      // widget ('typing-<id>'). Nothing is written for a keystroke.
+      function subscribeTyping(client, convoId) {
+        if (typingChannel) client.removeChannel(typingChannel);
+        typingChannel = client.channel('typing-' + convoId, { config: { broadcast: { self: false } } })
+          .on('broadcast', { event: 'typing' }, function (payload) {
+            if (!payload || !payload.payload || payload.payload.from !== 'contact' || convoId !== activeId) return;
+            var t = document.getElementById('thread-typing'), l = document.getElementById('thread-typing-label');
+            if (!t) return;
+            var c = byId[convoId];
+            t.hidden = false; l.hidden = false;
+            l.textContent = ((c && c.contact_name) ? c.contact_name.split(' ')[0] : 'Visitor') + ' is typing…';
+            document.getElementById('thread-messages').scrollTop = document.getElementById('thread-messages').scrollHeight;
+            clearTimeout(typingHideTimer);
+            typingHideTimer = setTimeout(function () { t.hidden = true; l.hidden = true; }, 3000);
+          })
+          .subscribe();
+      }
+      function sendTyping() {
+        if (!typingChannel) return;
+        var now = Date.now();
+        if (now - typingSentAt < 2000) return;
+        typingSentAt = now;
+        typingChannel.send({ type: 'broadcast', event: 'typing', payload: { from: 'pm', at: now } }).catch(function () {});
+      }
+
+      // ---------------------------------------------------------------- open / status
+      function renderThread() {
+        var c = byId[activeId];
+        if (!c) return;
+        document.getElementById('thread-empty-state').classList.add('hidden');
+        document.getElementById('thread-view').classList.remove('hidden');
+        renderHeader(c); renderContext(c); renderMessages(c); renderComposer(c);
+      }
+      function openConversation(id) {
+        var c = byId[id];
+        if (!c) return;
+        var changed = id !== activeId;
+        activeId = id;
+        if (changed) replyChannel = defaultChannel(c);
+        document.getElementById('inbox-shell').classList.add('is-thread-open');
+        renderList(); renderThread();
+        if (changed) MarketswaveData.getSupabaseClient().then(function (client) { subscribeTyping(client, id); });
+        if (c.unread_by_pm) {
+          MarketswaveData.callFunction('admin-update-conversation', { conversationId: id, markRead: true }).then(function (updated) {
+            c.unread_by_pm = updated.unread_by_pm;
+            renderRail(); renderFilters(); renderList();
+          }).catch(function () {});
+        }
+        if (history.replaceState) {
+          var u = new URL(location.href); u.searchParams.set('c', id); history.replaceState(null, '', u.toString());
+        }
+      }
+      document.getElementById('thread-back-btn').addEventListener('click', function () {
+        document.getElementById('inbox-shell').classList.remove('is-thread-open');
       });
-      document.querySelectorAll('#status-filters .filter-pill').forEach(function (pill) {
-        pill.addEventListener('click', function () {
-          document.querySelectorAll('#status-filters .filter-pill').forEach(function (p) { p.classList.remove('is-active'); });
-          pill.classList.add('is-active');
-          statusFilter = pill.getAttribute('data-status-filter');
-          renderConvoList();
+      function updateStatus(status) {
+        if (!activeId) return;
+        var c = byId[activeId];
+        MarketswaveData.callFunction('admin-update-conversation', { conversationId: activeId, status: status }).then(function (updated) {
+          if (c) { c.status = updated.status; c.resolved_by = updated.resolved_by; c.resolved_by_email = updated.resolved_by_email; c.resolved_at = updated.resolved_at; }
+          renderRail(); renderFilters(); renderList(); renderThread();
+          showToast('Status Updated', (c && c.display_id ? c.display_id + ' is now ' : 'Marked ') + (STATUS_LABELS[status] || status).toLowerCase() + '.');
+        }).catch(function (err) {
+          showToast('Update Failed', MarketswaveData.writeErrorMessage(err), true);
+          if (c) document.getElementById('thread-status-select').value = c.status;
         });
-      });
-      document.querySelectorAll('#channel-filters .filter-pill').forEach(function (pill) {
-        pill.addEventListener('click', function () {
-          document.querySelectorAll('#channel-filters .filter-pill').forEach(function (p) { p.classList.remove('is-active'); });
-          pill.classList.add('is-active');
-          channelFilter = pill.getAttribute('data-channel-filter');
-          renderConvoList();
-        });
-      });
+      }
+      document.getElementById('thread-status-select').addEventListener('change', function (e) { updateStatus(e.target.value); });
       document.getElementById('thread-resolve-btn').addEventListener('click', function () { updateStatus('resolved'); });
       document.getElementById('thread-archive-btn').addEventListener('click', function () { updateStatus('archived'); });
       document.getElementById('thread-reopen-btn').addEventListener('click', function () { updateStatus('open'); });
-      document.getElementById('thread-reply-send').addEventListener('click', sendReply);
-      document.getElementById('thread-reply-input').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') sendReply();
-      });
 
+      // ---------------------------------------------------------------- notifications
+      // The presence model reused (row 209): permission is asked HERE, with the reason, never
+      // on load; the per-message browser notification itself is raised by admin-sidebar.js on
+      // every admin page; mute (localStorage mw_inbox_mute) silences it, not the counts.
+      function renderNotifyButton() {
+        var label = document.getElementById('inbox-notify-label');
+        if (!window.Notification) { label.textContent = 'No notify'; return; }
+        if (Notification.permission !== 'granted') { label.textContent = 'Notify'; return; }
+        label.textContent = localStorage.getItem('mw_inbox_mute') === '1' ? 'Muted' : 'Notifying';
+      }
+      document.getElementById('inbox-notify-btn').addEventListener('click', function () {
+        if (!window.Notification) { showToast('Notifications Unavailable', 'This browser does not support notifications.', true); return; }
+        if (Notification.permission === 'granted') {
+          var muted = localStorage.getItem('mw_inbox_mute') === '1';
+          localStorage.setItem('mw_inbox_mute', muted ? '0' : '1');
+          showToast(muted ? 'Notifications On' : 'Notifications Muted', muted ? 'You will be told about new messages while the PM tool is open.' : 'Counts still update; no browser notification will be raised.');
+          renderNotifyButton();
+          return;
+        }
+        showToast('Allow Notifications', 'So a new message reaches you while the PM tool is open in another tab.');
+        Notification.requestPermission().then(function () { renderNotifyButton(); });
+      });
+      renderNotifyButton();
+
+      // ---------------------------------------------------------------- presence
+      function loadPresence() {
+        var since = new Date(Date.now() - LIVE_WINDOW_MS).toISOString();
+        return MarketswaveData.selectTable('visitor_sessions', function (q) { return q.gte('last_seen_at', since).is('ended_at', null); }).then(function (rows) {
+          presenceSessions = rows || [];
+          renderList();
+          if (activeId && byId[activeId]) { renderHeader(byId[activeId]); renderContext(byId[activeId]); renderComposer(byId[activeId]); }
+        }).catch(function () { /* no presence: no dots, never fake ones */ });
+      }
+
+      // ---------------------------------------------------------------- load + realtime
       function loadAndSubscribe() {
         Promise.all([
           MarketswaveData.selectTable('conversations'),
-          MarketswaveData.selectTable('messages')
+          MarketswaveData.selectTable('messages'),
+          MarketswaveData.getCurrentUserEmail().catch(function () { return null; })
         ]).then(function (results) {
-          conversations = results[0];
-          messages = results[1];
-          reindexConversations();
-          renderConvoList();
-
+          conversations = results[0]; messages = results[1]; pmEmail = results[2] || '';
+          document.getElementById('inbox-me').textContent = initials(pmEmail.split('@')[0].replace(/[._-]/g, ' ')) || 'PM';
+          document.getElementById('inbox-me').title = pmEmail;
+          reindex();
+          renderRail(); renderFilters(); renderList();
+          var wanted = new URL(location.href).searchParams.get('c');
+          if (wanted && byId[wanted]) { setView(viewOf(byId[wanted])); openConversation(wanted); }
+          loadPresence();
+          setInterval(loadPresence, 30000);
           return MarketswaveData.getSupabaseClient();
         }).then(function (client) {
           var statusEl = document.getElementById('realtime-status');
-          client
-            .channel('admin-inbox-live')
+          client.channel('admin-inbox-live')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function (payload) {
-              messages.push(payload.new);
-              renderConvoList();
-              if (payload.new.conversation_id === activeConversationId) renderThread();
+              messages.push(payload.new); reindex();
+              renderRail(); renderFilters(); renderList();
+              if (payload.new.conversation_id === activeId) { renderMessages(byId[activeId]); renderContext(byId[activeId]); }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, function (payload) {
+              var i = messages.findIndex(function (m) { return m.id === payload.new.id; });
+              if (i !== -1) messages[i] = payload.new; reindex();
+              if (payload.new.conversation_id === activeId) renderMessages(byId[activeId]);
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, function (payload) {
-              conversations.push(payload.new);
-              reindexConversations();
-              renderConvoList();
+              conversations.push(payload.new); reindex();
+              renderRail(); renderFilters(); renderList();
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, function (payload) {
               var idx = conversations.findIndex(function (c) { return c.id === payload.new.id; });
-              if (idx !== -1) conversations[idx] = payload.new;
-              reindexConversations();
-              renderConvoList();
-              if (payload.new.id === activeConversationId) renderThread();
+              if (idx !== -1) conversations[idx] = payload.new; else conversations.push(payload.new);
+              reindex();
+              renderRail(); renderFilters(); renderList();
+              if (payload.new.id === activeId) renderThread();
             })
-            .subscribe(function (status) {
-              statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status;
-            });
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'visitor_sessions' }, function () { loadPresence(); })
+            .subscribe(function (status) { statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status; });
         }).catch(function (err) {
           showToast('Could Not Load Inbox', MarketswaveData.writeErrorMessage(err), true);
         });
       }
-
       loadAndSubscribe();
 
       // =======================================================================================

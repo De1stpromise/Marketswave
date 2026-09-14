@@ -211,6 +211,9 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       // isn't a money-approval action either, so 'user-admin-relations' (not
       // 'approval-gate') is where it belongs, matching Documents/Support's own existing
       // placement logic.
+      // PM tool revamp, part 1 (2026-09-14): tickets live here too now — the separate
+      // "Support" item (admin-support.html) is retired; its "needs a reply" count is the
+      // Inbox item's own badge (#sidebar-inbox-count), kept live by startInboxWatch() below.
       key: 'inbox',
       href: 'admin-inbox.html',
       label: 'Inbox',
@@ -233,13 +236,6 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       href: 'admin-documents.html',
       label: 'Documents',
       icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-      group: 'user-admin-relations'
-    },
-    {
-      key: 'support',
-      href: 'admin-support.html',
-      label: 'Support',
-      icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
       group: 'user-admin-relations'
     },
     {
@@ -299,7 +295,9 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     // starts hidden/0 (honest until the first real read), never a fake interim value.
     var badge = item.key === 'presence'
       ? '<span id="sidebar-presence-count" class="ml-auto hidden min-w-[1.5rem] text-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300" style="font-variant-numeric: tabular-nums" aria-label="visitors on the site now">0</span>'
-      : '';
+      : (item.key === 'inbox'
+        ? '<span id="sidebar-inbox-count" class="ml-auto hidden min-w-[1.5rem] text-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/25 text-amber-200" style="font-variant-numeric: tabular-nums" aria-label="conversations needing a reply">0</span>'
+        : '');
     return '<a href="' + item.href + '" class="' + cls + '">' +
       '<svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + item.icon + '"/></svg>' +
       item.label + badge +
@@ -403,6 +401,55 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     }).catch(function () { /* the count stays hidden: never a fake number */ });
   }
 
+  // ★ PM tool revamp, part 1 (2026-09-14). The inbox's notifications reuse the presence
+  // model above rather than a second one: on EVERY admin page the Inbox item carries a live
+  // "needs a reply" count (conversations.unread_by_pm, admin-only RLS, via Realtime on
+  // conversations plus a 30-second recount), and an inbound message raises a browser
+  // notification — permission is asked on admin-inbox.html with the reason, never on load;
+  // mute (localStorage mw_inbox_mute) silences the notification, not the count; a `tag` per
+  // conversation collapses duplicates across open tabs. A ticket names its DISP id.
+  function startInboxWatch() {
+    var badge = document.getElementById('sidebar-inbox-count');
+    if (!badge) return;
+    var supabase = null;
+    var convoNames = {};
+    function paint(n) {
+      badge.textContent = String(n);
+      badge.classList.toggle('hidden', !(n > 0));
+    }
+    function recount() {
+      if (!supabase) return;
+      supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('unread_by_pm', true).neq('status', 'archived')
+        .then(function (r) { if (!r.error) paint(r.count || 0); });
+    }
+    function notify(message) {
+      if (!message || message.direction !== 'inbound' || message.channel === 'system') return;
+      if (!window.Notification || Notification.permission !== 'granted') return;
+      if (localStorage.getItem('mw_inbox_mute') === '1') return;
+      var onInbox = /admin-inbox\.html/.test(location.pathname) && document.visibilityState === 'visible';
+      if (onInbox) return; // the page itself shows it live
+      supabase.from('conversations').select('id, contact_name, contact_email, kind, display_id').eq('id', message.conversation_id).maybeSingle().then(function (r) {
+        var c = r.data || {};
+        var who = c.contact_name || c.contact_email || 'A visitor';
+        var title = c.kind === 'ticket' ? who + ' replied on ' + (c.display_id || 'a ticket') : 'New message from ' + who;
+        try {
+          var n = new Notification(title, { body: String(message.body || '').slice(0, 140), tag: 'mw-inbox-' + message.conversation_id, silent: true });
+          n.onclick = function () { window.focus(); location.href = 'admin-inbox.html?c=' + message.conversation_id + currentEnvQuery().replace(/^\?/, '&'); };
+        } catch (e) { /* notifications unavailable in this context */ }
+      });
+    }
+    import('./admin-supabase-config.js').then(function (mod) {
+      supabase = mod.supabase;
+      recount();
+      setInterval(recount, 30000);
+      supabase.channel('admin-sidebar-inbox')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function (payload) { recount(); notify(payload.new); })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, function () { recount(); })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, function () { recount(); })
+        .subscribe();
+    }).catch(function () { /* the count stays hidden: never a fake number */ });
+  }
+
   function renderAdminSidebar(activePage) {
     var mount = document.getElementById('admin-sidebar-mount');
     if (!mount) return;
@@ -494,6 +541,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
 
     preserveEnvParamInPageLinks();
     startPresenceWatch();
+    startInboxWatch();
   }
 
   window.initAdminSidebar = initAdminSidebar;

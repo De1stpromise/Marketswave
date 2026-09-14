@@ -379,6 +379,10 @@
     // message a PM can act on ("CoinGecko is rate-limiting requests right now. Try again in a
     // minute.") rather than an internal failure — show it verbatim, like a 4xx.
     if (err && err.status === 503 && err.message && !/non-2xx/i.test(err.message)) return err.message;
+    // PM tool revamp, part 1 (2026-09-14): the same rule for a 502 from send-conversation-reply —
+    // "Could not send the email reply: <the provider's own reason>" is what the PM needs to
+    // see (a bad address, a rejected sender), not "the server ran into a problem."
+    if (err && err.status === 502 && err.message && !/non-2xx/i.test(err.message)) return err.message;
     return friendlyMessage(err);
   }
 

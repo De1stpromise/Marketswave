@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     // JWT but carries no user; getClaims refuses it, which is the anonymous case.
     let clientId: string | null = null;
     let clientName: string | null = null;
+    let callerAuthId: string | null = null;
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
       const jwt = authHeader.replace(/^Bearer\s+/i, '');
@@ -56,10 +57,21 @@ Deno.serve(async (req) => {
       const { data: claimsData } = await userClient.auth.getClaims(jwt);
       const sub = claimsData?.claims?.sub as string | undefined;
       const isAnon = claimsData?.claims?.is_anonymous === true;
+      if (sub) callerAuthId = sub;
       if (sub && !isAnon) {
         const { data: c } = await admin.from('clients').select('id, name').eq('id', sub).maybeSingle();
         if (c) { clientId = c.id; clientName = c.name; }
       }
+    }
+    // PM tool revamp, part 1 (2026-09-14): a visitor who starts a chat announces the
+    // conversation on their next heartbeat, so the inbox can show a presence dot and the page
+    // they are on beside an anonymous thread. Stored only when the caller's OWN JWT (anonymous
+    // or real) genuinely owns that conversation — an unverified id could otherwise tie any
+    // session to any thread.
+    let linkConversationId: string | null = null;
+    if (callerAuthId && typeof body.conversationId === 'string' && UUID.test(body.conversationId)) {
+      const { data: owned } = await admin.from('conversations').select('id').eq('id', body.conversationId).or('visitor_auth_id.eq.' + callerAuthId + ',client_id.eq.' + callerAuthId).maybeSingle();
+      if (owned) linkConversationId = owned.id;
     }
 
     const now = new Date();
@@ -111,6 +123,10 @@ Deno.serve(async (req) => {
       }
     } else {
       session = await applyEvent(admin, session, event, path, nowIso, clientTime(body, nowIso), clientId, clientName);
+    }
+    if (linkConversationId && session && !session.conversation_id) {
+      await admin.from('visitor_sessions').update({ conversation_id: linkConversationId }).eq('id', session.id);
+      session.conversation_id = linkConversationId;
     }
 
     // ---- notable-visitor email, at most once per session

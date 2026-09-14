@@ -490,7 +490,12 @@
           cachedClients.push(c);
         });
 
+        // PM tool revamp, part 1 (2026-09-14): the inbox's "Open profile" hands off here with
+        // ?client=<id> — expand that row and bring it into view, once, on first load.
+        var wanted = new URL(location.href).searchParams.get('client');
+        if (wanted && !expandedIds[wanted] && cachedClients.some(function (c) { return c.id === wanted; })) expandedIds[wanted] = true;
         renderClients();
+        if (wanted) { var rowEl = document.querySelector('.client-row[data-id="' + wanted + '"]'); if (rowEl && rowEl.scrollIntoView) rowEl.scrollIntoView({ block: 'center' }); }
       }
 
       document.getElementById('client-search').addEventListener('input', function (e) {

@@ -61,6 +61,9 @@ const SHARED = [
   // Catalog expansion (2026-09-14, row 211): asset-collection.html's own inline script builds
   // every .cat-* card class at runtime; the toolbar/modal markup is static in the page.
   'catalog-cards.css',
+  // The PM inbox (2026-09-14, PM tool revamp part 1): admin-inbox.html's own inline script
+  // builds every .ibx-* / .convo-row class at runtime; the rail/thread scaffold is static.
+  'admin-inbox.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

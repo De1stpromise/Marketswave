@@ -70,10 +70,28 @@
       } catch (e) { token = null; }
     }
   }
+  // PM tool revamp, part 1 (2026-09-14): the chat widget announces the conversation it opened
+  // (an anonymous visitor's included). From then on every event carries the id and the
+  // widget's own (anonymous) JWT, so track-visit can verify ownership and tie the presence
+  // session to the thread — the inbox shows the visitor's page and a live dot beside it.
+  var linkedConversationId = null;
+  window.addEventListener('mw:chat-conversation', async function (e) {
+    if (!e.detail || !e.detail.conversationId) return;
+    linkedConversationId = e.detail.conversationId;
+    if (!token) {
+      try {
+        var cfg2 = await import('./supabase-config.js');
+        var r2 = await cfg2.supabase.auth.getSession();
+        token = r2 && r2.data && r2.data.session ? r2.data.session.access_token : null;
+      } catch (e2) { /* the link waits for a token that never comes — nothing else changes */ }
+    }
+    if (endpoint) send('heartbeat');
+  });
   function payload(event, extra) {
     var s = session();
     current = s;
     var p = { event: event, sessionId: s.id, visitorId: visitorId(), path: pagePath(), at: new Date().toISOString() };
+    if (linkedConversationId) p.conversationId = linkedConversationId;
     if (extra) for (var k in extra) p[k] = extra[k];
     return p;
   }
