@@ -46,6 +46,7 @@
     "supabase-verify-unified-inbox": "node verify-supabase-unified-inbox.js",
     "verify-unified-inbox-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-unified-inbox-ui-wiring.mjs",
     "verify-inbox-tickets-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-inbox-tickets-ui-wiring.mjs",
+    "verify-inbox-tickets-visual": "node verify-inbox-tickets-visual.mjs",
     "verify-inbound-webhook-signature": "node verify-inbound-webhook-signature.mjs",
     "verify-supabase-inbound-outbound-email": "node verify-supabase-inbound-outbound-email.mjs",
     "verify-pm-compose-announcements": "node verify-pm-compose-announcements.mjs",

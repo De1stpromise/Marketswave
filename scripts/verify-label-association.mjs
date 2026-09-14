@@ -61,7 +61,7 @@ const ADMIN_PAGES = ['admin.html', 'admin-advisory-fee.html', 'admin-allocations
   'admin-client-applications.html', 'admin-clients.html', 'admin-deposits.html',
   'admin-documents.html', 'admin-hys.html', 'admin-inbox.html', 'admin-login.html',
   'admin-products.html', 'admin-profile-updates.html', 'admin-security.html',
-  'admin-sells.html', 'admin-support.html', 'admin-withdrawals.html'];
+  'admin-sells.html', 'admin-withdrawals.html'];
 
 function readLocalStackCredentials() {
   const scriptsDir = fileURLToPath(new URL('.', import.meta.url));

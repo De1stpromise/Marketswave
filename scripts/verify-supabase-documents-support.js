@@ -75,6 +75,7 @@ async function signIn(url, anonKey, email, password) {
 
 async function cleanupClient(admin, userId) {
   await admin.from('support_requests').delete().eq('client_id', userId);
+  await admin.from('conversations').delete().eq('client_id', userId);
   await admin.from('documents').delete().eq('client_id', userId);
   // Real Storage integration (2026-09-04) regression fix: every publish-document call this
   // file makes now creates a real Storage object, not just a row — cleaning up only the row
@@ -356,12 +357,13 @@ async function main() {
     const { error: noDescriptionErr } = await c.client.functions.invoke('request-support-ticket', { body: { category: 'Other', description: '   ' } });
     check('rejects an empty/whitespace-only description (400)', noDescriptionErr && noDescriptionErr.context && noDescriptionErr.context.status === 400);
 
-    const { data: ticket, error: createErr } = await c.client.functions.invoke('request-support-ticket', { body: { category: 'Transaction Issue', description: 'A trade settled at the wrong price.', evidence: 'screenshot.png' } });
+    // PM tool revamp, part 1 (2026-09-14): a ticket is a conversation (kind 'ticket') now.
+    const { data: ticket, error: createErr } = await c.client.functions.invoke('request-support-ticket', { body: { category: 'Transaction Issue', description: 'A trade settled at the wrong price.' } });
     check('a valid ticket is created immediately, with NO gate', !createErr, createErr && createErr.message);
-    check('status is genuinely "Open" immediately — no pending/approved/rejected gate on creation', ticket && ticket.status === 'Open', JSON.stringify(ticket));
+    check('status is genuinely "open" immediately — no pending/approved/rejected gate on creation', ticket && ticket.status === 'open', JSON.stringify(ticket));
     check('display_id is a real, server-computed "DISP-0001" style id — never trusted from the client (none was even sent)', ticket && /^DISP-\d{4}$/.test(ticket.id), JSON.stringify(ticket));
     check('the ticket is scoped to the caller’s own uid', ticket && ticket.clientId === user.id);
-    check('evidence/category/description preserved verbatim', ticket && ticket.evidence === 'screenshot.png' && ticket.category === 'Transaction Issue' && ticket.description === 'A trade settled at the wrong price.');
+    check('category/description preserved verbatim', ticket && ticket.category === 'Transaction Issue' && ticket.description === 'A trade settled at the wrong price.');
     check('a client-supplied id/displayId in the body is ignored — server always computes its own', true); // proven by the assertion above never sending one at all
 
     // A second ticket for the SAME client increments correctly (per-client scan-and-increment).
@@ -377,7 +379,7 @@ async function main() {
     check('a DIFFERENT client’s first ticket is ALSO "DISP-0001" — ids are genuinely per-client, not globally unique, matching the real local nextDisputeId() behavior exactly', otherClientTicket && otherClientTicket.id === 'DISP-0001', JSON.stringify(otherClientTicket));
 
     // The database row itself has a real globally-unique uuid despite the shared display_id.
-    const { data: rows } = await admin.from('support_requests').select('id,client_id,display_id').eq('display_id', 'DISP-0001');
+    const { data: rows } = await admin.from('conversations').select('id,client_id,display_id').eq('display_id', 'DISP-0001').in('client_id', [user.id, user2.id]);
     check('two real, distinct rows share display_id "DISP-0001" (one per client) with genuinely different uuid primary keys — no collision', rows && rows.length === 2 && rows[0].id !== rows[1].id, JSON.stringify(rows));
 
     await cleanupClient(admin, user.id);
@@ -385,9 +387,10 @@ async function main() {
   })();
 
   // -------------------------------------------------------------------------------------------
-  // TEST 8 — update-support-ticket (admin-only): status + pmNote together, atomically.
+  // TEST 8 — a ticket's status is admin-update-conversation, a PM's note is a real reply
+  // (send-conversation-reply); update-support-ticket is retired (PM tool revamp, part 1).
   // -------------------------------------------------------------------------------------------
-  console.log('\n8. update-support-ticket (admin-only) — status + pmNote atomically');
+  console.log('\n8. admin-update-conversation + send-conversation-reply on a ticket (admin-only)');
 
   await (async function () {
     const email = 'sup-update-' + suffix + '@test.marketswave.local';
@@ -396,19 +399,21 @@ async function main() {
 
     const { data: ticket } = await c.client.functions.invoke('request-support-ticket', { body: { category: 'Billing/Fees', description: 'Fee looks incorrect.' } });
 
-    const { data: updated, error: updateErr } = await adminSignIn.client.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: ticket.id, status: 'In Progress', pmNote: 'Investigating the fee calculation.' } });
-    check('update-support-ticket succeeds', !updateErr, updateErr && updateErr.message);
-    check('status and pmNote both updated together, atomically', updated && updated.status === 'In Progress' && updated.pmNote === 'Investigating the fee calculation.', JSON.stringify(updated));
+    const { data: updated, error: updateErr } = await adminSignIn.client.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.conversationId, status: 'in_progress' } });
+    check('admin-update-conversation moves the ticket to in_progress', !updateErr && updated && updated.status === 'in_progress', updateErr ? updateErr.message : JSON.stringify(updated));
+    const { data: reply, error: replyErr } = await adminSignIn.client.functions.invoke('send-conversation-reply', { body: { conversationId: ticket.conversationId, body: 'Investigating the fee calculation.', channel: 'chat' } });
+    check('the PM note is a real reply the client can answer (send-conversation-reply, chat)', !replyErr && reply && reply.channel === 'chat', replyErr ? replyErr.message : JSON.stringify(reply));
 
-    const { data: resolved, error: resolveErr } = await adminSignIn.client.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: ticket.id, status: 'Resolved', pmNote: 'Fee was correct; explained the calculation to the client.' } });
-    check('a second real update (Resolved) succeeds — no restriction on re-updating a ticket, matching the real local engine (tickets are not single-resolution requests)', !resolveErr, resolveErr && resolveErr.message);
-    check('status is now genuinely "Resolved"', resolved && resolved.status === 'Resolved');
+    const { data: resolved, error: resolveErr } = await adminSignIn.client.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.conversationId, status: 'resolved' } });
+    check('a second real update (resolved) succeeds — tickets are not single-resolution requests', !resolveErr && resolved && resolved.status === 'resolved', resolveErr && resolveErr.message);
+    const { data: thread } = await admin.from('messages').select('channel, direction').eq('conversation_id', ticket.conversationId).order('sent_at');
+    check('the thread carries both status changes as system lines around the real reply', thread && thread.map((m) => m.channel + ':' + m.direction).join(' ') === 'chat:inbound system:outbound chat:outbound system:outbound', JSON.stringify(thread));
 
-    const { error: badStatusErr } = await adminSignIn.client.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: ticket.id, status: 'Closed', pmNote: 'x' } });
-    check('update-support-ticket rejects an invalid status value (400)', badStatusErr && badStatusErr.context && badStatusErr.context.status === 400);
+    const { error: badStatusErr } = await adminSignIn.client.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.conversationId, status: 'Closed' } });
+    check('an invalid status value is refused (400)', badStatusErr && badStatusErr.context && badStatusErr.context.status === 400);
 
-    const { error: unknownTicketErr } = await adminSignIn.client.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: 'DISP-9999', status: 'Open', pmNote: null } });
-    check('update-support-ticket refuses an unknown display_id for this client (404)', unknownTicketErr && unknownTicketErr.context && unknownTicketErr.context.status === 404);
+    const { error: unknownTicketErr } = await adminSignIn.client.functions.invoke('admin-update-conversation', { body: { conversationId: '00000000-0000-0000-0000-000000000000', status: 'open' } });
+    check('an unknown conversation is refused (404)', unknownTicketErr && unknownTicketErr.context && unknownTicketErr.context.status === 404);
 
     await cleanupClient(admin, user.id);
   })();
@@ -449,7 +454,7 @@ async function main() {
     const { data: anonRead } = await anonClient.from('support_requests').select('*');
     check('unauthenticated (anon) caller sees zero support_requests rows', anonRead && anonRead.length === 0);
 
-    const { error: nonAdminUpdateFnErr } = await a.client.functions.invoke('update-support-ticket', { body: { clientId: userA.id, requestId: 'DISP-0001', status: 'Resolved', pmNote: 'x' } });
+    const { error: nonAdminUpdateFnErr } = await a.client.functions.invoke('admin-update-conversation', { body: { conversationId: '00000000-0000-0000-0000-000000000000', status: 'resolved' } });
     check('non-admin caller cannot call update-support-ticket (403)', nonAdminUpdateFnErr && nonAdminUpdateFnErr.context && nonAdminUpdateFnErr.context.status === 403, nonAdminUpdateFnErr && nonAdminUpdateFnErr.message);
 
     const anonNoAuth = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -477,17 +482,19 @@ async function main() {
     const b = await signIn(url, anonKey, emailB, password);
 
     const { data: ticketB } = await b.client.functions.invoke('request-support-ticket', { body: { category: 'Other', description: 'B’s own ticket.' } });
-    const beforeB = JSON.stringify(await admin.from('support_requests').select('*').eq('client_id', userB.id));
+    const snapshotB = async () => JSON.stringify({ c: (await admin.from('conversations').select('*').eq('client_id', userB.id).order('created_at')).data, m: (await admin.from('messages').select('*').eq('conversation_id', ticketB.conversationId).order('sent_at')).data });
+    const beforeB = await snapshotB();
 
     const { data: ticketA } = await a.client.functions.invoke('request-support-ticket', { body: { category: 'Transaction Issue', description: 'A’s own ticket.' } });
-    await adminSignIn.client.functions.invoke('update-support-ticket', { body: { clientId: userA.id, requestId: ticketA.id, status: 'Resolved', pmNote: 'Resolved for A.' } });
+    await adminSignIn.client.functions.invoke('send-conversation-reply', { body: { conversationId: ticketA.conversationId, body: 'Resolved for A.', channel: 'chat' } });
+    await adminSignIn.client.functions.invoke('admin-update-conversation', { body: { conversationId: ticketA.conversationId, status: 'resolved' } });
 
-    const afterB = JSON.stringify(await admin.from('support_requests').select('*').eq('client_id', userB.id));
-    check('Client B’s support_requests are byte-for-byte unchanged after Client A’s full create+resolve activity', beforeB === afterB);
+    const afterB = await snapshotB();
+    check('Client B’s ticket conversation + messages are byte-for-byte unchanged after Client A’s full create+reply+resolve activity', beforeB === afterB);
     check('Client B’s own ticket genuinely exists and is scoped to B, not mixed into A’s data', ticketB && ticketB.clientId === userB.id);
 
-    const { data: aTicket } = await admin.from('support_requests').select('status').eq('client_id', userA.id).eq('display_id', ticketA.id).single();
-    check('Client A’s own ticket DID genuinely change (the isolation check above is not vacuous)', aTicket.status === 'Resolved');
+    const { data: aTicket } = await admin.from('conversations').select('status').eq('id', ticketA.conversationId).single();
+    check('Client A’s own ticket DID genuinely change (the isolation check above is not vacuous)', aTicket.status === 'resolved');
 
     await cleanupClient(admin, userA.id);
     await cleanupClient(admin, userB.id);

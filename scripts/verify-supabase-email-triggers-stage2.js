@@ -309,22 +309,24 @@ async function main() {
   // ===========================================================================================
   // 14. update-support-ticket — both a plain status move AND a Resolved move, distinct subjects
   // ===========================================================================================
-  console.log('\n14. update-support-ticket\n');
+  // PM tool revamp, part 1 (2026-09-14): a ticket is a conversation; its status email (the
+  // same content update-support-ticket used to send) is admin-update-conversation's now.
+  console.log('\n14. admin-update-conversation on a ticket (was update-support-ticket)\n');
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
-    const { data: ticket } = await admin.from('support_requests').insert({ client_id: user.id, display_id: 'DISP-STAGE2TEST', category: 'Other', description: 'Test ticket.', status: 'Open', date_opened: new Date().toISOString().slice(0, 10) }).select().single();
+    const { data: ticket } = await admin.from('conversations').insert({ client_id: user.id, contact_email: malformedRecipient, contact_name: 'Stage2 Test', kind: 'ticket', category: 'Other', display_id: 'DISP-STAGE2TEST', subject: 'DISP-STAGE2TEST · Other', status: 'open' }).select().single();
 
     const before1 = new Date().toISOString();
-    const { data: d1, error: e1 } = await pm.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: 'DISP-STAGE2TEST', status: 'In Progress', pmNote: 'We are looking into this.' } });
-    check('update-support-ticket (In Progress) succeeds', !e1 && d1.status === 'In Progress', e1 && e1.message);
-    await checkLogged('update-support-ticket (In Progress)', 'support_request', ticket.id, /update on your Marketswave support request/i, before1);
+    const { data: d1, error: e1 } = await pm.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.id, status: 'in_progress' } });
+    check('admin-update-conversation (in_progress) succeeds', !e1 && d1.status === 'in_progress', e1 && e1.message);
+    await checkLogged('admin-update-conversation (in_progress)', 'conversation', ticket.id, /update on your Marketswave support request/i, before1);
 
     const before2 = new Date().toISOString();
-    const { data: d2, error: e2 } = await pm.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: 'DISP-STAGE2TEST', status: 'Resolved', pmNote: 'Fixed — let us know if you have further questions.' } });
-    check('update-support-ticket (Resolved) succeeds', !e2 && d2.status === 'Resolved', e2 && e2.message);
-    await checkLogged('update-support-ticket (Resolved)', 'support_request', ticket.id, /support request has been resolved/i, before2);
+    const { data: d2, error: e2 } = await pm.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.id, status: 'resolved' } });
+    check('admin-update-conversation (resolved) succeeds', !e2 && d2.status === 'resolved', e2 && e2.message);
+    await checkLogged('admin-update-conversation (resolved)', 'conversation', ticket.id, /support request has been resolved/i, before2);
 
-    await admin.from('support_requests').delete().eq('id', ticket.id);
+    await admin.from('conversations').delete().eq('id', ticket.id);
     await admin.from('clients').delete().eq('id', user.id);
     await admin.auth.admin.deleteUser(user.id);
   })();

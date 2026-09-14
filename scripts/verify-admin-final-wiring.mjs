@@ -282,7 +282,10 @@ async function main() {
     await admin.from('hys_withdrawal_requests').insert({ client_id: clientA.id, pocket_id: pocket.id, pocket_type: 'ayw', forfeit: false, receive_amount: 100, method: 'bank' });
     await admin.from('profile_change_requests').insert({ client_id: clientA.id, field: 'address', current_value: null, requested_value: { street: 'X', city: 'Y' } });
     await admin.from('documents').insert({ client_id: clientA.id, filename: 'test-upload.pdf', category: 'General', direction: 'upload', status: 'Received' });
-    await admin.from('support_requests').insert({ client_id: clientA.id, display_id: 'DISP-TEST-' + suffix, description: 'Testing.', category: 'Other', status: 'Open' });
+    // PM tool revamp, part 1 (2026-09-14): the Support card is the Inbox card — a ticket is
+    // a conversation waiting on a PM reply.
+    const { data: seedConvo } = await admin.from('conversations').insert({ client_id: clientA.id, contact_email: 'inbox-card-' + suffix + '@example.com', contact_name: 'Inbox Card ' + suffix, kind: 'ticket', category: 'Other', display_id: 'DISP-TEST-' + suffix, status: 'open' }).select('id').single();
+    await admin.from('messages').insert({ conversation_id: seedConvo.id, channel: 'chat', direction: 'inbound', body: 'Testing.' });
 
     // Real, independent expected values — one direct DB query per domain, not derived from
     // the page's own rendering logic (that would be circular).
@@ -297,8 +300,8 @@ async function main() {
     expected.settingsChanges = (await admin.from('profile_change_requests').select('id').eq('status', 'pending')).data.length;
     const docsData = (await admin.from('documents').select('id,direction,status')).data;
     expected.documents = docsData.filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }).length;
-    const supportData = (await admin.from('support_requests').select('id,status')).data;
-    expected.support = supportData.filter(function (r) { return r.status !== 'Resolved'; }).length;
+    const inboxData = (await admin.from('conversations').select('id,status,unread_by_pm')).data;
+    expected.inbox = inboxData.filter(function (c) { return c.unread_by_pm === true && c.status !== 'archived'; }).length;
 
     const path = fileURLToPath(new URL('../admin.html', import.meta.url));
     const dom = buildPageDom(path);
@@ -310,7 +313,7 @@ async function main() {
       clientApplications: 'pending-client-applications-count', deposits: 'pending-deposits-count',
       withdrawals: 'pending-withdrawals-count', allocations: 'pending-allocations-count',
       sells: 'pending-sells-count', hys: 'pending-hys-count', hysWithdrawals: 'pending-hys-withdrawals-count',
-      settingsChanges: 'pending-settings-changes-count', documents: 'pending-documents-count', support: 'pending-support-count'
+      settingsChanges: 'pending-settings-changes-count', documents: 'pending-documents-count', inbox: 'pending-inbox-count'
     };
     for (const key of Object.keys(CARD_IDS)) {
       const el = dom.window.document.getElementById(CARD_IDS[key]);

@@ -170,7 +170,7 @@ async function main() {
     const r9 = await clientSignedIn.functions.invoke('request-support-ticket', { body: { category: 'Other', description: 'Sample email verification — please disregard.' } });
     if (r9.error) throw new Error('request-support-ticket failed: ' + r9.error.message);
     note('request-support-ticket (new trigger, general footer) — PM notify');
-    clientDeletes.support_requests.push(r9.data.dbId);
+    clientDeletes.conversations = clientDeletes.conversations || []; clientDeletes.conversations.push(r9.data.conversationId);
 
     console.log('\n' + sent.length + ' function calls succeeded, producing ' + (sent.length + 1) + ' real emails (notify-new-client-application sends 2).');
     console.log('Check ' + recipient + ' now — every email should show the real MARKETSWAVE branded');
@@ -185,6 +185,7 @@ async function main() {
     await admin.from('hys_pockets').delete().eq('client_id', clientUser.id);
     await admin.from('documents').delete().eq('client_id', clientUser.id);
     await admin.from('support_requests').delete().eq('client_id', clientUser.id);
+    await admin.from('conversations').delete().eq('client_id', clientUser.id);
     await admin.from('transactions').delete().eq('client_id', clientUser.id);
     await admin.from('account_state').delete().eq('client_id', clientUser.id);
     await admin.from('clients').delete().eq('id', clientUser.id);

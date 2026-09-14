@@ -105,10 +105,10 @@ function extractBodyMarkup(htmlPath) {
 const forwardingConsole = new VirtualConsole();
 forwardingConsole.forwardTo(console);
 
-function buildPageDom(htmlPath) {
+function buildPageDom(htmlPath, urlStr) {
   const bodyMarkup = extractBodyMarkup(htmlPath);
   const dom = new JSDOM('<!doctype html><html><body>' + bodyMarkup + '</body></html>', {
-    url: 'http://localhost/', runScripts: 'outside-only', virtualConsole: forwardingConsole
+    url: urlStr || 'http://localhost/', runScripts: 'outside-only', virtualConsole: forwardingConsole
   });
   return dom;
 }
@@ -144,7 +144,7 @@ function withContext(ctx, fn) {
 }
 
 async function main() {
-  console.log('Cross-role sync bug-fix verification (admin-documents.html + admin-support.html bidirectional wiring, notification bell + sidebar badge across all 5 domains), using genuinely separate PM/client contexts\n');
+  console.log('Cross-role sync bug-fix verification (admin-documents.html + the inbox tickets, bidirectional wiring, notification bell + sidebar badge across all 5 domains), using genuinely separate PM/client contexts\n');
   const { url, serviceRoleKey } = readLocalStackCredentials();
   console.log('API URL: ' + url + '\n');
 
@@ -316,9 +316,12 @@ async function main() {
   })();
 
   // ===========================================================================================
-  // PART 2 — admin-support.html <-> support.html, bidirectional, genuinely separate contexts
+  // PART 2 — the inbox (admin-inbox.html) <-> support.html, bidirectional, genuinely separate contexts
+  // PM tool revamp, part 1 (2026-09-14): admin-support.html is retired; a ticket is a
+  // conversation the PM works in the inbox, and the PM's response is a real reply the client
+  // can answer, not a one-shot note.
   // ===========================================================================================
-  console.log('\n=== PART 2: Support — bidirectional, genuinely separate PM/client contexts ===\n');
+  console.log('\n=== PART 2: Support tickets — bidirectional, genuinely separate PM/client contexts ===\n');
 
   function buildClientSupportDom() {
     const path = fileURLToPath(new URL('../support.html', import.meta.url));
@@ -329,15 +332,17 @@ async function main() {
     const script = extractInlineScript(path, 'UI Wiring — Stage 5');
     return { dom: dom, script: script };
   }
-  function buildAdminSupportDom() {
-    const path = fileURLToPath(new URL('../admin-support.html', import.meta.url));
-    const dom = buildPageDom(path);
+  function buildAdminInboxDom(conversationId) {
+    const path = fileURLToPath(new URL('../admin-inbox.html', import.meta.url));
+    const dom = buildPageDom(path, 'http://127.0.0.1:8765/admin-inbox.html' + (conversationId ? '?c=' + conversationId : ''));
     dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'MarketswaveData.useAdminClient()');
+    dom.window.currentEnvQuery = function () { return ''; };
+    const script = extractInlineScript(path, 'loadAndSubscribe');
     return { dom: dom, script: script };
   }
 
   var clientSupportHandle;
+  var ticketConversationId = null;
   console.log('1. Client files a real dispute (CLIENT context) — the client -> PM direction');
   await (async function () {
     clientSupportHandle = buildClientSupportDom();
@@ -357,43 +362,48 @@ async function main() {
     });
     check('the real toast confirms a real server-computed DISP-0001 id', P.getElementById('support-toast-body').textContent.indexOf('DISP-0001') !== -1, P.getElementById('support-toast-body').textContent);
 
-    const { data: rows } = await admin.from('support_requests').select('*').eq('client_id', clientId);
-    check('a real support_requests row was genuinely created in Postgres', rows && rows.length === 1 && rows[0].display_id === 'DISP-0001', JSON.stringify(rows));
+    const { data: rows } = await admin.from('conversations').select('*').eq('client_id', clientId).eq('kind', 'ticket');
+    check('a real ticket conversation was genuinely created in Postgres', rows && rows.length === 1 && rows[0].display_id === 'DISP-0001', JSON.stringify(rows));
+    ticketConversationId = rows && rows[0] ? rows[0].id : null;
   })();
 
-  console.log('\n2. THE ACTUAL BUG FIX: the real dispute now reaches the PM (ADMIN context, genuinely separate)');
-  var adminSupportHandle;
+  console.log('\n2. THE ACTUAL BUG FIX: the real dispute now reaches the PM (ADMIN context, genuinely separate) — in the inbox\'s Tickets view');
+  var adminInboxHandle;
   await (async function () {
-    adminSupportHandle = buildAdminSupportDom();
-    const AS = adminSupportHandle.dom.window.document;
-    const pendingListEl = AS.getElementById('pending-list');
+    adminInboxHandle = buildAdminInboxDom(ticketConversationId);
+    const AS = adminInboxHandle.dom.window.document;
     await withContext(ADMIN_CTX, function () {
-      adminSupportHandle.dom.window.eval(adminSupportHandle.script);
-      return pollUntil(function () { return !/animate-pulse/.test(pendingListEl.innerHTML); }, 20000);
+      adminInboxHandle.dom.window.eval(adminInboxHandle.script);
+      return pollUntil(function () { return AS.getElementById('realtime-status').textContent === 'Live' && AS.querySelectorAll('#convo-list .convo-row').length > 0; }, 20000);
     });
-    check('the real dispute filed via a completely independent context genuinely appears in the PM\'s Needs Attention, with the correct real client name', pendingListEl.textContent.indexOf('DISP-0001') !== -1 && pendingListEl.textContent.indexOf(clientName) !== -1, pendingListEl.textContent.slice(0, 400));
+    const listText = AS.getElementById('convo-list').textContent;
+    check('the real dispute filed via a completely independent context genuinely appears in the PM\'s Tickets view, with the correct real client name', AS.querySelector('#inbox-rail .ibx-rb[data-view="tickets"]').classList.contains('is-on') && listText.indexOf('DISP-0001') !== -1 && listText.indexOf(clientName) !== -1, listText.slice(0, 400));
+    check('...under "Needs a reply"', /Needs a reply/.test(AS.querySelector('.ibx-grp').textContent));
   })();
 
-  console.log('\n3. PM responds and updates status (ADMIN context) — the PM -> client direction');
+  console.log('\n3. PM sets the status and REPLIES (ADMIN context) — the PM -> client direction');
   await (async function () {
-    const AS = adminSupportHandle.dom.window.document;
-    const pendingListEl = AS.getElementById('pending-list');
-    var updateBtn = pendingListEl.querySelector('.update-btn');
-    updateBtn.click();
-    AS.getElementById('update-status-input').value = 'In Progress';
-    AS.getElementById('update-note-input').value = 'We are reviewing your billing dispute now.';
-    var submitBtn = AS.getElementById('update-submit');
+    const AS = adminInboxHandle.dom.window.document;
+    const W = adminInboxHandle.dom.window;
+    AS.getElementById('thread-status-select').value = 'in_progress';
     var toastTitle = AS.getElementById('admin-toast-title');
     await withContext(ADMIN_CTX, function () {
-      submitBtn.click();
-      return pollUntil(function () { return toastTitle.textContent === 'Request Updated'; }, 15000);
+      AS.getElementById('thread-status-select').dispatchEvent(new W.Event('change', { bubbles: true }));
+      return pollUntil(function () { return toastTitle.textContent === 'Status Updated'; }, 15000);
     });
-    check('the real toast confirms the update', toastTitle.textContent === 'Request Updated');
-    const { data: rows } = await admin.from('support_requests').select('status,pm_note').eq('client_id', clientId);
-    check('the real row genuinely has status=In Progress and the real PM note in Postgres', rows && rows[0].status === 'In Progress' && rows[0].pm_note === 'We are reviewing your billing dispute now.', JSON.stringify(rows));
+    check('the real toast confirms the status update', toastTitle.textContent === 'Status Updated');
+    AS.querySelector('.ibx-ctab[data-channel="chat"]').click();
+    AS.getElementById('thread-reply-input').value = 'We are reviewing your billing dispute now.';
+    await withContext(ADMIN_CTX, function () {
+      AS.getElementById('thread-reply-send').click();
+      return pollUntil(function () { return AS.querySelectorAll('#thread-messages .ibx-m.is-out').length === 1; }, 15000);
+    });
+    const { data: convo } = await admin.from('conversations').select('status').eq('id', ticketConversationId).single();
+    const { data: msgs } = await admin.from('messages').select('channel, direction, body').eq('conversation_id', ticketConversationId).order('sent_at');
+    check('the real row genuinely has status=in_progress, a system line, and the PM\'s reply as a real outbound message', convo.status === 'in_progress' && msgs.some((m) => m.channel === 'system') && msgs.some((m) => m.direction === 'outbound' && m.body === 'We are reviewing your billing dispute now.'), JSON.stringify(msgs));
   })();
 
-  console.log('\n4. THE FIX, PROVEN THE OTHER WAY: the PM\'s real response reaches the client\'s own real page (CLIENT context, genuinely separate)');
+  console.log('\n4. THE FIX, PROVEN THE OTHER WAY: the PM\'s real reply reaches the client\'s own real page (CLIENT context, genuinely separate) — and the client answers it');
   await (async function () {
     const clientPath = fileURLToPath(new URL('../support.html', import.meta.url));
     const clientDom = buildPageDom(clientPath);
@@ -405,38 +415,34 @@ async function main() {
     const requestsListEl2 = P2.getElementById('requests-list');
     await withContext(CLIENT_CTX, function () {
       clientDom.window.eval(clientScript);
-      return pollUntil(function () { return !/animate-pulse/.test(requestsListEl2.innerHTML); }, 20000);
+      return pollUntil(function () { return !/animate-pulse/.test(requestsListEl2.innerHTML) && requestsListEl2.querySelector('.request-row'); }, 20000);
     });
     check('the real client page genuinely shows the real PM-updated status', requestsListEl2.textContent.indexOf('In Progress') !== -1, requestsListEl2.textContent.slice(0, 500));
-    check('the real client page genuinely shows the real PM note text — the PM -> client half of the bidirectional fix', requestsListEl2.textContent.indexOf('We are reviewing your billing dispute now.') !== -1, requestsListEl2.textContent.slice(0, 500));
+    requestsListEl2.querySelector('.request-row-toggle').click();
+    check('the real client page genuinely shows the PM\'s reply text in the thread — the PM -> client half', requestsListEl2.textContent.indexOf('We are reviewing your billing dispute now.') !== -1, requestsListEl2.textContent.slice(0, 500));
+    requestsListEl2.querySelector('.request-reply-input').value = 'Thanks — the charge was on the 9th.';
+    var toastTitle = P2.getElementById('support-toast-title');
+    await withContext(CLIENT_CTX, function () {
+      requestsListEl2.querySelector('.request-reply-send').click();
+      return pollUntil(function () { return toastTitle.textContent === 'Reply Sent'; }, 15000);
+    });
+    const { data: msgs } = await admin.from('messages').select('direction, body').eq('conversation_id', ticketConversationId).order('sent_at');
+    check('★ the client\'s answer is a real inbound message on the ticket (impossible before the consolidation)', msgs.filter((m) => m.direction === 'inbound').length === 2 && /charge was on the 9th/.test(msgs[msgs.length - 1].body), JSON.stringify(msgs));
+    const AS = adminInboxHandle.dom.window.document;
+    await withContext(ADMIN_CTX, function () { return pollUntil(function () { return /charge was on the 9th/.test(AS.getElementById('thread-messages').textContent); }, 15000); });
+    check('...and it arrives live in the PM\'s open thread via Realtime', /charge was on the 9th/.test(AS.getElementById('thread-messages').textContent));
   })();
 
-  console.log('\n5. Resolve fully (ADMIN context) — confirms History/Resolved on both real pages');
+  console.log('\n5. Resolve (ADMIN context) — confirms the status on both real pages');
   await (async function () {
-    const AS = adminSupportHandle.dom.window.document;
-    const updateBtn = AS.getElementById('pending-list').querySelector('.update-btn');
-    // Real page state has already moved on since step 3's own click — re-fetch fresh via a
-    // real reload, mirroring a genuine PM page refresh, rather than reusing a stale DOM.
-    const { dom, script } = buildAdminSupportDom();
-    const AS2 = dom.window.document;
-    const pendingListEl = AS2.getElementById('pending-list');
+    const AS = adminInboxHandle.dom.window.document;
+    const W = adminInboxHandle.dom.window;
+    AS.getElementById('thread-status-select').value = 'resolved';
     await withContext(ADMIN_CTX, function () {
-      dom.window.eval(script);
-      return pollUntil(function () { return !/animate-pulse/.test(pendingListEl.innerHTML); }, 20000);
+      AS.getElementById('thread-status-select').dispatchEvent(new W.Event('change', { bubbles: true }));
+      return pollUntil(function () { return /Resolved/.test(AS.querySelector('.convo-row[data-convo-id="' + ticketConversationId + '"] .ibx-stp').textContent); }, 15000);
     });
-    var btn2 = pendingListEl.querySelector('.update-btn');
-    btn2.click();
-    AS2.getElementById('update-status-input').value = 'Resolved';
-    AS2.getElementById('update-note-input').value = 'Billing dispute resolved — a real refund was issued.';
-    var toastTitle = AS2.getElementById('admin-toast-title');
-    await withContext(ADMIN_CTX, function () {
-      AS2.getElementById('update-submit').click();
-      return pollUntil(function () { return toastTitle.textContent === 'Request Updated'; }, 15000);
-    });
-
-    const historyListEl = AS2.getElementById('history-list');
-    await withContext(ADMIN_CTX, function () { return pollUntil(function () { return !/animate-pulse/.test(historyListEl.innerHTML); }, 20000); });
-    check('the real ticket now genuinely appears in the PM\'s own Resolved section', historyListEl.textContent.indexOf('DISP-0001') !== -1 && historyListEl.textContent.indexOf(clientName) !== -1, historyListEl.textContent.slice(0, 400));
+    check('the real ticket now genuinely shows Resolved in the PM\'s own list', /Resolved/.test(AS.querySelector('.convo-row[data-convo-id="' + ticketConversationId + '"] .ibx-stp').textContent));
 
     const clientPath = fileURLToPath(new URL('../support.html', import.meta.url));
     const clientDom = buildPageDom(clientPath);
@@ -448,9 +454,9 @@ async function main() {
     const requestsListEl3 = P3.getElementById('requests-list');
     await withContext(CLIENT_CTX, function () {
       clientDom.window.eval(clientScript);
-      return pollUntil(function () { return !/animate-pulse/.test(requestsListEl3.innerHTML); }, 20000);
+      return pollUntil(function () { return !/animate-pulse/.test(requestsListEl3.innerHTML) && requestsListEl3.querySelector('.request-row'); }, 20000);
     });
-    check('the client\'s own real page genuinely shows Resolved + the real final PM note too', requestsListEl3.textContent.indexOf('Resolved') !== -1 && requestsListEl3.textContent.indexOf('a real refund was issued') !== -1, requestsListEl3.textContent.slice(0, 500));
+    check('the client\'s own real page genuinely shows Resolved too', requestsListEl3.textContent.indexOf('Resolved') !== -1, requestsListEl3.textContent.slice(0, 500));
   })();
 
   // ===========================================================================================
@@ -568,7 +574,7 @@ async function main() {
     await admin.from('sell_requests').delete().eq('client_id', clientId);
     await admin.from('allocation_requests').delete().eq('client_id', clientId);
     await admin.from('holdings').delete().eq('client_id', clientId);
-    await admin.from('support_requests').delete().eq('client_id', clientId);
+    await admin.from('conversations').delete().eq('client_id', clientId);
     await admin.from('documents').delete().eq('client_id', clientId);
     await removeAllClientStorageObjects(admin, 'documents', clientId);
     await admin.from('account_state').delete().eq('client_id', clientId);

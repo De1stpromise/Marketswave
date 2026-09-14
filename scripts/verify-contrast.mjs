@@ -348,6 +348,65 @@ PROFILES['deposit-routing-queue'] = [
   { label: 'route figure', sel: '#pending-list .text-base', limit: 2 }
 ];
 
+// The PM inbox (2026-09-14, PM tool revamp, part 1). Every text surface the rebuilt inbox
+// introduces — the dark rail, the list rows in both read and unread weights, the three sender
+// tags, the ticket case id and status pills, the thread header/context strip, the channel chips,
+// both bubble tones, an email card with its delivery line, a system line, the composer. Two
+// profiles: a ticket thread (opened by ?c= deep link) and an email thread (PREPARE clicks it).
+PROFILES['inbox-ticket'] = [
+  { label: 'rail label (on)', sel: '#inbox-rail .ibx-rb.is-on .ibx-rl', limit: 1 },
+  { label: 'rail label (off)', sel: '#inbox-rail .ibx-rb:not(.is-on) .ibx-rl', limit: 3 },
+  { label: 'rail count', sel: '#inbox-rail .ibx-cnt:not([hidden])', limit: 3 },
+  { label: 'view title', sel: '#inbox-view-title', limit: 1 },
+  { label: 'filter pill (on)', sel: '#inbox-filters .ibx-fp.is-on', limit: 1 },
+  { label: 'filter pill (off)', sel: '#inbox-filters .ibx-fp:not(.is-on)', limit: 3 },
+  { label: 'group header', sel: '#convo-list .ibx-grp', limit: 2 },
+  { label: 'row name (unread)', sel: '#convo-list .ibx-cn.is-un', limit: 2 },
+  { label: 'row name (read)', sel: '#convo-list .ibx-cn:not(.is-un)', limit: 2 },
+  { label: 'row time (hot)', sel: '#convo-list .ibx-ct.is-hot', limit: 2 },
+  { label: 'row time', sel: '#convo-list .ibx-ct:not(.is-hot)', limit: 2 },
+  { label: 'row preview (unread)', sel: '#convo-list .ibx-cp.is-un', limit: 2 },
+  { label: 'row preview (read)', sel: '#convo-list .ibx-cp:not(.is-un)', limit: 2 },
+  { label: 'case id pill', sel: '#convo-list .ibx-caseid', limit: 2 },
+  { label: 'status pill', sel: '#convo-list .ibx-stp', limit: 3 },
+  { label: 'avatar initials', sel: '#convo-list .ibx-av', limit: 2 },
+  { label: 'thread name', sel: '#thread-contact-name', limit: 1 },
+  { label: 'thread case id', sel: '#thread-caseid', limit: 1 },
+  { label: 'thread online', sel: '#thread-online', limit: 1 },
+  { label: 'thread sub', sel: '#thread-sub b', limit: 1 },
+  { label: 'status select', sel: '#thread-status-select', limit: 1 },
+  { label: 'header action', sel: '.ibx-tacts .ibx-ib:not([hidden])', limit: 2 },
+  { label: 'context label', sel: '#thread-context .ibx-ctxi', limit: 4 },
+  { label: 'context value', sel: '#thread-context .ibx-ctxi b', limit: 4 },
+  { label: 'day separator', sel: '.ibx-daysep span', limit: 2 },
+  { label: 'channel chip', sel: '.ibx-chan', limit: 3 },
+  { label: 'message time', sel: '.ibx-time', limit: 2 },
+  { label: 'message addr', sel: '.ibx-addr', limit: 2 },
+  { label: 'bubble (in)', sel: '.ibx-m:not(.is-out) .ibx-bub', limit: 2 },
+  { label: 'bubble (out)', sel: '.ibx-m.is-out .ibx-bub', limit: 2 },
+  { label: 'opening header', sel: '.ibx-oh', limit: 1 },
+  { label: 'attachment', sel: '.ibx-att b', limit: 1 },
+  { label: 'attachment size', sel: '.ibx-att span', limit: 1 },
+  { label: 'system line', sel: '.ibx-sysline', limit: 2 },
+  { label: 'composer tab (on)', sel: '.ibx-ctab.is-on', limit: 1 },
+  { label: 'composer tab (off)', sel: '.ibx-ctab:not(.is-on)', limit: 1 },
+  { label: 'composer hint', sel: '#composer-hint', limit: 1 },
+  { label: 'send button', sel: '#thread-reply-send', limit: 1 }
+];
+PROFILES['inbox-email'] = [
+  { label: 'sender tag', sel: '#convo-list .ibx-tag', limit: 3 },
+  { label: 'visitor page chip', sel: '#convo-list .ibx-wait', limit: 1 },
+  { label: 'thread sub (no account)', sel: '#thread-sub', limit: 1 },
+  { label: 'status badge', sel: '#thread-status-badge', limit: 1 },
+  { label: 'mail subject', sel: '.ibx-mch .ibx-s', limit: 2 },
+  { label: 'mail body', sel: '.ibx-mcb', limit: 2 },
+  { label: 'delivery status', sel: '.ibx-status', limit: 1 },
+  { label: 'composer subject line', sel: '#composer-subject', limit: 1 },
+  { label: 'context (visitor)', sel: '#thread-context .ibx-ctxi b', limit: 3 },
+  { label: 'context link', sel: '#thread-context .ibx-ctxi a', limit: 1 },
+  { label: 'typing label', sel: '#thread-typing-label', limit: 1 }
+];
+
 // Product catalog — live pricing, part 1 (2026-09-11). The client card's new price block and
 // its three source states (live green / stale grey / appraisal amber), the change figure in
 // BOTH tones (a winner and a loser are both seeded so neither tone is assumed from the other),

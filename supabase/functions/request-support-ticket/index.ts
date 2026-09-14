@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
     const description = body && typeof body.description === 'string' ? body.description.trim() : '';
     const attachmentPath = body && typeof body.attachmentPath === 'string' && body.attachmentPath.trim() ? body.attachmentPath.trim() : null;
     const attachmentName = body && typeof body.attachmentName === 'string' && body.attachmentName.trim() ? body.attachmentName.trim() : null;
+    // A name without a stored object would be a phantom attachment — only meaningful with a path.
+    const attachmentNameForRow = attachmentPath ? attachmentName : null;
     const attachmentSize = body && Number.isFinite(Number(body.attachmentSize)) ? Math.max(0, Math.round(Number(body.attachmentSize))) : null;
 
     // Same validation as support.html's own submit handler ("Please select a category and
@@ -78,9 +80,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: clientRow, error: clientErr } = await admin.from('clients').select('id, name, email').eq('id', clientId).maybeSingle();
+    const { data: clientRowMaybe, error: clientErr } = await admin.from('clients').select('id, name, email').eq('id', clientId).maybeSingle();
     if (clientErr) return jsonResponse({ error: clientErr.message }, 500);
-    if (!clientRow) return jsonResponse({ error: 'No client record found for this account.' }, 404);
+    // Every real client has a clients row (signup creates it); an account without one still
+    // gets a ticket, addressed by its own verified JWT email rather than refused.
+    const clientRow = clientRowMaybe || { id: clientId, name: 'Client', email: (claimsData.claims.email as string) || null };
+    if (!clientRow.email) return jsonResponse({ error: 'No email address is known for this account.' }, 400);
 
     if (attachmentPath) {
       // The object must genuinely exist before its reference is stored — a path to nothing
@@ -130,8 +135,8 @@ Deno.serve(async (req) => {
         sender_name: clientRow.name,
         sender_email: clientRow.email,
         attachment_path: attachmentPath,
-        attachment_name: attachmentName,
-        attachment_size: attachmentSize
+        attachment_name: attachmentNameForRow,
+        attachment_size: attachmentPath ? attachmentSize : null
       })
       .select('id, sent_at')
       .single();
@@ -150,7 +155,7 @@ Deno.serve(async (req) => {
           { label: 'Reference', value: displayId },
           { label: 'Category', value: category },
           { label: 'Description', value: description },
-          ...(attachmentName ? [{ label: 'Evidence', value: attachmentName }] : [])
+          ...(attachmentNameForRow ? [{ label: 'Evidence', value: attachmentNameForRow }] : [])
         ],
         cta: { text: 'Open in the inbox', href: siteLink('admin-inbox.html?c=' + conversation.id) },
         footerType: 'general'
@@ -174,7 +179,7 @@ Deno.serve(async (req) => {
       status: conversation.status,
       dateOpened: conversation.created_at,
       openingMessageId: opening.id,
-      evidence: attachmentName
+      evidence: attachmentNameForRow
     }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);

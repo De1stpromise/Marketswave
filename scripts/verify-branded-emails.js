@@ -313,14 +313,14 @@ async function main() {
     await cleanup([user.id]);
   })();
 
-  console.log('\nB5. update-support-ticket (Resolved) / B6. publish-document\n');
+  console.log('\nB5. admin-update-conversation on a ticket (was update-support-ticket) / B6. publish-document\n');
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
-    const { data: ticket } = await admin.from('support_requests').insert({ client_id: user.id, display_id: 'DISP-0001', category: 'Other', description: 'Test issue', status: 'Open' }).select().single();
+    const { data: ticket } = await admin.from('conversations').insert({ client_id: user.id, contact_email: malformedRecipient, contact_name: 'Branded Test', kind: 'ticket', category: 'Other', display_id: 'DISP-0001', subject: 'DISP-0001 · Other', status: 'open' }).select().single();
     let before = new Date().toISOString();
-    const r1 = await pm.functions.invoke('update-support-ticket', { body: { clientId: user.id, requestId: 'DISP-0001', status: 'Resolved', pmNote: 'Resolved after review.' } });
-    check('update-support-ticket succeeds', !r1.error && r1.data.status === 'Resolved', r1.error && r1.error.message);
-    await checkLoggedBranded('update-support-ticket', 'support_request', ticket.id, /support request has been resolved/i, before);
+    const r1 = await pm.functions.invoke('admin-update-conversation', { body: { conversationId: ticket.id, status: 'resolved' } });
+    check('admin-update-conversation (resolved) succeeds', !r1.error && r1.data.status === 'resolved', r1.error && r1.error.message);
+    await checkLoggedBranded('admin-update-conversation (ticket resolved)', 'conversation', ticket.id, /support request has been resolved/i, before);
 
     before = new Date().toISOString();
     const fileBase64 = Buffer.from('test file content').toString('base64');
@@ -328,7 +328,7 @@ async function main() {
     check('publish-document succeeds', !r2.error && r2.data.filename === 'test.pdf', r2.error && r2.error.message);
     await checkLoggedBranded('publish-document', 'document', r2.data && r2.data.id, /requires your signature/i, before);
 
-    await admin.from('support_requests').delete().eq('id', ticket.id);
+    await admin.from('conversations').delete().eq('id', ticket.id);
     if (r2.data && r2.data.id) {
       await admin.storage.from('documents').remove([user.id + '/published/' + r2.data.id + '/test.pdf']).catch(() => {});
       await admin.from('documents').delete().eq('id', r2.data.id);
@@ -457,14 +457,14 @@ async function main() {
     await clientClient.auth.signInWithPassword({ email: unreachableDomain, password });
     const before = new Date().toISOString();
     const r = await clientClient.functions.invoke('request-support-ticket', { body: { category: 'Other', description: 'Testing the new PM notification.' } });
-    check('request-support-ticket succeeds', !r.error && r.data.status === 'Open', r.error && r.error.message);
+    check('request-support-ticket succeeds', !r.error && r.data.status === 'open', r.error && r.error.message);
     // Real per-PM accounts (Backend Migration Phase C — Stage 1) mean getAdminEmails() can
     // return any of several currently-registered real PMs, not one fixed address — assert at
     // least one real PM notification row landed, not a specific hardcoded recipient.
-    const { data: pmLogs } = await admin.from('email_log').select('*').eq('related_entity_type', 'support_request').eq('related_entity_id', r.data && r.data.dbId).gte('sent_at', before);
+    const { data: pmLogs } = await admin.from('email_log').select('*').eq('related_entity_type', 'conversation').eq('related_entity_id', r.data && r.data.conversationId).gte('sent_at', before);
     check('request-support-ticket — at least one real PM notification was logged', pmLogs && pmLogs.length >= 1, JSON.stringify(pmLogs));
     if (pmLogs && pmLogs.length >= 1) check('request-support-ticket — PM subject matches', /New Marketswave support ticket/i.test(pmLogs[0].subject), pmLogs[0].subject);
-    if (r.data && r.data.dbId) await admin.from('support_requests').delete().eq('id', r.data.dbId);
+    if (r.data && r.data.conversationId) await admin.from('conversations').delete().eq('id', r.data.conversationId);
     await cleanup([user.id]);
   })();
 
@@ -552,7 +552,7 @@ async function main() {
       ['approve-hys-withdrawal', 'investment'], ['reject-hys-withdrawal', 'investment'],
       ['approve-client-application', 'general'], ['reject-client-application', 'general'],
       ['approve-profile-change', 'general'], ['reject-profile-change', 'general'],
-      ['update-support-ticket', 'general'], ['publish-document', 'general'],
+      ['admin-update-conversation', 'general'], ['publish-document', 'general'],
       ['request-deposit', 'investment'], ['request-withdrawal', 'investment'],
       ['request-support-ticket', 'general'],
       ['notify-new-client-application', 'general'], ['notify-new-document-upload', 'general'],

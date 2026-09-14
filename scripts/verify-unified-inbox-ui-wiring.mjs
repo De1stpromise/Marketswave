@@ -195,7 +195,7 @@ async function main() {
     }, 8000);
     check('★ the real PM inbox genuinely receives the new conversation via real-time, with zero manual reload/re-fetch triggered by this test', !!pmSeesIt);
 
-    const convoRowEl = Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).find((r) => r.textContent.indexOf(visitorEmail) !== -1);
+    const convoRowEl = Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).find((r) => r.textContent.indexOf('UI Test Visitor') !== -1);
     check('the real conversation row shows an unread indicator before being opened', !!convoRowEl && convoRowEl.querySelector('.bg-amber-500') !== null);
     convoRowEl.dispatchEvent(new pmDom.window.Event('click', { bubbles: true }));
 
@@ -253,8 +253,13 @@ async function main() {
       }
     }
 
-    await waitFor(() => Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).filter((r) => r.textContent.indexOf(seedTag) !== -1).length === seedRows.length, 8000);
-    check('all 5 seeded conversations genuinely arrive in the real PM inbox via real-time (not a re-fetch)', Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).filter((r) => r.textContent.indexOf(seedTag) !== -1).length === seedRows.length);
+    function clickRail(view) {
+      pmDom.window.document.querySelector('#inbox-rail .ibx-rb[data-view="' + view + '"]').dispatchEvent(new pmDom.window.Event('click', { bubbles: true }));
+    }
+    // "All" holds every non-archived thread; the archived seed row lives in Archive.
+    clickRail('all');
+    await waitFor(() => Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).filter((r) => r.textContent.indexOf(seedTag) !== -1).length === seedRows.length - 1, 8000);
+    check('all 4 non-archived seeded conversations genuinely arrive in the real PM inbox via real-time (not a re-fetch)', Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).filter((r) => r.textContent.indexOf(seedTag) !== -1).length === seedRows.length - 1);
 
     function seedRowsVisible() {
       return Array.from(pmDom.window.document.querySelectorAll('#convo-list .convo-row')).filter((r) => r.textContent.indexOf(seedTag) !== -1);
@@ -264,8 +269,8 @@ async function main() {
       input.value = term;
       input.dispatchEvent(new pmDom.window.Event('input', { bubbles: true }));
     }
-    function clickFilterPill(containerId, value) {
-      const pill = pmDom.window.document.querySelector('#' + containerId + ' [data-status-filter="' + value + '"], #' + containerId + ' [data-channel-filter="' + value + '"]');
+    function clickFilterPill(value) {
+      const pill = pmDom.window.document.querySelector('#inbox-filters [data-filter="' + value + '"]');
       pill.dispatchEvent(new pmDom.window.Event('click', { bubbles: true }));
     }
 
@@ -279,26 +284,25 @@ async function main() {
     check('★ real search reaches into MESSAGE BODY text, not just name/email — a term that only appears in one message body correctly finds its conversation', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Echo') !== -1);
 
     setSearch(seedTag);
-    check('clearing back to a shared substring shows all 5 seeded rows again', seedRowsVisible().length === 5);
+    check('clearing back to a shared substring shows all 4 non-archived seeded rows again', seedRowsVisible().length === 4);
 
-    clickFilterPill('status-filters', 'unread');
-    check('the real Unread filter shows exactly the 2 seeded unread conversations (Alpha, Echo)', seedRowsVisible().length === 2 && seedRowsVisible().every((r) => r.textContent.indexOf('Alpha') !== -1 || r.textContent.indexOf('Echo') !== -1));
+    clickFilterPill('waiting');
+    check('the real "Waiting on me" filter shows exactly the 2 seeded unread conversations (Alpha, Echo)', seedRowsVisible().length === 2 && seedRowsVisible().every((r) => r.textContent.indexOf('Alpha') !== -1 || r.textContent.indexOf('Echo') !== -1));
+    clickFilterPill('all');
+    function groupOf(rowEl) { let el = rowEl; while (el && !(el.classList && el.classList.contains('ibx-grp'))) el = el.previousElementSibling; return el ? el.textContent.trim() : ''; }
+    const bravoRow = seedRowsVisible().find((r) => r.textContent.indexOf('Bravo') !== -1);
+    check('the list is grouped by urgency: the resolved seed row (Bravo) sits under "Earlier", the unread ones under "Needs a reply"', bravoRow && groupOf(bravoRow) === 'Earlier' && groupOf(seedRowsVisible().find((r) => r.textContent.indexOf('Alpha') !== -1)) === 'Needs a reply', bravoRow && groupOf(bravoRow));
 
-    clickFilterPill('status-filters', 'resolved');
-    check('the real Resolved filter shows exactly the 1 seeded resolved conversation (Bravo)', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Bravo') !== -1);
+    clickRail('archive');
+    check('the Archive view shows exactly the 1 seeded archived conversation (Charlie)', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Charlie') !== -1);
 
-    clickFilterPill('status-filters', 'archived');
-    check('the real Archived filter shows exactly the 1 seeded archived conversation (Charlie)', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Charlie') !== -1);
+    clickRail('email');
+    check('the Email rail view shows exactly the 1 seeded email-channel conversation (Delta)', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Delta') !== -1);
 
-    clickFilterPill('status-filters', 'all');
-    clickFilterPill('channel-filters', 'email');
-    check('the real Email channel filter shows exactly the 1 seeded email-channel conversation (Delta)', seedRowsVisible().length === 1 && seedRowsVisible()[0].textContent.indexOf('Delta') !== -1);
-
-    clickFilterPill('channel-filters', 'chat');
-    check('the real Chat channel filter shows the other 4 seeded chat-channel conversations', seedRowsVisible().length === 4);
-
-    clickFilterPill('channel-filters', 'all');
-    check('resetting both filters back to All shows all 5 seeded rows again', seedRowsVisible().length === 5);
+    clickRail('chats');
+    check('the Chats rail view shows the other 3 non-archived chat-channel conversations', seedRowsVisible().length === 3);
+    clickRail('all');
+    check('back on All, every non-archived seeded row shows again (4; the archived one lives in Archive)', seedRowsVisible().length === 4, String(seedRowsVisible().length));
 
     // Real RLS isolation, proven at the UI level too: a genuinely different anonymous visitor
     // cannot see any of these seeded conversations (or the earlier one) in their own widget.
@@ -326,8 +330,8 @@ async function main() {
     globalThis.window = pmDom.window;
     globalThis.document = pmDom.window.document;
     pmDom.window.document.getElementById('thread-resolve-btn').dispatchEvent(new pmDom.window.Event('click', { bubbles: true }));
-    await waitFor(() => pmDom.window.document.getElementById('thread-status-badge').textContent === 'resolved', 5000);
-    check('the real Resolve action updates the real thread status badge', pmDom.window.document.getElementById('thread-status-badge').textContent === 'resolved');
+    await waitFor(() => pmDom.window.document.getElementById('thread-status-badge').textContent === 'Resolved', 5000);
+    check('the real Resolve action updates the real thread status badge', pmDom.window.document.getElementById('thread-status-badge').textContent === 'Resolved');
     const { data: resolvedRow } = await admin.from('conversations').select('status, resolved_by_email').eq('id', conversationIdToCleanup).single();
     check('the real conversation row is genuinely resolved with real PM attribution', resolvedRow.status === 'resolved' && !!resolvedRow.resolved_by_email);
   } finally {
