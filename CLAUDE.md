@@ -9769,11 +9769,24 @@ row 74.
     table would lie); `update-support-ticket` is RETIRED-bannered and still deployed.
   - **The "Call Us" tile files a real ticket** (category "Callback Request"). Recommended
     over removing the tile: same creator path, lands where a PM already works.
+  - **★ NEVER SEED A THROWAWAY CLIENT WITH AN EMAIL A REAL CONVERSATION ALREADY CARRIES.**
+    `link_conversations_to_new_client()` fires on every `clients` insert and attaches any
+    unlinked conversation with that email; a delete-by-`client_id` cleanup then takes the real
+    thread with it. This happened once, on the Gmail round trip (row 220): the throwaway
+    client claimed the user's Sept 7 general thread and the cleanup deleted it. Use a per-run
+    malformed address (every local suite does), or snapshot and restore `client_id`.
   **Verified**: `supabase-verify-inbox-tickets` 63/63, `verify-settings-risk-support-ui-wiring`
-  38/38, `verify-inbox-tickets-ui-wiring` 48/48, `verify-inbox-tickets-visual` 28/28 (79
+  38/38, `verify-inbox-tickets-ui-wiring` 49/49, `verify-inbox-tickets-visual` 28/28 (79
   composited contrast measurements, Inter only, 1440/390/375 + a real 320px iframe); the six
-  suites moved onto the model all green (row 217 lists them). Targeted `npm run pass` and the
-  full suite: see row 217. Real cloud staging: see row 217.
+  suites moved onto the model all green (row 217 lists them). Targeted `npm run pass` 22/22.
+  Full suite 64/76 — every failure a mid-run DNS outage (finnhub.io unresolvable, Google
+  Fonts empty), the known base-symbol cache pollution, or parity correctly flagging the
+  not-yet-deployed migration; to be re-run on healthy network. Real cloud staging: migration
+  applied via the Management API (the CLI pooler login role was down again, row 211's fault),
+  26/26 migrations, 73/73 functions fresh after the batch-deploy finding (row 219). **The
+  Gmail round trip (row 220)**: one thread in a real mail client, reply-to `support@`, and both
+  inbound-threading rules proven — the reply-header rule on one reply, the DISP-id subject
+  fallback on the other.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
