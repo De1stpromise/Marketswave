@@ -1,0 +1,46 @@
+/* admin-nav.css — the PM tool's sidebar (PM tool revamp, part 2, 2026-09-14). Plain CSS,
+   deliberately not Tailwind utilities (CLAUDE.md row 165: the CDN emits nothing for an
+   unrecognised utility and does not error). admin-sidebar.js builds every .an-* class at
+   runtime, so this sheet is registered with verify-shared-stylesheet-coverage and linked on
+   every page that loads that script.
+
+   Ten ungrouped items, ordered by how often a PM touches them; the ordering does the work,
+   there are no group headers. Live counts on Approvals and Inbox, a green dot on "On the
+   site" (that number is live, a count would be stale the moment it painted). The footer
+   carries the account — role and sign-in email; there is no display name (the account has no
+   name field). Palette is the admin tool's own: #0F172A rail, #B45309 as the single accent
+   (PM_TOOL_VOCABULARY.md §6). Rail text is measured on the real rail colour: #94A3B8 on
+   #0F172A is 7.2:1, #CBD5E1 12.6:1. */
+
+.an-side { background: #0F172A; color: #94A3B8; display: flex; flex-direction: column; padding: 14px 12px 12px; width: 238px; }
+.an-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+.an-lg { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #B45309, #92400E); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.an-brand .an-bn { flex: 1; min-width: 0; }
+.an-bn b { display: block; font-size: 13.5px; font-weight: 700; color: #F1F5F9; letter-spacing: -.01em; }
+.an-bn span { display: block; font-size: 9.5px; color: #94A3B8; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+.an-close { width: 44px; height: 44px; margin: -8px -8px -8px 0; border: 0; background: transparent; color: #CBD5E1; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.an-close:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+
+.an-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
+.an-item { display: flex; align-items: center; gap: 11px; min-height: 38px; padding: 0 10px; border-radius: 9px; color: #94A3B8; text-decoration: none; transition: background .15s, color .15s; position: relative; }
+.an-item:hover { background: rgba(255, 255, 255, .05); color: #E2E8F0; }
+.an-item:focus-visible { outline: 2px solid #F59E0B; outline-offset: 2px; }
+.an-item.is-on { background: #B45309; color: #fff; }
+.an-item svg { flex-shrink: 0; opacity: .9; }
+.an-item .an-lb { flex: 1; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.an-ct { min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: rgba(255, 255, 255, .12); color: #E2E8F0; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.an-ct.is-hot { background: #DC2626; color: #fff; } /* red-600, not the mockup's #EF4444: white on #EF4444 measured 3.76:1 at 10px (the same finding as the notification chip, row 188); red-600 measures 4.83:1 and matches the inbox rail's own count */
+.an-item.is-on .an-ct { background: rgba(255, 255, 255, .22); color: #fff; }
+.an-live { width: 7px; height: 7px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 6px rgba(34, 197, 94, .8); display: block; }
+.an-ct[hidden], .an-live[hidden] { display: none; }
+.an-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.an-foot { border-top: 1px solid rgba(255, 255, 255, .07); padding-top: 11px; margin-top: 11px; }
+.an-pm { display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 10px; border-radius: 9px; }
+.an-av { width: 31px; height: 31px; border-radius: 50%; background: #B45309; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.an-nm { flex: 1; min-width: 0; }
+.an-nm b { display: block; font-size: 12px; font-weight: 600; color: #E2E8F0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.an-nm span { display: block; font-size: 10.5px; color: #94A3B8; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.an-out { width: 36px; height: 44px; border: 0; background: transparent; color: #94A3B8; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.an-out:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.an-out:focus-visible { outline: 2px solid #F59E0B; outline-offset: 2px; }

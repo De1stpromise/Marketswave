@@ -64,6 +64,10 @@ const SHARED = [
   // The PM inbox (2026-09-14, PM tool revamp part 1): admin-inbox.html's own inline script
   // builds every .ibx-* / .convo-row class at runtime; the rail/thread scaffold is static.
   'admin-inbox.css',
+  // PM tool revamp, part 2 (2026-09-14): admin-sidebar.js builds every .an-* class at
+  // runtime on every admin page; admin.html's own inline script builds every .ov-* row.
+  'admin-nav.css',
+  'admin-overview.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

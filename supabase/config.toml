@@ -900,3 +900,8 @@ entrypoint = "./functions/send-proactive-message/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/accept-chat-invitation/index.ts"
+
+[functions.get-pm-briefing]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-pm-briefing/index.ts"

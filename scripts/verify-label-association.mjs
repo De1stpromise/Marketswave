@@ -57,7 +57,7 @@ const PUBLIC_PAGES = ['signup.html', 'login.html', 'contact.html', 'reset-passwo
 const CLIENT_PAGES = ['dashboard.html', 'asset-performance.html', 'asset-collection.html',
   'transactions.html', 'documents.html', 'deploy-capital.html', 'high-yield-savings.html',
   'risk-management.html', 'settings.html', 'support.html'];
-const ADMIN_PAGES = ['admin.html', 'admin-advisory-fee.html', 'admin-allocations.html',
+const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-advisory-fee.html', 'admin-allocations.html',
   'admin-client-applications.html', 'admin-clients.html', 'admin-deposits.html',
   'admin-documents.html', 'admin-hys.html', 'admin-inbox.html', 'admin-login.html',
   'admin-products.html', 'admin-profile-updates.html', 'admin-security.html',

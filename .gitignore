@@ -31,3 +31,9 @@ AdobeStock_81432616.jpeg
 # verify-pass.mjs (2026-09-14) — per-suite output of every verification pass, for grepping
 # TEARDOWN / UNMEASURED lines afterwards. Local only; a pass log is never something to commit.
 scripts/.pass-logs/
+
+# Scratch helpers written into scripts/ during a session (throwaway screenshot drivers,
+# one-off probes). They are not suites and must never be committed — a future session
+# reading scripts/ should see only real, named verification scripts. Anything genuinely
+# temporary belongs in the session scratchpad, not here; this rule is the backstop.
+scripts/.tmp-*

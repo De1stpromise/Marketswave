@@ -319,7 +319,7 @@ async function main() {
 
     // ---------------------------------------------------------------- PART 2: admin geometry + palette
     console.log('\nPART 2 — admin: same shape, its own locked palette\n');
-    const ADMIN_PAGES = ['admin.html', 'admin-deposits.html', 'admin-withdrawals.html',
+    const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-deposits.html', 'admin-withdrawals.html',
       'admin-allocations.html', 'admin-sells.html', 'admin-hys.html', 'admin-clients.html',
       'admin-products.html', 'admin-documents.html', 'admin-inbox.html', 'admin-profile-updates.html', 'admin-presence.html'];
     let aA = 0, aC = 0, aF = 0;

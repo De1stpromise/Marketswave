@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Approvals — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="admin-overview.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ========== SIDEBAR ========== -->
+    <div id="admin-sidebar-mount"></div>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
+          <p class="text-xs text-slate-500" id="live-date-time"></p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+        <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
+
+        <!-- ★ PM tool revamp, part 2 (2026-09-14): the single "Approvals" nav item lands here.
+             This page is deliberately a LANDING, not the gate: the seven queue pages below are
+             still the only place each kind of request can be approved or rejected, and each
+             stays reachable from here until part 3 replaces them with the real gate. Every
+             count is a direct, RLS-authorized cross-client read (the same reads the old
+             Overview cards made), so the seven figures here are the seven figures the sidebar
+             badge sums. -->
+        <div class="mb-6">
+          <h2 class="text-2xl font-semibold text-slate-900">Approvals</h2>
+          <p class="text-slate-600 mt-1">Everything waiting on a decision, by queue. Open a queue to approve or reject.</p>
+        </div>
+
+        <div class="ov-att" id="approvals-summary">
+          <div class="ov-ac glass glass-lift">
+            <div class="ov-k">Waiting on you</div>
+            <div class="ov-v" id="approvals-total">—</div>
+            <div class="ov-x" id="approvals-total-sub">across seven queues</div>
+          </div>
+          <div class="ov-ac glass glass-lift" id="approvals-overdue-card">
+            <div class="ov-k">Overdue</div>
+            <div class="ov-v" id="approvals-overdue">—</div>
+            <div class="ov-x" id="approvals-overdue-sub">pending more than 24 hours</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="approval-queues">
+
+          <a href="admin-client-applications.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Client applications</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-client-applications-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="clientApplications">Awaiting review →</p>
+          </a>
+
+          <a href="admin-deposits.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Deposits</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-deposits-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="deposits">Awaiting review →</p>
+          </a>
+
+          <a href="admin-withdrawals.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Withdrawals</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-withdrawals-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="withdrawals">Awaiting review →</p>
+          </a>
+
+          <a href="admin-allocations.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Allocations</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-allocations-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="allocations">Awaiting review →</p>
+          </a>
+
+          <a href="admin-sells.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Sells</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-sells-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="sells">Awaiting review →</p>
+          </a>
+
+          <a href="admin-hys.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Savings deposits</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-hys-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="hys">Awaiting review →</p>
+          </a>
+
+          <a href="admin-hys.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Savings withdrawals</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-hys-withdrawals-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="hysWithdrawals">Awaiting review →</p>
+          </a>
+
+          <a href="admin-profile-updates.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-medium text-slate-600">Profile updates</p>
+              <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </div>
+            <p class="text-3xl font-bold text-slate-900" id="pending-settings-changes-count">—</p>
+            <p class="text-sm text-slate-600 mt-2" data-oldest="settingsChanges">Awaiting review →</p>
+          </a>
+
+        </div>
+
+        <div class="glass rounded-2xl p-6 mt-8" id="all-clear-banner" style="display:none;">
+          <p class="text-sm font-medium text-emerald-700">✓ All caught up — nothing waiting in any queue.</p>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <script src="supabase-data.js"></script>
+  <script>
+    initAdminSidebar('approvals');
+  </script>
+
+  <script>
+    // Approvals landing (PM tool revamp, part 2, 2026-09-14). Every count is a direct,
+    // RLS-authorized cross-client read — the exact reads the old Overview cards made (Admin UI
+    // Wiring — Final Stage), now living on the page the Approvals nav item opens. The oldest
+    // pending age per queue and the overdue figure use the briefing's own threshold (24 h).
+    (function () {
+      if (typeof MarketswaveData === 'undefined') return;
+      MarketswaveData.useAdminClient();
+      var OVERDUE_HOURS = 24;
+
+      function pendingRows(table, predicate, dateField) {
+        return MarketswaveData.selectTable(table).then(function (rows) {
+          return rows.filter(predicate).map(function (r) { return { at: r[dateField] }; });
+        });
+      }
+      var reads = {
+        clientApplications: pendingRows('clients', function (c) { return c.status === 'pending_review'; }, 'created_at'),
+        deposits: pendingRows('deposit_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        withdrawals: pendingRows('withdrawal_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        allocations: pendingRows('allocation_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        sells: pendingRows('sell_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        hys: pendingRows('hys_deposit_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        hysWithdrawals: pendingRows('hys_withdrawal_requests', function (r) { return r.status === 'pending'; }, 'requested_at'),
+        settingsChanges: pendingRows('profile_change_requests', function (r) { return r.status === 'pending'; }, 'requested_at')
+      };
+      var CARD_IDS = {
+        clientApplications: 'pending-client-applications-count', deposits: 'pending-deposits-count',
+        withdrawals: 'pending-withdrawals-count', allocations: 'pending-allocations-count',
+        sells: 'pending-sells-count', hys: 'pending-hys-count', hysWithdrawals: 'pending-hys-withdrawals-count',
+        settingsChanges: 'pending-settings-changes-count'
+      };
+      function ageLabel(hours) {
+        if (hours < 1) return 'under an hour';
+        if (hours < 48) return Math.round(hours) + ' h';
+        return Math.round(hours / 24) + ' days';
+      }
+      var keys = Object.keys(reads);
+      keys.forEach(function (key) {
+        var el = document.getElementById(CARD_IDS[key]);
+        var sub = document.querySelector('[data-oldest="' + key + '"]');
+        reads[key].then(function (rows) {
+          el.textContent = rows.length;
+          if (rows.length && sub) {
+            var oldest = Math.max.apply(null, rows.map(function (r) { return (Date.now() - new Date(r.at).getTime()) / 3600e3; }));
+            sub.textContent = 'Oldest waiting ' + ageLabel(oldest) + ' →';
+            sub.classList.toggle('ov-hot', oldest >= OVERDUE_HOURS);
+          } else if (sub) {
+            sub.textContent = 'Nothing waiting →';
+          }
+        }).catch(function () { el.textContent = '—'; });
+      });
+      Promise.all(keys.map(function (k) { return reads[k]; })).then(function (lists) {
+        var all = [].concat.apply([], lists);
+        var overdue = all.filter(function (r) { return (Date.now() - new Date(r.at).getTime()) / 3600e3 >= OVERDUE_HOURS; });
+        document.getElementById('approvals-total').textContent = all.length;
+        document.getElementById('approvals-overdue').textContent = overdue.length;
+        var card = document.getElementById('approvals-overdue-card');
+        card.classList.toggle('is-urgent', overdue.length > 0);
+        if (overdue.length) {
+          var oldest = Math.max.apply(null, overdue.map(function (r) { return (Date.now() - new Date(r.at).getTime()) / 3600e3; }));
+          document.getElementById('approvals-overdue-sub').textContent = 'Oldest waiting ' + ageLabel(oldest);
+        }
+        if (all.length === 0) document.getElementById('all-clear-banner').style.display = '';
+      }).catch(function () { /* one read failed — leave the banner hidden rather than claim all-clear on incomplete data */ });
+    })();
+  </script>
+
+</body>
+</html>

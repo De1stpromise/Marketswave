@@ -9788,6 +9788,90 @@ row 74.
   inbound-threading rules proven — the reply-header rule on one reply, the DISP-id subject
   fallback on the other.
 
+- **★★★ PM tool revamp, part 2 — navigation restructure and the Overview as a daily
+  briefing (2026-09-14, row 221).** Built to the approved `pm_nav_overview` mockup, following
+  `PM_TOOL_VOCABULARY.md` (which gains §10–§12 for what this part establishes). Landed in
+  four commits: backend, navigation, the briefing, verification + docs.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE SIDEBAR IS TEN UNGROUPED ITEMS, ORDERED BY HOW OFTEN A PM TOUCHES THEM** —
+    Overview · Approvals · Inbox · Clients · On the site · Products · Deposit addresses ·
+    Documents · Advisory fee · Security. `GROUPS` and every group header are gone from
+    `admin-sidebar.js`; the look is `admin-nav.css` (`.an-*`, plain CSS, linked on all 18
+    admin pages, registered with the coverage guard), the rail is a flat `#0F172A` (the
+    vocabulary's rail colour; `.glass-slate` is no longer on the aside). Counts are live on
+    Approvals (`startApprovalsWatch()` — Realtime on the seven request tables + `clients`,
+    30 s recount) and Inbox; "On the site" is a green dot whose real count lives in a
+    visually-hidden span (`#sidebar-presence-count` keeps its id and text for assistive tech
+    and for the existing presence suite). The footer is role + sign-in email — there is no
+    display name field and will not be until multi-PM.
+  - **★ SEQUENCING CHOICE: THE SEVEN QUEUE PAGES STAY, REACHED THROUGH A LANDING.** The
+    single Approvals item opens `admin-approvals.html`, an interim landing (seven queue cards
+    with counts and oldest-pending ages, a Waiting/Overdue band) that links every queue page;
+    each queue page highlights "Approvals" via the item's `aliases`. Chosen over landing part 3
+    in the same push because the gate is a real rebuild of seven approve/reject flows and
+    would have made this push unverifiable at the size the brief asked for; nothing in the nav
+    points at a page that does not exist. Part 3 replaces the landing and the seven pages.
+  - **★ "SINCE YOU LAST LOOKED" HAS A REAL SOURCE NOW, BECAUSE NONE EXISTED.** Investigated
+    first: `auth.users.last_sign_in_at` moves only on a password sign-in (the persisted admin
+    session refreshes silently for days), `auth.sessions.refreshed_at` is null for every real
+    PM session here and is unreadable from the browser, and nothing recorded a page view. New
+    `pm_visits` (service_role only) is written by `get-pm-briefing` on each read; a SESSION is
+    reads with no gap over 30 min, and the panel is timestamped against the PREVIOUS session's
+    last read. A PM's first briefing says so — it never substitutes midnight. A verification
+    caller passes `{ recordVisit: false }` to read without moving the clock, and the suites
+    snapshot/restore the real PM's row.
+  - **★ EVERY FIGURE IS COMPUTED IN `_shared/pm-briefing.ts`, AND THE THRESHOLDS ARE IN ITS
+    HEADER**: overdue = pending ≥ 24 h (also the hot line); concentration = one holding ≥ 40%
+    of a total portfolio value of ≥ $10k; dormant = an active client holding value with no
+    activity in 60 days, activity being the latest of a password sign-in, any request of any
+    type, any transaction, or any site visit in the 30-day presence window; idle capital is
+    reported whenever any client holds any; every unsigned document is listed, oldest first.
+    AUM = Σ total portfolio value (unallocated + allocated + realised) over clients that
+    exist in `clients` — EXCLUDING savings pockets, which are their own line; the month change
+    is shown only when EVERY client with a portfolio has this month's anchor (a partial sum
+    would read as a change that never happened) and otherwise says "anchors exist for N of M".
+    Fees this month = Σ allocated × rate × elapsed days / 365, labelled an estimate.
+  - **WHAT IS HONESTLY ABSENT, and how the panel says it**: last backup — no backup exists on
+    this project, shown amber "Not configured"; statements — nothing generates them, so Coming
+    up lists the real monthly value snapshot (00:05 UTC on the 1st) labelled as what it is;
+    NAV overdue needs a stated frequency (the fund document's `terms.valuationFrequency`,
+    published or draft) — an appraised product without one is listed under Needs a look
+    instead of being guessed at; email bounces count `messages.delivery_status = 'bounced'`
+    (webhook-fed, row 218 still open) plus `email_log.status = 'failed'`, and the line says
+    bounces arrive only via the webhook. On the local stack the failed count is thousands —
+    the suites mail malformed recipients on purpose.
+  - **`scheduler_health()` is a SECURITY DEFINER read over `cron.job_run_details` and
+    `net._http_response`**, executable by service_role only (proven refused for a client and
+    for anon). It is what makes "Price refresh ran 2 min ago · halted early for the rate
+    limit (6 of 30)" a real sentence: the last refresh's own response body is parsed, so the
+    health panel shows `haltedForRateLimit` and the oldest-stock age against the rotation's
+    allowance (`worstCaseStalenessMinutes`). On this machine the panel is red for the oldest
+    price right now — the shared Finnhub key (row 213) is starving the local rotation — and
+    that is the correct reading, not a display bug.
+  - **The white-on-`#EF4444` count badge measured 3.76:1**; the badges are red-600 (4.83:1),
+    the inbox rail's own count colour. The mockup's `#94A3B8`/`#64748B` secondary greys are
+    slate-600 on every panel (row 151, part 1's finding again). The attention cards are
+    `.glass` + `.glass-lift` (their figure sits under the sheen); the eight panels are
+    `.glass-subtle`.
+  - **`.an-brand span` vs `.an-lg`**: a descendant rule on `span` out-specified the brand
+    tile's own class and shrank the "M" to 9.5px — the brand text rules are scoped to
+    `.an-bn`. Badges hide by the `hidden` ATTRIBUTE (plus the class), so the sidebar does not
+    depend on Tailwind's `.hidden` and the coverage guard does not read `.hidden` as a class
+    `admin-nav.css` owns.
+  - **The queue-count cards left `admin.html`**; `verify-admin-final-wiring` section 3 now
+    reads them on `admin-approvals.html`.
+  **Verified**: `supabase-verify-pm-briefing` 61/61 (401/403, the visit record across first
+  briefing / same session / a 30-minute gap / `recordVisit:false`, every panel's figures
+  re-derived from the tables, a client with no deposit address genuinely appearing, the
+  quarterly fund overdue by the real calendar gap, `pm_visits` and `scheduler_health()`
+  unreachable by a client); `verify-pm-overview-ui-wiring` 48/48 (the real page in a real
+  DOM: every panel against the payload and the tables, the error card with a retry on all
+  eight panels, the landing's seven counts and the seven links); `verify-pm-overview-visual`
+  34/34 (ten items in order with no headers, counts equal to independent DB reads, the dot,
+  the footer email, a real Log out, aliases on a queue page; 114 + 30 composited contrast
+  measurements with 0 below 4.5:1, the sheen audit on both pages, Inter only; 1440/390/375 +
+  a real 320px iframe with the drawer opened). Targeted pass, gate first — see row 221.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

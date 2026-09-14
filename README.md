@@ -2110,6 +2110,24 @@ Suites, from `scripts/`: `npm run supabase-verify-inbox-tickets` (backend),
 :8765). A real inbound email cannot be replayed locally (the function fetches the message
 from Resend by id); the reply-header threading is proven on real staging.
 
+### ★ The PM navigation and the briefing (2026-09-14, part 2)
+
+The sidebar is ten ungrouped items (`admin-sidebar.js` + `admin-nav.css`); the single
+**Approvals** item opens `admin-approvals.html`, an interim landing that links the seven
+queue pages until part 3 replaces them. `admin.html` is a briefing: one `get-pm-briefing`
+read (admin-only) computes every figure in `_shared/pm-briefing.ts` — thresholds and the
+things that are honestly absent (no backup, no statements, a NAV frequency only the fund
+document can state) are in that file's header. "Since you last looked" is against the PM's
+own previous session, recorded in `pm_visits`; `scheduler_health()` (service_role only) is
+what the health panel reads for the real last cron runs. Patterns: `PM_TOOL_VOCABULARY.md`
+§10–§12.
+
+Suites, from `scripts/`: `npm run supabase-verify-pm-briefing` (backend, every figure
+against its source), `npm run verify-pm-overview-ui-wiring` (both real pages in a real DOM),
+`npm run verify-pm-overview-visual` (sidebar on real pages, contrast with the sheen
+composited, fonts, widths — needs a static server on :8765).
+
+
 ### ★ Running a verification pass — `npm run pass` (2026-09-14)
 
 From `scripts/`: `npm run pass -- verify-catalog-expansion verify-asset-pages-ui-wiring` for a

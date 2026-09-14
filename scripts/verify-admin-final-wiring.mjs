@@ -252,9 +252,12 @@ async function main() {
   })();
 
   // =============================================================================================
-  // 3. admin.html — Overview pending counts, cross-checked against real seeded data
+  // 3. admin-approvals.html — the seven queue counts, cross-checked against real seeded data
+  //    (PM tool revamp, part 2, 2026-09-14: these cards moved from admin.html — now the
+  //    briefing, covered by verify-pm-overview-* — to the Approvals landing; the Documents/
+  //    Inbox/Product/Fee cards no longer exist as cards anywhere).
   // =============================================================================================
-  console.log('\n=== 3. admin.html (Overview) ===\n');
+  console.log('\n=== 3. admin-approvals.html (the Approvals landing) ===\n');
   await (async function () {
     // Seed exactly one real pending item in each of the 7 domains admin.html's own counts
     // read, using clientA (already real from step 1), so this test can assert an EXACT count
@@ -303,32 +306,32 @@ async function main() {
     const inboxData = (await admin.from('conversations').select('id,status,unread_by_pm')).data;
     expected.inbox = inboxData.filter(function (c) { return c.unread_by_pm === true && c.status !== 'archived'; }).length;
 
-    const path = fileURLToPath(new URL('../admin.html', import.meta.url));
+    const path = fileURLToPath(new URL('../admin-approvals.html', import.meta.url));
     const dom = buildPageDom(path);
     dom.window.MarketswaveData = MarketswaveData;
-    const script = extractInlineScript(path, 'Admin UI Wiring — Final Stage');
+    const script = extractInlineScript(path, 'Approvals landing');
     dom.window.eval(script);
 
     const CARD_IDS = {
       clientApplications: 'pending-client-applications-count', deposits: 'pending-deposits-count',
       withdrawals: 'pending-withdrawals-count', allocations: 'pending-allocations-count',
       sells: 'pending-sells-count', hys: 'pending-hys-count', hysWithdrawals: 'pending-hys-withdrawals-count',
-      settingsChanges: 'pending-settings-changes-count', documents: 'pending-documents-count', inbox: 'pending-inbox-count'
+      settingsChanges: 'pending-settings-changes-count'
     };
     for (const key of Object.keys(CARD_IDS)) {
       const el = dom.window.document.getElementById(CARD_IDS[key]);
       await pollUntil(function () { return el.textContent !== '—'; }, 20000);
-      check('admin.html\'s "' + key + '" card matches the real, independently-queried DB count (' + expected[key] + ')', el.textContent === String(expected[key]), 'rendered=' + el.textContent + ' expected=' + expected[key]);
+      check('admin-approvals.html\'s "' + key + '" card matches the real, independently-queried DB count (' + expected[key] + ')', el.textContent === String(expected[key]), 'rendered=' + el.textContent + ' expected=' + expected[key]);
     }
 
-    const productCountEl = dom.window.document.getElementById('product-count');
-    await pollUntil(function () { return productCountEl.textContent !== '—'; }, 20000);
-    const { data: allProducts } = await admin.from('products').select('id');
-    check('Product Catalog card matches the real product count', productCountEl.textContent === String(allProducts.length), productCountEl.textContent + ' vs ' + allProducts.length);
-
-    const feeEl = dom.window.document.getElementById('advisory-fee-rate');
-    await pollUntil(function () { return feeEl.textContent !== '—'; }, 20000);
-    check('Advisory Fee Rate card shows the real rate saved in step 2 (2.75%)', feeEl.textContent === '2.75%', feeEl.textContent);
+    const totalEl = dom.window.document.getElementById('approvals-total');
+    await pollUntil(function () { return totalEl.textContent !== '—'; }, 20000);
+    const totalExpected = Object.keys(CARD_IDS).reduce(function (s, k) { return s + expected[k]; }, 0);
+    check('the landing\'s "Waiting on you" band totals the seven queues (' + totalExpected + ')', totalEl.textContent === String(totalExpected), totalEl.textContent);
+    // The advisory fee rate saved in step 2 is still the real global value (the card that used
+    // to show it on admin.html is gone; the value is read straight from the table).
+    const { data: rateRow } = await admin.from('advisory_fee_rate').select('rate').eq('id', true).single();
+    check('the real advisory fee rate saved in step 2 reads back 2.75', Math.abs(Number(rateRow.rate) - 2.75) < 1e-9, String(rateRow.rate));
   })();
 
   // =============================================================================================

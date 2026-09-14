@@ -79,10 +79,12 @@ function preserveEnvParamInPageLinks() {
 // defense-in-depth-inside-initAdminSidebar() two-layer shape) because they serve two
 // different callers (this top-level IIFE runs unconditionally on file load; initAdminSidebar()
 // is called explicitly by each page's own script and must not render if this resolves false).
+var __adminEmail = null;
 var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mod) {
   return mod.supabase.auth.getSession();
 }).then(function (res) {
   var authenticated = !!(res && res.data && res.data.session);
+  if (authenticated) __adminEmail = (res.data.session.user && res.data.session.user.email) || null;
   if (!authenticated) {
     location.replace('admin-login.html' + currentEnvQuery());
   }
@@ -95,236 +97,62 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
 });
 
 (function () {
-  // Nav groups (Aug 21, 2026) — the fixed categorization every admin tool's nav item is
-  // assigned into via its own `group` field below, in the exact order groups render. This is
-  // the one place group membership/order/labels are defined; adding a future tool means
-  // adding one NAV_ITEMS entry with an existing `group` id (or a new GROUPS entry first, if
-  // it genuinely needs another category) — never re-arranging section boundaries by hand.
-  // 'dashboard' added (Aug 21, 2026) as the first group, holding Overview and Client List —
-  // previously these two were "ungrouped" (group: null), rendered above the labeled groups
-  // with no header of their own. That distinction is gone now: they're a real group like any
-  // other, just positioned first, so they get the identical group-header treatment.
-  //
-  // Aug 23, 2026, second regroup same day: the 'portfolio-administration' group (briefly
-  // relabeled "Settings" earlier the same day) is removed entirely — Products moved out to
-  // the new 'catalog' group below, and Advisory Fee + Account Security (now labeled "Security
-  // Log") moved into 'user-admin-relations' instead of getting their own group. 'catalog' was
-  // originally positioned last; moved up (third edit, same day) ahead of 'user-admin-relations'
-  // so it doesn't sit at the bottom of the nav — Approval Gate stays first after Dashboard as
-  // the highest-frequency/most time-sensitive daily-use group.
-  var GROUPS = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'approval-gate', label: 'Approval Gate' },
-    { id: 'catalog', label: 'Catalog' },
-    { id: 'user-admin-relations', label: 'User/Admin Relations' }
-  ];
+  // ★ PM tool revamp, part 2 (2026-09-14): TEN UNGROUPED ITEMS, ordered by how often a PM
+  // touches them. The GROUPS array and every group header are gone — the ordering does the
+  // work. The seven Approval Gate pages collapse to ONE item, "Approvals", which routes to
+  // admin-approvals.html (a landing that links the seven queue pages, each still the only
+  // place its kind of request can be approved) until part 3 replaces those pages; a queue
+  // page highlights "Approvals" as its nav item via `aliases`. "Support" was folded into
+  // Inbox in part 1 and has no entry. Counts: Approvals (pending across the seven queues) and
+  // Inbox (conversations needing a reply) are live; "On the site" carries a green dot, not a
+  // count, because that number is live and a count would be stale the moment it painted.
+  // History of the grouped nav this replaced (Aug 21-23, 2026): see git.
+  var ICON = {
+    overview: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',
+    approvals: '<path d="M20 6 9 17l-5-5"/>',
+    inbox: '<path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/>',
+    clients: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
+    presence: '<circle cx="12" cy="12" r="3"/><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>',
+    products: '<path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="m4 7 8 4 8-4M12 21V11"/>',
+    'deposit-addresses': '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h3"/>',
+    documents: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    settings: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
+  };
 
   var NAV_ITEMS = [
-    {
-      key: 'overview',
-      href: 'admin.html',
-      label: 'Overview',
-      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z',
-      group: 'dashboard'
-    },
-    {
-      // Deliberately a single-person "user" icon (not the two-person group icon originally
-      // used), specifically to read as unmistakably distinct from Overview's house icon —
-      // both are simple filled-outline shapes at the same 20px sidebar size, so the shape
-      // difference (house vs. person) needs to be unambiguous at a glance, not just
-      // technically different.
-      // Label history (Aug 21, 2026, all same day): "Viewing Client" → "Client Management"
-      // (collided with the persistent "VIEWING CLIENT" indicator that used to sit above the
-      // nav, since removed — see the note above initAdminSidebar()) → "Client List" (current
-      // — this group is now literally titled "Dashboard" with Overview right beside it, so
-      // "Management" read as broader than what the page actually is: a searchable list you
-      // expand rows on and switch from).
-      key: 'clients',
-      href: 'admin-clients.html',
-      label: 'Client List',
-      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
-      group: 'dashboard'
-    },
-    {
-      // New Client Application Review (Aug 22, 2026) — positioned first in the group,
-      // ahead of Deposits: whether a client should exist at all comes before anything they
-      // might request.
-      key: 'client-applications',
-      href: 'admin-client-applications.html',
-      label: 'Client Applications',
-      icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
-      group: 'approval-gate'
-    },
-    {
-      key: 'deposits',
-      href: 'admin-deposits.html',
-      label: 'Deposits',
-      icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
-      group: 'approval-gate'
-    },
-    {
-      // Client Withdrawal (Aug 22, 2026) — positioned directly after Deposits, its natural
-      // pair (money in / money out), rather than at the end of the group.
-      key: 'withdrawals',
-      href: 'admin-withdrawals.html',
-      label: 'Withdrawals',
-      icon: 'M17 8l4 4m0 0l-4 4m4-4H3',
-      group: 'approval-gate'
-    },
-    {
-      key: 'allocations',
-      href: 'admin-allocations.html',
-      label: 'Allocations',
-      icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-      group: 'approval-gate'
-    },
-    {
-      key: 'sells',
-      href: 'admin-sells.html',
-      label: 'Sells',
-      icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4',
-      group: 'approval-gate'
-    },
-    {
-      key: 'hys',
-      href: 'admin-hys.html',
-      label: 'HYS Deposits & Withdrawals', // renamed Aug 27, 2026 — admin-hys.html now
-      // covers both request kinds, not just deposits (the HYS withdrawal approval-gate fix)
-      icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-      group: 'approval-gate'
-    },
-    {
-      // Label shortened Aug 23, 2026: "Client Profile Updates" → "Profile Updates" — none of
-      // its sibling queues in this group (Deposits, Withdrawals, Allocations, Sells, HYS
-      // Deposits) spell out "Requests" either; the "Approval Gate" group header itself already
-      // carries that meaning, so "Client" was redundant with being inside this nav at all.
-      key: 'settings-changes',
-      href: 'admin-profile-updates.html',
-      label: 'Profile Updates',
-      icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
-      group: 'approval-gate'
-    },
-    {
-      // Unified Communications Inbox — Stage 1 (2026-09-07). Positioned first in this group,
-      // ahead of Documents/Support — a real-time, high-frequency PM tool (live chat now,
-      // two-way email in Stage 2) reads closer to a daily-use inbox than a queue/log, but
-      // isn't a money-approval action either, so 'user-admin-relations' (not
-      // 'approval-gate') is where it belongs, matching Documents/Support's own existing
-      // placement logic.
-      // PM tool revamp, part 1 (2026-09-14): tickets live here too now — the separate
-      // "Support" item (admin-support.html) is retired; its "needs a reply" count is the
-      // Inbox item's own badge (#sidebar-inbox-count), kept live by startInboxWatch() below.
-      key: 'inbox',
-      href: 'admin-inbox.html',
-      label: 'Inbox',
-      icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-      group: 'user-admin-relations'
-    },
-    {
-      // ★ Visitor presence (2026-09-13). Directly after Inbox — the two are the same kind of
-      // tool (live, people-facing, not a money queue); a proactive message from here lands in
-      // the inbox. The live count badge (#sidebar-presence-count) is kept by
-      // startPresenceWatch() below on every admin page, not only this one.
-      key: 'presence',
-      href: 'admin-presence.html',
-      label: 'Presence',
-      icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
-      group: 'user-admin-relations'
-    },
-    {
-      key: 'documents',
-      href: 'admin-documents.html',
-      label: 'Documents',
-      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-      group: 'user-admin-relations'
-    },
-    {
-      // Label changed Aug 23, 2026: "Settings" → "Advisory Fee" — this page only ever managed
-      // the advisory fee rate. Group changed same day (second regroup): briefly its own
-      // "Settings" group, now folded into 'user-admin-relations' — the "Settings" group was
-      // removed entirely rather than kept as a two-item category. Positioned before Security
-      // Log (below) to match the specified final order.
-      key: 'settings',
-      href: 'admin-advisory-fee.html',
-      label: 'Advisory Fee',
-      icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
-      group: 'user-admin-relations'
-    },
-    {
-      // Lock icon — a chronological log, not a queue (no pending/approve mechanic), so it
-      // gets a plain read-only-looking icon rather than reusing a document/checkmark shape
-      // already associated with a queue elsewhere in this nav. Aug 23, 2026, second regroup
-      // same day: briefly moved to a now-removed 'portfolio-administration' group, moved back
-      // to 'user-admin-relations' here; label shortened "Account Security" → "Security Log"
-      // (the page's own <title>/<h2> stay "Account Security" — only the nav label changed).
-      key: 'security',
-      href: 'admin-security.html',
-      label: 'Security Log',
-      icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
-      group: 'user-admin-relations'
-    },
-    {
-      // Product Catalog management. Group changed Aug 23, 2026: 'portfolio-administration' →
-      // the new 'catalog' group — its own dedicated category now, rather than sharing space
-      // with the fee-rate/security configuration pages.
-      key: 'products',
-      href: 'admin-products.html',
-      label: 'Product Catalog',
-      icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
-      group: 'catalog'
-    },
-    {
-      // Crypto deposit routing (2026-09-11): the shared deposit address book. Grouped with
-      // Product Catalog rather than under Approval Gate — it is managed reference data with a
-      // per-item management view, not a Pending/History queue; admin-deposits.html links here
-      // from its own header for workflow proximity. Wallet icon.
-      key: 'deposit-addresses',
-      href: 'admin-deposit-addresses.html',
-      label: 'Deposit Addresses',
-      icon: 'M3 10h18M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8zm0 0V7a2 2 0 012-2h11a2 2 0 012 2v1M16 14h2',
-      group: 'catalog'
-    }
+    { key: 'overview', href: 'admin.html', label: 'Overview' },
+    { key: 'approvals', href: 'admin-approvals.html', label: 'Approvals', count: 'sidebar-approvals-count',
+      aliases: ['client-applications', 'deposits', 'withdrawals', 'allocations', 'sells', 'hys', 'settings-changes'] },
+    { key: 'inbox', href: 'admin-inbox.html', label: 'Inbox', count: 'sidebar-inbox-count' },
+    { key: 'clients', href: 'admin-clients.html', label: 'Clients' },
+    { key: 'presence', href: 'admin-presence.html', label: 'On the site', live: 'sidebar-presence-count' },
+    { key: 'products', href: 'admin-products.html', label: 'Products' },
+    { key: 'deposit-addresses', href: 'admin-deposit-addresses.html', label: 'Deposit addresses' },
+    { key: 'documents', href: 'admin-documents.html', label: 'Documents' },
+    { key: 'settings', href: 'admin-advisory-fee.html', label: 'Advisory fee' },
+    { key: 'security', href: 'admin-security.html', label: 'Security' }
   ];
 
-  var ACTIVE = 'flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white font-medium';
-  var INACTIVE = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/70 hover:bg-white/5 hover:text-white transition';
-
   function navLinkHTML(item, activePage) {
-    var cls = item.key === activePage ? ACTIVE : INACTIVE;
-    // The presence item carries a live count of visitors on the site, like an unread count —
-    // starts hidden/0 (honest until the first real read), never a fake interim value.
-    var badge = item.key === 'presence'
-      ? '<span id="sidebar-presence-count" class="ml-auto hidden min-w-[1.5rem] text-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300" style="font-variant-numeric: tabular-nums" aria-label="visitors on the site now">0</span>'
-      : (item.key === 'inbox'
-        ? '<span id="sidebar-inbox-count" class="ml-auto hidden min-w-[1.5rem] text-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/25 text-amber-200" style="font-variant-numeric: tabular-nums" aria-label="conversations needing a reply">0</span>'
-        : '');
-    return '<a href="' + item.href + '" class="' + cls + '">' +
-      '<svg class="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + item.icon + '"/></svg>' +
-      item.label + badge +
+    var on = item.key === activePage || (item.aliases && item.aliases.indexOf(activePage) !== -1);
+    var badge = '';
+    if (item.count) {
+      // Starts hidden/0 (honest until the first real read), never a fake interim value.
+      badge = '<span id="' + item.count + '" class="an-ct is-hot" hidden aria-label="' + (item.key === 'inbox' ? 'conversations needing a reply' : 'approvals waiting on you') + '">0</span>';
+    } else if (item.live) {
+      // The dot carries the real count for assistive tech (and for the checks that read it)
+      // without painting a number that would be stale the moment it rendered.
+      badge = '<span id="' + item.live + '" class="an-live" hidden role="status" aria-label="visitors on the site now" title="On the site now"><span class="an-sr">0</span></span>';
+    }
+    return '<a href="' + item.href + '" class="an-item' + (on ? ' is-on' : '') + '"' + (on ? ' aria-current="page"' : '') + '>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[item.key] + '</svg>' +
+      '<span class="an-lb">' + item.label + '</span>' + badge +
       '</a>';
   }
 
-  // Renders the full nav: each GROUPS entry in order as its own labeled section — a visible
-  // header, not just a gap — containing every NAV_ITEMS entry whose `group` matches, in their
-  // NAV_ITEMS array order. Every item belongs to some group now (Dashboard included, Aug 21,
-  // 2026) — there is no ungrouped case left, but a group with zero items (nothing currently
-  // produces this, but a future edit could) still renders no header and no section at all,
-  // rather than an empty labeled gap.
   function navHTML(activePage) {
-    return GROUPS.map(function (group) {
-      var itemsInGroup = NAV_ITEMS.filter(function (item) { return item.group === group.id; });
-      if (itemsInGroup.length === 0) return '';
-      return '<div class="mt-5 first:mt-0">' +
-        // Contrast Audit (2026-09-06): text-white/40 measured 2.86:1-3.82:1 against the
-        // sidebar's own real .glass-slate background, well under 4.5:1 and this text is
-        // 11px (not "large text" under WCAG, so 4.5:1 applies in full) -- bumped to /70,
-        // which measures 7.53:1-9.26:1 against the same real background, comfortable margin.
-        '<p class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/70">' + group.label + '</p>' +
-        '<div class="space-y-1">' +
-          itemsInGroup.map(function (item) { return navLinkHTML(item, activePage); }).join('') +
-        '</div>' +
-      '</div>';
-    }).join('');
+    return NAV_ITEMS.map(function (item) { return navLinkHTML(item, activePage); }).join('');
   }
 
   // Same off-canvas-drawer-below-lg pattern as dashboard-sidebar.js's toggleSidebar(), kept
@@ -371,8 +199,12 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     if (!badge) return;
     var supabase = null;
     function paint(n) {
-      badge.textContent = String(n);
+      // A dot, not a number (PM tool revamp, part 2): the count lives in the visually-hidden
+      // span for assistive tech; the dot shows while anyone is on the site.
+      var sr = badge.querySelector('.an-sr');
+      if (sr) { sr.textContent = String(n); badge.setAttribute('aria-label', n + (n === 1 ? ' visitor' : ' visitors') + ' on the site now'); } else badge.textContent = String(n);
       badge.classList.toggle('hidden', !(n > 0));
+      badge.hidden = !(n > 0); // the attribute, so the badge hides without Tailwind's .hidden
     }
     function recount() {
       if (!supabase) return;
@@ -416,6 +248,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     function paint(n) {
       badge.textContent = String(n);
       badge.classList.toggle('hidden', !(n > 0));
+      badge.hidden = !(n > 0); // the attribute, so the badge hides without Tailwind's .hidden
     }
     function recount() {
       if (!supabase) return;
@@ -450,56 +283,78 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     }).catch(function () { /* the count stays hidden: never a fake number */ });
   }
 
+  // ★ PM tool revamp, part 2 (2026-09-14). The Approvals item's live count: every pending
+  // request across the seven queues plus applications awaiting review — the same seven
+  // reads admin-approvals.html makes, kept live by Realtime on each table plus a 30-second
+  // recount (a resolved request is an UPDATE; a new one an INSERT). Same shape as the
+  // presence and inbox watches above: starts hidden, never a fake interim value.
+  var APPROVAL_TABLES = ['deposit_requests', 'withdrawal_requests', 'allocation_requests', 'sell_requests', 'hys_deposit_requests', 'hys_withdrawal_requests', 'profile_change_requests'];
+  function startApprovalsWatch() {
+    var badge = document.getElementById('sidebar-approvals-count');
+    if (!badge) return;
+    var supabase = null;
+    function paint(n) {
+      badge.textContent = String(n);
+      badge.classList.toggle('hidden', !(n > 0));
+      badge.hidden = !(n > 0); // the attribute, so the badge hides without Tailwind's .hidden
+    }
+    function recount() {
+      if (!supabase) return;
+      var reads = APPROVAL_TABLES.map(function (t) { return supabase.from(t).select('id', { count: 'exact', head: true }).eq('status', 'pending'); });
+      reads.push(supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'));
+      Promise.all(reads).then(function (results) {
+        var total = 0;
+        for (var i = 0; i < results.length; i++) { if (results[i].error) return; total += results[i].count || 0; }
+        paint(total);
+      });
+    }
+    import('./admin-supabase-config.js').then(function (mod) {
+      supabase = mod.supabase;
+      recount();
+      setInterval(recount, 30000);
+      var ch = supabase.channel('admin-sidebar-approvals');
+      APPROVAL_TABLES.concat(['clients']).forEach(function (t) {
+        ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, function () { recount(); });
+      });
+      ch.subscribe();
+    }).catch(function () { /* the count stays hidden: never a fake number */ });
+  }
+
   function renderAdminSidebar(activePage) {
     var mount = document.getElementById('admin-sidebar-mount');
     if (!mount) return;
-
-    var navSectionsHTML = navHTML(activePage);
 
     mount.innerHTML =
       '<button type="button" id="admin-sidebar-toggle-btn" class="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-lg" aria-label="Toggle menu" aria-expanded="false" aria-controls="admin-sidebar-aside">' +
         '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>' +
       '</button>' +
       '<div id="admin-sidebar-backdrop" class="hidden lg:hidden fixed inset-0 bg-black/60 z-40"></div>' +
-      // h-screen, not h-full: the mount div this <aside> lives inside doesn't itself
-      // establish a flex context for its child, so flex-stretch from the outer
-      // ".flex h-screen" wrapper doesn't cascade down to here (same root cause documented
-      // for dashboard-sidebar.js's own aside — see CLAUDE.md's sidebar-height bug note).
-      // Explicit h-screen is the proven fix, reused as-is.
-      // Admin/PM Tool Visual Treatment (2026-09-06): bg-slate-900 (solid, opaque) replaced
-      // with .glass-slate (glass-primitives.css) — the same restrained frosted-glass
-      // treatment just proven on the client sidebar, for consistency across both tools, but
-      // using slate tones (not .glass-dark's navy) so this sidebar keeps its own real
-      // wholesale-distinct identity. See glass-primitives.css's own .glass-slate comment.
-      '<aside id="admin-sidebar-aside" class="w-64 h-screen glass-slate text-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
-        '<div class="h-16 flex items-center justify-between px-6 border-b border-white/10">' +
-          '<span class="text-lg font-bold tracking-tight">MARKETSWAVE <span class="text-amber-400">PM</span></span>' +
-          '<button type="button" id="admin-sidebar-close-btn" class="lg:hidden text-white/70 hover:text-white transition" aria-label="Close menu">' +
-            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+      // The look is admin-nav.css (.an-*); the off-canvas drawer mechanics below lg stay the
+      // Tailwind utilities every admin page has always used (h-screen for the same reason
+      // dashboard-sidebar.js needs it — see CLAUDE.md's sidebar-height bug note).
+      '<aside id="admin-sidebar-aside" class="an-side h-screen fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200 lg:static lg:translate-x-0">' +
+        '<div class="an-brand">' +
+          '<span class="an-lg" aria-hidden="true">M</span>' +
+          '<div class="an-bn"><b>MARKETSWAVE</b><span>Manager</span></div>' +
+          '<button type="button" id="admin-sidebar-close-btn" class="an-close lg:hidden" aria-label="Close menu">' +
+            '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
           '</button>' +
         '</div>' +
-        '<nav class="flex-1 px-4 pb-6 pt-2 overflow-y-auto">' +
-          navSectionsHTML +
+        '<nav class="an-nav" aria-label="PM tool">' +
+          navHTML(activePage) +
         '</nav>' +
-        '<div class="px-4 pb-4 pt-4 border-t border-white/10">' +
-          '<div class="flex items-center gap-3 px-3">' +
-            '<div class="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-sm font-semibold text-amber-400">PM</div>' +
-            '<div class="flex-1 min-w-0">' +
-              '<p class="text-sm font-medium truncate">Portfolio Manager</p>' +
-              // Contrast Audit (2026-09-06): text-white/50 measured 4.39:1 against the
-              // sidebar's own real .glass-slate background (footer sits near its darker,
-              // more-opaque bottom stop, still under 4.5:1) -- bumped to /70, which measures
-              // 9.26:1 there, comfortable margin.
-              '<p class="text-xs text-white/70 truncate">Internal access</p>' +
-            '</div>' +
+        '<div class="an-foot">' +
+          '<div class="an-pm">' +
+            '<span class="an-av" aria-hidden="true">PM</span>' +
+            // The account: role and sign-in email. No display name — the account has no name
+            // field, and will not until multi-PM adds one.
+            '<div class="an-nm"><b>Portfolio manager</b><span id="admin-sidebar-email" title="' + (__adminEmail || '') + '">' + (__adminEmail || '…') + '</span></div>' +
             // Admin-tool logout — distinct from any client-facing logout (dashboard-sidebar.js's
             // own, which navigates to login.html): this one ends the real admin Supabase
-            // session (see the click handler below) and returns to admin-login.html, never
-            // touching getCurrentClientId()/the client-scoped session state client pages
-            // depend on.
-            // Contrast Audit (2026-09-06): same real finding and fix as "Internal access"
-            // directly above -- text-white/50 measured 4.39:1 here too, bumped to /70 (9.26:1).
-            '<button type="button" id="admin-logout-btn" class="text-xs font-medium text-white/70 hover:text-white transition shrink-0" title="Log Out">Log Out</button>' +
+            // session (see the click handler below) and returns to admin-login.html.
+            '<button type="button" id="admin-logout-btn" class="an-out" title="Log out" aria-label="Log out">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>' +
+            '</button>' +
           '</div>' +
         '</div>' +
       '</aside>';
@@ -542,6 +397,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     preserveEnvParamInPageLinks();
     startPresenceWatch();
     startInboxWatch();
+    startApprovalsWatch();
   }
 
   window.initAdminSidebar = initAdminSidebar;

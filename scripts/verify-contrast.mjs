@@ -407,6 +407,71 @@ PROFILES['inbox-email'] = [
   { label: 'typing label', sel: '#thread-typing-label', limit: 1 }
 ];
 
+// PM tool revamp, part 2 (2026-09-14): the Overview as a briefing and the ten-item sidebar.
+// Every panel is measured with the sheen composited (the four attention cards are .glass +
+// .glass-lift; the eight panels .glass-subtle) — the urgent amber card and the hot/soon/warn
+// tones are seeded so each tone is measured for real, never assumed from its sibling.
+PROFILES['pm-overview'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'nav label (off)', sel: '.an-item:not(.is-on) .an-lb', limit: 4 },
+  { label: 'nav count', sel: '.an-ct:not([hidden])', limit: 2 },
+  { label: 'brand', sel: '.an-bn b', limit: 1 },
+  { label: 'brand sub', sel: '.an-bn span', limit: 1 },
+  { label: 'footer role', sel: '.an-nm b', limit: 1 },
+  { label: 'footer email', sel: '#admin-sidebar-email', limit: 1 },
+  { label: 'greeting', sel: '#briefing-greeting', limit: 1 },
+  { label: 'dateline', sel: '#briefing-dateline', limit: 1 },
+  { label: 'live pill', sel: '#briefing-livepill-text', limit: 1 },
+  { label: 'attention label (urgent)', sel: '.ov-ac.is-urgent .ov-k', limit: 1 },
+  { label: 'attention figure (urgent)', sel: '.ov-ac.is-urgent .ov-v', limit: 1 },
+  { label: 'attention sub (urgent)', sel: '.ov-ac.is-urgent .ov-x', limit: 1 },
+  { label: 'attention label', sel: '.ov-ac:not(.is-urgent) .ov-k', limit: 3 },
+  { label: 'attention figure', sel: '.ov-ac:not(.is-urgent) .ov-v', limit: 3 },
+  { label: 'attention sub', sel: '.ov-ac:not(.is-urgent) .ov-x:not(.is-up):not(.is-dn)', limit: 3 },
+  { label: 'panel title', sel: '.ov-ch b', limit: 8 },
+  { label: 'panel link', sel: '.ov-ch a', limit: 2 },
+  { label: 'panel stamp', sel: '.ov-ch span', limit: 4 },
+  { label: 'row title', sel: '.ov-r .ov-rt', limit: 6 },
+  { label: 'row sub', sel: '.ov-r .ov-rs', limit: 6 },
+  { label: 'row amount', sel: '.ov-r .ov-ra', limit: 2 },
+  { label: 'row age (hot)', sel: '.ov-rage.is-hot', limit: 2 },
+  { label: 'row age', sel: '.ov-rage:not(.is-hot)', limit: 3 },
+  { label: 'due figure', sel: '.ov-dv b', limit: 3 },
+  { label: 'due when (soon)', sel: '.ov-dv span.is-soon', limit: 2 },
+  { label: 'due when', sel: '.ov-dv span:not(.is-soon)', limit: 2 },
+  { label: 'panel note', sel: '.ov-note', limit: 2 },
+  { label: 'empty state', sel: '.ov-empty', limit: 2 },
+  { label: 'opportunity title', sel: '.ov-ob b', limit: 4 },
+  { label: 'opportunity sub', sel: '.ov-ob span', limit: 4 },
+  { label: 'opportunity button (go)', sel: '.ov-obtn.is-go', limit: 1 },
+  { label: 'opportunity button', sel: '.ov-obtn:not(.is-go)', limit: 2 },
+  { label: 'visitor flag', sel: '.ov-flag', limit: 2 },
+  { label: 'visitor name', sel: '.ov-vb b', limit: 2 },
+  { label: 'visitor sub', sel: '.ov-vb span', limit: 2 },
+  { label: 'visitor kind', sel: '.ov-vt', limit: 2 },
+  { label: 'stat key', sel: '.ov-stat .ov-k', limit: 5 },
+  { label: 'stat value', sel: '.ov-stat .ov-v', limit: 5 },
+  { label: 'stat small', sel: '.ov-stat .ov-v small', limit: 3 },
+  { label: 'health key', sel: '.ov-hz .ov-k', limit: 8 },
+  { label: 'health detail', sel: '.ov-hz .ov-k small', limit: 6 },
+  { label: 'health value', sel: '.ov-hz .ov-v:not(.is-warn):not(.is-bad)', limit: 4 },
+  { label: 'health value (warn)', sel: '.ov-hz .ov-v.is-warn', limit: 3 },
+  { label: 'health value (bad)', sel: '.ov-hz .ov-v.is-bad', limit: 2 }
+];
+// The Approvals landing (the interim page the Approvals nav item opens).
+PROFILES['pm-approvals'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'heading', sel: 'main h2', limit: 1 },
+  { label: 'lead', sel: 'main h2 + p', limit: 1 },
+  { label: 'band label', sel: '.ov-ac .ov-k', limit: 2 },
+  { label: 'band figure', sel: '.ov-ac .ov-v', limit: 2 },
+  { label: 'band sub', sel: '.ov-ac .ov-x', limit: 2 },
+  { label: 'queue name', sel: '#approval-queues a p.text-sm.font-medium', limit: 8 },
+  { label: 'queue count', sel: '#approval-queues a p.text-3xl', limit: 8 },
+  { label: 'queue oldest', sel: '#approval-queues a p[data-oldest]:not(.ov-hot)', limit: 4 },
+  { label: 'queue oldest (hot)', sel: '#approval-queues a p[data-oldest].ov-hot', limit: 2 }
+];
+
 // Product catalog — live pricing, part 1 (2026-09-11). The client card's new price block and
 // its three source states (live green / stale grey / appraisal amber), the change figure in
 // BOTH tones (a winner and a loser are both seeded so neither tone is assumed from the other),

@@ -121,7 +121,8 @@ function makeLocalStorage() {
 // Element stub supporting exactly the surface admin-sidebar.js/admin-login.html's inline
 // script actually calls: innerHTML, addEventListener (capturing callbacks so this script can
 // invoke them for real, e.g. a real click on the logout button or the login submit button),
-// getAttribute/setAttribute, and a no-op classList.
+// getAttribute/setAttribute, a no-op classList, and (PM tool revamp part 2) querySelector
+// returning null — the presence dot looks for its own visually-hidden count span.
 function makeElementStub() {
   const listeners = {};
   return {
@@ -140,6 +141,7 @@ function makeElementStub() {
     getAttribute: function () { return null; },
     setAttribute: function () {},
     focus: function () {},
+    querySelector: function () { return null; },
     classList: { add: function () {}, remove: function () {}, toggle: function () {}, contains: function () { return false; } }
   };
 }

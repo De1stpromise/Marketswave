@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="admin-overview.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -37,203 +39,99 @@
         </div>
       </header>
 
-      <!-- Page content -->
-      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+      <!-- ★ PM tool revamp, part 2 (2026-09-14): the Overview is a BRIEFING — what a PM reads
+           first each day — not cards-with-links. One read (get-pm-briefing) computes every
+           figure server-side (_shared/pm-briefing.ts, thresholds documented there); this page
+           only formats. EVERY FIGURE IS REAL OR ABSENT: a figure that cannot be computed yet is
+           shown as the reason it cannot, never as a placeholder number. The queue counts that
+           used to live here are on admin-approvals.html, the page the Approvals nav item opens. -->
+      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative" id="briefing-main">
 
-        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
-             in top-right whitespace -- same restraint/technique as the client dashboard
-             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
-             would break this scrollable container's own vertical scroll). -->
         <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
-        <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Overview</h2>
-          <p class="text-slate-500 mt-1">Pending items across all request queues.</p>
+        <div class="ov-head">
+          <div>
+            <h2 id="briefing-greeting">Good day</h2>
+            <p id="briefing-dateline">Here's where things stand.</p>
+          </div>
+          <div><a href="admin-presence.html" class="ov-livepill is-quiet" id="briefing-livepill"><i></i><span id="briefing-livepill-text">Checking who's on the site…</span></a></div>
         </div>
 
-        <!-- Card grouping mirrors admin-sidebar.js's NAV_ITEMS groups (Aug 21, 2026, regrouped
-             twice more Aug 23, 2026) — same labels/order/membership for the three groups that
-             carry a card-worthy concept. Dashboard (Overview/Client List) is deliberately not
-             mirrored here, same as before the regroups — Overview is this very page, and
-             Client List has no single "pending count" of its own. The short-lived "Settings"
-             group was removed entirely the same day it was added — Advisory Fee and Security
-             Log (renamed from Account Security) now live in User/Admin Relations instead,
-             neither with a true pending-count concept, so each shows a live value in its own
-             card. Catalog holds Products. -->
+        <!-- 1. ATTENTION BAND -->
+        <div class="ov-att" id="attention-band">
+          <a href="admin-approvals.html" class="ov-ac glass glass-lift" id="att-overdue">
+            <div class="ov-k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Overdue approvals</div>
+            <div class="ov-v" id="att-overdue-v">—</div><div class="ov-x" id="att-overdue-x">Pending more than 24 hours</div>
+          </a>
+          <a href="admin-approvals.html" class="ov-ac glass glass-lift" id="att-waiting">
+            <div class="ov-k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Waiting on you</div>
+            <div class="ov-v" id="att-waiting-v">—</div><div class="ov-x" id="att-waiting-x">Across every queue</div>
+          </a>
+          <a href="admin-inbox.html" class="ov-ac glass glass-lift" id="att-unread">
+            <div class="ov-k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg>Unread messages</div>
+            <div class="ov-v" id="att-unread-v">—</div><div class="ov-x" id="att-unread-x">Chats · tickets · email</div>
+          </a>
+          <a href="admin-clients.html" class="ov-ac glass glass-lift" id="att-aum">
+            <div class="ov-k"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>Assets under management</div>
+            <div class="ov-v" id="att-aum-v">—</div><div class="ov-x" id="att-aum-x">Portfolio value across clients</div>
+          </a>
+        </div>
 
-        <div class="mb-8">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Approval Gate</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div class="ov-cols">
+          <div class="ov-col">
 
-            <a href="admin-client-applications.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Client Applications</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-client-applications-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
+            <!-- 2. NEEDS YOU FIRST -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-needs">
+              <div class="ov-ch"><b id="h-needs">Needs you first</b><a href="admin-approvals.html">All approvals →</a></div>
+              <div id="panel-needs"></div>
+            </section>
 
-            <a href="admin-deposits.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Deposits</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-deposits-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
+            <!-- 3. SINCE YOU LAST LOOKED -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-since">
+              <div class="ov-ch"><b id="h-since">Since you last looked</b><span id="since-stamp"></span></div>
+              <div id="panel-since"></div>
+            </section>
 
-            <a href="admin-withdrawals.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Withdrawals</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-withdrawals-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
+            <!-- 4. COMING UP -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-coming">
+              <div class="ov-ch"><b id="h-coming">Coming up</b><span>next 30 days</span></div>
+              <div id="panel-coming"></div>
+            </section>
 
-            <a href="admin-allocations.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Allocations</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-allocations-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
-
-            <a href="admin-sells.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Sells</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-sells-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
-
-            <a href="admin-hys.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending HYS Deposits</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-hys-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
-
-            <!-- Added Aug 27, 2026, the HYS withdrawal approval-gate fix — a separate card
-                 from Pending HYS Deposits, matching the same Deposits/Withdrawals split the
-                 main portfolio queues already use, even though both HYS cards link to the
-                 same page (admin-hys.html now covers both request kinds). -->
-            <a href="admin-hys.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending HYS Withdrawals</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-hys-withdrawals-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
-
-            <a href="admin-profile-updates.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Pending Client Profile Updates</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-settings-changes-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
+            <!-- 5. WORTH ACTING ON -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-acting">
+              <div class="ov-ch"><b id="h-acting">Worth acting on</b><span>not urgent, but yours to do</span></div>
+              <div id="panel-acting"></div>
+            </section>
 
           </div>
-        </div>
+          <div class="ov-col">
 
-        <!-- Products in its own Catalog section, mirroring admin-sidebar.js's 'catalog' nav
-             group. Positioned here (before User/Admin Relations), matching the sidebar's own
-             group order — moved up from last, third regroup same day, Aug 23, 2026. -->
-        <div class="mb-8">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Catalog</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <!-- 6. ON THE SITE NOW -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-site">
+              <div class="ov-ch"><b id="h-site">On the site now</b><a href="admin-presence.html">Presence →</a></div>
+              <div id="panel-site"></div>
+            </section>
 
-            <!-- Product Catalog is a count, not a pending-count concept, matching the
-                 Advisory Fee Rate card's own non-count treatment (Asset Collection
-                 extraction + admin product management, Aug 21, 2026). -->
-            <a href="admin-products.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Products in Catalog</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="product-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Manage catalog →</p>
-            </a>
+            <!-- 7. THE FIRM TODAY -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-firm">
+              <div class="ov-ch"><b id="h-firm">The firm today</b></div>
+              <div id="panel-firm"></div>
+            </section>
 
-            <!-- Crypto deposit routing (2026-09-11): a count of ASSIGNED addresses (the ones
-                 actually routing client deposits), not a pending-count — same non-queue
-                 treatment as Products. -->
-            <a href="admin-deposit-addresses.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Deposit Addresses in Use</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8zm0 0V7a2 2 0 012-2h11a2 2 0 012 2v1M16 14h2"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="deposit-address-count">—</p>
-              <p class="text-sm text-slate-400 mt-2" id="deposit-address-sub">Manage address book →</p>
-            </a>
+            <!-- 8. NEEDS A LOOK -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-look">
+              <div class="ov-ch"><b id="h-look">Needs a look</b></div>
+              <div id="panel-look"></div>
+            </section>
+
+            <!-- 9. SYSTEM HEALTH -->
+            <section class="ov-card glass-subtle" aria-labelledby="h-health">
+              <div class="ov-ch"><b id="h-health">System health</b><span id="health-stamp"></span></div>
+              <div id="panel-health"></div>
+            </section>
 
           </div>
-        </div>
-
-        <div class="mb-8">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">User/Admin Relations</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-
-            <a href="admin-documents.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Documents Awaiting Review</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-documents-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Awaiting review →</p>
-            </a>
-
-            <!-- PM tool revamp, part 1 (2026-09-14): "Support Needing Attention" folded into the
-                 Inbox — tickets are conversations now; the count is every conversation (chat,
-                 email or ticket) waiting on a PM reply. -->
-            <a href="admin-inbox.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Inbox Needing a Reply</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="pending-inbox-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">Chats, email and tickets →</p>
-            </a>
-
-            <!-- Advisory Fee moved into this section, Aug 23, 2026 (second regroup same day) —
-                 the short-lived standalone "Settings" section was removed entirely. No
-                 pending-count concept (configuration, not a queue), so it shows the current
-                 rate instead. -->
-            <a href="admin-advisory-fee.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Advisory Fee Rate</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="advisory-fee-rate">—</p>
-              <p class="text-sm text-slate-400 mt-2">Manage rate →</p>
-            </a>
-
-            <!-- Security Log (renamed from Account Security) moved into this section, Aug 23,
-                 2026 — a log, not a queue (Password Reset + 2FA Rework, Aug 21, 2026), no
-                 pending-count concept, same non-count treatment as Advisory Fee, so it shows
-                 the total actions logged instead. -->
-            <a href="admin-security.html" class="glass-subtle rounded-2xl p-6 hover:border-amber-400 hover:shadow-md transition group">
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm font-medium text-slate-500">Security Actions Logged</p>
-                <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-              </div>
-              <p class="text-3xl font-bold text-slate-900" id="security-actions-count">—</p>
-              <p class="text-sm text-slate-400 mt-2">View log →</p>
-            </a>
-
-          </div>
-        </div>
-
-        <div class="glass rounded-2xl p-6" id="all-clear-banner" style="display:none;">
-          <p class="text-sm font-medium text-emerald-700">✓ All caught up — no pending requests in any queue.</p>
         </div>
 
       </main>
@@ -242,115 +140,156 @@
 
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
-  <script src="engine-core.js"></script>
   <script src="supabase-data.js"></script>
   <script>
     initAdminSidebar('overview');
   </script>
 
   <script>
-    // Admin UI Wiring — Final Stage (2026-09-03): every domain this page counts is now real
-    // (7 of 7 Approval Gate queues, Documents, Support, Product Catalog) except Security Log,
-    // which stays local by design — investigated directly (mirroring settings.html's own Stage
-    // 5 finding on 2FA): no real Supabase table/Edge Function exists for the local
-    // password-reset/2FA-reset action log, so its card keeps reading getSecurityActionsLog()
-    // exactly as before, left correctly local rather than fake-wired. Every count below is a
-    // direct, RLS-authorized cross-client read (admin-claimed JWT already grants SELECT-all on
-    // every one of these tables per each migration's own policy) — no Edge Function needed for
-    // any of them, same "RLS itself already permits this read" reasoning as every prior
-    // cross-client admin page in this project.
+    // The briefing (PM tool revamp, part 2, 2026-09-14). One get-pm-briefing read feeds nine
+    // panels; renderAsyncBundle paints a skeleton into every panel, and on failure every panel
+    // shows the same error card with a real retry. Nothing here computes a money figure — the
+    // payload is final (row 185).
     (function () {
       if (typeof MarketswaveData === 'undefined') return;
       MarketswaveData.useAdminClient();
+      var $ = function (id) { return document.getElementById(id); };
+      var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+      var envQ = (typeof currentEnvQuery === 'function') ? currentEnvQuery() : '';
+      var href = function (h) { return esc(h + (envQ ? (h.indexOf('?') === -1 ? envQ : '&' + envQ.slice(1)) : '')); };
+      var usd = function (n) { return '$' + Math.round(Number(n)).toLocaleString('en-US'); };
+      var usdShort = function (n) { n = Number(n); if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'm'; if (Math.abs(n) >= 1e4) return '$' + Math.round(n / 1e3) + 'k'; return usd(n); };
+      var plural = function (n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); };
+      var age = function (hours) { if (hours < 1) return Math.max(1, Math.round(hours * 60)) + 'm'; if (hours < 48) return Math.round(hours) + 'h'; return Math.round(hours / 24) + ' days'; };
+      var ago = function (iso, now) { var h = (now - new Date(iso).getTime()) / 3600e3; return age(h); };
+      var dayName = function (iso) { var d = new Date(iso); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); };
+      var timeOf = function (iso) { var d = new Date(iso); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
+      var whenLabel = function (iso, now) {
+        var d = new Date(iso); var today = new Date(now); var sameDay = d.toDateString() === today.toDateString();
+        var y = new Date(now - 86400e3); var yesterday = d.toDateString() === y.toDateString();
+        return (sameDay ? 'today' : (yesterday ? 'yesterday' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))) + ', ' + timeOf(iso);
+      };
+      var ICON = {
+        app: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        dep: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+        wd: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B4402C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+        alo: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>',
+        hys: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A3412" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+        msg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        vis: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/></svg>',
+        nav: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg>',
+        doc: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+        snap: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+        fee: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        risk: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B4402C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+        bell: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+        clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
+        info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
+      };
+      var TYPE_ICON = { application: ['i-app', 'app'], deposit: ['i-dep', 'dep'], withdrawal: ['i-wd', 'wd'], allocation: ['i-alo', 'alo'], sell: ['i-alo', 'alo'], hys_deposit: ['i-hys', 'hys'], hys_withdrawal: ['i-hys', 'hys'], profile_change: ['i-app', 'app'] };
+      function ic(cls, key) { return '<div class="ov-ic ' + cls + '">' + ICON[key] + '</div>'; }
+      function row(h, cls, key, title, sub, right) {
+        var tag = h ? 'a' : 'div';
+        return '<' + tag + (h ? ' href="' + href(h) + '"' : '') + ' class="ov-r">' + ic(cls, key) + '<div class="ov-rb"><div class="ov-rt">' + title + '</div><div class="ov-rs">' + sub + '</div></div>' + (right || '') + '</' + tag + '>';
+      }
+      function empty(text) { return '<div class="ov-empty">' + text + '</div>'; }
 
-      function countWhere(table, predicate) {
-        return MarketswaveData.selectTable(table).then(function (rows) {
-          return rows.filter(predicate).length;
+      var greeting = function (now) { var h = new Date(now).getHours(); return h < 12 ? 'Good morning' : (h < 18 ? 'Good afternoon' : 'Good evening'); };
+
+      function render(b) {
+        var now = new Date(b.asOf).getTime();
+        $('briefing-greeting').textContent = greeting(now);
+        $('briefing-dateline').textContent = dayName(b.asOf) + " · here's where things stand.";
+        var live = b.onSite.length;
+        var pill = $('briefing-livepill');
+        pill.classList.toggle('is-quiet', live === 0);
+        $('briefing-livepill-text').textContent = live ? plural(live, 'person', 'people') + ' on the site now' : 'No one on the site right now';
+
+        // 1. Attention band
+        var od = b.attention.overdue;
+        $('att-overdue').classList.toggle('is-urgent', od.count > 0);
+        $('att-overdue-v').textContent = od.count;
+        $('att-overdue-x').textContent = od.count ? 'Oldest waiting ' + age(od.oldestAgeHours) : 'Nothing pending more than ' + od.thresholdHours + ' hours';
+        $('att-waiting-v').textContent = b.attention.waiting.count;
+        $('att-waiting-x').textContent = b.attention.waiting.count ? plural(b.attention.waiting.today, 'arrived') + ' today' : 'Every queue is clear';
+        var u = b.attention.unread;
+        $('att-unread-v').textContent = u.total;
+        $('att-unread-x').textContent = u.total ? [u.chats ? plural(u.chats, 'chat') : null, u.tickets ? plural(u.tickets, 'ticket') : null, u.email ? plural(u.email, 'email', 'emails') : null].filter(Boolean).join(' · ') : 'Nothing waiting for a reply';
+        var aum = b.attention.aum;
+        $('att-aum-v').textContent = usdShort(aum.value);
+        var mc = aum.monthChange; var ax = $('att-aum-x');
+        ax.classList.remove('is-up', 'is-dn');
+        if (mc.change === null) { ax.textContent = mc.reason + ' · no month change yet'; }
+        else { ax.textContent = (mc.change >= 0 ? '+' : '−') + usd(Math.abs(mc.change)) + ' this month'; ax.classList.add(mc.change >= 0 ? 'is-up' : 'is-dn'); }
+
+        // 2. Needs you first — the oldest pending approvals, hot past the overdue line.
+        var needs = b.approvals.slice(0, 6);
+        $('panel-needs').innerHTML = needs.length ? needs.map(function (a) {
+          var t = TYPE_ICON[a.type] || ['i-vis', 'info'];
+          return row(a.href, t[0], t[1], esc(a.typeLabel) + ' · ' + esc(a.clientName), esc(a.detail), (a.amount != null ? '<div class="ov-ra">' + usd(a.amount) + '</div>' : '') + '<div class="ov-rage' + (a.hot ? ' is-hot' : '') + '">' + age(a.ageHours) + '</div>');
+        }).join('') + (b.approvals.length > 6 ? '<div class="ov-note">' + (b.approvals.length - 6) + ' more waiting — see all approvals.</div>' : '') : empty('Nothing is waiting on a decision.');
+
+        // 3. Since you last looked — against the PM's real previous session, or honestly none.
+        var v = b.visit;
+        $('since-stamp').textContent = v.lastLooked ? whenLabel(v.lastLooked, now) : 'first briefing';
+        var sinceRows = b.since.items.slice(0, 6).map(function (it) {
+          var t = it.kind === 'reply' ? ['i-msg', 'msg'] : (it.kind === 'matured' ? ['i-hys', 'hys'] : ['i-app', 'app']);
+          return row(it.href, t[0], t[1], esc(it.title), esc(it.detail), '<div class="ov-rage">' + ago(it.at, now) + '</div>');
         });
+        var y = b.since.yesterday;
+        sinceRows.push(row('admin-presence.html', 'i-vis', 'vis', plural(y.visitors, 'visitor') + ' yesterday', y.visitors ? plural(y.returning, 'returning') + ' · ' + y.reachedSignup + ' reached signup' : 'No visits recorded on ' + y.date, '<div class="ov-rage">—</div>'));
+        $('panel-since').innerHTML = (v.lastLooked ? '' : '<div class="ov-note">This is your first briefing — there is no previous session to compare against, so nothing is listed as new. From your next session this panel shows what changed while you were away.</div>') + (v.lastLooked && !b.since.items.length ? '<div class="ov-note">Nothing new since ' + esc(whenLabel(v.lastLooked, now)) + '.</div>' : '') + sinceRows.join('');
+
+        // 4. Coming up
+        $('panel-coming').innerHTML = b.comingUp.length ? b.comingUp.map(function (d) {
+          var t = d.kind === 'maturity' ? ['i-hys', 'hys'] : (d.kind === 'nav' ? ['i-nav', 'nav'] : (d.kind === 'unsigned' ? ['i-doc', 'doc'] : ['i-vis', 'snap']));
+          return row(d.href, t[0], t[1], esc(d.title), esc(d.detail), '<div class="ov-dv"><b>' + (d.amount != null ? (d.kind === 'nav' ? '$' + Number(d.amount).toFixed(2) : usd(d.amount)) : '—') + '</b><span' + (d.soon ? ' class="is-soon"' : '') + '>' + esc(d.whenLabel) + '</span></div>');
+        }).join('') : empty('Nothing due in the next 30 days.');
+
+        // 5. Worth acting on
+        var acting = b.acting.items;
+        $('panel-acting').innerHTML = acting.length ? acting.map(function (o) {
+          var t = o.kind === 'idle' ? ['i-fee', 'fee'] : (o.kind === 'concentration' ? ['i-risk', 'risk'] : (o.kind === 'alerts' ? ['i-msg', 'bell'] : ['i-vis', 'clock']));
+          return '<div class="ov-op">' + ic(t[0], t[1]) + '<div class="ov-ob"><b>' + esc(o.title) + '</b><span>' + esc(o.detail) + '</span></div><a class="ov-obtn' + (o.kind === 'idle' ? ' is-go' : '') + '" href="' + href(o.href) + '">' + (o.kind === 'idle' ? 'Review' : 'Open') + '</a></div>';
+        }).join('') + '<div class="ov-note">Concentration: one holding ≥ ' + Math.round(b.acting.thresholds.concentrationShare * 100) + '% of a portfolio of $' + b.acting.thresholds.concentrationMinTpv.toLocaleString('en-US') + '+ · dormant: no sign-in, request, transaction or visit in ' + b.acting.thresholds.dormantDays + ' days while holding value.</div>' : empty('Nothing stands out today.');
+
+        // 6. On the site now
+        $('panel-site').innerHTML = b.onSite.length ? b.onSite.map(function (s) {
+          var dur = s.seconds < 60 ? s.seconds + 's' : Math.round(s.seconds / 60) + 'm';
+          var kind = s.kind === 'client' ? 'Client' : (s.kind === 'returning' ? (s.visitNumber === 2 ? '2nd' : (s.visitNumber === 3 ? '3rd' : s.visitNumber + 'th')) + ' visit' : 'New');
+          return '<div class="ov-vis"><span class="ov-flag" aria-hidden="true">' + esc(s.countryCode || '—') + '</span><div class="ov-vb"><b>' + esc(s.who) + '</b><span>' + esc(s.path) + ' · ' + dur + (s.kind !== 'client' && s.place !== 'Unknown location' && s.who.indexOf(s.place.split(',')[0]) === -1 ? ' · ' + esc(s.place) : '') + '</span></div><span class="ov-vt">' + kind + '</span></div>';
+        }).join('') : empty('No one is on the site right now.');
+
+        // 7. The firm today
+        var f = b.firm;
+        var stat = function (k, v) { return '<div class="ov-stat"><span class="ov-k">' + k + '</span><span class="ov-v">' + v + '</span></div>'; };
+        $('panel-firm').innerHTML =
+          stat('Clients', f.clientsActive + (f.clientsPending ? ' <small>· ' + plural(f.clientsPending, 'pending') + '</small>' : '')) +
+          stat('Assets under management', usd(f.aum) + ' <small>excl. savings</small>') +
+          stat('Unallocated across clients', usd(f.unallocated)) +
+          stat('In savings pockets', usd(f.savings) + (f.savingsPockets ? ' <small>· ' + plural(f.savingsPockets, 'pocket') + '</small>' : '')) +
+          stat('Advisory fees accrued this month', f.feesThisMonth === null ? '<small>' + esc(f.feesReason) + '</small>' : usd(f.feesThisMonth) + ' <small>est. at ' + f.feeRate + '%</small>');
+
+        // 8. Needs a look
+        var l = b.look; var look = [];
+        if (l.productsWithoutLogo.length) look.push(row('admin-products.html', 'i-vis', 'info', plural(l.productsWithoutLogo.length, 'product') + ' without a logo', l.productsWithoutLogo.slice(0, 4).map(function (p) { return esc(p.ticker || p.name); }).join(', ') + (l.productsWithoutLogo.length > 4 ? ' · +' + (l.productsWithoutLogo.length - 4) : '') + ' · monogram in use'));
+        if (l.clientsWithoutAddress.length) look.push(row('admin-deposit-addresses.html', 'i-vis', 'info', plural(l.clientsWithoutAddress.length, 'client') + ' with no deposit address assigned', l.clientsWithoutAddress.slice(0, 3).map(function (c) { return esc(c.name); }).join(', ') + (l.clientsWithoutAddress.length > 3 ? ' · +' + (l.clientsWithoutAddress.length - 3) : '') + " · can't deposit crypto until set"));
+        if (l.quoteFailed.length) look.push(row('admin-products.html', 'i-risk', 'risk', plural(l.quoteFailed.length, 'product') + ' quote-failed', l.quoteFailed.slice(0, 4).map(function (p) { return esc(p.ticker || p.name); }).join(', ') + ' · last good price still shown'));
+        if (l.navNoFrequency.length) look.push(row('admin-products.html', 'i-vis', 'info', plural(l.navNoFrequency.length, 'appraised product') + ' with no stated valuation frequency', l.navNoFrequency.map(function (p) { return esc(p.name); }).join(', ') + " · can't be told overdue until the fund document states one"));
+        $('panel-look').innerHTML = look.length ? look.join('') : empty('Nothing needs a look.');
+
+        // 9. System health — amber where degraded, and the reason.
+        $('health-stamp').textContent = 'as of ' + timeOf(b.asOf);
+        $('panel-health').innerHTML = b.health.lines.map(function (h) {
+          return '<div class="ov-hz" data-health="' + esc(h.key) + '"><span class="ov-dot d-' + esc(h.state) + '" aria-hidden="true"></span><span class="ov-k">' + esc(h.label) + (h.detail ? '<small>' + esc(h.detail) + '</small>' : '') + '</span><span class="ov-v' + (h.state === 'warn' ? ' is-warn' : (h.state === 'bad' ? ' is-bad' : '')) + '">' + esc(h.value == null ? '—' : h.value) + '</span></div>';
+        }).join('');
       }
 
-      var counts = {
-        clientApplications: countWhere('clients', function (c) { return c.status === 'pending_review'; }),
-        deposits: countWhere('deposit_requests', function (r) { return r.status === 'pending'; }),
-        withdrawals: countWhere('withdrawal_requests', function (r) { return r.status === 'pending'; }),
-        allocations: countWhere('allocation_requests', function (r) { return r.status === 'pending'; }),
-        sells: countWhere('sell_requests', function (r) { return r.status === 'pending'; }),
-        hys: countWhere('hys_deposit_requests', function (r) { return r.status === 'pending'; }),
-        hysWithdrawals: countWhere('hys_withdrawal_requests', function (r) { return r.status === 'pending'; }),
-        settingsChanges: countWhere('profile_change_requests', function (r) { return r.status === 'pending'; }),
-        documents: countWhere('documents', function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }),
-        inbox: countWhere('conversations', function (c) { return c.unread_by_pm === true && c.status !== 'archived'; })
-      };
-
-      var CARD_IDS = {
-        clientApplications: 'pending-client-applications-count',
-        deposits: 'pending-deposits-count',
-        withdrawals: 'pending-withdrawals-count',
-        allocations: 'pending-allocations-count',
-        sells: 'pending-sells-count',
-        hys: 'pending-hys-count',
-        hysWithdrawals: 'pending-hys-withdrawals-count',
-        settingsChanges: 'pending-settings-changes-count',
-        documents: 'pending-documents-count',
-        inbox: 'pending-inbox-count'
-      };
-
-      Object.keys(counts).forEach(function (key) {
-        var el = document.getElementById(CARD_IDS[key]);
-        counts[key].then(function (n) {
-          el.textContent = n;
-        }).catch(function () {
-          el.textContent = '—';
-        });
-      });
-
-      Promise.all(Object.keys(counts).map(function (key) { return counts[key]; }))
-        .then(function (values) {
-          if (values.every(function (n) { return n === 0; })) {
-            document.getElementById('all-clear-banner').style.display = '';
-          }
-        })
-        .catch(function () { /* one or more counts failed to load — leave the banner hidden rather than claim all-clear on incomplete data */ });
-
-      // Not a pending count — Account Security is a log, not a queue, and stays fully local
-      // (no real backend exists for it — see the header comment above) — deliberately excluded
-      // from the all-clear check above, same treatment it always had.
-      if (typeof getSecurityActionsLog === 'function') {
-        document.getElementById('security-actions-count').textContent = getSecurityActionsLog().length;
-      }
-
-      // The Advisory Fee card has no pending-count concept — it's configuration, not a queue —
-      // so it shows the current global rate instead. Now a real, genuinely global Supabase
-      // value (advisory_fee_rate, Admin UI Wiring Final Stage), not the local engine's own
-      // getAdvisoryFeeRate(). A fresh local stack may have no row yet if the rate has never
-      // been saved through admin-advisory-fee.html — shown as "—" rather than a fabricated
-      // default.
-      MarketswaveData.selectTable('advisory_fee_rate').then(function (rows) {
-        var rate = rows && rows[0] ? rows[0].rate : null;
-        document.getElementById('advisory-fee-rate').textContent = rate !== null ? rate + '%' : '—';
-      }).catch(function () {
-        document.getElementById('advisory-fee-rate').textContent = '—';
-      });
-
-      // Product Catalog is global, not per-client — a plain total count from the real
-      // products table (already read by dashboard.html/risk-management.html/asset-collection
-      // & asset-performance.html), deliberately excluded from the all-clear check above (not a
-      // pending queue either).
-      MarketswaveData.selectTable('products').then(function (rows) {
-        document.getElementById('product-count').textContent = rows.length;
-      }).catch(function () {
-        document.getElementById('product-count').textContent = '—';
-      });
-
-      // Crypto deposit routing (2026-09-11): assigned addresses, with the available count as
-      // the sub-line so a PM can see at a glance whether there is anything left to assign.
-      MarketswaveData.selectTable('deposit_addresses').then(function (rows) {
-        var assigned = rows.filter(function (r) { return r.status === 'assigned'; }).length;
-        var available = rows.filter(function (r) { return r.status === 'available'; }).length;
-        document.getElementById('deposit-address-count').textContent = assigned;
-        document.getElementById('deposit-address-sub').textContent = available + ' available to assign →';
-      }).catch(function () {
-        document.getElementById('deposit-address-count').textContent = '—';
+      var panels = ['panel-needs', 'panel-since', 'panel-coming', 'panel-acting', 'panel-site', 'panel-firm', 'panel-look', 'panel-health'].map($);
+      MarketswaveData.renderAsyncBundle(panels, {
+        skeletonHTML: '<div class="ov-skel">' + MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2', 'w-2/3'], { height: 'h-3.5' }) + '</div>',
+        load: function () { return MarketswaveData.callFunction('get-pm-briefing', {}); },
+        render: render
       });
     })();
   </script>

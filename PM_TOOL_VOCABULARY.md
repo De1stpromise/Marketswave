@@ -2,8 +2,9 @@
 
 The patterns the PM tool revamp establishes, recorded so that the later pages — the client
 profile, the approval queues — apply a documented vocabulary rather than a remembered
-impression. Part 1 (the inbox, 2026-09-14) set these; each later part extends this file
-rather than inventing a second version of anything here.
+impression. Part 1 (the inbox, 2026-09-14) set §1–§9; part 2 (the navigation and the briefing, the same
+day) added §10–§12; each later part extends this file rather than inventing a second version
+of anything here.
 
 Every value below is measured, not chosen by eye: contrast on real composited pixels
 (`verify-contrast.mjs`, profiles `inbox-ticket` / `inbox-email`), fonts by real advance width,
@@ -117,3 +118,45 @@ reply.
 Below `lg` (1024px) the rail becomes a horizontal strip, the list fills the width, and opening
 a record replaces the list with the record plus a back control (`.is-thread-open`). Nothing
 scrolls horizontally at 320px. Every control keeps the 44px floor (`tap-targets.css`).
+
+## 10. The navigation (part 2)
+
+Ten items, ungrouped, ordered by how often a PM touches them — Overview · Approvals · Inbox ·
+Clients · On the site · Products · Deposit addresses · Documents · Advisory fee · Security.
+The ordering does the work; there are no group headers. A **count** sits on an item only where
+the number is a queue a PM works through (Approvals, Inbox) — a red pill (`.an-ct.is-hot`,
+red-600, measured 4.83:1). A figure that is live (people on the site) is a **green dot**, not a
+number, because a number would be stale the moment it painted; the real count is kept for
+assistive tech in a visually-hidden span. The footer is the account: role and sign-in email.
+No display name exists and none is invented. The rail is `#0F172A`, 238px; the active item is
+the single accent (`#B45309`); every item is a real link with `aria-current`.
+
+A family of pages that one item stands for (the seven approval queues) marks the item active
+through `aliases` — the PM never sees a nav with nothing highlighted.
+
+## 11. The briefing (part 2)
+
+The Overview is what a PM reads first each day, not cards-with-links. Nine panels in a fixed
+order: an **attention band** of four figures (amber where urgent, with the oldest age), then
+two columns — left: what needs the PM first, what changed since they last looked, what is
+coming up, what is worth acting on; right: who is on the site, the firm today, what needs a
+look, system health.
+
+- **Every figure is real or absent.** A figure that cannot be computed is shown as the reason
+  it cannot ("Month anchors exist for 0 of 2 portfolios", "Not configured"), never a
+  placeholder number, never a guessed default. A rule with a threshold states the threshold on
+  the panel ("one holding ≥ 40% of a portfolio of $10,000+").
+- **"Since you last looked" is against the PM's own previous session** (`pm_visits`), and a
+  first briefing says it is one. Never "today", never midnight.
+- **Rows** (`.ov-r`): an icon box tinted by domain, a 12.5px/600 title, an 11px sub, and a
+  right-hand figure or age; an age past the overdue line is hot (`#B45309`, 600). Panels are
+  `.glass-subtle`; the attention cards `.glass` + `.glass-lift`. Rows are separated by
+  hairlines, never boxed; an empty panel says what is empty in one sentence.
+- **System health** is a dot per line: green ok, amber degraded, red failed, grey not yet run
+  — and a one-line reason beneath the label whenever the dot is not green.
+
+## 12. Interim pages
+
+When a nav item stands for work not yet rebuilt (Approvals before part 3), it opens a
+**landing** that links every page it stands for, with the same counts and ages the sidebar
+badge sums — never a nav item pointing at a page that does not exist, never a dead end.
