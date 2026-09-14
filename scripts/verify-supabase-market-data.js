@@ -48,6 +48,7 @@ async function main() {
   // Clear any pre-existing cache rows so the first call below is guaranteed to be a real
   // fresh fetch, not an accidental cache hit from an earlier manual test.
   const ALL_SYMBOLS = ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'];
+  // fixture-symbols-allow: SPY, QQQ, DIA, BTC, ETH, SOL — deliberate, recorded as row 209's cross-suite pollution and left in row 212: the base symbols' rows are deleted and recreated by the real fetch under test; the products keep their own unit_price, but the rows' stored logos are dropped until a backfill
   await admin.from('market_data_cache').delete().in('symbol', ALL_SYMBOLS);
 
   console.log('1. get-market-snapshot — a real, live, uncached fetch\n');

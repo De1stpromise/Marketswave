@@ -2092,6 +2092,30 @@ Chrome, forced-failure controls — mid-run throw, mid-run exit, SIGKILL then sw
 un-removable directory producing the warning rather than silence). Never call `mkdtempSync`
 directly from a `verify-*`/`audit-*` script — that same proof fails if one does.
 
+### ★ Fixture symbols vs the real catalog — `npm run verify-fixture-symbols` (2026-09-14)
+
+Run this BEFORE a targeted verification pass, from `scripts/`. It takes a few seconds and
+reports every harness fixture that writes to a shared, symbol-keyed table (`market_data_cache`,
+`products`, the `asset-logos` bucket, an `add-product` call) using a symbol the real catalog
+owns — read from the live `products.ticker` column plus the committed catalog source file.
+The class it catches (register row 212) is silent in the worst case: a fake value upserted
+onto a real product's cache row is synced onto the product by the next refresh, and a teardown
+that removes `ticker/<SYM>.png` removes a real product's logo. Neither fails an assertion.
+
+Three lines of output matter. **COLLISIONS** fail the run — pick a symbol that is not in the
+catalog (a meme coin for crypto; for a stock, one absent from `products.ticker` and the
+source file), or, for a write that is deliberate, add `// fixture-symbols-allow: SYM — why`
+on the line above it. **UNRESOLVED** does not fail but must be read: a write whose symbol is
+a property or a `push()`-built array is exactly where the class hid on its first run (a
+cleanup deleting 14 real products' cache rows). **WAIVED** prints every allow-comment with its
+reason, so a waiver is visible on every run rather than buried in a file.
+
+`npm run verify-fixture-symbols-self-test` proves the scanner: the historical sources that
+carried the real AAPL/VXUS/LTC collisions (from git) are reported by name, the fixed sources
+are clean, an injected collision is reported, an empty directory fails rather than passing.
+`--static` runs without the stack against the source file alone (weaker: the pre-seed
+products are not in it); `--dir <path>` scans another directory.
+
 ### ★ Portfolio overview (2026-09-12) — the value chart and where its data comes from
 
 `dashboard.html` opens with a **Portfolio value over time** card (the change since the first

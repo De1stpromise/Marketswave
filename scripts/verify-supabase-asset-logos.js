@@ -67,8 +67,13 @@ async function main() {
   const pm = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const createdProductIds = [];
-  const testCoinSymbol = 'LTC';   // litecoin — a real coin, not in the seeded catalog or the base set
-  const testCoinId = 'litecoin';
+  // PEPE, not LTC (2026-09-14): Litecoin became a real product (PROD-0296) in the row-211 seed, so
+  // the fake-value upsert, the cache delete and the storage removes below were all landing on a
+  // real product's rows — found by verify-fixture-symbols on its first run, missed by the row-212
+  // sweep. A meme coin is the safe crypto fixture: the catalog excludes them by policy, so this
+  // symbol cannot become a product later. DOGE/SHIB are already other suites' fixtures.
+  const testCoinSymbol = 'PEPE';
+  const testCoinId = 'pepe';
   const nonsense = 'ZQ' + suffix.slice(0, 3).toUpperCase(); // a 5-char ticker no provider has
   let vxusCacheBefore = null;
 
@@ -98,6 +103,7 @@ async function main() {
       /max-age=604800/.test(pub.headers.get('cache-control') || ''), pub.headers.get('cache-control'));
     const upload = await client.storage.from('asset-logos').upload('ticker/HACK-' + suffix + '.png', bytes, { contentType: 'image/png' });
     check('a signed-in client CANNOT upload into the bucket', !!upload.error, JSON.stringify(upload));
+    // fixture-symbols-allow: SPY — negative RLS test: a signed-in CLIENT session must be refused this delete; the next line proves the real object survived
     const del = await client.storage.from('asset-logos').remove(['ticker/SPY.png']);
     const stillThere = await fetch(url.replace(/\/$/, '') + spy.logo_url);
     check('a signed-in client CANNOT delete a stored mark (the object is still served afterwards)', stillThere.status === 200 && (!!del.error || !del.data || del.data.length === 0), JSON.stringify(del));
@@ -138,9 +144,9 @@ async function main() {
     await admin.from('market_data_cache').delete().eq('symbol', testCoinSymbol);
     await admin.storage.from('asset-logos').remove(['crypto/' + testCoinSymbol + '.png', 'crypto/' + testCoinSymbol + '.jpg']);
     const { data: added, error: addErr } = await client.functions.invoke('add-watchlist-symbol', { body: { symbol: testCoinSymbol, source: 'coingecko', providerId: testCoinId } });
-    check('add-watchlist-symbol (litecoin) succeeds for the client', !addErr, addErr && (addErr.context ? await addErr.context.text() : addErr.message));
+    check('add-watchlist-symbol (pepe) succeeds for the client', !addErr, addErr && (addErr.context ? await addErr.context.text() : addErr.message));
     const cacheRow = (await admin.from('market_data_cache').select('logo_url').eq('symbol', testCoinSymbol).maybeSingle()).data;
-    check('★ the cache row now carries a stored PATH — resolved at creation, from CoinGecko\'s own image', !!cacheRow && /^\/storage\/v1\/object\/public\/asset-logos\/crypto\/LTC\.(png|jpg)$/.test(cacheRow.logo_url || ''), JSON.stringify(cacheRow));
+    check('★ the cache row now carries a stored PATH — resolved at creation, from CoinGecko\'s own image', !!cacheRow && /^\/storage\/v1\/object\/public\/asset-logos\/crypto\/PEPE\.(png|jpg)$/.test(cacheRow.logo_url || ''), JSON.stringify(cacheRow));
     const ltc = cacheRow && cacheRow.logo_url ? await fetch(url.replace(/\/$/, '') + cacheRow.logo_url) : null;
     const ltcBytes = ltc ? Buffer.from(await ltc.arrayBuffer()) : Buffer.alloc(0);
     const isPng = ltcBytes.slice(1, 4).toString() === 'PNG';
@@ -152,7 +158,7 @@ async function main() {
 
     // ---- 6. the refresh upsert never clobbers ----
     console.log('\n6. The refresh upsert leaves a stored logo_url alone\n');
-    await admin.from('market_data_cache').upsert({ symbol: testCoinSymbol, value: 99.5, change_percent: 1.1, source: 'coingecko', name: 'Litecoin', provider_id: testCoinId, asset_type: 'crypto', last_updated: new Date().toISOString() }, { onConflict: 'symbol' });
+    await admin.from('market_data_cache').upsert({ symbol: testCoinSymbol, value: 99.5, change_percent: 1.1, source: 'coingecko', name: 'Pepe', provider_id: testCoinId, asset_type: 'crypto', last_updated: new Date().toISOString() }, { onConflict: 'symbol' });
     const afterUpsert = (await admin.from('market_data_cache').select('logo_url, value').eq('symbol', testCoinSymbol).single()).data;
     check('★ an upsert of the refresh\'s own row shape (no logo_url in the payload) updates the price and keeps the stored logo_url', afterUpsert.value === 99.5 && afterUpsert.logo_url === cacheRow.logo_url, JSON.stringify(afterUpsert));
 

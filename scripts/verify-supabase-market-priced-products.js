@@ -109,12 +109,14 @@ async function main() {
     // ---- 3. fractional units + approval re-reads the price --------------------------------
     console.log('\n3. Fractional units at full precision; approval re-reads the price');
     const P1 = 2600.13;
+    // fixture-symbols-allow: ETH — deliberate, row 199's manipulate-and-restore pattern on PROD-0004: the real product's price is moved to prove approval re-reads it, and restored from ethBefore in the finally
     await admin.from('market_data_cache').update({ value: P1, last_updated: new Date().toISOString() }).eq('symbol', 'ETH');
     const reqA = await callFunction(url, A.token, 'request-allocation', { productId: 'PROD-0004', dollarAmount: 5000 });
     check('A requests $5,000 of Ethereum at a cache price of $' + P1, reqA.status === 200, JSON.stringify(reqA.body));
     // The market moves between request and approval.
     const P2 = 2700.77;
     await new Promise((r) => setTimeout(r, 30));
+    // fixture-symbols-allow: ETH — deliberate, row 199's manipulate-and-restore pattern on PROD-0004: the real product's price is moved to prove approval re-reads it, and restored from ethBefore in the finally
     await admin.from('market_data_cache').update({ value: P2, last_updated: new Date().toISOString() }).eq('symbol', 'ETH');
     const apprA = await callFunction(url, pm.token, 'approve-allocation', { requestId: reqA.body.id });
     check('the PM approves', apprA.status === 200, JSON.stringify(apprA.body));
@@ -128,6 +130,7 @@ async function main() {
     // The market moves again; the holding must revalue with no transaction.
     const P3 = 2850.5;
     await new Promise((r) => setTimeout(r, 30));
+    // fixture-symbols-allow: ETH — deliberate, row 199's manipulate-and-restore pattern on PROD-0004: the real product's price is moved to prove approval re-reads it, and restored from ethBefore in the finally
     await admin.from('market_data_cache').update({ value: P3, last_updated: new Date().toISOString() }).eq('symbol', 'ETH');
     const tpvA = await callFunction(url, A.token, 'get-total-portfolio-value');
     const stateA = (await admin.from('account_state').select('allocated_capital, unallocated_capital').eq('client_id', A.id).single()).data;
@@ -263,6 +266,7 @@ async function main() {
       const { error: delErr } = await admin.from('products').delete().in('id', createdProductIds);
       if (delErr) console.log('  cleanup: products delete -> ' + delErr.message);
     }
+    // fixture-symbols-allow: ETH — the restore half of the row-199 pattern above
     if (ethBefore) await admin.from('market_data_cache').update({ value: ethBefore.value, change_percent: ethBefore.change_percent, last_updated: ethBefore.last_updated }).eq('symbol', 'ETH');
     for (const id of ids) { await admin.from('clients').delete().eq('id', id); await admin.auth.admin.deleteUser(id); }
     // A real refresh leaves the cache — and the market-priced product rows — genuinely current.

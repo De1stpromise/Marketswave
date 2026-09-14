@@ -9665,6 +9665,31 @@ row 74.
   rebuilt cards (as shipped): 24/48/96 cards 20.0–20.4 ms mean, 0–1 dropped of 95; 247 cards
   37.7 ms mean, p95 100 ms, 35 dropped.
 
+- **★ `verify-fixture-symbols` — the row-212 convention gets its enforcing check, and its
+  first run finds two collisions the sweep missed (2026-09-14, row 215).** Static, over every
+  `verify-*`/`audit-*` source; symbols read from a write's own position (literal, or an
+  identifier resolved to its `const` in the same file), compared against the live
+  `products.ticker` column plus the committed catalog source; metadata-only cache updates
+  (`last_updated`/`change_percent`) are not collisions; anything unresolvable and not
+  randomised is LISTED for review, never silently counted. **Found on its first run**: LTC in
+  `verify-supabase-asset-logos.js` (Litecoin is PROD-0296 since the seed — a fake-value
+  upsert, a cache delete and a storage remove all landing on the real product; PROD-0296 was
+  indeed pointing at a deleted `crypto/LTC.png`, repaired via the backfill; fixture now PEPE),
+  and — only visible through the UNRESOLVED list, since it is an array built by `push()` —
+  `verify-round-robin-refresh.mjs`'s cleanup deleting the cache rows of AAPL/MSFT/GOOGL/AMZN/
+  NVDA/META/TSLA/JPM/JNJ/WMT/PG/XOM/KO/PEP, all real products (fixed to skip product-owned
+  symbols). Eleven deliberate writes carry a `fixture-symbols-allow` waiver beside the code.
+  Exit code is reliable by construction (`process.exitCode`, never `process.exit()` — the
+  latter turns a 1 into row 198's exit-127 libuv abort while supabase-js's handles close).
+  `--self-test` 13/13: the historical AAPL (620bbd3) and VXUS + LTC (8c3bb45) sources from git
+  are reported by name; the fixed sources are clean; an injected PEPE → BTC is reported on
+  every write; an empty directory fails the vacuity guard; a `push()`-built array is listed
+  UNRESOLVED while a random-suffix fixture is not. Temp dirs through the shared teardown
+  helper, zero residue. `verify-supabase-asset-logos` re-run with the new fixture, 24/24. Also
+  this session: recommendations 2 (rerun only what a fixture fix touched) and 3 (dedicated-key
+  opt-in built as `MW_FINNHUB_DEDICATED=1`; bounded-cycles default recorded, not built) — see
+  the Working conventions.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -9885,7 +9910,9 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   2026-09-12).** BLOCKS a push: the pre-push secrets audit; targeted verification of what the
   task actually touched — the suites covering the changed surface, not the whole platform;
   cloud staging parity, when a migration or function changed; the deployed-bytes check, after
-  any static file is pushed. DOES NOT block a push — run it AFTER, or on a cadence: the full
+  any static file is pushed. BEFORE a targeted pass even starts: `npm run
+  verify-fixture-symbols` (seconds — see its own bullet below; skipping it is how one seed
+  turned into three passes). DOES NOT block a push — run it AFTER, or on a cadence: the full
   regression suite (80+ minutes for warm-up plus real pass, ~72 scripts mostly unrelated to
   any given change — run it after pushing and raise a follow-up commit if it surfaces
   anything); the cold-start warm-up pass (only meaningful when the full suite runs); a second
@@ -10058,15 +10085,46 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   discarded with its stderr. `npm run verify-harness-teardown` (from `scripts/`) is the
   standing proof and fails if any `verify-*`/`audit-*` script calls `mkdtempSync` directly.
   When checking a run for leaks, grep its log for `TEARDOWN` — that line is the contract.
-- **★ A harness fixture that writes to a SHARED symbol- or id-keyed table must use a symbol
-  or id that provably is not in the real catalog** (`market_data_cache`, `products`, the
-  `asset-logos` bucket, anything keyed by ticker). Added 2026-09-14 (register row 212) after
-  the 330-product seed turned AAPL, NVDA, VXUS, LTC and MSFT — five suites' hand-picked
-  fixtures from when the catalog held five products — into real products: one suite's fake
-  $200 upsert was synced onto the real AAPL product by the next refresh, and another's
-  teardown deleted the real VXUS logo file. Per-client rows are not this class; a write keyed
-  by a shared symbol is. Check `products.ticker` the moment a fixture symbol is chosen; meme
-  coins (DOGE, SHIB) are safe crypto fixtures because the catalog excludes them by policy.
+- **★ Run `npm run verify-fixture-symbols` (from `scripts/`) BEFORE a targeted verification
+  pass — not as part of one, and not after.** Added 2026-09-14 (register row 215) because the
+  convention it enforces (row 212: a harness fixture that writes to a SHARED symbol-keyed
+  table — `market_data_cache`, `products`, the `asset-logos` bucket — must use a symbol that
+  provably is not in the real catalog) existed for a day with nothing enforcing it, and that is
+  exactly how the catalog seed cost five hours: the loud collisions surfaced on the first
+  2h40 pass, the quiet ones (a fake $200 synced onto the real AAPL product, the real VXUS logo
+  file deleted by a teardown) after a second, and a third pass followed the fix. The check
+  takes a few seconds and reports every collision at once, against the LIVE `products.ticker`
+  column plus the committed catalog source file. **Its first run found two the row-212 sweep
+  had missed**: `verify-supabase-asset-logos.js` still using LTC (a real product since the
+  seed — its teardown had been deleting Litecoin's real logo file on every run, repaired via
+  the backfill) and `verify-round-robin-refresh.mjs`'s cleanup deleting 14 real products' cache
+  rows through an array built by `push()`. A write whose symbol the scanner cannot read is
+  listed as UNRESOLVED for a human to check — that is where the class hides from a
+  symbol-level sweep, so read that list rather than skipping it. A deliberate write (a negative
+  RLS test, row 199's manipulate-and-restore on ETH, row 209's base-symbol recreate) is waived
+  by a `// fixture-symbols-allow: SYM — why` comment on the line above it, so the waiver is
+  reviewed and lives beside the code. `npm run verify-fixture-symbols-self-test` proves the
+  scanner against the historical AAPL/VXUS/LTC sources from git, the fixed sources, an
+  injected collision and an empty directory — a PASS means it found nothing, not that it
+  parsed nothing. Meme coins (DOGE, SHIB, PEPE) are the safe crypto fixtures because the
+  catalog excludes them by policy; for a stock, pick one absent from `products.ticker` AND the
+  source file.
+- **After a fixture-only fix, rerun only the suites whose fixtures changed** (2026-09-14). A
+  one-symbol change in one suite does not invalidate the other nine — passes 2 and 3 of the
+  catalog-seed verification reran the full ~2h40 targeted set for changes that touched a
+  handful of files. The full-suite rule above is about product code with a blast radius; a
+  fixture change has none beyond its own file.
+- **The round-robin refresh suite is ~45–50% of a targeted pass, and most of that is waiting
+  for Finnhub minutes.** Two levers, one built, one recorded (2026-09-14): with a DEDICATED
+  local `FINNHUB_API_KEY` (row 213's fix), run it as `MW_FINNHUB_DEDICATED=1 npm run
+  verify-round-robin-refresh` and it skips the clear-minute waits (~25% of its runtime) — the
+  66s window between measured runs stays, since that is the provider's own budget, not
+  staging's. The bigger lever — defaulting the suite to a bounded subset (2 cycles, ~10 min)
+  with `--full` for the real 10-cycle run — is NOT cheap and was not built: the function under
+  test refreshes the 30 oldest symbols across the WHOLE union, so a suite cannot confine the
+  rotation to a subset without the non-subset symbols becoming the oldest mid-run; it needs
+  either a subset-aware seam in `refresh-market-data` or a throwaway union, both real design
+  work. Recorded here rather than half-done.
 - **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
   control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
   for two things that have each broken silently once: the three-tier geometry, and row 171's

@@ -89,7 +89,13 @@ const MINUTE_WINDOW_MS = 66000; // one full Finnhub window between real runs, so
 // reserve eaten and halts (observed: run 8 of 30 refreshed 6, `haltedForRateLimit: true` — the
 // halt doing its job, but not the property under test). Each measured run therefore waits out
 // any minute the staging cron owns and starts early in a clear one.
+// MW_FINNHUB_DEDICATED=1 (2026-09-14): the local stack's FINNHUB_API_KEY is its own, not shared
+// with real cloud staging (row 213's fix — a second free account in supabase/functions/.env).
+// Then no other consumer can spend this minute's budget (the local cron is paused below), the
+// clear-minute wait is pure dead time, and each measured run needs only the 66s window.
+const DEDICATED_KEY = process.env.MW_FINNHUB_DEDICATED === '1';
 async function waitForClearMinute() {
+  if (DEDICATED_KEY) return;
   for (;;) {
     const d = new Date();
     // Not the cron's minute, and at least 30s past the top of the minute: 90s+ after the cron
@@ -102,6 +108,7 @@ async function waitForClearMinute() {
 
 async function main() {
   console.log('Round-robin market refresh + seeded catalog\n');
+  if (DEDICATED_KEY) console.log('(MW_FINNHUB_DEDICATED=1: the local key is not shared with staging — skipping the clear-minute waits)');
   const { url, anonKey, serviceRoleKey } = readLocalStackCredentials();
   const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -309,7 +316,17 @@ async function main() {
       const { error } = await admin.from('products').delete().in('id', cleanup.productIds);
       if (error) console.error('CLEANUP: could not delete test product: ' + error.message);
     }
-    if (cleanup.cacheSymbols.length) await admin.from('market_data_cache').delete().in('symbol', cleanup.cacheSymbols);
+    // Only cache rows NO PRODUCT OWNS (2026-09-14): the extra watchlist symbols above (AAPL, MSFT,
+    // NVDA, …) are all real market-priced products since the row-211 seed, and deleting their
+    // cache rows dropped 14 real products' stored logos on every run — row 212's class, in an
+    // array built by push() that a symbol-level sweep cannot see (verify-fixture-symbols lists
+    // this write as UNRESOLVED for exactly that reason). A product's row is recreated by the next
+    // refresh either way; the test client's watchlist rows above are deleted by client_id.
+    if (cleanup.cacheSymbols.length) {
+      const owned = new Set(((await admin.from('products').select('ticker').in('ticker', cleanup.cacheSymbols)).data || []).map((r) => r.ticker));
+      const unowned = cleanup.cacheSymbols.filter((sym) => !owned.has(sym));
+      if (unowned.length) await admin.from('market_data_cache').delete().in('symbol', unowned);
+    }
     // Put the real cache timestamps back (Part C staggered and aged them).
     for (const r of cacheBefore) await admin.from('market_data_cache').update({ last_updated: r.last_updated }).eq('symbol', r.symbol);
     const residue = (await admin.from('watchlist_symbols').select('id', { count: 'exact', head: true }).eq('client_id', cleanup.clientId || '00000000-0000-0000-0000-000000000000')).count;
