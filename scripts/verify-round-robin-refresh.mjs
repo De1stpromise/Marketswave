@@ -322,5 +322,6 @@ async function main() {
 }
 
 // 10 cycles at 283 stock symbols (row 211) is 30 measured runs, each behind a full 66s
-// rate-limit window — ~35 minutes for Part C alone, so the watchdog allows an hour.
-runVerifyMain(main, { watchdogMs: 3600000 });
+// rate-limit window plus the wait for a minute the staging cron does not own — the third
+// run of 2026-09-14 was killed at run 29 by a one-hour watchdog, so it allows two.
+runVerifyMain(main, { watchdogMs: 7200000 });

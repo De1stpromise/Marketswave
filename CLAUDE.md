@@ -9617,7 +9617,13 @@ row 74.
     `(cycles − 1) × (INTERVAL_MIN + realGap)` now, and the watchdog allows an hour (30
     measured runs × 66s). A run the watchdog kills skips its `finally` — the local cron jobs
     were found paused and the staggered cache timestamps left in place afterwards; check
-    `cron.job.active` after any forced exit of that suite.
+    `cron.job.active` after any forced exit of that suite. **Two findings recorded as open
+    register rows rather than fixed here**: (row 213) the Finnhub key is SHARED with real
+    cloud staging, whose 5-minute cron now spends 30 of the minute's 60 calls at :00/:05/… —
+    any timing-sensitive local run can be starved by staging, and pausing the local cron no
+    longer protects it (the round-robin suite steps around those minutes now); (row 214)
+    three silent Node deaths in one session — a bare `fetch failed`, an exit 127 with no
+    error text mid-series, lost wait-loop results — same shape, cause not established.
   - **★ `supabase db push` and `supabase migration list` were BLOCKED all session** — the
     CLI's temporary login role (`cli_login_postgres.<ref>`) could not connect through the
     pooler ("Connection terminated unexpectedly", eight retries, for hours), while a direct
@@ -9644,7 +9650,12 @@ row 74.
   `verify-live-pricing-visual` 36/36, `verify-asset-logos-visual` 102/102 (after two flaky runs
   — a dashboard "box moved" UNMEASURED and a name-clearance read before layout settled —
   passed clean on the third, unchanged); `supabase-verify-watchlist-alerts` 111/111 with the
-  5-minute schedule assertions; `verify-round-robin-refresh` 37/37 at 10 cycles; control
+  5-minute schedule assertions; `verify-round-robin-refresh` at 10 cycles — NOT a clean pass in
+  three attempts (register row 211 has the run-by-run account): the rotation property is
+  evidenced by a 30-run series (every run 30/284 bar one staging-cron minute, the reported
+  oldest age stable at 57.8–58 min for 20 steady runs, the real cron settling at 45.1), the
+  failures were the suite's own bound, the shared-key starvation (row 213), a bare exit 127
+  (row 214) and a one-hour watchdog the clear-minute waits outgrew (two hours now); control
   patterns 41/41, stylesheet coverage, Tailwind scoping PASS. Frame cost re-measured on the
   rebuilt cards (as shipped): 24/48/96 cards 20.0–20.4 ms mean, 0–1 dropped of 95; 247 cards
   37.7 ms mean, p95 100 ms, 35 dropped.
