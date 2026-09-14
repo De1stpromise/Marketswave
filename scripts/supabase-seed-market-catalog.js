@@ -27,6 +27,7 @@
 //   node supabase-seed-market-catalog.js              # local stack (pm@marketswave.local)
 //   node supabase-seed-market-catalog.js --dry-run    # verify prices only, create nothing
 //   node supabase-seed-market-catalog.js --source ./catalog-source-2026-09-14.js [--dry-run]
+//   node supabase-seed-market-catalog.js --source ./catalog-source-2026-09-14.js --only MRSH   # retry named entries only
 //                                                     # a curated source file (see below)
 //
 // ★ --source (2026-09-14, the catalog expansion to ~250): a module exporting
@@ -64,6 +65,12 @@ const STAGING = process.argv.indexOf('--staging') !== -1;
 const DRY_RUN = process.argv.indexOf('--dry-run') !== -1;
 const SOURCE_IDX = process.argv.indexOf('--source');
 const SOURCE = SOURCE_IDX !== -1 ? process.argv[SOURCE_IDX + 1] : null;
+// --only MRSH,ABC (2026-09-14): restrict a --source run to the named symbols, for retrying a
+// handful of entries without re-picking every one of the ~330 (a full pass is ~70 minutes
+// and most of a Finnhub minute at every step). Matches on the entry's own symbol OR its
+// home-exchange symbol, case-insensitively. Sections with no match are skipped silently.
+const ONLY_IDX = process.argv.indexOf('--only');
+const ONLY = ONLY_IDX !== -1 ? process.argv[ONLY_IDX + 1].split(',').map((x) => x.trim().toUpperCase()).filter(Boolean) : null;
 const STAGING_PROJECT_REF = 'ujnmlwbpginplfnofhhv';
 // Pacing is per FINNHUB CALL, not per symbol: a stock pick is a quote + a profile2 lookup,
 // add-product's first-price rule is another quote, and a home-listing attempt is one more.
@@ -248,8 +255,10 @@ async function seedFromSource(env, token) {
   const paceFor = (c, calls) => sleep(c.source === 'coingecko' ? CRYPTO_PACE_MS : calls * PACE_PER_CALL_MS);
 
   for (const section of src.sections) {
-    console.log('\n== ' + section.label + ' (' + section.items.length + ')');
-    for (let c of section.items) {
+    const items = ONLY ? section.items.filter((c) => ONLY.indexOf(String(c.symbol).toUpperCase()) !== -1 || (c.home && ONLY.indexOf(String(c.home).toUpperCase()) !== -1)) : section.items;
+    if (ONLY && items.length === 0) continue;
+    console.log('\n== ' + section.label + ' (' + items.length + (ONLY ? ' of ' + section.items.length + ', --only' : '') + ')');
+    for (let c of items) {
       let calls = 0;
       // 1a. the home-exchange listing first, where the entry names one.
       let homeResult = null;

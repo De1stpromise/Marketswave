@@ -98,7 +98,11 @@ const US_STOCKS = [
   S('ADP', 'Automatic Data Processing, Inc.', 'Payroll and human-capital-management services.'),
   S('PGR', 'The Progressive Corporation', 'Auto, home and commercial insurance.'),
   S('CB', 'Chubb Limited', 'Property and casualty insurance and reinsurance.'),
-  S('MMC', 'Marsh & McLennan Companies, Inc.', 'Insurance broking (Marsh), reinsurance and consulting (Mercer, Oliver Wyman).'),
+  // MRSH, not MMC (retried 2026-09-14): Marsh McLennan changed its NYSE ticker to MRSH in
+  // 2026 and Finnhub has dropped MMC entirely (no quote, no profile, absent from the US symbol
+  // list) while pricing MRSH normally. The first seed dropped MMC as a zero quote; the
+  // company was never unavailable, only its old symbol was.
+  S('MRSH', 'Marsh McLennan', 'Insurance broking (Marsh), reinsurance and consulting (Mercer, Oliver Wyman).'),
   S('LOW', "Lowe's Companies, Inc.", 'Home improvement retail stores.'),
   S('TJX', 'The TJX Companies, Inc.', 'Off-price apparel and home retail (T.J. Maxx, Marshalls, HomeGoods).'),
   S('SBUX', 'Starbucks Corporation', 'Coffeehouse chain and packaged coffee.'),
@@ -389,7 +393,11 @@ const ME_STOCKS = [
   S('CHKP', 'Check Point Software Technologies Ltd.', 'Network, cloud and endpoint cybersecurity products.'),
   S('TEVA', 'Teva Pharmaceutical Industries Limited', 'Generic and speciality pharmaceuticals.'),
   S('NICE', 'NICE Ltd.', 'Cloud software for customer engagement and financial-crime compliance.'),
-  S('CYBR', 'CyberArk Software Ltd.', 'Identity security and privileged-access management software.', AGG),
+  // CYBR removed (retried 2026-09-14): CyberArk merged into Palo Alto Networks on 2026-02-11
+  // and was delisted from Nasdaq (Form 25). Finnhub still answers a name search from a stale
+  // index but the symbol is absent from its US symbol list and has no trade at all (t: 0) —
+  // a real delisting, not a feed gap. The exposure now lives in PANW, which is in the US
+  // stocks section above.
   S('TSEM', 'Tower Semiconductor Ltd.', 'Analog semiconductor foundry.', AGG),
   S('ESLT', 'Elbit Systems Ltd.', 'Defence electronics, aerospace and land systems.'),
   // Gulf large-caps are attempted through their Finnhub home-exchange symbols purely so the
