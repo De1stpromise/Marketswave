@@ -9948,6 +9948,20 @@ row 74.
   and `audit-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
   `verify-no-monospace` already half-does it: its font non-vacuity control is what CAUGHT this
   outage; it just calls the result FAIL.
+  **★ INVESTIGATED the same day (findings in row 222, NOT built) — and it refuted its own first
+  guess twice, so do not start from the obvious design.** (a) These are TWO mechanisms, not one:
+  `verify-control-patterns`/`verify-label-association` failed as a readiness TIMEOUT, while
+  `verify-no-monospace` never timed out at all — its page loaded, its measurement ran, and the
+  numbers were simply those of a DEGRADED page (Inter absent, so `tabular-nums` had nothing to
+  act on). A fetch wrapper catches the first and is blind to the second. (b) **A HANG EMITS NO
+  `Network.loadingFailed`** — proven with two local CDP experiments needing no network: blocking
+  the font CDN reproduced tonight's exact 2.89/2.89 signature AND fired `loadingFailed`, but
+  HOLDING the request open (`Fetch.enable` + `requestPaused`, which is what actually happened at
+  17-21 s) left `goto()`'s 12 s readiness budget exhausted — reproducing "page never rendered"
+  from one hanging stylesheet — with `loadingFailed` firing **zero** times. The detector must
+  therefore track `requestWillBeSent` with no terminal event, not just failures. **The cheap part:
+  21 of the 25 CDP suites ALREADY call `Network.enable`** (for `setCacheDisabled`), so the events
+  are already flowing and simply nothing listens.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
