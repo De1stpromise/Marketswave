@@ -158,21 +158,24 @@ async function main() {
 
     // ---- 7. add-product resolves at creation (admin path) ----
     console.log('\n7. A PM adds a market product: the mark is resolved at creation\n');
-    // Only this suite's own leftover (a hard death last run), never a real VXUS product.
-    await admin.from('products').delete().eq('ticker', 'VXUS').ilike('name', '%verify %');
-    vxusCacheBefore = (await admin.from('market_data_cache').select('symbol').eq('symbol', 'VXUS').maybeSingle()).data;
+    // Fixture symbols must provably NOT be in the real catalog (row 211): since the 2026-09-14
+    // seed a hand-picked symbol may be a real product, and a write to its cache row — or a
+    // storage delete of its logo — reaches a live product. Check products.ticker before choosing.
+    // Only this suite's own leftover (a hard death last run), never a real VXF product.
+    await admin.from('products').delete().eq('ticker', 'VXF').ilike('name', '%verify %');
+    vxusCacheBefore = (await admin.from('market_data_cache').select('symbol').eq('symbol', 'VXF').maybeSingle()).data;
     const { data: prod, error: prodErr } = await pm.functions.invoke('add-product', { body: {
-      name: 'Vanguard Total International Stock ETF (verify ' + suffix + ')', investmentType: 'ETF', riskTier: 'balanced',
-      minimumInvestment: 1000, pricingModel: 'market', symbol: 'VXUS', source: 'finnhub', description: 'verify-supabase-asset-logos test product'
+      name: 'Vanguard Extended Market ETF (verify ' + suffix + ')', investmentType: 'ETF', riskTier: 'balanced',
+      minimumInvestment: 1000, pricingModel: 'market', symbol: 'VXF', source: 'finnhub', description: 'verify-supabase-asset-logos test product'
     } });
     if (prod && prod.id) createdProductIds.push(prod.id);
     const prodRow = prod && prod.id ? (await admin.from('products').select('logo_url, ticker').eq('id', prod.id).single()).data : null;
-    check('add-product (VXUS, Finnhub) succeeds', !prodErr && !!prodRow, prodErr && (prodErr.context ? await prodErr.context.text() : prodErr.message));
-    check('★ the new product row carries a stored PATH the moment it is created (Elbstream\'s Vanguard mark), no backfill needed', !!prodRow && prodRow.logo_url === '/storage/v1/object/public/asset-logos/ticker/VXUS.png', JSON.stringify(prodRow));
+    check('add-product (VXF, Finnhub) succeeds', !prodErr && !!prodRow, prodErr && (prodErr.context ? await prodErr.context.text() : prodErr.message));
+    check('★ the new product row carries a stored PATH the moment it is created (Elbstream\'s Vanguard mark), no backfill needed', !!prodRow && prodRow.logo_url === '/storage/v1/object/public/asset-logos/ticker/VXF.png', JSON.stringify(prodRow));
   } finally {
     for (const id of createdProductIds) await admin.from('products').delete().eq('id', id);
-    if (createdProductIds.length && !vxusCacheBefore) await admin.from('market_data_cache').delete().eq('symbol', 'VXUS');
-    await admin.storage.from('asset-logos').remove(['ticker/VXUS.png', 'crypto/' + testCoinSymbol + '.png', 'crypto/' + testCoinSymbol + '.jpg', 'ticker/HACK-' + suffix + '.png']);
+    if (createdProductIds.length && !vxusCacheBefore) await admin.from('market_data_cache').delete().eq('symbol', 'VXF');
+    await admin.storage.from('asset-logos').remove(['ticker/VXF.png', 'crypto/' + testCoinSymbol + '.png', 'crypto/' + testCoinSymbol + '.jpg', 'ticker/HACK-' + suffix + '.png']);
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
     await admin.from('market_data_cache').delete().in('symbol', [testCoinSymbol, nonsense]);
     await admin.from('account_state').delete().eq('client_id', clientId);

@@ -9594,8 +9594,8 @@ row 74.
     copies of the sequential suite runner at once — a stopped background task whose bash
     child survived — produced a wall of false failures (shared test data, ports, provider
     budget); kill by PID and confirm zero before relaunching.
-  - **★ SEEDING THE CATALOG MOVED SIX SUITES' HAND-PICKED SYMBOLS INTO THE CATALOG, and one
-    of them was corrupting a real product.** NVDA (watchlist "Tracking only" proofs), AAPL
+  - **★ SEEDING THE CATALOG MOVED SIX SUITES' HAND-PICKED SYMBOLS INTO THE CATALOG, and two
+    of them were corrupting a real product (register row 212 records the class and the sweep).** NVDA (watchlist "Tracking only" proofs), AAPL
     (the admin add-product round trip, and `verify-asset-logos-visual`'s broken-logo mark —
     which UPSERTED a fake $200 value onto AAPL's cache row and then deleted the row; the
     next refresh synced $200 onto the real AAPL product until the rotation re-priced it),
@@ -9603,8 +9603,12 @@ row 74.
     products. Each suite now uses a symbol the catalog does not offer — GM, ADI, PYPL, F,
     DOGE (meme coins are excluded from the catalog by policy, which is exactly what makes it
     a safe throwaway) — and the watchlist-alerts cleanup no longer deletes a cache row a
-    product owns. **Before choosing a symbol for a test that adds or mutates it, check
-    `products.ticker`.** The `en-GB` short month for September is "Sept", not "Sep" — a
+    product owns. A sweep of every suite that writes to a shared symbol-keyed table found the
+    same shape twice more (`verify-watchlist-visual`'s identical fake-$200 AAPL upsert;
+    `verify-supabase-asset-logos` REMOVING `ticker/VXUS.png` — the real product's stored logo
+    file — in its teardown) and three more refused `add-product` calls; all moved to free
+    symbols (SHOP, VXF, ABNB/SHIB). **Before choosing a symbol for a test that adds or
+    mutates it, check `products.ticker` — see the Working convention below.** The `en-GB` short month for September is "Sept", not "Sep" — a
     `\w{3}` regex on a formatted date fails for one month of the year.
   - **`verify-round-robin-refresh`'s stabilisation bound was wrong at 10 cycles.** Its
     simulation pushes rows back INTERVAL_MIN per run on top of real clock time, so the real
@@ -10038,6 +10042,15 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   discarded with its stderr. `npm run verify-harness-teardown` (from `scripts/`) is the
   standing proof and fails if any `verify-*`/`audit-*` script calls `mkdtempSync` directly.
   When checking a run for leaks, grep its log for `TEARDOWN` — that line is the contract.
+- **★ A harness fixture that writes to a SHARED symbol- or id-keyed table must use a symbol
+  or id that provably is not in the real catalog** (`market_data_cache`, `products`, the
+  `asset-logos` bucket, anything keyed by ticker). Added 2026-09-14 (register row 212) after
+  the 330-product seed turned AAPL, NVDA, VXUS, LTC and MSFT — five suites' hand-picked
+  fixtures from when the catalog held five products — into real products: one suite's fake
+  $200 upsert was synced onto the real AAPL product by the next refresh, and another's
+  teardown deleted the real VXUS logo file. Per-client rows are not this class; a write keyed
+  by a shared symbol is. Check `products.ticker` the moment a fixture symbol is chosen; meme
+  coins (DOGE, SHIB) are safe crypto fixtures because the catalog excludes them by policy.
 - **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
   control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
   for two things that have each broken silently once: the three-tier geometry, and row 171's

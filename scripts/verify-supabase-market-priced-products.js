@@ -160,18 +160,21 @@ async function main() {
     console.log('\n5. add-product: pricing model chosen first; asset class derived from the symbol');
     const noModel = await callFunction(url, pm.token, 'add-product', { name: 'x', assetClass: 'Crypto', investmentType: 'Coin', riskTier: 'aggressive', minimumInvestment: 100, unitPrice: 5 });
     check('no pricingModel -> 400', noModel.status === 400, JSON.stringify(noModel.body));
-    const wrongClass = await callFunction(url, pm.token, 'add-product', { pricingModel: 'market', source: 'coingecko', symbol: 'LTC', providerId: 'litecoin', name: 'Litecoin Test ' + suffix, assetClass: 'Real Assets', investmentType: 'Coin', riskTier: 'aggressive', minimumInvestment: 1000 }); // LTC: real, priced, and not in the seeded catalog (BTC is, since row 202)
+    // Fixture symbols must provably NOT be in the real catalog (row 211): since the 2026-09-14
+    // seed a hand-picked symbol may be a real product, and a write to its cache row — or a
+    // storage delete of its logo — reaches a live product. SHIB is a meme coin the catalog excludes by policy; check products.ticker before choosing.
+    const wrongClass = await callFunction(url, pm.token, 'add-product', { pricingModel: 'market', source: 'coingecko', symbol: 'SHIB', providerId: 'shiba-inu', name: 'Shiba Inu Test ' + suffix, assetClass: 'Real Assets', investmentType: 'Coin', riskTier: 'aggressive', minimumInvestment: 1000 }); // SHIB: real, priced, and (a meme coin, excluded by policy) not in the seeded catalog (BTC is, since row 202)
     check('a real BTC product created via the search', wrongClass.status === 200, JSON.stringify(wrongClass.body));
     if (wrongClass.body && wrongClass.body.id) createdProductIds.push(wrongClass.body.id);
     check('★ asset class is DERIVED (Crypto) — the request\'s "Real Assets" was ignored, not trusted', wrongClass.body && wrongClass.body.assetClass === 'Crypto', wrongClass.body && wrongClass.body.assetClass);
     // Stricter than the former `> 1000` bound (which was BTC-specific): the product's first
     // price must be EXACTLY the live quote add-product wrote into the cache at that moment.
-    const ltcCache = wrongClass.body ? (await admin.from('market_data_cache').select('value').eq('symbol', 'LTC').maybeSingle()).data : null;
-    check('...unit price is the LIVE market price, never a PM-typed figure (equal to the cache row written from the same quote)', wrongClass.body && Number(wrongClass.body.unitPrice) > 0 && ltcCache && Number(wrongClass.body.unitPrice) === Number(ltcCache.value) && wrongClass.body.pricingModel === 'market' && wrongClass.body.ticker === 'LTC' && !!wrongClass.body.priceAsOf, JSON.stringify({ body: wrongClass.body, cache: ltcCache }));
+    const shibCache = wrongClass.body ? (await admin.from('market_data_cache').select('value').eq('symbol', 'SHIB').maybeSingle()).data : null;
+    check('...unit price is the LIVE market price, never a PM-typed figure (equal to the cache row written from the same quote)', wrongClass.body && Number(wrongClass.body.unitPrice) > 0 && shibCache && Number(wrongClass.body.unitPrice) === Number(shibCache.value) && wrongClass.body.pricingModel === 'market' && wrongClass.body.ticker === 'SHIB' && !!wrongClass.body.priceAsOf, JSON.stringify({ body: wrongClass.body, cache: shibCache }));
     const unknown = await callFunction(url, pm.token, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'ZZQQ' + suffix.slice(0, 2).toUpperCase() + 'X', name: 'nope', investmentType: 'ETF', riskTier: 'balanced', minimumInvestment: 100 });
     check('an unknown stock symbol (Finnhub c:0) -> 400, product NOT created', unknown.status === 400 && /no price/.test(unknown.body.error), JSON.stringify(unknown.body));
-    const stock = await callFunction(url, pm.token, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'aapl', name: 'Apple Test ' + suffix, investmentType: 'Stock', riskTier: 'balanced', minimumInvestment: 500, maximumInvestment: 25000 });
-    check('a real stock product (AAPL) is created with a live price, class Stocks & ETFs, symbol normalised', stock.status === 200 && stock.body.assetClass === 'Stocks & ETFs' && stock.body.ticker === 'AAPL' && Number(stock.body.unitPrice) > 1 && Number(stock.body.maximumInvestment) === 25000, JSON.stringify(stock.body));
+    const stock = await callFunction(url, pm.token, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'abnb', name: 'Airbnb Test ' + suffix, investmentType: 'Stock', riskTier: 'balanced', minimumInvestment: 500, maximumInvestment: 25000 });
+    check('a real stock product (ABNB) is created with a live price, class Stocks & ETFs, symbol normalised', stock.status === 200 && stock.body.assetClass === 'Stocks & ETFs' && stock.body.ticker === 'ABNB' && Number(stock.body.unitPrice) > 1 && Number(stock.body.maximumInvestment) === 25000, JSON.stringify(stock.body));
     if (stock.body && stock.body.id) createdProductIds.push(stock.body.id);
     const apprCrypto = await callFunction(url, pm.token, 'add-product', { pricingModel: 'appraisal', assetClass: 'Crypto', name: 'x', investmentType: 'Fund', riskTier: 'balanced', minimumInvestment: 100, unitPrice: 10 });
     check('an appraisal product cannot be Crypto (400)', apprCrypto.status === 400, JSON.stringify(apprCrypto.body));
@@ -240,8 +243,8 @@ async function main() {
     check('BTC is first, priced live, class derived Crypto, marked already offered (the test product from part 5)', !!btc && search.body.results[0] === btc && btc.price > 1000 && btc.assetClass === 'Crypto' && btc.alreadyOffered === true, JSON.stringify(btc));
     const anyStock = search.body.results.find((r) => r.source === 'finnhub');
     check('★ a stock search row carries "US listing" with exchangeVerified === false — a visible fallback, never a confident label', anyStock && anyStock.exchange === 'US listing' && anyStock.exchangeVerified === false, JSON.stringify(anyStock));
-    const pickAapl = await callFunction(url, pm.token, 'lookup-product-symbol', { symbol: 'AAPL', source: 'finnhub' });
-    check('picking AAPL verifies its exchange from profile2 (NASDAQ)', pickAapl.status === 200 && pickAapl.body.exchange === 'NASDAQ' && pickAapl.body.exchangeVerified === true && pickAapl.body.price > 1, JSON.stringify(pickAapl.body));
+    const pickAbnb = await callFunction(url, pm.token, 'lookup-product-symbol', { symbol: 'ABNB', source: 'finnhub' });
+    check('picking ABNB verifies its exchange from profile2 (NASDAQ)', pickAbnb.status === 200 && pickAbnb.body.exchange === 'NASDAQ' && pickAbnb.body.exchangeVerified === true && pickAbnb.body.price > 1, JSON.stringify(pickAbnb.body));
     const pickVt = await callFunction(url, pm.token, 'lookup-product-symbol', { symbol: 'VT', source: 'finnhub' });
     check('★ picking VT (an ETF: profile2 returns {} on the free tier) reports "US listing" + exchangeVerified false — honest, not fabricated', pickVt.status === 200 && pickVt.body.exchange === 'US listing' && pickVt.body.exchangeVerified === false && pickVt.body.price > 1, JSON.stringify(pickVt.body));
   } finally {
@@ -256,7 +259,7 @@ async function main() {
       await admin.from('holdings').delete().in('product_id', createdProductIds);
       await admin.from('allocation_requests').delete().in('product_id', createdProductIds);
       await admin.from('nav_publications').delete().in('product_id', createdProductIds);
-      await admin.from('market_data_cache').delete().in('symbol', ['AAPL', 'LTC']);
+      await admin.from('market_data_cache').delete().in('symbol', ['ABNB', 'SHIB']);
       const { error: delErr } = await admin.from('products').delete().in('id', createdProductIds);
       if (delErr) console.log('  cleanup: products delete -> ' + delErr.message);
     }

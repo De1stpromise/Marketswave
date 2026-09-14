@@ -143,9 +143,16 @@ function readStaging() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function callFunctionOnce(url, token, name, body) {
-  const r = await fetch(url + '/functions/v1/' + name, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {})
-  });
+  let r;
+  try {
+    r = await fetch(url + '/functions/v1/' + name, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {})
+    });
+  } catch (err) {
+    // A dropped connection is not a verdict on the symbol either: the first real staging run
+    // died at entry 44 of 330 on a bare `fetch failed`. Status 0 is retried like a 503 below.
+    return { status: 0, body: { error: 'network: ' + (err && err.message) } };
+  }
   let json = null; try { json = await r.json(); } catch (_e) {}
   return { status: r.status, body: json };
 }
@@ -179,7 +186,7 @@ async function callFunction(url, token, name, body) {
 function isRateLimited(res) {
   // 502/504 are the gateway, not the symbol: the first real staging run dropped ETH on a
   // bare HTTP 502 and reported it as "did not price cleanly", which it never was.
-  return res.status === 503 || res.status === 502 || res.status === 504 || res.status === 429 || /rate-limit/i.test((res.body && res.body.error) || '');
+  return res.status === 0 || res.status === 503 || res.status === 502 || res.status === 504 || res.status === 429 || /rate-limit/i.test((res.body && res.body.error) || '');
 }
 
 async function main() {

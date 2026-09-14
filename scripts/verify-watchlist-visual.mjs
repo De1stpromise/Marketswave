@@ -113,14 +113,17 @@ async function main() {
       { client_id: clientId, symbol: 'ETH', name: 'Ethereum', source: 'coingecko', provider_id: 'ethereum', asset_type: 'crypto' },
       { client_id: clientId, symbol: 'SPY', name: 'S&P 500 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' },
       { client_id: clientId, symbol: 'BTC', name: 'Bitcoin', source: 'coingecko', provider_id: 'bitcoin', asset_type: 'crypto' },
-      // Since the seeded catalog (2026-09-12, row 202) every base symbol is Offered; AAPL
+      // Since the seeded catalog (2026-09-12, row 202) every base symbol is Offered; SHOP
       // (in place of QQQ) is owned by no product, so it is what puts a real Tracking-only
       // badge on screen. Four cards, deliberately: at three columns that is two ROWS, which
       // is what the drawer-placement proof needs (a top-row card must open beneath row one,
       // not below the grid), and the grid still fits inside .wl-rows' own scroll height.
-      { client_id: clientId, symbol: 'AAPL', name: 'Apple Inc.', source: 'finnhub', provider_id: null, asset_type: 'stock' }
+      { client_id: clientId, symbol: 'SHOP', name: 'Shopify Inc.', source: 'finnhub', provider_id: null, asset_type: 'stock' }
     ]);
-    await admin.from('market_data_cache').upsert({ symbol: 'AAPL', value: 200, change_percent: 0.5, source: 'finnhub', name: 'Apple Inc.', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString() }, { onConflict: 'symbol' });
+    // Fixture symbols must provably NOT be in the real catalog (row 211): since the 2026-09-14
+    // seed a hand-picked symbol may be a real product, and a write to its cache row — or a
+    // storage delete of its logo — reaches a live product. Check products.ticker before choosing.
+    await admin.from('market_data_cache').upsert({ symbol: 'SHOP', value: 200, change_percent: 0.5, source: 'finnhub', name: 'Shopify Inc.', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString() }, { onConflict: 'symbol' });
     await admin.from('clients').update({ watchlist_seeded_at: new Date().toISOString() }).eq('id', clientId);
     // Force one row genuinely negative and one genuinely positive in the cache, so both
     // tones are painted. These are real cache rows, overwritten by the next scheduled
@@ -213,10 +216,10 @@ async function main() {
 
     const out = runContrast('watchlist', prepareCard, 'the card faces');
     // BTC carries the seeded alert and is Offered: Allocate, an armed bell and the alert
-    // line are all on screen in its drawer. AAPL is Tracking-only: its drawer badge is the
+    // line are all on screen in its drawer. SHOP is Tracking-only: its drawer badge is the
     // other colour stack and its bell is unarmed.
     const drawerOffered = runContrast('watchlist-drawer', prepareDrawerFor('BTC'), 'the drawer (Offered, armed alert)');
-    const drawerTracking = runContrast('watchlist-drawer', prepareDrawerFor('AAPL'), 'the drawer (Tracking only)');
+    const drawerTracking = runContrast('watchlist-drawer', prepareDrawerFor('SHOP'), 'the drawer (Tracking only)');
     runContrast('watchlist-modal', prepareModal, 'the alert modal');
 
     // Both badge styles are two genuinely different colour stacks; neither may be skipped —
@@ -328,7 +331,7 @@ async function main() {
       // The last card is on the last row at every column count seeded here (4 cards).
       const g2 = await tapCard(3);
       check(width + 'px: tapping a last-row card moves the ONE drawer beneath the last row', g2.drawers === 1 && g2.openCount === 1 && g2.openRows[0] === g2.rowCount - 1 && !!g2.drawer && g2.drawer.top >= g2.rowBottoms[g2.rowCount - 1] - 1 && g2.drawer.isLast, JSON.stringify({ drawer: g2.drawer, rowBottoms: g2.rowBottoms, openRows: g2.openRows }));
-      check(width + 'px: ...and the first card is no longer open', g2.openRows.length === 1 && /AAPL/.test(g2.drawer.forSym), JSON.stringify(g2.openRows));
+      check(width + 'px: ...and the first card is no longer open', g2.openRows.length === 1 && /SHOP/.test(g2.drawer.forSym), JSON.stringify(g2.openRows));
       const g3 = await tapCard(3);
       check(width + 'px: tapping the open card again closes its drawer', g3.drawers === 0 && g3.openCount === 0, JSON.stringify({ drawers: g3.drawers, open: g3.openCount }));
 
@@ -393,7 +396,7 @@ async function main() {
     if (cdp) await cdp.close();
     await admin.from('price_alerts').delete().eq('client_id', clientId);
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
-    await admin.from('market_data_cache').delete().eq('symbol', 'AAPL');
+    await admin.from('market_data_cache').delete().eq('symbol', 'SHOP');
     await admin.from('account_state').delete().eq('client_id', clientId);
     await admin.from('clients').delete().eq('id', clientId);
     await admin.auth.admin.deleteUser(clientId);
