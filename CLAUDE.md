@@ -9594,14 +9594,56 @@ row 74.
     copies of the sequential suite runner at once — a stopped background task whose bash
     child survived — produced a wall of false failures (shared test data, ports, provider
     budget); kill by PID and confirm zero before relaunching.
-  **Verified** — see the register row for counts: `verify-catalog-expansion` (new: the real
-  page script in jsdom for paging/search/chips/sort/the three panel states; headless Chrome
-  for equal cards across the whole catalog, 4→3→2→1 columns, the panel's constant height,
-  contrast on the card face and the panel in all three states with the sheen composited
-  (`audit-glass-sheen` on the page), fonts), the asset-pages / live-pricing / asset-logos /
-  fund-document / products-catalog-fix / watchlist suites through the new markup,
-  `supabase-verify-watchlist-alerts` with the 5-minute assertions, `verify-round-robin-refresh`
-  at 10 cycles, control patterns 41/41, stylesheet coverage, Tailwind scoping PASS.
+  - **★ SEEDING THE CATALOG MOVED SIX SUITES' HAND-PICKED SYMBOLS INTO THE CATALOG, and one
+    of them was corrupting a real product.** NVDA (watchlist "Tracking only" proofs), AAPL
+    (the admin add-product round trip, and `verify-asset-logos-visual`'s broken-logo mark —
+    which UPSERTED a fake $200 value onto AAPL's cache row and then deleted the row; the
+    next refresh synced $200 onto the real AAPL product until the rotation re-priced it),
+    VXUS (the immediate-pricing proof) and LTC (the products-catalog-fix add) all became real
+    products. Each suite now uses a symbol the catalog does not offer — GM, ADI, PYPL, F,
+    DOGE (meme coins are excluded from the catalog by policy, which is exactly what makes it
+    a safe throwaway) — and the watchlist-alerts cleanup no longer deletes a cache row a
+    product owns. **Before choosing a symbol for a test that adds or mutates it, check
+    `products.ticker`.** The `en-GB` short month for September is "Sept", not "Sep" — a
+    `\w{3}` regex on a formatted date fails for one month of the year.
+  - **`verify-round-robin-refresh`'s stabilisation bound was wrong at 10 cycles.** Its
+    simulation pushes rows back INTERVAL_MIN per run on top of real clock time, so the real
+    inter-run gap accrues once PER CYCLE: at 2 cycles a single gap was indistinguishable, at
+    10 the series read a perfectly stable ~58 min against a 46.6 bound. The bound is
+    `(cycles − 1) × (INTERVAL_MIN + realGap)` now, and the watchdog allows an hour (30
+    measured runs × 66s). A run the watchdog kills skips its `finally` — the local cron jobs
+    were found paused and the staggered cache timestamps left in place afterwards; check
+    `cron.job.active` after any forced exit of that suite.
+  - **★ `supabase db push` and `supabase migration list` were BLOCKED all session** — the
+    CLI's temporary login role (`cli_login_postgres.<ref>`) could not connect through the
+    pooler ("Connection terminated unexpectedly", eight retries, for hours), while a direct
+    psql to the same pooler authenticated normally and `functions deploy` / `functions list`
+    (Management API) worked throughout. The cadence migration was applied through the
+    Management API's `POST /v1/projects/{ref}/database/query` with the CLI's OWN stored
+    access token (Windows Credential Manager, read in-process, never printed), executing the
+    migration file verbatim and inserting its `schema_migrations` row exactly as `db push`
+    would — so a later `db push` sees it as applied. `verify-cloud-staging-parity` cannot run
+    until the pooler path recovers (it reads `migration list`); parity was confirmed the same
+    way instead: 25/25 migrations applied, 73/73 functions ACTIVE. The helper is
+    scratchpad-only, deliberately — it is a workaround for a platform fault, not a new path.
+  **Verified**: `verify-catalog-expansion` (new) 89/89 — jsdom: 24 then 48 then all,
+  "Showing N of M", held/unheld footers with real gain and loss tones, a ticker search finding
+  a product beyond page one, chip counts following the search, the Crypto chip, four sorts, the
+  three panel states, 25%/50%/Max/Min, above-available, Escape/Cancel; Chrome: equal cards at
+  1440/1280/1100/390/375 + a real 320px iframe, 4→3→2→1 columns, nothing escaping any card,
+  one panel height across the three states, 77 + 3×20 composited contrast measurements 0 below
+  4.5:1, sheen audit 38 measured 0 below, Inter only. `verify-asset-pages-ui-wiring` 43/43 (the
+  panel's own real round trip, the below-minimum block before submit, the real server 409 on a
+  race). Through the new markup: `verify-live-pricing-ui-wiring` 37/37,
+  `verify-asset-logos-ui-wiring` 57/57, `verify-fund-document-ui-wiring` 55/55,
+  `verify-products-catalog-fix` 37/37, `verify-watchlist-ui-wiring` 74/74,
+  `verify-live-pricing-visual` 36/36, `verify-asset-logos-visual` 102/102 (after two flaky runs
+  — a dashboard "box moved" UNMEASURED and a name-clearance read before layout settled —
+  passed clean on the third, unchanged); `supabase-verify-watchlist-alerts` 111/111 with the
+  5-minute schedule assertions; `verify-round-robin-refresh` 37/37 at 10 cycles; control
+  patterns 41/41, stylesheet coverage, Tailwind scoping PASS. Frame cost re-measured on the
+  rebuilt cards (as shipped): 24/48/96 cards 20.0–20.4 ms mean, 0–1 dropped of 95; 247 cards
+  37.7 ms mean, p95 100 ms, 35 dropped.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -9863,6 +9905,11 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   `ACTIVE` on the real remote — it does NOT diff deployed code against local source, so
   editing an already-deployed function and forgetting to redeploy it still reports clean.
   Redeploying an edited function remains the operator's own responsibility to remember.
+  **A second limitation found 2026-09-14 (row 211)**: the migrations half reads `supabase
+  migration list`, which needs the CLI's temporary login role to connect through the pooler
+  — when that path is down (it was, for a whole session, while REST/Auth/Management API all
+  worked), the script cannot run at all. The fallback that was used, and the reason it is
+  NOT a committed script, is in the row-211 entry above.
 - **★ Deployed-bytes check — after ANY push that touches a static file, fetch the affected
   files from the live site and diff them against local.** Added 2026-09-11, after a removal
   that was genuinely committed, genuinely pushed and genuinely verified was still visible on

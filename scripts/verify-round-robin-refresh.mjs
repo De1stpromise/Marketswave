@@ -227,11 +227,15 @@ async function main() {
     check('...at least ' + (totalRuns / cycles) + ' refreshes per symbol over ' + totalRuns + ' runs', symbols.every((sym) => refreshedCount[sym] >= totalRuns / cycles), JSON.stringify(Object.entries(refreshedCount).filter(([, c]) => c < totalRuns / cycles)));
     const ages = runs.map((r) => r.oldest.ageMinutes);
     const steady = ages.slice(cycles);
-    // The reported age is (cycles - 1) x INTERVAL_MIN min of simulated ageing PLUS the real seconds
-    // that elapsed since the previous run stamped the row — the inter-run wait and the run
-    // itself — so the allowance is that real interval, not a rounding margin.
+    // The reported age is (cycles - 1) x INTERVAL_MIN min of simulated ageing PLUS the real time
+    // that elapsed across those same (cycles - 1) runs — each inter-run wait and the run itself
+    // — because the simulation pushes rows back by INTERVAL_MIN per run on top of real clock
+    // time, so the real gap accrues once PER CYCLE, not once. (At 2 cycles the two readings
+    // were indistinguishable; at 10 cycles — row 211 — they are 45 vs ~58 minutes, and the
+    // original single-gap bound wrongly failed a series that was perfectly stable.) A real
+    // deployment has no simulated ageing: the cron's own reports settled at 45.1 min.
     const realGapMin = MINUTE_WINDOW_MS / 60000 + 0.5;
-    check('★ the reported oldest-symbol age STABILISES at the theoretical worst case (' + ((cycles - 1) * INTERVAL_MIN) + ' min after a run, plus the real inter-run gap) rather than growing without bound', steady.every((a) => a <= (cycles - 1) * INTERVAL_MIN + realGapMin) && steady[steady.length - 1] <= steady[0] + 0.5, JSON.stringify(ages));
+    check('★ the reported oldest-symbol age STABILISES at the theoretical worst case (' + ((cycles - 1) * INTERVAL_MIN) + ' min of simulated ageing after a run, plus the real inter-run gaps) rather than growing without bound', steady.every((a) => a <= (cycles - 1) * (INTERVAL_MIN + realGapMin)) && steady[steady.length - 1] <= steady[0] + 0.5, JSON.stringify(ages));
     check('...and the FIRST run\'s reported oldest age is the larger, staggered figure (the metric is real, not a constant)', ages[0] > (cycles - 1) * INTERVAL_MIN + 1, JSON.stringify(ages));
 
     // ===================================================================================

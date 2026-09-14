@@ -149,14 +149,17 @@ async function main() {
     // BROKEN — a storage path nothing was ever uploaded to. That is the real render path
     // (get-watchlist → wlCardHTML → <img src=…>) meeting a real 400 from Storage.
     const brokenPath = '/storage/v1/object/public/asset-logos/ticker/NOPE-' + suffix + '.png';
+    // PYPL, not AAPL: since the 2026-09-14 seed (row 211) AAPL is a real market-priced PRODUCT,
+    // and this upsert writes a fake $200 value + a broken logo path onto its cache row — which the
+    // next refresh would sync onto the real product. PayPal is not in the catalog.
     await admin.from('market_data_cache').upsert([
-      { symbol: 'AAPL', value: 200, change_percent: 0.5, source: 'finnhub', name: 'Apple Inc.', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString(), logo_url: brokenPath },
+      { symbol: 'PYPL', value: 200, change_percent: 0.5, source: 'finnhub', name: 'PayPal Holdings, Inc.', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString(), logo_url: brokenPath },
       { symbol: brokenSymbol, value: 12.5, change_percent: -0.4, source: 'finnhub', name: 'No Provider Corp', provider_id: null, asset_type: 'stock', last_updated: new Date().toISOString(), logo_url: null }
     ], { onConflict: 'symbol' });
     await admin.from('watchlist_symbols').insert([
       { client_id: clientId, symbol: 'BTC', name: 'Bitcoin', source: 'coingecko', provider_id: 'bitcoin', asset_type: 'crypto' },
       { client_id: clientId, symbol: 'SPY', name: 'S&P 500 ETF', source: 'finnhub', provider_id: null, asset_type: 'stock' },
-      { client_id: clientId, symbol: 'AAPL', name: 'Apple Inc.', source: 'finnhub', provider_id: null, asset_type: 'stock' },
+      { client_id: clientId, symbol: 'PYPL', name: 'PayPal Holdings, Inc.', source: 'finnhub', provider_id: null, asset_type: 'stock' },
       { client_id: clientId, symbol: brokenSymbol, name: 'No Provider Corp', source: 'finnhub', provider_id: null, asset_type: 'stock' }
     ]);
     await admin.from('clients').update({ watchlist_seeded_at: new Date().toISOString() }).eq('id', clientId);
@@ -243,17 +246,17 @@ async function main() {
     // ---- dashboard.html: watchlist cards at 34px, the broken path, the no-provider symbol ----
     const dbReady = await loadAndWait('/dashboard.html', '#wl-rows .wl-card[data-wl-card] .mk');
     check('dashboard.html rendered the watchlist cards with marks', dbReady);
-    await cdp.evaluate('(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "AAPL"); if (c) c.click(); return true; })()');
+    await cdp.evaluate('(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "PYPL"); if (c) c.click(); return true; })()');
     await sleep(400);
     await cdp.shot('watchlist-1440', '#watchlist-card');
     const dbMarks = await cdp.evaluate(MARKS_JS);
     const wlBtc = dbMarks.find((m) => m.mono === 'BTC');
     check('BTC on the watchlist shows the same real decoded logo, at 34×34', !!wlBtc && !wlBtc.isMono && wlBtc.img.nw > 0 && wlBtc.w === 34 && wlBtc.h === 34, JSON.stringify(wlBtc));
-    const wlBroken = dbMarks.find((m) => m.mono === 'AAPL');
+    const wlBroken = dbMarks.find((m) => m.mono === 'PYPL');
     check('★ the BROKEN stored path (a real 400 from Storage) fell back to the monogram in the real render path — no broken image, no gap',
-      !!wlBroken && wlBroken.isMono && wlBroken.text === 'AAPL' && !wlBroken.img && wlBroken.w === 34 && wlBroken.h === 34, JSON.stringify(wlBroken));
-    check('...with the 4-character step-down (76%, tighter tracking) so AAPL sits inside the well',
-      !!wlBroken && /mk-len4/.test(await cdp.evaluate('(() => { const m = [...document.querySelectorAll(".mk")].find(x => x.getAttribute("data-mk-mono") === "AAPL"); return m ? m.querySelector(".mk-t").className : ""; })()')));
+      !!wlBroken && wlBroken.isMono && wlBroken.text === 'PYPL' && !wlBroken.img && wlBroken.w === 34 && wlBroken.h === 34, JSON.stringify(wlBroken));
+    check('...with the 4-character step-down (76%, tighter tracking) so PYPL sits inside the well',
+      !!wlBroken && /mk-len4/.test(await cdp.evaluate('(() => { const m = [...document.querySelectorAll(".mk")].find(x => x.getAttribute("data-mk-mono") === "PYPL"); return m ? m.querySelector(".mk-t").className : ""; })()')));
     const wlNone = dbMarks.find((m) => m.mono === brokenSymbol);
     check('a symbol no provider has (null logo_url) renders its ticker monogram straight away', !!wlNone && wlNone.isMono && wlNone.text === brokenSymbol, JSON.stringify(wlNone));
     // Broken-URL fallback the other way too: the page's own listener handles an <img>
@@ -266,7 +269,7 @@ async function main() {
     check('an <img> that 404s at ANY time (injected after load) is swapped to its monogram by the document-level listener', injected.mono && injected.text === 'INJ' && !injected.img && injected.w === 46, JSON.stringify(injected));
 
     // Hue determinism across pages: the same text → the same hue class everywhere.
-    const hueOnDashboard = { AAPL: wlBroken && wlBroken.hue, SPY: (dbMarks.find((m) => m.mono === 'SPY') || {}).hue };
+    const hueOnDashboard = { PYPL: wlBroken && wlBroken.hue, SPY: (dbMarks.find((m) => m.mono === 'SPY') || {}).hue };
     const hueOnCatalog = { SPY: acSpy && acSpy.hue, NGF: acNgf && acNgf.hue };
     check('SPY carries the same hue class on the watchlist and the catalog (deterministic from the text, never re-rolled)',
       !!hueOnDashboard.SPY && hueOnDashboard.SPY === hueOnCatalog.SPY, JSON.stringify({ hueOnDashboard, hueOnCatalog }));
@@ -351,8 +354,8 @@ async function main() {
     const showMonograms = '(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ const g=document.getElementById("asset-cards-grid"); if (g && g.querySelectorAll("[data-product-id]").length>0 && !/animate-pulse/.test(g.innerHTML)) break; await s(250);} const b=document.getElementById("asset-search"); b.value="fund"; b.dispatchEvent(new Event("input",{bubbles:true})); await s(400); return !!document.querySelector("#asset-cards-grid .mk-mono"); })()';
     const acOut = runContrast('asset-marks', '/asset-collection.html', showMonograms, 'catalog monograms (40px) + credit');
     check('the catalog run measured monograms AND both credit surfaces', /monogram/.test(acOut) && /logo credit link/.test(acOut));
-    // Open the AAPL card's drawer so the 28px drawer mark is on screen too.
-    const openDrawer = '(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "AAPL"); if (c && !document.querySelector(".wl-drawer")) c.click(); return true; })()';
+    // Open the PYPL card's drawer so the 28px drawer mark is on screen too.
+    const openDrawer = '(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "PYPL"); if (c && !document.querySelector(".wl-drawer")) c.click(); return true; })()';
     runContrast('asset-marks', '/dashboard.html', openDrawer, 'watchlist monograms (34px + 28px drawer) + credit');
     runContrast('asset-marks', '/asset-performance.html', '', 'holdings monograms (28px) + credit');
     // The sheen strip: a plain .glass card, NO .glass-lift, its top-left under the sheen's
@@ -386,10 +389,11 @@ async function main() {
     // ===================================================================================
     const GEOM_JS = '(() => { const grid = document.getElementById("asset-cards-grid"); const cards = [...grid.querySelectorAll("[data-product-id]")];' +
       ' const marks = [...grid.querySelectorAll(".mk")].map(m => Math.round(m.getBoundingClientRect().width));' +
-      ' const names = cards.map(c => c.querySelector("p.font-medium")); const gridRight = Math.round(grid.getBoundingClientRect().right);' +
+      ' const names = cards.map(c => c.querySelector(".cat-name")); const gridRight = Math.round(grid.getBoundingClientRect().right);' +
       ' return { inner: window.innerWidth, bodyScroll: document.body.scrollWidth, cards: cards.length, markWidths: [...new Set(marks)], gridRight,' +
       '   maxCardRight: Math.max.apply(null, cards.map(c => Math.round(c.getBoundingClientRect().right))),' +
-      '   nameClearsMark: cards.every(c => { const m = c.querySelector(".mk"); const n = c.querySelector("p.font-medium"); return m && n && n.getBoundingClientRect().left >= m.getBoundingClientRect().right + 8; }) }; })()';
+      '   nameClearsMark: cards.every(c => { const m = c.querySelector(".mk"); const n = c.querySelector(".cat-name"); return m && n && n.getBoundingClientRect().left >= m.getBoundingClientRect().right + 8; }),' +
+      '   firstBad: (() => { const c = cards.find(c => { const m = c.querySelector(".mk"); const n = c.querySelector(".cat-name"); return !(m && n && n.getBoundingClientRect().left >= m.getBoundingClientRect().right + 8); }); if (!c) return null; const m = c.querySelector(".mk"), n = c.querySelector(".cat-name"); return { id: c.dataset.productId, mk: m && m.getBoundingClientRect().toJSON(), name: n && n.getBoundingClientRect().toJSON(), html: c.innerHTML.slice(0, 160) }; })() }; })()';
     for (const width of [390, 375]) {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: true });
       const mobileReady = await loadAndWait('/asset-collection.html', '#asset-cards-grid [data-product-id] .mk');
@@ -421,7 +425,7 @@ async function main() {
       '   if (d && d.querySelector("#asset-cards-grid [data-product-id] .mk")) { await new Promise(r => setTimeout(r, 800)); const grid = d.getElementById("asset-cards-grid"); const cards = [...grid.querySelectorAll("[data-product-id]")];' +
       '     return { inner: f.contentWindow.innerWidth, bodyScroll: d.body.scrollWidth, cards: cards.length, markWidths: [...new Set(cards.map(c => Math.round(c.querySelector(".mk").getBoundingClientRect().width)))],' +
       '       maxCardRight: Math.max.apply(null, cards.map(c => Math.round(c.getBoundingClientRect().right))), gridRight: Math.round(grid.getBoundingClientRect().right),' +
-      '       nameClearsMark: cards.every(c => c.querySelector("p.font-medium").getBoundingClientRect().left >= c.querySelector(".mk").getBoundingClientRect().right + 8) }; } }' +
+      '       nameClearsMark: cards.every(c => c.querySelector(".cat-name").getBoundingClientRect().left >= c.querySelector(".mk").getBoundingClientRect().right + 8) }; } }' +
       ' return { timedOut: true }; })()');
     check('320px: the iframe genuinely reports 320px', narrow.inner === 320, JSON.stringify(narrow));
     check('320px: catalog cards rendered with their wells at 40px', narrow.cards > 0 && narrow.markWidths.length === 1 && narrow.markWidths[0] === 40, JSON.stringify(narrow));
@@ -430,7 +434,7 @@ async function main() {
   } finally {
     if (cdp) await cdp.close();
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
-    await admin.from('market_data_cache').delete().in('symbol', ['AAPL', brokenSymbol]);
+    await admin.from('market_data_cache').delete().in('symbol', ['PYPL', brokenSymbol]);
     await admin.from('holdings').delete().eq('client_id', clientId);
     await admin.from('account_state').delete().eq('client_id', clientId);
     await admin.from('clients').delete().eq('id', clientId);
