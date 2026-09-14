@@ -10047,6 +10047,17 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   — when that path is down (it was, for a whole session, while REST/Auth/Management API all
   worked), the script cannot run at all. The fallback that was used, and the reason it is
   NOT a committed script, is in the row-211 entry above.
+- **★ After ANY multi-function deploy, run `node verify-cloud-staging-parity.js --fresh
+  a,b,c [--within <minutes>]` with the exact list you deployed — the exit code of a batch
+  deploy is not evidence.** Added 2026-09-14 (row 219) after a real one: a 35-function
+  `supabase functions deploy …` exited 0, printed "Deployed Functions", and left its LAST FIVE
+  (the alphabetical tail) with their old `updated_at`, running stale code on real staging;
+  caught only by reading each function's `updated_at`, fixed with a second, smaller batch.
+  The check asserts every named slug is ACTIVE and redeployed inside the window, prints each
+  real timestamp, and exits 1 naming any stale one (proven with a control: a 5-minute window
+  against an hour-old deploy fails by name). It skips the migrations half, so it works even
+  when the pooler login-role path is down. A fresh timestamp says the function was
+  redeployed — it still does not diff source, the older limitation above stands.
 - **★ Deployed-bytes check — after ANY push that touches a static file, fetch the affected
   files from the live site and diff them against local.** Added 2026-09-11, after a removal
   that was genuinely committed, genuinely pushed and genuinely verified was still visible on

@@ -37,6 +37,23 @@
 // tracking: hash-compare deployed bundle content (functions list's own response includes no
 // content hash reliably comparable to local source today) or track a "last deployed" marker
 // per function file.
+//
+// ★ A SECOND FINDING, AND THE CHECK THAT CLOSES IT (2026-09-14, PM tool revamp part 1): a
+// MULTI-FUNCTION `supabase functions deploy a b c …` can exit 0, print "Deployed Functions",
+// and leave some of the named functions untouched. Observed live: a 35-function batch left its
+// LAST FIVE (send-proactive-message, start-chat-conversation, sync-hys-pocket-status,
+// track-visit, update-support-ticket — the alphabetical tail) with their old `updated_at`,
+// running stale code, while the exit code and the final message claimed success. A second,
+// smaller batch deployed them. The exit code of a batch deploy is therefore NOT evidence that
+// every named function was deployed. The check:
+//
+//   node verify-cloud-staging-parity.js --fresh a,b,c [--within <minutes>]   (default 60)
+//
+// reads `supabase functions list` and asserts every named slug is ACTIVE AND has an
+// `updated_at` inside the window, printing each one's real timestamp — exit 1 names any that
+// is stale. Run it after EVERY batch deploy, with the exact list you deployed; a stale one
+// gets its own smaller redeploy, then re-check. (It does not replace the code-diff gap above:
+// a fresh timestamp says the function was redeployed, not that the right source went out.)
 
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -96,6 +113,9 @@ if (!linked || !EXPECTED_STAGING_URL.includes(linked.ref)) {
 console.log(`Confirmed: linked project "${linked.name}" (${linked.ref}) matches the app's own real staging config.\n`);
 
 // ---- 1. Migrations: every local file must show up on the remote side ----
+// (skipped in --fresh mode: that check is about a batch deploy of FUNCTIONS, and the
+// migration list needs the CLI's pooler login role, which has its own failure mode — row 211.)
+const FRESH_MODE = process.argv.indexOf('--fresh') !== -1;
 const localMigrations = fs.readdirSync(MIGRATIONS_DIR)
   .filter(f => f.endsWith('.sql'))
   .map(f => f.split('_')[0])
@@ -108,7 +128,7 @@ const localMigrations = fs.readdirSync(MIGRATIONS_DIR)
 // upgrade changes both formats at once.
 let migrationListRaw;
 try {
-  migrationListRaw = run('supabase migration list 2>&1');
+  migrationListRaw = FRESH_MODE ? '{"migrations":[]}' : run('supabase migration list 2>&1');
 } catch (e) {
   migrationListRaw = e.stdout ? e.stdout.toString() : '';
 }
@@ -131,15 +151,16 @@ if (jsonStartIdx !== -1) {
     .filter(r => /^\d{14}$/.test(r.local));
 }
 
-if (rows.length === 0) {
+if (rows.length === 0 && !FRESH_MODE) {
   fail('Could not parse `supabase migration list` output — CLI output format may have changed:\n' + migrationListRaw);
   process.exit(1);
 }
 
 const missingRemote = rows.filter(m => !m.remote);
-console.log(`Local migrations: ${localMigrations.length}`);
-console.log(`Applied to real remote: ${rows.length - missingRemote.length} / ${rows.length}`);
-if (missingRemote.length > 0) {
+if (FRESH_MODE) console.log('Migrations: skipped (--fresh checks a function batch only).');
+else console.log(`Local migrations: ${localMigrations.length}`);
+if (!FRESH_MODE) console.log(`Applied to real remote: ${rows.length - missingRemote.length} / ${rows.length}`);
+if (FRESH_MODE) { /* nothing to compare */ } else if (missingRemote.length > 0) {
   fail(`${missingRemote.length} migration(s) exist locally but have NEVER been applied to real cloud staging:`);
   missingRemote.forEach(m => console.error('  - ' + m.local));
 } else {
@@ -162,6 +183,34 @@ const remoteFunctions = JSON.parse(stripCliNagBanner(remoteFunctionsRaw));
 const remoteSlugs = new Set((remoteFunctions.functions || remoteFunctions).map(f => f.slug).filter(Boolean));
 if (remoteFunctions.functions === undefined && Array.isArray(remoteFunctions)) {
   remoteFunctions.forEach(f => remoteSlugs.add(f.slug));
+}
+
+// --fresh a,b,c [--within N]: the post-batch-deploy freshness check (see the header).
+const freshIdx = process.argv.indexOf('--fresh');
+if (freshIdx !== -1) {
+  const wanted = String(process.argv[freshIdx + 1] || '').split(',').map(x => x.trim()).filter(Boolean);
+  const withinIdx = process.argv.indexOf('--within');
+  const withinMin = withinIdx !== -1 ? Number(process.argv[withinIdx + 1]) : 60;
+  if (!wanted.length || !Number.isFinite(withinMin) || withinMin <= 0) { fail('--fresh needs a comma-separated list of function slugs; --within needs a positive number of minutes.'); process.exit(1); }
+  const since = Date.now() - withinMin * 60000;
+  const list = remoteFunctions.functions || remoteFunctions;
+  const stale = [];
+  console.log(`Freshness check: ${wanted.length} function(s) must be ACTIVE and redeployed within the last ${withinMin} min`);
+  for (const slug of wanted) {
+    const f = list.find(x => x.slug === slug);
+    const when = f ? new Date(f.updated_at).toISOString() : 'not on remote';
+    const ok = !!f && f.status === 'ACTIVE' && Number(f.updated_at) > since;
+    console.log(`  ${ok ? 'fresh' : 'STALE'}  ${slug.padEnd(34)} ${f ? f.status : '-'}  ${when}`);
+    if (!ok) stale.push(slug);
+  }
+  if (stale.length) {
+    fail(`${stale.length} of ${wanted.length} named function(s) were NOT redeployed — a batch deploy can exit 0 and leave the tail stale. Redeploy these and re-check:`);
+    console.error('  supabase functions deploy ' + stale.join(' ') + ' --project-ref ' + linked.ref);
+  } else {
+    console.log(`All ${wanted.length} named functions are fresh.`);
+  }
+  console.log('=== ' + (process.exitCode === 1 ? 'FRESHNESS GAP FOUND' : 'FRESHNESS OK') + ' ===');
+  process.exit(process.exitCode || 0);
 }
 
 const missingFunctions = localFunctions.filter(f => !remoteSlugs.has(f));

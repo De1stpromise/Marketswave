@@ -211,16 +211,27 @@ export const SUPPORT_REPLY_TO = 'Marketswave Support <' + FOOTER_SUPPORT_EMAIL +
 // reply to THIS message falls back to the subject's DISP id / the sender's general thread.
 export async function fetchResendMessageId(resendId: string | null): Promise<string | null> {
   if (!resendId) return null;
-  try {
-    const apiKey = Deno.env.get('RESEND_API_KEY');
-    if (!apiKey) return null;
-    const res = await fetch('https://api.resend.com/emails/' + resendId, { headers: { 'Authorization': 'Bearer ' + apiKey } });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body.message_id || null;
-  } catch (_err) {
-    return null;
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  if (!apiKey) return null;
+  // Resend does not always have message_id populated in the instant after POST /emails
+  // returns (observed live on staging, 2026-09-14: a fetch straight after the send read it as
+  // empty, and the row stored null — leaving a later reply to thread by the subject fallback
+  // only). Three short attempts cover the gap without holding the PM's own request long.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails/' + resendId, { headers: { 'Authorization': 'Bearer ' + apiKey } });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.message_id) return body.message_id;
+      } else if (res.status === 401 || res.status === 403) {
+        return null; // a send-only key: no point retrying
+      }
+    } catch (_err) {
+      // fall through to the next attempt
+    }
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
   }
+  return null;
 }
 
 // ★ Resolved 2026-09-07 — see this file's own header comment above ("SENDER ADDRESS —
