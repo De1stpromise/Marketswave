@@ -26,6 +26,23 @@
 // USAGE (from scripts/):
 //   node supabase-seed-market-catalog.js              # local stack (pm@marketswave.local)
 //   node supabase-seed-market-catalog.js --dry-run    # verify prices only, create nothing
+//   node supabase-seed-market-catalog.js --source ./catalog-source-2026-09-14.js [--dry-run]
+//                                                     # a curated source file (see below)
+//
+// ★ --source (2026-09-14, the catalog expansion to ~250): a module exporting
+// { sections: [{ key, label, items }], unresolvable: [{ line, reason }] } is seeded section
+// by section in the file's own order, with three behaviours the built-in list never needed:
+//   - an item with `home` (a home-exchange listing in Finnhub's symbol form) is tried
+//     THERE FIRST; if the free tier does not resolve it, the US-listed `symbol` is created
+//     instead and the substitution is recorded ON THE PRODUCT (extended description:
+//     "US-listed <adrKind>; the <homeExchange> listing <home> is not available on the price
+//     feed"), so the record itself says which listing prices it;
+//   - an item with `attemptOnly` is priced but never created — it exists so the report can
+//     state what the free tier answered for a listing the brief expected to fail;
+//   - an item with `bracketNote` is reported as a boundary call on the minimum.
+// The final report lists, per section: created / already offered / dropped (with the
+// provider's own reason) / resolved natively vs via a US listing / the unresolvable lines
+// from the source file / every $500-bracket entry.
 //   SUPABASE_STAGING_CREDENTIALS_FILE=<api keys json> \
 //   SUPABASE_STAGING_PM_CREDENTIALS_FILE=<the staging PM credentials file> \
 //   node supabase-seed-market-catalog.js --staging    # real cloud staging
@@ -45,8 +62,16 @@ const { createClient } = require('@supabase/supabase-js');
 
 const STAGING = process.argv.indexOf('--staging') !== -1;
 const DRY_RUN = process.argv.indexOf('--dry-run') !== -1;
+const SOURCE_IDX = process.argv.indexOf('--source');
+const SOURCE = SOURCE_IDX !== -1 ? process.argv[SOURCE_IDX + 1] : null;
 const STAGING_PROJECT_REF = 'ujnmlwbpginplfnofhhv';
-const PACE_MS = 1500;          // Finnhub: one symbol per 1.5s
+// Pacing is per FINNHUB CALL, not per symbol: a stock pick is a quote + a profile2 lookup,
+// add-product's first-price rule is another quote, and a home-listing attempt is one more.
+// 1.6s per call is ~37 calls/min — leaving the scheduled refresh its 30 in the minutes it
+// runs (every 5 minutes since 2026-09-14) without tripping the 60/min limit. A 429 is still
+// waited out and retried below, so a collision costs a minute, never a symbol.
+const PACE_PER_CALL_MS = 1600;
+const PACE_MS = 1500;          // the built-in list: one ETF symbol per 1.5s (2 calls; unchanged)
 const CRYPTO_PACE_MS = 7000;   // CoinGecko's public tier rate-limits far sooner (measured: ~6 picks in 9s tripped it)
 
 // ---- the curated set --------------------------------------------------------------------
@@ -153,6 +178,8 @@ async function main() {
   if (signInErr) throw new Error('PM sign-in failed: ' + signInErr.message);
   const token = session.session.access_token;
 
+  if (SOURCE) return seedFromSource(env, token);
+
   const created = [], skipped = [], dropped = [];
   for (const c of CANDIDATES) {
     // 1. verify it prices — the PM's own pick step.
@@ -191,6 +218,98 @@ async function main() {
   if (skipped.length) console.log('skipped: ' + skipped.map((s) => s.symbol).join(', '));
   if (dropped.length) console.log('dropped: ' + dropped.map((d) => d.symbol + ' (' + d.reason + ')').join('; '));
   return { created, skipped, dropped };
+}
+
+// ---- --source: a curated file, section by section --------------------------------------
+async function seedFromSource(env, token) {
+  const src = require(path.resolve(SOURCE));
+  const report = { created: [], skipped: [], dropped: [], native: [], substituted: [], attemptOnly: [], bracket500: [], bracketNotes: [] };
+  const paceFor = (c, calls) => sleep(c.source === 'coingecko' ? CRYPTO_PACE_MS : calls * PACE_PER_CALL_MS);
+
+  for (const section of src.sections) {
+    console.log('\n== ' + section.label + ' (' + section.items.length + ')');
+    for (let c of section.items) {
+      let calls = 0;
+      // 1a. the home-exchange listing first, where the entry names one.
+      let homeResult = null;
+      if (c.home) {
+        const hp = await callFunction(env.url, token, 'lookup-product-symbol', { symbol: c.home, source: 'finnhub', providerId: null, name: c.name });
+        calls += 2;
+        homeResult = hp.status === 200 && Number(hp.body && hp.body.price) > 0 ? 'priced' : ((hp.body && hp.body.error) || ('HTTP ' + hp.status));
+        if (homeResult === 'priced') {
+          // The home listing prices on the feed — create THAT, no substitution needed.
+          report.native.push({ symbol: c.home, name: c.name });
+          console.log('  HOME  ' + c.home.padEnd(10) + ' the home listing prices natively (' + hp.body.price + ') — created as the home listing');
+          c = Object.assign({}, c, { symbol: c.home, substitution: null });
+        } else {
+          console.log('  home  ' + c.home.padEnd(10) + ' not on the feed: ' + homeResult + ' — trying the US listing ' + c.symbol);
+          c = Object.assign({}, c, { substitution: 'US-listed ' + c.adrKind + '; the ' + c.homeExchange + ' listing (' + c.home + ') is not available on the price feed.' });
+        }
+      }
+      // 1b. the pick — the PM's own verify-it-prices step.
+      const pick = await callFunction(env.url, token, 'lookup-product-symbol', { symbol: c.symbol, source: c.source, providerId: c.providerId, name: c.name });
+      calls += c.source === 'finnhub' ? 2 : 1;
+      if (pick.status !== 200 || !(Number(pick.body && pick.body.price) > 0)) {
+        const reason = (pick.body && pick.body.error) || ('HTTP ' + pick.status);
+        if (c.attemptOnly) { report.attemptOnly.push({ symbol: c.symbol, name: c.name, result: reason }); console.log('  ATTEMPT ' + c.symbol.padEnd(8) + ' ' + reason); }
+        else { report.dropped.push({ symbol: c.symbol, name: c.name, section: section.key, reason }); console.log('  DROP  ' + c.symbol.padEnd(8) + ' ' + reason); }
+        await paceFor(c, calls); continue;
+      }
+      if (c.attemptOnly) {
+        report.attemptOnly.push({ symbol: c.symbol, name: c.name, result: 'PRICED at ' + pick.body.price + ' (not created: attempt-only entry)' });
+        console.log('  ATTEMPT ' + c.symbol.padEnd(8) + ' unexpectedly prices at ' + pick.body.price + ' — not created (attempt-only), reported');
+        await paceFor(c, calls); continue;
+      }
+      if (c.substitution) report.substituted.push({ symbol: c.symbol, home: c.home, name: c.name, adrKind: c.adrKind });
+      else if (c.home === undefined && section.key.startsWith('c-')) report.native.push({ symbol: c.symbol, name: c.name });
+      if (c.minimum === 500) report.bracket500.push({ symbol: c.symbol, name: c.name, section: section.key });
+      if (c.bracketNote) report.bracketNotes.push({ symbol: c.symbol, note: c.bracketNote });
+      if (pick.body.alreadyOffered) {
+        report.skipped.push({ symbol: c.symbol, name: c.name, section: section.key });
+        console.log('  SKIP  ' + c.symbol.padEnd(8) + ' already offered — existing product left as is (live ' + pick.body.price + ')');
+        await paceFor(c, calls); continue;
+      }
+      if (DRY_RUN) {
+        console.log('  OK    ' + c.symbol.padEnd(8) + ' prices at ' + String(pick.body.price).padEnd(10) + ' -> would create "' + c.name + '" (' + pick.body.assetClass + ', min $' + c.minimum + (c.substitution ? ', US listing' : '') + ')');
+        await paceFor(c, calls); continue;
+      }
+      // 2. create it through the real path.
+      const body = {
+        pricingModel: 'market', source: c.source, symbol: c.symbol, providerId: c.providerId,
+        name: c.name, investmentType: c.investmentType, riskTier: c.riskTier, minimumInvestment: c.minimum,
+        description: c.holds
+      };
+      if (c.substitution) body.extendedDescription = c.substitution;
+      const res = await callFunction(env.url, token, 'add-product', body);
+      calls += c.source === 'finnhub' ? 1 : 0;
+      if (res.status !== 200) {
+        const reason = (res.body && res.body.error) || ('HTTP ' + res.status);
+        report.dropped.push({ symbol: c.symbol, name: c.name, section: section.key, reason: 'add-product refused: ' + reason });
+        console.log('  DROP  ' + c.symbol.padEnd(8) + ' add-product refused: ' + reason);
+      } else {
+        report.created.push({ id: res.body.id, symbol: c.symbol, name: res.body.name, assetClass: res.body.assetClass, unitPrice: res.body.unitPrice, section: section.key, logo: !!res.body.logoUrl });
+        console.log('  ADD   ' + c.symbol.padEnd(8) + ' ' + res.body.id + '  ' + res.body.name + '  [' + res.body.assetClass + ']  ' + res.body.unitPrice + (res.body.logoUrl ? '  logo' : '  monogram'));
+      }
+      await paceFor(c, calls);
+    }
+  }
+
+  // ---- the report -------------------------------------------------------------------
+  const by = (arr, key) => arr.reduce((m, x) => { (m[x[key]] = m[x[key]] || []).push(x); return m; }, {});
+  console.log('\n==================== SEED REPORT (' + (DRY_RUN ? 'DRY RUN' : 'REAL') + ') ====================');
+  console.log(report.created.length + ' created, ' + report.skipped.length + ' already offered (skipped), ' + report.dropped.length + ' dropped.');
+  const cs = by(report.created, 'section'); Object.keys(cs).forEach((k) => console.log('  created in ' + k + ': ' + cs[k].length + ' (' + cs[k].filter((x) => x.logo).length + ' with a resolved logo at creation)'));
+  if (report.skipped.length) console.log('already offered: ' + report.skipped.map((x) => x.symbol).join(', '));
+  if (report.dropped.length) { console.log('DROPPED (did not price cleanly):'); report.dropped.forEach((d) => console.log('  ' + d.symbol.padEnd(8) + ' ' + d.name + ' — ' + d.reason)); }
+  console.log('\nEUROPEAN LISTINGS — resolved natively (home exchange): ' + (report.native.length ? report.native.map((x) => x.symbol).join(', ') : 'none'));
+  console.log('EUROPEAN LISTINGS — via a US listing (substitution recorded on the product): ' + report.substituted.length);
+  report.substituted.forEach((x) => console.log('  ' + x.symbol.padEnd(8) + ' for ' + x.home.padEnd(11) + ' ' + x.adrKind.padEnd(22) + ' ' + x.name));
+  if (report.attemptOnly.length) { console.log('\nATTEMPT-ONLY LISTINGS (never created; what the feed answered):'); report.attemptOnly.forEach((x) => console.log('  ' + x.symbol.padEnd(10) + ' ' + x.name + ' — ' + x.result)); }
+  console.log('\n$500 BRACKET (' + report.bracket500.length + '): ' + report.bracket500.map((x) => x.symbol).join(', '));
+  if (report.bracketNotes.length) { console.log('BOUNDARY CALLS:'); report.bracketNotes.forEach((x) => console.log('  ' + x.symbol.padEnd(8) + ' ' + x.note)); }
+  console.log('\nUNRESOLVABLE / SKIPPED SOURCE LINES (' + src.unresolvable.length + '):');
+  src.unresolvable.forEach((u) => console.log('  ' + u.line + ' — ' + u.reason));
+  return report;
 }
 
 main().then(() => process.exit(0)).catch((err) => { console.error('SEED FAILED: ' + (err && err.stack || err)); process.exit(1); });
