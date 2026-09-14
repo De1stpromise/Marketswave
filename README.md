@@ -2092,6 +2092,24 @@ Chrome, forced-failure controls — mid-run throw, mid-run exit, SIGKILL then sw
 un-removable directory producing the warning rather than silence). Never call `mkdtempSync`
 directly from a `verify-*`/`audit-*` script — that same proof fails if one does.
 
+### ★ The PM inbox — tickets are conversations (2026-09-14)
+
+`admin-inbox.html` is the one place a PM handles live chat, email and tickets. A ticket is a
+`conversations` row with `kind = 'ticket'`; `support_requests` is a migration source only.
+The rail (Live chats · Email · Tickets · All · Archive) places a thread by its most recent
+message; tickets get status through the header dropdown and a system line in the thread; a
+client answers a ticket from `support.html`. The reply-to on every conversation email is
+`support@marketswave.net`, and `receive-inbound-email` threads a reply by its headers, then
+by a `DISP-nnnn` in the subject, then by sender. Delivery/open state under an email card
+needs the real Resend webhook subscribed to `email.delivered` / `email.opened`. The patterns
+this page establishes are in `PM_TOOL_VOCABULARY.md`.
+
+Suites, from `scripts/`: `npm run supabase-verify-inbox-tickets` (backend),
+`npm run verify-inbox-tickets-ui-wiring` (the real page in a real DOM),
+`npm run verify-inbox-tickets-visual` (contrast, fonts, widths — needs a static server on
+:8765). A real inbound email cannot be replayed locally (the function fetches the message
+from Resend by id); the reply-header threading is proven on real staging.
+
 ### ★ Running a verification pass — `npm run pass` (2026-09-14)
 
 From `scripts/`: `npm run pass -- verify-catalog-expansion verify-asset-pages-ui-wiring` for a

@@ -42,6 +42,8 @@
     "supabase-verify-market-data": "node verify-supabase-market-data.js",
     "supabase-verify-asset-logos": "node verify-supabase-asset-logos.js",
     "supabase-verify-email-notifications": "node verify-supabase-email-notifications.js",
+    "verify-supabase-email-triggers-stage2": "node verify-supabase-email-triggers-stage2.js",
+    "verify-branded-emails": "node verify-branded-emails.js",
     "verify-dashboard-market-currency-ui": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-dashboard-market-currency-ui.mjs",
     "supabase-verify-unified-inbox": "node verify-supabase-unified-inbox.js",
     "verify-unified-inbox-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-unified-inbox-ui-wiring.mjs",

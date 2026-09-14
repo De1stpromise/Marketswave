@@ -93,13 +93,15 @@
                   </div>
                 </div>
                 <div class="ibx-tacts">
-                  <label class="sr-only" for="thread-status-select">Ticket status</label>
-                  <select class="ibx-sel" id="thread-status-select" hidden>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="archived">Archived</option>
-                  </select>
+                  <span id="thread-status-wrap" hidden>
+                    <label class="sr-only" for="thread-status-select">Ticket status</label>
+                    <select class="ibx-sel" id="thread-status-select">
+                      <option value="open">Open</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </span>
                   <span class="ibx-stp" id="thread-status-badge" hidden></span>
                   <a class="ibx-ib" id="thread-profile-link" href="admin-clients.html" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Open profile</a>
                   <button type="button" class="ibx-ib" id="thread-resolve-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Resolve</button>
@@ -593,7 +595,7 @@
 
         var isTicket = c.kind === 'ticket';
         var sel = document.getElementById('thread-status-select');
-        sel.hidden = !isTicket; sel.value = c.status;
+        document.getElementById('thread-status-wrap').hidden = !isTicket; sel.value = c.status;
         var badge = document.getElementById('thread-status-badge');
         badge.hidden = isTicket; badge.className = 'ibx-stp s-' + c.status; badge.textContent = STATUS_LABELS[c.status] || c.status;
         document.getElementById('thread-resolve-btn').hidden = isTicket || c.status === 'resolved';

@@ -404,6 +404,9 @@ async function main() {
     // `on delete cascade` (confirmed by reading every migration's own FK definition before
     // relying on this, same as every prior admin wiring verification script) — deleting all
     // three test users cleans up everything else in one shot.
+    // conversations.client_id is NOT on delete cascade (the Stage 1 inbox migration) — the
+    // ticket seeded above for the Inbox card must go first, or the user delete fails silently.
+    await admin.from('conversations').delete().eq('client_id', clientA.id);
     if (applicantUserId) await admin.auth.admin.deleteUser(applicantUserId);
     await admin.auth.admin.deleteUser(clientA.id);
     await admin.auth.admin.deleteUser(clientB.id);

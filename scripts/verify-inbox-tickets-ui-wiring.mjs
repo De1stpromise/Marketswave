@@ -159,7 +159,7 @@ async function main() {
     console.log('\n--- Deep link, ticket header, meta strip, opening message, attachment ---\n');
     const rail = (v) => D.querySelector('#inbox-rail .ibx-rb[data-view="' + v + '"]');
     check('?c=<ticket> opens that ticket AND switches the rail to Tickets', !D.getElementById('thread-view').classList.contains('hidden') && rail('tickets').classList.contains('is-on'));
-    check('the header carries the case id, and status is a DROPDOWN (no modal)', D.getElementById('thread-caseid').textContent === 'DISP-0001' && !D.getElementById('thread-status-select').hidden && D.getElementById('thread-status-select').value === 'in_progress');
+    check('the header carries the case id, and status is a DROPDOWN (no modal)', D.getElementById('thread-caseid').textContent === 'DISP-0001' && !D.getElementById('thread-status-wrap').hidden && D.getElementById('thread-status-select').value === 'in_progress');
     check('the resolve/archive buttons are hidden on a ticket — the dropdown owns status', D.getElementById('thread-resolve-btn').hidden && D.getElementById('thread-archive-btn').hidden);
     const ctx = D.getElementById('thread-context').textContent;
     check('the meta strip carries category, opened, assigned, message count', /Category/.test(ctx) && /Transaction Issue/.test(ctx) && /Opened/.test(ctx) && /Assigned/.test(ctx) && /Unassigned/.test(ctx) && /Messages2/.test(ctx.replace(/\s+/g, '')), ctx);
@@ -189,10 +189,28 @@ async function main() {
 
     // ------------------------------------------------------------------ rail + list
     console.log('\n--- The rail, grouping, filters, search ---\n');
-    const rows = () => [...D.querySelectorAll('#convo-list .convo-row')];
-    check('Tickets view shows exactly the two tickets, with case ids and status pills', rows().length === 2 && rows().every((r) => r.querySelector('.ibx-caseid') && r.querySelector('.ibx-stp')), String(rows().length));
-    check('...grouped: the unread callback ticket under "Needs a reply", the resolved one under "Earlier"', /Needs a reply/.test(D.querySelector('.ibx-grp').textContent) && D.querySelectorAll('.ibx-grp').length === 2 && rows()[0].getAttribute('data-convo-id') === t2);
-    check('the rail counts: Tickets 1 needing a reply, Chats 1, Email 0, All 2', rail('tickets').querySelector('.ibx-cnt').textContent === '1' && rail('chats').querySelector('.ibx-cnt').textContent === '1' && rail('email').querySelector('.ibx-cnt').hidden && rail('all').querySelector('.ibx-cnt').textContent === '2', [rail('tickets'), rail('chats'), rail('email'), rail('all')].map((b) => b.querySelector('.ibx-cnt').textContent + (b.querySelector('.ibx-cnt').hidden ? '(h)' : '')).join(','));
+    // Every "which rows show" assertion is scoped to what THIS run seeded — another suite's
+    // leftover (or a real conversation on a shared stack) must not turn a correct render into
+    // a failure. The rail counts are cross-checked against an independent DB read applying
+    // the same placement rule, never a hardcoded figure.
+    const seeded = new Set([t1, t2, g1, a1, e1]);
+    const rows = () => [...D.querySelectorAll('#convo-list .convo-row')].filter((r) => seeded.has(r.getAttribute('data-convo-id')));
+    const groupOf = (rowEl) => { let el = rowEl; while (el && !(el.classList && el.classList.contains('ibx-grp'))) el = el.previousElementSibling; return el ? el.textContent.trim() : ''; };
+    async function expectedRailCounts() {
+      const { data: convos } = await admin.from('conversations').select('id, kind, status, unread_by_pm');
+      const { data: msgs } = await admin.from('messages').select('conversation_id, channel, sent_at').neq('channel', 'system').order('sent_at');
+      const lastChannel = {}; msgs.forEach((m) => { lastChannel[m.conversation_id] = m.channel; });
+      const viewOf = (c) => c.status === 'archived' ? 'archive' : (c.kind === 'ticket' ? 'tickets' : ((lastChannel[c.id] || c.kind) === 'email' ? 'email' : 'chats'));
+      const out = { chats: 0, email: 0, tickets: 0, all: 0, archive: 0 };
+      convos.forEach((c) => { if (!c.unread_by_pm) return; out[viewOf(c)]++; if (c.status !== 'archived') out.all++; });
+      return out;
+    }
+    const railCount = (v) => { const el = rail(v).querySelector('.ibx-cnt'); return el.hidden ? 0 : Number(el.textContent); };
+    check('Tickets view shows the two seeded tickets, with case ids and status pills, and none of the seeded non-tickets', rows().length === 2 && rows().every((r) => r.querySelector('.ibx-caseid') && r.querySelector('.ibx-stp')) && ![g1, a1, e1].some((id) => D.querySelector('.convo-row[data-convo-id="' + id + '"]')), String(rows().length));
+    check('...grouped: the unread callback ticket under "Needs a reply", the resolved one under "Earlier"', groupOf(D.querySelector('.convo-row[data-convo-id="' + t2 + '"]')) === 'Needs a reply' && groupOf(D.querySelector('.convo-row[data-convo-id="' + t1 + '"]')) === 'Earlier');
+    const exp = await expectedRailCounts();
+    check('the rail counts match an independent DB read of conversations needing a reply per view (tickets ' + exp.tickets + ', chats ' + exp.chats + ', email ' + exp.email + ', all ' + exp.all + ')', railCount('tickets') === exp.tickets && railCount('chats') === exp.chats && railCount('email') === exp.email && railCount('all') === exp.all, ['tickets', 'chats', 'email', 'all'].map((v) => v + '=' + railCount(v)).join(','));
+    check('...and this run\'s own unread ticket and unread chat are among them', exp.tickets >= 1 && exp.chats >= 1);
     D.querySelector('#inbox-filters .ibx-fp[data-filter="cat:Callback Request"]').click();
     check('a ticket category filter narrows to that category', rows().length === 1 && rows()[0].getAttribute('data-convo-id') === t2);
     D.querySelector('#inbox-filters .ibx-fp[data-filter="status:resolved"]').click();
@@ -206,8 +224,8 @@ async function main() {
     search.value = ''; search.dispatchEvent(new pmDom.window.Event('input', { bubbles: true }));
 
     rail('chats').click();
-    check('Chats view: the client\'s general thread and the anonymous visitor, no tickets, no email', rows().length === 2 && rows().every((r) => !r.querySelector('.ibx-caseid')) && rows().some((r) => r.getAttribute('data-convo-id') === g1) && rows().some((r) => r.getAttribute('data-convo-id') === a1), rows().map((r) => r.getAttribute('data-convo-id')).join(','));
-    check('sender types: Client and Anonymous tags', rows().some((r) => /Client/.test(r.textContent)) && rows().some((r) => /Anonymous/.test(r.textContent)));
+    check('Chats view: the client\'s general thread and the anonymous visitor, no seeded tickets, no seeded email', rows().length === 2 && rows().every((r) => !r.querySelector('.ibx-caseid')) && rows().some((r) => r.getAttribute('data-convo-id') === g1) && rows().some((r) => r.getAttribute('data-convo-id') === a1), rows().map((r) => r.getAttribute('data-convo-id')).join(','));
+    check('sender types: Client and Anonymous tags', /Client/.test(D.querySelector('.convo-row[data-convo-id="' + g1 + '"]').textContent) && /Anonymous/.test(D.querySelector('.convo-row[data-convo-id="' + a1 + '"]').textContent));
     check('presence: the online client\'s row carries the dot', !!D.querySelector('.convo-row[data-convo-id="' + g1 + '"] .ibx-on'));
     D.querySelector('#inbox-filters .ibx-fp[data-filter="waiting"]').click();
     check('"Waiting on me" keeps only the unread general thread', rows().length === 1 && rows()[0].getAttribute('data-convo-id') === g1);
@@ -216,7 +234,7 @@ async function main() {
     D.querySelector('#inbox-filters .ibx-fp[data-filter="all"]').click();
 
     rail('email').click();
-    check('Email view: the unknown-sender thread only, tagged Unknown sender', rows().length === 1 && rows()[0].getAttribute('data-convo-id') === e1 && /Unknown sender/.test(rows()[0].textContent));
+    check('Email view: of the seeded threads, the unknown-sender one only, tagged Unknown sender', rows().length === 1 && rows()[0].getAttribute('data-convo-id') === e1 && /Unknown sender/.test(rows()[0].textContent));
     rows()[0].click();
     await sleep(200);
     const mail = D.querySelectorAll('#thread-messages .ibx-mail');
@@ -235,7 +253,7 @@ async function main() {
     rail('email').click();
     check('…and appears in Email', rows().some((r) => r.getAttribute('data-convo-id') === g1));
     rail('all').click();
-    check('All holds every non-archived thread (5)', rows().length === 5, String(rows().length));
+    check('All holds every non-archived seeded thread (5)', rows().length === 5, String(rows().length));
 
     // ------------------------------------------------------------------ composer round trips
     console.log('\n--- The composer: a real chat reply, an explicit email refused with the real message ---\n');
@@ -278,7 +296,7 @@ async function main() {
 
     // ------------------------------------------------------------------ archive view
     rail('archive').click();
-    check('Archive is empty until something is archived', D.querySelector('#convo-list .ibx-empty') && /Nothing archived/.test(D.querySelector('#convo-list .ibx-empty').textContent));
+    check('Archive holds none of the seeded threads (none was archived)', rows().length === 0);
   } finally {
     console.log('\n(cleanup)');
     if (sessionRowId) await admin.from('visitor_sessions').delete().eq('id', sessionRowId);

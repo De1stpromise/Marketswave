@@ -9706,6 +9706,75 @@ row 74.
   zero `quote_failed`, zero stale market products. Nothing outstanding; none of those suites ever
   ran against real cloud staging.
 
+- **★★★ PM tool revamp, part 1 of N — the inbox, with ticketing consolidated into it
+  (2026-09-14, rows 217-218).** The first page of the revamp; **`PM_TOOL_VOCABULARY.md`
+  records the patterns the later pages copy** — read it before building the client profile
+  or an approval queue. Built to two approved mockups, landed in five commits.
+  **Things a future session needs to know before touching any of this:**
+  - **★ A TICKET IS A CONVERSATION.** `conversations.kind` is chat | email | ticket; a ticket
+    carries `category`, a per-client `display_id` (DISP-0001…), a subject
+    ("DISP-0001 · Transaction Issue") and the lifecycle open → in_progress → resolved →
+    archived. `support_requests` still exists but is a MIGRATION SOURCE ONLY — nothing live
+    reads it; `migrate_support_requests_to_conversations()` moved every row and recorded the
+    mapping in `support_requests.migrated_conversation_id`. Do not add a reader.
+  - **★ THE GROUPING RULE IS "ONE GENERAL THREAD PER CONTACT", NOT ONE CONVERSATION.** The
+    unique index on `lower(contact_email)` is partial: `where kind <> 'ticket'`. Every lookup
+    that finds "the conversation for this email" MUST exclude tickets (`.neq('kind',
+    'ticket')`) — `findOrCreateConversation()`, `start-chat-conversation`,
+    `accept-chat-invitation` all do; a new one that does not will throw on `.maybeSingle()`
+    the moment a client files their first ticket.
+  - **★ WHICH THREAD AN INBOUND EMAIL JOINS is `resolveInboundConversation()`** in
+    `_shared/conversations.ts`: In-Reply-To / References against stored `messages.message_id`
+    first, then a `DISP-nnnn` in the subject from the ticket's own client, then the sender's
+    general thread. For that to work, every conversation email — a PM reply, a ticket status
+    line — sets `reply_to: support@` (`SUPPORT_REPLY_TO`) and stores its Message-ID
+    (`fetchResendMessageId()`), both in `_shared/send-email.ts`. A notification that is not
+    part of a conversation still goes without a reply-to, and the footer's "do not reply" line
+    stays true for it.
+  - **`messages.channel` gained `'system'`** — a status change is a row ("Status changed to In
+    progress by pm@…"), so the thread is one ordered list. Rail placement, "most recent
+    message" and the composer's channel inference all SKIP system rows; `handle_new_message()`
+    never flags one unread (its direction is outbound). `type` does not exist; do not add it.
+  - **Evidence is a real Storage object in the `documents` bucket** under
+    `<client_id>/uploads/<uuid>/<filename>` — row 132's own policies, ZERO new storage policy.
+    `request-support-ticket` refuses a path outside the caller's own folder (the PM's download
+    resolves with admin rights, so an arbitrary path would be a real leak) and a path to
+    nothing. A migrated ticket has `attachment_name` only and both pages say so.
+  - **The rail view a thread belongs to is COMPUTED at render** (`viewOf()`): archive by
+    status, tickets by kind, otherwise the channel of the most recent non-system message. It
+    is not stored; do not store it.
+  - **Status on a ticket is a `<select>` in the header, never a modal**; non-tickets keep
+    Resolve/Archive/Reopen buttons. `admin-update-conversation` refuses the old capitalised
+    "Open"/"In Progress" — the vocabulary is `open|in_progress|resolved|archived`.
+  - **Typing indicators ride a Realtime broadcast channel `typing-<conversationId>`**, shared
+    by the widget (`from: 'contact'`) and the inbox (`from: 'pm'`), throttled to one send per
+    2 s, shown for 3 s. No row is written for a keystroke.
+  - **Presence beside an anonymous thread**: the widget dispatches `mw:chat-conversation`,
+    `site-presence.js` carries the id (and the visitor's own anonymous JWT) on the heartbeat,
+    and `track-visit` stores `visitor_sessions.conversation_id` ONLY after confirming that JWT
+    owns the conversation. The inbox matches a session by `client_id` first, then by
+    `conversation_id`.
+  - **Notifications reuse the presence model, not a second one** (`admin-sidebar.js`
+    `startInboxWatch()`): an Inbox badge (conversations needing a reply) and a per-message
+    browser notification on every admin page; permission is asked on `admin-inbox.html` with
+    the reason; `mw_inbox_mute` silences the notification, not the count; `tag` per
+    conversation collapses duplicates across tabs.
+  - **`writeErrorMessage()` shows a 502's real message** (the same rule as a 503):
+    `send-conversation-reply`'s "Could not send the email reply: <reason>" is what a PM needs
+    to see.
+  - **Secondary text in `admin-inbox.css` is slate-600, not the mockup's slate-500** — measured
+    at 4.02–4.44:1 at 10.5–12px on the tinted grounds (row 151's finding, again). Measure, do
+    not eyeball, anything under 12px on a tinted ground.
+  - **`admin-support.html` is gone** (deleted, not RETIRED-bannered — a page reading a dead
+    table would lie); `update-support-ticket` is RETIRED-bannered and still deployed.
+  - **The "Call Us" tile files a real ticket** (category "Callback Request"). Recommended
+    over removing the tile: same creator path, lands where a PM already works.
+  **Verified**: `supabase-verify-inbox-tickets` 63/63, `verify-settings-risk-support-ui-wiring`
+  38/38, `verify-inbox-tickets-ui-wiring` 48/48, `verify-inbox-tickets-visual` 28/28 (79
+  composited contrast measurements, Inter only, 1440/390/375 + a real 320px iframe); the six
+  suites moved onto the model all green (row 217 lists them). Targeted `npm run pass` and the
+  full suite: see row 217. Real cloud staging: see row 217.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
