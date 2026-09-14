@@ -81,7 +81,7 @@ function setSchedulerActive(active) {
 }
 
 const N = 30; // STOCK_SYMBOLS_PER_REFRESH_RUN, asserted against the function's own report below
-const INTERVAL_MIN = 15;
+const INTERVAL_MIN = 5; // the real cron cadence since 2026-09-14 (migration 20260914090000); was 15
 const MINUTE_WINDOW_MS = 66000; // one full Finnhub window between real runs, so each run's budget is its own
 
 async function main() {
@@ -179,10 +179,10 @@ async function main() {
 
     // Stagger every stock row to a distinct, LARGE age (10, 20, 30 ... minutes) so the
     // ordering is fully determined and the first run's leftover is genuinely old, then
-    // simulate cycles: after each run, push every row 15 minutes into the past. The
+    // simulate cycles: after each run, push every row INTERVAL_MIN minutes into the past. The
     // function's report is computed against real time, so the oldest age it reports after
     // run k is exactly what a real deployment would report k cycles in — it should START
-    // high (the staggered leftover) and SETTLE at (cycles - 1) x 15 minutes, never climb.
+    // high (the staggered leftover) and SETTLE at (cycles - 1) x INTERVAL_MIN minutes, never climb.
     const t0 = Date.now();
     for (let i = 0; i < symbols.length; i++) {
       await admin.from('market_data_cache').update({ last_updated: new Date(t0 - (i + 1) * 10 * 60000).toISOString() }).eq('symbol', symbols[i]);
@@ -225,7 +225,7 @@ async function main() {
     check('...at least ' + (totalRuns / cycles) + ' refreshes per symbol over ' + totalRuns + ' runs', symbols.every((sym) => refreshedCount[sym] >= totalRuns / cycles), JSON.stringify(Object.entries(refreshedCount).filter(([, c]) => c < totalRuns / cycles)));
     const ages = runs.map((r) => r.oldest.ageMinutes);
     const steady = ages.slice(cycles);
-    // The reported age is (cycles - 1) x 15 min of simulated ageing PLUS the real seconds
+    // The reported age is (cycles - 1) x INTERVAL_MIN min of simulated ageing PLUS the real seconds
     // that elapsed since the previous run stamped the row — the inter-run wait and the run
     // itself — so the allowance is that real interval, not a rounding margin.
     const realGapMin = MINUTE_WINDOW_MS / 60000 + 0.5;

@@ -385,7 +385,7 @@ async function main() {
     check('the run reports the real oldest-stock age after it ran (the rotation health metric)',
       refresh.body.oldestStockAfterRun && typeof refresh.body.oldestStockAfterRun.symbol === 'string' && refresh.body.oldestStockAfterRun.ageMinutes !== undefined, JSON.stringify(refresh.body.oldestStockAfterRun));
     check('worst-case staleness and headroom are derived from the distinct stock count and N',
-      refresh.body.worstCaseStalenessMinutes === Math.ceil(refresh.body.distinctStockSymbols / 30) * 15 &&
+      refresh.body.worstCaseStalenessMinutes === Math.ceil(refresh.body.distinctStockSymbols / 30) * 5 &&
       refresh.body.headroom === Math.ceil(refresh.body.distinctStockSymbols / 30) * 30 - refresh.body.distinctStockSymbols, JSON.stringify({ w: refresh.body.worstCaseStalenessMinutes, h: refresh.body.headroom, s: refresh.body.distinctStockSymbols }));
     check('every symbol it attempted was genuinely priced', (refresh.body.failed || []).length === 0,
       JSON.stringify(refresh.body.failed));
@@ -529,10 +529,10 @@ async function main() {
       check('both market-data cron jobs exist and are active',
         marketJobs.length === 2 && marketJobs.every(function (r) { return r.active; }),
         JSON.stringify(cronJobs.rows));
-      check('the refresh runs every 15 minutes',
-        cronJobs.rows.some(function (r) { return r.jobname === 'marketswave-refresh-market-data' && r.schedule === '*/15 * * * *'; }));
+      check('the refresh runs every 5 minutes (every 15 until the catalog expansion, 2026-09-14)',
+        cronJobs.rows.some(function (r) { return r.jobname === 'marketswave-refresh-market-data' && r.schedule === '*/5 * * * *'; }));
       check('the alert sweep runs two minutes after it, so it always reads prices the refresh already wrote',
-        cronJobs.rows.some(function (r) { return r.jobname === 'marketswave-check-price-alerts' && r.schedule === '2-59/15 * * * *'; }));
+        cronJobs.rows.some(function (r) { return r.jobname === 'marketswave-check-price-alerts' && r.schedule === '2-59/5 * * * *'; }));
 
       const secrets = await pg.query(
         "select name from vault.decrypted_secrets where name in ('edge_functions_base_url','scheduler_service_role_key')");

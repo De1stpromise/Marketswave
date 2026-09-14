@@ -8,7 +8,7 @@
 // real signature check, not a string comparison against a shared secret.
 //
 // A real PM is accepted too, so an operator can force a refresh or an alert sweep from the
-// admin tool without waiting for the quarter hour. Nobody else: a client has no reason to
+// admin tool without waiting for the next five-minute run. Nobody else: a client has no reason to
 // be able to spend the platform's provider budget on demand.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 

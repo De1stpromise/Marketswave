@@ -44,7 +44,13 @@ export const FINNHUB_RATE_LIMIT_PER_MINUTE = 60; // re-measured 2026-09-12: x-ra
 //   STOCK_SYMBOLS_PER_REFRESH_RUN = floor(60 x 0.5) = 30
 //
 // and the worst-case staleness for S distinct stock symbols is
-//   ceil(S / 30) x 15 minutes            (30 symbols -> 15 min, 60 -> 30 min, 90 -> 45 min)
+//   ceil(S / 30) x 5 minutes             (30 symbols -> 5 min, 90 -> 15 min, 240 -> 40 min)
+//
+// THE CADENCE MOVED FROM 15 TO 5 MINUTES with the catalog expansion (2026-09-14, migration
+// 20260914090000): 30 symbols per run is the per-MINUTE budget and does not change, but a
+// run every 5 minutes covers 90 symbols per 15 minutes instead of 30. At ~240 stock symbols
+// that is a 40-minute worst case instead of 120. The alert sweep keeps its +2 minute offset
+// on the same 5-minute grid; it makes no provider calls, so the budget is unaffected.
 //
 // The fetch loop also reads x-ratelimit-remaining on every response and stops the run early
 // if the reserve has already been eaten into by interactive traffic that minute; the symbols
@@ -57,7 +63,7 @@ export const FINNHUB_REFRESH_SHARE_OF_MINUTE = 0.5;
 export const STOCK_SYMBOLS_PER_REFRESH_RUN = Math.floor(FINNHUB_RATE_LIMIT_PER_MINUTE * FINNHUB_REFRESH_SHARE_OF_MINUTE);
 export const FINNHUB_INTERACTIVE_RESERVE = FINNHUB_RATE_LIMIT_PER_MINUTE - STOCK_SYMBOLS_PER_REFRESH_RUN;
 
-export const REFRESH_INTERVAL_MINUTES = 15;
+export const REFRESH_INTERVAL_MINUTES = 5;
 
 export function cyclesToCoverStocks(stockCount: number): number {
   return stockCount <= 0 ? 0 : Math.ceil(stockCount / STOCK_SYMBOLS_PER_REFRESH_RUN);

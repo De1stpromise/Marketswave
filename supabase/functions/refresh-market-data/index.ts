@@ -1,7 +1,8 @@
 // ★★ Merged Market Snapshot + Watchlist (2026-09-11) — THE SCHEDULED CACHE REFRESH.
 // ★★ ROUND-ROBIN since 2026-09-12 — see _shared/market-providers.ts for the derivation.
 //
-// Runs every 15 minutes from pg_cron (see the migration's own scheduler section). This is
+// Runs every 5 minutes from pg_cron (every 15 until 2026-09-14; see migration
+// 20260914090000 for why the cadence tripled while the per-run budget did not). This is
 // what makes market_data_cache dynamic: it works over the UNION of
 //   - the six base symbols the public homepage ticker is served from, always;
 //   - every distinct symbol any client currently has on their watchlist; and

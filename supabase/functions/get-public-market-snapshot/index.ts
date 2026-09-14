@@ -70,7 +70,8 @@ function jsonResponse(body: unknown, status: number, extra: Record<string, strin
     headers: {
       ...corsHeaders,
       'Content-Type': 'application/json',
-      // The data itself only changes every 15 minutes, so let any CDN or browser in front of
+      // The data itself only changes every 5 minutes (a symbol at most once per refresh run,
+      // and the base symbols every run), so let any CDN or browser in front of
       // this hold it — that is another real layer of protection for an open endpoint.
       'Cache-Control': 'public, max-age=300, s-maxage=300',
       ...extra
