@@ -9879,8 +9879,18 @@ row 74.
   the footer email, a real Log out, aliases on a queue page; 114 + 30 composited contrast
   measurements with 0 below 4.5:1, the sheen audit on both pages, Inter only; 1440/390/375 +
   a real 320px iframe with the drawer opened).
-  **★ VERIFICATION IS INCOMPLETE — this entry does NOT describe a finished, fully-verified
-  task, and row 221 is NOT closed.** The session ended ~2h in, mid-pass, because the user
+  **★ RESOLVED 2026-09-14 — verification is now COMPLETE and row 221 is CLOSED.** All three
+  suites that had no verdict were re-run on a recovered network and PASS
+  (`verify-label-association` 3.0 min, `verify-control-patterns` 6.5 min, `verify-no-monospace`
+  2.0 min) — same code, same suites, healthy network, which is the conclusive proof the earlier
+  failures were environmental rather than a regression. `verify-admin-real-login` PASSES after the
+  fix below. Real cloud staging now has BOTH halves, shipped together: parity **27/27 migrations,
+  74/74 functions**, the 5 real production clients confirmed BYTE-IDENTICAL before and after via a
+  `service_role` snapshot, `get-pm-briefing` answering a real 401 where it 404'd before, and
+  **deployed-bytes 21/21 identical** on marketswave.net. The paragraph below is kept as the record
+  of what the interrupted state actually looked like.
+  **★ (Historical — the state at interruption.) VERIFICATION WAS INCOMPLETE; row 221 was NOT
+  closed at that point.** The session ended ~2h in, mid-pass, because the user
   closed the terminal by accident. **That was unrelated to the crash below — the crash killed
   one suite's own Node process, not the session, and the pass carried on through five more
   suites after it. Do not read the two as a causal chain.** What
