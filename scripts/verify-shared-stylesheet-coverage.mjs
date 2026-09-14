@@ -58,6 +58,9 @@ const SHARED = [
   // Asset marks (2026-09-13, row 207): asset-mark.js builds every .mk* class at runtime, and
   // the pages that call it render the markup inside their own inline scripts.
   'asset-mark.css',
+  // Catalog expansion (2026-09-14, row 211): asset-collection.html's own inline script builds
+  // every .cat-* card class at runtime; the toolbar/modal markup is static in the page.
+  'catalog-cards.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

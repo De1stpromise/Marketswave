@@ -292,7 +292,7 @@ async function main() {
     await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML) && grid.querySelectorAll('[data-product-id]').length > 0; }, 20000);
     // The seeded catalog (row 202) has more products than one page of nine: page through Load
     // More so the just-created product's card is rendered wherever it falls.
-    { const lm = D.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
+    { const lm = D.getElementById('load-more-btn'); for (let i = 0; i < 40 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
 
     const cryptoCard = grid.querySelector('[data-product-id="' + cryptoProductId + '"]');
     check('the real Crypto product card renders at all', !!cryptoCard);
@@ -306,7 +306,7 @@ async function main() {
     await pollUntil(function () { return grid.innerHTML.indexOf(peProductId) !== -1; }, 20000);
 
     const peCard = grid.querySelector('[data-product-id="' + peProductId + '"]');
-    check('the real Private Equity product card renders, showing the real held position (not "No position")', !!peCard && peCard.textContent.indexOf('No position') === -1, peCard ? peCard.textContent.slice(0, 200) : null);
+    check('the real Private Equity product card renders, showing the real held position in its footer (.cat-pos, row 211 — never a minimum)', !!peCard && !!peCard.querySelector('.cat-pos') && !peCard.querySelector('.cat-min'), peCard ? peCard.textContent.slice(0, 200) : null);
     const moreInfoBtn = peCard && peCard.querySelector('.more-info-link');
     check('a real "More info" link renders (extendedDescription is genuinely set)', !!moreInfoBtn);
     moreInfoBtn.click();

@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="asset-mark.css">
+  <link rel="stylesheet" href="catalog-cards.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -82,33 +83,61 @@
              page card, not a modal/overlay, sitting over the plain page. The dynamically-
              rendered product cards inside it (#asset-cards-grid) stay clean, matching the
              established "container gets glass, individual items stay clean" split. -->
-        <div class="glass glass-lift rounded-2xl p-6">
+        <div class="glass glass-lift rounded-2xl p-6 cat-shell">
 
-          <!-- Search -->
-          <div class="relative max-w-sm mb-5">
-            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <div class="mw-fld">
-              <input type="text" id="asset-search" placeholder="Search by asset name..." class="mw-field pl-9">
-              <label for="asset-search">Search by asset name</label>
+          <!-- ★★ Catalog expansion (2026-09-14, row 211): the browsing surface at ~250
+               products, rebuilt from the approved asset_collection mockup — see
+               catalog-cards.css's own header for the equal-card rules and the container
+               query. The glass container is the query container (.cat-shell). -->
+          <div class="cat-bar">
+            <div class="cat-search">
+              <span class="cat-search-ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5C6367" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+              <div class="mw-fld">
+                <input type="text" id="asset-search" placeholder=" " class="mw-field" autocomplete="off">
+                <label for="asset-search">Search by name or ticker</label>
+              </div>
+            </div>
+            <div class="cat-rowbar">
+              <!-- Class chips: the count on each is LIVE — it is the number of products the
+                   current search leaves in that class, so with an empty search the five
+                   counts sum to the whole catalog and with a query they say where the matches
+                   are. The active state is toggled by JS (bg-navy/text-white) exactly as
+                   before; the geometry is the shared Tier C pill (row 188). -->
+              <div class="cat-chips" id="category-tabs" role="group" aria-label="Filter by asset class">
+                <button type="button" class="category-tab mw-btn mw-btn-sm bg-navy text-white" data-category="" aria-pressed="true">All<span class="cat-chip-n" data-count-for="">0</span></button>
+                <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Stocks &amp; ETFs" aria-pressed="false">Stocks &amp; ETFs<span class="cat-chip-n" data-count-for="Stocks &amp; ETFs">0</span></button>
+                <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Crypto" aria-pressed="false">Crypto<span class="cat-chip-n" data-count-for="Crypto">0</span></button>
+                <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Private Equity" aria-pressed="false">Private Equity<span class="cat-chip-n" data-count-for="Private Equity">0</span></button>
+                <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Real Assets" aria-pressed="false">Real Assets<span class="cat-chip-n" data-count-for="Real Assets">0</span></button>
+              </div>
+              <div class="cat-sort">
+                <div class="mw-fld mw-fld--static">
+                  <select id="catalog-sort" class="mw-field mw-field-sm">
+                    <option value="name-asc">Name A–Z</option>
+                    <option value="name-desc">Name Z–A</option>
+                    <option value="price-desc">Price high–low</option>
+                    <option value="price-asc">Price low–high</option>
+                    <option value="change-desc">Change high–low</option>
+                    <option value="held-first">Held first</option>
+                  </select>
+                  <label for="catalog-sort">Sort</label>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Category tabs -->
-          <div class="flex flex-wrap gap-2 mb-6" id="category-tabs">
-            <button type="button" class="category-tab mw-btn mw-btn-sm bg-navy text-white" data-category="">All</button>
-            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Private Equity">Private Equity</button>
-            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Real Assets">Real Assets</button>
-            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Stocks & ETFs">Stocks & ETFs</button>
-            <button type="button" class="category-tab mw-btn mw-btn-sm bg-slate-100 text-slate-600 hover:bg-slate-200" data-category="Crypto">Crypto</button>
-          </div>
+          <!-- Asset cards grid: four-up compact cards, equal in both dimensions -->
+          <div class="cat-cards" id="asset-cards-grid"></div>
 
-          <!-- Asset cards grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="asset-cards-grid"></div>
+          <p class="hidden cat-empty" id="no-results">No assets match your search or filter.</p>
 
-          <p class="hidden text-sm text-slate-400 text-center py-8" id="no-results">No assets match your search/filter.</p>
-
-          <div class="text-center mt-6">
-            <button type="button" id="load-more-btn" class="hidden mw-btn mw-btn-secondary">Load More</button>
+          <!-- Paging: 24 cards per page. The frame-cost audit (audit-catalog-frame-cost.mjs)
+               measured 24-96 cards on the rAF floor with zero dropped frames and 247 at twice
+               the frame budget with ~60% dropped — the count is the cost, so the page never
+               renders the whole catalog at once. -->
+          <div class="cat-more" id="cat-more">
+            <button type="button" id="load-more-btn" class="hidden mw-btn mw-btn-secondary">Continue browsing <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <span class="cat-cnt" id="cat-count" aria-live="polite"></span>
           </div>
           <!-- Elbstream's attribution: required, at least 12pt, on every page that shows one of
                its logos (asset-mark.css / asset-mark.js). -->
@@ -133,6 +162,48 @@
               <button type="button" id="more-info-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
             </div>
             <p class="text-sm text-slate-600 whitespace-pre-line" id="more-info-modal-body"></p>
+            <p class="mt-4 hidden" id="more-info-modal-doc"><a class="fund-document-link mw-btn mw-btn-secondary mw-btn-sm" href="#">View fund document</a></p>
+          </div>
+        </div>
+
+        <!-- ★★ The allocation panel — one modal, three states (new position / adding to a
+             position / below the minimum). Opens OVER the catalog: no page change, so a client
+             keeps their place in the grid. EVERY ROW EXISTS IN EVERY STATE so the panel never
+             changes height — the error line reserves its space when hidden; the result box
+             and both summary rows always render. Validation runs on every keystroke, before
+             submit: a below-minimum (or above-available) amount shows a real error, mutes the
+             result and disables the button. The gate note adapts to the asset class. -->
+        <div id="alloc-modal" hidden role="dialog" aria-modal="true" aria-labelledby="alloc-title">
+          <div class="cat-backdrop" id="alloc-backdrop"></div>
+          <div class="cat-modal">
+            <div class="cat-mh">
+              <span id="alloc-mark"></span>
+              <div class="cat-tx"><b class="cat-mtitle" id="alloc-title">Allocate</b><div class="cat-msub" id="alloc-sub"><i class="cat-dot" aria-hidden="true"></i><span id="alloc-sub-text"></span></div></div>
+              <button type="button" id="alloc-modal-close" class="mw-btn mw-btn-secondary mw-btn-sm" aria-label="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+            <div class="cat-mb">
+              <div class="cat-fieldlbl"><label class="cat-k" for="alloc-amount">Amount</label><span class="cat-a">Available <b id="alloc-available">—</b></span></div>
+              <div class="cat-amt" id="alloc-amt-wrap"><span class="cat-cur" aria-hidden="true">$</span><input type="text" inputmode="decimal" id="alloc-amount" autocomplete="off" aria-describedby="alloc-error"></div>
+              <div class="cat-err is-hidden" id="alloc-error" role="alert"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span id="alloc-error-text">&nbsp;</span></div>
+              <div class="cat-quick" id="alloc-quick" role="group" aria-label="Quick amounts">
+                <button type="button" data-quick="min">Min</button>
+                <button type="button" data-quick="25">25%</button>
+                <button type="button" data-quick="50">50%</button>
+                <button type="button" data-quick="max">Max</button>
+              </div>
+              <div class="cat-result" id="alloc-result">
+                <div class="cat-k">You would receive</div>
+                <div class="cat-v" id="alloc-units">—</div>
+                <div class="cat-x" id="alloc-at">&nbsp;</div>
+              </div>
+              <div class="cat-after"><span class="cat-k" id="alloc-after1-k">This would be</span><span class="cat-v" id="alloc-after1-v">—</span></div>
+              <div class="cat-after"><span class="cat-k">Unallocated after</span><span class="cat-v" id="alloc-after2-v">—</span></div>
+              <div class="cat-gate"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B07908" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span id="alloc-gate"></span></div>
+              <div class="cat-mf">
+                <button type="button" id="alloc-submit" class="mw-btn mw-btn-primary">Request allocation</button>
+                <button type="button" id="alloc-cancel" class="mw-btn mw-btn-secondary cat-cancel">Cancel</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -167,31 +238,36 @@
 
   <script>
     // UI Wiring — Stage 2 (2026-09-03): the product catalog and holdings-dependent card state
-    // (badges, "already holding this" indicators) now come from real Supabase — a direct
-    // RLS-authorized `products` read plus Phase B Stage 1's get-holdings — and Request
-    // Allocation calls the real Phase B Stage 3 request-allocation Edge Function instead of
-    // the local engine. Reuses supabase-data.js's canonical pattern exactly (renderAsyncBundle
+    // come from real Supabase — a direct RLS-authorized `products` read plus Phase B Stage 1's
+    // get-holdings — and Request Allocation calls the real Phase B Stage 3 request-allocation
+    // Edge Function. Reuses supabase-data.js's canonical pattern exactly (renderAsyncBundle
     // for the read, withButtonBusy/callFunction/writeErrorMessage for the write) — see that
     // file's own header comments for the full convention this stage did not reinvent.
     //
-    // Products Catalog Fix (2026-09-03): closes the real gap flagged when this stage was
-    // originally built — the real `products` table now genuinely carries
-    // description/extended_description/logo_url (a new migration + admin-only
-    // add-product/edit-product Edge Functions, see admin-products.html's own header comment
-    // for the full fix), so these three fields are now mapped for real below instead of left
-    // undefined. The existing card-rendering code needed ZERO changes — it already handled an
-    // unset value for each of these gracefully (no logo box outside its category default,
-    // initials fallback, no "More info" link when extendedDescription is empty), and that
-    // same code now renders a REAL value once one is actually set through the real admin UI.
+    // Products Catalog Fix (2026-09-03): description/extended_description/logo_url are real
+    // columns, mapped below. Live pricing, part 1 (2026-09-11): the price block and its source
+    // line. Asset mark (2026-09-13, row 207): the shared circular well from asset-mark.js.
     //
-    // Search (by name), the category filter, and "Load More" are all unchanged in behavior —
-    // they operate on the SAME already-fetched arrays as before, just populated asynchronously
-    // now instead of synchronously at page load.
+    // ★★ Catalog expansion (2026-09-14, row 211): the browsing surface at ~250 products,
+    // rebuilt from the approved mockup — see catalog-cards.css's own header.
+    //   - SEARCH matches name OR ticker and runs over the WHOLE fetched catalog, never the
+    //     page currently rendered: filtering happens first and paging is applied to the
+    //     result, so a match on page 10 is the first card of a search.
+    //   - CLASS CHIPS carry live counts (products the current search leaves in each class).
+    //   - SORT is a real control; "Held first" puts a client's own positions at the top.
+    //   - PAGING is 24 per "Continue browsing", with "Showing N of M" beneath — the count
+    //     is the cost (audit-catalog-frame-cost.mjs), so the page never renders all of it.
+    //   - THE ALLOCATION PANEL opens over the catalog (no page change): one modal, three
+    //     states, every row present in every state, validated before submit.
+    // The one client-side money computation this page keeps — a holding's unrealised %
+    // for the held-card footer — is the pure port of engine-core.js's own
+    // getUnrealizedReturnPercent(), unchanged from Stage 2 (row 185 records it as the last
+    // place unrealised is computed in the browser).
     (function () {
       if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
       var UNALLOCATABLE_CLASS = 'Unallocated / Cash';
-      var PAGE_SIZE = 9;
+      var PAGE_SIZE = 24;
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -201,24 +277,22 @@
           maximumFractionDigits: decimals || 0
         });
       }
+      function escapeHTML(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+      }
 
-      // Real holdings/products, populated once the async load below resolves — everything
-      // that reads these is only ever invoked from inside render()/the click handler, both of
-      // which only run after that first population (render() is only ever called from the
-      // async render() callback or from a control wired up inside it).
+      // Real holdings/products/account state, populated once the async load resolves —
+      // everything that reads these only ever runs after that first population.
       var holdings = [];
       var allocatableProducts = [];
-      // Product catalog — fund documents, part 2 (2026-09-12): which products carry a
-      // PUBLISHED fund document, from get-product-document's list mode. A product with no
-      // published document simply shows no link — never a link to an empty page.
+      var unallocatedCapital = 0;
+      // Which products carry a PUBLISHED fund document (get-product-document's list mode).
       var publishedDocumentIds = {};
 
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
       function productById(id) { return allocatableProducts.find(function (p) { return p.id === id; }); }
 
-      // Pure port of engine-core.js's own getUnrealizedReturnPercent(productId) — real holding
-      // + real live unit_price, computed client-side from the already-fetched data rather than
-      // a dedicated Edge Function (no server-side-only logic here worth a round trip for).
+      // Pure port of engine-core.js's own getUnrealizedReturnPercent(productId).
       function getUnrealizedReturnPercent(productId) {
         var holding = holdingByProductId(productId);
         if (!holding || holding.costBasis === 0) return 0;
@@ -228,11 +302,12 @@
         return Math.round((unrealized / holding.costBasis) * 10000) / 100;
       }
 
-      // ---- Search + filter — pure functions, same shape as admin-clients.html's own
-      // matchesSearch()/matchesTypeFilter()/applyFilters() precedent. ----
+      // ---- Search + filter + sort — pure functions over the whole catalog ----
       function matchesSearch(product, query) {
-        if (!query) return true;
-        return product.name.toLowerCase().indexOf(query.trim().toLowerCase()) !== -1;
+        var q = (query || '').trim().toLowerCase();
+        if (!q) return true;
+        if (product.name.toLowerCase().indexOf(q) !== -1) return true;
+        return !!(product.ticker && product.ticker.toLowerCase().indexOf(q) !== -1);
       }
       function matchesCategory(product, category) {
         if (!category) return true;
@@ -241,28 +316,26 @@
       function applyFilters(productsArr, query, category) {
         return productsArr.filter(function (p) { return matchesSearch(p, query) && matchesCategory(p, category); });
       }
+      var SORTS = {
+        'name-asc': function (a, b) { return a.name.localeCompare(b.name); },
+        'name-desc': function (a, b) { return b.name.localeCompare(a.name); },
+        'price-desc': function (a, b) { return Number(b.unitPrice) - Number(a.unitPrice) || a.name.localeCompare(b.name); },
+        'price-asc': function (a, b) { return Number(a.unitPrice) - Number(b.unitPrice) || a.name.localeCompare(b.name); },
+        'change-desc': function (a, b) { return (Number(b.priceChangePercent) || 0) - (Number(a.priceChangePercent) || 0) || a.name.localeCompare(b.name); },
+        'held-first': function (a, b) { var ha = holdingByProductId(a.id) ? 0 : 1, hb = holdingByProductId(b.id) ? 0 : 1; return ha - hb || a.name.localeCompare(b.name); }
+      };
+      function applySort(arr, key) { return arr.slice().sort(SORTS[key] || SORTS['name-asc']); }
 
       var searchQuery = '';
       var categoryFilter = '';
+      var sortKey = 'name-asc';
       var visibleCount = PAGE_SIZE;
 
-      // ★ Asset mark (2026-09-13, row 207): the shared circular well from asset-mark.js —
-      // a real logo where one was resolved (logoUrl, stored server-side at creation or by
-      // the backfill), the deterministic monogram otherwise. EVERY product gets one now,
-      // including Private Equity / Real Assets (initials from the name — no ticker, no
-      // provider will ever have a logo for them, so the monogram is their permanent mark,
-      // not a fallback). A failed image load is swapped to the monogram by asset-mark.js's
-      // own document-level listener — nothing to wire here after render.
       function logoBoxHTML(product) {
         return AssetMark.html({ name: product.name, ticker: product.ticker, logoUrl: product.logoUrl, size: 'm' });
       }
 
-      // ---- Live pricing, part 1 (2026-09-11): the price block and its SOURCE line ----
-      // Green dot: market price with the time it was taken. Grey dot: the same, but older
-      // than two missed refreshes — shown WITH its timestamp and still allocatable (the PM
-      // re-reads the price at approval, so a stale quote is never a stale execution). Amber:
-      // valued by appraisal, with the last-valued date. Ticker chip and "Fractional units"
-      // appear on market-priced products only.
+      // ---- Live pricing: the price row and its SOURCE line ----
       var STALE_AFTER_MS = 30 * 60 * 1000;
       function formatAsOf(iso) {
         var d = new Date(iso);
@@ -275,125 +348,125 @@
         var d = new Date(ymd + 'T00:00:00Z');
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
       }
-      function priceSourceHTML(product) {
+      function priceSource(product) {
         if (product.pricingModel === 'market') {
           var stale = !product.priceAsOf || (Date.now() - new Date(product.priceAsOf).getTime() > STALE_AFTER_MS);
           var when = product.priceAsOf ? 'as of ' + formatAsOf(product.priceAsOf) : 'awaiting refresh';
-          return '<p class="price-source flex items-center gap-1.5 text-[11px] text-slate-600 pt-2.5 mt-1 border-t border-slate-200" data-source="' + (stale ? 'stale' : 'live') + '">' +
-            '<span class="inline-block w-1.5 h-1.5 rounded-full ' + (stale ? 'bg-slate-400' : 'bg-emerald-600') + '" aria-hidden="true"></span>' +
-            'Market price · <b class="font-semibold text-slate-700">' + when + '</b>' + (stale && product.priceAsOf ? ' — awaiting refresh' : '') +
-          '</p>';
+          return { state: stale ? 'stale' : 'live', text: 'Market price · ' + when + (stale && product.priceAsOf ? ' — awaiting refresh' : '') };
         }
         if (product.pricingModel === 'appraisal') {
-          return '<p class="price-source flex items-center gap-1.5 text-[11px] text-slate-600 pt-2.5 mt-1 border-t border-slate-200" data-source="appraisal">' +
-            '<span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>' +
-            'Valued by appraisal · <b class="font-semibold text-slate-700">last valued ' + formatValuedDate(product.lastTickDate) + '</b>' +
-          '</p>';
+          return { state: 'appraisal', text: 'Valued by appraisal · ' + formatValuedDate(product.lastTickDate) };
         }
-        return '';
+        return { state: 'fixed', text: 'Fixed price' };
       }
-      function priceBlockHTML(product) {
-        var pct = product.priceChangePercent;
-        var chg = '';
-        if (typeof pct === 'number' && isFinite(pct) && pct !== 0) {
-          chg = '<span class="price-change text-sm font-bold tabular-nums ' + (pct > 0 ? 'text-emerald-800' : 'text-red-700') + '">' + (pct > 0 ? '+' : '\u2212') + Math.abs(pct).toFixed(2) + '%</span>';
-        }
-        // flex-wrap + a smaller size below sm: a five-figure crypto price next to a change
-        // figure escaped a 320px card in a single non-wrapping row (caught by measurement).
-        return '<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 mb-1">' +
-          '<div><p class="product-price text-xl sm:text-2xl font-semibold text-navy tabular-nums leading-none">$' + Number(product.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</p><p class="text-[11px] text-slate-500 mt-1">per unit</p></div>' +
-          chg +
-        '</div>' + priceSourceHTML(product);
+      function priceSourceHTML(product) {
+        var src = priceSource(product);
+        return '<p class="price-source" data-source="' + src.state + '"><i class="cat-dot" aria-hidden="true"></i>' + escapeHTML(src.text) + '</p>';
+      }
+      function changeHTML(pct) {
+        if (typeof pct !== 'number' || !isFinite(pct)) return '<span class="price-change flat" aria-hidden="true"></span>';
+        var dir = pct > 0 ? 'up' : (pct < 0 ? 'dn' : 'flat');
+        return '<span class="price-change ' + dir + '">' + (pct > 0 ? '+' : (pct < 0 ? '−' : '')) + Math.abs(pct).toFixed(2) + '%</span>';
+      }
+      function classChip(assetClass) {
+        var cls = assetClass === 'Crypto' ? 'cat-cl-cr' : assetClass === 'Private Equity' ? 'cat-cl-pe' : assetClass === 'Real Assets' ? 'cat-cl-ra' : 'cat-cl-eq';
+        return '<span class="cat-cl ' + cls + '">' + escapeHTML(assetClass) + '</span>';
+      }
+      function priceText(product) {
+        var p = Number(product.unitPrice);
+        return '$' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      function unitsText(units) {
+        var u = Number(units);
+        return u.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: u < 1 ? 5 : 2 });
       }
 
+      // ---- the card: identical in both dimensions regardless of content ----
       function cardHTML(product) {
         var holding = holdingByProductId(product.id);
-        var badgeHtml;
+        // The head's right slot: the ticker chip (market products), or — for an appraisal
+        // product, which never has a ticker — a "More info" chip when there is more to read,
+        // in the same fixed-width slot so the header is laid out identically either way.
+        var slot = '';
+        if (product.pricingModel === 'market' && product.ticker) slot = '<span class="product-ticker">' + escapeHTML(product.ticker) + '</span>';
+        else if (product.extendedDescription || publishedDocumentIds[product.id]) slot = '<button type="button" class="more-info-link product-ticker" data-product-id="' + escapeHTML(product.id) + '">Info</button>';
+        var footerMeta;
         if (holding) {
           var pct = getUnrealizedReturnPercent(product.id);
-          var pctColor = pct > 0 ? 'bg-emerald-50 text-emerald-700' : (pct < 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600');
-          badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full ' + pctColor + '">' + (pct > 0 ? '+' : '') + pct.toFixed(1) + '%</span>';
+          var dir = pct > 0 ? 'up' : (pct < 0 ? 'dn' : 'flat');
+          footerMeta = '<span class="cat-pos">Holding <b>' + unitsText(holding.units) + '</b><span class="cat-g ' + dir + '">' + (pct > 0 ? '+' : (pct < 0 ? '−' : '')) + Math.abs(pct).toFixed(1) + '%</span></span>';
         } else {
-          badgeHtml = '<span class="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-500">No position</span>';
+          footerMeta = '<span class="cat-min">Min <b>' + formatUSD(product.minimumInvestment) + '</b></span>';
         }
-        var allocatedLine = holding ? 'Allocated: ' + formatUSD(Math.round(holding.costBasis)) : 'Not yet allocated';
-
-        // The "More info" popup link (Private Equity/Real Assets) is minimal by design — it
-        // never competes with Request Allocation for visual weight — and renders only when
-        // extendedDescription is set, rather than opening on nothing.
-        var showMoreInfo = (product.assetClass === 'Private Equity' || product.assetClass === 'Real Assets') && product.extendedDescription;
-
-        // flex flex-col + mt-auto on the CTA block — unchanged from the original card,
-        // anchors the input/button to the bottom of the card regardless of how many lines
-        // the content above it takes (description length now varies this further).
-        return '<div class="border border-slate-200 rounded-xl p-5 hover:border-navy/30 transition flex flex-col" data-product-id="' + product.id + '">' +
-          '<div class="flex items-start justify-between mb-3">' +
-          '<div class="flex items-start gap-3">' +
-          logoBoxHTML(product) +
-          '<div><p class="font-medium text-navy">' + product.name + '</p>' +
-          '<p class="text-xs text-slate-500 mt-0.5">' + product.assetClass + '</p></div>' +
+        return '<div class="cat-card' + (holding ? ' is-held' : '') + '" data-product-id="' + escapeHTML(product.id) + '"' + (holding ? ' data-held="1"' : '') + '>' +
+          '<div class="cat-hd">' + logoBoxHTML(product) +
+            '<div class="cat-tx"><b class="cat-name" title="' + escapeHTML(product.name) + '">' + escapeHTML(product.name) + '</b>' + classChip(product.assetClass) + '</div>' +
+            '<span class="cat-slot">' + slot + '</span>' +
           '</div>' +
-          '<div class="flex items-center gap-2 shrink-0">' +
-          (product.pricingModel === 'market' && product.ticker ? '<span class="product-ticker text-[11px] font-bold tracking-wide text-slate-700 bg-slate-100 px-2 py-0.5 rounded">' + product.ticker + '</span>' : '') +
-          badgeHtml +
-          '</div>' +
-          '</div>' +
-          priceBlockHTML(product) +
-          (product.description ? '<p class="text-sm text-slate-600 mb-1">' + product.description + '</p>' : '') +
-          (showMoreInfo ? '<button type="button" class="more-info-link mw-btn mw-btn-secondary mw-btn-sm mb-2" data-product-id="' + product.id + '">More info</button>' : '') +
-          (publishedDocumentIds[product.id] ? '<a class="fund-document-link mw-btn mw-btn-secondary mw-btn-sm mb-2" href="fund-document.html?product=' + encodeURIComponent(product.id) + '" data-product-id="' + product.id + '">Fund document</a>' : '') +
-          '<p class="text-sm text-slate-600 mb-1">' + allocatedLine + '</p>' +
-          '<p class="text-xs text-slate-500 mb-4">Minimum ' + formatUSD(product.minimumInvestment) + (product.maximumInvestment != null ? ' · Maximum ' + formatUSD(product.maximumInvestment) : '') + (product.pricingModel === 'market' ? ' · <span class="fractional-note">Fractional units</span>' : '') + '</p>' +
-          '<div class="mt-auto">' +
-          '<div class="mw-fld mb-3">' +
-          '<input type="number" min="0" step="100" placeholder=" " id="alloc-amt-' + product.id + '" class="allocation-amount-input mw-field mw-field-sm">' +
-          '<label for="alloc-amt-' + product.id + '">Requested Allocation Amount</label>' +
-          '</div>' +
-          '<button type="button" class="request-allocation-btn mw-btn mw-btn-outline mw-btn-block">Request Allocation</button>' +
-          '</div>' +
-          '</div>';
+          '<div class="cat-pr"><div><div class="product-price">' + priceText(product) + '</div><div class="cat-u">per unit</div></div>' + changeHTML(product.priceChangePercent) + '</div>' +
+          priceSourceHTML(product) +
+          '<p class="cat-ds">' + escapeHTML(product.description || '') + '</p>' +
+          '<div class="cat-ft"><button type="button" class="request-allocation-btn">' + (holding ? 'Add' : 'Allocate') + '</button>' + footerMeta + '</div>' +
+          (publishedDocumentIds[product.id] && product.pricingModel === 'market' ? '<a class="fund-document-link sr-only" href="fund-document.html?product=' + encodeURIComponent(product.id) + '">Fund document</a>' : '') +
+        '</div>';
       }
 
       var cardsGrid = document.getElementById('asset-cards-grid');
       var noResultsEl = document.getElementById('no-results');
       var loadMoreBtn = document.getElementById('load-more-btn');
-      var dataLoaded = false; // guards render() against firing on a search/tab/load-more
-      // interaction that happens to land during the initial async load, before there is
-      // real data to filter/render against.
+      var countEl = document.getElementById('cat-count');
+      var dataLoaded = false;
+
+      function updateChipCounts() {
+        // Live counts: how many products the CURRENT SEARCH leaves in each class.
+        var searched = allocatableProducts.filter(function (p) { return matchesSearch(p, searchQuery); });
+        document.querySelectorAll('.cat-chip-n').forEach(function (el) {
+          var cls = el.getAttribute('data-count-for');
+          el.textContent = String(cls ? searched.filter(function (p) { return p.assetClass === cls; }).length : searched.length);
+        });
+      }
 
       function render() {
         if (!dataLoaded) return;
-        var filtered = applyFilters(allocatableProducts, searchQuery, categoryFilter);
+        updateChipCounts();
+        var filtered = applySort(applyFilters(allocatableProducts, searchQuery, categoryFilter), sortKey);
         var visible = filtered.slice(0, visibleCount);
-
         if (filtered.length === 0) {
           cardsGrid.innerHTML = '';
           noResultsEl.classList.remove('hidden');
           loadMoreBtn.classList.add('hidden');
+          countEl.textContent = '';
           return;
         }
         noResultsEl.classList.add('hidden');
         cardsGrid.innerHTML = visible.map(cardHTML).join('');
         loadMoreBtn.classList.toggle('hidden', visibleCount >= filtered.length);
+        countEl.textContent = 'Showing ' + visible.length + ' of ' + filtered.length;
       }
 
-      // ---- Async load: product catalog + holdings, the real replacement for the old
-      // synchronous getAllProducts()/getHoldings() reads. ----
+      // ---- Async load: catalog + holdings + account state + published documents ----
       MarketswaveData.renderAsyncBundle(cardsGrid, {
-        skeletonHTML: new Array(3).fill(
-          '<div class="border border-slate-200 rounded-xl p-5 space-y-3">' +
-            MarketswaveData.skeleton.block('w-3/4', { height: 'h-5' }) +
-            MarketswaveData.skeleton.block('w-1/2') +
-            MarketswaveData.skeleton.block('w-full', { height: 'h-10' }) +
-            '</div>'
-        ).join(''),
+        skeletonHTML: Array.apply(null, Array(8)).map(function () {
+          return '<div class="cat-card" aria-hidden="true">' +
+            '<div class="cat-hd"><div class="mk mk-m" style="background:#e5e7eb"></div><div class="cat-tx">' + MarketswaveData.skeleton.text('w-32') + '</div></div>' +
+            '<div class="cat-pr">' + MarketswaveData.skeleton.text('w-20', { height: 'h-5' }) + '</div>' +
+            '<div class="cat-ds">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6']) + '</div>' +
+            '<div class="cat-ft">' + MarketswaveData.skeleton.text('w-16', { height: 'h-8' }) + '</div>' +
+          '</div>';
+        }).join(''),
         load: function () {
           return Promise.all([
             MarketswaveData.selectTable('products'),
             MarketswaveData.callFunction('get-holdings'),
             // A failure here must not take the whole catalog down — the cards still render,
             // just without document links until the next load.
-            MarketswaveData.callFunction('get-product-document', {}).catch(function () { return { published: [] }; })
+            MarketswaveData.callFunction('get-product-document', {}).catch(function () { return { published: [] }; }),
+            // A client with no account_state row yet is a genuine $0 (UI Wiring Stage 1's own
+            // 404-means-empty precedent) — never an error card on the catalog.
+            MarketswaveData.callFunction('get-account-state').catch(function (err) {
+              if (err && (err.status === 404 || err.kind === 'not_found')) return { unallocatedCapital: 0 };
+              return { unallocatedCapital: 0, unavailable: true };
+            })
           ]).then(function (results) {
             publishedDocumentIds = {};
             ((results[2] && results[2].published) || []).forEach(function (d) { publishedDocumentIds[d.productId] = true; });
@@ -403,79 +476,75 @@
                   id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
                   minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,
                   description: p.description, extendedDescription: p.extended_description, logoUrl: p.logo_url,
-                  // Live pricing, part 1 (2026-09-11): the price source a card must state explicitly.
                   ticker: p.ticker, pricingModel: p.pricing_model, priceAsOf: p.price_as_of,
                   priceChangePercent: p.price_change_percent, priceStatus: p.price_status,
                   lastTickDate: p.last_tick_date, maximumInvestment: p.maximum_investment
                 };
               }),
-              holdings: results[1]
+              holdings: results[1],
+              unallocatedCapital: Number(results[3] && (results[3].unallocatedCapital != null ? results[3].unallocatedCapital : results[3].unallocated_capital)) || 0
             };
           });
         },
         render: function (data) {
           allocatableProducts = data.products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
           holdings = data.holdings;
+          unallocatedCapital = data.unallocatedCapital;
           dataLoaded = true;
           focusRequestedProduct();
           render();
         }
       });
 
-      // ---- ?product=PROD-XXXX ------------------------------------------------------
-      // The watchlist card's Allocate button (2026-09-11) links here with the catalog
-      // product it resolved the symbol to. Without this the button would land the client on
-      // an unfiltered grid and leave them to find the product themselves, which is not a
-      // real action. It reuses this page's OWN existing search state rather than adding a
-      // second filtering path — the search box visibly carries the product's name, so the
-      // filter is explained and the client can clear it the ordinary way.
+      // ---- ?product=PROD-XXXX (the watchlist's Allocate link) reuses this page's own search ----
       function focusRequestedProduct() {
         var params = new URLSearchParams(window.location.search);
         var requested = params.get('product');
         if (!requested) return;
         var match = allocatableProducts.filter(function (p) { return p.id === requested; })[0];
-        if (!match) return; // a product that is no longer allocatable simply shows the full grid
+        if (!match) return;
         searchQuery = match.name;
         var box = document.getElementById('asset-search');
         if (box) box.value = match.name;
       }
 
-      // ---- Search ----
+      // ---- Search / chips / sort / paging ----
       document.getElementById('asset-search').addEventListener('input', function (e) {
         searchQuery = e.target.value;
-        visibleCount = PAGE_SIZE; // a new search always starts from the first page again
+        visibleCount = PAGE_SIZE;
         render();
       });
-
-      // ---- Category tab filtering ----
       var tabs = document.querySelectorAll('.category-tab');
       tabs.forEach(function (tab) {
         tab.addEventListener('click', function () {
           tabs.forEach(function (t) {
             t.classList.remove('bg-navy', 'text-white');
             t.classList.add('bg-slate-100', 'text-slate-600');
+            t.setAttribute('aria-pressed', 'false');
           });
           tab.classList.remove('bg-slate-100', 'text-slate-600');
           tab.classList.add('bg-navy', 'text-white');
-
+          tab.setAttribute('aria-pressed', 'true');
           categoryFilter = tab.dataset.category;
-          visibleCount = PAGE_SIZE; // a new filter always starts from the first page again
+          visibleCount = PAGE_SIZE;
           render();
         });
       });
-
-      // ---- Load More ----
+      document.getElementById('catalog-sort').addEventListener('change', function (e) {
+        sortKey = e.target.value;
+        visibleCount = PAGE_SIZE;
+        render();
+      });
       loadMoreBtn.addEventListener('click', function () {
         visibleCount += PAGE_SIZE;
         render();
       });
 
-      // ---- Request Allocation: identical engine wiring to the original card ----
+      // ---- Toast ----
       var toast = document.getElementById('allocation-toast');
       var toastTitle = document.getElementById('allocation-toast-title');
       var toastBody = document.getElementById('allocation-toast-body');
       var toastTimer;
-
       function showToast(title, body, isError) {
         toastTitle.textContent = title;
         toastBody.textContent = body;
@@ -486,58 +555,169 @@
         toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
       }
 
-      // ---- "More info" popup (Private Equity/Real Assets) ----
+      // ---- "More info" popup (appraisal products with more to read, or a fund document) ----
       var moreInfoModal = document.getElementById('more-info-modal');
       var moreInfoTitle = document.getElementById('more-info-modal-title');
       var moreInfoBody = document.getElementById('more-info-modal-body');
+      var moreInfoDoc = document.getElementById('more-info-modal-doc');
       function closeMoreInfoModal() { moreInfoModal.classList.add('hidden'); }
       document.getElementById('more-info-modal-close').addEventListener('click', closeMoreInfoModal);
       document.getElementById('more-info-modal-backdrop').addEventListener('click', closeMoreInfoModal);
+      function openMoreInfo(product) {
+        moreInfoTitle.textContent = product.name;
+        moreInfoBody.textContent = product.extendedDescription || product.description || '';
+        var hasDoc = !!publishedDocumentIds[product.id];
+        moreInfoDoc.classList.toggle('hidden', !hasDoc);
+        if (hasDoc) moreInfoDoc.querySelector('a').setAttribute('href', 'fund-document.html?product=' + encodeURIComponent(product.id));
+        moreInfoModal.classList.remove('hidden');
+      }
+
+      // ---- The allocation panel ----
+      var modal = document.getElementById('alloc-modal');
+      var amountInput = document.getElementById('alloc-amount');
+      var amtWrap = document.getElementById('alloc-amt-wrap');
+      var errEl = document.getElementById('alloc-error');
+      var errText = document.getElementById('alloc-error-text');
+      var resultEl = document.getElementById('alloc-result');
+      var unitsEl = document.getElementById('alloc-units');
+      var atEl = document.getElementById('alloc-at');
+      var after1K = document.getElementById('alloc-after1-k');
+      var after1V = document.getElementById('alloc-after1-v');
+      var after2V = document.getElementById('alloc-after2-v');
+      var gateEl = document.getElementById('alloc-gate');
+      var submitBtn = document.getElementById('alloc-submit');
+      var availableEl = document.getElementById('alloc-available');
+      var quickBtns = Array.prototype.slice.call(document.querySelectorAll('#alloc-quick button'));
+      var activeProduct = null;
+      var lastFocus = null;
+
+      function parseAmount(raw) {
+        var n = parseFloat(String(raw || '').replace(/[^0-9.]/g, ''));
+        return isFinite(n) ? n : NaN;
+      }
+      function formatAmountInput(n) {
+        if (!isFinite(n)) return '';
+        return n % 1 === 0 ? n.toLocaleString('en-US') : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      function gateText(product) {
+        if (product.assetClass === 'Private Equity') return 'Private equity is illiquid and committed for the fund’s full term. Your manager reviews this before it executes.';
+        if (product.assetClass === 'Real Assets') return 'Real assets are illiquid and may be committed for the fund’s full term. Your manager reviews this before it executes.';
+        return 'Your portfolio manager reviews this before it executes. Units are set at the price on approval, so this figure is indicative.';
+      }
+      // The one validation rule set, run on every keystroke and again on submit. The server
+      // (request-allocation) re-validates both rules regardless; this is what lets the panel
+      // explain a disabled button instead of failing after the click.
+      function validate(amount, product) {
+        if (!isFinite(amount) || amount <= 0) return { ok: false, error: '', empty: true };
+        if (amount < Number(product.minimumInvestment)) return { ok: false, error: 'This ' + (product.assetClass === 'Crypto' || product.pricingModel === 'market' ? 'asset' : 'fund') + ' has a ' + formatUSD(product.minimumInvestment) + ' minimum', hint: 'enter ' + formatUSD(product.minimumInvestment) + ' or more' };
+        if (product.maximumInvestment != null && amount > Number(product.maximumInvestment)) return { ok: false, error: 'The maximum for this fund is ' + formatUSD(product.maximumInvestment), hint: 'enter ' + formatUSD(product.maximumInvestment) + ' or less' };
+        if (amount > unallocatedCapital + 1e-9) return { ok: false, error: 'Only ' + formatUSD(unallocatedCapital) + ' is available to allocate', hint: 'enter ' + formatUSD(unallocatedCapital) + ' or less' };
+        return { ok: true };
+      }
+      function updatePanel() {
+        var product = activeProduct;
+        if (!product) return;
+        var amount = parseAmount(amountInput.value);
+        var v = validate(amount, product);
+        var holding = holdingByProductId(product.id);
+        var price = Number(product.unitPrice);
+        amtWrap.classList.toggle('is-bad', !v.ok && !v.empty);
+        errEl.classList.toggle('is-hidden', v.ok || v.empty);
+        errText.textContent = v.ok || v.empty ? ' ' : v.error;
+        resultEl.classList.toggle('is-muted', !v.ok);
+        if (v.ok) {
+          var units = amount / price;
+          unitsEl.textContent = unitsText(units) + ' units';
+          atEl.textContent = 'at ' + priceText(product) + ' per unit';
+          if (holding) { after1K.textContent = 'Position becomes'; after1V.textContent = unitsText(Number(holding.units) + units) + ' units'; }
+          else { after1K.textContent = 'This would be'; after1V.textContent = 'a new position'; }
+          after2V.textContent = formatUSD(Math.max(0, unallocatedCapital - amount));
+        } else {
+          unitsEl.textContent = '—';
+          atEl.textContent = v.empty ? 'enter an amount' : v.hint;
+          after1K.textContent = holding ? 'Position becomes' : 'This would be';
+          after1V.textContent = '—';
+          after2V.textContent = '—';
+        }
+        submitBtn.disabled = !v.ok;
+        // The quick buttons light the one that matches the current amount, if any.
+        quickBtns.forEach(function (b) { b.classList.toggle('is-on', isFinite(amount) && Math.abs(quickAmount(b.dataset.quick, product) - amount) < 0.005); });
+      }
+      function quickAmount(kind, product) {
+        if (kind === 'min') return Number(product.minimumInvestment);
+        if (kind === 'max') return Math.floor(unallocatedCapital * 100) / 100;
+        return Math.floor(unallocatedCapital * (Number(kind) / 100) * 100) / 100;
+      }
+      function openPanel(product, opener) {
+        activeProduct = product;
+        lastFocus = opener || document.activeElement;
+        var holding = holdingByProductId(product.id);
+        document.getElementById('alloc-mark').innerHTML = AssetMark.html({ name: product.name, ticker: product.ticker, logoUrl: product.logoUrl, size: 'm' });
+        document.getElementById('alloc-title').textContent = (holding ? 'Add to ' : 'Allocate to ') + product.name;
+        var src = priceSource(product);
+        var sub = document.getElementById('alloc-sub');
+        sub.setAttribute('data-source', src.state);
+        document.getElementById('alloc-sub-text').textContent = priceText(product) + ' · ' + (src.state === 'appraisal' ? 'valued ' + formatValuedDate(product.lastTickDate) : (product.priceAsOf ? 'as of ' + formatAsOf(product.priceAsOf) : 'awaiting refresh'));
+        availableEl.textContent = formatUSD(unallocatedCapital);
+        gateEl.textContent = gateText(product);
+        amountInput.value = '';
+        modal.hidden = false;
+        updatePanel();
+        amountInput.focus();
+      }
+      function closePanel() {
+        modal.hidden = true;
+        activeProduct = null;
+        if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+      }
+      amountInput.addEventListener('input', updatePanel);
+      amountInput.addEventListener('blur', function () { var n = parseAmount(amountInput.value); if (isFinite(n)) amountInput.value = formatAmountInput(n); });
+      quickBtns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (!activeProduct) return;
+          amountInput.value = formatAmountInput(quickAmount(b.dataset.quick, activeProduct));
+          updatePanel();
+        });
+      });
+      document.getElementById('alloc-modal-close').addEventListener('click', closePanel);
+      document.getElementById('alloc-cancel').addEventListener('click', closePanel);
+      document.getElementById('alloc-backdrop').addEventListener('click', closePanel);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closePanel(); });
+      amountInput.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !submitBtn.disabled) submitBtn.click(); });
+
+      submitBtn.addEventListener('click', function () {
+        var product = activeProduct;
+        if (!product) return;
+        var amount = parseAmount(amountInput.value);
+        var v = validate(amount, product);
+        if (!v.ok) { updatePanel(); return; }
+        // This project's FIRST real write action (UI Wiring Stage 2). request-allocation
+        // re-validates the minimum and the client's real current unallocated_capital
+        // server-side; its exact rejection message is shown verbatim via writeErrorMessage().
+        MarketswaveData.withButtonBusy(submitBtn, 'Sending...', function () {
+          return MarketswaveData.callFunction('request-allocation', { productId: product.id, dollarAmount: amount });
+        }).then(function () {
+          closePanel();
+          showToast('Allocation Request Sent', formatUSD(amount, amount % 1 ? 2 : 0) + ' requested for ' + product.name + '. Pending Portfolio Manager approval.', false);
+        }).catch(function (err) {
+          errText.textContent = MarketswaveData.writeErrorMessage(err);
+          errEl.classList.remove('is-hidden');
+          amtWrap.classList.add('is-bad');
+        });
+      });
 
       cardsGrid.addEventListener('click', function (e) {
         var moreInfoBtn = e.target.closest('.more-info-link');
         if (moreInfoBtn) {
-          var product = productById(moreInfoBtn.dataset.productId);
-          if (!product) return;
-          moreInfoTitle.textContent = product.name;
-          moreInfoBody.textContent = product.extendedDescription;
-          moreInfoModal.classList.remove('hidden');
+          var p = productById(moreInfoBtn.dataset.productId);
+          if (p) openMoreInfo(p);
           return;
         }
         var btn = e.target.closest('.request-allocation-btn');
         if (!btn) return;
         var card = btn.closest('[data-product-id]');
-        var productId = card.dataset.productId;
-        var product = productById(productId);
-        var input = card.querySelector('.allocation-amount-input');
-        var amount = parseFloat(input.value);
-
-        if (!amount || amount <= 0) {
-          input.focus();
-          input.classList.add('border-red-400');
-          setTimeout(function () { input.classList.remove('border-red-400'); }, 1500);
-          return;
-        }
-
-        // This project's FIRST real write action. The only real client-side check that
-        // existed before this stage — a plain positive-number check, above — is unchanged;
-        // investigated and confirmed the local requestAllocation() itself never had a
-        // separate minimum-investment/sufficient-capital pre-check either (those were always
-        // enforced by the callee's own thrown validation, never duplicated client-side) — so
-        // "the server is authoritative" was already true architecturally, not something this
-        // stage had to newly establish. request-allocation/index.ts re-validates both rules
-        // for real, server-side, against the real current unallocated_capital, and its exact
-        // rejection message is shown verbatim via writeErrorMessage() below (see
-        // supabase-data.js's own callFunction()/classifyError() header for why that needs a
-        // real Response body read to work at all, not just the generic HTTP-status string).
-        MarketswaveData.withButtonBusy(btn, 'Sending...', function () {
-          return MarketswaveData.callFunction('request-allocation', { productId: productId, dollarAmount: amount });
-        }).then(function () {
-          showToast('Allocation Request Sent', '$' + amount.toLocaleString() + ' requested for ' + product.name + '. Pending Portfolio Manager approval.', false);
-          input.value = '';
-        }).catch(function (err) {
-          showToast('Request Not Sent', MarketswaveData.writeErrorMessage(err), true);
-        });
+        var product = productById(card.dataset.productId);
+        if (product) openPanel(product, btn);
       });
     })();
   </script>

@@ -1,0 +1,192 @@
+/* ★★ Catalog expansion — the browsing surface at ~250 products (2026-09-14, row 211).
+   Feature-scoped stylesheet for asset-collection.html, following watchlist-card.css's own
+   precedent (one feature, one file, linked by the one page that uses it). Built from the
+   approved asset_collection mockup: four-up compact cards that are IDENTICAL in both
+   dimensions regardless of content, a toolbar (search, class chips with live counts, sort),
+   "Continue browsing" paging, and one allocation modal with three states.
+
+   WHAT IS DELIBERATELY NOT HERE: buttons, chips and inputs are real .mw-btn / .mw-field
+   controls from control-patterns.css wherever they are controls, so the three-tier geometry
+   and row 171's 44px mobile floor apply automatically and verify-control-patterns keeps
+   guarding this page. The two exceptions are styled here because they are not in that
+   vocabulary: the quick-amount buttons inside the modal (a segmented group at row density)
+   and the card's own action button, which the mockup sizes at 33px and the mobile floor
+   raises to 44px below lg through tap-targets.css.
+
+   ★ EQUAL CARDS. Every card is the same width because the grid tracks are minmax(0, 1fr),
+   never 1fr — a long unbreakable name (a 40-character fund title, a wide price) would
+   otherwise widen its own track and make the columns unequal; that is the bug seen in
+   testing. Every card is the same height because every row inside it has a FIXED height
+   (head 46px, price 38px, source 14px, description 34px, footer 44px) and text ellipsises
+   rather than wraps. The footer carries EITHER the minimum (unheld) OR the position (held),
+   in the same slot at the same height — never both, never a reserved empty slot.
+
+   ★ THE GRID IS A CONTAINER QUERY ON THE SHELL, NOT ON THE GRID. An @container rule applies
+   to a container's descendants and an element cannot query its own size (row 206's finding);
+   .cat-shell is the container, the rules target .cat-cards beneath it. Steps 4 → 3 → 2 → 1
+   by the shell's width, so it steps the same whether the width is lost to a phone or to the
+   sidebar.
+
+   COLOUR: the mockup's #8A9298 (its "Min" label, search hint, kbd) measures ~3.4:1 on this
+   ground and is not used for text; secondary text is #5C6367 (proven at 12px on this
+   project's glass, row 206) and small labels under 12px are darker still (#3E4A52), since
+   text at that size composites well below its declared colour inside a backdrop-filter
+   subtree (rows 193, 198). Every text tone below was measured after building, not assumed
+   from the mockup. */
+
+.cat-shell { container-type: inline-size; }
+
+/* ---------- toolbar ---------- */
+.cat-bar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.cat-search { position: relative; }
+.cat-search .cat-search-ic { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); display: flex; pointer-events: none; z-index: 2; }
+.cat-search .mw-field { padding-left: 42px; }
+.cat-search .mw-fld > label { left: 42px; }
+.cat-rowbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cat-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.cat-chip-n { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .07); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.category-tab[aria-pressed="true"] .cat-chip-n { background: rgba(255, 255, 255, .2); }
+.cat-sort { margin-left: auto; min-width: 180px; }
+.cat-sort .mw-fld { margin: 0; }
+@container (max-width: 620px) { .cat-sort { margin-left: 0; width: 100%; } }
+
+/* ---------- the grid ---------- */
+.cat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+@container (max-width: 1000px) { .cat-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 800px)  { .cat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 560px)  { .cat-cards { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- a card ---------- */
+.cat-card {
+  position: relative; min-width: 0;
+  border: 1px solid rgba(27, 58, 75, .09); border-radius: 14px;
+  background: rgba(255, 255, 255, .58);
+  padding: 13px 14px; display: flex; flex-direction: column;
+  transition: background .18s, border-color .18s, transform .18s, box-shadow .18s;
+}
+.cat-card:hover { background: #fff; border-color: rgba(27, 58, 75, .2); transform: translateY(-2px); box-shadow: 0 12px 26px -16px rgba(27, 58, 75, .35); }
+@media (prefers-reduced-motion: reduce) { .cat-card, .cat-card:hover { transition: none; transform: none; } }
+
+.cat-hd { display: flex; align-items: flex-start; gap: 11px; height: 46px; }
+.cat-hd .mk { flex-shrink: 0; }
+.cat-tx { flex: 1; min-width: 0; overflow: hidden; }
+.cat-name { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; line-height: 18px; height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-cl { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; margin-top: 7px; line-height: 12px; white-space: nowrap; }
+.cat-cl-eq { background: rgba(27, 58, 75, .09); color: #22394A; }
+.cat-cl-cr { background: rgba(63, 110, 143, .15); color: #23435E; }
+.cat-cl-pe { background: rgba(22, 129, 95, .12); color: #0F5A42; }
+.cat-cl-ra { background: rgba(168, 114, 10, .14); color: #6B4706; }
+/* The head's right slot is fixed-width so a card with no chip (an appraisal product has no
+   ticker) is laid out identically to one with a chip. */
+.cat-slot { flex-shrink: 0; width: 64px; display: flex; justify-content: flex-end; }
+.product-ticker { font-size: 10px; font-weight: 700; color: #3E4A52; letter-spacing: .04em; background: rgba(27, 58, 75, .07); padding: 3px 7px; border-radius: 5px; white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; line-height: 12px; }
+
+.cat-pr { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 11px; height: 38px; }
+.cat-pr .product-price { font-size: 19px; white-space: nowrap; font-weight: 600; letter-spacing: -.022em; color: #12283A; line-height: 1; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cat-pr .cat-u { font-size: 10.5px; color: #5C6367; margin-top: 4px; }
+.cat-pr .price-change { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.cat-pr .price-change.up { color: #137254; }
+.cat-pr .price-change.dn { color: #A8452F; }
+.cat-pr .price-change.flat { color: #5C6367; }
+
+/* The source line: green = live market price, grey = a market price older than two missed
+   refreshes (still allocatable — the PM re-reads the price at approval), amber = valued by
+   appraisal. The dot carries the state; the text carries the time, so colour is never the
+   only signal. */
+.price-source { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #3E4A52; margin-top: 7px; height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.price-source .cat-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #5C6367; }
+.price-source[data-source="live"] .cat-dot { background: #137254; }
+.price-source[data-source="appraisal"] .cat-dot { background: #C8860A; }
+
+.cat-ds { font-size: 12px; color: #5C6367; line-height: 17px; margin-top: 9px; height: 34px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.cat-ft { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 11px; height: 44px; box-sizing: content-box; }
+.cat-ft .request-allocation-btn {
+  height: 33px; padding: 0 14px; border-radius: 9px; border: none; flex-shrink: 0;
+  background: linear-gradient(135deg, #22485C, #152B3B); color: #F7F6F3;
+  font: 600 12px Inter, sans-serif; cursor: pointer;
+  box-shadow: 0 6px 14px -8px rgba(21, 43, 59, .5);
+}
+.cat-ft .request-allocation-btn:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
+.cat-ft .cat-min { font-size: 10.5px; color: #5C6367; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cat-ft .cat-min b { color: #3E4A52; font-weight: 600; }
+/* held: the footer meta carries the position instead of the minimum */
+/* The position line WRAPS rather than clips: at 320px a large gain figure ("+1,109.5%") beside
+   the units would otherwise be cut off. Two 13px lines still sit inside the footer's fixed
+   44px, so the card's height never changes — measured, not assumed (verify-catalog-expansion). */
+.cat-ft .cat-pos { font-size: 10.5px; line-height: 13px; color: #3F6B5C; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; column-gap: 6px; row-gap: 0; }
+.cat-ft .cat-pos b { color: #0F4D39; font-weight: 700; }
+.cat-ft .cat-pos .cat-g { font-weight: 700; }
+.cat-ft .cat-pos .cat-g.up { color: #137254; }
+.cat-ft .cat-pos .cat-g.dn { color: #A8452F; }
+.cat-ft .cat-pos .cat-g.flat { color: #5C6367; }
+
+/* ---------- held state ---------- */
+.cat-card.is-held { border-color: rgba(22, 129, 95, .3); background: linear-gradient(160deg, rgba(22, 129, 95, .05), rgba(255, 255, 255, .6)); }
+.cat-card.is-held::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: linear-gradient(180deg, #1D8A66, #116349); }
+.cat-card.is-held:hover { border-color: rgba(22, 129, 95, .5); }
+.cat-card.is-held .request-allocation-btn { background: rgba(255, 255, 255, .8); border: 1.5px solid #B7D4C8; color: #0F5A42; box-shadow: none; }
+
+/* Below lg the mobile floor (tap-targets.css) lifts the card button to 44px; the footer row
+   is 44px tall already, so nothing moves. */
+
+/* ---------- continue browsing ---------- */
+.cat-more { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 26px 0 4px; }
+.cat-more .cat-cnt { font-size: 11.5px; color: #5C6367; font-variant-numeric: tabular-nums; }
+.cat-empty { text-align: center; padding: 32px 0; color: #5C6367; font-size: 13px; }
+
+/* ---------- allocation modal — one modal, three states ---------- */
+/* Every row exists in every state so the panel never changes height: the error line
+   reserves its 16px when hidden (visibility, never display), the result box and both
+   summary rows always render, the gate note is a fixed two-line box. Measured, not just
+   intended: the visual suite reads the panel's height in all three states. */
+.cat-modal { width: 400px; max-width: 100%; background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 30px 70px -30px rgba(27, 58, 75, .45); border: 1px solid rgba(27, 58, 75, .1); }
+.cat-mh { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid rgba(27, 58, 75, .08); }
+.cat-mh .cat-tx { flex: 1; min-width: 0; }
+.cat-mh .cat-mtitle { display: block; font-size: 14.5px; font-weight: 600; color: #12283A; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-mh .cat-msub { font-size: 11px; color: #3E4A52; margin-top: 3px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-mh .cat-msub .cat-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #137254; }
+.cat-mh .cat-msub[data-source="appraisal"] { color: #7A5207; }
+.cat-mh .cat-msub[data-source="appraisal"] .cat-dot { background: #C8860A; }
+.cat-mh .cat-msub[data-source="stale"] .cat-dot { background: #5C6367; }
+.cat-mb { padding: 16px 18px 18px; }
+.cat-fieldlbl { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.cat-fieldlbl .cat-k { font-size: 11px; font-weight: 600; color: #3E4A52; }
+.cat-fieldlbl .cat-a { font-size: 11px; color: #5C6367; font-variant-numeric: tabular-nums; }
+.cat-fieldlbl .cat-a b { color: #3E4A52; font-weight: 600; }
+.cat-amt { position: relative; }
+.cat-amt .cat-cur { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 19px; font-weight: 600; color: #5C6367; pointer-events: none; }
+.cat-amt input { width: 100%; height: 58px; padding: 0 15px 0 36px; border: 1.5px solid #DED8CF; border-radius: 12px; background: #FCFBF9; font: 600 23px Inter, sans-serif; color: #12283A; outline: none; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.cat-amt input::-webkit-outer-spin-button, .cat-amt input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cat-amt input:focus { border-color: #16815F; box-shadow: 0 0 0 4px rgba(22, 129, 95, .1); }
+.cat-amt.is-bad input { border-color: #C4614C; background: #FDF7F5; }
+.cat-amt.is-bad input:focus { box-shadow: 0 0 0 4px rgba(168, 69, 47, .1); }
+.cat-err { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #A8452F; margin-top: 8px; font-weight: 500; height: 16px; }
+.cat-err.is-hidden { visibility: hidden; }
+.cat-err svg { flex-shrink: 0; }
+.cat-quick { display: flex; gap: 6px; margin-top: 9px; }
+.cat-quick button { flex: 1; height: 30px; border-radius: 8px; border: 1.5px solid #E4DFD7; background: rgba(255, 255, 255, .7); color: #3E4A52; font: 600 11.5px Inter, sans-serif; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.cat-quick button:hover { border-color: #B9B1A6; color: #12283A; }
+.cat-quick button.is-on { background: #1B3A4B; border-color: #1B3A4B; color: #F7F6F3; }
+.cat-quick button:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
+.cat-result { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: rgba(22, 129, 95, .07); border: 1px solid rgba(22, 129, 95, .22); }
+.cat-result .cat-k { font-size: 11px; font-weight: 600; color: #0F5A42; margin-bottom: 5px; }
+.cat-result .cat-v { font-size: 24px; font-weight: 600; color: #0F4D39; letter-spacing: -.025em; line-height: 1; font-variant-numeric: tabular-nums; height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-result .cat-x { font-size: 11px; color: #3F6B5C; margin-top: 6px; font-variant-numeric: tabular-nums; height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-result.is-muted { background: rgba(27, 58, 75, .04); border-color: rgba(27, 58, 75, .1); }
+.cat-result.is-muted .cat-k, .cat-result.is-muted .cat-v, .cat-result.is-muted .cat-x { color: #5C6367; }
+.cat-after { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; padding: 9px 13px; border-radius: 9px; background: rgba(27, 58, 75, .035); font-size: 11.5px; height: 35px; }
+.cat-after .cat-k { color: #5C6367; white-space: nowrap; }
+.cat-after .cat-v { font-weight: 600; color: #12283A; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cat-gate { display: flex; gap: 9px; margin-top: 13px; font-size: 10.5px; color: #7A5207; line-height: 1.55; height: 34px; overflow: hidden; }
+.cat-gate svg { flex-shrink: 0; margin-top: 1px; }
+.cat-mf { display: flex; gap: 9px; margin-top: 16px; }
+.cat-mf .mw-btn { flex: 1; }
+.cat-mf .cat-cancel { flex: 0 0 auto; }
+
+/* The overlay: the same backdrop the page's other modal uses (a solid panel over a dimmed
+   page, never glass over glass — row 151). */
+#alloc-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#alloc-modal[hidden] { display: none; }
+#alloc-modal .cat-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, .5); }
+#alloc-modal .cat-modal { position: relative; }

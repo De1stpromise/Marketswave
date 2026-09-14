@@ -354,18 +354,86 @@ PROFILES['deposit-routing-queue'] = [
 // the ticker chip and the fractional-units note — all on the card's white ground inside the
 // page's glass container.
 PROFILES['live-pricing-client'] = [
+  // Catalog expansion (2026-09-14, row 211): the compact card's own classes. The change figure
+  // carries .up/.dn/.flat now, and the source line is a single 10.5px run (no bold segment).
   { label: 'unit price', sel: '.product-price', limit: 6 },
-  { label: 'per-unit label', sel: '.product-price + p', limit: 6 },
-  { label: 'change (gain)', sel: '.price-change.text-emerald-800', limit: 3 },
-  { label: 'change (loss)', sel: '.price-change.text-red-700', limit: 3 },
+  { label: 'per-unit label', sel: '.cat-pr .cat-u', limit: 6 },
+  { label: 'change (gain)', sel: '.price-change.up', limit: 3 },
+  { label: 'change (loss)', sel: '.price-change.dn', limit: 3 },
   { label: 'source live', sel: '.price-source[data-source="live"]', limit: 3 },
-  { label: 'source live bold', sel: '.price-source[data-source="live"] b', limit: 3 },
   { label: 'source stale', sel: '.price-source[data-source="stale"]', limit: 3 },
-  { label: 'source stale bold', sel: '.price-source[data-source="stale"] b', limit: 3 },
   { label: 'source appraisal', sel: '.price-source[data-source="appraisal"]', limit: 3 },
-  { label: 'source appraisal bold', sel: '.price-source[data-source="appraisal"] b', limit: 3 },
   { label: 'ticker chip', sel: '.product-ticker', limit: 4 },
-  { label: 'min/max/fractional line', sel: '.fractional-note', limit: 4 }
+  { label: 'minimum line', sel: '.cat-ft .cat-min', limit: 4 },
+  { label: 'minimum figure', sel: '.cat-ft .cat-min b', limit: 4 }
+];
+// Catalog expansion (2026-09-14, row 211): every text surface on the four-up card — on the
+// plain card AND on the held card's faint green tint — plus the toolbar chips with their live
+// counts, the sort control, the "Showing N of M" count and the Continue browsing button. The
+// glass container carries .glass-lift, so the first row's names sit above the sheen; the
+// sheen audit measures that separately.
+PROFILES['catalog-card'] = [
+  { label: 'card name', sel: '.cat-card:not(.is-held) .cat-name', limit: 6 },
+  { label: 'held card name', sel: '.cat-card.is-held .cat-name', limit: 3 },
+  { label: 'class chip (equities)', sel: '.cat-cl-eq', limit: 2 },
+  { label: 'class chip (crypto)', sel: '.cat-cl-cr', limit: 2 },
+  { label: 'class chip (PE)', sel: '.cat-cl-pe', limit: 2 },
+  { label: 'class chip (real assets)', sel: '.cat-cl-ra', limit: 2 },
+  { label: 'ticker chip', sel: '.product-ticker', limit: 3 },
+  { label: 'unit price', sel: '.product-price', limit: 4 },
+  { label: 'held unit price', sel: '.cat-card.is-held .product-price', limit: 2 },
+  { label: 'per-unit label', sel: '.cat-pr .cat-u', limit: 3 },
+  { label: 'change (gain)', sel: '.price-change.up', limit: 3 },
+  { label: 'change (loss)', sel: '.price-change.dn', limit: 3 },
+  { label: 'source live', sel: '.price-source[data-source="live"]', limit: 3 },
+  { label: 'source stale', sel: '.price-source[data-source="stale"]', limit: 3 },
+  { label: 'source appraisal', sel: '.price-source[data-source="appraisal"]', limit: 3 },
+  { label: 'description', sel: '.cat-card:not(.is-held) .cat-ds', limit: 4 },
+  { label: 'held description', sel: '.cat-card.is-held .cat-ds', limit: 2 },
+  { label: 'allocate button', sel: '.cat-card:not(.is-held) .request-allocation-btn', limit: 3 },
+  { label: 'add button (held)', sel: '.cat-card.is-held .request-allocation-btn', limit: 3 },
+  { label: 'minimum line', sel: '.cat-ft .cat-min', limit: 3 },
+  { label: 'minimum figure', sel: '.cat-ft .cat-min b', limit: 3 },
+  { label: 'position line', sel: '.cat-ft .cat-pos', limit: 3 },
+  { label: 'position units', sel: '.cat-ft .cat-pos b', limit: 3 },
+  { label: 'position gain', sel: '.cat-ft .cat-pos .cat-g.up', limit: 3 },
+  { label: 'position loss', sel: '.cat-ft .cat-pos .cat-g.dn', limit: 3 },
+  { label: 'chip active', sel: '.category-tab[aria-pressed="true"]', limit: 1 },
+  { label: 'chip active count', sel: '.category-tab[aria-pressed="true"] .cat-chip-n', limit: 1 },
+  { label: 'chip inactive', sel: '.category-tab[aria-pressed="false"]', limit: 4 },
+  { label: 'chip inactive count', sel: '.category-tab[aria-pressed="false"] .cat-chip-n', limit: 4 },
+  { label: 'sort label', sel: '.cat-sort label', limit: 1 },
+  { label: 'sort value', sel: '#catalog-sort', limit: 1 },
+  { label: 'search label', sel: '.cat-search label', limit: 1 },
+  { label: 'showing count', sel: '#cat-count', limit: 1 },
+  { label: 'continue browsing', sel: '#load-more-btn', limit: 1 },
+  { label: 'HOVER card name', sel: '.cat-card:not(.is-held) .cat-name', limit: 2, hover: true },
+  { label: 'HOVER allocate button', sel: '.cat-card:not(.is-held) .request-allocation-btn', limit: 2, hover: true },
+];
+// The allocation panel, one state per run (the PREPARE hook opens it in the state named):
+// every row exists in every state, so the same selector list applies to all three — the
+// muted result box and the error line simply appear in the below-minimum run.
+PROFILES['catalog-modal'] = [
+  { label: 'modal title', sel: '#alloc-modal .cat-mtitle', limit: 1 },
+  { label: 'modal source line', sel: '#alloc-modal .cat-msub', limit: 1 },
+  { label: 'amount label', sel: '.cat-fieldlbl .cat-k', limit: 1 },
+  { label: 'available', sel: '.cat-fieldlbl .cat-a', limit: 1 },
+  { label: 'available figure', sel: '.cat-fieldlbl .cat-a b', limit: 1 },
+  { label: 'currency prefix', sel: '.cat-amt .cat-cur', limit: 1 },
+  { label: 'amount value', sel: '#alloc-amount', limit: 1 },
+  { label: 'error line', sel: '.cat-err:not(.is-hidden)', limit: 1 },
+  { label: 'quick amount', sel: '.cat-quick button:not(.is-on)', limit: 4 },
+  { label: 'quick amount (on)', sel: '.cat-quick button.is-on', limit: 1 },
+  { label: 'result key', sel: '.cat-result .cat-k', limit: 1 },
+  { label: 'result value', sel: '.cat-result .cat-v', limit: 1 },
+  { label: 'result sub', sel: '.cat-result .cat-x', limit: 1 },
+  { label: 'after key', sel: '.cat-after .cat-k', limit: 2 },
+  { label: 'after value', sel: '.cat-after .cat-v', limit: 2 },
+  { label: 'gate note', sel: '.cat-gate span', limit: 1 },
+  // A disabled control is exempt from the contrast floor (WCAG 1.4.3); the enabled state is what is measured.
+  { label: 'submit', sel: '#alloc-submit:not(:disabled)', limit: 1 },
+  { label: 'cancel', sel: '#alloc-cancel', limit: 1 },
+  { label: 'close', sel: '#alloc-modal-close', limit: 1 },
 ];
 // admin-products.html list: the 11px source lines in all four colours, inside the glass table.
 PROFILES['live-pricing-admin-list'] = [

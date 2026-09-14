@@ -186,7 +186,7 @@ async function main() {
     acDom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
     const C = acDom.window.document;
     await pollUntil(() => C.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(C.getElementById('asset-cards-grid').innerHTML), 30000);
-    { const lm = C.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
+    { const lm = C.getElementById('load-more-btn'); for (let i = 0; i < 40 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
     const cards = [...C.querySelectorAll('#asset-cards-grid [data-product-id]')];
     check('the catalog rendered real product cards', cards.length >= 10, String(cards.length));
     check('★ EVERY card carries exactly one well — Private Equity, Real Assets, ETFs and crypto alike', cards.every((c) => c.querySelectorAll('.mk').length === 1), cards.filter((c) => c.querySelectorAll('.mk').length !== 1).map((c) => c.getAttribute('data-product-id')).join(','));

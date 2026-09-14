@@ -161,73 +161,86 @@ async function main() {
   await pollUntil(function () { return !/animate-pulse/.test(grid.innerHTML); }, 20000);
   // The seeded catalog (row 202) has more products than one page of nine: page through
   // Load More so the cards this test looks for are rendered wherever they fall.
-  { const lm = collectionDom.window.document.getElementById('load-more-btn'); for (let i = 0; i < 12 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
+  { const lm = collectionDom.window.document.getElementById('load-more-btn'); for (let i = 0; i < 40 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise(function (r) { setTimeout(r, 100); }); } }
   check('real products render as cards after the real load completes', grid.innerHTML.indexOf('Nordic Growth Fund') !== -1 && grid.innerHTML.indexOf('Global Equity ETF') !== -1, grid.innerHTML.slice(0, 400));
 
   const etfCard = grid.querySelector('[data-product-id="' + equityEtf.id + '"]');
   const nordicCard = grid.querySelector('[data-product-id="' + nordicFund.id + '"]');
-  check('the real held product (Global Equity ETF) shows a real %-return badge, not "No position"', etfCard && etfCard.textContent.indexOf('No position') === -1, etfCard && etfCard.textContent);
-  check('a real unheld product (Nordic Growth Fund) shows "No position"', nordicCard && nordicCard.textContent.indexOf('No position') !== -1, nordicCard && nordicCard.textContent);
+  // Catalog expansion (2026-09-14, row 211): the card footer carries EITHER the minimum
+  // (unheld) OR the position (held), never both — the old "No position" text is gone.
+  check('the real held product (Global Equity ETF) shows its real position in the footer (.cat-pos), not a minimum', etfCard && !!etfCard.querySelector('.cat-pos') && !etfCard.querySelector('.cat-min') && etfCard.classList.contains('is-held'), etfCard && etfCard.textContent);
+  check('a real unheld product (Nordic Growth Fund) shows its minimum in the footer (.cat-min), no position', nordicCard && !!nordicCard.querySelector('.cat-min') && !nordicCard.querySelector('.cat-pos') && !nordicCard.classList.contains('is-held'), nordicCard && nordicCard.textContent);
+  check('the held card\'s button reads "Add", the unheld card\'s "Allocate"', etfCard.querySelector('.request-allocation-btn').textContent.trim() === 'Add' && nordicCard.querySelector('.request-allocation-btn').textContent.trim() === 'Allocate');
 
   const toastEl = collectionDom.window.document.getElementById('allocation-toast');
   const toastTitleEl = collectionDom.window.document.getElementById('allocation-toast-title');
   const toastBodyEl = collectionDom.window.document.getElementById('allocation-toast-body');
+  const CD = collectionDom.window.document;
+  const modal = CD.getElementById('alloc-modal');
+  const amount = CD.getElementById('alloc-amount');
+  const submit = CD.getElementById('alloc-submit');
+  const errEl = CD.getElementById('alloc-error');
+  const errText = CD.getElementById('alloc-error-text');
+  function typeAmount(v) { amount.value = v; amount.dispatchEvent(new collectionDom.window.Event('input', { bubbles: true })); }
 
-  // ---- WRITE TEST 1 — a real successful allocation request round trip. ----
-  console.log('\n1. Request Allocation — a real successful round trip');
+  // ---- WRITE TEST 1 — a real successful allocation request round trip, through the modal. ----
+  console.log('\n1. Request Allocation — a real successful round trip through the allocation panel');
   await (async function () {
-    const input = etfCard.querySelector('.allocation-amount-input');
-    const btn = etfCard.querySelector('.request-allocation-btn');
+    etfCard.querySelector('.request-allocation-btn').click();
+    check('clicking Add opens the allocation panel over the catalog (no page change)', modal.hidden === false && CD.getElementById('alloc-title').textContent.indexOf('Global Equity ETF') !== -1, CD.getElementById('alloc-title').textContent);
+    check('the field label carries the real Available figure', CD.getElementById('alloc-available').textContent === '$12,346', CD.getElementById('alloc-available').textContent);
+    check('with no amount typed the button is disabled and the error line is reserved but hidden', submit.disabled === true && errEl.classList.contains('is-hidden'));
+    typeAmount('1500');
+    check('a valid amount enables the button, shows the units and what the position becomes', submit.disabled === false && /units/.test(CD.getElementById('alloc-units').textContent) && CD.getElementById('alloc-after1-k').textContent === 'Position becomes' && CD.getElementById('alloc-after2-v').textContent === '$10,846', CD.getElementById('alloc-units').textContent + ' / ' + CD.getElementById('alloc-after1-v').textContent + ' / ' + CD.getElementById('alloc-after2-v').textContent);
     var bodyBefore = toastBodyEl.textContent;
-    input.value = '1500';
-    btn.click();
-    check('the button shows a genuine busy state immediately after clicking (withButtonBusy)', btn.disabled === true, btn.outerHTML);
+    submit.click();
+    check('the button shows a genuine busy state immediately after clicking (withButtonBusy)', submit.disabled === true, submit.outerHTML);
 
     // Polls for the toast BODY to genuinely change from its prior value, not just "not
     // hidden" — a still-visible toast left over from an earlier test could otherwise satisfy
     // that condition immediately, before this test's own click has done anything at all.
     await pollUntil(function () { return !toastEl.classList.contains('hidden') && toastBodyEl.textContent !== bodyBefore; }, 15000);
     check('the toast shows the real success message', toastTitleEl.textContent === 'Allocation Request Sent' && toastBodyEl.textContent.indexOf('$1,500') !== -1, toastTitleEl.textContent + ' / ' + toastBodyEl.textContent);
-    check('the button is restored (no longer busy) after settling', btn.disabled === false);
-    check('the amount input was cleared on success', input.value === '');
+    check('the panel closes on success', modal.hidden === true);
 
     const { data: rows } = await admin.from('allocation_requests').select('*').eq('client_id', clientId).eq('product_id', equityEtf.id);
     check('a real, single pending allocation_requests row was genuinely created', rows && rows.length === 1 && rows[0].status === 'pending' && rows[0].requested_amount === 1500, JSON.stringify(rows));
   })();
 
-  // ---- WRITE TEST 2 — real server-side rejection: below the product's minimum investment. ----
-  console.log('\n2. Request Allocation — genuinely rejected server-side (below minimum investment)');
+  // ---- WRITE TEST 2 — below the product's minimum: validated BEFORE submit, in the panel. ----
+  console.log('\n2. Request Allocation — below the minimum investment is caught before submit');
   await (async function () {
-    const input = nordicCard.querySelector('.allocation-amount-input');
-    const btn = nordicCard.querySelector('.request-allocation-btn');
-    var bodyBefore = toastBodyEl.textContent;
-    input.value = '500'; // positive (passes the trivial client-side check) but below Nordic Growth Fund's real $25,000 minimum
-    btn.click();
-
-    await pollUntil(function () { return !toastEl.classList.contains('hidden') && toastBodyEl.textContent !== bodyBefore; }, 15000);
-    check('the toast shows "Request Not Sent"', toastTitleEl.textContent === 'Request Not Sent', toastTitleEl.textContent);
-    check('the toast shows the REAL server rejection message (not a generic error)', toastBodyEl.textContent.indexOf('minimum investment') !== -1 && toastBodyEl.textContent.indexOf('25000') !== -1, toastBodyEl.textContent);
-    check('the input was NOT cleared on failure (so the client can see/fix their own input)', input.value === '500');
-
+    nordicCard.querySelector('.request-allocation-btn').click();
+    check('clicking Allocate on an unheld product opens the panel in the new-position state', modal.hidden === false && CD.getElementById('alloc-after1-k').textContent === 'This would be' && /Allocate to Nordic Growth Fund/.test(CD.getElementById('alloc-title').textContent));
+    check('a Private Equity product\'s gate note mentions illiquidity and the full term', /illiquid/.test(CD.getElementById('alloc-gate').textContent) && /full term/.test(CD.getElementById('alloc-gate').textContent), CD.getElementById('alloc-gate').textContent);
+    const heightBefore = modal.querySelector('.cat-modal').childElementCount; // every row exists in every state
+    typeAmount('500'); // below Nordic Growth Fund's real minimum
+    check('a below-minimum amount shows a REAL error naming the minimum, mutes the result and disables the button', !errEl.classList.contains('is-hidden') && /minimum/.test(errText.textContent) && errText.textContent.indexOf('$' + Number(nordicFund.minimum_investment).toLocaleString('en-US')) !== -1 && CD.getElementById('alloc-result').classList.contains('is-muted') && submit.disabled === true, errText.textContent);
+    check('the error line is the same element that was reserved while hidden — no row appeared or vanished', modal.querySelector('.cat-modal').childElementCount === heightBefore && CD.getElementById('alloc-after1-v').textContent === '—');
+    submit.click();
     const { data: rows } = await admin.from('allocation_requests').select('*').eq('client_id', clientId).eq('product_id', nordicFund.id);
-    check('genuinely ZERO allocation_requests rows were created for the rejected attempt — real server rejection, not just a client-side catch', rows && rows.length === 0, JSON.stringify(rows));
+    check('genuinely ZERO allocation_requests rows were created — the disabled button never submitted', rows && rows.length === 0, JSON.stringify(rows));
+    CD.getElementById('alloc-cancel').click();
+    check('Cancel closes the panel', modal.hidden === true);
   })();
 
-  // ---- WRITE TEST 3 — real server-side rejection: exceeds current unallocated capital. ----
-  console.log('\n3. Request Allocation — genuinely rejected server-side (exceeds unallocated capital)');
+  // ---- WRITE TEST 3 — real server-side rejection via a genuine concurrent change: the panel
+  // validated against the Available figure it loaded, the real balance moved underneath it. ----
+  console.log('\n3. Request Allocation — genuinely rejected server-side (capital moved after the panel loaded)');
   await (async function () {
-    const input = etfCard.querySelector('.allocation-amount-input');
-    const btn = etfCard.querySelector('.request-allocation-btn');
-    var bodyBefore = toastBodyEl.textContent;
-    input.value = '999999'; // far exceeds the real $12,345.67 unallocated_capital
-    btn.click();
-
-    await pollUntil(function () { return !toastEl.classList.contains('hidden') && toastBodyEl.textContent !== bodyBefore; }, 15000);
-    check('the toast shows "Request Not Sent"', toastTitleEl.textContent === 'Request Not Sent', toastTitleEl.textContent);
-    check('the toast shows the REAL "exceeds current unallocated capital" server message', toastBodyEl.textContent.indexOf('exceeds current unallocated capital') !== -1, toastBodyEl.textContent);
-
-    const { data: rows } = await admin.from('allocation_requests').select('*').eq('client_id', clientId).eq('product_id', equityEtf.id).eq('requested_amount', 999999);
-    check('genuinely ZERO allocation_requests rows were created for this rejected attempt either', rows && rows.length === 0, JSON.stringify(rows));
+    etfCard.querySelector('.request-allocation-btn').click();
+    typeAmount('9000'); // within the $12,345.67 the panel was loaded with
+    check('the amount passes the panel\'s own validation against the figure it loaded', submit.disabled === false && errEl.classList.contains('is-hidden'));
+    // The real balance drops from a separate path between validation and submit.
+    await admin.from('account_state').update({ unallocated_capital: 1000 }).eq('client_id', clientId);
+    submit.click();
+    await pollUntil(function () { return !errEl.classList.contains('is-hidden') && /exceeds current unallocated capital/.test(errText.textContent); }, 15000);
+    check('the REAL "exceeds current unallocated capital" server message is shown inline in the panel, which stays open', modal.hidden === false && /exceeds current unallocated capital/.test(errText.textContent), errText.textContent);
+    check('the amount was NOT cleared on failure (so the client can see/fix their own input)', /^9,?000$/.test(amount.value), amount.value);
+    const { data: rows } = await admin.from('allocation_requests').select('*').eq('client_id', clientId).eq('product_id', equityEtf.id).eq('requested_amount', 9000);
+    check('genuinely ZERO allocation_requests rows were created for this rejected attempt', rows && rows.length === 0, JSON.stringify(rows));
+    await admin.from('account_state').update({ unallocated_capital: UNALLOCATED }).eq('client_id', clientId);
+    CD.getElementById('alloc-modal-close').click();
   })();
 
   // ===========================================================================================

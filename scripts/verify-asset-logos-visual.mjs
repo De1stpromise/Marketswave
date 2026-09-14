@@ -214,7 +214,7 @@ async function main() {
     check('asset-collection.html rendered real product cards with marks', acReady);
     // Load More until the whole catalog is on the page (PAGE_SIZE is 9; BTC is PROD-0026),
     // then let the newly added <img>s settle.
-    await cdp.evaluate('(async () => { for (let i = 0; i < 10; i++) { const b = document.getElementById("load-more-btn"); if (!b || b.classList.contains("hidden")) break; b.click(); await new Promise(r => setTimeout(r, 300)); } return true; })()');
+    await cdp.evaluate('(async () => { for (let i = 0; i < 40; i++) { const b = document.getElementById("load-more-btn"); if (!b || b.classList.contains("hidden")) break; b.click(); await new Promise(r => setTimeout(r, 300)); } return true; })()');
     await cdp.evaluate('(async () => { const imgs = [...document.querySelectorAll(".mk img")]; for (let i = 0; i < 50; i++) { if (imgs.every(im => im.complete)) return true; await new Promise(r => setTimeout(r, 200)); } return false; })()');
     await sleep(400);
     await cdp.shot('catalog-1440', '#asset-cards-grid');

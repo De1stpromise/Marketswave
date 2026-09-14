@@ -259,11 +259,11 @@ async function main() {
     dom.window.getAuthenticatedClientId = () => cu.user.id;
     dom.window.eval(readFileSync(fileURLToPath(new URL('engine-core.js', root)), 'utf8'));
     dom.window.eval(readFileSync(new URL('asset-mark.js', root), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
-    dom.window.eval(extractInlineScript(acPath, 'UI Wiring — Stage 2'));
+    dom.window.eval(extractInlineScript(acPath, 'Catalog expansion (2026-09-14'));
     const D = dom.window.document;
     await pollUntil(() => D.querySelectorAll('[data-product-id]').length > 0 && !/animate-pulse/.test(D.getElementById('asset-cards-grid').innerHTML), 30000);
     const loadMore = D.getElementById('load-more-btn');
-    for (let i = 0; i < 10 && !loadMore.classList.contains('hidden'); i++) { loadMore.click(); await sleep(100); }
+    for (let i = 0; i < 40 && !loadMore.classList.contains('hidden'); i++) { loadMore.click(); await sleep(100); }
     const expected = (await admin.from('products').select('id').neq('asset_class', 'Unallocated / Cash')).data.length;
     const cards = [...D.querySelectorAll('[data-product-id]')];
     check('every non-cash product renders as a card after Load More (' + cards.length + ' of ' + expected + ')', cards.length === expected, cards.length + ' vs ' + expected);
