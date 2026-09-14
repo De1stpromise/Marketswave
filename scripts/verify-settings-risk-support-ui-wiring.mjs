@@ -299,8 +299,9 @@ async function main() {
     await pollUntil(function () { return P.getElementById('support-toast-title').textContent === 'Dispute Submitted'; }, 15000);
     check('the toast confirms a real display_id (DISP-0001)', P.getElementById('support-toast-body').textContent.indexOf('DISP-0001') !== -1, P.getElementById('support-toast-body').textContent);
 
-    const { data: rows } = await admin.from('support_requests').select('*').eq('client_id', clientId);
-    check('a real, single support_requests row was genuinely created, status=Open, no approval gate', rows && rows.length === 1 && rows[0].display_id === 'DISP-0001' && rows[0].status === 'Open', JSON.stringify(rows));
+    // PM tool revamp, part 1 (2026-09-14): a ticket is a conversation (kind 'ticket') now.
+    const { data: rows } = await admin.from('conversations').select('*').eq('client_id', clientId).eq('kind', 'ticket');
+    check('a real, single ticket conversation was genuinely created, status=open, no approval gate', rows && rows.length === 1 && rows[0].display_id === 'DISP-0001' && rows[0].status === 'open', JSON.stringify(rows));
   })();
 
   await pollUntil(function () { return requestsListEl.textContent.indexOf('DISP-0001') !== -1; }, 15000);
@@ -333,10 +334,29 @@ async function main() {
   }, 10000);
   check('the real seeded phone is genuinely used as the callback default', P.getElementById('callback-phone').value === REAL_PHONE, P.getElementById('callback-phone').value);
 
+  console.log('\n6. PM tool revamp, part 1 (2026-09-14): the callback request is a REAL ticket, and the client can reply on a ticket');
+  P.getElementById('callback-name').value = 'Stage Five';
+  P.getElementById('callback-submit').click();
+  await pollUntil(function () { return P.getElementById('support-toast-title').textContent === 'Callback Requested'; }, 15000);
+  check('the callback toast names a real ticket id (DISP-0003)', /DISP-0003/.test(P.getElementById('support-toast-body').textContent), P.getElementById('support-toast-body').textContent);
+  const { data: cbRows } = await admin.from('conversations').select('category, display_id').eq('client_id', clientId).eq('display_id', 'DISP-0003');
+  check('...persisted as a ticket conversation with category Callback Request (it used to persist nothing)', cbRows && cbRows.length === 1 && cbRows[0].category === 'Callback Request', JSON.stringify(cbRows));
+  const { data: cbMsg } = await admin.from('messages').select('body').eq('conversation_id', (await admin.from('conversations').select('id').eq('client_id', clientId).eq('display_id', 'DISP-0003').single()).data.id);
+  check('...whose opening message carries the name, phone and window a PM needs to act', cbMsg && cbMsg.length === 1 && /Stage Five/.test(cbMsg[0].body) && cbMsg[0].body.indexOf(REAL_PHONE) !== -1 && /Morning/.test(cbMsg[0].body), JSON.stringify(cbMsg));
+  await pollUntil(function () { return requestsListEl.textContent.indexOf('DISP-0003') !== -1; }, 15000);
+  const firstRow = requestsListEl.querySelector('.request-row');
+  firstRow.querySelector('.request-row-toggle').click();
+  check('expanding a ticket shows its opening message as the thread\'s first entry', /Ticket opened/.test(firstRow.querySelector('.request-thread').textContent), firstRow.querySelector('.request-thread').textContent.slice(0, 120));
+  firstRow.querySelector('.request-reply-input').value = 'A reply from the client, on their own ticket.';
+  firstRow.querySelector('.request-reply-send').click();
+  await pollUntil(function () { return P.getElementById('support-toast-title').textContent === 'Reply Sent'; }, 15000);
+  const { data: replyRows } = await admin.from('messages').select('direction, body').eq('conversation_id', cbRows[0].id || (await admin.from('conversations').select('id').eq('client_id', clientId).eq('display_id', 'DISP-0003').single()).data.id).order('sent_at');
+  check('★ the client\'s reply is a real inbound message on the ticket — impossible before this consolidation', replyRows && replyRows.length === 2 && replyRows[1].direction === 'inbound' && /reply from the client/.test(replyRows[1].body), JSON.stringify(replyRows));
+
   } finally {
     await admin.from('profile_change_requests').delete().eq('client_id', clientId);
     await admin.from('client_profiles').delete().eq('client_id', clientId);
-    await admin.from('support_requests').delete().eq('client_id', clientId);
+    await admin.from('conversations').delete().eq('client_id', clientId);
     await admin.from('holdings').delete().eq('client_id', clientId);
     await admin.from('account_state').delete().eq('client_id', clientId);
     await admin.from('clients').delete().eq('id', clientId);

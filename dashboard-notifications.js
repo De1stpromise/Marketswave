@@ -182,22 +182,36 @@
     return items;
   }
 
-  // ---- Support requests — real `support_requests` rows, replacing the old raw localStorage
-  // read of marketswave_support_requests. A notification fires only for a request that has
-  // moved OFF its original 'Open' state — the client already knows about a request the
-  // moment they submit it, so 'Open' itself isn't a notification; a status change away from
-  // it is. Keyed by the real, per-client-unique display_id + status (not one global
-  // watermark) so a later transition, e.g. In Progress -> Resolved, produces its own fresh
-  // unread notification even if the earlier 'In Progress' one was already read. ----
-  function buildSupportItems(rows) {
+  // ---- Support tickets — PM tool revamp, part 1 (2026-09-14): a ticket is a conversation
+  // (kind 'ticket') now. Two things notify: a status that has moved OFF 'open' (the client
+  // knows about a ticket the moment they file it, so 'open' itself is not a notification —
+  // keyed by display_id + status so In progress → Resolved produces its own fresh unread
+  // entry), and a Portfolio Manager REPLY on the ticket (keyed by the message id) — the
+  // reply is the whole point of the consolidation, so it is its own notification. ----
+  var TICKET_STATUS_LABELS = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', archived: 'Archived' };
+  function buildSupportItems(conversations, messages) {
     var items = [];
-    rows.forEach(function (r) {
-      if (!r.status || r.status === 'Open') return;
+    var tickets = (conversations || []).filter(function (c) { return c.kind === 'ticket'; });
+    var ticketIds = {};
+    tickets.forEach(function (t) {
+      ticketIds[t.id] = t;
+      if (!t.status || t.status === 'open') return;
       items.push({
-        key: 'support-' + r.display_id + '-' + r.status,
+        key: 'support-' + t.display_id + '-' + t.status,
         category: 'Support',
-        text: r.status + ': ' + r.category + ' (' + r.display_id + ')',
-        timestampMs: parseDateMs(r.last_updated),
+        text: TICKET_STATUS_LABELS[t.status] + ': ' + t.category + ' (' + t.display_id + ')',
+        timestampMs: parseDateMs(t.resolved_at || t.last_message_at || t.created_at),
+        href: 'support.html'
+      });
+    });
+    (messages || []).forEach(function (m) {
+      var t = ticketIds[m.conversation_id];
+      if (!t || m.direction !== 'outbound' || m.channel === 'system') return;
+      items.push({
+        key: 'support-reply-' + m.id,
+        category: 'Support',
+        text: 'Your Portfolio Manager replied on ' + t.display_id + ' (' + t.category + ')',
+        timestampMs: parseDateMs(m.sent_at),
         href: 'support.html'
       });
     });
@@ -216,8 +230,9 @@
       MarketswaveData.selectTable('allocation_requests'),
       MarketswaveData.selectTable('sell_requests'),
       MarketswaveData.selectTable('hys_pockets'),
-      MarketswaveData.selectTable('support_requests'),
-      MarketswaveData.selectTable('products')
+      MarketswaveData.selectTable('conversations'),
+      MarketswaveData.selectTable('products'),
+      MarketswaveData.selectTable('messages')
     ]).then(function (results) {
       var productsById = {};
       results[5].forEach(function (p) { productsById[p.id] = p.name; });
@@ -225,7 +240,7 @@
         .concat(buildAllocationItems(results[1], productsById))
         .concat(buildSellItems(results[2], productsById))
         .concat(buildSavingsItems(results[3]))
-        .concat(buildSupportItems(results[4]));
+        .concat(buildSupportItems(results[4], results[6]));
       items.sort(function (a, b) { return b.timestampMs - a.timestampMs; });
       return items;
     }).catch(function () {

@@ -249,9 +249,10 @@
   </script>
 
   <script>
-    // UI Wiring — Stage 5 (2026-09-03): ticket list, filing a dispute, and My Requests all
-    // wire to the real support_requests table + request-support-ticket below. Quick-contact
-    // (Call/Chat/Email) stays pure UI, no backend needed — see each section's own comment.
+    // UI Wiring — Stage 5 (2026-09-03) wired this page to support_requests; PM tool revamp,
+    // part 1 (2026-09-14) moved tickets into the inbox's conversations model — see the My
+    // Requests block. Of the quick-contact tiles only Email stays pure UI now: Chat opens the
+    // real widget and Call Us files a real callback ticket.
 
     // Toast helper
     const toast = document.getElementById('support-toast');
@@ -278,7 +279,12 @@
       return client ? client.name : 'Client';
     })();
 
-    // ---- Request a Callback ----
+    // ---- Request a Callback — PM tool revamp, part 1 (2026-09-14) ----
+    // Live since 20 August, this validated, toasted, and persisted NOTHING: no email, no
+    // record, no PM ever saw it. It is a real ticket now — category "Callback Request", the
+    // opening message carrying name, phone and preferred window — so it lands in the PM
+    // inbox beside every other ticket and a PM can act on it or reply. The alternative
+    // (removing the tile) would drop a legitimate channel; making it real keeps it.
     (function () {
       const modal = document.getElementById('callback-modal');
       const nameInput = document.getElementById('callback-name');
@@ -286,13 +292,8 @@
       const timeInput = document.getElementById('callback-time');
       const errorEl = document.getElementById('callback-error');
 
-      // UI Wiring Stage 5 (2026-09-03): the phone default now reads the real Supabase
-      // `clients.phone` column instead of the local marketswave_settings_profile store — the
-      // same real column settings.html's own Profile card now displays (UI Wiring Stage 5's
-      // own Email/Phone finding: these live on `clients`, not client_profiles). Fetched once,
-      // fire-and-forget, cached for whenever the modal is opened — a best-effort default the
-      // client can freely edit either way, not a data-integrity-critical read, so no loading
-      // state is needed for this one small convenience.
+      // UI Wiring Stage 5 (2026-09-03): the phone default reads the real Supabase
+      // `clients.phone` column — a best-effort default the client can freely edit.
       let realPhone = null;
       if (typeof MarketswaveData !== 'undefined') {
         MarketswaveData.selectTable('clients').then(function (rows) {
@@ -308,6 +309,7 @@
         nameInput.value = CURRENT_CLIENT_NAME;
         phoneInput.value = defaultPhone();
         timeInput.value = 'Morning';
+        errorEl.textContent = 'Please provide a name and phone number.';
         errorEl.classList.add('hidden');
         modal.classList.remove('hidden');
       }
@@ -321,13 +323,25 @@
       document.getElementById('callback-submit').addEventListener('click', () => {
         const name = nameInput.value.trim();
         const phone = phoneInput.value.trim();
+        const windowLabel = timeInput.value;
         if (!name || !phone) {
+          errorEl.textContent = 'Please provide a name and phone number.';
           errorEl.classList.remove('hidden');
           return;
         }
         errorEl.classList.add('hidden');
-        closeModal();
-        showToast('Callback Requested', `We'll call ${name} at ${phone} during the ${timeInput.value.toLowerCase()} window.`);
+        const btn = document.getElementById('callback-submit');
+        const description = 'Name: ' + name + '\nPhone: ' + phone + '\nPreferred window: ' + windowLabel;
+        MarketswaveData.withButtonBusy(btn, 'Requesting...', function () {
+          return MarketswaveData.callFunction('request-support-ticket', { category: 'Callback Request', description: description });
+        }).then(function (ticket) {
+          closeModal();
+          if (typeof window.__mwReloadRequests === 'function') window.__mwReloadRequests(true);
+          showToast('Callback Requested', `${ticket.id} — a Portfolio Manager will call ${name} at ${phone} during the ${windowLabel.toLowerCase()} window.`);
+        }).catch(function (err) {
+          errorEl.textContent = MarketswaveData.writeErrorMessage(err);
+          errorEl.classList.remove('hidden');
+        });
       });
 
       document.addEventListener('keydown', (e) => {
@@ -358,12 +372,8 @@
       });
     })();
 
-    // ---- Chat with Us — Unified Communications Inbox, Stage 1 (2026-09-07) — was a
-    // frontend-only stub (canned replies, a fake "Sarah from Marketswave Support" persona,
-    // no real backend at all); this Quick Contact card's own "Start Chat" button now simply
-    // opens the real, shared chat-widget.js panel (mounted once, site-wide, via
-    // #chat-widget-mount below) instead of a second, separate chat UI living on this page
-    // alone.
+    // ---- Chat with Us — Unified Communications Inbox, Stage 1 (2026-09-07): opens the real,
+    // shared chat-widget.js panel (mounted once, site-wide, via #chat-widget-mount below).
     (function () {
       const openBtn = document.getElementById('open-chat-btn');
       if (openBtn) {
@@ -374,33 +384,38 @@
       }
     })();
 
-    // ---- My Requests + Open a Dispute — UI Wiring Stage 5 (2026-09-03): wired to the real
-    // support_requests table (a direct, RLS-authorized SELECT for reads — "requests-list"
-    // never mutates anything, so no Edge Function is needed for that half, the same
-    // established "RLS itself already permits this read" reasoning as every prior stage's own
-    // request-* domains) and the real request-support-ticket Edge Function for filing a new
-    // dispute (server-computed display_id, a real no-approval-gate creation, exactly
-    // preserving the local "file a dispute, no approval needed" behavior). No demo seed data,
-    // same discipline as the local version this replaces: a client with no real history
-    // genuinely sees the empty state. ----
+    // ---- My Requests + Open a Dispute — PM tool revamp, part 1 (2026-09-14) ----
+    // A ticket is a conversation now (kind 'ticket'). This section reads the client's own
+    // ticket conversations + messages (a direct, RLS-authorized read — "requests-list" never
+    // mutates a conversation, so no Edge Function is needed for reads), files a new ticket
+    // through request-support-ticket (server-computed DISP id, still no approval gate), and —
+    // the thing that was impossible before — lets the client REPLY on their own ticket: a
+    // direct RLS insert of an inbound message, exactly the path the chat widget already uses,
+    // followed by the PM notification. Evidence is a real Storage object: the file's bytes are
+    // uploaded under the client's own documents-bucket uploads folder BEFORE the ticket is
+    // filed (row 132's own pattern), and downloaded back through a real signed URL.
     (function () {
       if (typeof MarketswaveData === 'undefined') return;
 
-      let requests = [];
-      var dataPromise = null;
+      let tickets = [];      // this client's ticket conversations
+      let messagesByConvo = {};
+      let dataPromise = null;
+      let openIds = {};      // which rows are expanded, kept across re-renders
 
-      function mapRequestRow(r) {
-        return {
-          id: r.display_id, dbId: r.id, reference: r.reference, category: r.category,
-          description: r.description, status: r.status, dateOpened: r.date_opened,
-          lastUpdated: r.last_updated, evidence: r.evidence, pmNote: r.pm_note
-        };
-      }
+      const STATUS_LABELS = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', archived: 'Archived' };
+      const STATUS_CLASSES = { open: 'bg-amber-50 text-amber-700', in_progress: 'bg-blue-50 text-blue-700', resolved: 'bg-emerald-50 text-emerald-700', archived: 'bg-slate-100 text-slate-500' };
+      const STATUS_DOT = { open: 'bg-amber-500', in_progress: 'bg-blue-500', resolved: 'bg-emerald-500', archived: 'bg-slate-400' };
 
       function loadRequests() {
         if (dataPromise) return dataPromise;
-        dataPromise = MarketswaveData.selectTable('support_requests').then(function (rows) {
-          return rows.map(mapRequestRow);
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('conversations'),
+          MarketswaveData.selectTable('messages')
+        ]).then(function (results) {
+          const byConvo = {};
+          (results[1] || []).forEach(function (m) { (byConvo[m.conversation_id] = byConvo[m.conversation_id] || []).push(m); });
+          Object.keys(byConvo).forEach(function (k) { byConvo[k].sort(function (a, b) { return new Date(a.sent_at) - new Date(b.sent_at); }); });
+          return { tickets: (results[0] || []).filter(function (c) { return c.kind === 'ticket'; }), messagesByConvo: byConvo };
         }).catch(function (err) {
           dataPromise = null;
           throw err;
@@ -411,64 +426,80 @@
       function fmtDate(iso) {
         return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
       }
+      function fmtTime(iso) {
+        return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      }
+      function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = String(value == null ? '' : value);
+        return div.innerHTML;
+      }
+      function displayIdNumber(id) {
+        const match = /^DISP-(\d+)$/.exec(id || '');
+        return match ? parseInt(match[1], 10) : 0;
+      }
+      function openingMessage(ticket) {
+        const own = messagesByConvo[ticket.id] || [];
+        return own.find(function (m) { return m.channel !== 'system'; }) || null;
+      }
 
-      const STATUS_CLASSES = {
-        Open: 'bg-amber-50 text-amber-700',
-        'In Progress': 'bg-blue-50 text-blue-700',
-        Resolved: 'bg-emerald-50 text-emerald-700'
-      };
-      const STATUS_DOT = {
-        Open: 'bg-amber-500',
-        'In Progress': 'bg-blue-500',
-        Resolved: 'bg-emerald-500'
-      };
+      function messageHTML(m, isOpening) {
+        if (m.channel === 'system') {
+          return `<p class="request-sysline text-xs text-slate-400 text-center py-1">${escapeHtml(m.body)} · ${fmtDate(m.sent_at)} ${fmtTime(m.sent_at)}</p>`;
+        }
+        const mine = m.direction === 'inbound';
+        const who = mine ? 'You' : 'Portfolio Manager';
+        const attachment = m.attachment_name
+          ? (m.attachment_path
+            ? `<button type="button" class="request-attachment inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-navy underline underline-offset-2" data-path="${escapeHtml(m.attachment_path)}">📎 ${escapeHtml(m.attachment_name)}</button>`
+            : `<p class="mt-2 text-xs text-slate-400">📎 ${escapeHtml(m.attachment_name)} <span class="italic">(filed before evidence files were stored — no file attached)</span></p>`)
+          : '';
+        return `
+          <div class="request-msg ${mine ? 'is-mine' : 'is-pm'} ${mine ? 'ml-0 mr-8' : 'ml-8 mr-0'}">
+            <p class="text-[11px] text-slate-400 mb-1 ${mine ? '' : 'text-right'}">${isOpening ? 'Ticket opened · ' : ''}${who} · ${fmtDate(m.sent_at)} ${fmtTime(m.sent_at)}${m.channel === 'email' ? ' · by email' : ''}</p>
+            <div class="rounded-xl px-4 py-3 text-sm ${mine ? 'bg-slate-50 border border-slate-200 text-slate-700' : 'bg-navy/5 border border-navy/10 text-navy'}" style="white-space: pre-wrap;">${escapeHtml(m.body)}${attachment}</div>
+          </div>`;
+      }
 
-      function buildRequestRow(req) {
+      function buildRequestRow(ticket) {
+        const opening = openingMessage(ticket);
+        const own = messagesByConvo[ticket.id] || [];
+        const status = ticket.status || 'open';
         const wrap = document.createElement('div');
         wrap.className = 'request-row border border-slate-200 rounded-xl overflow-hidden';
+        wrap.setAttribute('data-request-id', ticket.id);
+        const replyClosed = status === 'resolved' || status === 'archived';
         wrap.innerHTML = `
-          <button type="button" class="request-row-toggle w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition text-left">
+          <button type="button" class="request-row-toggle w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition text-left" aria-expanded="${openIds[ticket.id] ? 'true' : 'false'}">
             <div class="flex items-center gap-4 min-w-0">
-              <span class="text-xs font-mono text-slate-400 shrink-0">${req.id}${req.reference ? ` · ${req.reference}` : ''}</span>
+              <span class="text-xs font-mono text-slate-400 shrink-0">${escapeHtml(ticket.display_id)}</span>
               <div class="min-w-0">
-                <p class="text-sm font-medium text-navy truncate">${req.category}</p>
-                <p class="text-xs text-slate-500 truncate">${req.description}</p>
+                <p class="text-sm font-medium text-navy truncate">${escapeHtml(ticket.category)}</p>
+                <p class="text-xs text-slate-500 truncate">${escapeHtml(opening ? opening.body : '')}</p>
               </div>
             </div>
             <div class="flex items-center gap-3 shrink-0">
-              <span class="hidden sm:block text-xs text-slate-400">Opened ${fmtDate(req.dateOpened)}</span>
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CLASSES[req.status]}"><span class="w-1.5 h-1.5 rounded-full ${STATUS_DOT[req.status]}"></span>${req.status}</span>
-              <svg class="request-chevron w-4 h-4 text-slate-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              <span class="hidden sm:block text-xs text-slate-400">Opened ${fmtDate(ticket.created_at)}</span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_CLASSES[status]}"><span class="w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}"></span>${STATUS_LABELS[status]}</span>
+              <svg class="request-chevron w-4 h-4 text-slate-400 transition-transform ${openIds[ticket.id] ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </div>
           </button>
-          <div class="request-detail hidden px-5 pb-4 pt-1 border-t border-slate-100 bg-slate-50/50">
-            <p class="text-xs text-slate-500 mb-1">Full Description</p>
-            <p class="text-sm text-slate-700 mb-3">${req.description}</p>
-            ${req.pmNote ? `
-            <p class="text-xs text-slate-500 mb-1">Portfolio Manager Response</p>
-            <p class="text-sm text-navy bg-navy/5 border border-navy/10 rounded-lg px-3 py-2 mb-3">${req.pmNote}</p>
-            ` : ''}
-            <div class="flex items-center justify-between text-xs text-slate-400 flex-wrap gap-1">
-              <span>Evidence: ${req.evidence ? req.evidence : 'None attached'}</span>
-              <span>Last updated ${fmtDate(req.lastUpdated)}</span>
+          <div class="request-detail ${openIds[ticket.id] ? '' : 'hidden'} px-5 pb-4 pt-3 border-t border-slate-100 bg-slate-50/50">
+            <div class="request-thread space-y-3">${own.map(function (m, i) { return messageHTML(m, m === opening); }).join('')}</div>
+            <div class="request-reply mt-4 ${replyClosed ? 'hidden' : ''}">
+              <div class="mw-fld">
+                <textarea rows="2" class="mw-field request-reply-input" placeholder=" " id="reply-${ticket.id}"></textarea>
+                <label for="reply-${ticket.id}">Reply to your Portfolio Manager</label>
+              </div>
+              <div class="flex items-center justify-between gap-3 mt-2 flex-wrap">
+                <p class="text-xs text-red-500 hidden request-reply-error"></p>
+                <button type="button" class="mw-btn mw-btn-primary mw-btn-sm request-reply-send ml-auto">Send Reply</button>
+              </div>
             </div>
+            <p class="text-xs text-slate-400 mt-3 ${replyClosed ? '' : 'hidden'}">This ticket is ${STATUS_LABELS[status].toLowerCase()}. Open a new dispute if you need further help.</p>
           </div>
         `;
         return wrap;
-      }
-
-      // ★ Newest-first ordering, a real finding worth disclosing: support_requests has NO
-      // timestamptz column at all (date_opened/last_updated are plain DATE, confirmed by
-      // reading Phase B Stage 6's migration directly) — a raw `.select('*')` has no reliable
-      // sub-day ordering to sort by. display_id (DISP-NNNN), by contrast, IS guaranteed
-      // strictly increasing per client (server-computed as a real max+1 scan at creation
-      // time) — sorting by its own numeric suffix is genuinely more reliable here than trying
-      // to use date_opened, and exactly reproduces the local engine's own
-      // "[...requests].reverse()" (reverse of append order = newest first) with no ambiguity
-      // for same-day tickets.
-      function displayIdNumber(id) {
-        const match = /^DISP-(\d+)$/.exec(id);
-        return match ? parseInt(match[1], 10) : 0;
       }
 
       function renderRequests() {
@@ -476,13 +507,13 @@
         const empty = document.getElementById('requests-empty');
         const count = document.getElementById('requests-count');
         list.innerHTML = '';
-        if (requests.length === 0) {
+        if (tickets.length === 0) {
           empty.classList.remove('hidden');
         } else {
           empty.classList.add('hidden');
-          [...requests].sort((a, b) => displayIdNumber(b.id) - displayIdNumber(a.id)).forEach(req => list.appendChild(buildRequestRow(req)));
+          [...tickets].sort((a, b) => displayIdNumber(b.display_id) - displayIdNumber(a.display_id)).forEach(t => list.appendChild(buildRequestRow(t)));
         }
-        count.textContent = `${requests.length} request${requests.length === 1 ? '' : 's'}`;
+        count.textContent = `${tickets.length} request${tickets.length === 1 ? '' : 's'}`;
       }
 
       function reloadRequests(forceReload) {
@@ -491,25 +522,62 @@
           skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-full'], { gap: 'space-y-3', height: 'h-12' }),
           load: loadRequests,
           render: function (data) {
-            requests = data;
+            tickets = data.tickets;
+            messagesByConvo = data.messagesByConvo;
             renderRequests();
           }
         });
       }
+      window.__mwReloadRequests = reloadRequests;
 
       document.getElementById('requests-list').addEventListener('click', (e) => {
+        const attachment = e.target.closest('.request-attachment');
+        if (attachment) {
+          MarketswaveData.getSignedDownloadUrl('documents', attachment.getAttribute('data-path'), 60).then(function (signedUrl) {
+            window.open(signedUrl, '_blank', 'noopener');
+          }).catch(function (err) {
+            showToast('Download Failed', MarketswaveData.writeErrorMessage(err));
+          });
+          return;
+        }
+        const sendBtn = e.target.closest('.request-reply-send');
+        if (sendBtn) {
+          const row = sendBtn.closest('.request-row');
+          const ticketId = row.getAttribute('data-request-id');
+          const input = row.querySelector('.request-reply-input');
+          const errorEl = row.querySelector('.request-reply-error');
+          const text = input.value.trim();
+          if (!text) { errorEl.textContent = 'Type a reply first.'; errorEl.classList.remove('hidden'); return; }
+          errorEl.classList.add('hidden');
+          MarketswaveData.withButtonBusy(sendBtn, 'Sending...', function () {
+            return MarketswaveData.insertRow('messages', { conversation_id: ticketId, channel: 'chat', direction: 'inbound', body: text });
+          }).then(function () {
+            input.value = '';
+            openIds[ticketId] = true;
+            // Best-effort PM notification (server-side debounced); the message is already sent.
+            MarketswaveData.callFunction('notify-new-chat-message', { conversationId: ticketId }).catch(function () {});
+            reloadRequests(true);
+            showToast('Reply Sent', 'Your Portfolio Manager has been notified.');
+          }).catch(function (err) {
+            errorEl.textContent = MarketswaveData.writeErrorMessage(err);
+            errorEl.classList.remove('hidden');
+          });
+          return;
+        }
         const toggleBtn = e.target.closest('.request-row-toggle');
         if (!toggleBtn) return;
+        const row = toggleBtn.closest('.request-row');
+        const id = row.getAttribute('data-request-id');
         const detail = toggleBtn.nextElementSibling;
         const chevron = toggleBtn.querySelector('.request-chevron');
         detail.classList.toggle('hidden');
         chevron.classList.toggle('rotate-180');
+        openIds[id] = !detail.classList.contains('hidden');
+        toggleBtn.setAttribute('aria-expanded', openIds[id] ? 'true' : 'false');
       });
 
-      // Open a Dispute — a real, RLS-gated-but-Edge-Function-only creation (no client-side
-      // INSERT policy on support_requests exists at all, see Phase B Stage 6's own migration
-      // header for why) via request-support-ticket, which computes the real, server-authoritative
-      // display_id — never trusted from the client.
+      // Open a Dispute: upload the evidence bytes (if any) under this client's own
+      // documents-bucket uploads folder first, then file the ticket with the stored path.
       document.getElementById('dispute-submit').addEventListener('click', () => {
         const category = document.getElementById('dispute-category').value;
         const description = document.getElementById('dispute-description').value.trim();
@@ -517,27 +585,50 @@
         const errorEl = document.getElementById('dispute-error');
 
         if (!category || !description) {
+          errorEl.textContent = 'Please select a category and describe the issue.';
           errorEl.classList.remove('hidden');
           return;
         }
         errorEl.classList.add('hidden');
 
-        const evidenceName = evidenceInput.files && evidenceInput.files[0] ? evidenceInput.files[0].name : null;
+        const file = evidenceInput.files && evidenceInput.files[0] ? evidenceInput.files[0] : null;
         const btn = document.getElementById('dispute-submit');
+        const clientId = typeof getAuthenticatedClientId === 'function' ? getAuthenticatedClientId() : null;
 
         MarketswaveData.withButtonBusy(btn, 'Submitting...', function () {
-          return MarketswaveData.callFunction('request-support-ticket', { category: category, description: description, evidence: evidenceName });
-        }).then(function (request) {
+          let uploadPromise = Promise.resolve(null);
+          if (file) {
+            const path = clientId + '/uploads/' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + '/' + file.name;
+            uploadPromise = MarketswaveData.uploadFile('documents', path, file).then(function () {
+              return { attachmentPath: path, attachmentName: file.name, attachmentSize: file.size };
+            });
+          }
+          return uploadPromise.then(function (attachment) {
+            return MarketswaveData.callFunction('request-support-ticket', Object.assign({ category: category, description: description }, attachment || {}));
+          });
+        }).then(function (ticket) {
           document.getElementById('dispute-category').value = '';
           document.getElementById('dispute-description').value = '';
           evidenceInput.value = '';
+          const stateEl = document.getElementById('dispute-evidence-state');
+          if (stateEl) stateEl.textContent = 'No file chosen';
+          openIds[ticket.conversationId] = true;
           reloadRequests(true);
-          showToast('Dispute Submitted', `Dispute ${request.id} submitted.`);
+          showToast('Dispute Submitted', `Dispute ${ticket.id} submitted.`);
         }).catch(function (err) {
           errorEl.textContent = MarketswaveData.writeErrorMessage(err);
           errorEl.classList.remove('hidden');
         });
       });
+
+      // Live: a PM reply or a status line arriving while this page is open re-renders the
+      // list — the same RLS-filtered postgres_changes subscription the chat widget uses.
+      MarketswaveData.getSupabaseClient().then(function (client) {
+        client.channel('support-tickets-live')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function () { reloadRequests(true); })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, function () { reloadRequests(true); })
+          .subscribe();
+      }).catch(function () { /* the list still loads on demand */ });
 
       reloadRequests(true);
     })();
