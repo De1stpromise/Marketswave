@@ -9689,6 +9689,22 @@ row 74.
   this session: recommendations 2 (rerun only what a fixture fix touched) and 3 (dedicated-key
   opt-in built as `MW_FINNHUB_DEDICATED=1`; bounded-cycles default recorded, not built) — see
   the Working conventions.
+- **★ `verify-pass.mjs` — one committed runner for every verification pass, with the fixture
+  gate built in (2026-09-14, row 216).** There was no runner: a targeted pass was hand-typed
+  `npm run` calls and the full suite a scratchpad bash loop, so a pre-pass gate had nothing to
+  hook into and stayed manual. `npm run pass -- <suite>…` / `--full` / `--list`: the gate first
+  with no skip flag (a failing gate runs nothing — proven with an injected collision: the gate
+  reported it, zero suites ran, exit 1); suites sequential, never parallel (row 211's false-
+  failure wall); each suite's output streamed AND written to `scripts/.pass-logs/<stamp>/`
+  (gitignored) so TEARDOWN/UNMEASURED lines can be grepped after the fact; a summary table with
+  per-suite minutes; exit 127 shown as "read the log" rather than PASS, since the runner cannot
+  tell row 198's post-assertion abort from row 214's mid-run death by the code alone. **Audit of
+  the live data the two missed collisions touched, on request**: all 14 products whose cache
+  rows the round-robin cleanup deleted are re-priced by the rotation (36–41 min old, inside the
+  50-min worst case), product and cache in sync, `price_status` ok; Litecoin repaired; across
+  the whole catalog every product (322) and cache (53) logo reference has its storage object,
+  zero `quote_failed`, zero stale market products. Nothing outstanding; none of those suites ever
+  ran against real cloud staging.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
@@ -9910,9 +9926,14 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   2026-09-12).** BLOCKS a push: the pre-push secrets audit; targeted verification of what the
   task actually touched — the suites covering the changed surface, not the whole platform;
   cloud staging parity, when a migration or function changed; the deployed-bytes check, after
-  any static file is pushed. BEFORE a targeted pass even starts: `npm run
-  verify-fixture-symbols` (seconds — see its own bullet below; skipping it is how one seed
-  turned into three passes). DOES NOT block a push — run it AFTER, or on a cadence: the full
+  any static file is pushed. **A pass — targeted or full — is `npm run pass -- <suite>
+  [<suite>…]` / `npm run pass -- --full` (from `scripts/`), never a hand-typed list of
+  `npm run` calls**: the runner executes `verify-fixture-symbols` first, unconditionally, with
+  no flag to skip it, refuses to start any suite if it fails, streams and logs every suite to
+  `.pass-logs/<timestamp>/`, and prints a per-suite wall-time table (the measured input the
+  verification-time question needs). Added 2026-09-14 (row 216) because the gate and the
+  convention both existed and the invocation was still manual — which is exactly the step
+  that gets skipped under time pressure, when it is most needed. DOES NOT block a push — run it AFTER, or on a cadence: the full
   regression suite (80+ minutes for warm-up plus real pass, ~72 scripts mostly unrelated to
   any given change — run it after pushing and raise a follow-up commit if it surfaces
   anything); the cold-start warm-up pass (only meaningful when the full suite runs); a second
@@ -10085,8 +10106,9 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   discarded with its stderr. `npm run verify-harness-teardown` (from `scripts/`) is the
   standing proof and fails if any `verify-*`/`audit-*` script calls `mkdtempSync` directly.
   When checking a run for leaks, grep its log for `TEARDOWN` — that line is the contract.
-- **★ Run `npm run verify-fixture-symbols` (from `scripts/`) BEFORE a targeted verification
-  pass — not as part of one, and not after.** Added 2026-09-14 (register row 215) because the
+- **★ `verify-fixture-symbols` runs BEFORE every verification pass — `npm run pass` runs it
+  for you, unconditionally, and stops if it fails; run it by hand only when you are not about
+  to run a pass.** Added 2026-09-14 (register row 215; the runner is row 216) because the
   convention it enforces (row 212: a harness fixture that writes to a SHARED symbol-keyed
   table — `market_data_cache`, `products`, the `asset-logos` bucket — must use a symbol that
   provably is not in the real catalog) existed for a day with nothing enforcing it, and that is

@@ -2092,9 +2092,22 @@ Chrome, forced-failure controls — mid-run throw, mid-run exit, SIGKILL then sw
 un-removable directory producing the warning rather than silence). Never call `mkdtempSync`
 directly from a `verify-*`/`audit-*` script — that same proof fails if one does.
 
+### ★ Running a verification pass — `npm run pass` (2026-09-14)
+
+From `scripts/`: `npm run pass -- verify-catalog-expansion verify-asset-pages-ui-wiring` for a
+targeted pass, `npm run pass -- --full` for every suite, `npm run pass -- --list` to see what
+`--full` runs. The runner executes `verify-fixture-symbols` first — always, with no flag to
+skip it — and starts no suite if it fails. Suites run one at a time; each one's output is
+streamed to the console and written to `scripts/.pass-logs/<timestamp>/<suite>.log`, so
+`grep TEARDOWN`/`grep UNMEASURED` over a pass works after the fact. The summary table at the
+end is per-suite wall time plus a verdict; an exit 127 is shown as "read the log", because it
+is either the known post-assertion libuv abort (row 198 — every assertion already printed
+PASS) or a genuine mid-run death (row 214), and only the log's last lines say which. The
+cold-start rule still applies: the first `--full` after `supabase start` is the warm-up.
+
 ### ★ Fixture symbols vs the real catalog — `npm run verify-fixture-symbols` (2026-09-14)
 
-Run this BEFORE a targeted verification pass, from `scripts/`. It takes a few seconds and
+`npm run pass` runs this for you before every pass. By hand, from `scripts/`, it takes a few seconds and
 reports every harness fixture that writes to a shared, symbol-keyed table (`market_data_cache`,
 `products`, the `asset-logos` bucket, an `add-product` call) using a symbol the real catalog
 owns — read from the live `products.ticker` column plus the committed catalog source file.

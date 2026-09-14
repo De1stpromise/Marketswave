@@ -27,3 +27,7 @@ supabase/functions/.env.*
 # reproducible from a fresh copy of the masters.
 AdobeStock_263939359.mov
 AdobeStock_81432616.jpeg
+
+# verify-pass.mjs (2026-09-14) — per-suite output of every verification pass, for grepping
+# TEARDOWN / UNMEASURED lines afterwards. Local only; a pass log is never something to commit.
+scripts/.pass-logs/
