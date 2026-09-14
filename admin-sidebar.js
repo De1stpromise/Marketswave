@@ -201,7 +201,11 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     function paint(n) {
       // A dot, not a number (PM tool revamp, part 2): the count lives in the visually-hidden
       // span for assistive tech; the dot shows while anyone is on the site.
-      var sr = badge.querySelector('.an-sr');
+      // Never assume the element can be queried: a harness stub or a partially-rendered
+      // node may not carry querySelector, and this runs inside a .then() where a throw is an
+      // unhandled rejection (fatal in Node, a dead recount loop in a browser). Falling back
+      // to the plain-count branch below is the correct degraded behaviour, not a silent skip.
+      var sr = badge.querySelector ? badge.querySelector('.an-sr') : null;
       if (sr) { sr.textContent = String(n); badge.setAttribute('aria-label', n + (n === 1 ? ' visitor' : ' visitors') + ' on the site now'); } else badge.textContent = String(n);
       badge.classList.toggle('hidden', !(n > 0));
       badge.hidden = !(n > 0); // the attribute, so the badge hides without Tailwind's .hidden
@@ -210,7 +214,8 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
       if (!supabase) return;
       var since = new Date(Date.now() - LIVE_WINDOW_SECONDS * 1000).toISOString();
       supabase.from('visitor_sessions').select('id', { count: 'exact', head: true }).gte('last_seen_at', since).is('ended_at', null)
-        .then(function (r) { if (!r.error) paint(r.count || 0); });
+        .then(function (r) { if (!r.error) paint(r.count || 0); })
+        .catch(function () { /* leave the badge as it stands: a failed repaint never kills the page */ });
     }
     function notify(row) {
       if (!window.Notification || Notification.permission !== 'granted') return;
@@ -253,7 +258,8 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     function recount() {
       if (!supabase) return;
       supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('unread_by_pm', true).neq('status', 'archived')
-        .then(function (r) { if (!r.error) paint(r.count || 0); });
+        .then(function (r) { if (!r.error) paint(r.count || 0); })
+        .catch(function () { /* leave the badge as it stands: a failed repaint never kills the page */ });
     }
     function notify(message) {
       if (!message || message.direction !== 'inbound' || message.channel === 'system') return;
@@ -306,7 +312,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
         var total = 0;
         for (var i = 0; i < results.length; i++) { if (results[i].error) return; total += results[i].count || 0; }
         paint(total);
-      });
+      }).catch(function () { /* leave the badge as it stands: a failed repaint never kills the page */ });
     }
     import('./admin-supabase-config.js').then(function (mod) {
       supabase = mod.supabase;

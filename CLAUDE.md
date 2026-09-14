@@ -9629,7 +9629,15 @@ row 74.
     longer protects it (the round-robin suite steps around those minutes now); (row 214)
     three silent Node deaths in one session — a bare `fetch failed`, an exit 127 with no
     error text mid-series, lost wait-loop results — same shape, cause not established.
-  - **★ `supabase db push` and `supabase migration list` were BLOCKED all session** — the
+  - **★ `supabase db push` and `supabase migration list` were BLOCKED all session** —
+    **and this RECURS; it is not an intermittent blip. Third occurrence: this row (211),
+    again during the inbox consolidation (row 217), and again on 2026-09-14 during the PM
+    tool revamp part 2 (row 221), where `verify-cloud-staging-parity` failed on the
+    identical `LegacyDbConnectError` / "Connection terminated unexpectedly". Expect it, and
+    treat the Management API path below as the normal fallback rather than an emergency one
+    — and note it takes `verify-cloud-staging-parity`'s MIGRATIONS half down with it (the
+    functions half still works, being Management API), so a parity check run during an
+    episode proves less than it looks like it does.** The
     CLI's temporary login role (`cli_login_postgres.<ref>`) could not connect through the
     pooler ("Connection terminated unexpectedly", eight retries, for hours), while a direct
     psql to the same pooler authenticated normally and `functions deploy` / `functions list`
@@ -9870,7 +9878,76 @@ row 74.
   34/34 (ten items in order with no headers, counts equal to independent DB reads, the dot,
   the footer email, a real Log out, aliases on a queue page; 114 + 30 composited contrast
   measurements with 0 below 4.5:1, the sheen audit on both pages, Inter only; 1440/390/375 +
-  a real 320px iframe with the drawer opened). Targeted pass, gate first — see row 221.
+  a real 320px iframe with the drawer opened).
+  **★ VERIFICATION IS INCOMPLETE — this entry does NOT describe a finished, fully-verified
+  task, and row 221 is NOT closed.** The session ended ~2h in, mid-pass, because the user
+  closed the terminal by accident. **That was unrelated to the crash below — the crash killed
+  one suite's own Node process, not the session, and the pass carried on through five more
+  suites after it. Do not read the two as a causal chain.** What
+  genuinely has a verdict: the fixture gate, the three suites above, `verify-admin-final-wiring`
+  37/37, `verify-visitor-presence-visual` 52/52, `verify-inbox-tickets-ui-wiring` 49/49,
+  `verify-shared-stylesheet-coverage` and `verify-tailwind-color-scoping` — all PASS.
+  `verify-admin-real-login` CRASHED the Node process outright
+  (`TypeError: badge.querySelector is not a function` at `admin-sidebar.js` `paint()`), and
+  **three suites — `verify-label-association`, `verify-control-patterns`,
+  `verify-no-monospace` — never produced a verdict at all.** The crash is now diagnosed and
+  fixed (see the entry below) and that suite passes; the three are still open, blocked on a
+  real network outage rather than on the code. **Real cloud staging has NEITHER the migration
+  NOR `get-pm-briefing`** — consistent, not half-applied; ship both together.
+- **★ The `paint()` crash from row 221's own pass — diagnosed against three DOMs, fixed, and
+  the real lesson is the missing `.catch()`** (2026-09-14): the failing call was
+  `badge.querySelector('.an-sr')` in `startPresenceWatch()`'s `paint()`. **Proven rather than
+  assumed, by running the REAL extracted `paint()` against three DOMs**: a real browser DOM
+  (headless Chrome, the exact badge markup `navLinkHTML()` emits) PASSES — `.an-sr` resolves,
+  `aria-label` is set; the fake-DOM harness stub as it stands now PASSES (its `querySelector`
+  returns null, so the plain-count `else` branch runs); and the harness stub **as it was at the
+  moment of the crash** THROWS the logged `TypeError` byte-for-byte. So it was the harness
+  stub, never the browser — and `verify-admin-real-login.mjs` had in fact already been patched
+  (a `querySelector: function () { return null; }` on its element stub) after the crash and
+  before the terminal died, which is why that log is stale. **★ THE REAL DEFECT WAS NOT THE
+  MISSING STUB METHOD — IT WAS THAT A DOM ERROR COULD KILL THE PROCESS.** All three
+  `recount()` chains (`startPresenceWatch`, `startInboxWatch`, `startApprovalsWatch`) ended
+  `.then(function (r) { ... paint(...) })` with **no `.catch()`**, so any throw inside `paint()`
+  became an unhandled rejection — fatal in Node, a permanently dead recount loop in a browser.
+  Both are fixed: `paint()` now guards (`badge.querySelector ? badge.querySelector('.an-sr')
+  : null`), degrading to the plain-count branch that already existed rather than throwing, and
+  all three chains carry a `.catch()` so a failed repaint leaves the badge as it stands and
+  never takes the page down. Re-proven with the same three-DOM probe: all three now pass, and
+  **the real browser's behaviour is byte-identical to before** (`.an-sr="3"`, the same
+  `aria-label`) — the guard is a genuine no-op there, not a behaviour change.
+  `verify-admin-real-login` now PASSES. **The general rule this establishes: never call a DOM
+  method on an element inside a promise continuation without either guarding the method or
+  catching the chain** — a harness stub, a partial render, or a node replaced mid-flight all
+  hand you something that is not the element you assumed.
+- **★ Three suites still without a verdict, blocked on a real network outage, NOT on this
+  code** (2026-09-14): re-running `verify-label-association`, `verify-control-patterns` and
+  `verify-no-monospace` produced `page never rendered: dashboard.html`,
+  `every page rendered [admin-login.html]` and a failure of `verify-no-monospace`'s OWN
+  non-vacuity control (Inter without `tabular-nums` and with it staggering by an identical
+  2.89px — the signature of the font never loading, so the check correctly refused to report a
+  pass it could not stand behind). **Established as environmental, not a regression**:
+  `fonts.googleapis.com`/`fonts.gstatic.com` were returning `http=000` on 17-21 second
+  timeouts, and repeated polling showed `googleapis`, `gstatic` AND `github.com` all
+  oscillating between 200 and 000 — a flapping outage, with DNS resolving correctly
+  throughout, so it is the route, not name resolution. Both failing pages
+  (`dashboard.html`, `admin-login.html`) are **untouched by this task** (confirmed by
+  `git diff --name-only HEAD~1 HEAD`) and both load Google Fonts;
+  `verify-no-monospace.mjs` is untouched entirely, and this task's only edits to the other two
+  suites are a one-line `admin-approvals.html` addition to each page list. Same class as row
+  217's own mid-run DNS outage. **These three must be re-run on a healthy network before row
+  221 can honestly be closed.**
+- **★★ Network flapping has now taken out THREE verification passes, and a suite still cannot
+  say "the network was gone" instead of "the assertion failed" — investigation logged as
+  register row 222, deliberately not started here** (2026-09-14). Row 214's three silent Node
+  deaths, row 217's mid-run DNS outage, and row 221's own pass. Every one had the same shape: a
+  fetch or navigation that TIMED OUT rather than returning a wrong answer — exactly the thing
+  that is mechanically distinguishable at the call site and is currently thrown away. The second
+  question is the valuable one: a shared classifier reporting a third verdict
+  (PASS / FAIL / **UNREACHABLE**, with the host named) would have saved a session's time three
+  times over, and this project already does the same thing one layer down — `verify-contrast.mjs`
+  and `audit-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
+  `verify-no-monospace` already half-does it: its font non-vacuity control is what CAUGHT this
+  outage; it just calls the result FAIL.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
