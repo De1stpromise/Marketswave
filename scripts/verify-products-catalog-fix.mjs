@@ -189,14 +189,17 @@ async function main() {
     // real symbol search, its class derived from the symbol and its first price taken live.
     // The PM-typed starting price no longer exists for this model.
     const searchInput = D.getElementById('add-symbol-search');
-    // Litecoin: real, priced on CoinGecko, and NOT in the seeded catalog (SOL is PROD-0027 since row 202).
-    searchInput.value = 'litecoin';
+    // Dogecoin: real, priced on CoinGecko, and NOT in the seeded catalog — meme coins are
+    // excluded from it by policy (row 211), which is exactly what makes DOGE a safe test
+    // symbol: the product this test creates is deleted afterwards. (Litecoin, the original
+    // choice, became a real product in the 2026-09-14 seed.)
+    searchInput.value = 'dogecoin';
     searchInput.dispatchEvent(new dom.window.Event('input'));
     await pollUntil(function () { return D.querySelectorAll('.symbol-result').length > 0; }, 30000);
-    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'LTC' && b.dataset.source === 'coingecko'; });
-    check('the real symbol search returns LTC from CoinGecko', !!solResult);
+    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'DOGE' && b.dataset.source === 'coingecko'; });
+    check('the real symbol search returns DOGE from CoinGecko', !!solResult);
     solResult.click();
-    await pollUntil(function () { return /Price will track LTC/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
+    await pollUntil(function () { return /Price will track DOGE/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
     check('picking it shows the live preview and derives the asset class (Crypto)', D.getElementById('add-asset-class').value === 'Crypto' && D.getElementById('add-asset-class').disabled === true, 'preview label: ' + D.getElementById('add-live-preview-label').textContent + ' | results: ' + D.querySelectorAll('.symbol-result').length);
     D.getElementById('add-name').value = 'Test Digital Basket ' + suffix;
     D.getElementById('add-risk-tier').value = 'aggressive';
@@ -219,7 +222,7 @@ async function main() {
 
     const { data: row } = await admin.from('products').select('*').eq('id', cryptoProductId).single();
     check('the real products row genuinely has all three new columns set correctly', row.description === testDescription && row.logo_url === testLogoUrl && row.extended_description === null, JSON.stringify(row));
-    check('unit_price is the LIVE market price for LTC (never PM-typed), model market, ticker LTC', row.pricing_model === 'market' && row.ticker === 'LTC' && Number(row.unit_price) > 0 && Number(row.inception_unit_price) === Number(row.unit_price), JSON.stringify(row));
+    check('unit_price is the LIVE market price for DOGE (never PM-typed), model market, ticker DOGE', row.pricing_model === 'market' && row.ticker === 'DOGE' && Number(row.unit_price) > 0 && Number(row.inception_unit_price) === Number(row.unit_price), JSON.stringify(row));
   });
 
   // ===========================================================================================

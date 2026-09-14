@@ -8321,7 +8321,7 @@ row 74.
     headroom on every run — read that rather than trusting this paragraph's arithmetic.
     **Superseded 2026-09-12 (row 202)**: there is no ceiling any more — the refresh rotates
     through the 30 oldest stock symbols per cycle, and what grows with the count is the
-    worst-case staleness (`ceil(S/30) × 15 min`), reported as the real oldest age after
+    worst-case staleness (`ceil(S/30) × 15 min`; × 5 since 2026-09-14, row 211), reported as the real oldest age after
     each run. The 25-per-client limit stays, as a UX bound rather than a share of a ceiling.
   - **★ THE SCHEDULER: `pg_cron` fires SQL, `pg_net` makes the HTTP call, and the
     service_role key lives in `supabase_vault` — never in the committed migration.** Run
@@ -8352,7 +8352,7 @@ row 74.
     blocked table read" is true for EVERY signed-in client, so that probe would have handed
     any of them the platform's own authorization. Any capability probe must be something
     that genuinely errors when refused.
-  - **Two cron jobs, deliberately not one.** Refresh on the quarter hour, alert sweep two
+  - **Two cron jobs, deliberately not one.** Refresh on the quarter hour (every 5 minutes since 2026-09-14, row 211 — the +2 offset kept), alert sweep two
     minutes later so it always reads prices the refresh has already written. Separate
     because a provider outage must not also silence every alert the OTHER provider's prices
     would legitimately have fired.
@@ -8832,7 +8832,8 @@ row 74.
     (`x-ratelimit-limit: 60`, unchanged). A run completes well inside a minute, so a run's
     spend is one minute's budget; half stays reserved for the interactive paths (search,
     add-symbol, add-product's first price). `STOCK_SYMBOLS_PER_REFRESH_RUN =
-    floor(60 × 0.5)`. Worst-case staleness for S stock symbols is `ceil(S / 30) × 15 min`.
+    floor(60 × 0.5)`. Worst-case staleness for S stock symbols is `ceil(S / 30) × 15 min`
+    (× 5 min since 2026-09-14, row 211: 283 stocks → 10 cycles → 50 min).
     Crypto is untouched by all of this — CoinGecko batches, so every coin refreshes every
     cycle at one call however many there are.
   - **★ THE ROTATION IS A QUEUE, AND ONE MILLISECOND IS WHAT MAKES IT ONE.** The proof's
@@ -9486,6 +9487,121 @@ row 74.
   on the gain profile, the four previously-vacuous elements measuring again); presence visual
   52/52 (a live re-rendering table under the tightened guard); dashboard ui-wiring and
   real-data-fixes PASS. The two probe clients from the investigation were deleted.
+
+- **★★★ Catalog expansion — the refresh moves to every 5 minutes, ~300 real products are
+  seeded through the real creation path, and the browsing surface is rebuilt for that volume
+  (2026-09-14, row 211).** Sequenced deliberately: cadence first (the refresh is what bounds
+  how many stock symbols the platform can carry honestly), then the seed, then the surface —
+  landed as logical commits. Built against the approved `asset_collection` mockup.
+  **PART 1 — cadence.** `marketswave-refresh-market-data` runs `*/5 * * * *` (was `*/15`),
+  still 30 stock symbols per run (`STOCK_SYMBOLS_PER_REFRESH_RUN` is derived from the
+  measured 60/min Finnhub limit at a 50% share, unchanged); the alert sweep moves with it to
+  `2-59/5 * * * *` (migration `20260914090000_refresh_every_five_minutes.sql`). **The +2
+  offset was re-timed and kept, and the reason is worth keeping**: the sweep makes ZERO
+  provider calls — it compares cached prices — so it consumes none of the minute's budget;
+  the only constraint is ordering (it must read prices the refresh has already written), and
+  a 30-quote run finishes well inside two minutes (the reported oldest age after a run
+  carries ~0.1 min of run time). On the 5-minute grid the two never share a minute
+  (:00/:05… vs :02/:07…), asserted in `supabase-verify-watchlist-alerts`. Rate headroom
+  holds by construction — 30 of 60 per minute at most once per 5 minutes — and the fetch
+  loop's reserve halt was seen doing its job in the real cron during this task: a run that
+  found `x-ratelimit-remaining` at 24 (the seeder was using the other half) refreshed 6 of its
+  30 and left the rest oldest, `haltedForRateLimit: true`, zero failures.
+  **Real worst-case staleness after seeding, measured not derived**: 283 distinct stock
+  symbols → `ceil(283/30) = 10` cycles → the function reports `worstCaseStalenessMinutes: 50`,
+  and `oldestStockAfterRun.ageMinutes` stabilised at **45.1** across every full run after the
+  seed ((cycles − 1) × 5 plus run time), with the DB's own `min(last_updated)` reading 46.7
+  min between runs. Crypto is unaffected (44 coins, one CoinGecko call per run).
+  **PART 2 — the seed** (`scripts/supabase-seed-market-catalog.js --source
+  ./catalog-source-2026-09-14.js`; `--dry-run` first, then real). Every entry priced through
+  the real `lookup-product-symbol` pick and created through the real `add-product` — never
+  SQL. **Result on the local stack: 298 created, 20 already offered (left alone), 7 dropped,
+  4 attempt-only; the catalog is 330 products (283 Stocks & ETFs, 44 Crypto, 1 PE, 1 Real
+  Assets, Cash), none `quote_failed`, none awaiting a first refresh.** By section: 100 US
+  stocks (MMC dropped), 39 US ETFs (SPLG dropped; 13 already offered), 31 US-listed
+  Europe/ME ETFs (GULF dropped; VGK offered), 31 European tier-1 + 56 tier-2 OTC ADRs (ORAN,
+  SMNEY, BMWYY dropped), 25 crypto (18 already offered), 5 Israeli stocks (CYBR dropped).
+  **European listings: 0 native, 87 via a US listing.** Every home-exchange symbol
+  (`ASML.AS`, `NOVO-B.CO`, `AZN.L`, `SAP.DE`, `ROG.SW`…) answers HTTP 403 on Finnhub's free
+  tier — the US ADR/direct listing was created instead, with the substitution recorded on
+  the product's own extended description ("US-listed NYSE ADR; the London listing (AZN.L)
+  is not available on the price feed"). **Middle East**: the four Gulf home symbols
+  (`2222.SR`, `1120.SR`, `FAB.AE`, `QNBK.QA`) were attempted and never created — 403 or a
+  zero quote, as expected; the country ETFs (KSA, FLSA, UAE, QAT, KWT) carry that exposure.
+  **The 7 drops are Finnhub's own answer (HTTP 200 + `{"c":0}`), reported not guessed**: MMC,
+  SPLG, GULF, ORAN, SMNEY, BMWYY, CYBR — a current ticker for any of them can be seeded in
+  one line. **Unresolvable lines, per the brief**: TQQQ (3x leverage, excluded), IBIT/FBTC
+  (BTC is offered directly), GOOG (GOOGL is the listing), every Europe-domiciled UCITS, the
+  Gulf home listings, USDT/USDC/LEO (stablecoins), PEPE/BONK/SHIB/DOGE (meme coins).
+  **Minimums**: $100 for large-cap US stocks, broad/major-sector ETFs and major crypto; $500
+  for 20 entries (GDX, ARKK, DBC, the seven single-country Europe ETFs, the eleven ME/Israel
+  ETFs incl. TUR). **Boundary calls**: IWM/VB/IJR kept at $100 as broad small-cap INDEX
+  funds rather than small-cap alts; ICLN and EUAD are thematic by the $500 definition but
+  listed at $100 in the brief — kept at $100, flagged. Classes are derived from the symbol's
+  provider (Finnhub → Stocks & ETFs, incl. bond/commodity ETFs; CoinGecko → Crypto).
+  **Logos, through the existing chain at creation**: Stocks & ETFs 278/283 (98.2%), Crypto
+  44/44 after a 9-symbol backfill (CoinGecko rate-limited nine coins during the seed; the
+  resumable backfill resolved every one), overall 322/327 market products (98.5%). The five
+  monograms — BRK.B, GSK, EUAD, ARZGY, DHLGY — are Elbstream misses; the Brandfetch Logo API
+  (row 207) would likely cover the two companies and is one client-id away.
+  **★ A seeder defect found by the first real run, fixed, and worth knowing**: the PM's
+  access token lives ONE HOUR and a 330-entry run takes ~70 minutes — the last 30 entries
+  were dropped as "You must be signed in to perform this action", an auth expiry that reads
+  like a pricing failure. `callFunction()` now re-signs in on a 401 and retries the same
+  call; the second run created exactly those 30. Any long-running admin script using a
+  single token has the same exposure.
+  **PART 3 — the browsing surface** (`catalog-cards.css`, the page's own script rewritten).
+  - **Four-up compact cards identical in both dimensions**: `repeat(4, minmax(0, 1fr))`
+    tracks so a long name cannot widen its column, fixed heights on the head (46px), price
+    row (38), source line (14), description (34, two-line clamp) and footer (44), names
+    ellipsised. Measured: every one of 330 cards 258.5×242.0 at 1440px, and the longest name
+    (51 chars), shortest, priciest ($76,833) and cheapest ($0.096) cards all equal.
+  - **The grid steps by CONTAINER width, not viewport** — `.cat-shell` (the glass container)
+    is the query container and the rules target `.cat-cards` beneath it (row 206: an element
+    cannot query its own size): 4 columns above 1000px, 3 to 800, 2 to 560, 1 below. At 1440
+    the container is 1120px (4), 1280 → 960 (3), 1100 → 780 (2), 390/375/320 → 1.
+  - **The footer carries EITHER the minimum OR the position, never both**; a held card is a
+    faint green tint with a left rule and its button reads "Add". The old "No position"
+    text is gone — two suites that asserted it now assert the footer.
+  - **Search matches name OR ticker and runs over the WHOLE fetched catalog**: filter first,
+    page second, so a match on page 10 is the first card of a search; class chips carry
+    live counts (what the current search leaves in each class); sort is a real control
+    (name, price, change, held first). Paging stays at 24 with "Continue browsing" and
+    "Showing 24 of 330". **The frame cost is why**: `audit-catalog-frame-cost.mjs` clones the
+    real cards and scrolls — 24–96 cards sit on the 20ms rAF floor with 0 dropped frames;
+    247 cards run ~2× the frame budget (mean 37.7ms, p95 100ms, 35–60% dropped depending on
+    load), and removing the blur recovers only ~20% — so the page never renders the whole
+    catalog at once.
+  - **The allocation panel opens OVER the catalog**: one modal, three states (new position /
+    adding to a held position / below the minimum). Available is folded into the field
+    label; the units figure gets its own weight; Min/25%/50%/Max are percentages of
+    AVAILABLE (Min is the product's own minimum); a held product shows what the position
+    becomes; below the minimum (or above available, or above a maximum) shows a real error,
+    mutes the result and disables the button — validated on every keystroke, before submit.
+    **EVERY ROW EXISTS IN EVERY STATE**: the error line reserves its space (`visibility:
+    hidden`), the result box and both summary rows always render — the panel measured 572px
+    in all three states. The gate note adapts: PE and Real Assets mention illiquidity and
+    the full term. The server still re-validates (a genuine race — capital moved after the
+    panel loaded — shows the real 409 message inline, panel open).
+  - **`.category-tab[aria-pressed]` keys the chip styling, not `.bg-navy`** — a rule on a
+    Tailwind utility name in a shared stylesheet trips the stylesheet-coverage guard (it
+    reads as "defines bg-navy"), and the script already toggles `aria-pressed`.
+  - **A 320px finding fixed by measurement**: a large gain figure ("+1,109.5%") beside the
+    units escaped the held card's right edge; the position line now WRAPS (two 13px lines
+    inside the fixed 44px footer) rather than clipping.
+  - **Two verification-harness notes**: a contrast child that prints nothing is reported
+    with its spawn status (row 210's rule, applied to the new parent); and running two
+    copies of the sequential suite runner at once — a stopped background task whose bash
+    child survived — produced a wall of false failures (shared test data, ports, provider
+    budget); kill by PID and confirm zero before relaunching.
+  **Verified** — see the register row for counts: `verify-catalog-expansion` (new: the real
+  page script in jsdom for paging/search/chips/sort/the three panel states; headless Chrome
+  for equal cards across the whole catalog, 4→3→2→1 columns, the panel's constant height,
+  contrast on the card face and the panel in all three states with the sheen composited
+  (`audit-glass-sheen` on the page), fonts), the asset-pages / live-pricing / asset-logos /
+  fund-document / products-catalog-fix / watchlist suites through the new markup,
+  `supabase-verify-watchlist-alerts` with the 5-minute assertions, `verify-round-robin-refresh`
+  at 10 cycles, control patterns 41/41, stylesheet coverage, Tailwind scoping PASS.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

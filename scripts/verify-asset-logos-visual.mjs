@@ -345,7 +345,11 @@ async function main() {
       if (lowest) console.log('      lowest: ' + lowest.trim());
       return o;
     }
-    const acOut = runContrast('asset-marks', '/asset-collection.html', '', 'catalog monograms (40px) + credit');
+    // Catalog expansion (row 211): 98.5% of the seeded catalog carries a real logo, so the first
+    // page of 24 may hold no monogram at all — search for the appraisal products (no ticker, no
+    // logo: NGF / ERE) so a real 40px monogram is on screen for the measurement.
+    const showMonograms = '(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ const g=document.getElementById("asset-cards-grid"); if (g && g.querySelectorAll("[data-product-id]").length>0 && !/animate-pulse/.test(g.innerHTML)) break; await s(250);} const b=document.getElementById("asset-search"); b.value="fund"; b.dispatchEvent(new Event("input",{bubbles:true})); await s(400); return !!document.querySelector("#asset-cards-grid .mk-mono"); })()';
+    const acOut = runContrast('asset-marks', '/asset-collection.html', showMonograms, 'catalog monograms (40px) + credit');
     check('the catalog run measured monograms AND both credit surfaces', /monogram/.test(acOut) && /logo credit link/.test(acOut));
     // Open the AAPL card's drawer so the 28px drawer mark is on screen too.
     const openDrawer = '(() => { const c = [...document.querySelectorAll("#wl-rows .wl-card[data-wl-card]")].find(x => x.querySelector(".wl-tag").textContent === "AAPL"); if (c && !document.querySelector(".wl-drawer")) c.click(); return true; })()';

@@ -387,9 +387,21 @@
         // The head's right slot: the ticker chip (market products), or — for an appraisal
         // product, which never has a ticker — a "More info" chip when there is more to read,
         // in the same fixed-width slot so the header is laid out identically either way.
+        // The head's right slot is fixed-width so the header lays out identically either way:
+        // a market product shows its ticker chip — clickable (with an info glyph) when there is
+        // more to read; an appraisal product, which never has a ticker, shows an "Info" chip in
+        // the same slot when there is. "More to read" = an extended description or a published
+        // fund document; both open the More info popup, which carries the document link.
+        var more = !!(product.extendedDescription || publishedDocumentIds[product.id]);
+        var INFO_GLYPH = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>';
         var slot = '';
-        if (product.pricingModel === 'market' && product.ticker) slot = '<span class="product-ticker">' + escapeHTML(product.ticker) + '</span>';
-        else if (product.extendedDescription || publishedDocumentIds[product.id]) slot = '<button type="button" class="more-info-link product-ticker" data-product-id="' + escapeHTML(product.id) + '">Info</button>';
+        if (product.pricingModel === 'market' && product.ticker) {
+          slot = more
+            ? '<button type="button" class="more-info-link product-ticker cat-slot-btn" aria-label="More about ' + escapeHTML(product.name) + '">' + escapeHTML(product.ticker) + INFO_GLYPH + '</button>'
+            : '<span class="product-ticker">' + escapeHTML(product.ticker) + '</span>';
+        } else if (more) {
+          slot = '<button type="button" class="more-info-link cat-info cat-slot-btn">Info' + INFO_GLYPH + '</button>';
+        }
         var footerMeta;
         if (holding) {
           var pct = getUnrealizedReturnPercent(product.id);
@@ -407,7 +419,7 @@
           priceSourceHTML(product) +
           '<p class="cat-ds">' + escapeHTML(product.description || '') + '</p>' +
           '<div class="cat-ft"><button type="button" class="request-allocation-btn">' + (holding ? 'Add' : 'Allocate') + '</button>' + footerMeta + '</div>' +
-          (publishedDocumentIds[product.id] && product.pricingModel === 'market' ? '<a class="fund-document-link sr-only" href="fund-document.html?product=' + encodeURIComponent(product.id) + '">Fund document</a>' : '') +
+          (publishedDocumentIds[product.id] ? '<a class="fund-document-link sr-only" href="fund-document.html?product=' + encodeURIComponent(product.id) + '">Fund document</a>' : '') +
         '</div>';
       }
 
@@ -709,7 +721,9 @@
       cardsGrid.addEventListener('click', function (e) {
         var moreInfoBtn = e.target.closest('.more-info-link');
         if (moreInfoBtn) {
-          var p = productById(moreInfoBtn.dataset.productId);
+          // The button carries no data-product-id of its own — `[data-product-id]` is the
+          // card selector every suite counts cards by, and a second match per card doubled them.
+          var p = productById(moreInfoBtn.closest('[data-product-id]').dataset.productId);
           if (p) openMoreInfo(p);
           return;
         }

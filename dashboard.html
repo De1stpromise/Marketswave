@@ -315,8 +315,8 @@
              its symbol maps to a catalog product via products.ticker (the shared primitive
              in _shared/symbol-catalog.ts), and only then does it carry a real Allocate
              action. "Delayed" stays — these prices come from a cache the scheduler refreshes
-             every 15 minutes, and a card that looked live would be claiming something
-             untrue. -->
+             in rotation (every 5 minutes since 2026-09-14, 30 stock symbols a cycle), and a
+             card that looked live would be claiming something untrue. -->
         <div class="glass glass-lift rounded-2xl p-6" id="watchlist-card">
           <div class="wl-head">
             <h3 class="font-semibold text-navy">Market snapshot</h3>

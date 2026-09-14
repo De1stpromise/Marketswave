@@ -149,37 +149,37 @@ async function main() {
     D.querySelector('.add-model-btn[data-model="market"]').click();
 
     const search = D.getElementById('add-symbol-search');
-    search.value = 'aapl';
+    search.value = 'adi';
     search.dispatchEvent(new dom.window.Event('input'));
     await pollUntil(() => D.querySelectorAll('.symbol-result').length > 0, 30000);
     const results = [...D.querySelectorAll('.symbol-result')];
-    const aaplRow = results.find((b) => b.dataset.symbol === 'AAPL' && b.dataset.source === 'finnhub');
-    check('the real symbol search lists AAPL with a live price', !!aaplRow && /\$\d/.test(aaplRow.textContent), aaplRow && aaplRow.textContent);
+    const aaplRow = results.find((b) => b.dataset.symbol === 'ADI' && b.dataset.source === 'finnhub');
+    check('the real symbol search lists ADI with a live price', !!aaplRow && /\$\d/.test(aaplRow.textContent), aaplRow && aaplRow.textContent);
     check('★ a stock result\'s exchange reads as a VISIBLE fallback ("US listing · unverified"), never a confident label', !!aaplRow && /US listing/.test(aaplRow.textContent) && /unverified/.test(aaplRow.textContent), aaplRow && aaplRow.textContent);
     aaplRow.click();
-    await pollUntil(() => /Price will track AAPL/.test(D.getElementById('add-live-preview-label').textContent), 30000);
+    await pollUntil(() => /Price will track ADI/.test(D.getElementById('add-live-preview-label').textContent), 30000);
     const previewLabel = D.getElementById('add-live-preview-label').textContent;
-    check('picking it shows the live preview with the refresh cadence and the VERIFIED exchange (NASDAQ)', /refreshed every 15 minutes/.test(previewLabel) && /NASDAQ/.test(previewLabel) && /\$\d/.test(D.getElementById('add-live-preview-price').textContent), previewLabel + ' | ' + D.getElementById('add-live-preview-price').textContent);
+    check('picking it shows the live preview with the refresh cadence and the VERIFIED exchange (NASDAQ)', /refreshed by the 5-minute scheduler/.test(previewLabel) && /NASDAQ/.test(previewLabel) && /\$\d/.test(D.getElementById('add-live-preview-price').textContent), previewLabel + ' | ' + D.getElementById('add-live-preview-price').textContent);
     check('...and derives the asset class (Stocks & ETFs), still locked', D.getElementById('add-asset-class').value === 'Stocks & ETFs' && D.getElementById('add-asset-class').disabled === true);
-    D.getElementById('add-name').value = 'Apple UI Test ' + suffix;
+    D.getElementById('add-name').value = 'Analog Devices UI Test ' + suffix;
     D.getElementById('add-investment-type').value = 'Stock';
     D.getElementById('add-minimum-investment').value = '500';
     D.getElementById('add-maximum-investment').value = '20000';
-    D.getElementById('add-description').value = 'Direct exposure to Apple.';
+    D.getElementById('add-description').value = 'Direct exposure to Analog Devices.';
     const toastBefore = D.getElementById('admin-toast-body').textContent;
     D.getElementById('add-submit').click();
     await pollUntil(() => D.getElementById('admin-toast-body').textContent !== toastBefore, 30000);
     const toast = D.getElementById('admin-toast-body').textContent;
-    check('★ Create product succeeds through the real UI, tracking AAPL at a live price', /tracking AAPL/.test(toast) && /\$\d/.test(toast), toast);
-    const createdRow = (await admin.from('products').select('*').eq('name', 'Apple UI Test ' + suffix).maybeSingle()).data;
-    check('...the real row: market model, AAPL on Finnhub, class derived, live price, max recorded', !!createdRow && createdRow.pricing_model === 'market' && createdRow.ticker === 'AAPL' && createdRow.price_source === 'finnhub' && createdRow.asset_class === 'Stocks & ETFs' && Number(createdRow.unit_price) > 1 && Number(createdRow.maximum_investment) === 20000, JSON.stringify(createdRow));
+    check('★ Create product succeeds through the real UI, tracking ADI at a live price', /tracking ADI/.test(toast) && /\$\d/.test(toast), toast);
+    const createdRow = (await admin.from('products').select('*').eq('name', 'Analog Devices UI Test ' + suffix).maybeSingle()).data;
+    check('...the real row: market model, ADI on Finnhub, class derived, live price, max recorded', !!createdRow && createdRow.pricing_model === 'market' && createdRow.ticker === 'ADI' && createdRow.price_source === 'finnhub' && createdRow.asset_class === 'Stocks & ETFs' && Number(createdRow.unit_price) > 1 && Number(createdRow.maximum_investment) === 20000, JSON.stringify(createdRow));
     if (createdRow) createdProductIds.push(createdRow.id);
 
     // --- edit: immutable model/symbol, class locked ---
     await pollUntil(() => [...D.querySelectorAll('.product-row')].some((x) => x.dataset.id === createdRow.id), 30000);
     [...D.querySelectorAll('.product-row')].find((x) => x.dataset.id === createdRow.id).click();
     [...D.querySelectorAll('.edit-btn')].find((b) => b.dataset.id === createdRow.id).click();
-    check('Edit shows the pricing model as fixed at creation (read-only) — no symbol input exists', /Market-priced · tracks AAPL/.test(D.getElementById('edit-pricing-display').textContent) && !D.getElementById('edit-ticker'), D.getElementById('edit-pricing-display').textContent);
+    check('Edit shows the pricing model as fixed at creation (read-only) — no symbol input exists', /Market-priced · tracks ADI/.test(D.getElementById('edit-pricing-display').textContent) && !D.getElementById('edit-ticker'), D.getElementById('edit-pricing-display').textContent);
     check('...and the asset class is locked for a market-priced product', D.getElementById('edit-asset-class').disabled === true);
     D.getElementById('edit-modal-close').click();
 
@@ -253,10 +253,12 @@ async function main() {
     { const lm = C.getElementById('load-more-btn'); for (let i = 0; i < 40 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
     const card = (id) => C.querySelector('[data-product-id="' + id + '"]');
     const eth = card('PROD-0004'), nordic = card('PROD-0001'), vt = card('PROD-0003');
-    check('Ethereum\'s card shows its ticker chip, a per-unit price and "Fractional units"', !!eth && eth.querySelector('.product-ticker') && eth.querySelector('.product-ticker').textContent === 'ETH' && /per unit/.test(eth.textContent) && !!eth.querySelector('.fractional-note'), eth && eth.textContent.slice(0, 200));
+    // Catalog expansion (row 211): the compact card has no "Fractional units" line — fractional
+    // units are stated by the allocation panel's own units figure instead.
+    check('Ethereum\'s card shows its ticker chip and a per-unit price', !!eth && eth.querySelector('.product-ticker') && eth.querySelector('.product-ticker').textContent === 'ETH' && /per unit/.test(eth.textContent), eth && eth.textContent.slice(0, 200));
     check('★ ...and its source line is the GREY stale state, shown WITH its timestamp and still allocatable', !!eth && eth.querySelector('.price-source').dataset.source === 'stale' && /Market price · as of/.test(eth.querySelector('.price-source').textContent) && /awaiting refresh/.test(eth.querySelector('.price-source').textContent) && !!eth.querySelector('.request-allocation-btn'), eth && eth.querySelector('.price-source').textContent);
     check('VT\'s card shows the GREEN live state ("Market price · as of HH:MM")', !!vt && vt.querySelector('.price-source').dataset.source === 'live' && /as of \d\d:\d\d/.test(vt.querySelector('.price-source').textContent), vt && vt.querySelector('.price-source').textContent);
-    check('Nordic Growth Fund\'s card shows the AMBER appraisal state with the last-valued date, no ticker, no fractional note', !!nordic && nordic.querySelector('.price-source').dataset.source === 'appraisal' && /Valued by appraisal · last valued/.test(nordic.querySelector('.price-source').textContent) && !nordic.querySelector('.product-ticker') && !nordic.querySelector('.fractional-note'), nordic && nordic.querySelector('.price-source').textContent);
+    check('Nordic Growth Fund\'s card shows the AMBER appraisal state with the last-valued date, no ticker, no fractional note', !!nordic && nordic.querySelector('.price-source').dataset.source === 'appraisal' && /Valued by appraisal · \d{2} \w{3,4} \d{4}/.test(nordic.querySelector('.price-source').textContent) && !nordic.querySelector('.product-ticker'), nordic && nordic.querySelector('.price-source').textContent);
     check('...Nordic shows the +4.20% just published', !!nordic && nordic.querySelector('.price-change') && nordic.querySelector('.price-change').textContent === '+4.20%', nordic && nordic.querySelector('.price-change') && nordic.querySelector('.price-change').textContent);
     check('the quote-failed product shows its last good price, honestly stale, never $0.00', !!card(badId) && /\$42\.42/.test(card(badId).textContent) && card(badId).querySelector('.price-source').dataset.source === 'stale', card(badId) && card(badId).textContent.slice(0, 160));
 
@@ -296,7 +298,7 @@ async function main() {
     if (createdProductIds.length) {
       await admin.from('holdings').delete().in('product_id', createdProductIds);
       await admin.from('nav_publications').delete().in('product_id', createdProductIds);
-      await admin.from('market_data_cache').delete().eq('symbol', 'AAPL');
+      await admin.from('market_data_cache').delete().eq('symbol', 'ADI');
       const { error } = await admin.from('products').delete().in('id', createdProductIds);
       if (error) console.log('  cleanup: ' + error.message);
     }

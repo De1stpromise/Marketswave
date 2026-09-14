@@ -154,12 +154,25 @@ async function callFunctionOnce(url, token, name, body) {
 // on the symbol. Wait out the minute and retry before deciding anything; only a genuine
 // "no price" (400/404) is a reason to drop.
 const RATE_LIMIT_WAIT_MS = 65000;
+// ★ The PM's access token lives ONE HOUR, and a full curated run takes longer than that
+// (2026-09-14: the first real run signed in once, ran 70 minutes, and the last 30 entries
+// were dropped as "You must be signed in" — an auth expiry misread as a pricing failure).
+// AUTH holds the live token; a 401 re-signs in once and retries the same call.
+const AUTH = { client: null, email: null, password: null, token: null };
+async function reauth() {
+  const { data, error } = await AUTH.client.auth.signInWithPassword({ email: AUTH.email, password: AUTH.password });
+  if (error) throw new Error('PM re-sign-in failed: ' + error.message);
+  AUTH.token = data.session.access_token;
+  console.log('        (access token expired — signed in again)');
+}
 async function callFunction(url, token, name, body) {
+  token = AUTH.token || token;
   let res = await callFunctionOnce(url, token, name, body);
+  if (res.status === 401 && AUTH.client) { await reauth(); res = await callFunctionOnce(url, AUTH.token, name, body); }
   for (let attempt = 1; attempt <= 3 && isRateLimited(res); attempt++) {
     console.log('        (transient ' + res.status + ' — waiting ' + Math.round(RATE_LIMIT_WAIT_MS / 1000) + 's, retry ' + attempt + '/3)');
     await sleep(RATE_LIMIT_WAIT_MS);
-    res = await callFunctionOnce(url, token, name, body);
+    res = await callFunctionOnce(url, AUTH.token || token, name, body);
   }
   return res;
 }
@@ -177,6 +190,7 @@ async function main() {
   const { data: session, error: signInErr } = await client.auth.signInWithPassword({ email: env.pmEmail, password: env.pmPassword });
   if (signInErr) throw new Error('PM sign-in failed: ' + signInErr.message);
   const token = session.session.access_token;
+  Object.assign(AUTH, { client, email: env.pmEmail, password: env.pmPassword, token });
 
   if (SOURCE) return seedFromSource(env, token);
 

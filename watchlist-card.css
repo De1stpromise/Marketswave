@@ -54,8 +54,9 @@
    the subtree and antialiasing caps coverage at roughly 78%. A secondary grey at 11px cannot
    pass here whichever grey it is — make it genuinely bigger, or do not put it here. */
 
-/* "Delayed" stays, and stays literal: these prices come out of a cache refreshed on a
-   15-minute cycle, and a card that looked live would be claiming something untrue. */
+/* "Delayed" stays, and stays literal: these prices come out of a cache refreshed in
+   rotation on a 5-minute cycle (2026-09-14; 15 before), and a card that looked live would be
+   claiming something untrue. */
 .wl-delayed {
   font-size: 10px;
   font-weight: 600;

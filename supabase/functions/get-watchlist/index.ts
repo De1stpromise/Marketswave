@@ -15,7 +15,7 @@
 //      client who deliberately empties their watchlist gets the honest empty state instead
 //      of having the six silently reappear on the next page load.
 //   2. TOPS UP symbols that have NO cache row at all — never merely stale ones. Since the
-//      round-robin refresh (2026-09-12) a price older than 15 minutes is a normal state, not
+//      round-robin refresh (2026-09-12) a price older than one cycle (5 minutes) is a normal state, not
 //      a gap: the scheduler prices the oldest N stocks each cycle and the card labels the
 //      rest as delayed. Topping up "stale" here would turn every dashboard load into up to
 //      25 Finnhub calls, unbounded by client count — the exact spend the rotation exists to

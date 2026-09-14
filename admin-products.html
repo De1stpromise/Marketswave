@@ -887,7 +887,7 @@
           addPick = res;
           if (!document.getElementById('add-name').value.trim()) document.getElementById('add-name').value = res.name;
           document.getElementById('add-asset-class').value = res.assetClass;
-          document.getElementById('add-live-preview-label').textContent = 'Price will track ' + res.symbol + ' · refreshed every 15 minutes · ' + (res.exchangeVerified ? res.exchange : res.exchange + ' (exchange unverified)');
+          document.getElementById('add-live-preview-label').textContent = 'Price will track ' + res.symbol + ' · refreshed by the 5-minute scheduler, in rotation · ' + (res.exchangeVerified ? res.exchange : res.exchange + ' (exchange unverified)');
           document.getElementById('add-live-preview-price').textContent = '$' + Number(res.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           document.querySelectorAll('.symbol-result').forEach(function (b) { b.classList.toggle('bg-amber-50', b.dataset.symbol === res.symbol && b.dataset.source === res.source); });
         }).catch(function (err) {
@@ -974,7 +974,7 @@
         document.getElementById('edit-minimum-investment').value = p.minimumInvestment;
         document.getElementById('edit-maximum-investment').value = p.maximumInvestment != null ? p.maximumInvestment : '';
         document.getElementById('edit-pricing-display').textContent = p.pricingModel === 'market'
-          ? 'Market-priced · tracks ' + p.ticker + ' (' + (p.priceSource === 'coingecko' ? 'CoinGecko' : 'Finnhub') + ') · refreshed every 15 minutes'
+          ? 'Market-priced · tracks ' + p.ticker + ' (' + (p.priceSource === 'coingecko' ? 'CoinGecko' : 'Finnhub') + ') · refreshed by the 5-minute scheduler, in rotation'
           : p.pricingModel === 'appraisal' ? 'Valued by appraisal · moves only via a published valuation'
           : p.pricingModel === 'fixed' ? 'Fixed at par' : 'Simulated tick (legacy — created before pricing models existed)';
         // Asset class is derived from the symbol for a market-priced product: shown, not editable.

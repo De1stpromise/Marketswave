@@ -159,7 +159,8 @@ async function main() {
     const spyRowEl = cardFor('SPY');
     check('a catalog symbol renders the Offered badge on its face', !!ethRowEl.querySelector('.wl-badge') && ethRowEl.textContent.indexOf('Offered') !== -1);
     // Since the seeded catalog (2026-09-12, row 202) SPY is a real product too; the
-    // Tracking-only state is proven on NVDA below, added through the real search.
+    // Tracking-only state is proven on GM below, added through the real search — a symbol the
+    // seeded catalog (row 211) does not offer; NVDA, the original, is a product now.
     check('SPY (seeded as SPDR S&P 500 ETF Trust) renders Offered as well', spyRowEl && spyRowEl.textContent.indexOf('Offered') !== -1);
 
     // ---- The drawer: one at a time, beneath the card, toggles closed, keyboard ------------
@@ -209,33 +210,33 @@ async function main() {
 
     const searchInput = doc.getElementById('wl-search-input');
     const results = doc.getElementById('wl-results');
-    searchInput.value = 'nvidia';
+    searchInput.value = 'general motors';
     searchInput.dispatchEvent(new win.Event('input', { bubbles: true }));
     await pollUntil(function () { return results.querySelectorAll('.wl-res').length > 0; }, 30000);
     check('a real query against both providers returns rendered results',
       results.querySelectorAll('.wl-res').length > 0, results.textContent.slice(0, 240));
     check('every result is labelled with its real source', /Stock|Crypto/.test(results.textContent));
 
-    const nvdaResult = [...results.querySelectorAll('.wl-res')].find(function (r) {
-      return r.getAttribute('data-wl-add') === 'NVDA';
+    const gmResult = [...results.querySelectorAll('.wl-res')].find(function (r) {
+      return r.getAttribute('data-wl-add') === 'GM';
     });
-    check('the real NVDA result is present to click', !!nvdaResult, results.textContent.slice(0, 240));
+    check('the real GM result is present to click', !!gmResult, results.textContent.slice(0, 240));
 
-    nvdaResult.click();
-    await pollUntil(function () { return rows.textContent.indexOf('NVDA') !== -1; }, 30000);
+    gmResult.click();
+    await pollUntil(function () { return rows.textContent.indexOf('GM') !== -1; }, 30000);
     check('clicking a result genuinely adds the symbol and the card re-renders with it',
-      rows.textContent.indexOf('NVDA') !== -1);
-    const nvdaStored = await admin.from('watchlist_symbols').select('*').eq('client_id', clientId).eq('symbol', 'NVDA');
-    check('...and a real row exists in Postgres, not just on screen', (nvdaStored.data || []).length === 1);
+      rows.textContent.indexOf('GM') !== -1);
+    const gmStored = await admin.from('watchlist_symbols').select('*').eq('client_id', clientId).eq('symbol', 'GM');
+    check('...and a real row exists in Postgres, not just on screen', (gmStored.data || []).length === 1);
     check('the add panel closes and the search box clears after a successful add',
       addPanel.hidden === true && searchInput.value === '');
-    { const nvdaRowEl = cardFor('NVDA');
-      check('a non-catalog symbol (NVDA) reads Tracking only on its face', !!nvdaRowEl && nvdaRowEl.textContent.indexOf('Tracking only') !== -1);
-      nvdaRowEl.click();
-      const nvdaDrawer = rows.querySelector('.wl-drawer');
-      check('...its drawer repeats Tracking only', !!nvdaDrawer && /Tracking only/.test(nvdaDrawer.querySelector('.wl-drawer-top').textContent));
-      check('...and has no Allocate action at all, because there genuinely is no allocation path', !!nvdaDrawer && !nvdaDrawer.querySelector('a.mw-btn'));
-      nvdaRowEl.click(); }
+    { const gmRowEl = cardFor('GM');
+      check('a non-catalog symbol (GM) reads Tracking only on its face', !!gmRowEl && gmRowEl.textContent.indexOf('Tracking only') !== -1);
+      gmRowEl.click();
+      const gmDrawer = rows.querySelector('.wl-drawer');
+      check('...its drawer repeats Tracking only', !!gmDrawer && /Tracking only/.test(gmDrawer.querySelector('.wl-drawer-top').textContent));
+      check('...and has no Allocate action at all, because there genuinely is no allocation path', !!gmDrawer && !gmDrawer.querySelector('a.mw-btn'));
+      gmRowEl.click(); }
     check('a seventh real card is rendered', rows.querySelectorAll('.wl-card').length === 7,
       String(rows.querySelectorAll('.wl-card').length));
 
@@ -305,14 +306,14 @@ async function main() {
 
     // ---- Remove a symbol ------------------------------------------------------------------
     console.log('\n4. Remove a symbol');
-    const nvdaRowEl = cardFor('NVDA');
-    nvdaRowEl.click();
+    const gmRowEl = cardFor('GM');
+    gmRowEl.click();
     rows.querySelector('.wl-drawer [data-wl-remove]').click();
-    await pollUntil(function () { return rows.textContent.indexOf('NVDA') === -1; }, 30000);
-    check('the card disappears from the grid', rows.textContent.indexOf('NVDA') === -1);
+    await pollUntil(function () { return rows.textContent.indexOf('GM') === -1; }, 30000);
+    check('the card disappears from the grid', rows.textContent.indexOf('GM') === -1);
     check('...and its drawer closes with it', !rows.querySelector('.wl-drawer'));
     check('...and is genuinely gone from Postgres',
-      ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId).eq('symbol', 'NVDA')).data || []).length === 0);
+      ((await admin.from('watchlist_symbols').select('id').eq('client_id', clientId).eq('symbol', 'GM')).data || []).length === 0);
     check('the grid is back to six real cards', rows.querySelectorAll('.wl-card').length === 6,
       String(rows.querySelectorAll('.wl-card').length));
 
@@ -336,17 +337,17 @@ async function main() {
       fillErr && fillErr.message);
 
     addToggle.click();
-    searchInput.value = 'nvidia';
+    searchInput.value = 'general motors';
     searchInput.dispatchEvent(new win.Event('input', { bubbles: true }));
     await pollUntil(function () { return results.querySelectorAll('.wl-res').length > 0; }, 30000);
-    const nvdaAgain = [...results.querySelectorAll('.wl-res')].find(function (r) {
-      return r.getAttribute('data-wl-add') === 'NVDA';
+    const gmAgain = [...results.querySelectorAll('.wl-res')].find(function (r) {
+      return r.getAttribute('data-wl-add') === 'GM';
     });
     check('a result is still there to click at the ceiling - search is not pre-emptively blocked',
-      !!nvdaAgain, results.textContent.slice(0, 240));
+      !!gmAgain, results.textContent.slice(0, 240));
 
     const wlMessageEl = doc.getElementById('wl-message');
-    nvdaAgain.click();
+    gmAgain.click();
     await pollUntil(function () { return wlMessageEl.hidden === false; }, 30000);
     check('the client is told at the moment it matters, in the add flow',
       wlMessageEl.hidden === false && /up to 25 symbols/.test(wlMessageEl.textContent),
@@ -406,7 +407,7 @@ async function main() {
     await admin.from('watchlist_symbols').delete().eq('client_id', clientId);
     await admin.from('clients').delete().eq('id', clientId);
     await admin.auth.admin.deleteUser(clientId);
-    await admin.from('market_data_cache').delete().in('symbol', ['NVDA']);
+    await admin.from('market_data_cache').delete().in('symbol', ['GM']);
   }
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');

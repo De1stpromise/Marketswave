@@ -144,7 +144,8 @@ async function main() {
     check('ETH resolves to the real catalog product (PROD-0004) and is therefore Offered',
       ethRow && ethRow.offered && ethRow.offered.productId === 'PROD-0004', JSON.stringify(ethRow && ethRow.offered));
     // Since the seeded catalog (2026-09-12, row 202) every default symbol is a real product;
-    // the Tracking-only state is proven on NVDA below, added by the client and owned by none.
+    // the Tracking-only state is proven on GM below, added by the client and owned by none
+    // (NVDA, the original choice, became a real product in the 2026-09-14 seed, row 211).
     check('SPY resolves to its real seeded product (SPDR S&P 500 ETF Trust) and is Offered',
       spy && spy.offered && /SPDR S&P 500/.test(spy.offered.productName), JSON.stringify(spy && spy.offered));
     check('an Offered row carries what an Allocate action genuinely needs (a product id and its real minimum)',
@@ -187,19 +188,19 @@ async function main() {
     console.log('\n=== PART 3: adding and removing a symbol ===\n');
     // =========================================================================================
     const addNvda = await callFunction(url, a.token, 'add-watchlist-symbol',
-      { symbol: 'NVDA', source: 'finnhub', name: 'NVIDIA Corporation' });
+      { symbol: 'GM', source: 'finnhub', name: 'General Motors Company' });
     check('a real stock validated live at Finnhub is added', addNvda.status === 200, JSON.stringify(addNvda.body));
     check('the response reports the real new count against the real ceiling',
       addNvda.body.count === 7 && addNvda.body.limit === 25, JSON.stringify(addNvda.body));
 
     const afterAdd = await callFunction(url, a.token, 'get-watchlist');
-    const nvdaRow = afterAdd.body.symbols.find((r) => r.symbol === 'NVDA');
+    const gmRow = afterAdd.body.symbols.find((r) => r.symbol === 'GM');
     check('the new row is priced immediately rather than blank until the next scheduled run',
-      nvdaRow && typeof nvdaRow.price === 'number' && nvdaRow.price > 0, JSON.stringify(nvdaRow));
-    check('an added stock with no catalog product reads Tracking only', nvdaRow && nvdaRow.offered === null);
+      gmRow && typeof gmRow.price === 'number' && gmRow.price > 0, JSON.stringify(gmRow));
+    check('an added stock with no catalog product reads Tracking only', gmRow && gmRow.offered === null);
 
     const dupe = await callFunction(url, a.token, 'add-watchlist-symbol',
-      { symbol: 'nvda', source: 'finnhub', name: 'NVIDIA Corporation' });
+      { symbol: 'gm', source: 'finnhub', name: 'General Motors Company' });
     check('the same symbol in different case is refused as the duplicate it is', dupe.status === 409,
       JSON.stringify(dupe.body));
 
@@ -243,12 +244,12 @@ async function main() {
       (stillThere.data || []).length === 1);
 
     const removed = await callFunction(url, a.token, 'remove-watchlist-symbol',
-      { id: afterAdd.body.symbols.find((r) => r.symbol === 'NVDA').id });
-    check('a client removes their own row', removed.status === 200 && removed.body.removed === 'NVDA');
+      { id: afterAdd.body.symbols.find((r) => r.symbol === 'GM').id });
+    check('a client removes their own row', removed.status === 200 && removed.body.removed === 'GM');
     const afterRemove = await callFunction(url, a.token, 'get-watchlist');
-    check('the removed symbol is genuinely gone', !afterRemove.body.symbols.some((r) => r.symbol === 'NVDA'));
+    check('the removed symbol is genuinely gone', !afterRemove.body.symbols.some((r) => r.symbol === 'GM'));
     check('removing everything does NOT silently re-seed the six defaults on the next read',
-      afterRemove.body.count === 6 && afterRemove.body.symbols.every((r) => r.symbol !== 'NVDA'));
+      afterRemove.body.count === 6 && afterRemove.body.symbols.every((r) => r.symbol !== 'GM'));
 
     // =========================================================================================
     console.log('\n=== PART 4: one alert per row, and its validation ===\n');
@@ -455,28 +456,28 @@ async function main() {
     // =========================================================================================
     // Product catalog — live pricing, part 1 (2026-09-11): a symbol is now part of the
     // pricing model — chosen at creation via the search, priced live, immutable after.
-    // NVDA: owned by no catalog product (the seeded catalog does not include it). Client A
+    // GM: owned by no catalog product (the seeded catalog does not include it). Client A
     // removed it in Part 2, so it is re-added here first — then the mapping's Tracking-only
     // -> Offered transition below is real, observed on a row the client genuinely watches.
-    const reAdd = await callFunction(url, a.token, 'add-watchlist-symbol', { symbol: 'NVDA', source: 'finnhub', name: 'NVIDIA Corporation' });
-    check('client A watches NVDA again (Tracking only — no product owns it yet)', reAdd.status === 200 && (await callFunction(url, a.token, 'get-watchlist')).body.symbols.find((r) => r.symbol === 'NVDA').offered === null, JSON.stringify(reAdd.body));
+    const reAdd = await callFunction(url, a.token, 'add-watchlist-symbol', { symbol: 'GM', source: 'finnhub', name: 'General Motors Company' });
+    check('client A watches GM again (Tracking only — no product owns it yet)', reAdd.status === 200 && (await callFunction(url, a.token, 'get-watchlist')).body.symbols.find((r) => r.symbol === 'GM').offered === null, JSON.stringify(reAdd.body));
     const newProduct = await callFunction(url, pm.session.access_token, 'add-product', {
-      pricingModel: 'market', source: 'finnhub', symbol: 'nvda',
+      pricingModel: 'market', source: 'finnhub', symbol: 'gm',
       name: 'Watchlist Verify Equity ' + suffix,
       investmentType: 'Index Fund', riskTier: 'balanced', minimumInvestment: 1000
     });
     check('a PM can map a catalog product to a real market symbol', newProduct.status === 200,
       JSON.stringify(newProduct.body));
     if (newProduct.status === 200) createdProductIds.push(newProduct.body.id);
-    check('...stored uppercase, so a product entered as "nvda" and a row stored as "NVDA" are one mapping',
-      newProduct.body.ticker === 'NVDA', String(newProduct.body.ticker));
+    check('...stored uppercase, so a product entered as "gm" and a row stored as "GM" are one mapping',
+      newProduct.body.ticker === 'GM', String(newProduct.body.ticker));
 
     const nowOffered = await callFunction(url, a.token, 'get-watchlist');
     check('the watchlist row for that symbol now reads Offered, through the shared mapping alone',
-      nowOffered.body.symbols.find((r) => r.symbol === 'NVDA').offered.productId === newProduct.body.id);
+      nowOffered.body.symbols.find((r) => r.symbol === 'GM').offered.productId === newProduct.body.id);
 
     const dupTicker = await callFunction(url, pm.session.access_token, 'add-product', {
-      pricingModel: 'market', source: 'finnhub', symbol: 'NVDA',
+      pricingModel: 'market', source: 'finnhub', symbol: 'GM',
       name: 'Duplicate Ticker ' + suffix, investmentType: 'Index Fund',
       riskTier: 'balanced', minimumInvestment: 1000
     });
@@ -502,7 +503,7 @@ async function main() {
     check('a product\'s symbol cannot be cleared or remapped after creation (400)', clearTicker.status === 400, JSON.stringify(clearTicker.body));
     const stillOffered = await callFunction(url, a.token, 'get-watchlist');
     check('...and the watchlist row is still Offered through the unchanged mapping',
-      stillOffered.body.symbols.find((r) => r.symbol === 'NVDA').offered.productId === newProduct.body.id);
+      stillOffered.body.symbols.find((r) => r.symbol === 'GM').offered.productId === newProduct.body.id);
 
     // =========================================================================================
     console.log('\n=== PART 10: the scheduler itself (this project had none) ===\n');
@@ -578,7 +579,13 @@ async function main() {
     // harmless to leave, but they would silently grow the scheduled refresh's own cost on
     // every future run, so they go too. The six base symbols stay — the public ticker is
     // served from them.
-    await admin.from('market_data_cache').delete().in('symbol', ['NVDA', 'AAPL', 'MSFT']);
+    // ...but ONLY the rows no catalog product owns: AAPL and MSFT are products since the
+    // 2026-09-14 seed (row 211), and their cache rows carry the refresh's own price and the
+    // stored logo the product face renders — deleting those would blank two real cards until
+    // the rotation reached them again (the same cross-suite pollution row 209 recorded for the
+    // base symbols).
+    const owned = new Set(((await admin.from('products').select('ticker').in('ticker', ['GM', 'AAPL', 'MSFT'])).data || []).map((r) => r.ticker));
+    await admin.from('market_data_cache').delete().in('symbol', ['GM', 'AAPL', 'MSFT'].filter((sym) => !owned.has(sym)));
   }
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');

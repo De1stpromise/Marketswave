@@ -123,13 +123,15 @@ async function main() {
     console.log('\nB. a newly created product prices immediately (no refresh run)');
     // ===================================================================================
     const before = Date.now();
-    const created = await callFunction(url, pmToken, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'VXUS', name: 'Vanguard Total International Stock ETF', investmentType: 'ETF', riskTier: 'balanced', minimumInvestment: 1000, description: 'Tracks the FTSE Global All Cap ex US index: stocks outside the United States, developed and emerging.' });
-    check('add-product created VXUS through the real path', created.status === 200 && created.body && created.body.id, JSON.stringify(created.body));
+    // Ford (F): a real, liquid US listing the seeded catalog (row 211) does NOT offer — VXUS, the
+    // original choice, became a real product in the 2026-09-14 seed and add-product now refuses it.
+    const created = await callFunction(url, pmToken, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'F', name: 'Ford Motor Company', investmentType: 'Stock', riskTier: 'balanced', minimumInvestment: 100, description: 'Common stock of Ford Motor Company, the US automaker.' });
+    check('add-product created F through the real path', created.status === 200 && created.body && created.body.id, JSON.stringify(created.body));
     if (created.status === 200) {
-      cleanup.productIds.push(created.body.id); cleanup.cacheSymbols.push('VXUS');
+      cleanup.productIds.push(created.body.id); cleanup.cacheSymbols.push('F');
       const row = (await admin.from('products').select('unit_price, price_as_of, price_status, asset_class').eq('id', created.body.id).single()).data;
       check('★ the product row carries a live price immediately, not $0 and not awaiting a refresh', Number(row.unit_price) > 0 && row.price_as_of && (Date.now() - new Date(row.price_as_of).getTime()) < 30000 && row.price_status === 'ok', JSON.stringify(row));
-      const cache = (await admin.from('market_data_cache').select('value, last_updated').eq('symbol', 'VXUS').maybeSingle()).data;
+      const cache = (await admin.from('market_data_cache').select('value, last_updated').eq('symbol', 'F').maybeSingle()).data;
       check('★ the cache row was written from the SAME quote, at the same moment — no second provider call, no waiting for its turn', cache && Number(cache.value) === Number(row.unit_price) && new Date(cache.last_updated).getTime() >= before - 1000, JSON.stringify(cache));
       check('asset class derived from the provider (Stocks & ETFs)', row.asset_class === 'Stocks & ETFs');
     }
@@ -299,4 +301,6 @@ async function main() {
   console.log('ROUND-ROBIN REFRESH: PASS');
 }
 
-runVerifyMain(main, { watchdogMs: 1500000 });
+// 10 cycles at 283 stock symbols (row 211) is 30 measured runs, each behind a full 66s
+// rate-limit window — ~35 minutes for Part C alone, so the watchdog allows an hour.
+runVerifyMain(main, { watchdogMs: 3600000 });

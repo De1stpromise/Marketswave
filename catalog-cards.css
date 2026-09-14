@@ -79,7 +79,11 @@
 /* The head's right slot is fixed-width so a card with no chip (an appraisal product has no
    ticker) is laid out identically to one with a chip. */
 .cat-slot { flex-shrink: 0; width: 64px; display: flex; justify-content: flex-end; }
-.product-ticker { font-size: 10px; font-weight: 700; color: #3E4A52; letter-spacing: .04em; background: rgba(27, 58, 75, .07); padding: 3px 7px; border-radius: 5px; white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; line-height: 12px; }
+.product-ticker, .cat-info { font-size: 10px; font-weight: 700; color: #3E4A52; letter-spacing: .04em; background: rgba(27, 58, 75, .07); padding: 3px 7px; border-radius: 5px; white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; line-height: 12px; }
+/* The chip as a BUTTON (there is more to read): same geometry, an info glyph, a real hover. */
+.cat-slot-btn { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em; min-height: 0; min-width: 0; }
+.cat-slot-btn:hover { background: rgba(27, 58, 75, .13); color: #12283A; }
+.cat-slot-btn:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
 
 .cat-pr { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 11px; height: 38px; }
 .cat-pr .product-price { font-size: 19px; white-space: nowrap; font-weight: 600; letter-spacing: -.022em; color: #12283A; line-height: 1; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

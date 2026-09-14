@@ -1756,8 +1756,8 @@ feature. It has two cron jobs now:
 
 | job | schedule | what it does |
 |---|---|---|
-| `marketswave-refresh-market-data` | `*/15 * * * *` | re-prices the union of the six base symbols and every symbol any client watches |
-| `marketswave-check-price-alerts` | `2-59/15 * * * *` | fires any alert whose target the refreshed price has reached, once, by email |
+| `marketswave-refresh-market-data` | `*/5 * * * *` (every 5 minutes since 2026-09-14, migration `20260914090000`; was `*/15`) | re-prices the 30 oldest stock symbols in the union of the base symbols, every market-priced product and every symbol any client watches, plus all crypto in one call — a round robin, so the worst-case staleness is `ceil(stocks / 30) × 5` minutes (≈ 300 stocks → 50 min) |
+| `marketswave-check-price-alerts` | `2-59/5 * * * *` (was `2-59/15`) | fires any alert whose target the refreshed price has reached, once, by email — the +2 offset keeps it two minutes behind the refresh it reads from; it makes no provider calls itself |
 | `marketswave-snapshot-portfolio-values` | `5 0 1 * *` | records every active client's total portfolio value as that month's anchor in `portfolio_value_snapshots` — the value chart's data (2026-09-12) |
 
 The jobs themselves come from the migration — they are schema. What a migration must never
@@ -1992,8 +1992,8 @@ node verify-deposit-routing-visual.mjs         # contrast/fonts/1440/390/375/320
 ### ★ Product catalog — live pricing, part 1 (2026-09-11)
 
 Stocks & ETFs and Crypto products are now MARKET-PRICED: a product carries a real symbol
-and its unit price is the market's, copied from `market_data_cache` by the 15-minute
-refresh and read through on every settlement call (so an approval executes at the
+and its unit price is the market's, copied from `market_data_cache` by the 5-minute
+round-robin refresh (2026-09-14; 15-minute before that) and read through on every settlement call (so an approval executes at the
 approval-time price). Private Equity / Real Assets stay VALUED BY APPRAISAL and move only
 when a PM publishes a valuation. The model is chosen at creation and cannot be changed.
 

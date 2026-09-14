@@ -338,8 +338,8 @@ const EU_STOCKS_TIER2 = [
 const CRYPTO = [
   C('BTC', 'bitcoin', 'Bitcoin', "The Bitcoin network's native asset."),
   C('ETH', 'ethereum', 'Ethereum', "The Ethereum network's native asset, used to pay for computation on the network."),
-  C('BNB', 'binancecoin', 'BNB', 'The native asset of the BNB Chain, used for fees on the network and within the Binance ecosystem.'),
-  C('XRP', 'ripple', 'XRP', 'The native asset of the XRP Ledger, a payments-focused blockchain.'),
+  C('BNB', 'binancecoin', 'BNB (Binance Coin)', 'The native asset of the BNB Chain, used for fees on the network and within the Binance ecosystem.'),
+  C('XRP', 'ripple', 'XRP (Ripple)', 'The native asset of the XRP Ledger, a payments-focused blockchain.'),
   C('SOL', 'solana', 'Solana', "The Solana network's native asset."),
   C('TRX', 'tron', 'TRON', "The TRON network's native asset."),
   C('ADA', 'cardano', 'Cardano', "The Cardano network's native asset."),
