@@ -83,6 +83,22 @@ function setSchedulerActive(active) {
 const N = 30; // STOCK_SYMBOLS_PER_REFRESH_RUN, asserted against the function's own report below
 const INTERVAL_MIN = 5; // the real cron cadence since 2026-09-14 (migration 20260914090000); was 15
 const MINUTE_WINDOW_MS = 66000; // one full Finnhub window between real runs, so each run's budget is its own
+// ★ The Finnhub key is SHARED with real cloud staging, whose own refresh cron fires at :00/:05/…
+// since 2026-09-14 (row 211) and spends 30 of the minute's 60 in that minute. Pausing the LOCAL
+// cron is not enough any more: a measured run that lands in a staging-cron minute sees the
+// reserve eaten and halts (observed: run 8 of 30 refreshed 6, `haltedForRateLimit: true` — the
+// halt doing its job, but not the property under test). Each measured run therefore waits out
+// any minute the staging cron owns and starts early in a clear one.
+async function waitForClearMinute() {
+  for (;;) {
+    const d = new Date();
+    // Not the cron's minute, and at least 30s past the top of the minute: 90s+ after the cron
+    // burst even if the provider's window is rolling rather than clock-aligned, and a 30-quote
+    // run still finishes inside the remaining half minute.
+    if (d.getUTCMinutes() % 5 !== 0 && d.getUTCSeconds() >= 30 && d.getUTCSeconds() < 42) return;
+    await sleep(2000);
+  }
+}
 
 async function main() {
   console.log('Round-robin market refresh + seeded catalog\n');
@@ -158,7 +174,7 @@ async function main() {
     check('the test client added enough real symbols to push the union past one run (' + added + ' added)', added >= 10, String(added));
     // Let the minute window pass so the first measured run has its own full budget.
     console.log('    (waiting one rate-limit window before the measured runs)');
-    await sleep(MINUTE_WINDOW_MS);
+    await sleep(MINUTE_WINDOW_MS); await waitForClearMinute();
 
     // Discover the union's stock set from a first run's own report.
     const probe = await callFunction(url, pmToken, 'refresh-market-data');
@@ -194,7 +210,7 @@ async function main() {
     let prevSelected = null;
     const totalRuns = cycles * 3;
     for (let k = 1; k <= totalRuns; k++) {
-      await sleep(MINUTE_WINDOW_MS);
+      await sleep(MINUTE_WINDOW_MS); await waitForClearMinute();
       const beforeTs = {};
       ((await admin.from('market_data_cache').select('symbol, last_updated').in('symbol', symbols)).data || []).forEach((r) => { beforeTs[r.symbol] = r.last_updated; });
       const r = await callFunction(url, pmToken, 'refresh-market-data');
@@ -241,7 +257,7 @@ async function main() {
     // ===================================================================================
     console.log('\nD. the rate-limit halt: a second run inside the same minute stops short, loses nothing');
     // ===================================================================================
-    await sleep(MINUTE_WINDOW_MS);
+    await sleep(MINUTE_WINDOW_MS); await waitForClearMinute();
     const first = await callFunction(url, pmToken, 'refresh-market-data');
     const second = await callFunction(url, pmToken, 'refresh-market-data');
     check('the first run in a fresh window spent its full budget', first.body.stockSymbolsRefreshed === N && !first.body.haltedForRateLimit, JSON.stringify({ r: first.body.stockSymbolsRefreshed, h: first.body.haltedForRateLimit, low: first.body.lowestRateLimitRemainingSeen }));
