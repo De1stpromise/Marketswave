@@ -2,7 +2,7 @@
 // ★ Crypto deposit routing (2026-09-11) — UI verification.
 //
 // Drives the REAL, unmodified inline scripts of admin-deposit-addresses.html,
-// admin-deposits.html and deploy-capital.html inside real jsdom DOMs built from each page's
+// the approval gate and deploy-capital.html inside real jsdom DOMs built from each page's
 // own <body> markup, against the REAL local stack and the REAL Edge Functions — the harness
 // every UI-wiring stage in this project has used since Stage 2, reused verbatim.
 //
@@ -167,15 +167,23 @@ async function main() {
     [...D.querySelectorAll('.expand-row .assign-btn')][0].click();
     const optionA = [...D.querySelectorAll('#assign-client option')].find((o) => o.value === A.id);
     check('the Assign modal disables a client already on this address', optionA && optionA.disabled === true);
+    // ★ This suite does NOT own `deposit_addresses` — seed-client-gary.mjs (register row 223)
+    // keeps two real rows there permanently. Every read below is scoped to THIS suite's own
+    // address by id; an unscoped `.address-row`/`.expand-row` query reads whichever row
+    // happens to sort first, which is how this section started failing after that seed landed.
+    const ownRow = () => D.querySelector('.address-row[data-id="' + btcRow.id + '"]');
+    const ownExpand = () => { const r = ownRow(); return r && r.nextElementSibling && r.nextElementSibling.classList.contains('expand-row') ? r.nextElementSibling : null; };
+    const ownRowText = () => { const r = ownRow(); return r ? r.textContent : ''; };
+
     D.getElementById('assign-client').value = B.id;
     D.getElementById('assign-submit').click();
-    await pollUntil(() => /2 clients/.test(listEl().textContent) && !/animate-pulse/.test(listEl().innerHTML), 30000);
-    check('★ a second client on the same address: row reads "2 clients"', /2 clients/.test(listEl().textContent));
+    await pollUntil(() => /2 clients/.test(ownRowText()) && !/animate-pulse/.test(listEl().innerHTML), 30000);
+    check('★ a second client on the same address: row reads "2 clients"', /2 clients/.test(ownRowText()), ownRowText());
     check('★ the sharing consequence is stated in the management view',
-      /Shared by 2 clients/.test(D.querySelector('.expand-row').textContent) && /chain alone will not say who sent what/.test(D.querySelector('.expand-row').textContent),
-      D.querySelector('.expand-row').textContent.slice(0, 300));
-    check('...avatars render real initials for both', /RA/.test(D.querySelector('.address-row').textContent) && /RB/.test(D.querySelector('.address-row').textContent),
-      D.querySelector('.address-row').textContent.slice(0, 120));
+      /Shared by 2 clients/.test(ownExpand().textContent) && /chain alone will not say who sent what/.test(ownExpand().textContent),
+      ownExpand().textContent.slice(0, 300));
+    check('...avatars render real initials for both', /RA/.test(ownRowText()) && /RB/.test(ownRowText()),
+      ownRowText().slice(0, 120));
 
     // ===== PART 2: both clients see it on deploy-capital.html; one submits with a hash, one without =====
     console.log('\n=== PART 2: deploy-capital.html — both clients see the address; submit with and without a hash ===\n');
@@ -271,45 +279,66 @@ async function main() {
     check('★ client C, assigned nothing, sees the empty state — and A/B\'s address never leaks into their page',
       !P.getElementById('crypto-empty-state').classList.contains('hidden') && P.body.textContent.indexOf(BTC_ADDRESS) === -1);
 
-    // ===== PART 3: the admin queue renders amount-less rows and credits at two different figures =====
-    console.log('\n=== PART 3: admin-deposits.html — amount-less rows, PM credits two different amounts ===\n');
+    // ===== PART 3: the approval gate renders amount-less rows and credits at two figures =====
+    // admin-deposits.html was deleted when the approval gate replaced all seven queue pages
+    // (register row 228). These behaviours belong to deposit routing, not to the gate, so they
+    // were repointed at the page that carries them now rather than moved: an amount-less
+    // crypto row must render without breaking, must name the currency/network/hash/address a
+    // PM needs to confirm it, must open with an EMPTY amount field, and two such requests must
+    // credit at two different PM-entered figures onto two different accounts.
+    console.log('\n=== PART 3: the approval gate — amount-less rows, PM credits two different amounts ===\n');
     await adminConfigMod.supabase.auth.signInWithPassword({ email: adminConfigMod.LOCAL_ADMIN_EMAIL, password: adminConfigMod.LOCAL_ADMIN_PASSWORD });
-    const queuePath = fileURLToPath(new URL('../admin-deposits.html', import.meta.url));
+    const queuePath = fileURLToPath(new URL('../admin-approvals.html', import.meta.url));
     const queueDom = buildPageDom(queuePath);
     queueDom.window.MarketswaveData = MarketswaveData;
     const Q = queueDom.window.document;
-    queueDom.window.eval(extractInlineScript(queuePath, 'Admin UI Wiring'));
-    const pendingEl = Q.getElementById('pending-list');
-    await pollUntil(() => pendingEl.textContent.indexOf(reqA.id) !== -1 && pendingEl.textContent.indexOf(reqB.id) !== -1, 30000);
-    const cardA = [...pendingEl.querySelectorAll('.credit-btn')].find((b) => b.dataset.id === reqA.id).closest('.px-6');
-    check('the queue renders an amount-less crypto row without breaking', !!cardA && !/undefined|null|NaN/.test(cardA.textContent), cardA && cardA.textContent.slice(0, 200));
-    check('...saying the amount is determined from the chain, naming the currency + network',
-      /Determined from the chain|determined from the chain/.test(cardA.textContent) && /BTC/.test(cardA.textContent) && /Bitcoin/.test(cardA.textContent), cardA.textContent.slice(0, 300));
-    check('...showing A\'s transaction hash and the address it was sent to',
-      /e3b0c442/.test(cardA.textContent) && cardA.textContent.indexOf(BTC_ADDRESS.slice(0, 8)) !== -1, cardA.textContent.slice(0, 300));
-    const cardB = [...pendingEl.querySelectorAll('.credit-btn')].find((b) => b.dataset.id === reqB.id).closest('.px-6');
-    check('B\'s row says no hash was provided (and why that matters)', /No transaction hash/.test(cardB.textContent), cardB.textContent.slice(0, 300));
+    // The gate's logic is an external file, not an inline block.
+    queueDom.window.eval(readFileSync(fileURLToPath(new URL('../admin-approvals-page.js', import.meta.url)), 'utf8'));
+    const pendingEl = Q.getElementById('ag-queue');
+    const gateRow = (id) => pendingEl.querySelector('.ag-row[data-kind="dep"][data-id="' + id + '"]');
+    await pollUntil(() => !/animate-pulse/.test(pendingEl.innerHTML) && gateRow(reqA.id) && gateRow(reqB.id), 30000);
 
-    [...pendingEl.querySelectorAll('.credit-btn')].find((b) => b.dataset.id === reqA.id).click();
-    check('the Credit modal for a crypto request asks for the amount received, with an EMPTY field (nothing to pre-fill)',
-      Q.getElementById('credit-amount-input').value === '' && /received/i.test(Q.getElementById('credit-crypto-copy').textContent) && Q.getElementById('credit-external-copy').classList.contains('hidden'),
-      Q.getElementById('credit-crypto-copy').textContent);
-    Q.getElementById('credit-amount-input').value = '4250.5';
-    Q.getElementById('credit-submit').click();
+    const cardA = gateRow(reqA.id);
+    const textA = (cardA.textContent || '').replace(/\s+/g, ' ');
+    check('the queue renders an amount-less crypto row without breaking', !/undefined|null|NaN/.test(textA), textA.slice(0, 200));
+    check('...naming the currency, and saying the PM is the one who sets the amount',
+      /Crypto · BTC/.test(textA) && /PM sets amount/.test(textA), textA.slice(0, 200));
+    check('...and showing that A\'s transaction hash was provided', /Hash e3b0c4/.test(textA), textA.slice(0, 200));
+    const textB = (gateRow(reqB.id).textContent || '').replace(/\s+/g, ' ');
+    check('B\'s row says no hash was provided', /No hash provided/.test(textB), textB.slice(0, 200));
+
+    const openDep = async (id) => {
+      gateRow(id).click();
+      await pollUntil(() => !Q.getElementById('ag-scrim').hidden && Q.getElementById('ag-pane').innerHTML.length > 0, 8000);
+      return (Q.getElementById('ag-pane').textContent || '').replace(/\s+/g, ' ');
+    };
+    const paneA = await openDep(reqA.id);
+    check('★ the panel opens with an EMPTY amount field — a crypto deposit has nothing to pre-fill',
+      Q.getElementById('ag-amount').value === '' && /Amount received/i.test(paneA), Q.getElementById('ag-amount').value);
+    check('...naming the currency AND the network, the address it was sent to, and the full hash',
+      /BTC · Bitcoin/.test(paneA) && paneA.indexOf(BTC_ADDRESS) !== -1 && /e3b0c442/.test(paneA), paneA.slice(0, 400));
+    check('...and how many clients share that address, since the PM must confirm the hash is THIS client\'s',
+      /Shared with\s*2 clients/.test(paneA), paneA.slice(0, 400));
+
+    Q.getElementById('ag-amount').value = '4250.5';
+    Q.getElementById('ag-approve').click();
     await pollUntil(async () => (await admin.from('deposit_requests').select('status').eq('id', reqA.id).single()).data.status === 'credited', 30000);
-    await pollUntil(() => pendingEl.textContent.indexOf(reqA.id) === -1 && !/animate-pulse/.test(pendingEl.innerHTML), 30000);
-    [...pendingEl.querySelectorAll('.credit-btn')].find((b) => b.dataset.id === reqB.id).click();
-    Q.getElementById('credit-amount-input').value = '910';
-    Q.getElementById('credit-submit').click();
+    await pollUntil(() => !gateRow(reqA.id) && !/animate-pulse/.test(pendingEl.innerHTML), 30000);
+    await openDep(reqB.id);
+    Q.getElementById('ag-amount').value = '910';
+    Q.getElementById('ag-approve').click();
     await pollUntil(async () => (await admin.from('deposit_requests').select('status').eq('id', reqB.id).single()).data.status === 'credited', 30000);
     const stA = (await admin.from('account_state').select('unallocated_capital').eq('client_id', A.id).single()).data;
     const stB = (await admin.from('account_state').select('unallocated_capital').eq('client_id', B.id).single()).data;
     check('★ both credited through the real UI at DIFFERENT PM-entered amounts, each landing on its own account',
       Number(stA.unallocated_capital) === 4250.5 && Number(stB.unallocated_capital) === 910, JSON.stringify([stA, stB]));
-    await pollUntil(() => Q.getElementById('history-list').textContent.indexOf(reqB.id) !== -1 && !/animate-pulse/.test(Q.getElementById('history-list').innerHTML), 30000);
-    const histRowA = [...Q.querySelectorAll('#history-list tr')].find((tr) => tr.textContent.indexOf(reqA.id) !== -1);
-    check('History shows "—" for the requested amount and the credited figure WITHOUT a spurious "(differs)"',
-      histRowA && /—/.test(histRowA.textContent) && /4,251|4,250/.test(histRowA.textContent) && !/differs/.test(histRowA.textContent), histRowA && histRowA.textContent);
+
+    Q.getElementById('ag-view-history').click();
+    await pollUntil(() => Q.querySelectorAll('#ag-hrows .ag-hrow').length > 0
+      && Q.getElementById('ag-hrows').textContent.indexOf('DEP-' + String(reqA.id).slice(0, 8)) !== -1, 30000);
+    const histRowA = [...Q.querySelectorAll('#ag-hrows .ag-hrow')].find((tr) => tr.textContent.indexOf('DEP-' + String(reqA.id).slice(0, 8)) !== -1);
+    check('★ History shows the credited figure WITHOUT a spurious "(differs)" — nothing was requested to differ from',
+      histRowA && /4,251|4,250/.test(histRowA.textContent) && !histRowA.querySelector('.ag-differs'), histRowA && histRowA.textContent);
 
     // The address book now shows a real "last deposit" for both clients.
     bookDom = buildPageDom(bookPath);
@@ -326,19 +355,19 @@ async function main() {
 
     // ===== PART 4: remove both -> retired, and the retired address cannot be reassigned via the UI =====
     console.log('\n=== PART 4: retirement through the real UI ===\n');
-    const removeBtns = [...expanded.querySelectorAll('.remove-btn')];
+    const removeBtns = [...(ownExpand() || expanded).querySelectorAll('.remove-btn')];
     removeBtns[0].click();
     check('removing the first of two clients does NOT warn about retirement', D.getElementById('remove-retire-warning').classList.contains('hidden'));
     D.getElementById('remove-submit').click();
-    await pollUntil(() => !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML) && /1 client(?!s)/.test(D.getElementById('addresses-list').textContent), 30000);
-    const lastRemove = D.querySelector('.expand-row .remove-btn');
+    await pollUntil(() => !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML) && /1 client(?!s)/.test(ownRowText()), 30000);
+    const lastRemove = ownExpand().querySelector('.remove-btn');
     lastRemove.click();
     check('★ removing the LAST client warns that the address will be retired permanently',
       !D.getElementById('remove-retire-warning').classList.contains('hidden') && /permanently/.test(D.getElementById('remove-retire-warning').textContent));
     D.getElementById('remove-submit').click();
     await pollUntil(async () => (await admin.from('deposit_addresses').select('status').eq('id', btcRow.id).single()).data.status === 'retired', 30000);
-    await pollUntil(() => /Retired/.test(D.getElementById('addresses-list').textContent) && !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML), 30000);
-    check('the row now reads Retired / "Previously 2 clients"', /Previously 2 clients/.test(D.getElementById('addresses-list').textContent), D.getElementById('addresses-list').textContent.slice(0, 200));
+    await pollUntil(() => /Retired/.test(ownRowText()) && !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML), 30000);
+    check('the row now reads Retired / "Previously 2 clients"', /Previously 2 clients/.test(ownRowText()), ownRowText().slice(0, 200));
     check('...and offers no Assign control anywhere for it', ![...D.querySelectorAll('.assign-btn')].some((b) => b.dataset.address === btcRow.id));
     const retireDirect = await admin.from('deposit_address_assignments').insert({ address_id: btcRow.id, client_id: C.id, currency: 'BTC', network: 'Bitcoin' });
     check('★★ and the DATABASE refuses a direct reassignment regardless of any UI', !!retireDirect.error && /DEPOSIT_ADDRESS_RETIRED/.test(retireDirect.error.message), JSON.stringify(retireDirect.error));

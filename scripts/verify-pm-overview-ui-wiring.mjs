@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// verify-pm-overview-ui-wiring.mjs — PM tool revamp, part 2: the Overview as a briefing and
-// the Approvals landing, driven as real DOMs (2026-09-14).
+// verify-pm-overview-ui-wiring.mjs — PM tool revamp, part 2: the Overview as a briefing,
+// driven as a real DOM (2026-09-14; the Approvals-landing half retired at part 3, row 228).
 //
 //   npm run verify-pm-overview-ui-wiring      (from scripts/; functions serve must be running)
 //
-// The REAL admin.html / admin-approvals.html body markup and the REAL inline scripts
+// The REAL admin.html body markup and its REAL inline script
 // (extracted verbatim) run in real jsdom windows against the real local stack with a real
 // admin session — the harness shape every UI-wiring suite here uses. Each rendered figure is
 // compared to an independent read of its source (a direct DB query, or the payload read
@@ -168,9 +168,9 @@ async function main() {
 
       console.log('\n--- Needs you first ---\n');
       const needRows = [...D.querySelectorAll('#panel-needs .ov-r')];
-      check('rows render oldest first, the 3-day withdrawal leading, hot, with its amount and a link into the withdrawals queue', needRows.length >= 2 && new RegExp('Withdrawal · ' + A.name).test(needRows[0].textContent) && needRows[0].querySelector('.ov-rage').classList.contains('is-hot') && /\$40,000/.test(needRows[0].textContent) && /admin-withdrawals\.html/.test(needRows[0].getAttribute('href')), needRows[0] && needRows[0].textContent);
+      check('rows render oldest first, the 3-day withdrawal leading, hot, with its amount and a link into the approval gate', needRows.length >= 2 && new RegExp('Withdrawal · ' + A.name).test(needRows[0].textContent) && needRows[0].querySelector('.ov-rage').classList.contains('is-hot') && /\$40,000/.test(needRows[0].textContent) && /admin-approvals\.html/.test(needRows[0].getAttribute('href')), needRows[0] && needRows[0].textContent);
       check('the 5-hour crypto deposit is not hot and names its network', needRows.some((r) => /Crypto deposit/.test(r.textContent) && /BTC · Bitcoin · hash provided/.test(r.textContent) && !r.querySelector('.ov-rage').classList.contains('is-hot')));
-      check('the pending application links to the applications page', needRows.some((r) => new RegExp('Client application · ' + B.name).test(r.textContent) && /admin-client-applications\.html/.test(r.getAttribute('href'))));
+      check('the pending application links to the approval gate', needRows.some((r) => new RegExp('Client application · ' + B.name).test(r.textContent) && /admin-approvals\.html/.test(r.getAttribute('href'))));
 
       console.log('\n--- Since you last looked ---\n');
       check('the stamp is the previous session\'s last read (40 minutes ago, today)', /^today, \d\d:\d\d$/.test(D.getElementById('since-stamp').textContent), D.getElementById('since-stamp').textContent);
@@ -184,7 +184,7 @@ async function main() {
 
       console.log('\n--- Coming up ---\n');
       const dueRows = [...D.querySelectorAll('#panel-coming .ov-r')];
-      check('the pocket maturing in 4 days: amount, soon, linking to the HYS page', dueRows.some((r) => /Savings pocket matures/.test(r.textContent) && /\$10,000/.test(r.textContent) && /in 4 days/.test(r.textContent) && r.querySelector('.ov-dv span').classList.contains('is-soon') && /admin-hys\.html/.test(r.getAttribute('href'))));
+      check('the pocket maturing in 4 days: amount, soon, linking to the approval gate', dueRows.some((r) => /Savings pocket matures/.test(r.textContent) && /\$10,000/.test(r.textContent) && /in 4 days/.test(r.textContent) && r.querySelector('.ov-dv span').classList.contains('is-soon') && /admin-approvals\.html/.test(r.getAttribute('href'))));
       check('★ the quarterly fund valued 100 days ago reads as an OVERDUE NAV publication with its last valuation date and price', dueRows.some((r) => /NAV publication overdue · Overview Quarterly Fund/.test(r.textContent) && new RegExp('Valued quarterly · last ' + lastValued).test(r.textContent) && /\$646\.04/.test(r.textContent) && /days overdue/.test(r.textContent)));
       check('the unsigned document reads with its age', dueRows.some((r) => new RegExp('Document unsigned · ' + A.name).test(r.textContent) && /10 days unsigned/.test(r.textContent)));
       check('the monthly snapshot is labelled honestly (no statements are generated)', dueRows.some((r) => /Monthly portfolio value snapshot/.test(r.textContent) && /no client statements are generated yet/.test(r.textContent)));
@@ -230,28 +230,27 @@ async function main() {
       await waitFor(() => dom2.window.document.querySelectorAll('[data-retry]').length === 8, 5000);
       check('every one of the eight panels shows the error card with a Try Again', dom2.window.document.querySelectorAll('[data-retry]').length === 8, String(dom2.window.document.querySelectorAll('[data-retry]').length));
 
-      // ---------------------------------------------------------------- the Approvals landing
-      console.log('\n--- The real admin-approvals.html ---\n');
-      const dom3 = buildPageDom(extractBodyMarkup(PROJECT_ROOT + 'admin-approvals.html'), 'http://127.0.0.1:8765/admin-approvals.html');
-      globalThis.window = dom3.window; globalThis.document = dom3.window.document;
-      dom3.window.MarketswaveData = dom.window.MarketswaveData;
-      const D3 = dom3.window.document;
-      dom3.window.eval(extractInlineScript(PROJECT_ROOT + 'admin-approvals.html', 'Approvals landing'));
-      await waitFor(() => D3.getElementById('approvals-total').textContent !== '—', 20000);
-      const expected = {};
-      expected['pending-client-applications-count'] = (await admin.from('clients').select('id').eq('status', 'pending_review')).data.length;
-      for (const [id, t] of [['pending-deposits-count', 'deposit_requests'], ['pending-withdrawals-count', 'withdrawal_requests'], ['pending-allocations-count', 'allocation_requests'], ['pending-sells-count', 'sell_requests'], ['pending-hys-count', 'hys_deposit_requests'], ['pending-hys-withdrawals-count', 'hys_withdrawal_requests'], ['pending-settings-changes-count', 'profile_change_requests']]) {
-        expected[id] = (await admin.from(t).select('id').eq('status', 'pending')).data.length;
-      }
-      for (const id of Object.keys(expected)) {
-        await waitFor(() => D3.getElementById(id).textContent !== '—', 20000);
-        check('landing card "' + id + '" = the real DB count (' + expected[id] + ')', D3.getElementById(id).textContent === String(expected[id]), D3.getElementById(id).textContent);
-      }
-      const total = Object.values(expected).reduce((s, n) => s + n, 0);
-      check('the band totals every queue (' + total + ') and the overdue card is amber with the oldest age', D3.getElementById('approvals-total').textContent === String(total) && D3.getElementById('approvals-overdue-card').classList.contains('is-urgent') && /Oldest waiting/.test(D3.getElementById('approvals-overdue-sub').textContent), D3.getElementById('approvals-overdue-sub').textContent);
-      const links = [...D3.querySelectorAll('#approval-queues a')].map((a) => a.getAttribute('href'));
-      check('★ every one of the seven queue pages is linked from the landing (still reachable until part 3)', ['admin-client-applications.html', 'admin-deposits.html', 'admin-withdrawals.html', 'admin-allocations.html', 'admin-sells.html', 'admin-hys.html', 'admin-profile-updates.html'].every((h) => links.indexOf(h) !== -1), links.join(','));
-      check('the withdrawals card names its oldest pending age in the hot tone', /Oldest waiting 3 days/.test(D3.querySelector('[data-oldest="withdrawals"]').textContent) && D3.querySelector('[data-oldest="withdrawals"]').classList.contains('ov-hot'));
+      // ── The Approvals landing — RETIRED (register row 228). ───────────────────────────
+      // Part 2 built admin-approvals.html as an interim landing of seven queue cards linking
+      // to the seven per-type pages. Part 3 replaced BOTH: that page is now the approval gate
+      // itself, and the seven pages are deleted. This section's coverage MOVED rather than
+      // being dropped:
+      //
+      //   a per-type pending count equal to the real DB count
+      //        -> verify-admin-approval-gate-ui-wiring, PART 1 (the filter pills, each
+      //           compared against an independent Postgres count)
+      //   the band totalling every queue
+      //        -> the same suite's "the All pill equals the real total pending across all
+      //           seven sources"
+      //   the overdue/oldest-waiting treatment
+      //        -> the same suite's urgency assertions ("every row Postgres says is over a day
+      //           old is rendered in the urgent group", and the two group headings)
+      //   the seven queue pages being reachable
+      //        -> no longer a behaviour: there is one page, and every type is reachable from
+      //           its own filter pill, which the pill assertions above already prove.
+      //
+      // Nothing from this section is unasserted. The briefing coverage above is unaffected.
+
     } finally { clearInterval(keepAlive); }
   } finally {
     console.log('\n(cleanup)');

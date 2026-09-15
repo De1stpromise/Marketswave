@@ -319,9 +319,12 @@ async function main() {
 
     // ---------------------------------------------------------------- PART 2: admin geometry + palette
     console.log('\nPART 2 — admin: same shape, its own locked palette\n');
-    const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-deposits.html', 'admin-withdrawals.html',
-      'admin-allocations.html', 'admin-sells.html', 'admin-hys.html', 'admin-clients.html',
-      'admin-products.html', 'admin-documents.html', 'admin-inbox.html', 'admin-profile-updates.html', 'admin-presence.html'];
+    // The seven per-type queue pages were deleted when the approval gate replaced them
+    // (register row 228); admin-approvals.html IS the gate and carries every control they
+    // had - Approve/Credit/Reject, the amount field, the reason field, the filter pills.
+    const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-clients.html',
+      'admin-products.html', 'admin-documents.html', 'admin-inbox.html', 'admin-deposit-addresses.html',
+      'admin-advisory-fee.html', 'admin-security.html', 'admin-presence.html'];
     let aA = 0, aC = 0, aF = 0;
     const aBad = [], navyLeak = [];
     for (const page of ADMIN_PAGES) {
@@ -671,7 +674,7 @@ async function main() {
           await goto(cdp, BASE + '/' + page, clientBootstrap);
           await shot(cdp, 'after-' + page.replace('.html', '') + '-' + w);
         }
-        for (const page of ['admin-deposits.html', 'admin-products.html']) {
+        for (const page of ['admin-approvals.html', 'admin-products.html']) {
           await goto(cdp, BASE + '/' + page, adminBootstrap);
           await shot(cdp, 'after-' + page.replace('.html', '') + '-' + w);
         }

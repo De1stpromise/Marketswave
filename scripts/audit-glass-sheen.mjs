@@ -171,7 +171,8 @@ const WAIT = '(async()=>{const nap=(ms)=>new Promise(r=>setTimeout(r,ms));for(le
 
 const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'signup.html', 'login.html', 'thank-you.html', 'reset-password.html'];
 const CLIENT_PAGES = ['dashboard.html', 'asset-performance.html', 'asset-collection.html', 'high-yield-savings.html', 'transactions.html', 'documents.html', 'risk-management.html', 'deploy-capital.html', 'settings.html', 'support.html'];
-const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-clients.html', 'admin-client-applications.html', 'admin-deposits.html', 'admin-withdrawals.html', 'admin-allocations.html', 'admin-sells.html', 'admin-hys.html', 'admin-profile-updates.html', 'admin-documents.html', 'admin-advisory-fee.html', 'admin-security.html', 'admin-products.html', 'admin-deposit-addresses.html', 'admin-inbox.html', 'admin-presence.html'];
+// The seven per-type queue pages were deleted when the approval gate replaced them (row 228).
+const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-clients.html', 'admin-documents.html', 'admin-advisory-fee.html', 'admin-security.html', 'admin-products.html', 'admin-deposit-addresses.html', 'admin-inbox.html', 'admin-presence.html'];
 const NOAUTH_PAGES = ['admin-login.html'];
 
 async function main() {

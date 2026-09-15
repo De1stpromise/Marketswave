@@ -128,8 +128,12 @@ async function main() {
   }));
   const { data: pocket, error: pErr } = await admin.from('hys_pockets').insert({
     client_id: id, pocket_type: 'fixed', amount: 5000, status: 'matured', term_mode: 'short',
-    term_months: 12, term_label: '12 months', rate: 0.048, term_in_years: 1,
-    maturity_date: '2026-01-01', projected_interest: 240, funding_method: 'unallocated capital'
+    // ★ rate is a PERCENT, not a fraction — getHysRate() returns 12 for a 12-month
+    // short-term pocket and credit-hys-deposit computes amount * (rate/100) * years.
+    // Seeded at 0.048 this was a 0.048% pocket, a value the real request path cannot
+    // produce; 5000 * 12% * 1 = 600 is the real projected interest.
+    term_months: 12, term_label: '12 months', rate: 12, term_in_years: 1,
+    maturity_date: '2026-01-01', projected_interest: 600, funding_method: 'unallocated capital'
   }).select('id').single();
   if (pErr) throw new Error('hys_pockets: ' + pErr.message);
   must('client_profiles')(await admin.from('client_profiles').insert({
@@ -161,7 +165,7 @@ async function main() {
   }));
   must('hys_deposit_requests')(await admin.from('hys_deposit_requests').insert({ // 6 (internal)
     client_id: id, pocket_type: 'fixed', term_mode: 'short', term_months: 12, term_label: '12 months',
-    rate: 0.048, term_in_years: 1, requested_amount: 2000, method: 'internal', currency: 'USD',
+    rate: 12, term_in_years: 1, requested_amount: 2000, method: 'internal', currency: 'USD',
     status: 'pending', requested_at: new Date().toISOString()
   }));
   must('hys_withdrawal_requests')(await admin.from('hys_withdrawal_requests').insert({ // 7

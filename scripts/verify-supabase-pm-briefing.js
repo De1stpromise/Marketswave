@@ -212,8 +212,11 @@ async function main() {
     const ap = b.approvals;
     check('approvals are ordered oldest first and the 3-day withdrawal leads', ap[0].type === 'withdrawal' && ap[0].clientName === A.name && ap[0].amount === 40000 && ap[0].hot === true, JSON.stringify(ap[0]));
     check('hot = older than 24h; the 5-hour crypto deposit is not hot and names its network and hash state', ap.some((a) => a.type === 'deposit' && a.hot === false && /BTC · Bitcoin · hash provided/.test(a.detail)), JSON.stringify(ap.filter((a) => a.type === 'deposit')));
-    check('the pending application appears as an approval with its own href', ap.some((a) => a.type === 'application' && a.clientName === B.name && a.href === 'admin-client-applications.html'));
-    check('every approval links into its queue page', ap.every((a) => /^admin-(client-applications|deposits|withdrawals|allocations|sells|hys|profile-updates)\.html$/.test(a.href)));
+    check('the pending application appears as an approval with its own href', ap.some((a) => a.type === 'application' && a.clientName === B.name && a.href === 'admin-approvals.html'));
+    // Every approval now points at the ONE approval gate (register row 228) — the seven
+    // per-type pages are deleted, so a per-type href would be a link to a 404.
+    check('every approval links into the approval gate', ap.length > 0 && ap.every((a) => a.href === 'admin-approvals.html'),
+      JSON.stringify([...new Set(ap.map((a) => a.href))]));
 
     // ---------------------------------------------------------------- 3. since you last looked
     console.log('\n--- 3. Since you last looked ---\n');

@@ -3,8 +3,8 @@
 The patterns the PM tool revamp establishes, recorded so that the later pages — the client
 profile, the approval queues — apply a documented vocabulary rather than a remembered
 impression. Part 1 (the inbox, 2026-09-14) set §1–§9; part 2 (the navigation and the briefing, the same
-day) added §10–§12; each later part extends this file rather than inventing a second version
-of anything here.
+day) added §10–§12; part 3 (the approval gate, 2026-09-15) added §13; each later part extends
+this file rather than inventing a second version of anything here.
 
 Every value below is measured, not chosen by eye: contrast on real composited pixels
 (`verify-contrast.mjs`, profiles `inbox-ticket` / `inbox-email`), fonts by real advance width,
@@ -131,8 +131,9 @@ assistive tech in a visually-hidden span. The footer is the account: role and si
 No display name exists and none is invented. The rail is `#0F172A`, 238px; the active item is
 the single accent (`#B45309`); every item is a real link with `aria-current`.
 
-A family of pages that one item stands for (the seven approval queues) marks the item active
-through `aliases` — the PM never sees a nav with nothing highlighted.
+A family of pages that one item stands for marks the item active through `aliases` — the PM
+never sees a nav with nothing highlighted. (The seven approval queues were that family until
+part 3 replaced them with one page; the mechanism stays in `navHTML()` for the next one.)
 
 ## 11. The briefing (part 2)
 
@@ -157,6 +158,47 @@ look, system health.
 
 ## 12. Interim pages
 
-When a nav item stands for work not yet rebuilt (Approvals before part 3), it opens a
-**landing** that links every page it stands for, with the same counts and ages the sidebar
-badge sums — never a nav item pointing at a page that does not exist, never a dead end.
+When a nav item stands for work not yet rebuilt, it opens a **landing** that links every page
+it stands for, with the same counts and ages the sidebar badge sums — never a nav item pointing
+at a page that does not exist, never a dead end. The Approvals landing was the one instance and
+is **superseded**: part 3 replaced it, at the same filename, with the gate itself.
+
+## 13. The approval gate (part 3)
+
+One page for all seven request types: one pending queue, one history, **seven panel shapes**.
+The split is the point — the QUEUE unifies *seeing*, so "what needs me" has a single answer
+ordered oldest-first; the PANEL is shaped by the type so *doing* stays correct. A generic panel
+would have made every approval look alike, which is exactly the property that must not hold
+when one of them moves real money and another does not.
+
+- **Every row carries the five things a PM triages by**: the type (a word in a chip, never
+  colour alone — §6), what it is, WHO it is, how much, and how long it has waited. The type
+  pills above the queue each carry their own live count; "All" is the sum.
+- **Urgency is a grouping, not a badge** (§1): "Waiting more than a day" above "Today", and a
+  hot age (`#B45309`) on the row itself. An "Oldest waiting N" badge sits beside the title.
+- **★ THE PANEL SAYS WHICH RE-VALIDATION WILL RUN, because they are not uniform.**
+  `approve-allocation` re-reads unallocated capital, `approve-withdrawal` re-reads it against
+  the PM-entered amount, `approve-sell` re-reads held units, `credit-hys-deposit` re-reads
+  unallocated for an internal transfer only, `approve-hys-withdrawal` re-reads the pocket.
+  **`credit-deposit` has no balance check and correctly so** — crediting is money ARRIVING, so
+  there is nothing to exceed. Stating the real check per type is honest; implying a uniform one
+  would not be.
+- **A PM-editable amount exists only where settlement is genuinely uncertain** — an external
+  deposit, a withdrawal, an external HYS deposit. An internal transfer's field is `readonly`
+  AND refused server-side, because a UI control is not a constraint. Where an amount a PM
+  entered diverges from what was requested, history marks it `(differs)` — never left to be
+  spotted.
+- **★ ATTRIBUTION IS WRITTEN AND NEVER RENDERED.** `resolved_by` / `resolved_by_email` keep
+  being written by every Edge Function and appear nowhere: not in a row, not in a title, **not
+  in a visually-hidden span** — a hidden field is still a displayed field to a screen reader,
+  and this would be the only place in the product where a PM's email surfaces. It returns with
+  multi-PM.
+- **★ NARROW WIDTHS RESTACK, THEY DO NOT HIDE.** The first cut of the gate's own rule dropped
+  `.ag-who` and `.ag-age` below 1000px, which left a phone showing rows a PM could not tell
+  apart and removed the one signal the queue is ordered by. Both survive on a second line; what
+  goes is the avatar, the type-specific context line, and history's column HEADER — never its
+  content. Below 560px the panel is full-bleed. **Verify this by reading the rendered text of
+  each part, not by checking that the grid collapsed** (§V, the vacuity pattern).
+- **Surfaces**: the gate is white `.ag-*` cards on the page ground, with **no `.glass`
+  anywhere** — deliberately, and asserted, so the sheen question does not arise on it at all.
+  Secondary 10px text is `#475569`; `#64748B` measured 4.34–4.40:1 there and does not pass.

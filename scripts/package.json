@@ -99,7 +99,8 @@
     "verify-catalog-expansion": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-catalog-expansion.mjs",
     "verify-allocation-donut": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-allocation-donut.mjs",
     "verify-allocation-donut-visual": "node verify-allocation-donut-visual.mjs",
-    "seed-approval-gate-fixtures": "node seed-approval-gate-fixtures.mjs"
+    "seed-approval-gate-fixtures": "node seed-approval-gate-fixtures.mjs",
+    "verify-approval-gate-visual": "node verify-approval-gate-visual.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

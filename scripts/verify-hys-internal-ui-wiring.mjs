@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // ★ Savings deposit from unallocated capital (2026-09-11) — UI verification.
 //
-// Drives the REAL, unmodified inline scripts of high-yield-savings.html AND admin-hys.html
+// Drives the REAL, unmodified page scripts of high-yield-savings.html AND the approval
+// gate (admin-hys.html was retired at row 228; its half of this suite moved with it)
 // inside real jsdom DOMs built from each page's own <body> markup, against the REAL local
 // Supabase stack and the REAL Edge Functions — the same harness every UI-wiring stage in this
 // project has used since Stage 2, reused verbatim rather than re-derived.
@@ -169,7 +170,12 @@ async function main() {
     check('...and no capital has moved yet', (await admin.from('account_state').select('unallocated_capital').eq('client_id', clientId).single()).data.unallocated_capital === 45000);
     const requestId = reqRows[0].id;
 
-    // ===== PART 2: admin-hys.html =====
+    // ===== PART 2: the approval gate =====
+    // admin-hys.html was deleted when the approval gate replaced all seven queue pages
+    // (register row 228). The behaviours this section proves are unchanged and still belong
+    // to this domain, so they were repointed at the page that carries them now rather than
+    // moved into the gate suite: a PM can tell an internal transfer from an external one at a
+    // glance, cannot edit its amount, and approving it genuinely moves real capital.
     console.log('\n=== PART 2: the PM can tell it apart and cannot edit the amount ===\n');
     // Admin Auth Consolidation (2026-09-05): useAdminClient()'s own ensureSupabaseAdminSignedIn()
     // redirects to the login page when no session exists, so the PM must be signed in on
@@ -182,39 +188,41 @@ async function main() {
     check('real PM sign-in succeeds', !adminSignInErr, adminSignInErr && adminSignInErr.message);
     await MarketswaveData.useAdminClient();
 
-    const adminPath = fileURLToPath(new URL('../admin-hys.html', import.meta.url));
+    // The gate's logic lives in an external file, not an inline block — so the body markup is
+    // built the same way and admin-approvals-page.js is evaluated into it.
+    const adminPath = fileURLToPath(new URL('../admin-approvals.html', import.meta.url));
     const adminDom = buildPageDom(adminPath);
     adminDom.window.MarketswaveData = MarketswaveData;
     const A = adminDom.window.document;
-    adminDom.window.eval(extractInlineScript(adminPath, 'Admin UI Wiring'));
+    adminDom.window.eval(readFileSync(fileURLToPath(new URL('../admin-approvals-page.js', import.meta.url)), 'utf8'));
 
-    const pendingEl = A.getElementById('pending-list');
-    await pollUntil(() => pendingEl.textContent.indexOf(requestId) !== -1, 30000);
-    check('the internal transfer appears in the real admin deposit queue',
-      pendingEl.textContent.indexOf(requestId) !== -1);
-    check('★ badged INTERNAL TRANSFER so a PM can tell at a glance',
-      /Internal Transfer/.test(pendingEl.textContent), pendingEl.textContent.slice(0, 200));
-    check('...with an explicit note that there is no incoming payment to confirm',
-      /No incoming payment to confirm/i.test(pendingEl.textContent));
-    check('...and the action reads Approve Transfer rather than Credit',
-      /Approve Transfer/.test(pendingEl.textContent));
+    const queueEl = A.getElementById('ag-queue');
+    await pollUntil(() => !/animate-pulse/.test(queueEl.innerHTML)
+      && queueEl.querySelector('.ag-row[data-kind="hys"][data-id="' + requestId + '"]'), 30000);
+    const gateRow = queueEl.querySelector('.ag-row[data-kind="hys"][data-id="' + requestId + '"]');
+    check('the internal transfer appears in the real approval gate', !!gateRow);
+    const rowText = (gateRow.textContent || '').replace(/\s+/g, ' ');
+    check('★ the row says it is an internal transfer from unallocated, so a PM can tell at a glance',
+      /Internal transfer from unallocated/i.test(rowText), rowText.slice(0, 200));
+    check('...and shows the client\'s real unallocated balance as the context a PM needs',
+      /\$45,000/.test(rowText), rowText.slice(0, 200));
 
-    const creditBtn = [...pendingEl.querySelectorAll('.credit-btn')].find((b) => b.dataset.id === requestId);
-    check('the approve control carries the method so the modal can adapt',
-      creditBtn && creditBtn.dataset.method === 'internal', creditBtn && creditBtn.dataset.method);
-    creditBtn.click();
-
-    check('the modal opens retitled for a transfer', A.getElementById('credit-modal-title').textContent === 'Approve Internal Transfer',
-      A.getElementById('credit-modal-title').textContent);
+    gateRow.click();
+    await pollUntil(() => !A.getElementById('ag-scrim').hidden && A.getElementById('ag-pane').innerHTML.length > 0, 8000);
+    const paneText = (A.getElementById('ag-pane').textContent || '').replace(/\s+/g, ' ');
+    check('the panel names the funding as an internal transfer', /Internal transfer from unallocated/i.test(paneText), paneText.slice(0, 240));
+    check('...and states the balance before and after, since this one DOES touch unallocated capital',
+      /\$45,000/.test(paneText) && /\$33,000/.test(paneText), paneText.slice(0, 240));
     check('★ the amount field is genuinely read-only, not merely pre-filled',
-      A.getElementById('credit-amount-input').readOnly === true);
+      A.getElementById('ag-amount').readOnly === true);
     check('...pre-filled with the exact requested amount',
-      String(A.getElementById('credit-amount-input').value) === '12000', A.getElementById('credit-amount-input').value);
-    check('the transfer copy is shown and the external fees/FX copy is hidden',
-      !A.getElementById('credit-internal-copy').classList.contains('hidden') &&
-      A.getElementById('credit-external-copy').classList.contains('hidden'));
+      String(A.getElementById('ag-amount').value) === '12000', A.getElementById('ag-amount').value);
+    check('...and the re-validation note says the amount must match exactly',
+      /must match the requested amount exactly/i.test(paneText), paneText.slice(-220));
+    check('the approve control reads "Credit"', A.getElementById('ag-approve').textContent.trim() === 'Credit',
+      A.getElementById('ag-approve').textContent.trim());
 
-    A.getElementById('credit-submit').click();
+    A.getElementById('ag-approve').click();
     await pollUntil(async () => ((await admin.from('hys_pockets').select('id').eq('client_id', clientId)).data || []).length > 0, 30000);
 
     const finalState = (await admin.from('account_state').select('unallocated_capital').eq('client_id', clientId).single()).data;

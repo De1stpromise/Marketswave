@@ -251,11 +251,12 @@ async function main() {
 
     console.log('\n=== CONTRAST — real composited pixels on every new surface ===\n');
     runContrast('hys-internal', 'high-yield-savings.html', 'client funding step', clientBootstrap, PREPARE_CLIENT);
-    runContrast('hys-internal-admin', 'admin-hys.html', 'admin queue', adminBootstrap, '');
+    // admin-hys.html was retired with the other six queue pages (register row 228). The
+    // internal-transfer row, its read-only amount field and its re-validation note are
+    // measured on the page that carries them now by verify-approval-gate-visual.mjs.
 
     console.log('\n=== FONTS — Inter only ===\n');
     runFonts('high-yield-savings.html', 'high-yield-savings.html', clientBootstrap);
-    runFonts('admin-hys.html', 'admin-hys.html', adminBootstrap);
 
     console.log('\n=== MOBILE — 1440/390/375/320 ===\n');
     const cdp = await connectChrome();

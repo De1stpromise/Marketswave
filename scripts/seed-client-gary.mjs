@@ -137,6 +137,9 @@ const PRICE_ANCHORS = {
 
 const CEILING_VALUE = 35740;
 const CEILING_RETURN = 21370;
+/* The trailing pending allocation request. Module scope so hard gate 8 can check it
+ * against the replayed ending cash BEFORE anything is written. */
+const PENDING_ALLOC = 100;
 
 /* Crypto deposit addresses. Structurally valid for their networks (see
  * _shared/deposit-address-validation.ts) but not wallets anyone controls — this is seed data. */
@@ -449,9 +452,17 @@ async function writeEverything(db, uid, R, snaps, bySym) {
     }));
   }
 
+  /* ★ THE TRAILING PENDING REQUEST MUST BE AFFORDABLE AT THE END STATE, and it was not.
+   * This was seeded at $1,500 against an ending unallocated balance of $106.01, so
+   * approve-allocation's own re-validation would refuse it forever — a request that can
+   * never be approved is not a decidable fixture, and row 228 expected exactly the opposite
+   * (Gary's allocation approved THROUGH the gate). The seven hard gates below all check the
+   * REPLAYED timeline; none of them looked at the row appended after it. PENDING_ALLOC is
+   * sized against the real ending cash and the product's own minimum, and gate 8 now refuses
+   * to write if it ever drifts out of range again. */
   const twoDaysAgo = new Date(Date.now() - 2 * 864e5).toISOString();
   must('allocation_requests')(await db.from('allocation_requests').insert({
-    client_id: uid, product_id: pid('ETH'), requested_amount: 1500, status: 'pending', requested_at: twoDaysAgo,
+    client_id: uid, product_id: pid('ETH'), requested_amount: PENDING_ALLOC, status: 'pending', requested_at: twoDaysAgo,
   }));
 
   /* Four real documents both directions, plus the two CARRIERS for data that has no column
@@ -542,7 +553,7 @@ async function main() {
   console.log(`    ${url}\n`);
 
   const symbols = [...new Set([...BUYS.map((b) => b[1]), ...SELLS.map((s) => s[1]), 'TSLA'])];
-  const { data: prods, error: pErr } = await db.from('products').select('id, ticker, name, unit_price').in('ticker', symbols);
+  const { data: prods, error: pErr } = await db.from('products').select('id, ticker, name, unit_price, minimum_investment').in('ticker', symbols);
   if (pErr) throw new Error('products read failed: ' + pErr.message);
   const bySym = Object.fromEntries(prods.map((p) => [String(p.ticker).toUpperCase(), p]));
   const missing = symbols.filter((s) => !bySym[s]);
@@ -576,6 +587,17 @@ async function main() {
   if (!R.positions.some((p) => p.value < p.cb)) fail.push('no position is at a loss - the red states would not render');
   if (R.closed.filter((c) => c.full).length !== 1) fail.push('expected exactly one full close');
   if (R.closed.filter((c) => !c.full).length !== 2) fail.push('expected exactly two partial sells');
+  /* ★ GATE 8 — the trailing pending allocation must be genuinely decidable at the END
+   * state, in BOTH directions. Every gate above checks the replayed timeline; this row is
+   * appended after it, and it was seeded at $1,500 against $106.01 of ending cash, so
+   * approve-allocation would have refused it forever. A fixture whose one pending request
+   * can never be approved is not a fixture. */
+  // bySym holds the real product ROW; `live` is ticker -> unit_price only, so the minimum
+  // must be read from bySym or this check silently degrades to its own fallback.
+  const ethMin = Number((bySym.ETH || {}).minimum_investment);
+  if (!Number.isFinite(ethMin)) fail.push('ETH carries no minimum_investment — gate 8 cannot be evaluated');
+  if (PENDING_ALLOC > R.cash) fail.push(`the pending allocation $${PENDING_ALLOC} exceeds ending unallocated $${R.cash.toFixed(2)} — it could never be approved`);
+  if (PENDING_ALLOC < ethMin) fail.push(`the pending allocation $${PENDING_ALLOC} is below ETH's own $${ethMin} minimum — it could never be approved`);
   if (fail.length) {
     console.error('REFUSING TO WRITE - the solved history breaches a constraint:');
     fail.forEach((f) => console.error('   x ' + f));

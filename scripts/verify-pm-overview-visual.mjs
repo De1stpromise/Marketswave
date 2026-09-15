@@ -11,7 +11,8 @@
 // green dot on "On the site" while a real session is live (and its hidden count), the footer
 // carrying the role and the real sign-in email with no display name, a real Log out control;
 // contrast on every panel with the sheen composited (verify-contrast.mjs profiles pm-overview
-// / pm-approvals, plus audit-glass-sheen.mjs on both pages); fonts by real advance width; the
+// (admin-approvals.html's own contrast and layout belong to verify-approval-gate-visual.mjs
+// since part 3 replaced the landing with the gate); fonts by real advance width; the
 // layout at 1440 / 390 / 375 and a real 320px iframe (viewport-integrity guarded, since the
 // top-level override floors at 348px on this build — row 170).
 import { execSync, spawnSync, spawn } from 'node:child_process';
@@ -225,9 +226,9 @@ async function main() {
     console.log('--- Contrast: real composited pixels, sheen ON ---\n');
     const PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.an-item').length === 10 && /Price refresh/.test(document.getElementById('panel-health').textContent) && !document.getElementById('sidebar-approvals-count').hidden) break; await nap(200); } await nap(800); })()`;
     runContrast('pm-overview', 'admin.html', 'admin.html (briefing)', adminBootstrap, PREP);
-    const PREP_APPR = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.an-item').length === 10 && document.getElementById('approvals-total').textContent !== '—' && document.querySelector('[data-oldest].ov-hot')) break; await nap(200); } await nap(800); })()`;
-    runContrast('pm-approvals', 'admin-approvals.html', 'admin-approvals.html (landing)', adminBootstrap, PREP_APPR);
-    runSheen('admin.html,admin-approvals.html', 'admin.html + admin-approvals.html');
+    // admin-approvals.html is the approval gate now, not part 2's landing (row 228) — its
+    // contrast, its sheen and its phone layout are verify-approval-gate-visual.mjs's own job.
+    runSheen('admin.html', 'admin.html');
 
     console.log('\n--- Fonts ---\n');
     runFonts('admin.html', 'admin.html', adminBootstrap);
@@ -255,19 +256,19 @@ async function main() {
       check('1440px: four attention cards across, two panel columns, no horizontal overflow', lay.att === 4 && lay.cols === 2 && lay.bodyScroll <= 1440 && lay.maxRight <= 1441, JSON.stringify(lay));
       check('1440px: the overdue card is the amber urgent card with an amber figure; hot ages and a degraded health line are on screen', /255, 251, 235|rgba\(255, 251, 235/.test(lay.urgentBg) && lay.urgentColor === 'rgb(180, 83, 9)' && lay.hot >= 1 && lay.hzWarn >= 1 && lay.panels === 8, JSON.stringify(lay));
 
-      // A queue page highlights Approvals (alias), and the badges persist across pages.
-      await cdp.send('Page.navigate', { url: BASE + '/admin-deposits.html' }); await cdp.evaluate(WAIT);
+      // The badges persist across pages. (The "a queue page aliases to Approvals" assertion
+      // that used to sit here went with the seven queue pages themselves — row 228. There is
+      // one Approvals page now, and its own active state is asserted below.)
+      await cdp.send('Page.navigate', { url: BASE + '/admin-clients.html' }); await cdp.evaluate(WAIT);
       const sbQ = await cdp.evaluate(SIDEBAR);
-      check('★ on admin-deposits.html the active item is "Approvals" (the seven queue pages alias to it)', sbQ.on.join() === 'Approvals', sbQ.on.join());
-      check('the counts render on a queue page too', sbQ.approvals && sbQ.approvals.text === String(exp.approvals) && sbQ.inbox && sbQ.inbox.text === String(exp.inbox));
+      check('on admin-clients.html the active item is Clients', sbQ.on.join() === 'Clients', sbQ.on.join());
+      check('the counts render on another admin page too', sbQ.approvals && sbQ.approvals.text === String(exp.approvals) && sbQ.inbox && sbQ.inbox.text === String(exp.inbox));
       await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html' }); await cdp.evaluate(WAIT);
       const sbI = await cdp.evaluate(SIDEBAR);
       check('on admin-inbox.html the active item is Inbox', sbI.on.join() === 'Inbox', sbI.on.join());
       await cdp.send('Page.navigate', { url: BASE + '/admin-approvals.html' }); await cdp.evaluate(WAIT);
       const sbA = await cdp.evaluate(SIDEBAR);
-      const links = await cdp.evaluate(`[...document.querySelectorAll('#approval-queues a')].map(a => a.getAttribute('href'))`);
-      check('the Approvals item opens the landing, which is its active page', sbA.on.join() === 'Approvals');
-      check('★ the seven queue pages are all reachable from the landing', ['admin-client-applications.html', 'admin-deposits.html', 'admin-withdrawals.html', 'admin-allocations.html', 'admin-sells.html', 'admin-hys.html', 'admin-profile-updates.html'].every((h) => links.indexOf(h) !== -1), links.join(','));
+      check('the Approvals item opens admin-approvals.html, which is its active page', sbA.on.join() === 'Approvals');
       // Log out is real: click it and land on the login page with no session.
       await cdp.evaluate('document.getElementById("admin-logout-btn").click(); true');
       await sleep(3500);

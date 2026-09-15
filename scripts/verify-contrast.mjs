@@ -307,14 +307,10 @@ PROFILES['hys-internal'] = [
   { label: 'card description', sel: '.np-funding-card[data-method="internal"] p', limit: 1 }
 ];
 
-// The admin queue's own new surfaces: the INTERNAL TRANSFER badge (amber-100/amber-800, the
-// most distinct of the three method badges by design) and the amber explanatory line that
-// replaces the external destination details.
-PROFILES['hys-internal-admin'] = [
-  { label: 'internal badge', sel: '.bg-amber-100.text-amber-800', limit: 1 },
-  { label: 'no-payment-to-confirm note', sel: '#pending-list .text-amber-800:not(.bg-amber-100)', limit: 1 }
-];
-
+// The HYS admin queue's own surfaces moved with the page: admin-hys.html was retired when the
+// approval gate replaced all seven queue pages (register row 228). The internal-transfer row,
+// its panel and its re-validation note are measured by verify-approval-gate-visual.mjs's
+// 'approval-gate' / 'approval-gate-panel' profiles, on the page that carries them now.
 // Crypto deposit routing (2026-09-11). The client-facing address card sits on the page's
 // glass form panel with its own tinted sub-surfaces (an amber warning, a cream address box,
 // an amber pending card) - three grounds that are not the plain white the rest of the form
@@ -355,15 +351,9 @@ PROFILES['deposit-routing-admin'] = [
   { label: 'management head', sel: '.expand-row th', limit: 4 },
   { label: 'management buttons', sel: '.expand-row button', limit: 4 }
 ];
-// The deposits queue: the amount-less line and the amber no-hash note.
-PROFILES['deposit-routing-queue'] = [
-  { label: 'amount-determined line', sel: '#pending-list .italic', limit: 2 },
-  { label: 'no-hash note', sel: '#pending-list .text-amber-800', limit: 2 },
-  { label: 'no-hash lead', sel: '#pending-list .text-amber-700', limit: 2 },
-  { label: 'sent-to / hash', sel: '#pending-list .dep-addr', limit: 4 },
-  { label: 'route figure', sel: '#pending-list .text-base', limit: 2 }
-];
-
+// The deposits queue moved the same way (register row 228): the amount-less row, the no-hash
+// note, the sent-to address and the shared-address count are measured by
+// verify-approval-gate-visual.mjs, on admin-approvals.html.
 // The PM inbox (2026-09-14, PM tool revamp, part 1). Every text surface the rebuilt inbox
 // introduces — the dark rail, the list rows in both read and unread weights, the three sender
 // tags, the ticket case id and status pills, the thread header/context strip, the channel chips,
@@ -474,20 +464,59 @@ PROFILES['pm-overview'] = [
   { label: 'health value (warn)', sel: '.ov-hz .ov-v.is-warn', limit: 3 },
   { label: 'health value (bad)', sel: '.ov-hz .ov-v.is-bad', limit: 2 }
 ];
-// The Approvals landing (the interim page the Approvals nav item opens).
-PROFILES['pm-approvals'] = [
+// The approval gate (2026-09-15, PM tool revamp part 3 — register row 228). admin-approvals.html
+// is no longer part 2's landing: it is the one gate that replaced all seven per-type queue pages.
+// Three profiles, because the three surfaces cannot all be on screen at once — the panel only
+// exists once a row has been clicked, and history only once the History tab is selected, so
+// CONTRAST_PREPARE_JS drives each into view. Every tone is measured in BOTH states where one
+// exists (a filter pill on and off, an urgent row and an ordinary one, an approved history
+// outcome and a rejected one) rather than one standing in for the other.
+PROFILES['approval-gate'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
-  { label: 'heading', sel: 'main h2', limit: 1 },
-  { label: 'lead', sel: 'main h2 + p', limit: 1 },
-  { label: 'band label', sel: '.ov-ac .ov-k', limit: 2 },
-  { label: 'band figure', sel: '.ov-ac .ov-v', limit: 2 },
-  { label: 'band sub', sel: '.ov-ac .ov-x', limit: 2 },
-  { label: 'queue name', sel: '#approval-queues a p.text-sm.font-medium', limit: 8 },
-  { label: 'queue count', sel: '#approval-queues a p.text-3xl', limit: 8 },
-  { label: 'queue oldest', sel: '#approval-queues a p[data-oldest]:not(.ov-hot)', limit: 4 },
-  { label: 'queue oldest (hot)', sel: '#approval-queues a p[data-oldest].ov-hot', limit: 2 }
+  { label: 'page title', sel: '.ag-top h1', limit: 1 },
+  { label: 'page lead', sel: '.ag-top p', limit: 1 },
+  { label: 'oldest badge', sel: '#ag-oldest-text', limit: 1 },
+  { label: 'view tab (on)', sel: '.ag-vt.is-on', limit: 1 },
+  { label: 'view tab (off)', sel: '.ag-vt:not(.is-on)', limit: 1 },
+  { label: 'view tab count', sel: '.ag-vt .ag-n', limit: 1 },
+  { label: 'filter pill (on)', sel: '#ag-filters .ag-fp.is-on', limit: 1 },
+  { label: 'filter pill (off)', sel: '#ag-filters .ag-fp:not(.is-on)', limit: 4 },
+  { label: 'filter pill count', sel: '#ag-filters .ag-fp .ag-n', limit: 4 },
+  { label: 'group heading', sel: '.ag-grp', limit: 2 },
+  { label: 'row type chip', sel: '.ag-row .ag-kind', limit: 5 },
+  { label: 'row title', sel: '.ag-row .ag-what b', limit: 4 },
+  { label: 'row sub', sel: '.ag-row .ag-what span', limit: 4 },
+  { label: 'row client', sel: '.ag-row .ag-nm b', limit: 4 },
+  { label: 'row context', sel: '.ag-row .ag-nm span', limit: 4 },
+  { label: 'row initials', sel: '.ag-row .ag-av', limit: 4 },
+  { label: 'row amount', sel: '.ag-row .ag-amt b', limit: 4 },
+  { label: 'row amount sub', sel: '.ag-row .ag-amt span', limit: 4 },
+  { label: 'row age', sel: '.ag-row .ag-age:not(.is-hot)', limit: 3 },
+  { label: 'row age (hot)', sel: '.ag-row .ag-age.is-hot', limit: 3 }
 ];
-
+// The detail panel, opened by CONTRAST_PREPARE_JS. Its own ground is not the queue's.
+PROFILES['approval-gate-panel'] = [
+  { label: 'panel title', sel: '#ag-pane-title', limit: 1 },
+  { label: 'panel key', sel: '#ag-pane .ag-k', limit: 8 },
+  { label: 'panel value', sel: '#ag-pane .ag-v', limit: 8 },
+  { label: 'panel field label', sel: '#ag-pane .ag-fld label', limit: 2 },
+  { label: 're-validation note', sel: '#ag-pane .ag-warn p', limit: 3 },
+  { label: 'panel buttons', sel: '#ag-pane .ag-pf button', limit: 2 }
+];
+// History, opened by CONTRAST_PREPARE_JS. Both outcome tones and the (differs) marker.
+PROFILES['approval-gate-history'] = [
+  { label: 'history filter (on)', sel: '#ag-hfilters .ag-fp.is-on', limit: 1 },
+  { label: 'history filter (off)', sel: '#ag-hfilters .ag-fp:not(.is-on)', limit: 4 },
+  { label: 'history head', sel: '#ag-hhead > *', limit: 6 },
+  { label: 'history title', sel: '.ag-hrow .ag-what b', limit: 4 },
+  { label: 'history sub', sel: '.ag-hrow .ag-what span', limit: 4 },
+  { label: 'history client', sel: '.ag-hrow .ag-nm b', limit: 4 },
+  { label: 'history amount', sel: '.ag-hrow .ag-amt b', limit: 4 },
+  { label: 'differs marker', sel: '.ag-hrow .ag-differs', limit: 2 },
+  { label: 'outcome (approved)', sel: '.ag-hrow .ag-o-ok', limit: 3 },
+  { label: 'outcome (rejected)', sel: '.ag-hrow .ag-o-no', limit: 3 },
+  { label: 'history when', sel: '.ag-hrow .ag-when', limit: 4 }
+];
 // Product catalog — live pricing, part 1 (2026-09-11). The client card's new price block and
 // its three source states (live green / stale grey / appraisal amber), the change figure in
 // BOTH tones (a winner and a loser are both seeded so neither tone is assumed from the other),

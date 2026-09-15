@@ -84,14 +84,6 @@ const PREPARE_ADMIN_BOOK = `(async () => {
   await sleep(300);
   return true;
 })()`;
-const PREPARE_QUEUE = `(async () => {
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 160; i++) {
-    if (document.querySelectorAll('#pending-list .credit-btn').length > 0) break;
-    await sleep(250);
-  }
-  return true;
-})()`;
 
 const GEOM_EXPR = `(() => {
   const card = document.getElementById('crypto-address-card');
@@ -277,7 +269,9 @@ async function main() {
     runContrast('deposit-routing-client', 'deploy-capital.html', 'client address card + pending', clientBootstrap, PREPARE_CLIENT_BTC);
     runContrast('deposit-routing-empty', 'deploy-capital.html', 'client empty state', clientBootstrap, PREPARE_CLIENT_EMPTY);
     runContrast('deposit-routing-admin', 'admin-deposit-addresses.html', 'PM address book', adminBootstrap, PREPARE_ADMIN_BOOK);
-    runContrast('deposit-routing-queue', 'admin-deposits.html', 'deposits queue', adminBootstrap, PREPARE_QUEUE);
+    // admin-deposits.html was retired with the other six queue pages (register row 228). The
+    // amount-less row, the no-hash note, the sent-to address and the shared-address count are
+    // measured on the page that carries them now by verify-approval-gate-visual.mjs.
 
     console.log('\n=== FONTS — Inter only ===\n');
     runFonts('deploy-capital.html', 'deploy-capital.html', clientBootstrap);

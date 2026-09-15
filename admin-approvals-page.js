@@ -260,7 +260,12 @@
         sub: internal ? 'Internal transfer from unallocated' : ('External · ' + (r.method || '')),
         context: internal ? (usd(avail) + ' unallocated') : ((byId[r.client_id] || {}).email || ''),
         amount: r.requested_amount,
-        amountSub: (r.rate ? (Number(r.rate) * 100).toFixed(1) + '%' : 'no fixed rate'),
+        // hys_deposit_requests.rate is stored as a PERCENT, not a fraction: getHysRate()
+        // returns 12 for a 12-month pocket and credit-hys-deposit computes
+        // amount * (rate/100) * years. Multiplying by 100 here rendered a real 12%
+        // pocket as 1200.0%. high-yield-savings.html and the retired admin-hys.html
+        // both render it bare, and this now matches them.
+        amountSub: (r.rate ? Number(r.rate).toFixed(1) + '%' : 'no fixed rate'),
         internal: internal, available: avail, raw: r
       });
     });
@@ -464,7 +469,7 @@
     } else if (it.kind === 'hys' && it.sub_kind === 'deposit') {
       var hd = it.raw;
       b += kv('Pocket', esc(hd.term_label || hd.pocket_type));
-      b += kv('Rate', hd.rate ? (Number(hd.rate) * 100).toFixed(1) + '%' : 'No fixed rate');
+      b += kv('Rate', hd.rate ? Number(hd.rate).toFixed(1) + '%' : 'No fixed rate');   // a percent already — see the queue row's own note
       b += kv('Funding', esc(it.internal ? 'Internal transfer from unallocated' : 'External · ' + (hd.method || '')));
       if (it.internal) {
         b += kv('Unallocated now', usd(it.available));

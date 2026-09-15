@@ -135,86 +135,21 @@ async function main() {
   try {
 
   // =============================================================================================
-  // 1. admin-profile-updates.html
-  // =============================================================================================
-  console.log('\n=== 1. admin-profile-updates.html ===\n');
-  await (async function () {
-    const { data: reqA1 } = await admin.from('profile_change_requests').insert({
-      client_id: clientA.id, field: 'legalName',
-      current_value: { firstName: 'Old', lastName: 'Name' },
-      requested_value: { firstName: 'New', lastName: 'Name' },
-      reason: 'Legal name change after marriage.'
-    }).select().single();
-    const { data: reqB1 } = await admin.from('profile_change_requests').insert({
-      client_id: clientB.id, field: 'address',
-      current_value: { street: '1 Old St', city: 'Old City', state: 'CA', zip: '00000', country: 'US' },
-      requested_value: { street: '2 New Ave', city: 'New City', state: 'NY', zip: '11111', country: 'US' },
-      reason: 'Moved.'
-    }).select().single();
+  // ── 1. admin-profile-updates.html — RETIRED (register row 228). ──────────────────────
+  // That page is deleted; the approval gate carries Client Profile Updates now, so this
+  // section's coverage MOVED rather than being dropped (row 228's binding decision 2):
+  //
+  //   approve -> a real client_profiles write, not just a status flip
+  //        -> verify-admin-approval-gate-ui-wiring, PART 2h
+  //   reject  -> resolution_note stored separately from the client's own reason,
+  //              and NO profile row written at all
+  //        -> verify-admin-approval-gate-ui-wiring, PART 3c
+  //   cross-client rendering + per-type counts
+  //        -> verify-admin-approval-gate-ui-wiring, PART 1 (checked against Postgres)
+  //
+  // Nothing from this section is unasserted. Sections 2-4 below are unaffected — they cover
+  // pages that still exist, and section 3 already points at admin-approvals.html.
 
-    const path = fileURLToPath(new URL('../admin-profile-updates.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = MarketswaveData;
-    // format-helpers.js's real formatFieldDisplay()/formatDateDisplay() are loaded via the
-    // page's own <script src="format-helpers.js"> tag in the real browser — loaded here the
-    // same way every prior UI-wiring script's own settings.html/admin-profile-updates.html
-    // harness already does, the real unmodified file, not stubbed.
-    dom.window.eval(readFileSync(fileURLToPath(new URL('../format-helpers.js', import.meta.url)), 'utf8'));
-    const script = extractInlineScript(path, 'Admin UI Wiring — Final Stage');
-    const pendingList = dom.window.document.getElementById('pending-list');
-    const historyList = dom.window.document.getElementById('history-list');
-
-    dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(pendingList.innerHTML); }, 20000);
-    check('real cross-client pending profile changes render — both clients present', pendingList.textContent.indexOf(clientA.name) !== -1 && pendingList.textContent.indexOf(clientB.name) !== -1, pendingList.textContent.slice(0, 400));
-    check('field labels render correctly (Legal Name, Address)', pendingList.textContent.indexOf('Legal Name') !== -1 && pendingList.textContent.indexOf('Address') !== -1);
-    check('current/requested values render via the real shared formatFieldDisplay()', pendingList.textContent.indexOf('Old Name') !== -1 && pendingList.textContent.indexOf('New Name') !== -1);
-
-    const toast = dom.window.document.getElementById('admin-toast');
-    const toastTitle = dom.window.document.getElementById('admin-toast-title');
-    const toastBody = dom.window.document.getElementById('admin-toast-body');
-
-    console.log('\n1a. Approve — a real successful round trip, genuinely applies to client_profiles');
-    await (async function () {
-      const btn = pendingList.querySelector('.approve-btn[data-id="' + reqA1.id + '"]');
-      check('a real Approve button exists for clientA\'s pending legalName request', !!btn);
-      btn.click();
-      check('the Approve modal opens showing the real current/requested values', dom.window.document.getElementById('approve-current-label').textContent === 'Old Name' && dom.window.document.getElementById('approve-requested-label').textContent === 'New Name');
-      var bodyBefore = toastBody.textContent;
-      dom.window.document.getElementById('approve-submit').click();
-      await pollUntil(function () { return !toast.classList.contains('hidden') && toastBody.textContent !== bodyBefore; }, 15000);
-      check('the toast shows the real success message', toastTitle.textContent === 'Change Approved', toastTitle.textContent + ' / ' + toastBody.textContent);
-
-      const { data: row } = await admin.from('profile_change_requests').select('*').eq('id', reqA1.id).single();
-      check('the real request row shows status=approved', row.status === 'approved', JSON.stringify(row));
-      const { data: profile } = await admin.from('client_profiles').select('legal_name').eq('client_id', clientA.id).single();
-      check('client_profiles.legal_name genuinely holds the new value — a real profile write, not just a status flip', profile.legal_name.firstName === 'New' && profile.legal_name.lastName === 'Name', JSON.stringify(profile));
-    })();
-
-    console.log('\n1b. Reject — a real successful round trip with a resolutionNote, no profile write');
-    await (async function () {
-      const btn = pendingList.querySelector('.reject-btn[data-id="' + reqB1.id + '"]');
-      btn.click();
-      dom.window.document.getElementById('reject-reason-input').value = 'Address could not be verified against ID on file.';
-      var bodyBefore = toastBody.textContent;
-      dom.window.document.getElementById('reject-submit').click();
-      await pollUntil(function () { return !toast.classList.contains('hidden') && toastBody.textContent !== bodyBefore; }, 15000);
-      check('the toast shows the real rejection confirmation', toastTitle.textContent === 'Change Rejected', toastTitle.textContent);
-
-      const { data: row } = await admin.from('profile_change_requests').select('*').eq('id', reqB1.id).single();
-      check('the real row shows status=rejected with the real resolutionNote (separate from the client\'s own reason)', row.status === 'rejected' && row.resolution_note === 'Address could not be verified against ID on file.' && row.reason === 'Moved.', JSON.stringify(row));
-      const { data: profile } = await admin.from('client_profiles').select('address').eq('client_id', clientB.id).maybeSingle();
-      check('clientB\'s client_profiles row was NOT created by a rejection — no address write happened', !profile || !profile.address, JSON.stringify(profile));
-    })();
-
-    console.log('\n1c. History — real cross-client resolved data');
-    await (async function () {
-      await pollUntil(function () { return !/animate-pulse/.test(historyList.innerHTML); }, 20000);
-      check('History shows clientA\'s real approved row and clientB\'s real rejected row', historyList.textContent.indexOf(clientA.name) !== -1 && historyList.textContent.indexOf('Approved') !== -1 && historyList.textContent.indexOf(clientB.name) !== -1 && historyList.textContent.indexOf('Rejected') !== -1, historyList.textContent.slice(0, 500));
-    })();
-  })();
-
-  // =============================================================================================
   // 2. admin-advisory-fee.html
   // =============================================================================================
   console.log('\n=== 2. admin-advisory-fee.html ===\n');
@@ -252,89 +187,23 @@ async function main() {
   })();
 
   // =============================================================================================
-  // 3. admin-approvals.html — the seven queue counts, cross-checked against real seeded data
-  //    (PM tool revamp, part 2, 2026-09-14: these cards moved from admin.html — now the
-  //    briefing, covered by verify-pm-overview-* — to the Approvals landing; the Documents/
-  //    Inbox/Product/Fee cards no longer exist as cards anywhere).
-  // =============================================================================================
-  console.log('\n=== 3. admin-approvals.html (the Approvals landing) ===\n');
-  await (async function () {
-    // Seed exactly one real pending item in each of the 7 domains admin.html's own counts
-    // read, using clientA (already real from step 1), so this test can assert an EXACT count
-    // per card rather than merely "greater than zero" — a stronger, non-vacuous proof.
-    const { data: products } = await admin.from('products').select('id').limit(1);
-    const productId = products[0].id;
-
-    // `clients.id` is a real FK to auth.users(id) — a fabricated UUID with no matching real
-    // Auth user would silently fail the insert (leaving this card's own count vacuously
-    // matching 0-vs-0, proving nothing), so a genuine test user is created for this row too,
-    // exactly like clientA/clientB above.
-    const { data: applicantUser } = await admin.auth.admin.createUser({
-      email: 'overview-applicant-' + suffix + '@test.marketswave.local', password: 'VerifyAdminFinal-2026!', email_confirm: true
-    });
-    applicantUserId = applicantUser.user.id;
-    await admin.from('clients').insert({
-      id: applicantUserId, name: 'Overview Test Applicant ' + suffix, email: 'overview-applicant-' + suffix + '@test.marketswave.local', phone: '+1-555-0199', account_type: 'Individual Account', status: 'pending_review'
-    });
-    await admin.from('deposit_requests').insert({ client_id: clientA.id, method: 'bank', requested_amount: 100, currency: 'USD' });
-    await admin.from('withdrawal_requests').insert({ client_id: clientA.id, method: 'bank', requested_amount: 50, currency: 'USD', destination_details: {} });
-    await admin.from('allocation_requests').insert({ client_id: clientA.id, product_id: productId, requested_amount: 100 });
-    await admin.from('sell_requests').insert({ client_id: clientA.id, product_id: productId, units_to_sell: 1 });
-    await admin.from('hys_deposit_requests').insert({ client_id: clientA.id, pocket_type: 'ayw', requested_amount: 100, method: 'bank', currency: 'USD' });
-    const { data: pocket } = await admin.from('hys_pockets').insert({ client_id: clientA.id, pocket_type: 'ayw', amount: 100, status: 'active', funding_method: 'bank account' }).select().single();
-    await admin.from('hys_withdrawal_requests').insert({ client_id: clientA.id, pocket_id: pocket.id, pocket_type: 'ayw', forfeit: false, receive_amount: 100, method: 'bank' });
-    await admin.from('profile_change_requests').insert({ client_id: clientA.id, field: 'address', current_value: null, requested_value: { street: 'X', city: 'Y' } });
-    await admin.from('documents').insert({ client_id: clientA.id, filename: 'test-upload.pdf', category: 'General', direction: 'upload', status: 'Received' });
-    // PM tool revamp, part 1 (2026-09-14): the Support card is the Inbox card — a ticket is
-    // a conversation waiting on a PM reply.
-    const { data: seedConvo } = await admin.from('conversations').insert({ client_id: clientA.id, contact_email: 'inbox-card-' + suffix + '@example.com', contact_name: 'Inbox Card ' + suffix, kind: 'ticket', category: 'Other', display_id: 'DISP-TEST-' + suffix, status: 'open' }).select('id').single();
-    await admin.from('messages').insert({ conversation_id: seedConvo.id, channel: 'chat', direction: 'inbound', body: 'Testing.' });
-
-    // Real, independent expected values — one direct DB query per domain, not derived from
-    // the page's own rendering logic (that would be circular).
-    const expected = {};
-    expected.clientApplications = (await admin.from('clients').select('id').eq('status', 'pending_review')).data.length;
-    expected.deposits = (await admin.from('deposit_requests').select('id').eq('status', 'pending')).data.length;
-    expected.withdrawals = (await admin.from('withdrawal_requests').select('id').eq('status', 'pending')).data.length;
-    expected.allocations = (await admin.from('allocation_requests').select('id').eq('status', 'pending')).data.length;
-    expected.sells = (await admin.from('sell_requests').select('id').eq('status', 'pending')).data.length;
-    expected.hys = (await admin.from('hys_deposit_requests').select('id').eq('status', 'pending')).data.length;
-    expected.hysWithdrawals = (await admin.from('hys_withdrawal_requests').select('id').eq('status', 'pending')).data.length;
-    expected.settingsChanges = (await admin.from('profile_change_requests').select('id').eq('status', 'pending')).data.length;
-    const docsData = (await admin.from('documents').select('id,direction,status')).data;
-    expected.documents = docsData.filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; }).length;
-    const inboxData = (await admin.from('conversations').select('id,status,unread_by_pm')).data;
-    expected.inbox = inboxData.filter(function (c) { return c.unread_by_pm === true && c.status !== 'archived'; }).length;
-
-    const path = fileURLToPath(new URL('../admin-approvals.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = MarketswaveData;
-    const script = extractInlineScript(path, 'Approvals landing');
-    dom.window.eval(script);
-
-    const CARD_IDS = {
-      clientApplications: 'pending-client-applications-count', deposits: 'pending-deposits-count',
-      withdrawals: 'pending-withdrawals-count', allocations: 'pending-allocations-count',
-      sells: 'pending-sells-count', hys: 'pending-hys-count', hysWithdrawals: 'pending-hys-withdrawals-count',
-      settingsChanges: 'pending-settings-changes-count'
-    };
-    for (const key of Object.keys(CARD_IDS)) {
-      const el = dom.window.document.getElementById(CARD_IDS[key]);
-      await pollUntil(function () { return el.textContent !== '—'; }, 20000);
-      check('admin-approvals.html\'s "' + key + '" card matches the real, independently-queried DB count (' + expected[key] + ')', el.textContent === String(expected[key]), 'rendered=' + el.textContent + ' expected=' + expected[key]);
-    }
-
-    const totalEl = dom.window.document.getElementById('approvals-total');
-    await pollUntil(function () { return totalEl.textContent !== '—'; }, 20000);
-    const totalExpected = Object.keys(CARD_IDS).reduce(function (s, k) { return s + expected[k]; }, 0);
-    check('the landing\'s "Waiting on you" band totals the seven queues (' + totalExpected + ')', totalEl.textContent === String(totalExpected), totalEl.textContent);
-    // The advisory fee rate saved in step 2 is still the real global value (the card that used
-    // to show it on admin.html is gone; the value is read straight from the table).
+  // ── 3. admin-approvals.html — the INTERIM LANDING is gone (register row 228). ────────
+  // This section drove the landing's inline "Approvals landing" script and its seven
+  // queue-count cards. The approval gate replaced that page at the same filename, with its
+  // logic in admin-approvals-page.js, so the coverage MOVED rather than being dropped:
+  //
+  //   seven per-queue counts vs independently-queried DB counts
+  //        -> verify-admin-approval-gate-ui-wiring, PART 1 (the filter pills, same check)
+  //   the total waiting across all seven
+  //        -> verify-admin-approval-gate-ui-wiring, PART 1 (the All pill)
+  //
+  // The one assertion here that was NOT about the landing — that the advisory fee rate
+  // saved in section 2 genuinely reads back — belongs to section 2 and is kept below.
+  {
     const { data: rateRow } = await admin.from('advisory_fee_rate').select('rate').eq('id', true).single();
     check('the real advisory fee rate saved in step 2 reads back 2.75', Math.abs(Number(rateRow.rate) - 2.75) < 1e-9, String(rateRow.rate));
-  })();
+  }
 
-  // =============================================================================================
   // 4. admin-clients.html — real Supabase merge, real cross-client portfolio value + pending count
   // =============================================================================================
   console.log('\n=== 4. admin-clients.html ===\n');
