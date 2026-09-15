@@ -88,8 +88,18 @@
   <script src="supabase-data.js"></script>
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
-  <!-- All of the gate's logic lives in one external file: it is long enough that an inline
-       block would be the biggest thing on the page, and it is the only script here. -->
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. Every admin page pairs the empty #admin-sidebar-mount div
+       above with this call; the only page that must NOT make it is admin-login.html, which has
+       no sidebar by design so it cannot redirect-loop against itself. This was missing when the
+       gate first shipped, which left the busiest page in the PM tool with no navigation and no
+       Log out control at all — and neither a real browser render nor the gate's own 69-assertion
+       visual suite caught it, because both looked at the queue and never at the chrome around it.
+       verify-approval-gate-visual now asserts the nav mounts here. -->
+  <script>
+    initAdminSidebar('approvals');
+  </script>
+  <!-- All of the gate's own queue logic lives in one external file: it is long enough that an
+       inline block would be the biggest thing on the page. -->
   <script src="admin-approvals-page.js"></script>
 </body>
 </html>

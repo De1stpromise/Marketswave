@@ -323,6 +323,32 @@ async function main() {
       const glassCount = await cdp.evaluate(`document.querySelectorAll('.glass, .glass-subtle, .glass-lift').length`);
       runSheen(glassCount);
       check('GUARD: real pending rows are on screen — otherwise every assertion below is vacuous', d.rows.length >= 4, d.rows.length + ' rows');
+
+      // ★ THE GATE MUST MOUNT THE SHARED ADMIN NAV, and this suite has to say so out loud.
+      // The gate shipped WITHOUT its initAdminSidebar('approvals') call: the busiest page in the
+      // PM tool rendered with no navigation and no Log out control, and this suite passed 69/69
+      // straight over it because every assertion looked at the QUEUE and none looked at the
+      // chrome around it. A real browser render missed it for the same reason — "it rendered"
+      // is not evidence when you only looked at the part you were building. Assert the nav, its
+      // own active item, and a reachable Log out, all read from the real DOM.
+      const nav = await cdp.evaluate(`(() => {
+        const aside = document.getElementById('admin-sidebar-aside');
+        if (!aside) return { mounted: false, path: location.pathname };
+        const items = [...aside.querySelectorAll('.an-item')];
+        return {
+          mounted: true,
+          count: items.length,
+          on: items.filter(i => i.classList.contains('is-on')).map(i => (i.querySelector('.an-lb') || {}).textContent),
+          logout: !!document.getElementById('admin-logout-btn'),
+          asideW: Math.round(aside.getBoundingClientRect().width)
+        };
+      })()`);
+      check('★ 1440px: THE GATE MOUNTS THE SHARED ADMIN NAV — ten items, a real rail with width',
+        nav.mounted && nav.count === 10 && nav.asideW > 0,
+        JSON.stringify(nav));
+      check('★ 1440px: the gate is its own active nav item, and Log out is reachable from it',
+        nav.mounted && nav.on.join() === 'Approvals' && nav.logout === true,
+        JSON.stringify({ on: nav.on, logout: nav.logout }));
       check('1440px: no horizontal overflow', d.bodyScroll <= 1440 && d.docScroll <= 1440 && d.maxRight <= 1441, JSON.stringify({ b: d.bodyScroll, m: d.maxRight }));
       const seededA = d.rows.filter((r) => r.client && r.client.t === A.name);
       const seededB = d.rows.filter((r) => r.client && r.client.t === B.name);
