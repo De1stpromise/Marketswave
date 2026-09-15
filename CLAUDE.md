@@ -10433,6 +10433,15 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   milestone. NOT after presentation work, copy changes, additive UI or documentation-only
   changes — those get their targeted suites and nothing more. Running 72 scripts to verify a
   retitled card costs 80 minutes and real tokens for no information.
+- **★ VERIFY A MIGRATION LOCALLY BEFORE `--linked`, EVERY TIME.** `supabase db push --linked`
+  targets REAL CLOUD STAGING, not the local stack. The order is: write the migration, apply it
+  locally (`supabase migration up --local`), verify against the local stack, and only then push
+  it to the real project as part of the deploy step. Added 2026-09-15 after doing it backwards
+  during the client-profile build (row 233): the migration went to real staging before any local
+  verification. It was harmless THAT time because it was purely additive — a new empty table, no
+  data touched, no `DROP` — which is exactly why it is worth writing down now rather than after
+  the one that is not. A migration that alters or drops anything, applied to real staging before
+  it has been run once locally, has no undo.
 - **Cloud Staging Parity — run `npm run verify-cloud-staging-parity` (from `scripts/`)
   before any push that touches `supabase/migrations/`, `supabase/functions/`, or any page
   that calls Supabase.** Added 2026-09-05 after a real incident (row 137): every Phase B/UI-
