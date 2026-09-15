@@ -10002,6 +10002,21 @@ row 74.
   the push). Seven panel shapes, one history, urgency as a grouping rather than a column.
   `PM_TOOL_VOCABULARY.md` §13 carries the patterns; read it before building another PM surface.
   **Things a future session needs to know before touching any of this:**
+  - **★★ THE GATE ONCE SHIPPED WITH NO NAVIGATION, AND TWO CHECKS MISSED IT. READ THIS BEFORE
+    TRUSTING A RENDER.** `admin-approvals.html` had the `#admin-sidebar-mount` div and loaded
+    `admin-sidebar.js` but never called `initAdminSidebar('approvals')` — so the busiest page in
+    the PM tool rendered with no nav rail, no active item and no Log out: reachable, then
+    inescapable. Exactly two admin pages must NOT make that call — `admin-login.html`, which has no
+    sidebar by design so it cannot redirect-loop against itself, and nothing else. What missed it:
+    (a) a real browser render that confirmed "9 rows across all seven types, correct filter counts,
+    both urgency groups, zero console errors" — every word true, every word about the QUEUE, never
+    about the chrome around it; (b) this gate's own visual suite at 69/69, whose every assertion
+    interrogated rows, panels, filters, contrast and layout and none of which asked whether the page
+    had a sidebar. **A suite can be thorough and blind in the same place its author was blind, and a
+    high assertion count is not coverage of the thing you forgot.** It surfaced only because a guard
+    added for a different and wrongly-assumed cause reported the page it was actually on instead of
+    crashing (register row 231). The suite now asserts the nav mounts, its own active item, and a
+    reachable Log out, proven by forced-failure control.
   - **★ `credit-deposit` CORRECTLY HAS NO BALANCE RE-VALIDATION, and the panels say so
     individually rather than implying the seven are uniform.** Crediting is money ARRIVING —
     there is nothing to exceed. `approve-allocation` (current unallocated), `approve-withdrawal`
@@ -10060,8 +10075,8 @@ row 74.
   money landing correctly, two rejections moving nothing, the re-validation race, Gary's real
   seeded allocation approved through the gate and then restored so the run is repeatable, history
   carrying a migrated record from each retired page, the `(differs)` marker, attribution absent),
-  `verify-admin-final-wiring` 37/37, `verify-approval-gate-visual` 69/69 (contrast with the sheen
-  composited, 320/375/390 on a real phone profile), `verify-deposit-routing-ui-wiring` 51/51,
+  `verify-admin-final-wiring` 37/37, `verify-approval-gate-visual` 71/71 (contrast with the sheen
+  composited, 320/375/390 on a real phone profile, and the nav-mount assertions above), `verify-deposit-routing-ui-wiring` 51/51,
   `supabase-verify-pm-briefing` 61/61, `verify-pm-overview-ui-wiring` 37/37.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
