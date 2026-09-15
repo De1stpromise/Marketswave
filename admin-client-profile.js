@@ -272,7 +272,11 @@
     // The unassigned state is a real state, not an omission: the client can be given an address
     // for this route and has not been. It carries the action that fixes it.
     var un = a.unassigned.map(function (x) {
-      return '<div class="cp-addr" style="opacity:.62" data-cp-unassigned="' + esc(x.currency + '/' + x.network) + '">' +
+      // ★ NOT dimmed. The mockup signalled "no address" with opacity, which measured the
+      // address line at 2.59:1 — dimming is the wrong way to say "absent", because it makes
+      // the words saying so harder to read than the ones that are fine. The row says it in
+      // text instead, at full contrast.
+      return '<div class="cp-addr is-unassigned" data-cp-unassigned="' + esc(x.currency + '/' + x.network) + '">' +
         (window.AssetMark ? AssetMark.html({ name: x.currency, ticker: x.currency, size: 's' }) : '') +
         '<div class="cp-an"><b>' + esc(x.currency) + '</b><span>No address assigned</span></div>' +
         '<a class="mw-btn mw-btn-sm" href="admin-deposit-addresses.html">Assign</a>' +

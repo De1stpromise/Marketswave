@@ -471,6 +471,53 @@ PROFILES['pm-overview'] = [
 // CONTRAST_PREPARE_JS drives each into view. Every tone is measured in BOTH states where one
 // exists (a filter pill on and off, an urgent row and an ordinary one, an approved history
 // outcome and a rejected one) rather than one standing in for the other.
+// The client profile (2026-09-15, PM tool revamp part 4 — register row 233). Every text tone
+// the page introduces, in BOTH states where one exists (a gain figure and a loss figure, an
+// assigned address and an unassigned one), rather than one standing in for the other. The two
+// honest-absence notes are measured too: they are real copy a PM has to read, not decoration.
+PROFILES['client-profile'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'breadcrumb link', sel: '.cp-crumb a', limit: 1 },
+  { label: 'breadcrumb current', sel: '.cp-crumb b', limit: 1 },
+  { label: 'client name', sel: '.cp-idt h1', limit: 1 },
+  { label: 'status badge', sel: '.cp-badge', limit: 1 },
+  { label: 'identity meta', sel: '.cp-meta', limit: 1 },
+  { label: 'strip label', sel: '.cp-st .cp-k', limit: 5 },
+  { label: 'strip figure', sel: '.cp-st .cp-v', limit: 5 },
+  { label: 'strip sub', sel: '.cp-st .cp-x', limit: 5 },
+  { label: 'tab (on)', sel: '.cp-tb.is-on', limit: 1 },
+  { label: 'tab (off)', sel: '.cp-tb:not(.is-on)', limit: 4 },
+  { label: 'tab count', sel: '.cp-tb .cp-n', limit: 4 },
+  { label: 'panel heading', sel: '.cp-ch b', limit: 6 },
+  { label: 'panel link', sel: '.cp-ch a', limit: 4 },
+  { label: 'panel hint', sel: '.cp-ch .cp-hint', limit: 3 },
+  { label: 'row title', sel: '.cp-rt', limit: 5 },
+  { label: 'row sub', sel: '.cp-rs', limit: 5 },
+  { label: 'row amount', sel: '.cp-ra .cp-v', limit: 4 },
+  { label: 'holding name', sel: '.cp-hn b', limit: 5 },
+  { label: 'holding units', sel: '.cp-hn span', limit: 5 },
+  { label: 'holding value', sel: '.cp-hv b', limit: 5 },
+  { label: 'holding gain', sel: '.cp-hv .cp-up', limit: 3 },
+  { label: 'holding loss', sel: '.cp-hv .cp-dn', limit: 3 },
+  { label: 'kv key', sel: '.cp-kv .cp-k', limit: 6 },
+  { label: 'kv value', sel: '.cp-kv .cp-v', limit: 6 },
+  { label: 'document name', sel: '.cp-dn b', limit: 4 },
+  { label: 'document sub', sel: '.cp-dn span', limit: 4 },
+  { label: 'restricted pill', sel: '.cp-p-res', limit: 2 },
+  { label: 'address name', sel: '.cp-an b', limit: 3 },
+  { label: 'address value', sel: '.cp-an span', limit: 3 },
+  { label: 'network pill', sel: '.cp-netp', limit: 3 },
+  { label: 'conversation chip', sel: '.cp-cvch', limit: 3 },
+  { label: 'conversation subject', sel: '.cp-cvb b', limit: 3 },
+  { label: 'conversation time', sel: '.cp-cvt', limit: 3 },
+  { label: 'watchlist chip', sel: '.cp-wc', limit: 5 },
+  { label: 'note date', sel: '.cp-pn .cp-pnh b', limit: 2 },
+  { label: 'note body', sel: '.cp-pn p', limit: 2 },
+  { label: 'absence note', sel: '.cp-absent p', limit: 3 },
+  { label: 'access-log warning', sel: '.cp-locked p', limit: 1 },
+  { label: 'empty state', sel: '.cp-empty', limit: 3 }
+];
+
 PROFILES['approval-gate'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
   { label: 'page title', sel: '.ag-top h1', limit: 1 },

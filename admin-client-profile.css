@@ -125,6 +125,12 @@
 .cp-p-ok { background: #DCFCE7; color: #15803D; }
 .cp-p-res { background: #FEF3C7; color: #92400E; }
 
+/* An unassigned route is a real state, said in words at full contrast — never signalled by
+ * dimming the row. The mockup's opacity measured the address line at 2.59:1: dimming makes the
+ * words that explain the absence harder to read than the ones that are fine. */
+.cp-addr.is-unassigned .cp-an b { color: #334155; }
+.cp-addr.is-unassigned .cp-an span { color: #475569; font-style: italic; }
+
 /* the honest-absence note — used wherever a panel has no data source at all */
 .cp-absent { display: flex; gap: 10px; padding: 11px 13px; border-radius: 10px; background: #F8FAFC;
   border: 1px solid #E2E8F0; margin-top: 12px; }
