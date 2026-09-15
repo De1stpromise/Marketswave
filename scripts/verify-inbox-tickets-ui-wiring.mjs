@@ -171,7 +171,8 @@ async function main() {
     check('a status change renders inline as a quiet system line', thread.querySelectorAll('.ibx-sysline').length === 1 && /In progress by pm@marketswave.local/.test(thread.querySelector('.ibx-sysline').textContent));
     check('the PM reply is a chat bubble on the right', thread.querySelectorAll('.ibx-m.is-out .ibx-bub').length === 1);
     check('a day separator precedes the messages', thread.querySelectorAll('.ibx-daysep').length >= 1);
-    check('a client conversation offers "Open profile" handing off with ?client=<id>', !D.getElementById('thread-profile-link').hidden && D.getElementById('thread-profile-link').getAttribute('href').indexOf('admin-clients.html?client=' + clientId) === 0);
+    // The handoff target moved when the real client profile was built (part 4, row 233): it used to point at the client LIST, which was the closest thing that existed. The behaviour asserted is unchanged - the link is offered for a client conversation and carries that client's id.
+    check('a client conversation offers "Open profile" handing off to the real profile with ?client=<id>', !D.getElementById('thread-profile-link').hidden && D.getElementById('thread-profile-link').getAttribute('href').indexOf('admin-client-profile.html?client=' + clientId) === 0, D.getElementById('thread-profile-link').getAttribute('href'));
     check('presence: a live session shows Online in the header and the dot on the avatar', !D.getElementById('thread-online').hidden && !!D.getElementById('thread-avatar').querySelector('.ibx-on'));
     check('the composer defaults to chat because the client is online, and says so', D.querySelector('.ibx-ctab[data-channel="chat"]').classList.contains('is-on') && /is online/.test(D.getElementById('composer-hint').textContent), D.getElementById('composer-hint').textContent);
 
