@@ -9983,6 +9983,18 @@ row 74.
   UNMEASURED — row 210's non-vacuity guard correctly refusing to report a number it could not stand
   behind. It now also sets `fill: transparent`, inert on HTML, and this will matter for any future
   SVG chart.
+- **★ The company phone number is `+46 766 92 29 06`, it is a REAL commitment, and its two
+  locations must always move together** (2026-09-14, register row 227). The line is answerable and
+  the stated hours are real, so this is a promise the business keeps — not placeholder copy.
+  It appears in **exactly two places**: `support.html`'s Call Us tile (number + `tel:` link +
+  "Mon-Fri, 8am-8pm CET") and `contact.html`'s Phone card. **The HOURS are part of the change** —
+  a number in a different timezone makes them wrong even if nobody edits them. Nothing else in the
+  project carries a company phone: every other phone-shaped string is a form placeholder, the demo
+  client's own default, or a test fixture, and there is none in either email template or any footer.
+  **Why this is worth a standing note: the two had already drifted** to two different numbers, in
+  two different formats, in two different countries — `+1 (800) 555-0199` as plain un-tappable text
+  against `+46 8 000 00 00` as a link. A spot-fix to whichever one you happen to be looking at is
+  how that happened. Change both, change the hours with them, then re-run deployed-bytes on both.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
