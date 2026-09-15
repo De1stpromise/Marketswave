@@ -101,7 +101,8 @@
     "verify-allocation-donut-visual": "node verify-allocation-donut-visual.mjs",
     "seed-approval-gate-fixtures": "node seed-approval-gate-fixtures.mjs",
     "verify-approval-gate-visual": "node verify-approval-gate-visual.mjs",
-    "supabase-verify-client-profile": "node verify-supabase-client-profile.mjs"
+    "supabase-verify-client-profile": "node verify-supabase-client-profile.mjs",
+    "verify-client-profile-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-profile-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
