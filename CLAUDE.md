@@ -10486,6 +10486,22 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   parsed nothing. Meme coins (DOGE, SHIB, PEPE) are the safe crypto fixtures because the
   catalog excludes them by policy; for a stock, pick one absent from `products.ticker` AND the
   source file.
+- **★★ AN ASSERTION MUST HAVE TWO INDEPENDENT SIDES — one read from the thing under test,
+  one derived without reference to it. This project has now found FOUR separate ways a check
+  can be incapable of failing; see the standing VACUITY PATTERN row in
+  `Marketswave_Project_Handover.md` (above row 229) before writing or trusting a suite.** The
+  four shapes: a scanner that parses nothing and reports a clean PASS (`verify-fixture-symbols`,
+  row 215, hence its own `--self-test`); a pixel probe measuring a box with no glyphs in it (the
+  contrast non-vacuity guard, row 210); a before/after pair that read the same state twice
+  (`assertDistinct` + `scripts/lib/settle.mjs`, rows 176/188/190); and a test comparing a value
+  to itself (row 229 — `verify-allocation-donut` divided a set of values by their own total and
+  asserted the quotients summed to one, reporting 31/31 over two live bugs). **Three habits catch
+  all four**: (a) a NON-VACUITY GUARD asserting the fixture genuinely exercises the term the
+  feature is about; (b) a FORCED-FAILURE CONTROL — reintroduce the real bug in a throwaway copy
+  and watch the suite go red BY NAME, then restore; (c) COUNT what was measured and fail on zero.
+  **And importing `jsdom` or spawning Chrome is not rendering** — the donut suite imported JSDOM,
+  defined a render helper and never called it. The question is never “does this suite have a
+  browser”, it is “does the headline assertion read a value the page produced”.
 - **After a fixture-only fix, rerun only the suites whose fixtures changed** (2026-09-14). A
   one-symbol change in one suite does not invalidate the other nine — passes 2 and 3 of the
   catalog-seed verification reran the full ~2h40 targeted set for changes that touched a

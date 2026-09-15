@@ -97,7 +97,7 @@
     "audit-glass-sheen": "node audit-glass-sheen.mjs",
     "audit-catalog-frame-cost": "node audit-catalog-frame-cost.mjs",
     "verify-catalog-expansion": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-catalog-expansion.mjs",
-    "verify-allocation-donut": "node verify-allocation-donut.mjs",
+    "verify-allocation-donut": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-allocation-donut.mjs",
     "verify-allocation-donut-visual": "node verify-allocation-donut-visual.mjs"
   },
   "dependencies": {

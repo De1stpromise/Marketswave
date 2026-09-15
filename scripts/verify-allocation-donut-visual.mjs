@@ -60,8 +60,23 @@ async function connect(profile) {
   return { send, evaluate, close: () => { try { sock.close(); } catch {} } };
 }
 
+/**
+ * ★ A NARROW WINDOW IS NOT A PHONE (register row 229).
+ * This used to emulate every width with `{ height: 900, deviceScaleFactor: 1, mobile: false }`
+ * — a narrow DESKTOP window, which is a different device than the one the bug was reported on.
+ * `mobile: false` leaves the page in desktop mode (no mobile viewport handling), and DPR 1 is
+ * not what a phone renders text at. Anything that only misbehaves under real mobile emulation —
+ * a label the browser drops at a fractional device pixel, a touch-only layout path — could not
+ * be reproduced here at all. Below the page's own 760px legend breakpoint the profile is now a
+ * real phone: mobile mode, DPR 3, touch enabled (the device-metrics override alone leaves
+ * `hover: hover` / `pointer: fine` matching, row 175).
+ */
 async function load(cdp, bootstrap, width) {
-  await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+  const phone = width < 760;
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width, height: phone ? 844 : 900, deviceScaleFactor: phone ? 3 : 1, mobile: phone
+  });
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: phone, maxTouchPoints: phone ? 5 : 0 });
   await cdp.send('Page.navigate', { url: BASE + '/dashboard.html' });
   await sleep(500);
   await cdp.evaluate(bootstrap);
@@ -221,29 +236,116 @@ async function main() {
     check('an honest empty state shows instead', /No capital deployed yet/.test(e.txt), e.txt);
     check('with a real Deploy Capital route out', e.cta);
 
-    console.log('\n5. MOBILE — legend stacks under the ring, bars drop out\n');
+    /* ══════════════════════════════════════════════════════════════════════════════════
+     * 5. MOBILE — the legend stacks, the bars drop out, AND THE IN-BAND LABELS ARE THERE.
+     *
+     * ★ THE LABEL ASSERTION IS NEW (register row 229), AND ITS ABSENCE IS WHY "no labels on
+     * mobile" was reported by a human rather than by this suite. This section used to read
+     * exactly three things — gridTemplateColumns, .ad-bar's display, and scrollWidth — and
+     * never once looked at #allocation-vals. A build that drew the ring, the legend and zero
+     * percentage labels at 390px would have passed it cleanly.
+     *
+     * Every width now checks the labels against the SAME fixture the desktop run uses, so a
+     * label count that is correct at 1440 and wrong at 390 cannot hide: the count must match
+     * the desktop count, each label must be genuinely visible (not merely present in the DOM),
+     * and each must match its own legend row so the ring and its key cannot disagree.
+     * ═══════════════════════════════════════════════════════════════════════════════════ */
+    console.log('\n5. MOBILE — legend stacks, bars drop out, in-band labels still drawn\n');
+
+    // Read at 1440 first, so the mobile counts are compared against a real measured desktop
+    // baseline rather than against a number this file decided on its own.
+    await load(cdp, full.bootstrap, 1440);
+    const baseline = await cdp.evaluate(`(()=>{
+      const vals=[...document.querySelectorAll('#allocation-vals text')].map(t=>t.textContent.trim());
+      const rows=[...document.querySelectorAll('#allocation-legend .ad-row')].map(r=>parseFloat(r.querySelector('.ad-amt span').textContent));
+      return {vals,rows,over3:rows.filter(p=>p>=3).length};})()`);
+    // The `full` fixture's five bands are ALL over 3% (smallest ~7%), so on this client every
+    // band must carry a label at every width — which is exactly what makes "the labels are
+    // missing on mobile" a checkable claim here. The suppression case has its own fixture
+    // (`tiny`), exercised at phone width after the loop.
+    check('BASELINE at 1440px: every band on this fixture is over 3%, so every band must carry a label',
+      baseline.over3 === baseline.rows.length && baseline.rows.length >= 2,
+      baseline.over3 + ' of ' + baseline.rows.length + ' bands over 3%: ' + baseline.rows.join(', ') + '%');
+    check('BASELINE at 1440px: one in-band label per band',
+      baseline.vals.length === baseline.rows.length && baseline.vals.length > 0, baseline.vals.join(', '));
+
+    const MOBILE_PROBE = `(()=>{const b=document.querySelector('.ad-body');const bar=document.querySelector('.ad-bar');
+      const vals=[...document.querySelectorAll('#allocation-vals text')];
+      const rows=[...document.querySelectorAll('#allocation-legend .ad-row')].map(r=>parseFloat(r.querySelector('.ad-amt span').textContent));
+      const ring=document.getElementById('allocation-ring');
+      const rb=ring?ring.getBoundingClientRect():{width:0,height:0};
+      return {cols:getComputedStyle(b).gridTemplateColumns.split(' ').length,
+        bar:bar?getComputedStyle(bar).display:'none-present',ovf:document.body.scrollWidth,
+        vals:vals.map(t=>t.textContent.trim()),
+        visible:vals.filter(t=>{const s=getComputedStyle(t);const r=t.getBoundingClientRect();
+          return s.display!=='none'&&s.visibility!=='hidden'&&parseFloat(s.fillOpacity||'1')>0&&r.width>0&&r.height>0;}).length,
+        rows:rows,ringW:Math.round(rb.width),ringH:Math.round(rb.height),
+        dpr:window.devicePixelRatio,touch:('ontouchstart' in window)||navigator.maxTouchPoints>0};})()`;
+
     for (const w of [390, 375, 320]) {
       if (w === 320) {
-        await load(cdp, full.bootstrap, 400);
+        // 320 through a real same-origin iframe: the top-level override floors at ~348px on
+        // this build (row 211). The iframe is a real 320px layout viewport and inherits the
+        // PARENT's device metrics, so the phone profile applies to it too.
+        await load(cdp, full.bootstrap, 390);
         const r = await cdp.evaluate(`(async()=>{const f=document.createElement('iframe');f.style.cssText='width:320px;height:760px;border:0';f.src='${BASE}/dashboard.html';document.body.appendChild(f);
           await new Promise(r=>{f.onload=r;setTimeout(r,9000)});await new Promise(r=>setTimeout(r,5000));
           const d=f.contentDocument,W=f.contentWindow;if(!d)return {err:'no doc'};
           const body=d.querySelector('.ad-body');const bar=d.querySelector('.ad-bar');
+          const vals=[...d.querySelectorAll('#allocation-vals text')];
+          const rows=[...d.querySelectorAll('#allocation-legend .ad-row')].map(x=>parseFloat(x.querySelector('.ad-amt span').textContent));
           return {iw:W.innerWidth,cols:body?W.getComputedStyle(body).gridTemplateColumns.split(' ').length:-1,
-            bar:bar?W.getComputedStyle(bar).display:'none-present',ovf:d.body.scrollWidth};})()`);
-        check('320px (real iframe): width really is 320', r.iw === 320, JSON.stringify(r));
+            bar:bar?W.getComputedStyle(bar).display:'none-present',ovf:d.body.scrollWidth,
+            vals:vals.map(t=>t.textContent.trim()),
+            visible:vals.filter(t=>{const s=W.getComputedStyle(t);const rr=t.getBoundingClientRect();
+              return s.display!=='none'&&s.visibility!=='hidden'&&parseFloat(s.fillOpacity||'1')>0&&rr.width>0&&rr.height>0;}).length,
+            rows:rows};})()`);
+        check('320px (real iframe): width really is 320', r.iw === 320, JSON.stringify({ iw: r.iw }));
         check('320px: legend stacks — one grid column', r.cols === 1, 'cols=' + r.cols);
         check('320px: proportional bars are hidden', r.bar === 'none' || r.bar === 'none-present', r.bar);
         check('320px: no horizontal overflow', r.ovf <= 320, 'scrollWidth=' + r.ovf);
+        check('★ 320px: the in-band percentage labels are STILL DRAWN — same count as desktop',
+          r.vals.length === baseline.vals.length && r.vals.length > 0,
+          r.vals.length + ' labels (desktop had ' + baseline.vals.length + '): ' + r.vals.join(', '));
+        check('★ 320px: every one of them is genuinely visible, not present-but-invisible',
+          r.visible === r.vals.length && r.visible > 0, r.visible + ' of ' + r.vals.length + ' visible');
+        check('320px: each label matches its own legend row, so the ring and the key agree',
+          r.vals.every((v) => r.rows.some((p) => Math.abs(p - parseFloat(v)) < 1.5)),
+          'labels ' + r.vals.join(', ') + ' vs rows ' + r.rows.join(', ') + '%');
       } else {
         await load(cdp, full.bootstrap, w);
-        const r = await cdp.evaluate(`(()=>{const b=document.querySelector('.ad-body');const bar=document.querySelector('.ad-bar');
-          return {cols:getComputedStyle(b).gridTemplateColumns.split(' ').length,bar:bar?getComputedStyle(bar).display:'none-present',ovf:document.body.scrollWidth};})()`);
+        const r = await cdp.evaluate(MOBILE_PROBE);
+        check(w + 'px: a REAL phone profile is in effect — DPR 3 and touch, not a narrow desktop window',
+          r.dpr === 3 && r.touch === true, 'dpr=' + r.dpr + ' touch=' + r.touch);
         check(w + 'px: legend stacks — one grid column', r.cols === 1, 'cols=' + r.cols);
         check(w + 'px: proportional bars are hidden', r.bar === 'none' || r.bar === 'none-present', r.bar);
         check(w + 'px: no horizontal overflow', r.ovf <= w, 'scrollWidth=' + r.ovf);
+        check(w + 'px: the ring is still drawn at a real size', r.ringW > 100 && r.ringH > 100, r.ringW + 'x' + r.ringH);
+        check('★ ' + w + 'px: the in-band percentage labels are STILL DRAWN — same count as desktop',
+          r.vals.length === baseline.vals.length && r.vals.length > 0,
+          r.vals.length + ' labels (desktop had ' + baseline.vals.length + '): ' + r.vals.join(', '));
+        check('★ ' + w + 'px: every one of them is genuinely visible, not present-but-invisible',
+          r.visible === r.vals.length && r.visible > 0, r.visible + ' of ' + r.vals.length + ' visible');
+        check(w + 'px: each label matches its own legend row, so the ring and the key agree',
+          r.vals.every((v) => r.rows.some((p) => Math.abs(p - parseFloat(v)) < 1.5)),
+          'labels ' + r.vals.join(', ') + ' vs rows ' + r.rows.join(', ') + '%');
       }
     }
+
+    // ★ The suppression rule at PHONE width, on the fixture that actually has a sub-3% band.
+    // The reported bug was "no labels on mobile"; the opposite failure — a rule that stops
+    // suppressing once the ring is small — would be just as wrong, and only this fixture can
+    // tell the two apart.
+    await load(cdp, tiny.bootstrap, 390);
+    const tinyPhone = await cdp.evaluate(MOBILE_PROBE);
+    check('390px (sub-3% fixture): the fixture still genuinely has a band under 3% at phone width',
+      tinyPhone.rows.some((p) => p < 3), tinyPhone.rows.join(', ') + '%');
+    check('★ 390px (sub-3% fixture): labels are drawn for the bands over 3% — suppression did not swallow them all',
+      tinyPhone.vals.length === tinyPhone.rows.filter((p) => p >= 3).length && tinyPhone.vals.length > 0,
+      tinyPhone.vals.length + ' labels for ' + tinyPhone.rows.filter((p) => p >= 3).length + ' bands over 3%: ' + tinyPhone.vals.join(', '));
+    check('★ 390px (sub-3% fixture): the sub-3% band is still a legend row, so nothing is lost to the reader',
+      tinyPhone.rows.length > tinyPhone.vals.length, tinyPhone.rows.join(', ') + '%');
+
     await load(cdp, full.bootstrap, 1440);
     const wide = await cdp.evaluate(`(()=>{const b=document.querySelector('.ad-body');const bar=document.querySelector('.ad-bar');
       return {cols:getComputedStyle(b).gridTemplateColumns.split(' ').length,bar:bar?getComputedStyle(bar).display:'?'};})()`);
