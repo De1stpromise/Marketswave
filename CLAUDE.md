@@ -9996,7 +9996,7 @@ row 74.
   against `+46 8 000 00 00` as a link. A spot-fix to whichever one you happen to be looking at is
   how that happened. Change both, change the hours with them, then re-run deployed-bytes on both.
 - **★★★ PM tool revamp, part 3 — the approval gate: BUILT AND RENDERING, VERIFICATION NOT
-  STARTED. Checkpoint `a07fbcf`, NOT pushed. Read register row 228 before resuming**
+  STARTED. Checkpoint `043019c`, NOT pushed. Read register row 228 before resuming**
   (2026-09-15). `admin-approvals.html` + `admin-approvals.css` + `admin-approvals-page.js` are one
   queue for all seven request types, seven panel shapes and one history; the seven queue pages are
   `git rm`'d and `_shared/pm-briefing.ts`'s hrefs now point at the gate (an Edge Function change,
