@@ -10380,6 +10380,20 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   URL, not a code change. (2) It compares only the files you name, so name every file the
   push actually touched.
 
+  **★ AND BEFORE INVESTIGATING A "STILL SHOWS THE OLD THING" REPORT AT ALL, NAME A
+  DISCRIMINATOR AND ASK FOR IT.** This has now cost a real investigation twice — the watchlist
+  symbol count (row 196) and the allocation donut (row 229's session, recorded in row 196) —
+  and in both cases the origin was already serving the correct bytes. The rule "the answer is
+  DevTools or `?x=1`, never a code change" only helps once you know WHICH page is on screen;
+  getting there is the expensive part. So pick ONE VISIBLE THING THE NEW PAGE HAS THAT THE OLD
+  ONE DOES NOT and ask for a yes/no — for the donut it was "does the legend show dollar
+  amounts?", which the new legend does per band and the retired Chart.js pie never did. A good
+  discriminator is structural (present-or-absent, not a shade or a spacing), visible without
+  scrolling or interaction, and impossible for the old build to produce by accident. It turns a
+  long reproduction attempt into a five-second question asked of the one person who can see the
+  screen. A stale page and a genuinely defective suite are independent, though: finding one
+  does not clear the other.
+
 - **Tailwind Color Scoping — run `npm run verify-tailwind-color-scoping` (from `scripts/`)
   before any push that adds/edits Tailwind classes on an admin page, or touches any page's
   own inline `tailwind.config` block.** Added 2026-09-07 after a real incident: `admin-
