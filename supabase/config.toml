@@ -905,3 +905,8 @@ entrypoint = "./functions/accept-chat-invitation/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-pm-briefing/index.ts"
+
+[functions.get-client-profile]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-client-profile/index.ts"
