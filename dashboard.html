@@ -35,6 +35,7 @@
   <link rel="stylesheet" href="watchlist-card.css">
   <link rel="stylesheet" href="asset-mark.css">
   <link rel="stylesheet" href="portfolio-overview.css">
+  <link rel="stylesheet" href="allocation-donut.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -203,11 +204,19 @@
                pass (confirmed via direct read), not deliberately excluded. -->
           <div class="lg:col-span-2 glass rounded-2xl p-6">
             <h3 class="font-semibold text-navy mb-5">Portfolio Allocation</h3>
-            <div class="flex flex-wrap items-center gap-6">
-              <div class="w-full max-w-[13rem] sm:max-w-[14rem] md:max-w-[15rem] lg:max-w-[18rem] xl:max-w-[20rem] 2xl:max-w-[22rem] aspect-square flex-shrink-0 mx-auto" id="allocation-chart-wrapper">
-                <canvas id="allocation-chart" role="img" aria-label="Portfolio allocation by asset class"></canvas>
+            <!-- Donut (2026-09-15): hand-drawn SVG arcs, no charting library. See
+                 allocation-donut.css for the palette's meaning and why the centre is empty.
+                 The aria-label is rewritten with the real class/percentage list on every
+                 render, so a screen reader gets the same breakdown the legend shows. -->
+            <div class="ad-body">
+              <div class="ad-chart" id="allocation-chart-wrapper">
+                <svg viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg" role="img" id="allocation-donut"
+                     aria-label="Portfolio allocation by asset class">
+                  <g id="allocation-ring"></g>
+                  <g id="allocation-vals"></g>
+                </svg>
               </div>
-              <div class="flex-1 basis-[220px] space-y-3" id="allocation-legend"></div>
+              <div class="ad-legend" id="allocation-legend"></div>
             </div>
           </div>
 
@@ -452,35 +461,27 @@
         if (profileEl) profileEl.textContent = RISK_PROFILE_LABELS[profileLevel];
       })();
 
-      var ASSET_CLASS_COLORS = {
-        'Private Equity': '#8B5A0F',
-        'Real Assets': '#1B3D2A',
-        'Stocks & ETFs': '#C8860A',
-        'Crypto': '#D4A843'
-      };
-      var UNALLOCATED_COLOR = '#E8D5A8';
+      // Allocation donut palette (2026-09-15). Two ramps that MEAN something: purples are
+      // market-priced, oranges are valued by appraisal, and the lavender between them is cash
+      // awaiting deployment. `sub` is not decoration — it states how the class is priced and
+      // matches products.pricing_model for real ('market' vs 'appraisal', register row 199).
+      // `dark` marks every fill that cannot carry WHITE text. MEASURED, not taken from the
+      // mockup: the mockup put white on #8B7CB5 (3.72:1) and #E08B14 (2.67:1), both of which
+      // fail the 4.5:1 floor. Only the deep purple #4B2E83 clears it (10.41:1). See row 226.
+      //
+      // SEGMENT ORDER IS THE MEANING and is never re-sorted by size: the two ramps must stay
+      // adjacent, with the cash band between them.
+      var ALLOCATION_SEGMENTS = [
+        { key: 'Stocks & ETFs',  label: 'Stocks & ETFs',  sub: 'Market price',        fill: '#4B2E83', dark: false },
+        { key: 'Crypto',         label: 'Crypto',         sub: 'Market price',        fill: '#8B7CB5', dark: true  },
+        { key: '__unallocated',  label: 'Unallocated',    sub: 'Awaiting deployment', fill: '#C4BEDA', dark: true  },
+        { key: 'Private Equity', label: 'Private Equity', sub: 'Valued by appraisal', fill: '#E08B14', dark: true  },
+        { key: 'Real Assets',    label: 'Real Assets',    sub: 'Valued by appraisal', fill: '#F5C377', dark: true  }
+      ];
+      // Grouping keys for computeClassBreakdown() — order here is irrelevant (it only seeds
+      // the totals map); the donut's own display order lives in ALLOCATION_SEGMENTS above.
       var ASSET_CLASS_ORDER = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto'];
 
-      // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): plain hex lighten/darken
-      // helpers for the pie chart's per-segment gradient fills below — mixes toward white
-      // (lighten) or black (darken) by the given amount (0-1), each asset class's own real
-      // locked color as the base, never a new/different color introduced.
-      function lightenHex(hex, amt) {
-        var n = parseInt(hex.slice(1), 16);
-        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-        r = Math.round(r + (255 - r) * amt);
-        g = Math.round(g + (255 - g) * amt);
-        b = Math.round(b + (255 - b) * amt);
-        return 'rgb(' + r + ',' + g + ',' + b + ')';
-      }
-      function darkenHex(hex, amt) {
-        var n = parseInt(hex.slice(1), 16);
-        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-        r = Math.round(r * (1 - amt));
-        g = Math.round(g * (1 - amt));
-        b = Math.round(b * (1 - amt));
-        return 'rgb(' + r + ',' + g + ',' + b + ')';
-      }
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -583,13 +584,12 @@
         return { totals: totals, costBasis: costBasis };
       }
 
-      // ---- Portfolio Allocation: pie chart + legend, grouped from live holdings. Only the
-      // legend gets a skeleton/error card — the canvas itself starts genuinely blank (no
-      // stale/wrong data ever drawn on it) and is only ever populated inside render(), on
+      // ---- Portfolio Allocation: donut + legend, grouped from live holdings. Only the
+      // legend gets a skeleton/error card — the ring's own <g> elements start genuinely
+      // empty (no stale/wrong arcs ever drawn) and are only ever populated inside render(), on
       // success. ----
       var legendEl = document.getElementById('allocation-legend');
       var legendDefaultClass = legendEl.className;
-      var canvas = document.getElementById('allocation-chart');
       var chartWrapper = document.getElementById('allocation-chart-wrapper');
       MarketswaveData.renderAsyncBundle(legendEl, {
         skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-full', 'w-4/5', 'w-full'], { gap: 'space-y-3' }),
@@ -625,98 +625,120 @@
 
           var breakdown = computeClassBreakdown(data);
 
-          var labels = ASSET_CLASS_ORDER.concat(['Unallocated / Cash']);
-          var colors = ASSET_CLASS_ORDER.map(function (c) { return ASSET_CLASS_COLORS[c]; }).concat([UNALLOCATED_COLOR]);
-          var rawValues = ASSET_CLASS_ORDER.map(function (c) { return breakdown.totals[c]; }).concat([data.account.unallocatedCapital]);
-          var percentages = rawValues.map(function (v) { return data.tpv > 0 ? (v / data.tpv) * 100 : 0; });
+          // ---- Allocation donut (2026-09-15) ------------------------------------------
+          // Hand-drawn SVG arcs. Geometry: outer radius fills the 340x340 viewBox, inner at
+          // 62% of outer, segments run clockwise from 12 o'clock, separated by a 2.5px stroke
+          // in the page background colour.
+          //
+          // ★ DENOMINATOR — a real bug in the chart this replaces, fixed here.
+          // The old pie divided every slice by data.tpv, but tpv is
+          // unallocated + allocated + asset_returns, while the slices only ever covered
+          // allocated + unallocated. Realised gains are a permanent additive term in tpv and
+          // are not allocated to anything, so they belong to no slice — which meant the
+          // percentages silently summed to LESS than 100%. Measured on a real client before
+          // touching this: 88.56%. The donut divides by the allocated total instead, so the
+          // segments sum to 100% by construction. See register row 226.
+          var allocTotal = ASSET_CLASS_ORDER.reduce(function (s, c) { return s + breakdown.totals[c]; }, 0)
+            + data.account.unallocatedCapital;
 
-          if (canvas && typeof Chart !== 'undefined') {
-            canvas.setAttribute('aria-label', 'Portfolio allocation by asset class: ' +
-              labels.map(function (l, i) { return l + ' ' + percentages[i].toFixed(1) + '%'; }).join(', '));
+          // A class with ZERO value is omitted entirely — from the ring AND the legend. A
+          // zero-width arc is not drawable, and since the legend is the chart's only key, a
+          // "$0 / 0.0%" row would advertise a segment that is not there. A client who has
+          // never held Private Equity is not told about Private Equity.
+          var segs = ALLOCATION_SEGMENTS.map(function (s) {
+            var value = s.key === '__unallocated' ? data.account.unallocatedCapital : breakdown.totals[s.key];
+            return { seg: s, value: value || 0 };
+          }).filter(function (r) { return r.value > 0; });
 
-            new Chart(canvas.getContext('2d'), {
-              type: 'pie',
-              data: {
-                labels: labels,
-                datasets: [{
-                  data: percentages.map(function (p) { return Math.round(p * 10) / 10; }),
-                  // Client Dashboard Visual Treatment, Stage 2 (2026-09-06): per-segment
-                  // radial gradient (each asset class's own real color, light center to
-                  // its own darker tone at the edge) instead of a flat fill — a scriptable
-                  // option, resolved once real layout dimensions exist (chartArea is null
-                  // on the very first internal call, before sizing; the plain flat color
-                  // is returned then as a harmless one-frame fallback, invisible in
-                  // practice). Same center point for every segment's own gradient is what
-                  // makes them read as one coherent glossy dome, not five unrelated ones.
-                  backgroundColor: function (ctx) {
-                    var chart = ctx.chart;
-                    var area = chart.chartArea;
-                    if (!area) return colors[ctx.dataIndex];
-                    var cx = (area.left + area.right) / 2;
-                    var cy = (area.top + area.bottom) / 2;
-                    var radius = Math.min(area.right - area.left, area.bottom - area.top) / 2;
-                    var g = chart.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-                    g.addColorStop(0, lightenHex(colors[ctx.dataIndex], 0.55));
-                    g.addColorStop(1, lightenHex(colors[ctx.dataIndex], 0.05));
-                    return g;
-                  },
-                  borderWidth: 0
-                }]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: function (ctx) { return ctx.label + ': ' + ctx.parsed + '%'; }
-                    }
-                  }
-                }
-              },
-              // Soft drop shadow (beforeDatasetsDraw, reset in afterDatasetsDraw so it never
-              // bleeds into anything drawn later) + a glossy highlight sheen (afterDatasetsDraw,
-              // a clipped radial gradient positioned toward the upper portion of the pie,
-              // mimicking light catching a glass dome) — both done via Chart.js's own public
-              // plugin hooks, no new library, no fork of Chart.js itself.
-              plugins: [{
-                id: 'pieGlossyDepth',
-                beforeDatasetsDraw: function (chart) {
-                  var ctx = chart.ctx;
-                  ctx.save();
-                  ctx.shadowColor = 'rgba(27,58,75,0.10)';
-                  ctx.shadowBlur = 6;
-                  ctx.shadowOffsetY = 2;
-                },
-                afterDatasetsDraw: function (chart) {
-                  chart.ctx.restore();
-                  var area = chart.chartArea;
-                  if (!area) return;
-                  var ctx = chart.ctx;
-                  var cx = (area.left + area.right) / 2;
-                  var cy = (area.top + area.bottom) / 2;
-                  var radius = Math.min(area.right - area.left, area.bottom - area.top) / 2;
-                  ctx.save();
-                  ctx.beginPath();
-                  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                  ctx.clip();
-                  var sheen = ctx.createRadialGradient(cx, cy - radius * 0.35, 0, cx, cy - radius * 0.35, radius * 1.15);
-                  sheen.addColorStop(0, 'rgba(255,255,255,0.32)');
-                  sheen.addColorStop(0.5, 'rgba(255,255,255,0.08)');
-                  sheen.addColorStop(1, 'rgba(255,255,255,0)');
-                  ctx.fillStyle = sheen;
-                  ctx.fillRect(area.left, area.top, area.right - area.left, area.bottom - area.top);
-                  ctx.restore();
-                }
-              }]
-            });
+          var ring = document.getElementById('allocation-ring');
+          var valsEl = document.getElementById('allocation-vals');
+          var svg = document.getElementById('allocation-donut');
+          var NS = 'http://www.w3.org/2000/svg';
+          var CX = 170, CY = 170, R = 148, IR = R * 0.62;
+          ring.innerHTML = '';
+          valsEl.innerHTML = '';
+
+          function pointAt(angle, radius) {
+            var rad = (angle - 90) * Math.PI / 180;
+            return [CX + radius * Math.cos(rad), CY + radius * Math.sin(rad)];
           }
 
-          legendEl.innerHTML = labels.map(function (label, i) {
-            return '<div class="flex items-center justify-between gap-2 text-sm">' +
-              '<span class="flex items-center gap-2 text-slate-700 whitespace-nowrap"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:' + colors[i] + '"></span>' + label + '</span>' +
-              '<span class="font-medium text-navy whitespace-nowrap">' + percentages[i].toFixed(1) + '%</span>' +
+          var maxPct = segs.reduce(function (m, r) { return Math.max(m, r.value / allocTotal); }, 0);
+          var cursor = 0;
+          var describe = [];
+
+          segs.forEach(function (r) {
+            var pct = r.value / allocTotal;
+            var path = document.createElementNS(NS, 'path');
+            path.setAttribute('class', 'ad-seg');
+            path.setAttribute('fill', r.seg.fill);
+
+            if (segs.length === 1) {
+              // ★ ONE CLASS = A FULL RING. A single 360 degree arc is where SVG arc paths
+              // break: the start and end points are identical, so the A command is a no-op and
+              // the segment renders as NOTHING. Drawn as two 180 degree arcs per edge instead
+              // (an even-odd annulus), which is a real ring rather than a degenerate path.
+              var oTop = pointAt(0, R), oBot = pointAt(180, R);
+              var iTop = pointAt(0, IR), iBot = pointAt(180, IR);
+              path.setAttribute('d',
+                'M ' + oTop[0] + ' ' + oTop[1] +
+                ' A ' + R + ' ' + R + ' 0 1 1 ' + oBot[0] + ' ' + oBot[1] +
+                ' A ' + R + ' ' + R + ' 0 1 1 ' + oTop[0] + ' ' + oTop[1] + ' Z' +
+                ' M ' + iTop[0] + ' ' + iTop[1] +
+                ' A ' + IR + ' ' + IR + ' 0 1 0 ' + iBot[0] + ' ' + iBot[1] +
+                ' A ' + IR + ' ' + IR + ' 0 1 0 ' + iTop[0] + ' ' + iTop[1] + ' Z');
+              path.setAttribute('fill-rule', 'evenodd');
+            } else {
+              var sweep = pct * 360;
+              var a0 = cursor, a1 = cursor + sweep;
+              var large = sweep > 180 ? 1 : 0;
+              var o0 = pointAt(a0, R), o1 = pointAt(a1, R);
+              var i1 = pointAt(a1, IR), i0 = pointAt(a0, IR);
+              path.setAttribute('d',
+                'M ' + o0[0] + ' ' + o0[1] +
+                ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' + o1[0] + ' ' + o1[1] +
+                ' L ' + i1[0] + ' ' + i1[1] +
+                ' A ' + IR + ' ' + IR + ' 0 ' + large + ' 0 ' + i0[0] + ' ' + i0[1] + ' Z');
+              cursor = a1;
+            }
+            ring.appendChild(path);
+
+            // Percentage inside the band at mid-radius. Ink is chosen by the segment's own
+            // `dark` flag (measured, see ALLOCATION_SEGMENTS). Under 9% drops a font size.
+            //
+            // ★ BELOW 3% NO LABEL IS DRAWN AT ALL. Not a style choice — a 3% segment is only
+            // ~23px of arc at mid-radius, and even the small label is ~16px wide before the
+            // 2.5px separator on each side, so the digits physically spill across the stroke
+            // onto the neighbouring segment. Caught by measuring a real client whose Private
+            // Equity band was 1.5% (a 12px arc under a 16px label). Nothing is lost: the
+            // legend is the chart's key and still carries every percentage.
+            var mid = segs.length === 1 ? 0 : cursor - (pct * 360) / 2;
+            if (pct >= 0.03) {
+              var mp = pointAt(mid, (R + IR) / 2);
+              var t = document.createElementNS(NS, 'text');
+              t.setAttribute('x', mp[0]);
+              t.setAttribute('y', mp[1]);
+              t.setAttribute('data-fill', r.seg.fill);   // lets the contrast profile name the segment
+              t.setAttribute('class', 'ad-val' + (r.seg.dark ? ' is-dark' : '') + (pct < 0.09 ? ' is-small' : ''));
+              t.textContent = Math.round(pct * 100) + '%';
+              valsEl.appendChild(t);
+            }
+
+            describe.push(r.seg.label + ' ' + (pct * 100).toFixed(1) + ' percent');
+          });
+
+          if (svg) svg.setAttribute('aria-label', 'Portfolio allocation by asset class: ' + describe.join(', ') + '.');
+
+          // The legend IS the key — the ring carries none — so every row states what prices
+          // the class, not just its colour.
+          legendEl.className = legendDefaultClass;
+          legendEl.innerHTML = segs.map(function (r) {
+            var pct = r.value / allocTotal;
+            return '<div class="ad-row">' +
+              '<span class="ad-sw" style="background:' + r.seg.fill + '"></span>' +
+              '<span class="ad-nm"><b>' + r.seg.label + '</b><span>' + r.seg.sub + '</span></span>' +
+              '<span class="ad-bar"><i style="width:' + (maxPct > 0 ? (pct / maxPct * 100).toFixed(1) : 0) + '%;background:' + r.seg.fill + '"></i></span>' +
+              '<span class="ad-amt"><b>' + formatUSD(r.value) + '</b><span>' + (pct * 100).toFixed(1) + '%</span></span>' +
               '</div>';
           }).join('');
         }

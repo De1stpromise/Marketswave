@@ -9958,6 +9958,31 @@ row 74.
   and `audit-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
   `verify-no-monospace` already half-does it: its font non-vacuity control is what CAUGHT this
   outage; it just calls the result FAIL.
+- **★★ Allocation donut on the client dashboard — hand-drawn SVG, and three things measurement
+  caught that reading would not have** (2026-09-15, register row 226). Replaces the Chart.js pie on
+  `dashboard.html` ONLY — never a PM page, since the client profile's holdings panel covers that
+  ground. New `allocation-donut.css` (`.ad-*`); the pie, its gloss/shadow plugins, the hex
+  lighten/darken helpers and the `<canvas>` are gone. **Chart.js stays** — `portfolio-overview.js`
+  still needs it for the value chart.
+  **(a) The old pie's percentages summed to 88.56%, not 100%.** It divided by `data.tpv`, which is
+  `unallocated + allocated + asset_returns`, while the slices only covered `allocated + unallocated`
+  — realised gains belong to no slice. **Any future allocation view must divide by the ALLOCATED
+  total, not TPV.** The suite asserts both directions so it cannot quietly return.
+  **(b) Two of the five approved fills cannot carry white text.** The brief named the two pale ones
+  as the risk; the real failures were `#8B7CB5` (3.72:1) and `#E08B14` (2.67:1), both white in the
+  mockup — and `#4A3208` does not rescue them either. Fixed without touching a single fill: ink
+  deepened to `#1A1206`, white kept only on `#4B2E83`. **Take a mockup's light/dark assignment as a
+  proposal, not a measurement.**
+  **(c) Below 3%, no in-band label is drawn at all** — a real client's 1.5% band was a 12px arc under
+  a 16px label, so the digits spilled across the separator. 'Under 9% drop a font size' does not
+  reach that far. The legend is the key and still carries every percentage.
+  A zero-value class is omitted ENTIRELY (ring and legend), the centre stays empty, and the
+  no-capital empty state keeps row 131's dashed ring — re-guarded on the allocated total, not tpv.
+- **★ `verify-contrast.mjs` could not measure SVG text, and now can** (2026-09-15, row 226): it hid
+  glyphs with `color: transparent`, but SVG `<text>` paints with `fill`, so every SVG label came back
+  UNMEASURED — row 210's non-vacuity guard correctly refusing to report a number it could not stand
+  behind. It now also sets `fill: transparent`, inert on HTML, and this will matter for any future
+  SVG chart.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is

@@ -455,7 +455,10 @@ async function main() {
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(legendEl.innerHTML); }, 20000);
     check('the real chart canvas wrapper is genuinely NOT hidden — this is not the empty-state case', !chartWrapper.classList.contains('hidden'), chartWrapper.className);
-    check('the real legend shows a genuine 100.0% Unallocated / Cash slice, no empty-state message', legendEl.textContent.indexOf('Unallocated / Cash') !== -1 && legendEl.textContent.indexOf('100.0%') !== -1 && legendEl.textContent.indexOf('No capital deployed yet') === -1, legendEl.textContent);
+    // The donut (row 226) renamed this band 'Unallocated / Cash' -> 'Unallocated' and gives it
+    // a sub-label stating what it is. The BEHAVIOUR under test is unchanged: real unallocated
+    // cash with nothing allocated is NOT the empty state and must render a real 100% band.
+    check('the real legend shows a genuine 100.0% Unallocated slice, no empty-state message', legendEl.textContent.indexOf('Unallocated') !== -1 && legendEl.textContent.indexOf('Awaiting deployment') !== -1 && legendEl.textContent.indexOf('100.0%') !== -1 && legendEl.textContent.indexOf('No capital deployed yet') === -1, legendEl.textContent);
   })();
 
   // ===========================================================================================

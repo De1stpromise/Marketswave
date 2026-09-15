@@ -212,6 +212,22 @@ PROFILES['controls-fields'] = [
  * exactly as a client sees it (#watchlist-card carries .glass-lift; the measurement is what
  * proves that holds). The drawer is its own profile below, measured in two runs so BOTH
  * badge states are sampled inside it, not one as a stand-in for the other. */
+// Allocation donut (2026-09-15, row 226). The RISK here is the in-band percentage labels:
+// they sit on five flat fills inside a .glass card, so every reading must be taken with the
+// ::before sheen composited (row 204). #C4BEDA and #F5C377 are the two the design flips to
+// dark ink on — white genuinely disappears there — so those two are the ones that matter.
+// Each fill gets its own selector so a failure names the segment rather than "a label".
+PROFILES['allocation-donut'] = [
+  { label: 'in-band % (Stocks & ETFs, #4B2E83)', sel: '.ad-val[data-fill="#4B2E83"]', limit: 1 },
+  { label: 'in-band % (Crypto, #8B7CB5)',        sel: '.ad-val[data-fill="#8B7CB5"]', limit: 1 },
+  { label: 'in-band % (Unallocated, #C4BEDA)',   sel: '.ad-val[data-fill="#C4BEDA"]', limit: 1 },
+  { label: 'in-band % (Private Equity, #E08B14)', sel: '.ad-val[data-fill="#E08B14"]', limit: 1 },
+  { label: 'in-band % (Real Assets, #F5C377)',   sel: '.ad-val[data-fill="#F5C377"]', limit: 1 },
+  { label: 'legend class name',   sel: '.ad-nm b', limit: 5 },
+  { label: 'legend price source', sel: '.ad-nm span', limit: 5 },
+  { label: 'legend amount',       sel: '.ad-amt b', limit: 5 },
+  { label: 'legend percentage',   sel: '.ad-amt span', limit: 5 }
+];
 PROFILES.watchlist = [
   { label: 'card ticker', sel: '.wl-card .wl-tag', limit: 8 },
   { label: 'card name', sel: '.wl-card .wl-name', limit: 8 },
@@ -894,6 +910,12 @@ async function measure(cdp, t) {
     '  el.dataset.savedStyle = el.style.cssText;',
     '  el.style.setProperty("color", "transparent", "important");',
     '  el.style.setProperty("-webkit-text-fill-color", "transparent", "important");',
+    // SVG <text> paints with `fill`, NOT `color` — so the two properties above hide nothing
+    // on it, the histogram correctly reports "0 pixels moved", and every SVG label comes back
+    // UNMEASURED. Found 2026-09-15 measuring the allocation donut's in-band percentages
+    // (row 226); it would have hit any future SVG chart the same way. `fill` is inert on HTML
+    // elements, so setting it unconditionally is safe and needs no branch.
+    '  el.style.setProperty("fill", "transparent", "important");',
     '  el.style.setProperty("text-shadow", "none", "important"); return true; })()',
   ].join('\n'));
   if (!stillThere) return null;

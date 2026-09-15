@@ -93,6 +93,11 @@ class FakeElement {
   querySelector(sel) { return sel === '[data-retry]' ? this._retryBtn : null; }
   setAttribute(k, v) { this._attrs[k] = v; }
   getAttribute(k) { return this._attrs[k] || null; }
+  // The allocation donut (row 226) builds real SVG nodes. This stub is NOT an SVG engine and
+  // does not pretend to be — geometry is covered for real in verify-allocation-donut-visual.mjs.
+  // It only needs to accept the calls without throwing, so the LEGEND (which is what this
+  // suite actually asserts on) still renders.
+  appendChild(child) { (this._children || (this._children = [])).push(child); return child; }
   addEventListener() {} // canvas etc. — no-op, nothing in this test drives canvas events
 }
 
@@ -113,7 +118,8 @@ function makeFakeDocument(ids) {
   ids.forEach(function (id) { registry[id] = new FakeElement(id); });
   return {
     _registry: registry,
-    getElementById: function (id) { return registry[id] || null; }
+    getElementById: function (id) { return registry[id] || null; },
+    createElementNS: function () { return new FakeElement('svg-node'); }
   };
 }
 
@@ -255,7 +261,7 @@ async function main() {
   const { error: signInErr } = await client.auth.signInWithPassword({ email, password });
   check('real signInWithPassword against the local stack succeeds', !signInErr, signInErr && signInErr.message);
 
-  const dashboardIds = ['welcome-heading', 'risk-profile-badge', 'tpv-amount', 'allocation-legend', 'allocation-chart', 'risk-cash-reserve', 'risk-allocation-util', 'recent-activity-list'];
+  const dashboardIds = ['welcome-heading', 'risk-profile-badge', 'tpv-amount', 'allocation-legend', 'allocation-donut', 'allocation-ring', 'allocation-vals', 'risk-cash-reserve', 'risk-allocation-util', 'recent-activity-list'];
   const doc = makeFakeDocument(dashboardIds);
   globalThis.document = doc;
   globalThis.clientScopedKey = function (key) { return key; }; // real per-client scoping is out of this stage's scope — a plain passthrough is sufficient for this test
@@ -290,7 +296,11 @@ async function main() {
   const expectedTpv = DISTINCTIVE_UNALLOCATED + expectedAllocated + DISTINCTIVE_ASSET_RETURNS;
 
   check('TPV renders the REAL, distinctive computed total (not $1,284,500 or any old hardcoded figure)', tpvEl.textContent === '$' + Math.round(expectedTpv).toLocaleString('en-US'), 'got="' + tpvEl.textContent + '" expected=$' + Math.round(expectedTpv).toLocaleString('en-US'));
-  check('the allocation legend genuinely reflects real holdings (Private Equity % present and non-zero)', legendEl.innerHTML.indexOf('Private Equity') !== -1 && !/Private Equity[\s\S]{0,120}0\.0%/.test(legendEl.innerHTML));
+  // Detail added 2026-09-15: this failed once with no way to tell WHICH half was false. The
+  // legend markup changed shape with the donut (row 226), so report what was actually there.
+  check('the allocation legend genuinely reflects real holdings (Private Equity % present and non-zero)',
+    legendEl.innerHTML.indexOf('Private Equity') !== -1 && !/Private Equity[\s\S]{0,120}0\.0%/.test(legendEl.innerHTML),
+    'legend text: ' + legendEl.textContent.replace(/\s+/g, ' ').trim().slice(0, 200));
   check('the allocation legend is no longer showing skeleton bars', !/animate-pulse/.test(legendEl.innerHTML));
 
   const expectedCashPct = (DISTINCTIVE_UNALLOCATED / expectedTpv * 100).toFixed(1);

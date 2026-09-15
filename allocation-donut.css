@@ -1,0 +1,126 @@
+/* allocation-donut.css — Portfolio allocation donut, client dashboard ONLY.
+ *
+ * Replaces the Chart.js pie that lived on dashboard.html. Hand-drawn SVG arcs, no charting
+ * library: the geometry is small enough that a library earns nothing, and an arc path we own
+ * is what makes the 360deg single-class case fixable (see allocation-donut's own JS).
+ *
+ * NOT ON ANY PM PAGE, deliberately. The client profile's holdings panel already covers this
+ * ground; a second view of the same breakdown would duplicate it.
+ *
+ * ── PALETTE — the two ramps carry meaning, they are not arbitrary ──────────────────────────
+ *   #4B2E83  Stocks & ETFs    market-priced   -- purple ramp
+ *   #8B7CB5  Crypto           market-priced   -- purple ramp
+ *   #C4BEDA  Unallocated      cash awaiting deployment  -- lavender, between the ramps
+ *   #E08B14  Private Equity   appraisal-valued  -- orange ramp
+ *   #F5C377  Real Assets      appraisal-valued  -- orange ramp
+ * Segment order keeps both ramps adjacent and is NEVER reordered by size — the adjacency IS
+ * the meaning. The sub-label under each class name is not decoration either: it states how
+ * that class is priced, and it matches products.pricing_model for real ('market' vs
+ * 'appraisal', register row 199), so it cannot drift away from the truth.
+ *
+ * ── THE CENTRE STAYS EMPTY ────────────────────────────────────────────────────────────────
+ * The total already leads the bundled portfolio card directly above this one. Repeating it in
+ * the hole is the same duplication removed from the chart section in register row 205.
+ *
+ * ── IN-BAND LABELS ────────────────────────────────────────────────────────────────────────
+ * The percentage sits inside each band at mid-radius. Only the deep purple #4B2E83 carries
+ * WHITE ink; the other four flip to dark, because MEASUREMENT (not the mockup) says white
+ * fails on all four. Segments under 9% drop a font size, and BELOW 3% no in-band label
+ * is drawn at all — a 3% band is only ~23px of arc against a ~16px label plus a 2.5px
+ * separator each side, so the digits would spill onto the neighbouring segment. The
+ * legend still carries every percentage, so nothing is lost.
+ */
+
+/* ── chart ─────────────────────────────────────────────────────────────────────────────── */
+.ad-body {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.ad-chart { position: relative; min-width: 0; }
+.ad-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+/* Flat fill only: no gradients, no shadows, no 3D. The separating stroke is the page
+ * background colour, so the ring reads as cut rather than outlined. */
+.ad-seg { stroke: #FDFCFA; stroke-width: 2.5; }
+
+.ad-val {
+  fill: #fff;
+  font: 600 13px Inter, sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+}
+/* ★ DEEPER THAN THE MOCKUP'S #4A3208, and every approved FILL is unchanged.
+ * Measured on real composited pixels: the mockup assigns white ink to #8B7CB5 (3.72:1) and
+ * #E08B14 (2.67:1), and BOTH fail the 4.5:1 floor. #4A3208 does not rescue them either —
+ * it reads 3.23:1 on #8B7CB5 and a borderline 4.50:1 on #E08B14. #1A1206 clears all four
+ * non-deep-purple fills (4.98 / 10.35 / 6.95 / 11.43), so the palette survives intact and
+ * only the ink moves. One dark ink for all four, not two. Register row 226. */
+.ad-val.is-dark { fill: #1A1206; }
+.ad-val.is-small { font-size: 11px; }
+
+/* ── legend ────────────────────────────────────────────────────────────────────────────────
+ * This IS the key — the chart carries none — so it must be readable on its own. */
+.ad-legend { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+
+.ad-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid rgba(27, 58, 75, .08);
+}
+.ad-row:first-child { border-top: none; padding-top: 2px; }
+
+.ad-sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+.ad-nm { flex: 1; min-width: 0; }
+.ad-nm b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #12283A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* slate-600, not the mockup's #8A9298: 10.5px secondary text on this card sits under the
+ * .glass::before sheen, where #8A9298 does not clear 4.5:1 (register rows 151 and 204). */
+.ad-nm span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; }
+
+.ad-bar {
+  flex: 0 0 52px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(27, 58, 75, .07);
+  overflow: hidden;
+}
+.ad-bar i { display: block; height: 100%; border-radius: 2px; }
+
+.ad-amt { text-align: right; flex-shrink: 0; }
+.ad-amt b {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #12283A;
+  font-variant-numeric: tabular-nums;
+}
+.ad-amt span {
+  display: block;
+  font-size: 10.5px;
+  color: #475569;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── responsive ───────────────────────────────────────────────────────────────────────────
+ * Below 760px the legend stacks under the ring and the proportional bars drop out — at that
+ * width a 52px bar competes with the figure it is meant to support. */
+@media (max-width: 760px) {
+  .ad-body { grid-template-columns: 1fr; }
+  .ad-chart { max-width: 300px; margin: 0 auto; }
+  .ad-bar { display: none; }
+}

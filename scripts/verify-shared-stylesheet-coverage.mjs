@@ -55,6 +55,9 @@ const SHARED = [
   'fund-document.css',
   // Portfolio overview (2026-09-12): portfolio-overview.js builds every .po-* class at runtime.
   'portfolio-overview.css',
+  // Allocation donut (2026-09-15, row 226): dashboard.html's own inline script builds every
+  // .ad-* legend row and the SVG arcs at runtime; only the empty <svg>/<g> shell is static.
+  'allocation-donut.css',
   // Asset marks (2026-09-13, row 207): asset-mark.js builds every .mk* class at runtime, and
   // the pages that call it render the markup inside their own inline scripts.
   'asset-mark.css',
