@@ -105,9 +105,22 @@ const WAIT = `(async () => {
   return true;
 })()`;
 const SIDEBAR = `(() => {
+  const aside = document.getElementById('admin-sidebar-aside');
+  // ★ THE ADMIN SIDEBAR CAN LEGITIMATELY BE ABSENT, AND THAT MUST NOT BE A CRASH.
+  // admin-sidebar.js gates rendering on a real getSession(); a page whose admin session has
+  // expired redirects to admin-login.html, which by design does not load the sidebar at all.
+  // Every other field below already degrades safely (badge() returns null, (x || {}).textContent),
+  // but the aside element was dereferenced unguarded four times and the first of them,
+  // groupHeaders: aside.querySelectorAll(...), threw. That turned an expired session into an
+  // opaque "Uncaught" that killed the run, took every later assertion with it, and reported
+  // nothing about WHERE the browser actually was. An expired session is a handled auth failure,
+  // not a crash — so report the location and let the caller's own assertion fail legibly.
+  if (!aside) return { missing: true, path: location.pathname, title: document.title,
+    labels: [], on: [], hrefs: [], groupHeaders: 0, approvals: null, inbox: null, presence: null,
+    role: null, email: null, footerText: null, logout: false, logoutLabel: null,
+    railBg: null, asideW: 0, asideVisible: false };
   const items = [...document.querySelectorAll('#admin-sidebar-aside .an-item')];
   const badge = (id) => { const b = document.getElementById(id); return b ? { hidden: b.hidden, text: b.textContent.trim(), display: getComputedStyle(b).display } : null; };
-  const aside = document.getElementById('admin-sidebar-aside');
   return {
     labels: items.map(i => i.querySelector('.an-lb').textContent),
     on: items.filter(i => i.classList.contains('is-on')).map(i => i.querySelector('.an-lb').textContent),
@@ -120,6 +133,13 @@ const SIDEBAR = `(() => {
     railBg: getComputedStyle(aside).backgroundColor, asideW: Math.round(aside.getBoundingClientRect().width), asideVisible: getComputedStyle(aside).transform === 'none' || aside.getBoundingClientRect().left >= 0
   };
 })()`;
+// Detail for any SIDEBAR-based assertion: when the sidebar is genuinely absent, say WHICH
+// page the browser was on rather than reporting an empty active-item list, which reads as
+// "the wrong item is active" and sends the next session looking in the wrong place.
+const sbWhere = (sb) => sb && sb.missing
+  ? 'NO SIDEBAR — the page is ' + sb.path + ' ("' + sb.title + '"), so the admin session was not live here'
+  : (sb && sb.on ? sb.on.join() : String(sb));
+
 const LAYOUT = `(() => {
   const r = (el) => el ? el.getBoundingClientRect() : null;
   const cols = getComputedStyle(document.querySelector('.ov-cols')).gridTemplateColumns.split(' ').length;
@@ -261,14 +281,14 @@ async function main() {
       // one Approvals page now, and its own active state is asserted below.)
       await cdp.send('Page.navigate', { url: BASE + '/admin-clients.html' }); await cdp.evaluate(WAIT);
       const sbQ = await cdp.evaluate(SIDEBAR);
-      check('on admin-clients.html the active item is Clients', sbQ.on.join() === 'Clients', sbQ.on.join());
+      check('on admin-clients.html the active item is Clients', !sbQ.missing && sbQ.on.join() === 'Clients', sbWhere(sbQ));
       check('the counts render on another admin page too', sbQ.approvals && sbQ.approvals.text === String(exp.approvals) && sbQ.inbox && sbQ.inbox.text === String(exp.inbox));
       await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html' }); await cdp.evaluate(WAIT);
       const sbI = await cdp.evaluate(SIDEBAR);
-      check('on admin-inbox.html the active item is Inbox', sbI.on.join() === 'Inbox', sbI.on.join());
+      check('on admin-inbox.html the active item is Inbox', !sbI.missing && sbI.on.join() === 'Inbox', sbWhere(sbI));
       await cdp.send('Page.navigate', { url: BASE + '/admin-approvals.html' }); await cdp.evaluate(WAIT);
       const sbA = await cdp.evaluate(SIDEBAR);
-      check('the Approvals item opens admin-approvals.html, which is its active page', sbA.on.join() === 'Approvals');
+      check('the Approvals item opens admin-approvals.html, which is its active page', !sbA.missing && sbA.on.join() === 'Approvals', sbWhere(sbA));
       // Log out is real: click it and land on the login page with no session.
       await cdp.evaluate('document.getElementById("admin-logout-btn").click(); true');
       await sleep(3500);
