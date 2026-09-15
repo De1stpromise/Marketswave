@@ -99,10 +99,10 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
 (function () {
   // ★ PM tool revamp, part 2 (2026-09-14): TEN UNGROUPED ITEMS, ordered by how often a PM
   // touches them. The GROUPS array and every group header are gone — the ordering does the
-  // work. The seven Approval Gate pages collapse to ONE item, "Approvals", which routes to
-  // admin-approvals.html (a landing that links the seven queue pages, each still the only
-  // place its kind of request can be approved) until part 3 replaces those pages; a queue
-  // page highlights "Approvals" as its nav item via `aliases`. "Support" was folded into
+  // work. The seven Approval Gate pages collapsed to ONE item, "Approvals" — and as of part 3
+  // (2026-09-15) admin-approvals.html IS the gate rather than a landing: those seven pages are
+  // retired, so the item needs no `aliases`. The mechanism stays in navHTML() for a future
+  // family of pages that one item stands for. "Support" was folded into
   // Inbox in part 1 and has no entry. Counts: Approvals (pending across the seven queues) and
   // Inbox (conversations needing a reply) are live; "On the site" carries a green dot, not a
   // count, because that number is live and a count would be stale the moment it painted.
@@ -122,8 +122,9 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
 
   var NAV_ITEMS = [
     { key: 'overview', href: 'admin.html', label: 'Overview' },
-    { key: 'approvals', href: 'admin-approvals.html', label: 'Approvals', count: 'sidebar-approvals-count',
-      aliases: ['client-applications', 'deposits', 'withdrawals', 'allocations', 'sells', 'hys', 'settings-changes'] },
+    // PM tool revamp part 3 (2026-09-15): the seven queue pages this item used to stand for
+    // are retired and admin-approvals.html IS the gate, so there is nothing left to alias.
+    { key: 'approvals', href: 'admin-approvals.html', label: 'Approvals', count: 'sidebar-approvals-count' },
     { key: 'inbox', href: 'admin-inbox.html', label: 'Inbox', count: 'sidebar-inbox-count' },
     { key: 'clients', href: 'admin-clients.html', label: 'Clients' },
     { key: 'presence', href: 'admin-presence.html', label: 'On the site', live: 'sidebar-presence-count' },

@@ -91,9 +91,14 @@ export interface PendingApproval {
   id: string; type: string; typeLabel: string; clientId: string | null; clientName: string;
   detail: string; amount: number | null; requestedAt: string; ageHours: number; hot: boolean; href: string;
 }
+// PM tool revamp part 3 (2026-09-15): the seven queue pages are retired and every approval
+// lands on the one gate. The map is kept rather than collapsed to a constant because the type
+// is still what the briefing knows, and a future gate that deep-links per type (?type=deposit)
+// changes only these values.
 const HREF: Record<string, string> = {
-  application: 'admin-client-applications.html', deposit: 'admin-deposits.html', withdrawal: 'admin-withdrawals.html',
-  allocation: 'admin-allocations.html', sell: 'admin-sells.html', hys_deposit: 'admin-hys.html', hys_withdrawal: 'admin-hys.html', profile_change: 'admin-profile-updates.html'
+  application: 'admin-approvals.html', deposit: 'admin-approvals.html', withdrawal: 'admin-approvals.html',
+  allocation: 'admin-approvals.html', sell: 'admin-approvals.html', hys_deposit: 'admin-approvals.html',
+  hys_withdrawal: 'admin-approvals.html', profile_change: 'admin-approvals.html'
 };
 const METHOD_LABEL: Record<string, string> = { bank: 'Bank transfer', crypto: 'Crypto', internal: 'Internal transfer' };
 const FIELD_LABEL: Record<string, string> = { legalName: 'Legal name', address: 'Address', idDocument: 'ID document' };
@@ -231,11 +236,11 @@ export async function sinceLastLooked(admin: Admin, lastLooked: string | null, c
       items.push({ kind: 'reply', title, detail, at: m.sent_at, href: 'admin-inbox.html?c=' + c.id });
     }
     const pockets = must(await admin.from('hys_pockets').select('id, client_id, pocket_type, term_label, amount, projected_interest, maturity_date, status').eq('pocket_type', 'fixed').neq('status', 'withdrawn').gt('maturity_date', lastLooked).lte('maturity_date', now.toISOString()), 'hys_pockets');
-    for (const p of pockets) items.push({ kind: 'matured', title: 'Savings pocket matured · ' + (clientNames[p.client_id] || 'Unknown client'), detail: (p.term_label || 'Fixed') + ' · $' + Number(p.amount).toLocaleString('en-US') + ' + $' + Number(p.projected_interest).toLocaleString('en-US') + ' interest at term', at: new Date(p.maturity_date).toISOString(), href: 'admin-hys.html' });
+    for (const p of pockets) items.push({ kind: 'matured', title: 'Savings pocket matured · ' + (clientNames[p.client_id] || 'Unknown client'), detail: (p.term_label || 'Fixed') + ' · $' + Number(p.amount).toLocaleString('en-US') + ' + $' + Number(p.projected_interest).toLocaleString('en-US') + ' interest at term', at: new Date(p.maturity_date).toISOString(), href: 'admin-approvals.html' });
     const apps = must(await admin.from('clients').select('id, name, status, created_at, account_type').gt('created_at', lastLooked), 'clients');
     // A signup lands as pending_review (an application); a client a PM created directly is
     // active from the start (a new client, not an application to review).
-    for (const a of apps) items.push({ kind: 'application', title: (a.status === 'pending_review' ? 'New application · ' : 'New client · ') + a.name, detail: (a.account_type || 'Application') + (a.status === 'pending_review' ? ' · awaiting review' : ' · ' + String(a.status).replace('_', ' ')), at: a.created_at, href: a.status === 'pending_review' ? 'admin-client-applications.html' : 'admin-clients.html?client=' + a.id });
+    for (const a of apps) items.push({ kind: 'application', title: (a.status === 'pending_review' ? 'New application · ' : 'New client · ') + a.name, detail: (a.account_type || 'Application') + (a.status === 'pending_review' ? ' · awaiting review' : ' · ' + String(a.status).replace('_', ' ')), at: a.created_at, href: a.status === 'pending_review' ? 'admin-approvals.html' : 'admin-clients.html?client=' + a.id });
     items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   }
   // Yesterday (UTC): sessions that started within the day, distinct visitors.
@@ -272,7 +277,7 @@ export async function comingUp(admin: Admin, products: ProductRow[], clientNames
   const pockets = must(await admin.from('hys_pockets').select('id, client_id, term_label, amount, projected_interest, maturity_date, status').eq('pocket_type', 'fixed').eq('status', 'active').gt('maturity_date', now.toISOString()).lte('maturity_date', horizon.toISOString()), 'hys_pockets');
   for (const p of pockets) {
     const days = Math.round(daysBetween(now, new Date(p.maturity_date)));
-    items.push({ kind: 'maturity', title: 'Savings pocket matures · ' + (clientNames[p.client_id] || 'Unknown client'), detail: (p.term_label || 'Fixed') + ' · $' + Number(p.projected_interest).toLocaleString('en-US') + ' interest at term', amount: Number(p.amount), when: new Date(p.maturity_date).toISOString(), whenLabel: days <= 0 ? 'today' : 'in ' + days + ' day' + (days === 1 ? '' : 's'), soon: days <= 7, href: 'admin-hys.html' });
+    items.push({ kind: 'maturity', title: 'Savings pocket matures · ' + (clientNames[p.client_id] || 'Unknown client'), detail: (p.term_label || 'Fixed') + ' · $' + Number(p.projected_interest).toLocaleString('en-US') + ' interest at term', amount: Number(p.amount), when: new Date(p.maturity_date).toISOString(), whenLabel: days <= 0 ? 'today' : 'in ' + days + ' day' + (days === 1 ? '' : 's'), soon: days <= 7, href: 'admin-approvals.html' });
   }
   // NAV publications against the stated frequency (fund document terms).
   const appraisal = products.filter((p) => p.pricing_model === 'appraisal');

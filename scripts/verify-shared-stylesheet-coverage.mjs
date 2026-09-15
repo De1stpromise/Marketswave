@@ -70,6 +70,9 @@ const SHARED = [
   // PM tool revamp, part 2 (2026-09-14): admin-sidebar.js builds every .an-* class at
   // runtime on every admin page; admin.html's own inline script builds every .ov-* row.
   'admin-nav.css',
+  // Approval gate (2026-09-15, part 3): admin-approvals-page.js builds every .ag-* row,
+  // panel and history cell at runtime; only the empty shells are static in the page.
+  'admin-approvals.css',
   'admin-overview.css',
 ];
 

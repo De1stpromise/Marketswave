@@ -1,0 +1,206 @@
+/* admin-approvals.css — the unified approval gate (PM tool revamp, part 3).
+ *
+ * One pending queue for all seven request types, one history, seven panel shapes. Replaces
+ * the interim landing (vocabulary §12) and the seven separate queue pages.
+ *
+ * THE IDEA, and the reason the panel is not generic: the QUEUE unifies *seeing* — one list,
+ * oldest first, so "what needs me" has a single answer. The PANEL is shaped by the type so
+ * that *doing* stays correct. An application shows KYC and documents; a crypto deposit shows
+ * the address, how many clients share it and a block-explorer link; an allocation re-reads the
+ * live price. Seven shapes, one page — not seven pages, and not one shape pretending to fit
+ * seven jobs.
+ *
+ * Vocabulary: §1 grouping by urgency, §2 status pills, §5 density, §6 colour (#0F172A rail,
+ * #B45309 single accent, #475569 secondary — never slate-500 at these sizes), §7 filter pills
+ * with honest counts, §9 mobile. Figures are tabular; Inter only (row 192).
+ */
+
+/* ── header ───────────────────────────────────────────────────────────────────────────── */
+.ag-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.ag-top h1 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+.ag-top p { font-size: 12.5px; color: #475569; margin-top: 4px; }
+
+/* "Oldest waiting N days" — amber only while something is genuinely overdue; the element is
+ * removed, not greyed, when the queue is clean, because a calm queue should look calm. */
+.ag-oldest { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+  color: #92400E; background: #FFFBEB; border: 1px solid #FDE68A; padding: 7px 12px; border-radius: 999px; }
+.ag-oldest i { width: 6px; height: 6px; border-radius: 50%; background: #F59E0B; flex-shrink: 0; }
+
+/* ── view switch (Pending | History) ──────────────────────────────────────────────────── */
+.ag-vsw { display: flex; gap: 5px; margin-bottom: 13px; }
+.ag-vt { height: 36px; min-width: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #E2E8F0;
+  background: #fff; color: #475569; font: 600 12.5px Inter, sans-serif; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; }
+.ag-vt.is-on { background: #1E293B; border-color: #1E293B; color: #fff; }
+.ag-vt .ag-n { font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(15, 23, 42, .1); }
+.ag-vt.is-on .ag-n { background: rgba(255, 255, 255, .22); }
+
+/* ── filter bar ───────────────────────────────────────────────────────────────────────── */
+.ag-bar { padding: 12px 15px; margin-bottom: 13px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; }
+.ag-fp { height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff;
+  color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center;
+  gap: 6px; white-space: nowrap; }
+.ag-fp.is-on { background: #1E293B; border-color: #1E293B; color: #fff; }
+.ag-fp .ag-n { font-size: 9.5px; padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, .1); font-variant-numeric: tabular-nums; }
+.ag-fp.is-on .ag-n { background: rgba(255, 255, 255, .22); }
+.ag-srch { position: relative; margin-left: auto; min-width: 200px; flex: 1 1 200px; max-width: 320px; }
+.ag-srch input { width: 100%; height: 36px; padding: 0 11px 0 30px; border: 1px solid #E2E8F0; border-radius: 9px;
+  background: #F8FAFC; font: 500 11.5px Inter, sans-serif; color: #0F172A; outline: none; }
+.ag-srch input:focus { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .1); }
+.ag-srch .ag-ic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); line-height: 0; }
+
+/* ── group headers (§1: one binary of urgency, then time) ─────────────────────────────── */
+.ag-grp { display: flex; align-items: center; gap: 10px; padding: 0 2px 8px; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: #64748B; margin-top: 16px; }
+.ag-grp:first-of-type { margin-top: 0; }
+.ag-grp::after { content: ''; flex: 1; height: 1px; background: #E2E8F0; }
+.ag-grp.is-urgent { color: #B45309; }
+
+/* ── queue rows ───────────────────────────────────────────────────────────────────────── */
+.ag-row { display: grid; grid-template-columns: 38px minmax(0, 1.1fr) minmax(0, .9fr) 118px 88px auto; gap: 13px;
+  align-items: center; padding: 12px 15px; background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+  margin-bottom: 8px; transition: border-color .16s, box-shadow .16s; cursor: pointer; width: 100%; text-align: left; }
+.ag-row:hover { border-color: #CBD5E1; box-shadow: 0 8px 20px -14px rgba(15, 23, 42, .28); }
+.ag-row:focus-visible { outline: 2px solid #B45309; outline-offset: 2px; }
+.ag-row.is-urgent { border-left: 3px solid #F59E0B; }
+.ag-row.is-sel { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .1); }
+
+.ag-ti { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ag-t-app { background: #EDE9FE; } .ag-t-dep { background: #DCFCE7; } .ag-t-wd { background: #FEE2E2; }
+.ag-t-alo { background: #E2E8F0; } .ag-t-sell { background: #FEF3C7; } .ag-t-hys { background: #FFF7ED; }
+.ag-t-prof { background: #E0F2FE; }
+
+.ag-what { min-width: 0; }
+.ag-what b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-what span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Type chip. Never colour alone (§2) — the word is always there. */
+.ag-kind { font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px;
+  border-radius: 4px; margin-right: 6px; vertical-align: 1px; }
+.ag-k-app { background: #EDE9FE; color: #5B21B6; } .ag-k-dep { background: #DCFCE7; color: #15803D; }
+.ag-k-wd { background: #FEE2E2; color: #B4402C; } .ag-k-alo { background: #E2E8F0; color: #334155; }
+.ag-k-sell { background: #FEF3C7; color: #92400E; } .ag-k-hys { background: #FFEDD5; color: #9A3412; }
+.ag-k-prof { background: #E0F2FE; color: #075985; }
+
+.ag-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.ag-av { width: 27px; height: 27px; border-radius: 50%; background: #334155; color: #fff; font-size: 9px;
+  font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ag-who .ag-nm { min-width: 0; }
+.ag-who .ag-nm b { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The client sub-line is context RELEVANT TO THE TYPE — available balance for a withdrawal,
+ * unallocated for an allocation, position size for a sell. Not a generic "client since". */
+.ag-who .ag-nm span { display: block; font-size: 10px; color: #64748B; margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+.ag-amt { text-align: right; }
+.ag-amt b { display: block; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.015em; }
+.ag-amt span { display: block; font-size: 10px; color: #64748B; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ag-age { text-align: right; font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+.ag-age b { display: block; font-weight: 600; color: #334155; }
+.ag-age.is-hot b { color: #B45309; }
+.ag-chev { color: #94A3B8; display: flex; }
+
+.ag-empty { padding: 34px 16px; text-align: center; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; }
+.ag-empty b { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
+.ag-empty span { font-size: 12px; color: #475569; }
+
+/* ── the panel ────────────────────────────────────────────────────────────────────────────
+ * One panel at a time, over a scrim, with the row behind it left visible and selected. A
+ * modal rather than an inline expansion because the admin tool already confirms every
+ * money-moving action this way and a second interaction vocabulary would earn nothing. */
+.ag-scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 60; }
+.ag-pane { width: 100%; max-width: 460px; max-height: calc(100vh - 40px); background: #fff; border: 1px solid #E2E8F0;
+  border-radius: 14px; box-shadow: 0 24px 60px -24px rgba(15, 23, 42, .45); display: flex; flex-direction: column; overflow: hidden; }
+.ag-ph { padding: 14px 16px; border-bottom: 1px solid #EEF2F7; display: flex; align-items: center; gap: 11px; flex-shrink: 0; }
+.ag-ph .ag-ti { width: 32px; height: 32px; }
+.ag-ph .ag-tx { flex: 1; min-width: 0; }
+.ag-ph b { display: block; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.ag-ph span { display: block; font-size: 11px; color: #475569; margin-top: 2px; }
+.ag-x { width: 44px; height: 44px; border: none; background: none; color: #64748B; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0; }
+.ag-x:hover { background: #F1F5F9; color: #0F172A; }
+
+.ag-pb { padding: 14px 16px; overflow-y: auto; flex: 1; }
+.ag-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px;
+  border-top: 1px solid #F1F5F9; font-size: 12px; padding: 4px 0; }
+.ag-kv:first-child { border-top: none; }
+.ag-kv .ag-k { color: #475569; flex-shrink: 0; }
+.ag-kv .ag-v { font-weight: 600; color: #0F172A; font-variant-numeric: tabular-nums; text-align: right; word-break: break-word; }
+.ag-kv .ag-v.is-mono { font-size: 10.5px; }
+.ag-up { color: #15803D; } .ag-dn { color: #B4402C; }
+
+.ag-fld { margin-top: 12px; }
+.ag-fld label { display: block; font-size: 10.5px; font-weight: 600; color: #475569; margin-bottom: 5px; }
+.ag-fld input { width: 100%; height: 44px; padding: 0 12px; border: 1.5px solid #DDE3EA; border-radius: 10px;
+  background: #FCFCFD; font: 600 14px Inter, sans-serif; color: #0F172A; outline: none; font-variant-numeric: tabular-nums; }
+.ag-fld input:focus { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .1); }
+.ag-fld textarea { width: 100%; min-height: 72px; padding: 9px 12px; border: 1.5px solid #DDE3EA; border-radius: 10px;
+  background: #FCFCFD; font: 500 12.5px Inter, sans-serif; color: #0F172A; outline: none; resize: vertical; }
+.ag-fld textarea:focus { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .1); }
+
+.ag-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; font-size: 11px; font-weight: 600;
+  color: #B45309; text-decoration: none; }
+.ag-link:hover { text-decoration: underline; }
+
+/* Warning / confirmation callouts. Amber = read this before acting; green = a check that has
+ * already been done for you. */
+.ag-warn { display: flex; gap: 9px; padding: 10px 12px; border-radius: 9px; background: #FFFBEB;
+  border: 1px solid #FDE68A; margin-top: 12px; align-items: flex-start; }
+.ag-warn svg { flex-shrink: 0; margin-top: 1px; }
+.ag-warn p { font-size: 10.5px; color: #7A5B12; line-height: 1.55; }
+.ag-warn.is-ok { background: #F0FDF4; border-color: #BBF7D0; }
+.ag-warn.is-ok p { color: #14532D; }
+
+.ag-doc { display: flex; align-items: center; gap: 9px; min-height: 44px; border-top: 1px solid #F1F5F9; font-size: 11.5px; }
+.ag-doc .ag-dn { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.ag-err { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: #FEF2F2;
+  border: 1px solid #FECACA; font-size: 11.5px; color: #991B1B; line-height: 1.5; }
+.ag-err.is-on { display: block; }
+
+.ag-pf { padding: 12px 16px; border-top: 1px solid #EEF2F7; display: flex; gap: 8px; background: #FCFDFE; flex-shrink: 0; }
+
+/* ── history ──────────────────────────────────────────────────────────────────────────── */
+.ag-hwrap { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; }
+.ag-hscroll { overflow-x: auto; }
+.ag-hh, .ag-hrow { display: grid; grid-template-columns: 34px minmax(0, 1.2fr) minmax(0, .9fr) 124px 104px 122px; gap: 13px; align-items: center; }
+.ag-hh { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: #475569; background: #FAFBFC; }
+.ag-hh button { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; min-height: 22px; }
+.ag-hh button:hover { color: #0F172A; }
+.ag-hh button.is-srt { color: #0F172A; }
+.ag-hh svg { opacity: .45; }
+.ag-hh button.is-srt svg { opacity: 1; color: #B45309; }
+.ag-hrow { padding: 11px 15px; border-bottom: 1px solid #F1F5F9; font-size: 12px; }
+.ag-hrow:last-child { border-bottom: none; }
+.ag-hbar { padding: 11px 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #EEF2F7; }
+
+.ag-outc { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px;
+  border-radius: 4px; display: inline-block; }
+.ag-o-ok { background: #DCFCE7; color: #15803D; }
+.ag-o-no { background: #FEE2E2; color: #B4402C; }
+/* ATTRIBUTION IS CAPTURED BUT NEVER RENDERED while there is one manager — not in the row, not
+ * in a title, not in a visually-hidden span. resolved_by / resolved_by_email keep being
+ * written by every Edge Function; this column shows a timestamp only. A hidden field is still
+ * a displayed field to someone using a screen reader, and this would be the only place in the
+ * product where a PM's email surfaces. It comes back with multi-PM. */
+.ag-when { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+/* A PM-editable amount that silently diverges from what was requested is exactly what a
+ * history is for — so the divergence is marked, never left to be spotted. */
+.ag-differs { color: #B45309; font-weight: 600; }
+
+/* ── mobile (§9) ──────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1000px) {
+  .ag-row { grid-template-columns: 34px minmax(0, 1fr) 96px auto; gap: 10px; }
+  .ag-who, .ag-age { display: none; }
+  .ag-hh, .ag-hrow { grid-template-columns: 30px minmax(0, 1.4fr) 100px 96px; }
+  .ag-hh > :nth-child(3), .ag-hrow > :nth-child(3),
+  .ag-hh > :nth-child(6), .ag-hrow > :nth-child(6) { display: none; }
+}
+@media (max-width: 560px) {
+  .ag-scrim { padding: 0; align-items: stretch; }
+  .ag-pane { max-width: none; max-height: none; border-radius: 0; border: none; }
+  .ag-srch { margin-left: 0; max-width: none; }
+}
