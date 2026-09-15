@@ -10078,6 +10078,60 @@ row 74.
   `verify-admin-final-wiring` 37/37, `verify-approval-gate-visual` 71/71 (contrast with the sheen
   composited, 320/375/390 on a real phone profile, and the nav-mount assertions above), `verify-deposit-routing-ui-wiring` 51/51,
   `supabase-verify-pm-briefing` 61/61, `verify-pm-overview-ui-wiring` 37/37.
+- **★★★ PM tool revamp, part 4 — the client profile (2026-09-15, register row 233).**
+  `admin-client-profile.html` + `.css` + `.js` over a new admin-only `get-client-profile`
+  (on `_shared/client-profile.ts`), reached from the client list's expanded row and the inbox
+  thread header, both carrying `?client=<id>`. The PM tool's second pattern-setter after the
+  gate; follows `PM_TOOL_VOCABULARY.md` throughout.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE PAGE CALLS `initAdminSidebar('clients')`, AND BOTH SUITES CHECK IT.** Row 228's
+    lesson applied rather than quoted: the gate shipped without that exact line and rendered
+    reachable and inescapable. The jsdom suite asserts the call exists; the VISUAL suite asserts
+    the rendered rail, its active item, its `#0F172A` colour and a reachable Log out. That split
+    is not redundant — `admin-sidebar.js` gates rendering on a real `getSession()` jsdom cannot
+    satisfy, so only a browser can prove the rail actually painted.
+  - **★★ THREE PANELS HAVE NO DATA SOURCE AND SAY SO. Do not "fix" them by inventing schema.**
+    (1) Onboarding's seven fields (DOB, nationality, tax residence, risk profile, source of
+    funds, experience, horizon) live in `marketswave_client_onboarding:<clientId>` in the
+    CLIENT'S OWN BROWSER — there is no server-side onboarding table, so a PM on another machine
+    cannot read them. `client_profiles` holds exactly legal_name, address, id_document, and
+    those three ARE rendered. (2) There is no invoice concept anywhere, so the advisory fee
+    RATE is shown and no charged figure exists. (3) `clients` has NO KYC column — `status` is
+    APPLICATION status, and the mockup's "KYC verified" badge would have fabricated a
+    COMPLIANCE CLAIM, which is worse than fabricating a number. Also absent: "next statement",
+    since nothing generates statements.
+  - **★ PRIVATE NOTES ARE `pm_client_notes`, AND AUTHOR-ONLY IS ENFORCED IN RLS, NOT IN THE
+    UI.** Every policy is scoped to `author_id = auth.uid() AND is_admin()`; `author_id`
+    defaults to `auth.uid()` and the insert policy PINS it, so a PM cannot write a note
+    attributed to a colleague even straight against PostgREST. There is deliberately NO update
+    policy — a dated note is a record of what was thought at the time, and this store may be
+    disclosable on a data access request (the panel says so, verbatim from the mockup). Proven
+    with two real PM accounts and a real client session, never by reading the policy text.
+  - **★ IDENTITY DOCUMENTS ARE REQUEST-AND-LOG.** The passport is Restricted, offers REQUEST
+    (never Open) and carries the access-logging warning. Separately, a document whose bytes
+    genuinely do not exist says "No file" rather than offering a View that opens nothing — all
+    six of Gary's documents are in that state (row 224).
+  - **★ A SWALLOWED READ LOOKS LIKE A CLIENT WITH NO DATA, WHICH IS WHY EVERY BATCHED READ IS
+    ERROR-CHECKED.** The first cut used `(x.data || [])` and never looked at `x.error`, so two
+    wrong column names — `watchlist_symbols.kind` and
+    `deposit_address_assignments.deposit_address_id`, neither of which exists — rendered as
+    EMPTY PANELS. Gary has 5 watchlist symbols and 2 assigned addresses. The suites now compare
+    those counts against independent Postgres queries for exactly this reason.
+  - **★ DO NOT SIGNAL "ABSENT" BY DIMMING.** The unassigned-address row carried the mockup's
+    `opacity:.62` and measured 2.59:1 — dimming makes the words explaining the absence harder
+    to read than the ones that are fine. It is full-contrast italic text now.
+  - **Money is not recomputed here.** `get-returns-summary` owns the unrealised/realised split,
+    per-position gain and `capitalDeployed`; the page calls it and formats (row 185). Its
+    totals are TOP-LEVEL (not under `totals`) and its positions carry no ticker or logo — the
+    profile returns a `productMeta` map and the page joins on productId, rather than widening a
+    function four client-facing pages depend on.
+  - Secondary text is `#475569`, not the mockup's slate-500 (§6 measured slate-500 at
+    4.02–4.44:1 on these grounds); the single accent is `#B45309`.
+  **Verified**: `supabase-verify-client-profile` 36/36, `verify-client-profile-ui-wiring` 58/58
+  (the REAL page and REAL external script in a real DOM, for Gary AND a genuinely empty client —
+  every empty state, no error card, a real note round trip landing in Postgres), and
+  `verify-client-profile-visual` 40/40 (the rendered nav, 119 composited contrast measurements,
+  the sheen audit, Inter-only, 390/375 on a real phone profile plus a real 320px iframe).
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
