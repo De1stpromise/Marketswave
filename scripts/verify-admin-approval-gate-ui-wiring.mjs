@@ -489,8 +489,22 @@ async function main() {
 
     console.log('\n3. Approve — genuinely rejected server-side (a real TWO-COMPETING-REQUESTS oversell race, via the actual admin UI)');
     await (async function () {
+      // TRACKED INTERMITTENT (2026-09-14, register row 225). This has failed once with btn
+      // null, then passed 102/102 on an immediate clean re-run. The previous step polls only
+      // for the TOAST, which fires when the write promise resolves — an EARLIER microtask than
+      // the reload's own fetch-then-render chain — so this can query a list that is still
+      // mid-re-render. Wait for the row we need rather than assuming the render has landed,
+      // and if it still is not there, say WHAT WAS rendered: "button missing" alone is most of
+      // the way to useless on a recurrence.
+      // pollUntil RESOLVES a boolean and never rejects, so a timeout simply falls through to
+      // the assertion below — which is the point: it reports what WAS rendered.
+      await pollUntil(function () {
+        return !!pendingList.querySelector('.approve-btn[data-id="' + sellReqA2.id + '"]');
+      }, 15000);
       const btn = pendingList.querySelector('.approve-btn[data-id="' + sellReqA2.id + '"]');
-      check('a real Approve button still exists for clientA\'s second pending sell', !!btn);
+      const renderedIds = Array.from(pendingList.querySelectorAll('.approve-btn')).map(function (b) { return b.getAttribute('data-id'); });
+      check('a real Approve button still exists for clientA\'s second pending sell', !!btn,
+        'wanted ' + sellReqA2.id + '; pending list rendered ' + renderedIds.length + ' approve button(s): ' + (renderedIds.join(', ') || '(none)'));
       btn.click();
       const errorEl = dom.window.document.getElementById('approve-error');
       dom.window.document.getElementById('approve-submit').click();
