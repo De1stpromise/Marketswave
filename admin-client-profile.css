@@ -1,0 +1,193 @@
+/* ★ PM tool revamp, part 4 (2026-09-15) — the client profile (register row 233).
+ *
+ * Follows PM_TOOL_VOCABULARY.md throughout. Two deliberate departures from the approved
+ * mockup, both required by the vocabulary rather than preference:
+ *
+ *   1. SECONDARY TEXT IS #475569 (slate-600), NOT the mockup's #64748B (slate-500). §6 records
+ *      slate-500 measured at 4.02-4.44:1 at 10.5-12px on tinted grounds (row 151's finding,
+ *      measured twice). The mockup uses slate-500 in roughly a dozen places; every one is
+ *      slate-600 here.
+ *   2. THE SINGLE ACCENT IS #B45309, not the mockup's amber-on-white "All requests" links in
+ *      whatever amber happened to be nearby. §6: one accent, used for the active rail item,
+ *      the active row's left bar, the unread dot and hot timestamps.
+ *
+ * Figures are tabular everywhere (§5, row 192 — Inter only, no monospace).
+ * Every control keeps the 44px floor via tap-targets.css; nothing here overrides it.
+ */
+
+.cp-wrap { max-width: 1180px; }
+
+/* ── breadcrumb ─────────────────────────────────────────────────────────────────────────── */
+.cp-crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; margin-bottom: 14px; }
+.cp-crumb a { color: #475569; text-decoration: none; }
+.cp-crumb a:hover { color: #0F172A; text-decoration: underline; }
+.cp-crumb b { color: #0F172A; font-weight: 600; }
+
+/* ── identity ───────────────────────────────────────────────────────────────────────────── */
+.cp-idh { padding: 20px 24px; display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+.cp-pfp { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #334155, #1E293B);
+  color: #fff; font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative; }
+/* The live dot is the presence work's own signal (§3): a dot, never a number. */
+.cp-pfp .cp-on { position: absolute; right: 1px; bottom: 1px; width: 14px; height: 14px; border-radius: 50%;
+  background: #22C55E; border: 3px solid #fff; }
+.cp-idt { flex: 1; min-width: 220px; }
+.cp-idt h1 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; display: flex; align-items: center;
+  gap: 10px; flex-wrap: wrap; color: #0F172A; }
+.cp-badge { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 5px; }
+.cp-b-act { background: #DCFCE7; color: #15803D; }
+.cp-b-pend { background: #FEF3C7; color: #92400E; }
+.cp-b-rej { background: #FEE2E2; color: #B4402C; }
+.cp-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 7px; font-size: 12px; color: #475569; }
+.cp-meta b { color: #334155; font-weight: 600; }
+.cp-meta .cp-sep { color: #CBD5E1; }
+.cp-idacts { display: flex; gap: 7px; flex-shrink: 0; flex-wrap: wrap; }
+
+/* ── money strip ────────────────────────────────────────────────────────────────────────── */
+.cp-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #EEF2F7; }
+.cp-st { padding: 15px 20px; border-right: 1px solid #EEF2F7; min-width: 0; }
+.cp-st:last-child { border-right: none; }
+.cp-st .cp-k { font-size: 10.5px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.cp-st .cp-v { font-size: 19px; font-weight: 700; letter-spacing: -.022em; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #0F172A; }
+.cp-st .cp-x { font-size: 10.5px; color: #475569; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.cp-up { color: #15803D; }
+.cp-dn { color: #B4402C; }
+
+/* ── tabs ───────────────────────────────────────────────────────────────────────────────── */
+.cp-tabs { display: flex; gap: 4px; margin: 16px 0 14px; flex-wrap: wrap; }
+.cp-tb { padding: 0 14px; border-radius: 10px; border: 1px solid #E2E8F0; background: #fff; color: #475569;
+  font: 600 12.5px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.cp-tb:hover { border-color: #CBD5E1; color: #0F172A; }
+.cp-tb.is-on { background: #1E293B; border-color: #1E293B; color: #fff; }
+.cp-tb .cp-n { font-size: 9.5px; padding: 1px 6px; border-radius: 4px; background: rgba(15, 23, 42, .09);
+  font-variant-numeric: tabular-nums; }
+.cp-tb.is-on .cp-n { background: rgba(255, 255, 255, .2); }
+
+/* ── body ───────────────────────────────────────────────────────────────────────────────── */
+.cp-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.cp-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cp-card { padding: 16px 18px; }
+.cp-ch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 22px;
+  margin-bottom: 11px; }
+.cp-ch b { font-size: 13.5px; font-weight: 600; color: #0F172A; }
+.cp-ch a { font-size: 11.5px; color: #B45309; font-weight: 600; text-decoration: none; }
+.cp-ch a:hover { text-decoration: underline; }
+.cp-ch .cp-hint { font-size: 11px; color: #475569; }
+
+/* rows — fixed heights so the two columns align (the mockup's own rule) */
+.cp-r { display: flex; align-items: center; gap: 11px; min-height: 52px; border-top: 1px solid #F1F5F9; }
+.cp-r:first-of-type { border-top: none; }
+.cp-ic { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center;
+  justify-content: center; }
+.cp-i-dep { background: #DCFCE7; } .cp-i-alo { background: #E2E8F0; } .cp-i-wd { background: #FEE2E2; }
+.cp-i-hys { background: #FEF3C7; } .cp-i-doc { background: #EDE9FE; }
+.cp-rb { flex: 1; min-width: 0; }
+.cp-rt { font-size: 12.5px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.cp-rs { font-size: 11px; color: #475569; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cp-ra { text-align: right; flex-shrink: 0; }
+.cp-ra .cp-v { font-size: 12.5px; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums; }
+
+/* holdings */
+.cp-hold { display: flex; align-items: center; gap: 10px; min-height: 50px; border-top: 1px solid #F1F5F9; }
+.cp-hold:first-of-type { border-top: none; }
+.cp-hn { flex: 1; min-width: 0; }
+.cp-hn b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: #0F172A; }
+.cp-hn span { display: block; font-size: 10.5px; color: #475569; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.cp-hv { text-align: right; flex-shrink: 0; }
+.cp-hv b { display: block; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0F172A; }
+.cp-hv span { display: block; font-size: 10.5px; font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+/* key/value grid */
+.cp-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.cp-kv > div { min-height: 46px; display: flex; flex-direction: column; justify-content: center;
+  border-top: 1px solid #F1F5F9; min-width: 0; padding: 6px 0; }
+.cp-kv > div:nth-child(-n+2) { border-top: none; }
+.cp-kv .cp-k { font-size: 10.5px; color: #475569; }
+.cp-kv .cp-v { font-size: 12.5px; font-weight: 600; color: #0F172A; margin-top: 2px; overflow-wrap: anywhere; }
+
+/* documents / addresses / conversations */
+.cp-doc, .cp-addr { display: flex; align-items: center; gap: 11px; min-height: 50px; border-top: 1px solid #F1F5F9; }
+.cp-doc:first-of-type, .cp-addr:first-of-type { border-top: none; }
+.cp-dn, .cp-an { flex: 1; min-width: 0; }
+.cp-dn b, .cp-an b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: #0F172A; }
+.cp-dn span, .cp-an span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.cp-netp { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px;
+  border-radius: 4px; background: #EEF2F7; color: #334155; flex-shrink: 0; }
+.cp-pill { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px;
+  border-radius: 4px; display: inline-block; }
+.cp-p-pend { background: #FEF3C7; color: #92400E; }
+.cp-p-ok { background: #DCFCE7; color: #15803D; }
+.cp-p-res { background: #FEF3C7; color: #92400E; }
+
+/* the honest-absence note — used wherever a panel has no data source at all */
+.cp-absent { display: flex; gap: 10px; padding: 11px 13px; border-radius: 10px; background: #F8FAFC;
+  border: 1px solid #E2E8F0; margin-top: 12px; }
+.cp-absent svg { flex-shrink: 0; margin-top: 1px; }
+.cp-absent p { font-size: 11px; color: #475569; line-height: 1.6; }
+.cp-absent b { font-weight: 700; color: #334155; }
+/* the access-logging warning on identity documents — amber, because it is a warning */
+.cp-locked { display: flex; gap: 10px; padding: 11px 13px; border-radius: 10px; background: #FFFBEB;
+  border: 1px solid #FDE68A; margin-top: 12px; }
+.cp-locked svg { flex-shrink: 0; margin-top: 1px; }
+.cp-locked p { font-size: 11px; color: #92400E; line-height: 1.6; }
+.cp-locked b { font-weight: 700; }
+
+/* conversations */
+.cp-cv { display: flex; align-items: center; gap: 10px; min-height: 46px; border-top: 1px solid #F1F5F9; }
+.cp-cv:first-of-type { border-top: none; }
+.cp-cvch { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px;
+  border-radius: 4px; flex-shrink: 0; }
+.cp-c-chat { background: #DCFCE7; color: #15803D; }
+.cp-c-email { background: #EDE9FE; color: #6D28D9; }
+.cp-c-ticket { background: #F3F0FF; color: #6D28D9; }
+.cp-cvb { flex: 1; min-width: 0; }
+.cp-cvb b { display: block; font-size: 12.5px; font-weight: 500; color: #334155; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.cp-cvt { font-size: 10.5px; color: #475569; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+/* the unread dot is the single accent (§6) */
+.cp-unread { width: 7px; height: 7px; border-radius: 50%; background: #B45309; flex-shrink: 0; }
+
+/* watchlist chips */
+.cp-wl { display: flex; gap: 6px; flex-wrap: wrap; }
+.cp-wc { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 9px; border-radius: 8px;
+  border: 1px solid #E2E8F0; background: #fff; font-size: 11.5px; font-weight: 600; color: #334155; }
+
+/* private notes */
+.cp-pn { padding: 11px 0; border-top: 1px solid #F1F5F9; }
+.cp-pn:first-of-type { border-top: none; padding-top: 0; }
+.cp-pn .cp-pnh { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.cp-pn .cp-pnh b { font-size: 11.5px; font-weight: 600; color: #334155; }
+.cp-pn p { font-size: 12px; color: #475569; line-height: 1.55; overflow-wrap: anywhere; }
+.cp-noteform { margin-top: 11px; display: none; }
+.cp-noteform.is-open { display: block; }
+.cp-noteform textarea { width: 100%; min-height: 76px; border: 1px solid #E2E8F0; border-radius: 9px; padding: 9px 11px;
+  font: 400 12px Inter, sans-serif; color: #0F172A; resize: vertical; }
+.cp-noteform textarea:focus { outline: none; border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .12); }
+.cp-noterow { display: flex; gap: 7px; margin-top: 8px; }
+
+/* empty states */
+.cp-empty { padding: 14px 0 4px; font-size: 12px; color: #475569; line-height: 1.6; }
+
+/* ── narrow ─────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1023.98px) {
+  .cp-body { grid-template-columns: minmax(0, 1fr); }
+  .cp-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cp-st { border-bottom: 1px solid #EEF2F7; }
+}
+@media (max-width: 560px) {
+  .cp-strip { grid-template-columns: minmax(0, 1fr); }
+  .cp-kv { grid-template-columns: minmax(0, 1fr); }
+  .cp-kv > div:nth-child(2) { border-top: 1px solid #F1F5F9; }
+  .cp-idh { padding: 16px; }
+  .cp-card { padding: 14px; }
+  /* NOTHING IS DROPPED AT NARROW WIDTHS — the identity meta wraps onto more lines rather than
+   * hiding facts. Row 228's own lesson: a phone that hides the client's name or the age of a
+   * request is worse than one that wraps. */
+  .cp-idacts { width: 100%; }
+}

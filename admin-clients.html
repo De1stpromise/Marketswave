@@ -358,6 +358,13 @@
         // that this page is the ONLY admin page left calling getCurrentClientId()/
         // setCurrentClientId() at all. Shown only for local clients; a Supabase client gets an
         // explanatory note instead of a button that would silently do nothing meaningful.
+        // ★ The full profile (part 4). This list answers "who are my clients"; the profile
+        // answers "who is this one" — holdings, activity, requests, documents, conversations,
+        // notes. Every client gets the link, local or Supabase-authenticated, because the
+        // profile reads real tables by id rather than depending on any ambient local session.
+        var profileLink = '<a class="mw-btn mw-btn-sm mw-btn-admin profile-btn" href="admin-client-profile.html?client=' +
+          encodeURIComponent(c.id) + '">Open profile</a>';
+
         var viewControl;
         if (isSupabase) {
           viewControl = '<p class="text-xs text-slate-400">Real Supabase-authenticated client — no local "view as" mechanism exists for it.</p>';
@@ -383,7 +390,7 @@
               '</div>' +
             '</div>' +
             '<div class="flex flex-wrap items-center gap-2 mt-4">' +
-              viewControl +
+              profileLink + ' ' + viewControl +
               '<button type="button" class="security-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="PASSWORD_RESET">Reset Password</button>' +
               '<button type="button" class="security-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="2FA_RESET">Reset 2FA</button>' +
             '</div>' +

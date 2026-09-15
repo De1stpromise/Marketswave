@@ -104,7 +104,7 @@
                     </select>
                   </span>
                   <span class="ibx-stp" id="thread-status-badge" hidden></span>
-                  <a class="ibx-ib" id="thread-profile-link" href="admin-clients.html" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Open profile</a>
+                  <a class="ibx-ib" id="thread-profile-link" href="admin-client-profile.html" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Open profile</a>
                   <button type="button" class="ibx-ib" id="thread-resolve-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Resolve</button>
                   <button type="button" class="ibx-ib" id="thread-archive-btn">Archive</button>
                   <button type="button" class="ibx-ib" id="thread-reopen-btn" hidden>Reopen</button>
@@ -604,7 +604,7 @@
         document.getElementById('thread-reopen-btn').hidden = isTicket || c.status === 'open';
         var link = document.getElementById('thread-profile-link');
         link.hidden = type !== 'client';
-        link.href = 'admin-clients.html?client=' + encodeURIComponent(c.client_id || '') + (typeof currentEnvQuery === 'function' ? currentEnvQuery().replace(/^\?/, '&') : '');
+        link.href = 'admin-client-profile.html?client=' + encodeURIComponent(c.client_id || '') + (typeof currentEnvQuery === 'function' ? currentEnvQuery().replace(/^\?/, '&') : '');
       }
 
       // The context strip: three facts and a link out. "Open profile" hands off to the client

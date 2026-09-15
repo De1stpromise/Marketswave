@@ -74,6 +74,9 @@ const SHARED = [
   // panel and history cell at runtime; only the empty shells are static in the page.
   'admin-approvals.css',
   'admin-overview.css',
+  // Client profile (2026-09-15, part 4): admin-client-profile.js builds every .cp-* panel at
+  // runtime from the get-client-profile payload; the page ships only empty shells.
+  'admin-client-profile.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

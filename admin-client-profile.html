@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client profile — Marketswave PM Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="asset-mark.css">
+  <link rel="stylesheet" href="admin-client-profile.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Client profile</h2>
+          <p class="text-xs text-slate-600" id="cp-sub">Loading…</p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
+        <div class="cp-wrap mx-auto">
+
+          <nav class="cp-crumb" aria-label="Breadcrumb">
+            <a href="admin-clients.html">Clients</a>
+            <span aria-hidden="true">›</span>
+            <b id="cp-crumb-name">…</b>
+          </nav>
+
+          <!-- identity + money strip -->
+          <section class="panel glass glass-lift" id="cp-identity" aria-label="Client identity"></section>
+
+          <!-- tabs -->
+          <div class="cp-tabs" id="cp-tabs" role="tablist" aria-label="Profile sections"></div>
+
+          <!-- overview body -->
+          <div class="cp-body">
+            <div class="cp-col">
+              <section class="panel glass glass-lift cp-card" id="cp-attention" aria-label="Needs your attention"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-holdings" aria-label="Holdings"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-activity" aria-label="Recent activity"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-addresses" aria-label="Crypto deposit addresses"></section>
+            </div>
+            <div class="cp-col">
+              <section class="panel glass glass-lift cp-card" id="cp-onboarding" aria-label="Onboarding"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-documents" aria-label="Documents"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-conversations" aria-label="Conversations"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-watchlist" aria-label="Watchlist"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-notes" aria-label="Private notes"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-health" aria-label="Account health"></section>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="cp-toast" class="fixed bottom-6 right-6 z-50 hidden max-w-sm rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg" role="status" aria-live="polite"></div>
+
+  <script src="engine-core.js"></script>
+  <script src="format-helpers.js"></script>
+  <script src="asset-mark.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. Every admin page pairs the empty #admin-sidebar-mount div
+       above with this call; the only page that must NOT make it is admin-login.html, which has
+       no sidebar by design so it cannot redirect-loop against itself. The approval gate (part 3)
+       shipped without this exact line and rendered with no navigation and no Log out control —
+       reachable, then inescapable — and neither a real browser render nor a 69-assertion visual
+       suite caught it, because everything looked at the feature and nothing at the chrome
+       (register row 228). This page's own suite asserts the nav mounts, for that reason.
+       'clients' is the key: a client profile is a detail view of the Clients list, so that item
+       is the one that highlights. -->
+  <script>
+    initAdminSidebar('clients');
+  </script>
+  <script src="admin-client-profile.js"></script>
+</body>
+</html>

@@ -122,8 +122,15 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
   pending.sort(function (a, b) { return String(b.requestedAt || '').localeCompare(String(a.requestedAt || '')); });
 
   // ---- product names for holdings/activity/pending ------------------------------------------
+  // ★ Holdings' products are included here on purpose. get-returns-summary owns the holdings
+  // MATH and returns positions without a ticker or a logo — and widening that function would
+  // mean redeploying something four client-facing pages depend on, to add presentation fields
+  // it has no other use for. The profile returns a product-meta map instead and the page joins
+  // on productId, so the asset marks are real without touching returns at all.
+  const heldRows = must(await admin.from('holdings').select('product_id').eq('client_id', clientId), 'holdings');
   const productIds = Array.from(new Set(txns.map(function (t: any) { return t.product_id; })
     .concat(pending.map(function (p: any) { return p.productId; }))
+    .concat(heldRows.map(function (h: any) { return h.product_id; }))
     .filter(function (x: any) { return !!x; })));
   const products = productIds.length
     ? must(await admin.from('products').select('id, name, asset_class, ticker, logo_url').in('id', productIds), 'products')
@@ -224,6 +231,12 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
         status: c.status, lastMessageAt: c.last_message_at, unread: !!c.unread_by_pm
       };
     }),
+    // productId -> presentation fields, so the page can render a real asset mark beside a
+    // position without get-returns-summary having to carry them.
+    productMeta: Object.keys(pName).reduce(function (acc: Record<string, any>, id: string) {
+      acc[id] = { name: pName[id].name, ticker: pName[id].ticker || null, logoUrl: pName[id].logo_url || null, assetClass: pName[id].asset_class || null };
+      return acc;
+    }, {}),
     watchlist: (watch.data || []).map(function (w: any) { return { symbol: w.symbol, name: w.name || null, assetType: w.asset_type || null }; }),
     notes: (notes.data || []).map(function (n: any) { return { id: n.id, body: n.body, createdAt: n.created_at }; }),
     presence: { live: live.length > 0, path: live.length > 0 ? live[0].current_path : null },
