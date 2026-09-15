@@ -321,6 +321,29 @@ async function main() {
   // PART 4 — CLIENT context, real dashboard.html: the held PE product's value groups under
   // "Private Equity" — before the reclassification test in Part 6
   // ===========================================================================================
+  // ★ THE LEGEND IS THE ALLOCATION DONUT'S (register row 226), NOT THE RETIRED CHART.JS PIE'S.
+  // A row is <div class="ad-row"> with the class name in `.ad-nm b` and the percentage in
+  // `.ad-amt span`, with a sub-label and a dollar AMOUNT in between. The assertions below used
+  // to parse the percentage out of innerHTML with a regex expecting the value span to sit
+  // immediately after the name span — that was the PIE's shape, and it has been unmatchable
+  // since the donut landed. Row 226 corrected two other consumers of this legend and missed
+  // this third one, so it went stale silently until a full-suite run found it. Read the DOM
+  // instead; it survives the next markup change too.
+  //
+  // Returns null when the class has NO ROW AT ALL, which is deliberately distinct from 0 — the
+  // donut omits a zero-value class entirely rather than printing a "0.0%" line.
+  function legendPct(D, name) {
+    const rows = Array.from(D.querySelectorAll('#allocation-legend .ad-row'));
+    const row = rows.find(function (r) {
+      const b = r.querySelector('.ad-nm b');
+      return b && b.textContent.trim() === name;
+    });
+    if (!row) return null;
+    const v = row.querySelector('.ad-amt span');
+    return v ? parseFloat(v.textContent) : null;
+  }
+  let pePctBefore = null;
+
   console.log('\n=== PART 4: dashboard.html (CLIENT context, real UI) — groups under Private Equity, before reclassification ===\n');
   await withContext(CLIENT_CTX, async function () {
     const path = fileURLToPath(new URL('../dashboard.html', import.meta.url));
@@ -333,10 +356,9 @@ async function main() {
 
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(legend.innerHTML); }, 20000);
-    check('the real Portfolio Allocation legend shows a nonzero "Private Equity" line (the real held PE product, before reclassification)', /Private Equity[\s\S]*?(?:\d)/.test(legend.textContent) && (function () {
-      var m = /Private Equity<\/span><span[^>]*>([\d.]+)%/.exec(legend.innerHTML);
-      return m && parseFloat(m[1]) > 0;
-    })(), legend.textContent);
+    pePctBefore = legendPct(D, 'Private Equity');
+    check('the real Portfolio Allocation legend shows a nonzero "Private Equity" line (the real held PE product, before reclassification)',
+      pePctBefore !== null && pePctBefore > 0, legend.textContent);
   });
 
   // ===========================================================================================
@@ -437,10 +459,20 @@ async function main() {
     dom.window.eval(script);
     await pollUntil(function () { return !/animate-pulse/.test(legend.innerHTML); }, 20000);
 
-    var peMatch = /Private Equity<\/span><span[^>]*>([\d.]+)%/.exec(legend.innerHTML);
-    var raMatch = /Real Assets<\/span><span[^>]*>([\d.]+)%/.exec(legend.innerHTML);
-    check('Private Equity now shows genuinely 0.0% — the reclassified holding no longer counts there', peMatch && parseFloat(peMatch[1]) === 0, legend.textContent);
-    check('Real Assets now shows the SAME nonzero percentage the held product used to show under Private Equity — the real admin edit is genuinely visible here, unchanged page code', raMatch && parseFloat(raMatch[1]) > 0, legend.textContent);
+    const peAfter = legendPct(D, 'Private Equity');
+    const raAfter = legendPct(D, 'Real Assets');
+    // ★ ABSENT, not "0.0%". The donut omits a zero-value class from ring and legend both
+    // (row 226's decision: a $0 / 0.0% row advertises a segment that is not there), so the old
+    // "shows genuinely 0.0%" assertion was asserting something the page can no longer produce.
+    // Absence is the stronger of the two claims, not a relaxation of it.
+    check('★ Private Equity is GONE from the legend entirely — the reclassified holding no longer counts there, and a zero class is omitted rather than printed as 0.0%',
+      peAfter === null, legend.textContent);
+    // ★ STRENGTHENED from "> 0" to the EXACT percentage Private Equity carried before the edit.
+    // "Real Assets is nonzero" would pass on any unrelated Real Assets holding; equality is what
+    // actually proves the reclassified value moved from one class to the other.
+    check('★ Real Assets now shows the EXACT percentage Private Equity showed before — the real admin edit is genuinely visible here, on unchanged client page code',
+      raAfter !== null && pePctBefore !== null && Math.abs(raAfter - pePctBefore) < 0.05,
+      'before: PE ' + pePctBefore + '%  ->  after: RA ' + raAfter + '%  |  ' + legend.textContent);
   });
 
   await withContext(CLIENT_CTX, async function () {
