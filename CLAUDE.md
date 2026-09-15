@@ -9995,26 +9995,74 @@ row 74.
   two different formats, in two different countries — `+1 (800) 555-0199` as plain un-tappable text
   against `+46 8 000 00 00` as a link. A spot-fix to whichever one you happen to be looking at is
   how that happened. Change both, change the hours with them, then re-run deployed-bytes on both.
-- **★★★ PM tool revamp, part 3 — the approval gate: BUILT AND RENDERING, VERIFICATION NOT
-  STARTED. Checkpoint `043019c`, NOT pushed. Read register row 228 before resuming**
-  (2026-09-15). `admin-approvals.html` + `admin-approvals.css` + `admin-approvals-page.js` are one
-  queue for all seven request types, seven panel shapes and one history; the seven queue pages are
-  `git rm`'d and `_shared/pm-briefing.ts`'s hrefs now point at the gate (an Edge Function change,
-  **still needs deploying**). It rendered correctly on its first real browser run — 9 rows across
-  all seven types, correct filter counts, both urgency groups, zero console errors — and **nothing
-  beyond that is verified**: no approval, no rejection, no re-validation race, no contrast, no
-  mobile, no suite rewrite, no deploy, no push.
-  **Three things a resuming session most needs.** (a) **`credit-deposit` correctly has NO balance
-  re-validation** — crediting is money ARRIVING, so there is nothing to exceed; every other
-  money-moving approve does re-read current state and refuse with a real 409, and each panel says
-  which check ran rather than implying they are uniform. (b) **Attribution is written, never
-  rendered** — not in a row, not in a title, **not in a visually-hidden span**, because that is
-  still a displayed field to a screen reader and would be the only place a PM's email surfaces.
-  (c) **`scripts/seed-approval-gate-fixtures.mjs` is committed** (`npm run
-  seed-approval-gate-fixtures`, `--clean` to tear down) and seeds one pending request of every
-  type with two deliberately aged 2-3 days so the urgency grouping is exercised — a real local
-  stack almost never has all seven at once. **Run `--clean` when finished**: leftover pending rows
-  skew the exact-count assertions in the very suite that still needs rewriting (row 212's class).
+- **★★★ PM tool revamp, part 3 — the approval gate: one queue for all seven request types
+  (2026-09-15, register row 228).** `admin-approvals.html` + `admin-approvals.css` +
+  `admin-approvals-page.js` replace the seven per-type queue pages, which are `git rm`'d;
+  `_shared/pm-briefing.ts`'s hrefs point at the gate (an Edge Function change — deploy it with
+  the push). Seven panel shapes, one history, urgency as a grouping rather than a column.
+  `PM_TOOL_VOCABULARY.md` §13 carries the patterns; read it before building another PM surface.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `credit-deposit` CORRECTLY HAS NO BALANCE RE-VALIDATION, and the panels say so
+    individually rather than implying the seven are uniform.** Crediting is money ARRIVING —
+    there is nothing to exceed. `approve-allocation` (current unallocated), `approve-withdrawal`
+    (unallocated vs the PM-ENTERED amount), `approve-sell` (current held units),
+    `credit-hys-deposit` (unallocated, internal transfers only) and `approve-hys-withdrawal`
+    (pocket exists, not already withdrawn) all re-read current state and refuse with a real 409;
+    `approve-client-application` and `approve-profile-change` guard double-resolve only, which is
+    all there is to check. Read in source, not assumed — and proven under a real race, not by
+    reading it again: request, allocate the same capital elsewhere, approve, refused 409, request
+    left genuinely pending.
+  - **★ ATTRIBUTION IS WRITTEN AND RENDERED NOWHERE — not in a row, not in a title, NOT IN A
+    VISUALLY-HIDDEN SPAN.** `resolved_by`/`resolved_by_email` keep being written by every Edge
+    Function. A hidden field is still a displayed field to a screen reader, and this would be the
+    only place in the product where a PM's email surfaces. It returns with multi-PM. The suite
+    asserts it absent from the DOM, hidden spans included, so it cannot drift back in.
+  - **★ NARROW WIDTHS RESTACK — THEY DO NOT HIDE.** The first cut of the `max-width: 1000px` rule
+    hid `.ag-who` and `.ag-age` outright, so a phone showed a queue of rows like "Crypto · BTC —
+    $—": no client name, so two clients' requests were indistinguishable, and no age, which is the
+    one signal the whole queue is ordered by. Both survive on a second line now, and History drops
+    its column HEADER rather than its content. Row 229's lesson applied: the suite asserts the
+    things exist, not that the layout collapsed.
+  - **★ A REAL PHONE PROFILE, NOT A NARROW DESKTOP WINDOW** — `mobile: true`, DPR 3, touch
+    enabled, proven by `matchMedia('(pointer: coarse)')`/`(hover: none)`/`devicePixelRatio`/
+    `navigator.maxTouchPoints` rather than inferred from width (row 229 again). 320px goes through
+    a real same-origin iframe: the top-level metrics override floors at ~348px on this build.
+  - **★ `hys_deposit_requests.rate` IS A PERCENT, NOT A FRACTION.** `getHysRate()` returns 12 for
+    a 12-month pocket and `credit-hys-deposit` computes `amount * (rate/100) * years`. The gate
+    first rendered it as `(rate * 100).toFixed(1)`, so a real 12% pocket read **1200.0%** in both
+    the queue row and the panel. `high-yield-savings.html` and the retired `admin-hys.html` both
+    render it bare. Guarded by name in the suite, and the committed fixture was seeding 0.048 —
+    a 0.048% pocket the real request path could never produce — which is now 12.
+  - **★ THE GATE CARRIES ZERO `.glass` SURFACES, and the sheen assertion is gated on that rather
+    than passing vacuously.** `audit-glass-sheen` measuring "0 elements, 0 below" is only accepted
+    when a real DOM `.glass` count agrees it is genuinely 0 — otherwise "nothing measured" would
+    read as a pass. 10px secondary text is `#475569`; three greys at `#64748B` measured
+    4.34–4.40:1 and were darkened.
+  - **kv `textContent` HAS NO WHITESPACE between key and value** in the panel markup ("Rate12.0%
+    Funding"), so a regex asserting on a panel figure must not assume spaces around it.
+  - **`scripts/seed-approval-gate-fixtures.mjs` is committed** (`npm run
+    seed-approval-gate-fixtures`, `--clean` to tear down): one pending request of every type plus
+    the account state each needs to be decidable, two deliberately aged 2–3 days so the urgency
+    grouping and the "Oldest waiting" badge are exercised. A real local stack almost never has all
+    seven at once. **Run `--clean` when finished** — leftover pending rows skew the exact-count
+    assertions in the gate's own suite, which is row 212's pollution class.
+  - **The suite rewrite was WIDER than the two suites named, and nothing was dropped silently.**
+    `verify-admin-approval-gate-ui-wiring` is rewritten against the gate (108/108) and
+    `verify-admin-final-wiring`'s section 1 is retired with a pointer naming where each behaviour
+    now lives (37/37). Also repointed: deposit-routing (×2), hys-internal (×2), pm-overview (×2),
+    pm-briefing, control-patterns, label-association, audit-glass-sheen, verify-contrast, and
+    `label-association-baseline.json` (11 keys pruned). **Two fixture collisions of row 212's class
+    fixed, extended from symbols to a CLIENT fixture on a shared reference table**:
+    `verify-deposit-routing-ui-wiring` now scopes every address-book read to its own `data-id`,
+    because `seed-client-gary.mjs` permanently owns two `deposit_addresses` rows and an unscoped
+    `.address-row` query reads whichever sorts first.
+  **Verified**: `verify-admin-approval-gate-ui-wiring` 108/108 (the seven approvals end to end with
+  money landing correctly, two rejections moving nothing, the re-validation race, Gary's real
+  seeded allocation approved through the gate and then restored so the run is repeatable, history
+  carrying a migrated record from each retired page, the `(differs)` marker, attribution absent),
+  `verify-admin-final-wiring` 37/37, `verify-approval-gate-visual` 69/69 (contrast with the sheen
+  composited, 320/375/390 on a real phone profile), `verify-deposit-routing-ui-wiring` 51/51,
+  `supabase-verify-pm-briefing` 61/61, `verify-pm-overview-ui-wiring` 37/37.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
