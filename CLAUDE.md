@@ -9958,6 +9958,46 @@ row 74.
   and `audit-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
   `verify-no-monospace` already half-does it: its font non-vacuity control is what CAUGHT this
   outage; it just calls the result FAIL.
+- **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
+  register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
+  many-client migration tool is separate work. **Idempotent two ways**: the auth user is
+  create-or-reuse keyed on email (uid never changes, so FKs and live sessions survive; a changed
+  `GARY_SEED_PASSWORD` rotates the password), everything else is delete-then-insert scoped to that
+  `client_id` — those tables have `gen_random_uuid()` ids and no natural key, so an upsert has
+  nothing to key on. `deposit_addresses` is global and upserted on (currency, network, address),
+  never deleted. Password in `GARY_SEED_PASSWORD` in `supabase/functions/.env`, never the repo.
+  **★ THINGS A FUTURE SEED MUST KNOW, each established by investigation rather than assumed:**
+  (a) **Nothing recomputes holdings** — no trigger on `holdings`/`account_state`/
+  `portfolio_value_snapshots`, and only `execute-buy`/`execute-sell` write `holdings.cost_basis` —
+  so seeded units and cost basis survive. (b) **`transactions.created_at` IS the historical date**,
+  a plain insertable timestamptz with no trigger and no separate date column. (c) **
+  `account_state.allocated_capital` CANNOT be seeded**: `computeTotalPortfolioValue()` calls
+  `recomputeAllocatedCapital()`, which overwrites it with Σ units × live price on every read.
+  (d) **Realised comes from the LEDGER, not `account_state`** — `get-returns-summary` reads the SELL
+  rows, and `capital allocated = total_value − realized_return` reconstructs cost basis exactly.
+  (e) **Gains are NOT redeployable**: a sale returns only its COST-BASIS portion to spendable
+  `unallocated_capital` and routes the gain to `asset_returns`, which `execute-buy` cannot spend —
+  so held cost basis can never exceed deposits minus transfers. A history built on a conventional
+  brokerage model will not balance, and the source document for this seed did not: it needed $16,341
+  of cost basis from $14,370 of deposits, and its mockup prices put it ~$9,600 over the value ceiling
+  at live prices. It was **re-solved, not patched**. (f) **A contact gets ONE non-ticket
+  conversation** — `conversations` has a partial unique index on `lower(contact_email)` WHERE
+  `kind <> 'ticket'`, so a chat thread and an email thread for the same person is a constraint
+  violation; one thread carries both, since `channel` is per-message. (g) **Respect
+  `products.minimum_investment`** — GLD/QQQ/SPY/VGK are $1,000, the rest $100; a seeded buy below it
+  is not reachable through the real UI. (h) The script's **hard gates refuse to write** if
+  unallocated ever goes negative, either ceiling is breached, the full snapshot series peaks too
+  high, no position is at a loss, or the sell shape is wrong. (i) **Seeds send no email**: no Edge
+  Function is called and `email_log` rows are written directly as a record of what the previous
+  platform sent.
+- **★★ Two designed features have NO server-side storage — register row 224, OPEN** (2026-09-14):
+  the **PM client-profile Onboarding panel** (date of birth, nationality, tax residence, risk
+  profile, source of funds, experience, horizon) has nothing behind it — `client_profiles` is only
+  `legal_name`/`address`/`id_document`, and the onboarding record lives in per-device browser
+  `localStorage` that no server process can write; and **there is no invoice concept anywhere**, a
+  project-wide grep for "invoice" returning zero hits across functions, migrations and every page.
+  Row 223's seed carried both as DOCUMENTS rather than inventing schema for a seeding task — read
+  those documents as documents, never as evidence the fields exist.
   **★ INVESTIGATED the same day (findings in row 222, NOT built) — and it refuted its own first
   guess twice, so do not start from the obvious design.** (a) These are TWO mechanisms, not one:
   `verify-control-patterns`/`verify-label-association` failed as a readiness TIMEOUT, while
