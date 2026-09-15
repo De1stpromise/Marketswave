@@ -9995,6 +9995,26 @@ row 74.
   two different formats, in two different countries — `+1 (800) 555-0199` as plain un-tappable text
   against `+46 8 000 00 00` as a link. A spot-fix to whichever one you happen to be looking at is
   how that happened. Change both, change the hours with them, then re-run deployed-bytes on both.
+- **★★★ PM tool revamp, part 3 — the approval gate: BUILT AND RENDERING, VERIFICATION NOT
+  STARTED. Checkpoint `a07fbcf`, NOT pushed. Read register row 228 before resuming**
+  (2026-09-15). `admin-approvals.html` + `admin-approvals.css` + `admin-approvals-page.js` are one
+  queue for all seven request types, seven panel shapes and one history; the seven queue pages are
+  `git rm`'d and `_shared/pm-briefing.ts`'s hrefs now point at the gate (an Edge Function change,
+  **still needs deploying**). It rendered correctly on its first real browser run — 9 rows across
+  all seven types, correct filter counts, both urgency groups, zero console errors — and **nothing
+  beyond that is verified**: no approval, no rejection, no re-validation race, no contrast, no
+  mobile, no suite rewrite, no deploy, no push.
+  **Three things a resuming session most needs.** (a) **`credit-deposit` correctly has NO balance
+  re-validation** — crediting is money ARRIVING, so there is nothing to exceed; every other
+  money-moving approve does re-read current state and refuse with a real 409, and each panel says
+  which check ran rather than implying they are uniform. (b) **Attribution is written, never
+  rendered** — not in a row, not in a title, **not in a visually-hidden span**, because that is
+  still a displayed field to a screen reader and would be the only place a PM's email surfaces.
+  (c) **`scripts/seed-approval-gate-fixtures.mjs` is committed** (`npm run
+  seed-approval-gate-fixtures`, `--clean` to tear down) and seeds one pending request of every
+  type with two deliberately aged 2-3 days so the urgency grouping is exercised — a real local
+  stack almost never has all seven at once. **Run `--clean` when finished**: leftover pending rows
+  skew the exact-count assertions in the very suite that still needs rewriting (row 212's class).
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
