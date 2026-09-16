@@ -442,7 +442,7 @@ async function main() {
     check('★ the ENTIRE signup flow completed with ZERO trusted pointer events', ptr === 0, 'pointer events: ' + ptr);
     check('★ submission genuinely landed on thank-you.html', /thank-you/.test(landed), landed);
 
-    const { data: row } = await admin.from('clients').select('id,email,status').eq('email', signupEmail).maybeSingle();
+    const { data: row } = await admin.from('clients').select('id,email,status').ilike('email', signupEmail).maybeSingle();
     check('★ a REAL client row was created by the keyboard-only run', !!row && row.status === 'pending_review',
       row ? JSON.stringify(row) : 'no row');
     if (row) createdIds.push(row.id);

@@ -467,7 +467,7 @@ async function main() {
   // ===========================================================================================
   console.log('\n=== PART 4: settings.html — real Legal Name/Address/ID Document investigation + hint ===\n');
 
-  const { data: realClientRow } = await admin.from('clients').select('*').eq('email', 'stormarem@gmail.com').maybeSingle();
+  const { data: realClientRow } = await admin.from('clients').select('*').ilike('email', 'stormarem@gmail.com').maybeSingle();
   if (realClientRow) {
     const { data: realProfileRow } = await admin.from('client_profiles').select('*').eq('client_id', realClientRow.id).maybeSingle();
     const { data: realRequests } = await admin.from('profile_change_requests').select('id').eq('client_id', realClientRow.id);

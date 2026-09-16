@@ -76,7 +76,17 @@ const r2 = (n) => Math.round(n * 100) / 100;
 
 /* ── identity ─────────────────────────────────────────────────────────────────────────────── */
 const GARY = {
-  email: 'Gary.R.Sizemore@gmail.com',
+  // ★ LOWERCASE, DELIBERATELY (2026-09-15). Stored capitalised, this row was the only
+  // mixed-case email in either environment, and it exposed a real latent mechanism rather
+  // than a cosmetic one: public.clients' own INSERT policy compared `email = (auth.jwt() ->>
+  // 'email')` with a plain `=`, while GoTrue normalises every address it stores to lowercase.
+  // A caller inserting the address a client actually TYPED would therefore be refused by RLS
+  // with no error a client could act on. Proven directly, both ways, before changing anything:
+  // a mixed-case insert REFUSED, the same row lowercase ACCEPTED. The policy is
+  // case-insensitive now and a trigger normalises on write — but the convention is to store
+  // lowercase at the source too, so a re-run of this seed never puts a capitalised address
+  // back. See CLAUDE.md's Working conventions.
+  email: 'gary.r.sizemore@gmail.com',
   name: 'Gary Sizemore',
   phone: '(502) 558 5280',
   accountType: 'Individual Account',

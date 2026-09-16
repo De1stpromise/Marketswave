@@ -10559,6 +10559,34 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   screen. A stale page and a genuinely defective suite are independent, though: finding one
   does not clear the other.
 
+- **★★ EMAIL IS STORED AND COMPARED LOWERCASE — never a plain `=` or `===` on an address
+  (2026-09-15).** Found while correcting one capitalised address. The capitalisation was
+  cosmetic; the mechanism under it was not. `public.clients`' own INSERT policy compared the
+  submitted email to the caller's verified JWT email with a case-SENSITIVE `=`, while GoTrue
+  normalises every address it stores to lowercase — confirmed for BOTH creation paths, admin
+  `createUser` and `signUp`. **Proven with a control on both sides before anything was
+  changed**: a throwaway user created with a mixed-case address stored lowercase and signed in
+  fine with EITHER capitalisation, then a `clients` INSERT carrying the TYPED mixed-case
+  address was REFUSED ("new row violates row-level security policy") and the identical row
+  lowercase was ACCEPTED. It had not fired in production only because `signup.html` inserts
+  `signUpData.user.email` — the value GoTrue hands BACK, already normalised — rather than the
+  value typed into the form. That is an implementation accident, not a guarantee.
+  **What is now true structurally**: the policy compares `lower(...) = lower(...)` (anti-spoofing
+  unchanged — proven by a control that an insert claiming a DIFFERENT address is still
+  refused), and a BEFORE INSERT/UPDATE trigger on `clients` lowercases `email` on write, so
+  storage is normalised for every writer including `service_role` and the seed scripts.
+  `conversations.contact_email` is backfilled but deliberately NOT triggered: its own partial
+  unique index on `lower(contact_email)` already enforces the invariant that matters there.
+  **What to do when writing new code**: match an address with `.ilike()` or `lower()`, never
+  `.eq()`/`===`; store it lowercase at the source too (a seed that writes a capitalised address
+  puts it straight back on the next run).
+  **★ THE FAILURE MODE IS SILENCE, WHICH IS WHY THIS IS A CONVENTION AND NOT A ONE-OFF.**
+  Three harnesses were matching an address with `.eq()`; the worst of them
+  (`verify-admin-approval-gate-ui-wiring`) used the lookup to decide whether to run a real
+  approval assertion at all, so normalising the stored value would have made it print
+  `SKIP  Gary is not seeded` and drop a real assertion while still reporting a clean pass. All
+  three are `.ilike()` now, and a project-wide grep for `.eq('email'` / `.eq('contact_email'`
+  returns zero.
 - **Tailwind Color Scoping — run `npm run verify-tailwind-color-scoping` (from `scripts/`)
   before any push that adds/edits Tailwind classes on an admin page, or touches any page's
   own inline `tailwind.config` block.** Added 2026-09-07 after a real incident: `admin-

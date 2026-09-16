@@ -580,7 +580,12 @@ async function main() {
     // portfolio and his real balance moves. It is then unwound so the next run starts from
     // the same place, which is what makes the assertion repeatable rather than single-use.
     {
-      const { data: gary } = await admin.from('clients').select('id, name').eq('email', 'Gary.R.Sizemore@gmail.com').maybeSingle();
+      // ★ ilike, not eq (2026-09-15). This was a plain case-SENSITIVE equality match on a
+      // stored address that was then normalised to lowercase — and the failure mode is the
+      // bad one: the lookup returns nothing, the branch below SKIPS, and a real approval
+      // assertion silently stops running while the suite still reports a clean pass. Match
+      // an address case-insensitively, always.
+      const { data: gary } = await admin.from('clients').select('id, name').ilike('email', 'gary.r.sizemore@gmail.com').maybeSingle();
       if (!gary) {
         console.log('  SKIP  Gary is not seeded on this stack — run `node seed-client-gary.mjs` first.');
       } else {
