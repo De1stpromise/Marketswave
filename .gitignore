@@ -38,3 +38,4 @@ scripts/.pass-logs/
 # temporary belongs in the session scratchpad, not here; this rule is the backstop.
 scripts/.tmp-*
 scripts/.probe*.mjs
+scripts/*-pass.log
