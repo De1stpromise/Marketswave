@@ -103,7 +103,8 @@
     "verify-approval-gate-visual": "node verify-approval-gate-visual.mjs",
     "supabase-verify-client-profile": "node verify-supabase-client-profile.mjs",
     "verify-client-profile-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-profile-ui-wiring.mjs",
-    "verify-client-profile-visual": "node verify-client-profile-visual.mjs"
+    "verify-client-profile-visual": "node verify-client-profile-visual.mjs",
+    "verify-client-list-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-list-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
