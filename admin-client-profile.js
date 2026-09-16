@@ -422,6 +422,34 @@
       '</div>';
   }
 
+  // ★ SECURITY ACTIONS — moved here from the client list's expander (register row 235). They
+  // were real actions with no other home once the row became navigation.
+  //
+  // Both are LOCAL-ONLY and the page says so rather than implying otherwise (row 128's own
+  // finding, re-checked): resetClientPassword() sets a local forcePasswordReset flag that gates
+  // settings.html, and this project has never persisted a real password anywhere — so for a
+  // Supabase-authenticated client it does NOT change the credential they actually sign in with.
+  // resetClient2FA() DOES achieve its full intended effect, because 2FA has always been a local
+  // simulated feature. Warning the PM about both equally would be inaccurate.
+  function renderSecurity(d) {
+    var c = d.p.client;
+    return '<div class="cp-ch"><b>Security</b><span class="cp-hint">logged, reason required</span></div>' +
+      '<div class="cp-r"><div class="cp-rb"><div class="cp-rt">Reset password</div>' +
+        '<div class="cp-rs">Forces a new password on next sign-in</div></div>' +
+        '<div class="cp-ra"><button type="button" class="mw-btn mw-btn-sm" data-cp-sec="password" ' +
+          'data-cp-name="' + esc(c.name) + '">Reset</button></div></div>' +
+      '<div class="cp-r"><div class="cp-rb"><div class="cp-rt">Reset two-factor authentication</div>' +
+        '<div class="cp-rs">Clears the client’s 2FA enrolment</div></div>' +
+        '<div class="cp-ra"><button type="button" class="mw-btn mw-btn-sm" data-cp-sec="2fa" ' +
+          'data-cp-name="' + esc(c.name) + '">Reset</button></div></div>' +
+      '<div class="cp-absent" data-cp-absent="security">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
+        '<p><b>Reset password does not change a real sign-in credential.</b> This project has never stored a ' +
+        'password; the reset sets a local flag that forces a new one to be set on the client’s next visit. ' +
+        'Reset two-factor authentication does take full effect, because 2FA is a local feature.</p>' +
+      '</div>';
+  }
+
   // ---- wire ------------------------------------------------------------------------------------
   function bundle(el, renderer) {
     MarketswaveData.renderAsyncBundle(el, {
@@ -450,6 +478,7 @@
     bundle(D.getElementById('cp-watchlist'), renderWatchlist);
     bundle(D.getElementById('cp-notes'), renderNotes);
     bundle(D.getElementById('cp-health'), renderHealth);
+    bundle(D.getElementById('cp-security'), renderSecurity);
     load().then(function (d) { D.getElementById('cp-tabs').innerHTML = renderTabs(d); }).catch(function () { /* panels report it */ });
   }
 
@@ -497,6 +526,51 @@
     }
     var nofile = t.closest && t.closest('[data-cp-nofile]');
     if (nofile) { toast('No file is stored against this record.'); }
+  });
+
+  // ---- security modal --------------------------------------------------------------------------
+  var secKind = null;
+  function openSec(kind, name) {
+    secKind = kind;
+    D.getElementById('cp-sec-title').textContent = kind === 'password' ? 'Reset password' : 'Reset two-factor authentication';
+    D.getElementById('cp-sec-desc').textContent = (kind === 'password'
+      ? 'Forces ' + name + ' to set a new password on their next visit.'
+      : 'Clears ' + name + '’s 2FA enrolment so they can enrol again.');
+    var warn = D.getElementById('cp-sec-warn');
+    if (kind === 'password') {
+      warn.textContent = 'This does not change the credential they actually sign in with — no password is stored by this project. It sets a local flag that gates their settings page until they set a new one.';
+      warn.classList.remove('hidden');
+    } else { warn.classList.add('hidden'); }
+    D.getElementById('cp-sec-reason').value = '';
+    D.getElementById('cp-sec-error').classList.add('hidden');
+    D.getElementById('cp-sec-modal').classList.remove('hidden');
+    D.getElementById('cp-sec-reason').focus();
+  }
+  function closeSec() { D.getElementById('cp-sec-modal').classList.add('hidden'); secKind = null; }
+
+  D.addEventListener('click', function (ev) {
+    var open = ev.target.closest && ev.target.closest('[data-cp-sec]');
+    if (open) { openSec(open.getAttribute('data-cp-sec'), open.getAttribute('data-cp-name') || 'this client'); return; }
+    if (ev.target.closest && (ev.target.closest('#cp-sec-cancel') || ev.target.closest('#cp-sec-close') || ev.target.closest('#cp-sec-backdrop'))) {
+      closeSec(); return;
+    }
+    var go = ev.target.closest && ev.target.closest('#cp-sec-submit');
+    if (go) {
+      var reason = (D.getElementById('cp-sec-reason').value || '').trim();
+      var err = D.getElementById('cp-sec-error');
+      if (!reason) { err.textContent = 'A reason is required — no silent resets.'; err.classList.remove('hidden'); return; }
+      MarketswaveData.getCurrentUserEmail().then(function (who) {
+        try {
+          if (secKind === 'password') resetClientPassword(CLIENT_ID, reason, who);
+          else resetClient2FA(CLIENT_ID, reason, who);
+          closeSec();
+          toast(secKind === 'password' ? 'Password reset recorded.' : 'Two-factor authentication reset.');
+        } catch (e) {
+          err.textContent = (e && e.message) || String(e);
+          err.classList.remove('hidden');
+        }
+      });
+    }
   });
 
   if (D.readyState === 'loading') D.addEventListener('DOMContentLoaded', start);

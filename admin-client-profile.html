@@ -64,11 +64,35 @@
               <section class="panel glass glass-lift cp-card" id="cp-watchlist" aria-label="Watchlist"></section>
               <section class="panel glass glass-lift cp-card" id="cp-notes" aria-label="Private notes"></section>
               <section class="panel glass glass-lift cp-card" id="cp-health" aria-label="Account health"></section>
+              <section class="panel glass glass-lift cp-card" id="cp-security" aria-label="Security actions"></section>
             </div>
           </div>
 
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- ★ Reset Password / Reset 2FA MOVED HERE from the client list's expander (register row
+       235). They were real actions with no other home once the expander became navigation, and
+       the profile is where client-level detail and actions live now. A reason is required: no
+       silent, reason-less reset. -->
+  <div id="cp-sec-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="cp-sec-backdrop"></div>
+    <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+      <div class="flex items-start justify-between mb-2">
+        <p class="text-lg font-semibold text-slate-900" id="cp-sec-title">Reset Password</p>
+        <button type="button" id="cp-sec-close" class="mw-btn mw-btn-sm" aria-label="Close">&times;</button>
+      </div>
+      <p class="text-sm text-slate-600 mb-4" id="cp-sec-desc"></p>
+      <div id="cp-sec-warn" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"></div>
+      <label for="cp-sec-reason" class="block text-xs font-semibold text-slate-600 mb-1">Reason (required)</label>
+      <textarea id="cp-sec-reason" rows="3" class="mw-field mw-field-admin w-full" placeholder="Why is this being reset?"></textarea>
+      <p id="cp-sec-error" class="hidden text-xs text-red-700 mt-2"></p>
+      <div class="flex gap-2 mt-4">
+        <button type="button" id="cp-sec-submit" class="mw-btn mw-btn-sm mw-btn-danger">Confirm reset</button>
+        <button type="button" id="cp-sec-cancel" class="mw-btn mw-btn-sm">Cancel</button>
+      </div>
     </div>
   </div>
 

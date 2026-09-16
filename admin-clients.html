@@ -130,35 +130,6 @@
        Reset Password and Reset 2FA, distinguished by the stored action type. Reason is
        required (not optional, unlike some other reject modals elsewhere) — no silent/
        reason-less resets, per instruction. -->
-  <div id="security-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/60" id="security-modal-backdrop"></div>
-    <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-      <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900" id="security-modal-title">Reset Password</p>
-        <button type="button" id="security-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
-      </div>
-      <p class="text-sm text-slate-500 mb-4" id="security-modal-desc"></p>
-      <!-- Backend Migration Phase 0, item 3 (Aug 26, 2026): shown only for a Firebase-sourced
-           client's Reset Password action — see openSecurityModal() for exactly when. Reset 2FA
-           gets no equivalent warning here because it genuinely isn't a no-op for these clients
-           (see the comment above expandedRowHTML() for the full "why" of that distinction). -->
-      <div id="security-firebase-warning" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-        <strong class="font-semibold">This client signs in with a real Firebase Auth password.</strong>
-        This action will not change or invalidate it — it only forces a one-time, non-persisting
-        "set new password" screen on their end (see the code comment for why nothing is actually
-        stored). Real credential revocation for Firebase-sourced clients isn't available yet.
-      </div>
-      <div class="mw-fld mw-fld--admin">
-        <textarea id="security-reason-input" rows="3" class="mw-field mw-field-admin mb-2" placeholder="Why is this reset being performed?"></textarea>
-        <label for="security-reason-input">Reason (required)</label>
-      </div>
-      <p class="text-xs text-red-500 hidden mb-2" id="security-error"></p>
-      <div class="flex gap-3 mt-2">
-        <button type="button" id="security-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
-        <button type="button" id="security-submit" class="mw-btn mw-btn-danger mw-btn-grow">Confirm Reset</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Toast -->
   <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
