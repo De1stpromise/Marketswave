@@ -203,73 +203,27 @@ async function main() {
     const { data: rateRow } = await admin.from('advisory_fee_rate').select('rate').eq('id', true).single();
     check('the real advisory fee rate saved in step 2 reads back 2.75', Math.abs(Number(rateRow.rate) - 2.75) < 1e-9, String(rateRow.rate));
   }
+  // ── 4. admin-clients.html — RETIRED (register row 235). ──────────────────────────────────
+  // The client list was rebuilt in part 5 and this section drove the OLD surface, so its
+  // coverage MOVED rather than being dropped:
+  //
+  //   real Supabase clients render in the list
+  //        -> verify-client-list-ui-wiring, PART 3 (every funded client compared against
+  //           get-total-portfolio-value, with a guard that at least two were compared)
+  //   the portfolio cell shows the exact server-computed figure
+  //        -> verify-client-list-ui-wiring, PARTS 2 and 3
+  //   real per-client pending Approval Gate count
+  //        -> verify-client-list-ui-wiring, PART 5 (the strip's approval figure against an
+  //           independent pending total) and PART 6 (the "Has pending requests" filter)
+  //   "View as this Client" absent for a Supabase client
+  //        -> verify-client-list-ui-wiring, PART 7 asserts it is absent for EVERY client:
+  //           the control is gone entirely, because setCurrentClientId() was write-only.
+  //
+  // The one assertion with no replacement is the "Supabase" badge, which was REMOVED BY
+  // DESIGN (row 235): internal implementation on a PM-facing page. It was also the tell for
+  // the $0 bug, which is now fixed at source rather than signposted — and PART 7 asserts the
+  // badge is absent, so that removal is itself covered.
 
-  // 4. admin-clients.html — real Supabase merge, real cross-client portfolio value + pending count
-  // =============================================================================================
-  console.log('\n=== 4. admin-clients.html ===\n');
-  await (async function () {
-    const path = fileURLToPath(new URL('../admin-clients.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = MarketswaveData;
-    // engine-core.js isn't loaded in this harness — stub the handful of local-engine globals
-    // this page's own script calls for its LOCAL half (getAllClients/getCurrentClientId/
-    // getTotalPortfolioValue/getClientPendingApprovalCount), mirroring how prior UI-wiring
-    // verification scripts stub out narrow local dependencies rather than loading the whole
-    // engine. Zero local clients on purpose — this test is about the real Supabase merge.
-    dom.window.getAllClients = function () { return []; };
-    dom.window.getCurrentClientId = function () { return null; };
-    dom.window.getTotalPortfolioValue = function () { return 0; };
-    dom.window.getClientPendingApprovalCount = function () { return 0; };
-    dom.window.resetClientPassword = function () { throw new Error('not used in this test'); };
-    dom.window.resetClient2FA = function () { throw new Error('not used in this test'); };
-    dom.window.addClient = function () { throw new Error('not used in this test'); };
-
-    const script = extractInlineScript(path, 'Admin UI Wiring — Final Stage');
-    const clientsList = dom.window.document.getElementById('clients-list');
-    dom.window.eval(script);
-
-    await pollUntil(function () { return clientsList.textContent.indexOf(clientA.name) !== -1; }, 20000);
-    check('real Supabase clients render in Client List (clientA)', clientsList.textContent.indexOf(clientA.name) !== -1);
-    check('real Supabase clients render in Client List (clientB)', clientsList.textContent.indexOf(clientB.name) !== -1);
-    check('a "Supabase" badge marks the real cross-client rows', clientsList.innerHTML.indexOf('Supabase') !== -1);
-
-    console.log('\n4a. Real cross-client Total Portfolio Value (get-total-portfolio-value)');
-    await (async function () {
-      // clientA has $5000 unallocated (seeded at creation) plus whatever step 1/3 added —
-      // read the real current total independently, then confirm the rendered figure matches
-      // it exactly (a real Edge Function call, not a fabricated/zeroed placeholder).
-      const totalRes = await MarketswaveData.callFunction('get-total-portfolio-value', { clientId: clientA.id });
-      const rowEl = [...clientsList.querySelectorAll('tr.client-row')].find(function (tr) { return tr.dataset.id === clientA.id; });
-      check('the real Total Portfolio Value cell shows the exact real server-computed figure', rowEl.textContent.indexOf('$' + Math.round(totalRes.totalPortfolioValue).toLocaleString()) !== -1, rowEl.textContent + ' vs $' + Math.round(totalRes.totalPortfolioValue));
-    })();
-
-    console.log('\n4b. Real per-client pending Approval Gate count, lazily fetched on expand');
-    await (async function () {
-      const row = [...clientsList.querySelectorAll('tr.client-row')].find(function (tr) { return tr.dataset.id === clientA.id; });
-      row.click();
-      await pollUntil(function () { return clientsList.textContent.indexOf('Loading…') !== -1 || /Pending Approval Gate Items/.test(clientsList.textContent); }, 5000);
-
-      // Real, independent expected count: sum of clientA's own pending rows across the same
-      // 7 tables the page itself queries.
-      const tables = ['deposit_requests', 'withdrawal_requests', 'allocation_requests', 'sell_requests', 'hys_deposit_requests', 'hys_withdrawal_requests', 'profile_change_requests'];
-      let expectedPending = 0;
-      for (const t of tables) {
-        const { data } = await admin.from(t).select('id').eq('client_id', clientA.id).eq('status', 'pending');
-        expectedPending += data.length;
-      }
-
-      const expandRow = clientsList.querySelector('tr.expand-row');
-      await pollUntil(function () { return expandRow.textContent.indexOf('Loading…') === -1; }, 20000);
-      check('the real lazily-fetched pending count matches the real, independently-queried sum across all 7 tables', expandRow.textContent.indexOf(String(expectedPending)) !== -1, expandRow.textContent.slice(0, 300) + ' | expected=' + expectedPending);
-    })();
-
-    console.log('\n4c. "View as this Client" is correctly ABSENT for a real Supabase client');
-    await (async function () {
-      const expandRow = clientsList.querySelector('tr.expand-row');
-      check('no "View as this Client" button exists for a real Supabase-sourced client (no real identity-switch mechanism exists for it)', !expandRow.querySelector('.view-btn'));
-      check('an explanatory note is shown in its place instead', /no local "view as" mechanism/i.test(expandRow.textContent), expandRow.textContent.slice(0, 300));
-    })();
-  })();
 
   } finally {
     // Every table this test touched cascades from its owning real auth user via
