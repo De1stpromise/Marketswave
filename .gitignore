@@ -37,3 +37,4 @@ scripts/.pass-logs/
 # reading scripts/ should see only real, named verification scripts. Anything genuinely
 # temporary belongs in the session scratchpad, not here; this rule is the backstop.
 scripts/.tmp-*
+scripts/.probe*.mjs
