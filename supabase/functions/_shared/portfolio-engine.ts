@@ -252,9 +252,20 @@ export async function recomputeAllocatedCapital(
 export async function computeTotalPortfolioValue(supabaseAdmin: any, clientId: string): Promise<number> {
   const products = await settleAllProducts(supabaseAdmin);
   const { data: holdings } = await supabaseAdmin.from('holdings').select('product_id, units').eq('client_id', clientId);
-  if (holdings && holdings.length > 0) {
-    await recomputeAllocatedCapital(supabaseAdmin, clientId, holdings, products);
-  }
+  // ★ RECOMPUTE UNCONDITIONALLY, INCLUDING TO ZERO. This used to be guarded by
+  // `if (holdings && holdings.length > 0)`, which meant a client with NO holdings kept whatever
+  // `account_state.allocated_capital` last held — a stored aggregate trusted over derived
+  // truth, and a direct violation of this project's own locked rule that allocatedCapital is
+  // derived from summing holdings and never set independently. Found 2026-09-15 by
+  // get-client-list disagreeing with this function for a client with zero holdings (register
+  // row 235): this function said $58,000, the derived figure was $30,000.
+  //
+  // Latent rather than live: execute-sell already recomputes unconditionally, so a real final
+  // sale zeroes it correctly, and no client on real cloud staging is in the inconsistent state
+  // (checked before changing this — every one there has holdings matching its state, so this
+  // changes no real figure). It surfaces when something writes account_state directly, which is
+  // what test fixtures do.
+  await recomputeAllocatedCapital(supabaseAdmin, clientId, holdings || [], products);
   const { data: state, error } = await supabaseAdmin.from('account_state').select('*').eq('client_id', clientId).maybeSingle();
   if (error) throw new Error('computeTotalPortfolioValue: failed to read account_state: ' + error.message);
   if (!state) return 0;

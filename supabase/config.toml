@@ -910,3 +910,8 @@ entrypoint = "./functions/get-pm-briefing/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-client-profile/index.ts"
+
+[functions.get-client-list]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/get-client-list/index.ts"
