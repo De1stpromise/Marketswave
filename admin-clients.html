@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="admin-nav.css">
   <link rel="stylesheet" href="responsive-tables.css">
+  <link rel="stylesheet" href="admin-client-list.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -36,44 +37,36 @@
       </header>
 
       <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+        <span class="blob blob--sm blob--teal" style="top:-60px;right:-40px" aria-hidden="true"></span>
+        <div class="cl-wrap mx-auto">
 
-        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
-             in top-right whitespace -- same restraint/technique as the client dashboard
-             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
-             would break this scrollable container's own vertical scroll). -->
-        <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
-
-        <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Client List</h2>
-          <p class="text-slate-500 mt-1">Every client account, real balances, and switching which client the queue pages operate on.</p>
-        </div>
-
-        <div class="glass rounded-2xl">
-
-          <!-- Search + Add Client -->
-          <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div class="relative flex-1 min-w-[220px] max-w-sm">
-              <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <div class="mw-fld mw-fld--admin">
-                <input type="text" id="client-search" placeholder="Search by name or ID..." class="mw-field mw-field-admin pl-9" />
-                <label for="client-search">Search by name or ID</label>
-              </div>
+          <div class="flex items-end justify-between gap-4 flex-wrap mb-4">
+            <div>
+              <h2 class="text-2xl font-semibold text-slate-900">Clients</h2>
+              <p class="text-sm text-slate-600 mt-1">Every account, with what it holds and what it needs.</p>
             </div>
-            <button type="button" id="open-add-modal" class="mw-btn mw-btn-secondary mw-btn-sm shrink-0">+ Add Client</button>
+            <button type="button" id="open-add-modal" class="mw-btn mw-btn-admin mw-btn-sm shrink-0">+ Add client</button>
           </div>
 
-          <!-- Filter pills -->
-          <div class="px-6 py-3 border-b border-slate-100 flex items-center gap-2" id="type-filter-pills">
-            <button type="button" class="filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="All">All</button>
-            <button type="button" class="filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Individual">Individual</button>
-            <button type="button" class="filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Joint">Joint</button>
-            <button type="button" class="filter-pill mw-btn mw-btn-sm mw-btn-pill" data-filter="Business">Business</button>
+          <!-- strip: four figures, none of which existed before -->
+          <div class="cl-strip" id="cl-strip"></div>
+
+          <!-- filters + search -->
+          <div class="panel glass glass-lift cl-bar" id="cl-bar">
+            <div id="cl-filters" class="contents"></div>
+            <div class="cl-srch">
+              <span class="cl-ic" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+              <label for="client-search" class="sr-only">Search clients</label>
+              <input type="text" id="client-search" class="mw-field mw-field-admin" placeholder="Search name or email" />
+            </div>
           </div>
 
-          <div id="clients-list"></div>
+          <div class="panel glass glass-lift" id="cl-panel">
+            <div class="cl-th" id="cl-head"></div>
+            <div id="clients-list"></div>
+          </div>
 
         </div>
-
       </main>
     </div>
   </div>
@@ -200,478 +193,64 @@
        same way the old code merged local + Firebase. No `type="module"` needed any more —
        MarketswaveData (a plain classic script) covers everything this page needs. -->
   <script>
+    // ★ PM tool revamp, part 5 (2026-09-15): the list itself lives in admin-client-list.js.
+    // What remains here is the Add Client modal, which is unchanged — it still calls the local
+    // engine's addClient(), exactly as before. Changing which backend a PM-created client is
+    // written to is a real decision with its own consequences and is NOT part of this task.
+    //
+    // REMOVED with the expander (register row 235), each deliberately:
+    //   - the raw UUID as an identifier — no readable reference exists to replace it with; see
+    //     row 235 for what adding one would take. Name and email identify the row instead.
+    //   - the "Supabase" badge — internal implementation on a PM-facing page; a client is a
+    //     client. It also turned out to be the tell for the $0 bug, which is now fixed at the
+    //     source rather than signposted.
+    //   - "View as this Client" — WRITE-ONLY: setCurrentClientId() was called here and read by
+    //     nothing in the admin tool (the seven queue pages that consumed it are retired, and
+    //     every wired admin page takes an explicit clientId). engine-core.js keeps the
+    //     functions; this page simply no longer calls them.
+    //   - Reset Password / Reset 2FA — these were REAL actions with no other home, so they
+    //     MOVED to the client profile rather than being dropped. The profile is where
+    //     client-level detail and actions live now.
     (function () {
-      if (typeof getAllClients !== 'function') return; // engine-core.js failed to load — bail defensively
-      if (typeof MarketswaveData !== 'undefined') MarketswaveData.useAdminClient();
-
-      var TYPE_BADGE = {
-        'Individual Account': { label: 'Individual', cls: 'bg-slate-100 text-slate-600' },
-        'Joint Account': { label: 'Joint', cls: 'bg-blue-50 text-blue-700' },
-        'Business Account': { label: 'Business', cls: 'bg-purple-50 text-purple-700' }
-      };
-
-      var toast = document.getElementById('admin-toast');
-      var toastTitle = document.getElementById('admin-toast-title');
-      var toastBody = document.getElementById('admin-toast-body');
-      var toastClose = document.getElementById('admin-toast-close');
-      var toastTimer;
-      // Bug fix (Aug 27, 2026, kept — still applies to the real Supabase load path below):
-      // New 4th param `sticky`, deliberately separate from `isError` (kept exactly as it
-      // already was, pure styling), requires manual dismissal via the new close button
-      // instead of auto-hiding — only the real Supabase-load-failure call site below passes
-      // it; every other call site (none currently pass `isError` at all in this file) is
-      // completely unchanged.
-      function showToast(title, body, isError, sticky) {
-        toastTitle.textContent = title;
-        toastBody.textContent = body;
-        toast.classList.toggle('bg-red-700', !!isError);
-        toast.classList.toggle('bg-slate-900', !isError);
-        toastClose.classList.toggle('hidden', !sticky);
-        toast.classList.remove('hidden');
-        clearTimeout(toastTimer);
-        if (!sticky) {
-          toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
-        }
-      }
-      toastClose.addEventListener('click', function () {
-        clearTimeout(toastTimer);
-        toast.classList.add('hidden');
-      });
-
-      function formatUSD(n) {
-        return '$' + Math.round(n).toLocaleString();
-      }
-
-      function formatDisplayDate(isoDate) {
-        var d = new Date(isoDate + 'T00:00:00Z');
-        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
-      }
-
-      // ---- Search + filter — pure functions, Node-verified separately (see
-      // verify-clients-search-filter.js) against a standalone copy of this exact logic ----
-      function matchesSearch(client, query) {
-        if (!query) return true;
-        var q = query.trim().toLowerCase();
-        return client.name.toLowerCase().indexOf(q) !== -1 || client.id.toLowerCase().indexOf(q) !== -1;
-      }
-      function matchesTypeFilter(client, filter) {
-        if (filter === 'All') return true;
-        return client.accountType === filter + ' Account';
-      }
-      function applyFilters(clientsArr, query, filter) {
-        return clientsArr.filter(function (c) { return matchesSearch(c, query) && matchesTypeFilter(c, filter); });
-      }
-
-      var searchQuery = '';
-      var typeFilter = 'All';
-      var expandedIds = {};
-
-      // Real cleanup, not a straightforward wire (Admin UI Wiring — Final Stage, 2026-09-03):
-      // cachedClients now holds the MERGED result of local (getAllClients() — the still-
-      // genuinely-local demo/admin-created clients, e.g. CLIENT-0001) and real Supabase
-      // (`clients` table) reads, refreshed by refreshAndRenderClients() below; renderClients()
-      // just renders/filters whatever's currently cached, tagging each row with a small
-      // "Supabase" badge when _source === 'supabase'. De-duplicated by id — structurally
-      // impossible to collide today (local ids are PROD/CLIENT-XXXX strings, Supabase ids are
-      // real auth.users UUIDs), kept anyway as defense-in-depth, same reasoning
-      // admin-client-applications.html's own History dedup already used for its analogous merge.
-      var cachedClients = [];
-      var SOURCE_BADGE_HTML = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Supabase</span>';
-
-      // pendingCountCache — lazy, per-client cache for a Supabase client's own "Pending
-      // Approval Gate Items" figure. Unlike a local client (getClientPendingApprovalCount() is
-      // a synchronous localStorage read), a Supabase client's pending count requires querying 7
-      // real tables — fetched only when a row is actually expanded (matching this page's own
-      // established expand-in-place lazy-detail pattern, §4.56), not eagerly for every client on
-      // load, to avoid N×7 queries for a client list nobody is looking at yet.
-      var pendingCountCache = {};
-      var pendingCountInFlight = {};
-      var APPROVAL_GATE_TABLES = ['deposit_requests', 'withdrawal_requests', 'allocation_requests', 'sell_requests', 'hys_deposit_requests', 'hys_withdrawal_requests', 'profile_change_requests'];
-
-      function fetchPendingCountForSupabaseClient(clientId) {
-        return Promise.all(APPROVAL_GATE_TABLES.map(function (table) {
-          return MarketswaveData.selectTable(table, function (q) { return q.eq('client_id', clientId).eq('status', 'pending'); });
-        })).then(function (results) {
-          return results.reduce(function (sum, rows) { return sum + rows.length; }, 0);
-        });
-      }
-
-      // Re-investigated before labeling anything, rather than assuming the prior
-      // Firebase-specific note still applies verbatim now that Supabase is the sole active
-      // backend: "Reset Password"/"Reset 2FA" both call local-only resetClientPassword()/
-      // resetClient2FA() engine functions — the SAME real distinction found for Firebase-
-      // sourced clients (Backend Migration Phase 0, item 3) holds identically for a real
-      // Supabase-authenticated client, since neither local function has ever depended on which
-      // real backend authenticated the client:
-      //   - Reset Password sets a LOCAL forcePasswordReset flag that gates settings.html until
-      //     the client submits a "new password." That form's own submit handler never persists
-      //     a password anywhere for ANY client (no real credential store backs the self-service
-      //     Change Password flow either) — it only clears the flag. For a Supabase-sourced
-      //     client, this means the reset has NO effect on their real sign-in credential at all:
-      //     they keep using their existing real Supabase Auth password, unaware anything was
-      //     supposed to change. This IS the genuinely misleading case, labeled below.
-      //   - Reset 2FA writes directly to the same marketswave_settings_2fa:<clientId> key
-      //     settings.html's own 2FA section reads — and 2FA has ALWAYS been a fully local,
-      //     simulated feature independent of whichever real backend authenticated the client
-      //     (confirmed no real Supabase table/Edge Function exists for 2FA either — see
-      //     settings.html's own Stage 5 investigation). So Reset 2FA achieves its real,
-      //     complete, intended effect for a Supabase-sourced client exactly as designed — no
-      //     discrepancy to warn about there.
-
-      function renderFilterPills() {
-        var buttons = document.querySelectorAll('.filter-pill');
-        buttons.forEach(function (btn) {
-          var active = btn.dataset.filter === typeFilter;
-          btn.className = 'filter-pill mw-btn mw-btn-sm mw-btn-pill ' +
-            (active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200');
-        });
-      }
-
-      function expandedRowHTML(c) {
-        var isSupabase = c._source === 'supabase';
-        var pendingCount;
-        if (!isSupabase) {
-          pendingCount = getClientPendingApprovalCount(c.id);
-        } else if (pendingCountCache.hasOwnProperty(c.id)) {
-          pendingCount = pendingCountCache[c.id];
-        } else {
-          pendingCount = 'Loading…';
-          if (!pendingCountInFlight[c.id]) {
-            pendingCountInFlight[c.id] = true;
-            fetchPendingCountForSupabaseClient(c.id).then(function (n) {
-              pendingCountCache[c.id] = n;
-              delete pendingCountInFlight[c.id];
-              renderClients();
-            }).catch(function () {
-              pendingCountCache[c.id] = '—';
-              delete pendingCountInFlight[c.id];
-              renderClients();
-            });
-          }
-        }
-        // "View as this Client" only makes sense for a genuinely local client — it works by
-        // pinning the local engine's own ambient marketswave_current_client_id
-        // (setCurrentClientId()), which is meaningless for a real Supabase-authenticated
-        // client: there's no real identity-switch mechanism here, and none of the wired admin
-        // queue pages read that ambient id any more (every one of them now takes an explicit
-        // clientId per row, since Admin UI Wiring Stage 1) — confirmed via project-wide grep
-        // that this page is the ONLY admin page left calling getCurrentClientId()/
-        // setCurrentClientId() at all. Shown only for local clients; a Supabase client gets an
-        // explanatory note instead of a button that would silently do nothing meaningful.
-        // ★ The full profile (part 4). This list answers "who are my clients"; the profile
-        // answers "who is this one" — holdings, activity, requests, documents, conversations,
-        // notes. Every client gets the link, local or Supabase-authenticated, because the
-        // profile reads real tables by id rather than depending on any ambient local session.
-        var profileLink = '<a class="mw-btn mw-btn-sm mw-btn-admin profile-btn" href="admin-client-profile.html?client=' +
-          encodeURIComponent(c.id) + '">Open profile</a>';
-
-        var viewControl;
-        if (isSupabase) {
-          viewControl = '<p class="text-xs text-slate-400">Real Supabase-authenticated client — no local "view as" mechanism exists for it.</p>';
-        } else if (c.id === getCurrentClientId()) {
-          viewControl = '<p class="text-xs text-slate-400">Currently viewing this client.</p>';
-        } else {
-          viewControl = '<button type="button" class="view-btn mw-btn mw-btn-admin mw-btn-sm" data-id="' + c.id + '">View as this Client</button>';
-        }
-        return '<tr class="expand-row">' +
-          '<td colspan="4" class="px-6 pb-5 pt-0 glass-subtle">' +
-            '<div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">' +
-              '<div>' +
-                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Email</p>' +
-                '<p class="text-slate-700">' + (c.email || '—') + '</p>' +
-              '</div>' +
-              '<div>' +
-                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Client Since</p>' +
-                '<p class="text-slate-700">' + (c.createdAt ? formatDisplayDate(c.createdAt) : '—') + '</p>' +
-              '</div>' +
-              '<div>' +
-                '<p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Pending Approval Gate Items</p>' +
-                '<p class="text-slate-700 font-medium">' + pendingCount + '</p>' +
-              '</div>' +
-            '</div>' +
-            '<div class="flex flex-wrap items-center gap-2 mt-4">' +
-              profileLink + ' ' + viewControl +
-              '<button type="button" class="security-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="PASSWORD_RESET">Reset Password</button>' +
-              '<button type="button" class="security-btn mw-btn mw-btn-secondary mw-btn-sm" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" data-action="2FA_RESET">Reset 2FA</button>' +
-            '</div>' +
-            (isSupabase
-              ? '<p class="text-xs text-amber-600 mt-2">Supabase-authenticated client: Reset Password will not change their real sign-in password. Reset 2FA works normally.</p>'
-              : '') +
-          '</td>' +
-        '</tr>';
-      }
-
-      function renderClients() {
-        var filtered = applyFilters(cachedClients, searchQuery, typeFilter);
-        var currentId = getCurrentClientId();
-        var listEl = document.getElementById('clients-list');
-
-        if (filtered.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No clients match this search/filter.</p>';
-          return;
-        }
-
-        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
-          '<th class="text-left font-medium px-6 py-3">Client</th>' +
-          '<th class="text-left font-medium px-6 py-3">Type</th>' +
-          '<th class="text-right font-medium px-6 py-3">Portfolio Value</th>' +
-          '<th class="w-10"></th>' +
-          '</tr></thead><tbody class="divide-y divide-slate-100">' +
-          filtered.map(function (c) {
-            var isExpanded = !!expandedIds[c.id];
-            var isCurrent = c.id === currentId;
-            var badge = TYPE_BADGE[c.accountType] || { label: c.accountType || '—', cls: 'bg-slate-100 text-slate-600' };
-            // Real Supabase clients had their totalPortfolioValue pre-fetched (in parallel,
-            // via the real get-total-portfolio-value Edge Function) during
-            // refreshAndRenderClients() below, since this render path is synchronous — a
-            // local client's own value is still a plain synchronous engine read.
-            var total = c._source === 'supabase' ? (c.totalPortfolioValue || 0) : getTotalPortfolioValue(c.id);
-            var summaryRow = '<tr class="client-row cursor-pointer hover:bg-slate-50/50' + (isCurrent ? ' bg-amber-50/40' : '') + '" data-id="' + c.id + '">' +
-              '<td class="px-6 py-4">' +
-                '<p class="font-medium text-slate-900">' + c.name + (c._source === 'supabase' ? ' ' + SOURCE_BADGE_HTML : '') + '</p>' +
-                '<p class="text-xs text-slate-400">' + c.id + '</p>' +
-              '</td>' +
-              '<td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium ' + badge.cls + '">' + badge.label + '</span></td>' +
-              '<td class="px-6 py-4 text-right font-medium text-slate-900">' + formatUSD(total) + '</td>' +
-              '<td class="px-6 py-4 text-right">' +
-                '<svg class="w-4 h-4 text-slate-400 transition-transform inline-block' + (isExpanded ? ' rotate-180' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
-              '</td>' +
-            '</tr>';
-            return summaryRow + (isExpanded ? expandedRowHTML(c) : '');
-          }).join('') + '</tbody></table>';
-      }
-
-      // Maps a real `clients` row to the same shape local records already carry
-      // (id/name/email/phone/accountType/status/createdAt/applicationResolvedAt/
-      // applicationReason), plus _source: 'supabase' — mirrors
-      // admin-client-applications.html's own row-mapping convention. account_type's real
-      // column values ('Individual Account'/'Joint Account'/'Business Account') are already
-      // identical to the local engine's own accountType strings — no translation needed, only
-      // the key renamed. createdAt is date-only ('YYYY-MM-DD', matching formatDisplayDate()'s
-      // own expected input), sliced from the real full timestamptz.
-      function supabaseRowToClientRecord(row) {
-        return {
-          id: row.id,
-          name: row.name,
-          email: row.email,
-          phone: row.phone,
-          accountType: row.account_type,
-          status: row.status,
-          createdAt: row.created_at ? row.created_at.slice(0, 10) : null,
-          applicationResolvedAt: row.application_resolved_at ? row.application_resolved_at.slice(0, 10) : null,
-          applicationReason: row.application_reason || null,
-          _source: 'supabase'
-        };
-      }
-
-      // Refetches both local (synchronous) and real Supabase (async) clients, merges
-      // (de-duplicated by id), pre-fetches each Supabase client's real Total Portfolio Value
-      // in parallel (get-total-portfolio-value, admin-authorized cross-client reads — RLS
-      // itself already permits an admin-claimed caller to pass any clientId), then re-renders.
-      // A Supabase read failure (e.g. the local stack isn't running) is caught and surfaced via
-      // the existing toast rather than left as a silent gap — local data still renders
-      // regardless.
-      async function refreshAndRenderClients() {
-        document.getElementById('clients-list').innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">Loading…</p>';
-
-        var localClients = getAllClients().map(function (c) { return Object.assign({ _source: 'local' }, c); });
-
-        var supabaseClients = [];
-        try {
-          var rows = await MarketswaveData.selectTable('clients');
-          supabaseClients = rows.map(supabaseRowToClientRecord);
-          var totals = await Promise.all(supabaseClients.map(function (c) {
-            return MarketswaveData.callFunction('get-total-portfolio-value', { clientId: c.id })
-              .then(function (r) { return r.totalPortfolioValue; })
-              .catch(function () { return 0; });
-          }));
-          supabaseClients.forEach(function (c, i) { c.totalPortfolioValue = totals[i]; });
-        } catch (e) {
-          showToast('Could Not Load Supabase Clients', (e && e.message) || String(e), true, true);
-        }
-
-        var seen = {};
-        cachedClients = [];
-        localClients.concat(supabaseClients).forEach(function (c) {
-          if (seen[c.id]) return;
-          seen[c.id] = true;
-          cachedClients.push(c);
-        });
-
-        // PM tool revamp, part 1 (2026-09-14): the inbox's "Open profile" hands off here with
-        // ?client=<id> — expand that row and bring it into view, once, on first load.
-        var wanted = new URL(location.href).searchParams.get('client');
-        if (wanted && !expandedIds[wanted] && cachedClients.some(function (c) { return c.id === wanted; })) expandedIds[wanted] = true;
-        renderClients();
-        if (wanted) { var rowEl = document.querySelector('.client-row[data-id="' + wanted + '"]'); if (rowEl && rowEl.scrollIntoView) rowEl.scrollIntoView({ block: 'center' }); }
-      }
-
-      document.getElementById('client-search').addEventListener('input', function (e) {
-        searchQuery = e.target.value;
-        renderClients();
-      });
-
-      document.getElementById('type-filter-pills').addEventListener('click', function (e) {
-        var btn = e.target.closest('.filter-pill');
-        if (!btn) return;
-        typeFilter = btn.dataset.filter;
-        renderFilterPills();
-        renderClients();
-      });
-
-      // Delegated: row click toggles expand; the "View as this Client"/security-action
-      // buttons only exist inside the expanded detail area now, so their own clicks are
-      // caught here too, stopping them from also toggling collapse.
-      document.getElementById('clients-list').addEventListener('click', function (e) {
-        var viewBtn = e.target.closest('.view-btn');
-        if (viewBtn) {
-          // Switching client requires a reload — every per-client store loads ONCE into
-          // engine-core.js's module-level variables when its IIFE runs, so a live in-place
-          // switch can't re-scope already-loaded data. Same reload-to-switch discipline the
-          // page has always used, unchanged — just relocated into the expanded row.
-          setCurrentClientId(viewBtn.dataset.id);
-          location.reload();
-          return;
-        }
-        var securityBtn = e.target.closest('.security-btn');
-        if (securityBtn) {
-          openSecurityModal(securityBtn.dataset.id, securityBtn.dataset.name, securityBtn.dataset.action);
-          return;
-        }
-        var row = e.target.closest('.client-row');
-        if (!row) return;
-        var id = row.dataset.id;
-        expandedIds[id] = !expandedIds[id];
-        renderClients();
-      });
-
-      // ---- Security Action modal (Reset Password / Reset 2FA) — shared modal, distinguished
-      // by activeSecurityAction; both engine calls take an explicit clientId, mirroring the
-      // Approval Gate unification's own discipline (no ambient/current-client fallback). ----
-      var securityModal = document.getElementById('security-modal');
-      var securityModalTitle = document.getElementById('security-modal-title');
-      var securityModalDesc = document.getElementById('security-modal-desc');
-      var securityReasonInput = document.getElementById('security-reason-input');
-      var securityError = document.getElementById('security-error');
-      var activeSecurityClientId = null;
-      var activeSecurityAction = null;
-
-      var SECURITY_ACTION_COPY = {
-        PASSWORD_RESET: {
-          title: 'Reset Password',
-          desc: function (name) { return 'This forces ' + name + ' to set a new password the next time they open Settings, before anything else on that page. A reason is required.'; }
-        },
-        '2FA_RESET': {
-          title: 'Reset 2FA',
-          desc: function (name) { return 'This immediately disables Two-Factor Authentication for ' + name + '. A reason is required.'; }
-        }
-      };
-
-      function openSecurityModal(clientId, name, action) {
-        activeSecurityClientId = clientId;
-        activeSecurityAction = action;
-        var copy = SECURITY_ACTION_COPY[action];
-        securityModalTitle.textContent = copy.title;
-        securityModalDesc.textContent = copy.desc(name);
-        securityReasonInput.value = '';
-        securityError.classList.add('hidden');
-
-        // Backend Migration Phase 0, item 3 (Aug 26, 2026): only PASSWORD_RESET on a
-        // Firebase-sourced client gets the warning — see the comment above expandedRowHTML()
-        // for why Reset 2FA is deliberately excluded (it's not actually a no-op for them).
-        var client = cachedClients.find(function (c) { return c.id === clientId; });
-        var showWarning = action === 'PASSWORD_RESET' && client && client._source === 'firebase';
-        document.getElementById('security-firebase-warning').classList.toggle('hidden', !showWarning);
-
-        securityModal.classList.remove('hidden');
-      }
-      function closeSecurityModal() {
-        securityModal.classList.add('hidden');
-        activeSecurityClientId = null;
-        activeSecurityAction = null;
-      }
-
-      document.getElementById('security-modal-close').addEventListener('click', closeSecurityModal);
-      document.getElementById('security-modal-backdrop').addEventListener('click', closeSecurityModal);
-      document.getElementById('security-cancel').addEventListener('click', closeSecurityModal);
-      document.getElementById('security-submit').addEventListener('click', async function () {
-        var reason = securityReasonInput.value.trim();
-        try {
-          // Real per-PM attribution (Backend Migration Phase C — Stage 1): this domain stays
-          // 100% local (no real Supabase backend for the Security Log), so unlike every real
-          // Edge Function's own server-side getClaims(jwt) read, the real signed-in admin's
-          // email has to be fetched here, client-side, from the real admin Supabase session
-          // this page already established via useAdminClient() at load time.
-          var performedByEmail = typeof MarketswaveData !== 'undefined'
-            ? await MarketswaveData.getCurrentUserEmail()
-            : null;
-          var result = activeSecurityAction === 'PASSWORD_RESET'
-            ? resetClientPassword(activeSecurityClientId, reason, performedByEmail)
-            : resetClient2FA(activeSecurityClientId, reason, performedByEmail);
-          var actionLabel = activeSecurityAction === 'PASSWORD_RESET' ? 'Password reset' : '2FA reset';
-          closeSecurityModal();
-          showToast(actionLabel + ' logged', result.clientName + ' (' + result.clientId + ') — ' + actionLabel.toLowerCase() + ' recorded in the Account Security log.');
-          refreshAndRenderClients();
-        } catch (e) {
-          securityError.textContent = e.message;
-          securityError.classList.remove('hidden');
-        }
-      });
-
-      // ---- Add Client modal ----
       var addModal = document.getElementById('add-modal');
       var addError = document.getElementById('add-error');
-      function openAddModal() {
-        document.getElementById('add-name').value = '';
-        document.getElementById('add-email').value = '';
-        document.getElementById('add-phone').value = '';
-        document.getElementById('add-account-type').value = 'Individual Account';
-        document.getElementById('add-starting-capital').value = '';
-        addError.classList.add('hidden');
-        addModal.classList.remove('hidden');
+      function openAddModal() { addModal.classList.remove('hidden'); addError.classList.add('hidden'); }
+      function closeAddModal() {
+        addModal.classList.add('hidden');
+        ['add-name', 'add-email', 'add-phone', 'add-starting-capital'].forEach(function (id) {
+          var el = document.getElementById(id); if (el) el.value = '';
+        });
       }
-      function closeAddModal() { addModal.classList.add('hidden'); }
-
       document.getElementById('open-add-modal').addEventListener('click', openAddModal);
-      document.getElementById('add-modal-close').addEventListener('click', closeAddModal);
-      document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
       document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+      document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
 
       document.getElementById('add-submit').addEventListener('click', function () {
-        addError.classList.add('hidden');
-        var name = document.getElementById('add-name').value.trim();
+        var name = (document.getElementById('add-name').value || '').trim();
+        var email = (document.getElementById('add-email').value || '').trim();
+        var phone = (document.getElementById('add-phone').value || '').trim();
         var accountType = document.getElementById('add-account-type').value;
-        var email = document.getElementById('add-email').value.trim();
-        var phone = document.getElementById('add-phone').value.trim();
         var startingCapital = parseFloat(document.getElementById('add-starting-capital').value) || 0;
-
         if (!name) {
           addError.textContent = 'Name is required.';
           addError.classList.remove('hidden');
           return;
         }
-
         try {
           var result = addClient({
-            name: name,
-            email: email || null,
-            phone: phone || null,
-            accountType: accountType,
-            startingUnallocatedCapital: startingCapital
+            name: name, email: email || null, phone: phone || null,
+            accountType: accountType, startingUnallocatedCapital: startingCapital
           });
           closeAddModal();
-          showToast('Client Added', result.name + ' (' + result.id + ') created with ' + formatUSD(startingCapital) + ' starting capital.');
-          refreshAndRenderClients();
+          if (window.MarketswaveClientList) window.MarketswaveClientList.reload();
         } catch (e) {
           addError.textContent = e.message;
           addError.classList.remove('hidden');
         }
       });
-
-      renderFilterPills();
-      refreshAndRenderClients();
     })();
   </script>
+  <script src="admin-client-list.js"></script>
 
 </body>
 </html>

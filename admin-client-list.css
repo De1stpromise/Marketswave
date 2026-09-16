@@ -1,0 +1,112 @@
+/* ★ PM tool revamp, part 5 (2026-09-15) — the client list (register row 235).
+ *
+ * Follows PM_TOOL_VOCABULARY.md. Secondary text is #475569 (§6 — slate-500 measures
+ * 4.02–4.44:1 on these grounds), the single accent is #B45309, figures are tabular, Inter only.
+ * Controls keep the 44px floor via tap-targets.css.
+ */
+
+.cl-wrap { max-width: 1180px; }
+
+/* ── strip ──────────────────────────────────────────────────────────────────────────────── */
+.cl-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; margin-bottom: 14px; }
+.cl-hc { padding: 13px 15px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; min-width: 0; }
+.cl-hc.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+.cl-hc .cl-k { font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.cl-hc .cl-v { font-size: 21px; font-weight: 700; letter-spacing: -.025em; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #0F172A; }
+.cl-hc.is-warn .cl-v { color: #B45309; }
+.cl-hc .cl-x { font-size: 10px; color: #475569; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.cl-up { color: #15803D; } .cl-dn { color: #B4402C; }
+
+/* ── toolbar ────────────────────────────────────────────────────────────────────────────── */
+.cl-bar { padding: 12px 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.cl-fp { padding: 0 11px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff; color: #475569;
+  font: 600 11px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cl-fp:hover { border-color: #CBD5E1; color: #0F172A; }
+.cl-fp[aria-pressed="true"] { background: #1E293B; border-color: #1E293B; color: #fff; }
+.cl-fp .cl-n { font-size: 9.5px; padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, .09);
+  font-variant-numeric: tabular-nums; }
+.cl-fp[aria-pressed="true"] .cl-n { background: rgba(255, 255, 255, .2); }
+.cl-srch { position: relative; margin-left: auto; min-width: 230px; flex: 1; max-width: 320px; }
+.cl-srch .cl-ic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.cl-srch input { width: 100%; padding: 0 11px 0 30px; }
+
+/* ── table ──────────────────────────────────────────────────────────────────────────────── */
+.cl-th, .cl-tr { display: grid;
+  grid-template-columns: 44px minmax(0, 1.25fr) 104px 128px 112px 84px 104px 26px;
+  gap: 12px; align-items: center; }
+.cl-th { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: #475569; background: #FAFBFC; }
+.cl-th button { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font: inherit; color: inherit; min-height: 0; }
+.cl-th button:hover { color: #0F172A; }
+.cl-th button[aria-sort]:not([aria-sort="none"]) { color: #0F172A; }
+.cl-th .cl-r, .cl-tr .cl-r { justify-self: end; text-align: right; }
+
+/* The row IS the link — the expander is gone; detail lives on the profile (part 4). */
+a.cl-tr { padding: 12px 15px; border-bottom: 1px solid #F1F5F9; text-decoration: none; color: inherit;
+  transition: background .14s; }
+a.cl-tr:hover { background: #FAFBFC; }
+a.cl-tr:focus-visible { outline: 2px solid #B45309; outline-offset: -2px; }
+a.cl-tr:last-of-type { border-bottom: none; }
+
+.cl-av { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #334155, #1E293B);
+  color: #fff; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative; }
+.cl-av.is-pending { background: #94A3B8; }
+.cl-av .cl-on { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
+  background: #22C55E; border: 2px solid #fff; }
+
+.cl-cn { min-width: 0; }
+.cl-cn b { display: block; font-size: 13px; font-weight: 600; color: #0F172A; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.cl-cn .cl-sub { display: block; margin-top: 3px; font-size: 10.5px; color: #475569;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cl-typ { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px;
+  border-radius: 4px; background: #EEF2F7; color: #334155; display: inline-block; }
+
+.cl-mny { font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.015em;
+  color: #0F172A; }
+.cl-mny span { display: block; font-size: 10.5px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+/* ★ Three DIFFERENT states, never collapsed into one another: never funded, a real zero, and a
+ * figure that could not be computed. Conflating the first and the last is how the $0 bug stayed
+ * invisible for so long (row 235). */
+.cl-mny.is-unfunded, .cl-mny.is-unavailable { font-weight: 600; font-size: 12.5px; color: #475569; }
+.cl-mny.is-unavailable { color: #B4402C; }
+.cl-mny.is-unfunded span, .cl-mny.is-unavailable span { font-weight: 500; color: #475569; }
+
+.cl-una { font-size: 12.5px; font-variant-numeric: tabular-nums; color: #334155; }
+.cl-una span { display: block; font-size: 10px; color: #475569; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cl-pend { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px;
+  padding: 0 6px; border-radius: 11px; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums; }
+.cl-pend.is-none { background: transparent; color: #94A3B8; font-weight: 500; }
+
+.cl-stp { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 5px; display: inline-block; white-space: nowrap; }
+.cl-s-act { background: #DCFCE7; color: #15803D; }
+.cl-s-pend { background: #FEF3C7; color: #92400E; }
+.cl-s-dorm { background: #EEF2F7; color: #475569; }
+.cl-s-rej { background: #FEE2E2; color: #B4402C; }
+.cl-chev { color: #94A3B8; justify-self: end; }
+
+.cl-empty { padding: 26px 16px; text-align: center; font-size: 12.5px; color: #475569; line-height: 1.7; }
+
+/* ── narrow ─────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1023.98px) {
+  .cl-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* ★ Columns are DROPPED here, not squeezed — but the two that identify a client (name,
+   * email) and the two a PM triages on (value, pending) all survive. Row 228's lesson: never
+   * hide the thing the list is ordered and acted on by. */
+  .cl-th, .cl-tr { grid-template-columns: 40px minmax(0, 1fr) 116px 70px 22px; }
+  .cl-th > :nth-child(3), .cl-tr > :nth-child(3),
+  .cl-th > :nth-child(5), .cl-tr > :nth-child(5),
+  .cl-th > :nth-child(7), .cl-tr > :nth-child(7) { display: none; }
+}
+@media (max-width: 560px) {
+  .cl-strip { grid-template-columns: minmax(0, 1fr); }
+  .cl-th, .cl-tr { grid-template-columns: 36px minmax(0, 1fr) 104px 22px; }
+  .cl-th > :nth-child(6), .cl-tr > :nth-child(6) { display: none; }
+  .cl-srch { min-width: 100%; max-width: none; margin-left: 0; }
+}

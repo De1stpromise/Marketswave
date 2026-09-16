@@ -77,6 +77,8 @@ const SHARED = [
   // Client profile (2026-09-15, part 4): admin-client-profile.js builds every .cp-* panel at
   // runtime from the get-client-profile payload; the page ships only empty shells.
   'admin-client-profile.css',
+  // Client list (2026-09-15, part 5): admin-client-list.js builds every .cl-* row and card.
+  'admin-client-list.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
