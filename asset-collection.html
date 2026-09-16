@@ -483,7 +483,12 @@
             publishedDocumentIds = {};
             ((results[2] && results[2].published) || []).forEach(function (d) { publishedDocumentIds[d.productId] = true; });
             return {
-              products: results[0].map(function (p) {
+              // ★ A RETIRED PRODUCT IS NOT BROWSABLE, but it is still PRICED (2026-09-16).
+              // It is filtered out of the grid because no new allocation can be made into
+              // it — an Allocate control here would be a dead button. The product itself is
+              // untouched everywhere else: holders keep seeing it on Asset & Performance,
+              // and refresh-market-data keeps pricing it, so their value keeps moving.
+              products: results[0].filter(function (p) { return p.status !== 'retired'; }).map(function (p) {
                 return {
                   id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type,
                   minimumInvestment: p.minimum_investment, unitPrice: p.unit_price,

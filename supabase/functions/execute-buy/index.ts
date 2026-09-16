@@ -69,6 +69,18 @@ Deno.serve(async (req) => {
     } catch {
       return jsonResponse({ error: 'Unknown product: ' + productId }, 404);
     }
+    // ★ RETIREMENT IS ENFORCED HERE TOO, and this is the half that matters most
+    // (2026-09-16). request-allocation stops a client ASKING; this stops an
+    // already-pending request being APPROVED into a product retired since it was made.
+    // A PM who retires a product and then works through the queue would otherwise still
+    // move real capital into it. Sells are deliberately untouched — execute-sell has no
+    // such check, because retiring must never trap a holder's capital.
+    if ((settled as any).status === 'retired') {
+      return jsonResponse({
+        error: settled.name + ' is retired and accepts no new allocation. Reject this request, or reinstate the product first. Existing holdings are unaffected and can still be sold.'
+      }, 409);
+    }
+
     const unitPrice = settled.unit_price;
     const units = dollarAmount / unitPrice;
 

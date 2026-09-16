@@ -79,6 +79,9 @@ const SHARED = [
   'admin-client-profile.css',
   // Client list (2026-09-15, part 5): admin-client-list.js builds every .cl-* row and card.
   'admin-client-list.css',
+  // Products (2026-09-16, part 6): admin-products-page.js builds every .pr-* row, health
+  // card, detail panel and create form at runtime; the page ships only empty shells.
+  'admin-products.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

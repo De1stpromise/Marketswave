@@ -122,6 +122,23 @@ Deno.serve(async (req) => {
       .single();
     if (insertErr) return jsonResponse({ error: insertErr.message }, 500);
 
+    // ★ HOLDERS' FIGURES ARE DERIVED, NOT INVALIDATED HERE — and that is deliberate
+    // (2026-09-16). This writes the new unit price and nothing else. It does NOT touch any
+    // holder's account_state.allocated_capital, which means that stored column is stale the
+    // instant this returns.
+    //
+    // That is safe because allocated_capital is a CACHE every reader refreshes before
+    // reading it: computeTotalPortfolioValue(), get-account-state, get-holdings,
+    // get-returns-summary and pm-briefing's firmToday() all call recomputeAllocatedCapital()
+    // first, and get-client-list / get-product-catalog derive value from units x price
+    // without reading the column at all. So the first read after a publication returns the
+    // real figure and repairs the row on its way past. Verified directly rather than
+    // reasoned about — verify-supabase-product-catalog publishes a percentage and then
+    // cross-checks every holder's value through the real read path.
+    //
+    // Recomputing every holder here would be a write per holder for a value the next read
+    // recomputes anyway, and would still not cover a client whose holdings change between
+    // the publication and their next visit. Do not add it.
     const { data: updatedProduct, error: updateErr } = await admin
       .from('products')
       .update({ unit_price: newUnitPrice, last_tick_date: effectiveDate, price_change_percent: effectivePct, price_as_of: new Date().toISOString() })

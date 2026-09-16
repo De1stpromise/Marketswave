@@ -64,6 +64,11 @@ Deno.serve(async (req) => {
     if (product.asset_class === 'Unallocated / Cash') {
       return jsonResponse({ error: 'Cannot request an allocation into Cash — it represents the Unallocated bucket itself.' }, 400);
     }
+    // ★ RETIREMENT IS ENFORCED HERE, not by the catalogue hiding the card (2026-09-16).
+    // A retired product keeps its holders and stays sellable; it simply accepts nothing new.
+    if (product.status === 'retired') {
+      return jsonResponse({ error: product.name + ' is no longer offered for new allocations. Existing holdings are unaffected and can still be sold.' }, 400);
+    }
     if (typeof dollarAmount !== 'number' || !isFinite(dollarAmount) || dollarAmount <= 0) {
       return jsonResponse({ error: 'Allocation amount must be a positive number.' }, 400);
     }

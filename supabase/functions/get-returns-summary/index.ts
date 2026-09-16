@@ -109,9 +109,12 @@ Deno.serve(async (req) => {
     const { data: holdings, error: hErr } = await admin
       .from('holdings').select('*').eq('client_id', targetClientId);
     if (hErr) return jsonResponse({ error: hErr.message }, 500);
-    if (holdings && holdings.length > 0) {
-      await recomputeAllocatedCapital(admin, targetClientId, holdings, products);
-    }
+    // ★ RECOMPUTE UNCONDITIONALLY, INCLUDING TO ZERO (2026-09-16). This was guarded by
+    // `if (holdings.length > 0)`, so a client with no holdings kept whatever
+    // account_state.allocated_capital last held — a stored aggregate trusted over derived
+    // truth, and the same defect already fixed once inside computeTotalPortfolioValue()
+    // (register row 235). Same class, three more call sites.
+    await recomputeAllocatedCapital(admin, targetClientId, holdings || [], products);
 
     const { data: state } = await admin
       .from('account_state').select('*').eq('client_id', targetClientId).maybeSingle();

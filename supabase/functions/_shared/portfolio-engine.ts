@@ -92,6 +92,10 @@ export interface ProductRow {
   price_source?: 'finnhub' | 'coingecko' | null;
   provider_id?: string | null;
   price_as_of?: string | null;
+  // Retirement (2026-09-16). settleProduct() itself does NOT branch on this — a retired
+  // product keeps being priced, forever, for the clients who still hold it. It is carried
+  // here so execute-buy can refuse a buy against a settled row without a second read.
+  status?: string;
 }
 
 // ---- settleProduct() — engine-core.js's own function, ported line for line. Walks a

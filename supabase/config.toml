@@ -915,3 +915,11 @@ entrypoint = "./functions/get-client-profile/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-client-list/index.ts"
+
+[functions.get-product-catalog]
+enabled = true
+verify_jwt = false
+
+[functions.retire-product]
+enabled = true
+verify_jwt = false

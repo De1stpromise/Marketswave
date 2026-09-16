@@ -104,7 +104,10 @@
     "supabase-verify-client-profile": "node verify-supabase-client-profile.mjs",
     "verify-client-profile-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-profile-ui-wiring.mjs",
     "verify-client-profile-visual": "node verify-client-profile-visual.mjs",
-    "verify-client-list-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-list-ui-wiring.mjs"
+    "verify-client-list-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-list-ui-wiring.mjs",
+    "supabase-verify-product-catalog": "node verify-supabase-product-catalog.mjs",
+    "verify-products-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-page-ui-wiring.mjs",
+    "verify-products-page-visual": "node verify-products-page-visual.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

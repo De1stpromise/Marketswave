@@ -42,10 +42,17 @@ export async function resolveSymbols(
 
   // Filtered in SQL by the same uppercase comparison the unique index uses, so a product
   // stored as "eth" still matches a watchlist row stored as "ETH".
+  // ★ RETIRED PRODUCTS ARE EXCLUDED HERE AND ONLY HERE (2026-09-16). This function answers
+  // "can a client allocate into this symbol?", which drives the watchlist's Offered badge and
+  // its Allocate action — and a retired product accepts no new allocation, so offering one
+  // would be a dead control. productsWithTickers() below deliberately does NOT filter: it
+  // answers "which symbols must keep being priced", and a retired product's holders still
+  // need a live price, so dropping it there would silently freeze their value.
   const { data, error } = await admin
     .from('products')
-    .select('id, name, asset_class, minimum_investment, unit_price, ticker')
-    .not('ticker', 'is', null);
+    .select('id, name, asset_class, minimum_investment, unit_price, ticker, status')
+    .not('ticker', 'is', null)
+    .neq('status', 'retired');
   if (error) throw new Error('Could not read the product catalog: ' + error.message);
 
   const out: Record<string, CatalogMatch> = {};
