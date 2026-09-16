@@ -10433,6 +10433,25 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   milestone. NOT after presentation work, copy changes, additive UI or documentation-only
   changes — those get their targeted suites and nothing more. Running 72 scripts to verify a
   retitled card costs 80 minutes and real tokens for no information.
+- **★★ SUPABASE IS AUTHORITATIVE FOR ANY CLIENT WHO EXISTS THERE. The local engine is a
+  fallback ONLY for clients who exist nowhere else.** Added 2026-09-15 (register row 235) after
+  this was reversed in `admin-clients.html` and cost two real clients their portfolio value: the
+  list merged `localClients.concat(supabaseClients)` with LOCAL winning the dedup, so a client
+  mirrored into that browser by a past sign-in shadowed their real Supabase record and the row
+  read money from `localStorage`, where a PM's browser holds none. Gary and Manuel rendered **$0**
+  while holding $32k and $94k.
+  **Why this needs writing down rather than left in the code**: the mechanism that creates the
+  shadow is still live and still correct — `mirrorAuthenticatedClientLocally()` is the hybrid
+  bridge, and `getClient()` on five client-facing surfaces still depends on it — so the shadow
+  reappears every time anyone signs in as a client in a PM's browser. Only the PRECEDENCE protects
+  against it, and precedence is exactly what someone reading only the merge reverses again.
+  **The regression lives in `verify-client-list-ui-wiring.mjs`**: it mirrors a real Supabase
+  client locally and asserts the Supabase value still renders. Do not delete that test to make a
+  refactor pass.
+  A corollary, learned the same day: **a zero and a failed read must never look the same.** The
+  old path ended `.catch(() => 0)`, so an unfunded client and a client whose value failed to
+  compute were indistinguishable — which is how the bug stayed invisible. The list distinguishes
+  three states now: "not yet funded", "Unavailable", and a real figure.
 - **★ VERIFY A MIGRATION LOCALLY BEFORE `--linked`, EVERY TIME.** `supabase db push --linked`
   targets REAL CLOUD STAGING, not the local stack. The order is: write the migration, apply it
   locally (`supabase migration up --local`), verify against the local stack, and only then push
