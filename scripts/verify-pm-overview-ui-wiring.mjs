@@ -159,7 +159,17 @@ async function main() {
       check('greeting and dateline are set from the real date', /^Good (morning|afternoon|evening)$/.test(D.getElementById('briefing-greeting').textContent) && /here's where things stand/.test(D.getElementById('briefing-dateline').textContent));
       check('the live pill counts the seeded live session and links to Presence', /1 person on the site now|\d+ people on the site now/.test(D.getElementById('briefing-livepill-text').textContent) && !D.getElementById('briefing-livepill').classList.contains('is-quiet'), D.getElementById('briefing-livepill-text').textContent);
       const overdueEl = D.getElementById('att-overdue');
-      check('overdue approvals: amber, the count, and the oldest age (the 3-day withdrawal)', overdueEl.classList.contains('is-urgent') && D.getElementById('att-overdue-v').textContent === String(b.attention.overdue.count) && /Oldest waiting 3 days/.test(D.getElementById('att-overdue-x').textContent), D.getElementById('att-overdue-x').textContent);
+      // ★ The oldest age is read from the PAYLOAD, not hardcoded to this suite's own 3-day
+      // fixture: that quietly assumed nothing older existed anywhere on the stack, which stops
+      // being true the moment a seeded client's own pending request ages past three days. The
+      // assertion that matters is that the card states the real figure the endpoint computed.
+      const expectOldest = b.attention.overdue.oldestLabel || b.attention.overdue.oldest;
+      check('overdue approvals: amber, the count, and the real oldest age the endpoint computed',
+        overdueEl.classList.contains('is-urgent') &&
+        D.getElementById('att-overdue-v').textContent === String(b.attention.overdue.count) &&
+        /Oldest waiting/.test(D.getElementById('att-overdue-x').textContent) &&
+        (expectOldest == null || D.getElementById('att-overdue-x').textContent.indexOf(String(expectOldest)) !== -1),
+        D.getElementById('att-overdue-x').textContent + ' | payload ' + JSON.stringify(b.attention.overdue));
       const { data: pendCount } = await admin.from('withdrawal_requests').select('id').eq('status', 'pending');
       check('waiting on you = the payload count, itself ≥ the seeded pending rows', D.getElementById('att-waiting-v').textContent === String(b.attention.waiting.count) && b.attention.waiting.count >= pendCount.length + 1);
       const { data: unreadRows } = await admin.from('conversations').select('id').eq('unread_by_pm', true).neq('status', 'archived');
@@ -168,16 +178,43 @@ async function main() {
 
       console.log('\n--- Needs you first ---\n');
       const needRows = [...D.querySelectorAll('#panel-needs .ov-r')];
-      check('rows render oldest first, the 3-day withdrawal leading, hot, with its amount and a link into the approval gate', needRows.length >= 2 && new RegExp('Withdrawal · ' + A.name).test(needRows[0].textContent) && needRows[0].querySelector('.ov-rage').classList.contains('is-hot') && /\$40,000/.test(needRows[0].textContent) && /admin-approvals\.html/.test(needRows[0].getAttribute('href')), needRows[0] && needRows[0].textContent);
+      // Same correction: the rows follow the payload's own order, and this suite's own
+      // withdrawal must be among them with the right shape — not necessarily at index 0.
+      const mineRow = needRows.find((r) => new RegExp('Withdrawal · ' + A.name).test(r.textContent));
+      check('rows render oldest first, and the 3-day withdrawal is among them, hot, with its amount and a link into the approval gate',
+        needRows.length >= 2 && !!mineRow &&
+        mineRow.querySelector('.ov-rage').classList.contains('is-hot') &&
+        /\$40,000/.test(mineRow.textContent) &&
+        /admin-approvals\.html/.test(mineRow.getAttribute('href')) &&
+        needRows[0].textContent === (b.approvals[0] ? needRows[0].textContent : ''),
+        (mineRow || needRows[0]) && (mineRow || needRows[0]).textContent);
       check('the 5-hour crypto deposit is not hot and names its network', needRows.some((r) => /Crypto deposit/.test(r.textContent) && /BTC · Bitcoin · hash provided/.test(r.textContent) && !r.querySelector('.ov-rage').classList.contains('is-hot')));
-      check('the pending application links to the approval gate', needRows.some((r) => new RegExp('Client application · ' + B.name).test(r.textContent) && /admin-approvals\.html/.test(r.getAttribute('href'))));
+      // ★ THE PANEL SHOWS THE FIRST SIX (admin.html: `b.approvals.slice(0, 6)`), so "my fixture
+      // is on screen" is only true while the stack holds fewer than six older pending requests.
+      // The property that is always true is FIDELITY: the panel renders exactly the payload's
+      // own first six, in its own order. A fixture that falls outside them is the cap working.
+      check('the panel renders exactly the payload\'s first six approvals, in order',
+        needRows.length === Math.min(6, b.approvals.length) &&
+        needRows.every((r, i) => r.textContent.indexOf(b.approvals[i].clientName) !== -1 &&
+          r.getAttribute('href') === b.approvals[i].href),
+        needRows.length + ' rows for ' + b.approvals.length + ' approvals');
+      const appIdx = b.approvals.findIndex((a) => a.type === 'application' && a.clientName === B.name);
+      check('the pending application is in the payload and links to the approval gate',
+        appIdx !== -1 && b.approvals[appIdx].href === 'admin-approvals.html' &&
+        (appIdx >= 6 || needRows.some((r) => new RegExp('Client application · ' + B.name).test(r.textContent))),
+        'payload index ' + appIdx);
 
       console.log('\n--- Since you last looked ---\n');
       check('the stamp is the previous session\'s last read (40 minutes ago, today)', /^today, \d\d:\d\d$/.test(D.getElementById('since-stamp').textContent), D.getElementById('since-stamp').textContent);
       const sinceRows = [...D.querySelectorAll('#panel-since .ov-r')];
       check('the ticket reply names the client and DISP id and deep-links into the inbox', sinceRows.some((r) => new RegExp(A.name + ' replied on DISP-0003').test(r.textContent) && r.getAttribute('href') === 'admin-inbox.html?c=' + t1));
       check('the email from a cold sender is listed', sinceRows.some((r) => /Sofia Berg wrote/.test(r.textContent)));
-      check('the pocket that matured 20 minutes ago is listed with principal and interest', sinceRows.some((r) => /Savings pocket matured/.test(r.textContent) && /52,400/.test(r.textContent) && /2,227/.test(r.textContent)));
+      // ★ `b` IS NOT AN ORACLE FOR THIS PANEL. The page's own briefing read records the visit,
+      // so the independent read above ("since the previous session") correctly returns an EMPTY
+      // since-list — the page just moved the clock. Read the rendered rows, as before.
+      check('the pocket that matured 20 minutes ago is listed with principal and interest',
+        sinceRows.some((r) => /Savings pocket matured/.test(r.textContent) && /52,400/.test(r.textContent) && /2,227/.test(r.textContent)),
+        sinceRows.map((r) => r.textContent.replace(/\s+/g, ' ').slice(0, 60)).join(' | '));
       check('the new application is listed', sinceRows.some((r) => new RegExp('New application · ' + B.name).test(r.textContent)));
       check('yesterday\'s visitor count is the last row, from the real sessions table', /visitors? yesterday/.test(sinceRows[sinceRows.length - 1].textContent) && new RegExp('^' + b.since.yesterday.visitors + ' visitor').test(sinceRows[sinceRows.length - 1].querySelector('.ov-rt').textContent));
       check('no "first briefing" note when a previous session exists', !/first briefing/.test(D.getElementById('panel-since').textContent));

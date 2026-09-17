@@ -230,15 +230,36 @@ async function main() {
     apDom.window.MarketswaveData = MarketswaveData;
     apDom.window.eval(formatHelpersSource);
     apDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
-    apDom.window.eval(extractInlineScript(apPath, 'Products Catalog Fix'));
+    // ★ PM tool revamp part 6 (2026-09-16): admin-products.html moved to an EXTERNAL
+    // admin-products-page.js; the document's state is a block in the DETAIL PANEL now, not in
+    // an expanded row, and the rows are `.pr-tr` over a paged table.
+    apDom.window.eval(readFileSync(new URL('../admin-products-page.js', import.meta.url), 'utf8'));
     const P = apDom.window.document;
-    await pollUntil(() => P.querySelectorAll('.product-row').length > 0, 30000);
-    [...P.querySelectorAll('.product-row')].find((x) => x.dataset.id === productId).click();
-    const block = P.getElementById('fund-doc-' + productId);
-    check('the expanded row shows "Published <date>" and an "Edit document" link to the authoring page', !!block && /^Published /.test(block.querySelector('.fund-doc-status').textContent) && block.querySelector('.fund-doc-link').textContent === 'Edit document' && block.querySelector('.fund-doc-link').getAttribute('href') === 'admin-fund-document.html?product=' + productId, block && block.textContent);
-    [...P.querySelectorAll('.product-row')].find((x) => x.dataset.id === 'PROD-0002').click();
-    const block2 = P.getElementById('fund-doc-PROD-0002');
-    check('a product with no document shows "No document yet" and "Write document"', !!block2 && /No document yet/.test(block2.textContent) && block2.querySelector('.fund-doc-link').textContent === 'Write document', block2 && block2.textContent);
+    await pollUntil(() => P.querySelectorAll('.pr-tr').length > 0, 30000);
+    const openProduct = async (id, term) => {
+      const search = P.getElementById('pr-search');
+      search.value = term;
+      search.dispatchEvent(new apDom.window.Event('input', { bubbles: true }));
+      const ok = await pollUntil(() => !!P.querySelector('.pr-tr[data-id="' + id + '"]'), 15000);
+      if (!ok) throw new Error('product ' + id + ' never appeared for search "' + term + '"');
+      P.querySelector('.pr-tr[data-id="' + id + '"]').click();
+    };
+
+    await openProduct(productId, 'Fund Doc UI Fund ' + suffix);
+    const block = P.getElementById('pr-doc');
+    check('the detail panel shows "Fund document published" and an "Edit document" link to the authoring page',
+      !!block && /Fund document published/.test(block.textContent) &&
+      block.querySelector('#pr-doc-link').textContent === 'Edit document' &&
+      block.querySelector('#pr-doc-link').getAttribute('href') === 'admin-fund-document.html?product=' + productId,
+      block && block.textContent);
+    P.getElementById('pr-close').click();
+
+    await openProduct('PROD-0002', 'European Real Estate Trust');
+    const block2 = P.getElementById('pr-doc');
+    check('a product with no document shows "No fund document yet" and "Write document"',
+      !!block2 && /No fund document yet/.test(block2.textContent) &&
+      block2.querySelector('#pr-doc-link').textContent === 'Write document', block2 && block2.textContent);
+    P.getElementById('pr-close').click();
 
     // ===== PART C: the client =====
     console.log('\n=== PART C: fund-document.html + asset-collection.html as a real client ===\n');

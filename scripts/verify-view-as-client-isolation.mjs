@@ -199,26 +199,36 @@ async function main() {
     pageDom.window.resetClient2FA = function () { throw new Error('not used in this test'); };
     pageDom.window.addClient = function () { throw new Error('not used in this test'); };
 
-    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(function (m) { return m[1]; });
-    const script = scripts.find(function (s) { return s.indexOf('Admin UI Wiring — Final Stage') !== -1; });
-    const clientsList = pageDom.window.document.getElementById('clients-list');
-    pageDom.window.eval(script);
+    // ★ PM tool revamp part 5 (register row 235) rebuilt admin-clients.html onto an EXTERNAL
+    // admin-client-list.js: the rows are `.cl-tr` ANCHORS into the client profile, there is no
+    // inline script to extract, no `tr.expand-row`, and — the point of this check — no "View as
+    // this Client" control anywhere on the page at all. That rebuild repointed the client-list
+    // suite and missed this one, which kept driving markup that no longer exists.
+    //
+    // The gate is STRONGER than it was, and the assertion below says so rather than quietly
+    // asserting less: the control is not merely hidden for a Supabase-sourced client, it is
+    // absent for every client, so the raw primitive proven safe above has no UI caller here.
+    pageDom.window.eval(readFileSync(new URL('../engine-core.js', import.meta.url), 'utf8'));
+    pageDom.window.eval(readFileSync(new URL('../format-helpers.js', import.meta.url), 'utf8'));
+    pageDom.window.eval(readFileSync(new URL('../admin-client-list.js', import.meta.url), 'utf8'));
 
     const start = Date.now();
-    while (clientsList.textContent.indexOf('Real Client Target') === -1 && Date.now() - start < 20000) {
+    while (pageDom.window.document.querySelectorAll('.cl-tr').length === 0 && Date.now() - start < 30000) {
       await new Promise(function (r) { setTimeout(r, 150); });
     }
-    check('the real client (the exact same one setCurrentClientId() was called against above) renders in Client List', clientsList.textContent.indexOf('Real Client Target') !== -1);
-
-    const row = [...clientsList.querySelectorAll('tr.client-row')].find(function (tr) { return tr.dataset.id === realClientUser.user.id; });
-    row.click();
-    const expandStart = Date.now();
-    let expandRow = clientsList.querySelector('tr.expand-row');
-    while ((!expandRow || expandRow.textContent.indexOf('Loading') !== -1) && Date.now() - expandStart < 20000) {
-      await new Promise(function (r) { setTimeout(r, 150); });
-      expandRow = clientsList.querySelector('tr.expand-row');
-    }
-    check('no "View as this Client" button renders for this real Supabase client — the UI gate independently confirms the same thing the raw-primitive test above already proved', !expandRow.querySelector('.view-btn'));
+    const listText = pageDom.window.document.body.textContent;
+    check('the real client (the exact same one setCurrentClientId() was called against above) renders in Client List',
+      listText.indexOf('Real Client Target') !== -1,
+      pageDom.window.document.querySelectorAll('.cl-tr').length + ' rows rendered');
+    const realRow = pageDom.window.document.querySelector('.cl-tr[data-cl-row="' + realClientUser.user.id + '"]');
+    check('...as a real row that links into their profile, not an expander',
+      !!realRow && realRow.tagName === 'A' &&
+      realRow.getAttribute('href') === 'admin-client-profile.html?client=' + realClientUser.user.id,
+      realRow && realRow.tagName + ' ' + realRow.getAttribute('href'));
+    check('no "View as this Client" button renders for this real Supabase client — the UI gate independently confirms the same thing the raw-primitive proof above does',
+      !/View as this Client/i.test(pageDom.window.document.body.innerHTML) &&
+      ![...pageDom.window.document.querySelectorAll('button, a')].some(function (b) { return /view as/i.test(b.textContent); }),
+      'a "View as" control is present');
   })();
 
   // ===========================================================================================

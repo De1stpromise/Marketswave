@@ -210,7 +210,19 @@ async function main() {
     // ---------------------------------------------------------------- 2. needs you first
     console.log('\n--- 2. Needs you first ---\n');
     const ap = b.approvals;
-    check('approvals are ordered oldest first and the 3-day withdrawal leads', ap[0].type === 'withdrawal' && ap[0].clientName === A.name && ap[0].amount === 40000 && ap[0].hot === true, JSON.stringify(ap[0]));
+    // ★ ORDERING IS THE PROPERTY, NOT "MY FIXTURE IS FIRST". This used to assert ap[0] IS the
+    // 3-day withdrawal, which quietly assumed nothing older than 3 days existed anywhere on the
+    // stack — true on a fresh stack, false the moment a seeded client's own pending request ages
+    // past it. Gary's seeded allocation crossed that line four days after he was seeded and this
+    // failed for a reason that was real data behaving correctly. Assert what is actually true:
+    // the list is genuinely oldest-first, and this suite's own withdrawal is in it, correct.
+    const ages = ap.map((a) => a.ageHours);
+    check('approvals are ordered oldest first', ages.every((v, i) => i === 0 || ages[i - 1] >= v),
+      JSON.stringify(ages.slice(0, 5)));
+    const mine = ap.find((a) => a.type === 'withdrawal' && a.clientName === A.name && a.amount === 40000);
+    check('...and the 3-day withdrawal is in it, hot, ahead of every younger request',
+      !!mine && mine.hot === true && ap.indexOf(mine) <= ap.findIndex((a) => a.ageHours < mine.ageHours),
+      JSON.stringify(mine));
     check('hot = older than 24h; the 5-hour crypto deposit is not hot and names its network and hash state', ap.some((a) => a.type === 'deposit' && a.hot === false && /BTC · Bitcoin · hash provided/.test(a.detail)), JSON.stringify(ap.filter((a) => a.type === 'deposit')));
     check('the pending application appears as an approval with its own href', ap.some((a) => a.type === 'application' && a.clientName === B.name && a.href === 'admin-approvals.html'));
     // Every approval now points at the ONE approval gate (register row 228) — the seven

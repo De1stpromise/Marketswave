@@ -46,10 +46,34 @@ function readLocalStackCredentials() {
   if (!/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(status.API_URL)) throw new Error('Refusing to run against a non-local API_URL: ' + status.API_URL);
   return { url: status.API_URL, anonKey: status.ANON_KEY, serviceRoleKey: status.SERVICE_ROLE_KEY };
 }
+// ★ A PM ACCESS TOKEN LIVES ONE HOUR, AND THIS SUITE RUNS LONGER THAN THAT. Twenty-odd
+// simulated cycles with a 66-second provider-budget wait between each crosses 60 minutes, and
+// every call after that came back 401 with a body carrying no `oldestStockAfterRun` — which
+// surfaced as "Cannot read properties of undefined (reading 'symbol')" at run 24, twenty-three
+// clean runs from anything that looked like a cause. Register row 211 recorded exactly this
+// once already, for the catalogue seeder, whose 330-entry run dropped its last 30 the same way.
+// So: re-sign-in on a 401 and retry the same call, and make a non-2xx impossible to read past.
+let reauth = null;
+function setReauth(fn) { reauth = fn; }
 async function callFunction(url, token, name, body) {
-  const r = await fetch(url + '/functions/v1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {}) });
-  let json = null; try { json = await r.json(); } catch (_e) {}
-  return { status: r.status, body: json };
+  const once = async (bearer) => {
+    const r = await fetch(url + '/functions/v1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + bearer }, body: JSON.stringify(body || {}) });
+    let json = null; try { json = await r.json(); } catch (_e) {}
+    return { status: r.status, body: json };
+  };
+  let out = await once(token);
+  if (out.status === 401 && reauth) {
+    const fresh = await reauth();
+    if (fresh) out = await once(fresh);
+  }
+  return out;
+}
+/** Read a success body, or fail with the real status and message rather than a TypeError. */
+function successBody(r, what) {
+  if (r.status < 200 || r.status >= 300) {
+    throw new Error(what + ' returned ' + r.status + ': ' + JSON.stringify(r.body));
+  }
+  return r.body;
 }
 function extractInlineScript(htmlPath, marker) {
   const html = readFileSync(htmlPath, 'utf8');
@@ -115,7 +139,13 @@ async function main() {
   const suffix = crypto.randomBytes(3).toString('hex');
   const { data: pm, error: pmErr } = await anon.auth.signInWithPassword({ email: 'pm@marketswave.local', password: 'MarketswavePM-Local-2026!' });
   if (pmErr) throw new Error('PM sign-in failed: ' + pmErr.message);
-  const pmToken = pm.session.access_token;
+  let pmToken = pm.session.access_token;
+  setReauth(async () => {
+    const again = await anon.auth.signInWithPassword({ email: 'pm@marketswave.local', password: 'MarketswavePM-Local-2026!' });
+    if (again.error || !again.data || !again.data.session) return null;
+    pmToken = again.data.session.access_token;
+    return pmToken;
+  });
 
   const cleanup = { productIds: [], cacheSymbols: [], clientId: null };
   setSchedulerActive(false);
@@ -221,6 +251,7 @@ async function main() {
       const beforeTs = {};
       ((await admin.from('market_data_cache').select('symbol, last_updated').in('symbol', symbols)).data || []).forEach((r) => { beforeTs[r.symbol] = r.last_updated; });
       const r = await callFunction(url, pmToken, 'refresh-market-data');
+      successBody(r, 'refresh-market-data on run ' + k);
       const afterTs = {};
       ((await admin.from('market_data_cache').select('symbol, last_updated').in('symbol', symbols)).data || []).forEach((r2) => { afterTs[r2.symbol] = r2.last_updated; });
       const selected = symbols.filter((s) => afterTs[s] !== beforeTs[s]);

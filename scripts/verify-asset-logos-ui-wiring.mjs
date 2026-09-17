@@ -258,14 +258,34 @@ async function main() {
     adDom.window.MarketswaveData = MarketswaveData;
     adDom.window.eval(formatHelpersSource);
     loadAssetMark(adDom.window);
-    adDom.window.eval(extractInlineScript(adPath, 'Products Catalog Fix'));
+    // ★ PM tool revamp part 6 (2026-09-16): admin-products.html moved to an EXTERNAL
+    // admin-products-page.js and its rows are `.pr-tr` over a paged table, so the catalogue is
+    // searched for the two products this part checks rather than assumed to be on page one.
+    adDom.window.eval(readFileSync(new URL('../admin-products-page.js', import.meta.url), 'utf8'));
     const A = adDom.window.document;
-    await pollUntil(() => A.querySelectorAll('.product-row').length > 0, 30000);
-    const prodRows = [...A.querySelectorAll('.product-row')];
+    await pollUntil(() => A.querySelectorAll('.pr-tr').length > 0, 30000);
+    const prodRows = [...A.querySelectorAll('.pr-tr')];
     check('the admin catalog list rendered', prodRows.length >= 10, String(prodRows.length));
     check('every row carries one 28px well beside the name', prodRows.every((r) => r.querySelectorAll('.mk').length === 1 && r.querySelector('.mk').classList.contains('mk-xs')));
-    const adNgf = prodRows.find((r) => r.getAttribute('data-id') === 'PROD-0001');
-    const adSpy = prodRows.find((r) => r.getAttribute('data-id') === 'PROD-0006');
+    const findAdminRow = async (id) => {
+      const search = A.getElementById('pr-search');
+      search.value = id;
+      search.dispatchEvent(new adDom.window.Event('input', { bubbles: true }));
+      // The page searches by NAME or TICKER, never the PROD id, so fall back to paging.
+      if (!A.querySelector('.pr-tr[data-id="' + id + '"]')) {
+        search.value = '';
+        search.dispatchEvent(new adDom.window.Event('input', { bubbles: true }));
+        for (let i = 0; i < 20 && !A.querySelector('.pr-tr[data-id="' + id + '"]'); i++) {
+          const more = A.getElementById('pr-more');
+          if (!more) break;
+          more.click();
+          await new Promise((r) => setTimeout(r, 30));
+        }
+      }
+      return A.querySelector('.pr-tr[data-id="' + id + '"]');
+    };
+    const adNgf = await findAdminRow('PROD-0001');
+    const adSpy = await findAdminRow('PROD-0006');
     check('...Nordic Growth Fund → NGF, the same hue the client sees', !!adNgf && adNgf.querySelector('.mk-t').textContent === 'NGF' && adNgf.querySelector('.mk').getAttribute('data-mk-hue') === ngfWell.getAttribute('data-mk-hue'));
     check('...SPY → the same stored path, prefixed with the admin client\'s own project URL', !!adSpy && adSpy.querySelector('.mk img') && adSpy.querySelector('.mk img').getAttribute('src') === origin + spy.logo_url);
     check('the attribution line is on the admin page too', A.querySelectorAll('.asset-logo-credit').length === 1);
