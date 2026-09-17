@@ -353,7 +353,23 @@ async function main() {
     const finalReport = await callFunction(url, pmToken, 'refresh-market-data');
     console.log('\n    FINAL: ' + finalReport.body.distinctStockSymbols + ' distinct stock symbols (' + finalReport.body.distinctCryptoSymbols + ' crypto), ' + finalReport.body.cyclesToCoverAllStocks + ' cycle(s), worst case ' + finalReport.body.worstCaseStalenessMinutes + ' min, headroom ' + finalReport.body.headroom + ' before the next cycle (includes this suite\'s ' + added + ' temporary watchlist symbols)');
   } finally {
-    try { setSchedulerActive(true); console.log('(local pg_cron jobs restored)'); } catch (e) { console.error('CLEANUP: could not restore the pg_cron jobs: ' + e.message); }
+    // ★ RESTORING THE SCHEDULER IS NOT OPTIONAL, AND ONE ATTEMPT IS NOT ENOUGH. A transient
+    // `docker exec` failure (seen for real under memory pressure, 2026-09-17) left all four
+    // marketswave-* jobs paused on the local stack — prices stop refreshing and alerts stop
+    // firing, silently, until someone notices. Retry, then say so loudly enough to act on:
+    // this FAILS the run rather than printing one line into a thousand-line log.
+    let restored = false;
+    for (let attempt = 1; attempt <= 4 && !restored; attempt++) {
+      try { setSchedulerActive(true); restored = true; } catch (e) {
+        console.error('CLEANUP: restore attempt ' + attempt + ' failed: ' + e.message);
+        await sleep(1500);
+      }
+    }
+    if (restored) console.log('(local pg_cron jobs restored)');
+    else {
+      check('★★ CLEANUP: the local pg_cron jobs were restored — prices and alerts are running again', false,
+        'restore by hand with cron.alter_job(jobid, active := true) on every marketswave-% job');
+    }
     if (cleanup.clientId) {
       await admin.from('price_alerts').delete().eq('client_id', cleanup.clientId);
       await admin.from('watchlist_symbols').delete().eq('client_id', cleanup.clientId);
