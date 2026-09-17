@@ -226,18 +226,21 @@ async function main() {
     const dAfter = await fresh(st.API_URL, st.ANON_KEY).auth.refreshSession({ refresh_token: dSignIn.data.session.refresh_token });
     check('★ both other devices are genuinely ended, measured on them', !!cAfter.error && !!dAfter.error);
 
-    console.log('\n8. Recent account activity — and the gap it admits to\n');
+    console.log('\n8. The activity panel is GONE (register row 239) — and the sessions panel says what it covers\n');
 
-    const activityRows = all(dom, '#sec-activity .sec-row');
-    check('real activity rows render', activityRows.length >= 1, String(activityRows.length));
-    check('a real sign-in is among them', activityRows.some((r) => /Signed in/i.test(txt(r))), txt(activityRows[0]));
-    check('the panel is NOT headed "Recent sign-ins" — the data cannot support that heading',
-      !/Recent sign-ins/i.test(txt(q(dom, '#sec-activity-h'))), txt(q(dom, '#sec-activity-h')));
-    const gap = txt(q(dom, '#sec-activity-gap'));
-    check('★ it states plainly that failed attempts are not recorded', /Failed sign-in attempts are not recorded/i.test(gap), gap.slice(0, 120));
-    check('★ ...and that these entries carry no device and no location', /no device and\s*no location/i.test(gap), gap);
-    check('no activity row claims a device or a location',
-      activityRows.every((r) => !/Chrome on|Windows|Mac|iPhone/i.test(txt(r))), txt(activityRows[0]));
+    // ★ Removed 2026-09-17: its only source, auth.audit_log_entries, is populated locally and NOT
+    // AT ALL on the hosted project, so it was permanently empty in production while every one of
+    // its assertions passed here. What replaces those assertions: the panel is genuinely absent
+    // from the markup (no dormant section, no hidden container, no retry control for it), the
+    // header no longer promises activity, and the sessions panel states its own scope in words a
+    // PM can read: a sign-in history for as long as each session lasts, and nothing more.
+    check('★ no activity panel exists in the rendered page at all', !q(dom, '#sec-activity') && !q(dom, '#sec-activity-h') && !q(dom, '#sec-activity-gap'));
+    check('...and no retry control for one either', all(dom, '[data-sec-retry]').every((b) => b.getAttribute('data-sec-retry') !== 'activity'));
+    check('the header no longer promises account activity', !/account activity/i.test(txt(q(dom, 'header'))), txt(q(dom, 'header')));
+    const scope = txt(q(dom, '#sec-sessions-note'));
+    check('★ the sessions panel says plainly what it covers: live sessions with their sign-in moment', /What this list covers/i.test(scope) && /still live/i.test(scope), scope.slice(0, 160));
+    check('★ ...and what it does not: ended sessions drop off, and failed attempts are never recorded', /has ended drops off/i.test(scope) && /failed attempt.*never recorded/i.test(scope), scope.slice(0, 240));
+    check('every rendered session row carries its sign-in moment', sessionRows(dom).length >= 1 && sessionRows(dom).every((r) => /signed in/i.test(txt(r))), sessionRows(dom).length ? txt(sessionRows(dom)[0]) : 'no rows');
 
     console.log('\n9. What was NOT orphaned — the client security-actions log\n');
 
@@ -262,8 +265,8 @@ async function main() {
     console.log('\n10. A failed read paints a real error card, not an empty page\n');
 
     // ★ THE FAILURE MODE THIS GUARDS. An empty sessions list reads as "you are signed in
-    // nowhere else" and an empty activity list as "nothing has happened" — two reassuring
-    // statements about a security surface, made from no data at all (register row 233).
+    // nowhere else" — a reassuring statement about a security surface, made from no data at
+    // all (register row 233).
     const brokenDom = buildDom({
       callFunction: () => Promise.reject(new Error('simulated read failure')),
       writeErrorMessage: () => 'Could not reach the server.',
@@ -272,11 +275,8 @@ async function main() {
     });
     await pollUntil(() => q(brokenDom, '#sec-sessions-err').classList.contains('is-shown'), 10000);
     check('the sessions panel shows a real error card', q(brokenDom, '#sec-sessions-err').classList.contains('is-shown'));
-    check('the activity panel shows one too — one read feeds both, so one failure fails both visibly',
-      q(brokenDom, '#sec-activity-err').classList.contains('is-shown'));
-    check('neither panel renders a reassuring empty list instead',
-      sessionRows(brokenDom).length === 0 && all(brokenDom, '#sec-activity .sec-row').length === 0);
-    check('each error card carries a real retry control', all(brokenDom, '[data-sec-retry]').length === 2);
+    check('it does not render a reassuring empty list instead', sessionRows(brokenDom).length === 0);
+    check('the error card carries a real retry control', all(brokenDom, '[data-sec-retry]').length === 1);
     check('★ the identity still renders — a failed sessions read must not read as "we do not know who you are"',
       txt(q(brokenDom, '#sec-email')) === pmEmail, txt(q(brokenDom, '#sec-email')));
     check('and the "Sign out everywhere else" control is not offered against data that failed to load',

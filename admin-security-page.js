@@ -1,16 +1,24 @@
 /* ★ PM tool revamp, part 8 (2026-09-17) — Account security.
  *
- * Five panels about the signed-in PM's own account (identity, password, two-factor, sessions,
- * activity) plus the pre-existing client security-actions log, which was already on this page
+ * Four panels about the signed-in PM's own account (identity, password, two-factor, sessions)
+ * plus the pre-existing client security-actions log, which was already on this page
  * and is deliberately kept — it is the only reader of getSecurityActionsLog() anywhere in the
  * project, and parts 5, 6 and 7 each nearly orphaned something by rebuilding a page without
  * first asking what it already did.
  *
  * ★ EVERY READ CHECKS ITS ERROR AND PAINTS A REAL ERROR CARD (register row 233). On a security
  * page a swallowed read is worse than a visible failure: an empty sessions list reads as "you
- * are signed in nowhere else" and an empty activity list as "nothing has happened" — two
- * reassuring statements made from no data at all. Both panels show the real message and a
- * retry instead.
+ * are signed in nowhere else", a reassuring statement made from no data at all. The panel
+ * shows the real message and a retry instead.
+ *
+ * ★ A FIFTH PANEL, "Recent account activity", WAS REMOVED ON 2026-09-17 (register row 239). Its
+ * only source, auth.audit_log_entries, is populated on the local stack and NOT AT ALL on the
+ * hosted project — a raw count(*) there is 0 in total, and stays 0 seconds after a real sign-in
+ * that provably registered elsewhere. The panel was permanently empty in production while
+ * looking complete in development, and every one of its assertions was real; the data source
+ * was simply absent on the deployment target. "Does this data source exist" must be asked of
+ * the deployment target, not the dev environment. A sign-in history this project records
+ * itself is queued as row 240.
  *
  * ★ TWO THINGS THIS PAGE DELIBERATELY DOES NOT OFFER, each because there is nothing behind it:
  * a display-name field (nothing renders a PM's name to anyone) and a two-factor toggle
@@ -81,7 +89,7 @@
   // ---- render -------------------------------------------------------------------------------
   // ★ THE IDENTITY IS RESOLVED INDEPENDENTLY OF THE SESSIONS READ, deliberately. Who you are
   // signed in as is knowable from the session itself and should not disappear because a
-  // session/activity query failed — "Signed in as —" next to a red error card reads as "we do
+  // sessions query failed — "Signed in as —" next to a red error card reads as "we do
   // not know who you are", which is a worse claim than the one that actually failed.
   function renderAccountFromSession() {
     if (typeof MarketswaveData === 'undefined' || !MarketswaveData.getCurrentUserEmail) return;
@@ -154,69 +162,27 @@
     box.innerHTML = s.rows.map(sessionRowHTML).join('');
   }
 
-  function renderActivity(data) {
-    var box = el('sec-activity');
-    var sub = el('sec-activity-sub');
-    var a = data.activity;
-
-    sub.textContent = a.total === 0
-      ? 'Nothing recorded in the last ' + a.days + ' days.'
-      : a.total + (a.total === 1 ? ' entry' : ' entries') + ' in the last ' + a.days + ' days.';
-
-    if (!a.rows.length) {
-      // ★ AN EMPTY PANEL MUST SAY WHICH KIND OF EMPTY IT IS. Measured against the real hosted
-      // project on 2026-09-17: auth.audit_log_entries holds ZERO rows there in total, even
-      // seconds after a genuine sign-in — hosted GoTrue ships these events to the platform's own
-      // log storage rather than that table, while the local stack populates it normally. Without
-      // this sentence a PM reading an empty panel cannot tell "nothing happened" (implausible —
-      // they are signed in) from "nothing is recorded here".
-      box.innerHTML = '<p class="sec-empty">No account activity has been recorded in this period. ' +
-        'On this deployment the hosted authentication service may not write to the audit table at ' +
-        'all, in which case this panel stays empty however often you sign in.</p>';
-      return;
-    }
-    box.innerHTML = a.rows.map(function (r) {
-      var via = r.provider ? ' &middot; ' + esc(r.provider) : '';
-      return '<div class="sec-row">' +
-        '<div class="sec-cell">' +
-          '<span class="sec-title">' + esc(r.label) + '</span>' +
-          '<span class="sec-meta">' + esc(absTime(r.at)) + via + '</span>' +
-        '</div>' +
-        '<div class="sec-actions"><span class="sec-ua">' + esc(relTime(r.at)) + '</span></div>' +
-      '</div>';
-    }).join('');
-  }
-
   // ---- load ---------------------------------------------------------------------------------
   function loadingState() {
     el('sec-sessions').innerHTML = '<p class="sec-empty">Loading your sessions…</p>';
-    el('sec-activity').innerHTML = '<p class="sec-empty">Loading recent activity…</p>';
   }
 
   function load() {
     if (typeof MarketswaveData === 'undefined') {
       showError('sessions', 'Could not reach the server.');
-      showError('activity', 'Could not reach the server.');
       return Promise.resolve();
     }
     clearError('sessions');
-    clearError('activity');
     loadingState();
     return MarketswaveData.callFunction('get-account-security', {}).then(function (data) {
       state.data = data;
       renderAccount(data);
       renderSessions(data);
-      renderActivity(data);
     }).catch(function (err) {
       var message = MarketswaveData.writeErrorMessage(err);
-      // One read feeds both panels, so one failure fails both — and both say so, rather than
-      // one of them quietly rendering as empty.
       showError('sessions', message);
-      showError('activity', message);
       el('sec-sessions').innerHTML = '';
-      el('sec-activity').innerHTML = '';
       el('sec-sessions-sub').textContent = 'Could not be loaded.';
-      el('sec-activity-sub').textContent = 'Could not be loaded.';
       el('sec-revoke-others').hidden = true;
     });
   }

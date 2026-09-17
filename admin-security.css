@@ -73,7 +73,7 @@
 }
 .sec-kv dd + dt { margin-top: 12px; }
 
-/* ---- sessions + activity lists ---------------------------------------------------------- */
+/* ---- sessions list (and the security-actions log rows) ---------------------------------------------------------- */
 .sec-list { border-top: 1px solid #E2E8F0; }
 .sec-row {
   display: grid;

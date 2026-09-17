@@ -30,7 +30,7 @@
       <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
           <h2 class="text-base font-semibold text-slate-900">Account security</h2>
-          <p class="text-xs text-slate-600">Your own credentials, sessions and account activity</p>
+          <p class="text-xs text-slate-600">Your own credentials and sessions</p>
         </div>
       </header>
 
@@ -160,44 +160,23 @@
             <div class="sec-list mt-4" id="sec-sessions"></div>
 
             <div class="sec-note mt-4" id="sec-sessions-note">
-              Device is read from what each client sent when it signed in, and location from its IP
-              address — both are approximations, and a VPN or a mobile network resolves to its exit
-              point rather than to where you are. A session shown as a script is exactly that: a
-              verification or seeding script that signed in with these credentials.
+              <strong>What this list covers:</strong> every session that is still live, with the moment
+              it signed in — so it is a sign-in history for as long as each session lasts, and nothing
+              more. A session that has ended drops off it, and a failed attempt to sign in is never
+              recorded anywhere, so neither appears here. Device is read from what each client sent
+              when it signed in, and location from its IP address — both are approximations, and a
+              VPN or a mobile network resolves to its exit point rather than to where you are. A
+              session shown as a script is exactly that: a verification or seeding script that signed
+              in with these credentials.
             </div>
           </section>
 
-          <!-- ========== 5. RECENT ACCOUNT ACTIVITY ==========
-               ★ NOT CALLED "Recent sign-ins", deliberately. What exists is GoTrue's own audit
-               trail, which records successes and NOTHING ELSE — a query for any failed/invalid/
-               denied action returns empty, and ip_address is blank on all 62,564 rows on this
-               stack while the payload carries no user agent. A successes-only list under a
-               sign-ins heading reads as "nobody has failed to sign in", which is a claim this
-               data cannot make (register row 224's lesson, applied to a heading). -->
-          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-activity-h">
-            <div class="min-w-0">
-              <h3 class="sec-h" id="sec-activity-h">Recent account activity</h3>
-              <p class="sec-sub" id="sec-activity-sub">Loading…</p>
-            </div>
-
-            <div class="sec-err mt-4" id="sec-activity-err" role="alert">
-              <p id="sec-activity-err-text"></p>
-              <button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-sec-retry="activity">Try again</button>
-            </div>
-
-            <div class="sec-list mt-4" id="sec-activity"></div>
-
-            <div class="sec-note sec-note--amber mt-4" id="sec-activity-gap">
-              <strong>Failed sign-in attempts are not recorded.</strong> This is Supabase&rsquo;s own account
-              audit trail, and it logs successful actions only — there is no record anywhere of a
-              wrong password being tried against this account, and these entries carry no device and
-              no location because the audit table holds neither. Recording failures would mean
-              logging them ourselves on our own sign-in pages, which would miss any attempt made
-              anywhere else.
-            </div>
-          </section>
-
-          <!-- ========== 6. SECURITY ACTIONS LOG ==========
+          <!-- ========== 5. SECURITY ACTIONS LOG ==========
+               (A "Recent account activity" panel sat here until 2026-09-17, register row 239.
+               Its only source, auth.audit_log_entries, is populated on the local stack and NOT
+               AT ALL on the hosted project, so it was permanently empty in production while
+               looking complete in development. Removed rather than left apologising; a sign-in
+               history this project records itself is queued as row 240.) -->
                ★ THIS WAS ALREADY ON THE PAGE AND IS KEPT. The brief described this page as "a
                change-password form and nothing else"; it also held this log, and it is the only
                reader of getSecurityActionsLog() anywhere in the project (checked before anything

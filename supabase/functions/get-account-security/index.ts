@@ -1,4 +1,5 @@
-// ★ PM tool revamp, part 8 (2026-09-17) — a PM's own sessions and account activity, in one read.
+// ★ PM tool revamp, part 8 (2026-09-17) — a PM's own sessions, in one read. (Account activity was read
+// here too until 2026-09-17, register row 239 — see _shared/account-security.ts for why it is gone.)
 //
 // ADMIN-ONLY, and SELF-ONLY. The caller's JWT must carry a real is_admin claim, read with
 // getClaims(jwt) and never getUser() — getUser() fetches the live auth.users DATABASE record,

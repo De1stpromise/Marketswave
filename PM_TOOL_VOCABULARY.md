@@ -339,15 +339,29 @@ honest answer to "can we build this panel?" was **partly no**. What it establish
   a second device rather than read in documentation. Sign-in history is real but carries **no
   failures, no device and no location** — so the panel that was specified could not be built as
   specified, and saying so was the deliverable, not a blocker.
+  **★ CORRECTED THE NEXT DAY (register rows D / 239): ASK IT OF THE DEPLOYMENT TARGET.** Every
+  one of those three questions was put to the LOCAL database, and for sign-in history the local
+  answer was a truthful yes — 62,568 audit rows. On the hosted project the same table holds 0 in
+  total and is never written, so the panel built on it was permanently empty in production while
+  passing every assertion here. It has been removed. A table this project's own migrations create
+  exists wherever the migration ran; a table the PLATFORM populates (`auth.*`, `storage.*`,
+  `cron.*`, `net.*`, `vault.*`) can be present on the target and never written. The check is a
+  `count(*)` on the real project before building, and again after performing the event the panel
+  would show. A thorough investigation of the wrong environment reads exactly like a thorough one.
 - **★ A HEADING IS A CLAIM. "Recent sign-ins" over a successes-only list says nobody has failed
   to sign in.** The data cannot support that, so the panel is "Recent account activity" and the
   absence is stated in the panel itself: failed attempts are not recorded, and these entries
   carry no device and no location. Renaming was cheaper than fabricating and more honest than
-  showing the list under a heading it cannot earn.
+  showing the list under a heading it cannot earn. (The panel is gone since 2026-09-17 — see the
+  correction above — but the rule stands: the sessions panel that remains is headed for what it
+  is, "Where you're signed in", and its note says what the list covers and what it does not.)
 - **★ PUT A CLAIM ABOUT ABSENT DATA IN THE PAYLOAD, NOT ONLY IN THE COPY.**
-  `failuresRecorded: false`, `devicesRecorded: false`, `locationsRecorded: false` travel with the
-  data, so the verification asserts them and fails the day the platform starts recording either.
-  A sentence in a page is a claim nobody re-checks; a field under test is one that expires loudly.
+  `failuresRecorded: false`, `devicesRecorded: false`, `locationsRecorded: false` travelled with
+  the data, so the verification asserted them and would have failed the day the platform started
+  recording either. A sentence in a page is a claim nobody re-checks; a field under test is one
+  that expires loudly. (Those fields left with the panel; the same discipline is what the
+  backend suite now applies to the raw RPC — it asserts the local table IS written and that a
+  failed attempt still leaves nothing, so the local/hosted split itself is under test.)
 - **NO CONTROL FOR SOMETHING THAT DOES NOT EXIST.** Two-factor is marked Planned with the real
   constraint named (Supabase MFA is a Pro-plan feature; a real enrolment returns 422
   `mfa_totp_enroll_not_enabled`) and carries no toggle, no button, no input — asserted absent, not

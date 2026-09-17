@@ -10298,10 +10298,11 @@ row 74.
     So the Recent account activity panel renders real entries locally and its EMPTY STATE in
     production, which is correct rather than broken — but an empty panel alone cannot distinguish
     "nothing happened" (implausible: the reader is signed in) from "nothing is recorded here", so
-    the empty state names the platform behaviour outright. Everything else on the page — sessions,
-    revocation, the password-change consequence — was proven against the real deployment: 21 real
-    assertions including the 409 self-revoke and all four RPCs refused for a real client AND a real
-    admin with a `service_role` control.
+    the empty state named the platform behaviour outright. **Superseded the same day — the panel
+    is REMOVED, see the entry directly below and register row 239.** Everything else on the page —
+    sessions, revocation, the password-change consequence — was proven against the real deployment:
+    21 real assertions including the 409 self-revoke and all four RPCs refused for a real client
+    AND a real admin with a `service_role` control.
   **Verified**: `supabase-verify-account-security` 49/49 (401/403 on both functions; all four
   RPCs refused for anon AND for a real admin, with a service_role non-vacuity control; two real
   sessions with "This device" matched to the caller's own session_id claim; a real revoke
@@ -10316,6 +10317,48 @@ row 74.
   sheen audit, 390/375 on a real phone profile and a real 320px iframe). Repointed rather than
   left broken: `verify-pm-self-service-security`, which extracted an inline `<script>` by a
   comment marker this rebuild moved into the external page script.
+- **★★ The "Recent account activity" panel removed from the Security page — and a new named
+  failure class, THE ABSENT-SOURCE PATTERN (2026-09-17, register rows D / 239 / 240).** Part 8
+  shipped a panel whose only source, `auth.audit_log_entries`, is written on the local stack
+  (62,568 rows) and NOT AT ALL on the hosted project: a raw `count(*)` there is 0 in total. Re-measured
+  live, not trusted from the record: a real `signInWithPassword` as the staging PM, `last_sign_in_at`
+  moving one second later and `pm_auth_sessions` returning 13 rows (so the sign-in registered),
+  `pm_auth_activity` over a 3,650-day window returning **0** — for the PM and for a real production
+  client alike. **So the panel was permanently empty for every PM in production while looking
+  complete on every developer's machine.** Of three options (remove; source it from the platform's
+  log pipeline via the Management API; record a sign-in history ourselves), the first was taken now
+  and the third queued as row 240 — not the second, because a read-only panel is not worth a new
+  operator-token credential class in an Edge Function.
+  **★ THIS IS NOT THE VACUITY PATTERN, and it has its own class row (D) for that reason.** Every
+  assertion was real — real rows read, real rendering, real contrast — and the panel genuinely worked.
+  The data source was absent on the deployment target, and no check asked that question of the
+  target. **The instruction to investigate the source before building WAS followed**, honestly and
+  thoroughly — `count(*)`, a wrong-password probe, a column check — and every question was asked of
+  the LOCAL stack, whose answer was a truthful yes. A thorough investigation of the wrong
+  environment is indistinguishable from a thorough investigation. See the Working convention below.
+  **What is kept, and now says what it covers**: the sessions panel — every still-live session with
+  the moment it signed in, which IS a sign-in history for as long as each session lasts — with a
+  note stating that scope and its two gaps in a PM's own words (an ended session drops off; a failed
+  attempt is never recorded anywhere). Header no longer promises "account activity"; revocation and
+  the password-change consequence untouched. `get-account-security` returns `account` + `sessions`
+  only; `pm_auth_activity()` stays in the database, unused and still service_role-only (dropping it
+  is a migration for no gain).
+  **Suites repointed, not trimmed** — the backend suite's section 8 now asserts the payload carries
+  NO `activity` field and keeps the row-240 motivation live as guards on the raw RPC (locally the
+  table IS written, this account's own `login` is in it, and a real wrong-password attempt leaves
+  nothing — if the first ever fails, the local/hosted split has changed); the ui-wiring suite asserts
+  the panel is genuinely absent (no container, heading or retry control) and that the scope note
+  says what the list covers AND what it does not; the visual suite asserts absence, five cards, and
+  the scope note surviving at 390/375/320. `npm run pass`: `supabase-verify-account-security` 46/46,
+  `verify-account-security-ui-wiring` 52/52, `verify-account-security-visual` 44/44,
+  `verify-pm-self-service-security` 18/18, stylesheet coverage and Tailwind scoping PASS.
+  **Suspects for the same shape elsewhere, reported not swept** (register row D lists them):
+  `cron.job_run_details` / `net._http_response` behind `scheduler_health()` (platform retention,
+  not ours — `net._http_response` is pruned by pg_net itself, and a hosted project may prune
+  `job_run_details` too), `auth.sessions.refreshed_at` (null for every real PM session locally, its
+  hosted behaviour never checked — `lastActiveAt` already falls back past it), and `_analytics`.
+  Confirmed populated on the hosted project by this probe: `auth.sessions`, `auth.users.last_sign_in_at`.
+
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
@@ -10636,6 +10679,21 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   old path ended `.catch(() => 0)`, so an unfunded client and a client whose value failed to
   compute were indistinguishable — which is how the bug stayed invisible. The list distinguishes
   three states now: "not yet funded", "Unavailable", and a real figure.
+- **★★ "DOES THIS DATA SOURCE EXIST" IS A QUESTION FOR THE DEPLOYMENT TARGET, NOT THE DEV
+  ENVIRONMENT (2026-09-17, register row D).** Specifically for anything that is not a table this
+  project's own migrations create. A `public` table we wrote a migration for exists everywhere the
+  migration ran — cloud-staging parity proves that. A table in `auth`, `storage`, `cron`, `net`,
+  `vault` or `_analytics` is populated by the PLATFORM on the platform's own terms, and hosted
+  Supabase is not the Docker image: the same schema can be present and never written.
+  `auth.audit_log_entries` is exactly that — 62,568 rows locally, 0 on the hosted project, and a
+  panel built on it shipped permanently empty in production (row 239). The question is not "is the
+  table there" (it was) but "does anything on the target write to it". **The check is a minute:**
+  `count(*)` on the real project through a service_role RPC BEFORE building, then perform the
+  event the feature exists to display, wait a few seconds, count again. It belongs in the
+  investigation step of any feature reading a platform-populated table, and in that feature's
+  real-staging proof, where "the panel rendered" must come with "and the source had rows there".
+  A thorough investigation of the local stack is not a substitute — the local answer was a truthful
+  yes, and that is precisely why the investigation that preceded part 8 did not catch it.
 - **★ VERIFY A MIGRATION LOCALLY BEFORE `--linked`, EVERY TIME.** `supabase db push --linked`
   targets REAL CLOUD STAGING, not the local stack. The order is: write the migration, apply it
   locally (`supabase migration up --local`), verify against the local stack, and only then push

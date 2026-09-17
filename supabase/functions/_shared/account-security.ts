@@ -9,14 +9,20 @@
 //                location from the IP, both through the parsers visitor-presence.ts already
 //                owns. "This device" is matched on the requester's OWN JWT session_id claim,
 //                so it is identified by the token rather than by anything the browser said.
-//   ACTIVITY   — PARTLY REAL, and thinner than a "recent sign-ins" panel implies. GoTrue
-//                records successes (login, logout, token_refreshed, token_revoked,
-//                user_updated_password) and records NO FAILED ATTEMPTS AT ALL. It also carries
-//                NO device and NO location: ip_address was blank on all 62,564 rows on this
-//                stack and the payload has no user agent. So this returns time + action +
-//                provider, and reports failuresRecorded:false so the page can say so out loud.
-//                A successes-only list under a "sign-ins" heading would read as "nobody has
-//                failed to sign in", which is a claim this data cannot make.
+//   ACTIVITY   — NOT READ ANY MORE (2026-09-17, register row 239). GoTrue's audit trail
+//                (auth.audit_log_entries) is populated on the LOCAL stack — 62,568 rows here —
+//                and NOT AT ALL on the hosted project this page ships to: a raw count(*) there
+//                returns 0 in total, and stays 0 seconds after a genuine sign-in that provably
+//                registered elsewhere (last_sign_in_at moved, a session row appeared). The
+//                panel built on it was therefore permanently empty in production while looking
+//                complete on every developer's machine. It was removed rather than left with an
+//                apologetic empty state; pm_auth_activity() stays in the database, unused, since
+//                dropping it is a migration for no gain. A sign-in history this project records
+//                ITSELF — which would also capture the failed attempts GoTrue never wrote even
+//                locally — is queued as register row 240.
+//                "Does this data source exist" has to be asked of the DEPLOYMENT TARGET; the
+//                local answer was a truthful yes, and that is exactly why the investigation
+//                that preceded this file did not catch it.
 //
 // ★ EVERY READ CHECKS ITS ERROR (register row 233). On this page a swallowed read is worse
 // than elsewhere: an empty sessions list reads as "you are signed in nowhere else", which is
@@ -68,39 +74,15 @@ export function describeAgent(ua: string | null): { device: string; browser: str
   return { device: parsed.device, browser: parsed.browser, label, isScript: false };
 }
 
-// Human-readable action names for the activity panel. An action this deployment has never
-// produced is shown verbatim rather than mapped to a guess.
-const ACTION_LABELS: Record<string, string> = {
-  login: 'Signed in',
-  logout: 'Signed out',
-  token_refreshed: 'Session refreshed',
-  token_revoked: 'Session revoked',
-  user_updated_password: 'Password changed',
-  user_recovery_requested: 'Password reset requested',
-  user_modified: 'Account modified',
-  user_updated: 'Account updated'
-};
-
-export function actionLabel(action: string | null): string {
-  if (!action) return 'Unknown action';
-  return ACTION_LABELS[action] || action.replace(/_/g, ' ');
-}
-
 export interface AccountSecurityOptions {
   userId: string;
   email: string | null;
   currentSessionId: string | null;
-  activityDays?: number;
 }
 
 // deno-lint-ignore no-explicit-any
 export async function buildAccountSecurity(admin: any, opts: AccountSecurityOptions) {
-  const days = opts.activityDays && opts.activityDays > 0 ? opts.activityDays : 30;
-
-  const [sessionRows, activityRows] = await Promise.all([
-    must(admin.rpc('pm_auth_sessions', { p_user_id: opts.userId }), 'your sessions'),
-    must(admin.rpc('pm_auth_activity', { p_user_id: opts.userId, p_days: days, p_limit: 50 }), 'your recent account activity')
-  ]) as [Record<string, unknown>[], Record<string, unknown>[]];
+  const sessionRows = await must(admin.rpc('pm_auth_sessions', { p_user_id: opts.userId }), 'your sessions') as Record<string, unknown>[];
 
   // ---- locations: one lookup per DISTINCT public IP, capped ---------------------------------
   const distinctIps: string[] = [];
@@ -145,14 +127,6 @@ export async function buildAccountSecurity(admin: any, opts: AccountSecurityOpti
     };
   });
 
-  const activity = activityRows.map((a) => ({
-    id: a.id as string,
-    at: a.created_at as string,
-    action: (a.action as string | null) || null,
-    label: actionLabel((a.action as string | null) || null),
-    provider: (a.provider as string | null) || null
-  }));
-
   return {
     account: {
       userId: opts.userId,
@@ -166,17 +140,6 @@ export async function buildAccountSecurity(admin: any, opts: AccountSecurityOpti
       currentSessionListed: sessions.some((s) => s.isCurrent),
       geoLookupsSkipped,
       rows: sessions
-    },
-    activity: {
-      days,
-      total: activity.length,
-      // ★ Stated in the payload, not only in the page's copy, so the fact travels with the
-      // data: GoTrue records no failed sign-in attempts anywhere, and these rows carry no
-      // device and no location because the audit table holds neither.
-      failuresRecorded: false,
-      devicesRecorded: false,
-      locationsRecorded: false,
-      rows: activity
     }
   };
 }

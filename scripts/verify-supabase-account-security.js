@@ -251,40 +251,41 @@ async function main() {
     check('★ ...and THIS device stays signed in, which is the other half of that sentence',
       !pw1Refresh.error, pw1Refresh.error && pw1Refresh.error.message);
 
-    console.log('\n8. ★ The activity investigation, locked in as assertions\n');
+    console.log('\n8. ★ The activity panel is GONE (register row 239) — and why it is gone stays under test\n');
 
+    // ★ Removed 2026-09-17. Its only source, auth.audit_log_entries, is populated on the local
+    // stack and NOT AT ALL on the hosted project (a raw count(*) there is 0 in total, still 0
+    // seconds after a real sign-in), so the panel was permanently empty in production while every
+    // assertion about it passed here. The assertions below are what replaces the old ones: the
+    // payload no longer carries the field at all, the sessions list is the sign-in history that
+    // DOES exist on the deployment target, and the local-only investigation that motivates row
+    // 240 (GoTrue records no failed attempts even where it records anything) is kept as a guard
+    // on the raw RPC — which still exists in the database, unused, and must stay unreachable.
     const pwToken = pw1SignIn.data.session.access_token;
     // The change above reissued the session, so read with a token the change did not invalidate.
     const pwAfter = await pw1.auth.getSession();
     const liveToken = (pwAfter.data.session && pwAfter.data.session.access_token) || pwToken;
-    const activityView = await callFn(url, 'get-account-security', liveToken, {});
-    check('activity reads back for this account', activityView.status === 200, String(activityView.status) + ' ' + JSON.stringify(activityView.body));
-    const activity = activityView.body.activity;
-    check('real recorded activity exists for this brand-new account', activity.total > 0, String(activity.total));
-    check('a real sign-in is among it', activity.rows.some((r) => r.action === 'login'), JSON.stringify(activity.rows.slice(0, 3)));
-    check('the real password change is recorded', activity.rows.some((r) => r.action === 'user_updated_password'), JSON.stringify(activity.rows.slice(0, 5).map((r) => r.action)));
+    const secView = await callFn(url, 'get-account-security', liveToken, {});
+    check('the payload reads back for this account', secView.status === 200, String(secView.status) + ' ' + JSON.stringify(secView.body));
+    check('★ the payload carries NO activity field — the source does not exist on the deployment target',
+      !('activity' in secView.body), JSON.stringify(Object.keys(secView.body)));
+    check('...and the sessions list is the sign-in history that DOES exist there: this account\'s own live sign-in, with its moment',
+      secView.body.sessions.rows.some((r) => r.isCurrent && typeof r.createdAt === 'string' && !isNaN(Date.parse(r.createdAt))),
+      JSON.stringify(secView.body.sessions.rows.map((r) => [r.isCurrent, r.createdAt])));
 
-    // ★ The claims the page makes about what is ABSENT. These fail the day GoTrue starts
-    // recording either, which is exactly what should happen — the page's copy would then be
-    // wrong, and a claim about missing data has to be re-checked rather than remembered.
-    check('the payload states plainly that failures are not recorded', activity.failuresRecorded === false);
-    check('...and that these entries carry no device and no location',
-      activity.devicesRecorded === false && activity.locationsRecorded === false);
-    check('no returned entry carries a device or a location field at all',
-      activity.rows.every((r) => !('device' in r) && !('location' in r) && !('ip' in r)));
-
+    // The investigation behind row 240, kept live on the raw (service_role-only) RPC: even on
+    // the one stack where GoTrue writes this table at all, a failed attempt leaves nothing.
     const { data: failRows, error: failErr } = await admin.rpc('pm_auth_activity', { p_user_id: pm.id, p_days: 30, p_limit: 100 });
-    check('GUARD: the raw activity read works', !failErr && Array.isArray(failRows), failErr && failErr.message);
-    check('★ GoTrue records NO failed/invalid/denied action for this account — the investigation, still true',
+    check('GUARD: the raw activity RPC still works for service_role (it was left in place, not dropped)', !failErr && Array.isArray(failRows), failErr && failErr.message);
+    check('GUARD: on the LOCAL stack the audit table is genuinely written — this account\'s own sign-in is in it (if this fails, the local/hosted split this section documents has changed)',
+      failRows.some((r) => r.action === 'login'), JSON.stringify(failRows.slice(0, 3).map((r) => r.action)));
+    check('★ GoTrue records NO failed/invalid/denied action for this account — the row-240 motivation, still true',
       failRows.every((r) => !/fail|invalid|denied/i.test(r.action || '')),
       JSON.stringify(failRows.map((r) => r.action).filter((a) => /fail|invalid|denied/i.test(a || ''))));
-
-    // A deliberately wrong password, then re-read: still nothing. This is the strong form —
-    // it produces the event the mockup wanted a row for, and shows nothing records it.
     const wrong = await fresh(url, anonKey).auth.signInWithPassword({ email: pmEmail, password: 'definitely-not-the-password' });
     check('GUARD: a real wrong-password attempt genuinely failed', !!wrong.error, wrong.error && wrong.error.message);
     const { data: afterWrong } = await admin.rpc('pm_auth_activity', { p_user_id: pm.id, p_days: 30, p_limit: 100 });
-    check('★ ...and it left NO trace in the audit trail — which is why the page says so rather than showing an empty list under a "sign-ins" heading',
+    check('★ ...and it left NO trace even here — the failed attempts only a self-recorded history (row 240) could capture',
       afterWrong.length === failRows.length, JSON.stringify({ before: failRows.length, after: afterWrong.length }));
 
   } finally {

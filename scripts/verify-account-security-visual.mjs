@@ -175,7 +175,8 @@ const READ = `(() => {
     noHover: window.matchMedia('(hover: none)').matches,
     touchPoints: navigator.maxTouchPoints,
     sessions: document.querySelectorAll('.sec-row[data-sec-session]').length,
-    activity: document.querySelectorAll('#sec-activity .sec-row').length,
+    // Row 240: the activity panel was removed outright. Absence is asserted, not just a zero count.
+    activityPresent: !!(document.getElementById('sec-activity') || document.getElementById('sec-activity-h') || document.getElementById('sec-activity-gap')),
     cards: document.querySelectorAll('.sec-card').length,
     logRowDisplay: (() => { const r = document.querySelector('#log-list tbody tr'); return r ? getComputedStyle(r).display : null; })(),
     logCells: document.querySelectorAll('#log-list tbody tr:first-child td').length,
@@ -186,7 +187,7 @@ const READ = `(() => {
     uaVis: row ? vis(row.querySelector('.sec-ua')) : false,
     kvVis: vis(document.querySelector('.sec-kv dd')),
     consequenceVis: vis(document.getElementById('sec-password-consequence')),
-    gapVis: vis(document.getElementById('sec-activity-gap')),
+    scopeVis: vis(document.getElementById('sec-sessions-note')),
     twofaControls: document.querySelectorAll('#sec-2fa-h ~ * button, #sec-2fa-h ~ * input, #sec-2fa-h ~ * [role="switch"]').length
   };
 })()`;
@@ -306,10 +307,10 @@ async function main() {
     const d = await cdp.evaluate(READ);
     check('GUARD: 1440px is genuinely 1440', d.inner === 1440, String(d.inner));
     check('real session rows render', d.sessions >= 2, String(d.sessions));
-    check('real activity rows render', d.activity >= 1, String(d.activity));
-    check('all six cards render', d.cards === 6, String(d.cards));
+    check('★ the activity panel is absent from the rendered page (register row 239)', d.activityPresent === false);
+    check('all five cards render', d.cards === 5, String(d.cards));
     check('the page genuinely uses .glass (so the sheen audit above was not vacuous)',
-      d.glassCount >= 5, String(d.glassCount));
+      d.glassCount >= 4, String(d.glassCount));
     check('★ the 2FA panel carries NO interactive control in the rendered page',
       d.twofaControls === 0, String(d.twofaControls));
     check('1440px: nothing escapes the viewport', d.bodyScroll <= 1441 && d.maxRight <= 1441,
@@ -333,8 +334,8 @@ async function main() {
       check(w + 'px: ★ the device, the location and the last-active line all SURVIVE',
         p.titleVis && p.metaVis && p.uaVis, JSON.stringify({ t: p.titleVis, m: p.metaVis, u: p.uaVis }));
       check(w + 'px: the identity rows survive', p.kvVis === true);
-      check(w + 'px: the password consequence and the activity gap note both survive',
-        p.consequenceVis && p.gapVis, JSON.stringify({ c: p.consequenceVis, g: p.gapVis }));
+      check(w + 'px: the password consequence and the sessions scope note both survive',
+        p.consequenceVis && p.scopeVis, JSON.stringify({ c: p.consequenceVis, s: p.scopeVis }));
       check(w + 'px: ★ the five-column log becomes self-labelling CARDS, not an off-screen scroller',
         p.logRowDisplay === 'block' && p.logCells >= 5,
         JSON.stringify({ display: p.logRowDisplay, cells: p.logCells }));
@@ -377,7 +378,7 @@ async function main() {
         titleVis: row ? vis(row.querySelector('.sec-title')) : false,
         metaVis: row ? vis(row.querySelector('.sec-meta')) : false,
         uaVis: row ? vis(row.querySelector('.sec-ua')) : false,
-        gapVis: vis(doc.getElementById('sec-activity-gap'))
+        scopeVis: vis(doc.getElementById('sec-sessions-note'))
       };
     })()`);
     check('320px (real iframe): the viewport is genuinely 320 (integrity guard)', iframe.inner === 320, String(iframe.inner));
@@ -386,7 +387,7 @@ async function main() {
       JSON.stringify({ b: iframe.bodyScroll, m: iframe.maxRight, worst: iframe.worst }));
     check('320px: the device, location and last-active line all still survive',
       iframe.titleVis && iframe.metaVis && iframe.uaVis, JSON.stringify(iframe));
-    check('320px: the "failures are not recorded" note survives', iframe.gapVis === true);
+    check('320px: the sessions scope note (what this list covers) survives', iframe.scopeVis === true);
 
   } finally {
     if (cdp) { try { cdp.ws.close(); } catch (_e) { /* closing anyway */ } try { cdp.chrome.kill(); } catch (_e) { /* already gone */ } }
