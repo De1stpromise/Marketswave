@@ -370,6 +370,7 @@
     var footer = '<div class="pr-pf">' +
       '<button type="button" class="mw-btn mw-btn-sm mw-btn-danger pr-danger" id="pr-retire">' + (p.status === 'retired' ? 'Reinstate' : 'Retire') + '</button>' +
       (isAppraisal ? '<button type="button" class="mw-btn mw-btn-sm mw-btn-admin" id="pr-publish">Publish valuation</button>' : '') +
+      '<button type="button" class="mw-btn mw-btn-sm" id="pr-edit">Edit details</button>' +
       '<button type="button" class="mw-btn mw-btn-sm" id="pr-close">Close</button>' +
     '</div>';
 
@@ -377,6 +378,105 @@
         '<div class="tx"><b id="pr-panel-title">' + esc(p.name) + '</b><span>' + esc([p.ticker, p.assetClass, p.id].filter(Boolean).join(' · ')) + '</span></div>' +
       '</div>' +
       '<div class="pr-pb" id="pr-pb">' + body + '<p class="pr-err hidden" id="pr-panel-err"></p></div>' + footer;
+  }
+
+  /* ---- edit details ------------------------------------------------------------------
+   * ★ WHAT IS NOT HERE IS THE POINT. There is no unit-price field, no symbol field and no
+   * pricing-model control, because none of the three may move: a price moves via the market
+   * feed or a published valuation, never a form; a remapped symbol would silently re-price
+   * every holder. edit-product refuses all three server-side regardless — this form simply
+   * does not offer what the server would reject. The asset class is editable ONLY for an
+   * appraisal-valued product (where it is a real choice between Private Equity and Real
+   * Assets); for a market-priced one it is derived from the symbol and shown read-only. */
+  function editHTML(p) {
+    var isMarket = p.pricingModel === 'market';
+    var isAppraisal = p.pricingModel === 'appraisal';
+
+    var classField = isAppraisal
+      ? '<div class="mw-fld mw-fld--static mw-fld--admin"><select id="pr-e-class" class="mw-field mw-field-admin">' +
+          '<option value="Private Equity"' + (p.assetClass === 'Private Equity' ? ' selected' : '') + '>Private Equity</option>' +
+          '<option value="Real Assets"' + (p.assetClass === 'Real Assets' ? ' selected' : '') + '>Real Assets</option>' +
+        '</select><label for="pr-e-class">Asset class</label></div>'
+      : '<div class="mw-fld mw-fld--admin"><input type="text" id="pr-e-class" class="mw-field mw-field-admin" readonly value="' + esc(p.assetClass) + '" /><label for="pr-e-class">Asset class — derived from the symbol</label></div>';
+
+    var body =
+      '<div class="pr-kv" id="pr-e-price"><span class="k">Unit price</span><span class="v">' + usd2(p.unitPrice) + ' <em>· not editable here</em></span></div>' +
+      (isMarket ? '<div class="pr-kv"><span class="k">Symbol</span><span class="v">' + esc(p.ticker || '') + ' <em>· permanent</em></span></div>' : '') +
+      '<div class="mw-fld mw-fld--admin" style="margin-top:12px"><input type="text" id="pr-e-name" class="mw-field mw-field-admin" value="' + esc(p.name) + '" /><label for="pr-e-name">Product name</label></div>' +
+      '<div class="pr-two" style="margin-top:10px">' + classField +
+        '<div class="mw-fld mw-fld--admin"><input type="text" id="pr-e-type" class="mw-field mw-field-admin" value="' + esc(p.investmentType || '') + '" /><label for="pr-e-type">Investment type</label></div>' +
+      '</div>' +
+      '<div class="pr-two" style="margin-top:10px">' +
+        '<div class="mw-fld mw-fld--admin"><input type="number" id="pr-e-min" class="mw-field mw-field-admin" step="1" min="0" value="' + esc(p.minimumInvestment) + '" /><label for="pr-e-min">Minimum (USD)</label></div>' +
+        '<div class="mw-fld mw-fld--admin"><input type="number" id="pr-e-max" class="mw-field mw-field-admin" step="1" min="0" value="' + (p.maximumInvestment == null ? '' : esc(p.maximumInvestment)) + '" placeholder="none" /><label for="pr-e-max">Maximum — optional</label></div>' +
+      '</div>' +
+      '<div class="pr-two" style="margin-top:10px">' +
+        '<div class="mw-fld mw-fld--static mw-fld--admin"><select id="pr-e-tier" class="mw-field mw-field-admin">' +
+          ['conservative', 'balanced', 'aggressive'].map(function (t) {
+            return '<option value="' + t + '"' + (p.riskTier === t ? ' selected' : '') + '>' + t.charAt(0).toUpperCase() + t.slice(1) + '</option>';
+          }).join('') +
+        '</select><label for="pr-e-tier">Risk tier</label></div>' +
+        '<div class="mw-fld mw-fld--admin"><input type="text" id="pr-e-logo" class="mw-field mw-field-admin" value="' + esc(p.logoUrl || '') + '" placeholder="none" /><label for="pr-e-logo">Logo URL — optional</label></div>' +
+      '</div>' +
+      '<div class="mw-fld mw-fld--admin" style="margin-top:10px"><textarea id="pr-e-desc" rows="2" class="mw-field mw-field-admin">' + esc(p.description || '') + '</textarea><label for="pr-e-desc">Description</label></div>' +
+      '<div class="mw-fld mw-fld--admin" style="margin-top:10px"><textarea id="pr-e-ext" rows="3" class="mw-field mw-field-admin">' + esc(p.extendedDescription || '') + '</textarea><label for="pr-e-ext">Extended description</label></div>' +
+      '<p class="pr-hint">Price, symbol and pricing model are fixed for the life of the product. Everything here is presentation and allocation limits.</p>';
+
+    return '<div class="pr-ph">' + AssetMark.html({ name: p.name, ticker: p.ticker, logoUrl: p.logoUrl, size: 's' }) +
+        '<div class="tx"><b id="pr-panel-title">Edit ' + esc(p.name) + '</b><span>' + esc([p.ticker, p.assetClass, p.id].filter(Boolean).join(' · ')) + '</span></div>' +
+      '</div>' +
+      '<div class="pr-pb">' + body + '<p class="pr-err hidden" id="pr-edit-err"></p></div>' +
+      '<div class="pr-pf">' +
+        '<button type="button" class="mw-btn mw-btn-sm mw-btn-admin" id="pr-edit-save">Save</button>' +
+        '<button type="button" class="mw-btn mw-btn-sm" id="pr-edit-cancel">Cancel</button>' +
+      '</div>';
+  }
+
+  function submitEdit() {
+    var p = byId(panel.dataset.productId);
+    if (!p) return;
+    var err = document.getElementById('pr-edit-err');
+    if (err) err.classList.add('hidden');
+
+    // Send only what genuinely changed — edit-product validates the MERGED object, so a patch
+    // that restates every field is not wrong, but a minimal one keeps the record honest about
+    // what a PM actually touched.
+    var maxRaw = val('pr-e-max');
+    var next = {
+      name: (val('pr-e-name') || '').trim(),
+      investmentType: (val('pr-e-type') || '').trim(),
+      riskTier: val('pr-e-tier'),
+      minimumInvestment: parseFloat(val('pr-e-min')),
+      maximumInvestment: maxRaw === '' ? null : parseFloat(maxRaw),
+      description: (val('pr-e-desc') || '').trim(),
+      extendedDescription: (val('pr-e-ext') || '').trim(),
+      logoUrl: (val('pr-e-logo') || '').trim() || null
+    };
+    if (p.pricingModel === 'appraisal') next.assetClass = val('pr-e-class');
+
+    var current = {
+      name: p.name, investmentType: p.investmentType, riskTier: p.riskTier,
+      minimumInvestment: Number(p.minimumInvestment),
+      maximumInvestment: p.maximumInvestment == null ? null : Number(p.maximumInvestment),
+      description: p.description || '', extendedDescription: p.extendedDescription || '',
+      logoUrl: p.logoUrl || null, assetClass: p.assetClass
+    };
+    var patch = {};
+    Object.keys(next).forEach(function (k) {
+      var a = next[k], b = current[k];
+      if (typeof a === 'number' || typeof b === 'number') { if (Number(a) !== Number(b)) patch[k] = a; }
+      else if ((a || '') !== (b || '')) patch[k] = a;
+    });
+    if (!Object.keys(patch).length) { showErr('pr-edit-err', 'Nothing changed.'); return; }
+
+    var btn = document.getElementById('pr-edit-save');
+    D.withButtonBusy(btn, 'Saving…', function () {
+      return D.callFunction('edit-product', { id: p.id, patch: patch });
+    }).then(function (res) {
+      closePanel();
+      toast((res && res.name ? res.name : p.name) + ' updated.');
+      reload();
+    }).catch(function (e) { showErr('pr-edit-err', D.writeErrorMessage(e)); });
   }
 
   function openDetail(id) {
@@ -628,6 +728,15 @@
       if (p) { var id = p.id; openPanel(retireHTML(p, p.status !== 'retired')); panel.dataset.productId = id; }
       return;
     }
+    if (t.closest('#pr-edit')) {
+      var ep = byId(panel.dataset.productId);
+      if (ep) { var eid = ep.id; openPanel(editHTML(ep)); panel.dataset.productId = eid; }
+      return;
+    }
+    // Edit's Cancel returns to the DETAIL panel rather than closing the overlay outright —
+    // a PM who opened a product to read it has not asked to leave it.
+    if (t.closest('#pr-edit-cancel')) { openDetail(panel.dataset.productId); return; }
+    if (t.closest('#pr-edit-save')) { submitEdit(); return; }
     if (t.closest('#pr-retire-submit')) { submitRetire(); return; }
     if (t.closest('#pr-publish')) { submitPublish(); return; }
     if (t.closest('#pr-create-submit')) { submitCreate(); return; }

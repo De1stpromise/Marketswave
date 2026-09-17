@@ -35,9 +35,8 @@ function readLocalStackCredentials() {
 }
 
 const WAIT_CARDS = `(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ const g=document.getElementById('asset-cards-grid'); if (g && g.querySelectorAll('[data-product-id]').length>0 && !/animate-pulse/.test(g.innerHTML)) return true; await s(250);} return false; })()`;
-const PREPARE_ADMIN_LIST = `(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ if (document.querySelectorAll('.product-row').length>0) break; await s(250);} const flagged=[...document.querySelectorAll('.product-row')].find(r=>/Quote failed/.test(r.textContent)); if (flagged) flagged.click(); await s(300); return true; })()`;
-const PREPARE_ADMIN_ADD = `(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ if (document.querySelectorAll('.product-row').length>0) break; await s(250);} document.getElementById('open-add-modal').click(); const inp=document.getElementById('add-symbol-search'); inp.value='aapl'; inp.dispatchEvent(new Event('input')); for (let i=0;i<120;i++){ if (document.querySelectorAll('.symbol-result').length>0) break; await s(250);} const row=[...document.querySelectorAll('.symbol-result')].find(b=>b.dataset.symbol==='AAPL'); if (row) row.click(); for (let i=0;i<120;i++){ if (/Price will track/.test(document.getElementById('add-live-preview-label').textContent)) break; await s(250);} await s(300); return true; })()`;
-const PREPARE_ADMIN_NAV = (pct) => `(async () => { const s=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<160;i++){ if (document.querySelectorAll('.product-row').length>0) break; await s(250);} [...document.querySelectorAll('.product-row')].find(r=>r.dataset.id==='PROD-0001').click(); await s(200); [...document.querySelectorAll('.publish-nav-btn')].find(b=>b.dataset.id==='PROD-0001').click(); for (let i=0;i<120;i++){ if (document.querySelectorAll('.nav-impact-row').length>0) break; await s(250);} const f=document.getElementById('nav-change-percent'); f.value='${pct}'; f.dispatchEvent(new Event('input')); await s(300); return true; })()`;
+// The old-page PREPARE_ADMIN_* / *_GEOM probes were removed with the runs that used them —
+// dead selectors for markup that no longer exists are worse than no selectors at all.
 
 function runContrast(profile, page, label, bootstrap, prepare) {
   const res = spawnSync(process.execPath, ['verify-contrast.mjs'], {
@@ -80,8 +79,6 @@ async function connectChrome() {
 
 const CARD_GEOM = `(() => { const cards=[...document.querySelectorAll('#asset-cards-grid [data-product-id]')]; const inner=window.innerWidth; const out={ inner, bodyScroll: document.body.scrollWidth, cards: cards.length, overflow: [] }; for (const c of cards){ const cr=c.getBoundingClientRect(); for (const sel of ['.product-price','.product-ticker','.price-source','.fractional-note','.price-change']) { const el=c.querySelector(sel); if(!el) continue; const r=el.getBoundingClientRect(); if (r.right > cr.right+0.5 || r.left < cr.left-0.5) out.overflow.push(c.dataset.productId+' '+sel+' '+Math.round(r.right)+'>'+Math.round(cr.right)); } } out.cols=new Set(cards.map(c=>Math.round(c.getBoundingClientRect().left))).size; return out; })()`;
 const NARROW_CLIENT = `(async () => { const nap=(ms)=>new Promise(r=>setTimeout(r,ms)); for (let i=0;i<80&&!document.body;i++) await nap(100); const f=document.createElement('iframe'); f.style.cssText='width:320px;height:900px;border:0'; f.src='/asset-collection.html'; document.body.appendChild(f); await new Promise(r=>f.addEventListener('load',r)); const d=f.contentDocument,w=f.contentWindow; for (let i=0;i<160;i++){ const g=d.getElementById('asset-cards-grid'); if (g && g.querySelectorAll('[data-product-id]').length>0 && !/animate-pulse/.test(g.innerHTML)) break; await nap(250);} const cards=[...d.querySelectorAll('#asset-cards-grid [data-product-id]')]; const overflow=[]; for (const c of cards){ const cr=c.getBoundingClientRect(); for (const sel of ['.product-price','.product-ticker','.price-source','.price-change']) { const el=c.querySelector(sel); if(!el) continue; const r=el.getBoundingClientRect(); if (r.right>cr.right+0.5) overflow.push(c.dataset.productId+' '+sel); } } return { reported: d.documentElement.clientWidth, cards: cards.length, bodyScroll: d.body.scrollWidth, inner: w.innerWidth, overflow }; })()`;
-const NAV_GEOM = `(() => { const m=document.querySelector('#nav-modal .relative'); const mr=m.getBoundingClientRect(); const rows=[...document.querySelectorAll('.nav-impact-row')]; const over=[]; for (const r of rows){ for (const el of r.children){ const b=el.getBoundingClientRect(); if (b.right>mr.right+0.5) over.push(el.className.slice(0,30)+' '+Math.round(b.right)+'>'+Math.round(mr.right)); } } const seg=[...document.querySelectorAll('.nav-mode-btn')].map(b=>Math.round(b.getBoundingClientRect().height)); return { inner: window.innerWidth, bodyScroll: document.body.scrollWidth, modalRight: mr.right, rows: rows.length, over, segH: seg, modalScrollW: m.scrollWidth, modalClientW: m.clientWidth }; })()`;
-const ADD_GEOM = `(() => { const m=document.querySelector('#add-modal .relative'); const rows=[...document.querySelectorAll('.symbol-result')]; const mr=m.getBoundingClientRect(); const over=[]; for (const r of rows){ const b=r.getBoundingClientRect(); if (b.right>mr.right+0.5) over.push('row'); } const seg=[...document.querySelectorAll('.add-model-btn')].map(b=>Math.round(b.getBoundingClientRect().height)); return { inner: window.innerWidth, bodyScroll: document.body.scrollWidth, rows: rows.length, over, segH: seg, modalScrollW: m.scrollWidth, modalClientW: m.clientWidth }; })()`;
 
 async function main() {
   console.log('Product catalog — live pricing, part 1: visual verification\n');
@@ -119,10 +116,16 @@ async function main() {
 
     console.log('\n=== CONTRAST — real composited pixels ===\n');
     runContrast('live-pricing-client', 'asset-collection.html', 'client cards (3 source states, both change tones)', clientBootstrap, WAIT_CARDS);
-    runContrast('live-pricing-admin-list', 'admin-products.html', 'admin list + quote-failed block', adminBootstrap, PREPARE_ADMIN_LIST);
-    runContrast('live-pricing-admin-add', 'admin-products.html', 'New product modal after a real search', adminBootstrap, PREPARE_ADMIN_ADD);
-    runContrast('live-pricing-admin-nav', 'admin-products.html', 'Publish valuation modal, +4.2% (gain tone)', adminBootstrap, PREPARE_ADMIN_NAV('4.2'));
-    runContrast('live-pricing-admin-nav', 'admin-products.html', 'Publish valuation modal, -3% (loss tone)', adminBootstrap, PREPARE_ADMIN_NAV('-3'));
+    // ★ RETIRED (2026-09-16): the four admin-products.html runs that used to sit here drove
+    // that page's old inline markup — the list rows, the New product modal and the Publish
+    // valuation modal — all of which PM tool revamp part 6 replaced. Their selectors match
+    // nothing now, and a profile that matches nothing measures nothing, which verify-contrast
+    // correctly reports as a FAIL rather than a confident pass (§V, the vacuity pattern).
+    // The page's own contrast is measured by verify-products-page-visual.mjs, on three
+    // profiles rather than four: `products` (the table, the health strip, the pills),
+    // `products-retired` (the tinted row, on its own ground — row 233's 2.59:1) and
+    // `products-panel` (the detail panel with the impact table open). The client-side run
+    // below is untouched: asset-collection.html was not part of that rebuild.
 
     console.log('\n=== FONTS — Inter only ===\n');
     runFonts('asset-collection.html', 'asset-collection.html', clientBootstrap);
@@ -151,20 +154,11 @@ async function main() {
       check('320px: cards rendered, no horizontal overflow', narrow.cards >= 4 && narrow.bodyScroll <= narrow.inner + 1, JSON.stringify(narrow));
       check('320px: ★ nothing in the price block escapes its card', narrow.overflow.length === 0, JSON.stringify(narrow.overflow));
 
-      // Admin modals at 390px.
-      await cdp.send('Page.navigate', { url: BASE + '/' }); await sleep(400); await cdp.evaluate(adminBootstrap);
-      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: true });
-      await cdp.send('Page.navigate', { url: BASE + '/admin-products.html' }); await sleep(2500);
-      await cdp.evaluate(PREPARE_ADMIN_NAV('4.2'));
-      const nv = await cdp.evaluate(NAV_GEOM);
-      check('390px: the Publish valuation modal does not scroll horizontally', nv.modalScrollW <= nv.modalClientW + 1 && nv.bodyScroll <= nv.inner + 1, JSON.stringify(nv));
-      check('390px: ★ every impact-row cell stays inside the modal (' + nv.rows + ' rows)', nv.rows > 0 && nv.over.length === 0, JSON.stringify(nv.over));
-      check('390px: the mode segment meets the 44px floor', nv.segH.every((h) => h >= 44), JSON.stringify(nv.segH));
-      await cdp.send('Page.navigate', { url: BASE + '/admin-products.html' }); await sleep(2500);
-      await cdp.evaluate(PREPARE_ADMIN_ADD);
-      const ad = await cdp.evaluate(ADD_GEOM);
-      check('390px: the New product modal with live search results does not scroll horizontally', ad.rows > 0 && ad.over.length === 0 && ad.modalScrollW <= ad.modalClientW + 1, JSON.stringify(ad));
-      check('390px: the model segment meets the 44px floor', ad.segH.every((h) => h >= 44), JSON.stringify(ad.segH));
+      // ★ RETIRED (2026-09-16): the admin-modal geometry checks that sat here drove
+      // admin-products.html's old Publish valuation and New product modals, both replaced by
+      // PM tool revamp part 6's single overlay panel. Their narrow-width equivalents live in
+      // verify-products-page-visual.mjs, which measures the real panel — detail, impact table
+      // and create form — at 390 / 375 and a real 320px iframe on a real phone profile.
     } finally { await cdp.close(); }
   } finally {
     await admin.from('holdings').delete().eq('client_id', clientId);

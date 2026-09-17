@@ -89,6 +89,7 @@ async function main() {
   const peBefore = { unit_price: pe.unit_price, last_tick_date: pe.last_tick_date, price_change_percent: pe.price_change_percent, price_as_of: pe.price_as_of };
   const navBefore = ((await admin.from('nav_publications').select('id').eq('product_id', 'PROD-0001')).data || []).map((r) => r.id);
   const badId = 'PROD-' + String(9500 + parseInt(suffix.slice(0, 2), 16)).padStart(4, '0');
+  const freshId = 'PROD-TEST-FRESH-' + suffix.toUpperCase();
   // This test renders the LIVE (green) and STALE (grey) states on real products. A transient
   // provider failure during a heavy suite run can leave Ethereum flagged quote_failed (which
   // is correct behaviour, covered by its own assertions below on a seeded product) — that
@@ -108,126 +109,45 @@ async function main() {
     // A product whose last refresh could not price it.
     await admin.from('products').insert({ id: badId, name: 'Flag Test ' + suffix, asset_class: 'Stocks & ETFs', investment_type: 'ETF', risk_tier: 'balanced', minimum_investment: 100, unit_price: 42.42, inception_unit_price: 42.42, created_at: '2026-09-11', last_tick_date: '2026-09-11', pricing_model: 'market', ticker: 'ZQ' + suffix.slice(0, 4).toUpperCase(), price_source: 'finnhub', price_as_of: new Date(Date.now() - 3600e3).toISOString(), price_status: 'quote_failed', price_failure_reason: 'The provider returned no usable price on the last refresh. The last known good price is retained.', price_last_failed_at: new Date().toISOString() });
     createdProductIds.push(badId);
+    // A market product priced RIGHT NOW, for the green live state below.
+    await admin.from('products').insert({ id: freshId, name: 'Fresh Quote ' + suffix, asset_class: 'Stocks & ETFs', investment_type: 'ETF', risk_tier: 'balanced', minimum_investment: 100, unit_price: 88.88, inception_unit_price: 88.88, created_at: '2026-09-11', last_tick_date: '2026-09-11', pricing_model: 'market', ticker: 'ZF' + suffix.slice(0, 4).toUpperCase(), price_source: 'finnhub', price_as_of: new Date().toISOString(), price_status: 'ok', price_change_percent: 1.34 });
+    createdProductIds.push(freshId);
 
-    // ===== PART A: admin-products.html =====
-    console.log('=== PART A: admin-products.html — creation flow, quote flag, publish by percentage ===\n');
+    // ===== PART A: RETIRED (2026-09-16) =====
+    // ★ PART A drove admin-products.html's own inline script, which no longer exists: PM tool
+    // revamp part 6 rebuilt that page onto an external admin-products-page.js with a wholly
+    // different control set (one dense table, a health strip, a detail panel shaped by pricing
+    // model). Every assertion it carried now lives in verify-products-page-ui-wiring.mjs, and
+    // was ported rather than dropped — the mapping, so a future reader can check:
+    //
+    //   the list states each product's price source          → its PART 2 / PART 7
+    //   the quote-failed flag, and the panel's explanation    → its PART 11
+    //   the creation flow: model first, locked, class derived → its PART 10 / PART 12
+    //   the real symbol search, price, unverified exchange    → its PART 12
+    //   Create product, end to end, tracking a real symbol    → its PART 12
+    //   Edit: no price field, no symbol field, class locked   → its PART 13
+    //   publish by percentage, with the impact table          → its PART 9
+    //   the CROSS-CHECK of holders' values after publishing   → its PART 9, read through
+    //                                                            get-holdings rather than off
+    //                                                            account_state directly
+    //
+    // What stays here is the publication ITSELF, because PART B below asserts the client cards
+    // show the resulting +4.20% — so it is still performed, just through the real Edge Function
+    // rather than through a page that no longer has that control.
+    console.log('=== PART A: retired — see verify-products-page-ui-wiring.mjs (the page was rebuilt) ===\n');
     const adminConfigMod = await import('../admin-supabase-config.js');
     const { error: pmErr } = await adminConfigMod.supabase.auth.signInWithPassword({ email: adminConfigMod.LOCAL_ADMIN_EMAIL, password: adminConfigMod.LOCAL_ADMIN_PASSWORD });
     check('real PM sign-in', !pmErr, pmErr && pmErr.message);
     await MarketswaveData.useAdminClient();
 
-    const apPath = fileURLToPath(new URL('admin-products.html', root));
-    function loadAdminProducts() {
-      const dom = buildPageDom(apPath);
-      dom.window.MarketswaveData = MarketswaveData;
-      dom.window.eval(formatHelpersSource);
-      dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
-      dom.window.eval(extractInlineScript(apPath, 'Products Catalog Fix'));
-      return dom;
-    }
-    let dom = loadAdminProducts();
-    let D = dom.window.document;
-    await pollUntil(() => D.querySelectorAll('.product-row').length > 0, 30000);
-
-    // --- the list states each product's price source ---
-    const rowText = (id) => { const r = [...D.querySelectorAll('.product-row')].find((x) => x.dataset.id === id); return r ? r.textContent : ''; };
-    check('the list shows Ethereum as market-priced with its ticker and an as-of time', /ETH · as of/.test(rowText('PROD-0004')), rowText('PROD-0004').slice(0, 160));
-    check('...Nordic Growth Fund as valued by appraisal with a last-valued date', /Appraisal · last valued/.test(rowText('PROD-0001')), rowText('PROD-0001').slice(0, 160));
-    check('★ the quote-failed product is flagged in the list ("Quote failed · last good …")', /Quote failed/.test(rowText(badId)), rowText(badId).slice(0, 160));
-    [...D.querySelectorAll('.product-row')].find((x) => x.dataset.id === badId).click();
-    const flagBlock = D.getElementById('quote-failed-' + badId);
-    check('...and its expanded row explains it to the PM: last good price retained, nothing overwritten with a zero', !!flagBlock && /last good price retained/i.test(flagBlock.textContent) && /\$42\.42/.test(flagBlock.textContent) && /nothing was overwritten with a zero/i.test(flagBlock.textContent), flagBlock && flagBlock.textContent.slice(0, 200));
-
-    // --- creation flow ---
-    D.getElementById('open-add-modal').click();
-    check('the New product modal opens on Market-priced by default and says the model cannot be changed later', D.querySelector('.add-model-btn[data-model="market"]').getAttribute('aria-checked') === 'true' && /cannot be changed later/i.test(D.getElementById('add-modal').textContent));
-    check('...the asset class select is locked (derived from the symbol) in market mode', D.getElementById('add-asset-class').disabled === true);
-    check('...no starting-price field is offered for a market-priced product', D.getElementById('add-appraisal-section').classList.contains('hidden'));
-    D.querySelector('.add-model-btn[data-model="appraisal"]').click();
-    check('switching to Valued by appraisal reveals the PM-entered starting price and hides the search', !D.getElementById('add-appraisal-section').classList.contains('hidden') && D.getElementById('add-market-section').classList.contains('hidden') && D.getElementById('add-asset-class').disabled === false);
-    check('...and the class choices are constrained to PE / Real Assets in the copy', /Private Equity and Real Assets only/.test(D.getElementById('add-asset-class-hint').textContent));
-    D.querySelector('.add-model-btn[data-model="market"]').click();
-
-    const search = D.getElementById('add-symbol-search');
-    search.value = 'adi';
-    search.dispatchEvent(new dom.window.Event('input'));
-    await pollUntil(() => D.querySelectorAll('.symbol-result').length > 0, 30000);
-    const results = [...D.querySelectorAll('.symbol-result')];
-    const aaplRow = results.find((b) => b.dataset.symbol === 'ADI' && b.dataset.source === 'finnhub');
-    check('the real symbol search lists ADI with a live price', !!aaplRow && /\$\d/.test(aaplRow.textContent), aaplRow && aaplRow.textContent);
-    check('★ a stock result\'s exchange reads as a VISIBLE fallback ("US listing · unverified"), never a confident label', !!aaplRow && /US listing/.test(aaplRow.textContent) && /unverified/.test(aaplRow.textContent), aaplRow && aaplRow.textContent);
-    aaplRow.click();
-    await pollUntil(() => /Price will track ADI/.test(D.getElementById('add-live-preview-label').textContent), 30000);
-    const previewLabel = D.getElementById('add-live-preview-label').textContent;
-    check('picking it shows the live preview with the refresh cadence and the VERIFIED exchange (NASDAQ)', /refreshed by the 5-minute scheduler/.test(previewLabel) && /NASDAQ/.test(previewLabel) && /\$\d/.test(D.getElementById('add-live-preview-price').textContent), previewLabel + ' | ' + D.getElementById('add-live-preview-price').textContent);
-    check('...and derives the asset class (Stocks & ETFs), still locked', D.getElementById('add-asset-class').value === 'Stocks & ETFs' && D.getElementById('add-asset-class').disabled === true);
-    D.getElementById('add-name').value = 'Analog Devices UI Test ' + suffix;
-    D.getElementById('add-investment-type').value = 'Stock';
-    D.getElementById('add-minimum-investment').value = '500';
-    D.getElementById('add-maximum-investment').value = '20000';
-    D.getElementById('add-description').value = 'Direct exposure to Analog Devices.';
-    const toastBefore = D.getElementById('admin-toast-body').textContent;
-    D.getElementById('add-submit').click();
-    await pollUntil(() => D.getElementById('admin-toast-body').textContent !== toastBefore, 30000);
-    const toast = D.getElementById('admin-toast-body').textContent;
-    check('★ Create product succeeds through the real UI, tracking ADI at a live price', /tracking ADI/.test(toast) && /\$\d/.test(toast), toast);
-    const createdRow = (await admin.from('products').select('*').eq('name', 'Analog Devices UI Test ' + suffix).maybeSingle()).data;
-    check('...the real row: market model, ADI on Finnhub, class derived, live price, max recorded', !!createdRow && createdRow.pricing_model === 'market' && createdRow.ticker === 'ADI' && createdRow.price_source === 'finnhub' && createdRow.asset_class === 'Stocks & ETFs' && Number(createdRow.unit_price) > 1 && Number(createdRow.maximum_investment) === 20000, JSON.stringify(createdRow));
-    if (createdRow) createdProductIds.push(createdRow.id);
-
-    // --- edit: immutable model/symbol, class locked ---
-    await pollUntil(() => [...D.querySelectorAll('.product-row')].some((x) => x.dataset.id === createdRow.id), 30000);
-    [...D.querySelectorAll('.product-row')].find((x) => x.dataset.id === createdRow.id).click();
-    [...D.querySelectorAll('.edit-btn')].find((b) => b.dataset.id === createdRow.id).click();
-    check('Edit shows the pricing model as fixed at creation (read-only) — no symbol input exists', /Market-priced · tracks ADI/.test(D.getElementById('edit-pricing-display').textContent) && !D.getElementById('edit-ticker'), D.getElementById('edit-pricing-display').textContent);
-    check('...and the asset class is locked for a market-priced product', D.getElementById('edit-asset-class').disabled === true);
-    D.getElementById('edit-modal-close').click();
-
-    // --- publish by percentage with the impact table ---
-    [...D.querySelectorAll('.product-row')].find((x) => x.dataset.id === 'PROD-0001').click();
-    [...D.querySelectorAll('.publish-nav-btn')].find((b) => b.dataset.id === 'PROD-0001').click();
-    check('the Publish valuation modal opens in percentage mode by default', D.querySelector('.nav-mode-btn[data-mode="percent"]').getAttribute('aria-checked') === 'true' && !D.getElementById('nav-percent-field').classList.contains('hidden') && D.getElementById('nav-price-field').classList.contains('hidden'));
-    await pollUntil(() => D.querySelectorAll('.nav-impact-row').length >= 2, 30000);
     const current = Number(peBefore.unit_price);
-    D.getElementById('nav-change-percent').value = '4.2';
-    D.getElementById('nav-change-percent').dispatchEvent(new dom.window.Event('input'));
     const expectedNew = round2(current * 1.042);
-    const fmt = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    check('★ the live preview computes the new unit price: ' + fmt(current) + ' → ' + fmt(expectedNew), D.getElementById('nav-preview').textContent.indexOf(fmt(expectedNew)) !== -1, D.getElementById('nav-preview').textContent);
-    const rows = [...D.querySelectorAll('.nav-impact-row')];
-    const rowA = rows.find((r) => r.dataset.clientId === A.id), rowB = rows.find((r) => r.dataset.clientId === B.id);
-    const expA = { from: round2(500 * current), to: round2(500 * expectedNew) }, expB = { from: round2(120.5 * current), to: round2(120.5 * expectedNew) };
-    const usd = (n) => '$' + Math.round(n).toLocaleString('en-US');
-    check('★ the impact table lists both real holders with units, current value, new value and change', !!rowA && !!rowB && rowA.textContent.indexOf('500.00 units') !== -1 && rowA.textContent.indexOf(usd(expA.from)) !== -1 && rowA.querySelector('.nav-impact-to').textContent === usd(expA.to) && rowB.querySelector('.nav-impact-to').textContent === usd(expB.to), (rowA && rowA.textContent) + ' || ' + (rowB && rowB.textContent));
-    // The table lists EVERY real holder, not only this test's two — the local demo client
-    // also holds Nordic Growth Fund — so the expected total is computed from the real holdings
-    // table, the same source the page reads.
-    const allHolders = (await admin.from('holdings').select('client_id, units').eq('product_id', 'PROD-0001')).data || [];
-    const expTotal = round2(allHolders.reduce((sum, h) => sum + (round2(Number(h.units) * expectedNew) - round2(Number(h.units) * current)), 0));
-    check('...with the total across ALL real holders (' + allHolders.length + ', including the demo client)', D.getElementById('nav-impact-total').textContent === '+' + usd(expTotal) && rows.length === allHolders.length, D.getElementById('nav-impact-total').textContent + ' vs +' + usd(expTotal) + ' | rows ' + rows.length);
-    check('...heading counts the holders', new RegExp(allHolders.length + ' clients holding').test(D.getElementById('nav-impact-heading').textContent), D.getElementById('nav-impact-heading').textContent);
-    D.querySelector('.nav-mode-btn[data-mode="price"]').click();
-    D.getElementById('nav-unit-price').value = String(expectedNew);
-    D.getElementById('nav-unit-price').dispatchEvent(new dom.window.Event('input'));
-    check('the by-unit-price mode produces the same preview for the same resulting price', D.getElementById('nav-preview').textContent.indexOf(fmt(expectedNew)) !== -1);
-    D.querySelector('.nav-mode-btn[data-mode="percent"]').click();
-    D.getElementById('nav-note').value = 'Q2 UI test ' + suffix;
-    const toastBefore2 = D.getElementById('admin-toast-body').textContent;
-    D.getElementById('nav-submit').click();
-    await pollUntil(() => D.getElementById('admin-toast-body').textContent !== toastBefore2, 30000);
-    check('publishing by +4.2% succeeds with the resulting price and % in the toast', /\+4\.2%/.test(D.getElementById('admin-toast-body').textContent) && D.getElementById('admin-toast-body').textContent.indexOf(fmt(expectedNew)) !== -1, D.getElementById('admin-toast-body').textContent);
-    // ★ Cross-check the impact table against what ACTUALLY happened after publishing.
-    const anonA = createClient(url, anonKey, { auth: { persistSession: false } });
-    const anonB = createClient(url, anonKey, { auth: { persistSession: false } });
-    await anonA.auth.signInWithPassword({ email: A.email, password });
-    await anonB.auth.signInWithPassword({ email: B.email, password });
-    await anonA.functions.invoke('get-holdings'); await anonB.functions.invoke('get-holdings');
-    const stA = (await admin.from('account_state').select('allocated_capital').eq('client_id', A.id).single()).data;
-    const stB = (await admin.from('account_state').select('allocated_capital').eq('client_id', B.id).single()).data;
-    const ethPrice = Number((await admin.from('products').select('unit_price').eq('id', 'PROD-0004').single()).data.unit_price);
-    const aPe = round2(Number(stA.allocated_capital) - round2(1.85118324 * ethPrice));
-    check('★ CROSS-CHECK: A\'s real PE value after publishing equals the impact table\'s "new value" (' + usd(expA.to) + ')', Math.abs(aPe - expA.to) < 0.011, 'got ' + aPe);
-    check('★ CROSS-CHECK: B\'s real PE value after publishing equals the impact table\'s "new value" (' + usd(expB.to) + ')', Math.abs(Number(stB.allocated_capital) - expB.to) < 0.011, 'got ' + stB.allocated_capital);
+    const pub = await MarketswaveData.callFunction('publish-nav', {
+      productId: 'PROD-0001', changePercent: 4.2, note: 'Q2 UI test ' + suffix
+    });
+    check('publishing +4.2% on the PE product succeeds (the page-level proof moved, the effect has not)',
+      !!pub && Math.abs(Number(pub.product.unitPrice) - expectedNew) < 0.011,
+      pub && String(pub.product.unitPrice) + ' vs ' + expectedNew);
 
     // ===== PART B: the client pages =====
     console.log('\n=== PART B: client cards, fractional units ===\n');
@@ -252,12 +172,20 @@ async function main() {
     // Load More so the cards this test looks for are rendered wherever they fall.
     { const lm = C.getElementById('load-more-btn'); for (let i = 0; i < 40 && lm && !lm.classList.contains('hidden'); i++) { lm.click(); await new Promise((r) => setTimeout(r, 100)); } }
     const card = (id) => C.querySelector('[data-product-id="' + id + '"]');
-    const eth = card('PROD-0004'), nordic = card('PROD-0001'), vt = card('PROD-0003');
+    const eth = card('PROD-0004'), nordic = card('PROD-0001');
     // Catalog expansion (row 211): the compact card has no "Fractional units" line — fractional
     // units are stated by the allocation panel's own units figure instead.
     check('Ethereum\'s card shows its ticker chip and a per-unit price', !!eth && eth.querySelector('.product-ticker') && eth.querySelector('.product-ticker').textContent === 'ETH' && /per unit/.test(eth.textContent), eth && eth.textContent.slice(0, 200));
     check('★ ...and its source line is the GREY stale state, shown WITH its timestamp and still allocatable', !!eth && eth.querySelector('.price-source').dataset.source === 'stale' && /Market price · as of/.test(eth.querySelector('.price-source').textContent) && /awaiting refresh/.test(eth.querySelector('.price-source').textContent) && !!eth.querySelector('.request-allocation-btn'), eth && eth.querySelector('.price-source').textContent);
-    check('VT\'s card shows the GREEN live state ("Market price · as of HH:MM")', !!vt && vt.querySelector('.price-source').dataset.source === 'live' && /as of \d\d:\d\d/.test(vt.querySelector('.price-source').textContent), vt && vt.querySelector('.price-source').textContent);
+    // ★ The GREEN state is asserted on a product this suite SEEDS fresh, never on a real
+    // catalogue symbol. VT is genuinely refreshed in rotation — 283 stock symbols at 30 per
+    // 5-minute run — so during a long full-suite pass its real price can legitimately be 45
+    // minutes old and the card correctly reads "awaiting refresh". Asserting the live state on
+    // it made this test fail for a reason that was the system working, not a regression; and
+    // writing a fresh timestamp onto VT's own row to force it would be the shared-fixture
+    // collision class register row 212 exists for.
+    const freshCard = card(freshId);
+    check('a freshly-priced product shows the GREEN live state ("Market price · as of HH:MM")', !!freshCard && freshCard.querySelector('.price-source').dataset.source === 'live' && /as of \d\d:\d\d/.test(freshCard.querySelector('.price-source').textContent), freshCard && freshCard.querySelector('.price-source').textContent);
     check('Nordic Growth Fund\'s card shows the AMBER appraisal state with the last-valued date, no ticker, no fractional note', !!nordic && nordic.querySelector('.price-source').dataset.source === 'appraisal' && /Valued by appraisal · \d{2} \w{3,4} \d{4}/.test(nordic.querySelector('.price-source').textContent) && !nordic.querySelector('.product-ticker'), nordic && nordic.querySelector('.price-source').textContent);
     check('...Nordic shows the +4.20% just published', !!nordic && nordic.querySelector('.price-change') && nordic.querySelector('.price-change').textContent === '+4.20%', nordic && nordic.querySelector('.price-change') && nordic.querySelector('.price-change').textContent);
     check('the quote-failed product shows its last good price, honestly stale, never $0.00', !!card(badId) && /\$42\.42/.test(card(badId).textContent) && card(badId).querySelector('.price-source').dataset.source === 'stale', card(badId) && card(badId).textContent.slice(0, 160));

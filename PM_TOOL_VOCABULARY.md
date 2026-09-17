@@ -202,3 +202,68 @@ when one of them moves real money and another does not.
 - **Surfaces**: the gate is white `.ag-*` cards on the page ground, with **no `.glass`
   anywhere** — deliberately, and asserted, so the sheen question does not arise on it at all.
   Secondary 10px text is `#475569`; `#64748B` measured 4.34–4.40:1 there and does not pass.
+
+## 14. Inventory at scale (part 6 — the products page)
+
+The first PM surface holding hundreds of rows rather than dozens. What it establishes:
+
+- **A HEALTH STRIP IS A FILTER SET, not a scoreboard.** Five figures — live-priced, price
+  stale, quote failed, no logo, no fund document — each a button that filters the table to
+  exactly the rows behind its own number. A figure a PM cannot click through to is a number
+  they have to go and find the rows for by hand.
+- **★ A COUNT THAT IGNORES THE OTHER CONTROLS IS A LIE THE MOMENT A PM TYPES ANYTHING.** Every
+  filter pill's count is computed against the CURRENT search and health card, never a static
+  total. Asserted directly: search narrows, and the Crypto pill's own count narrows with it.
+- **Paging, not a virtualised list.** 40 rows, then "Continue browsing", with the real
+  arithmetic stated ("Showing 40 of 331"). Measured, not assumed: the catalogue's own frame
+  cost was already established at ~247 cards running 2× the frame budget (row 211), so the
+  page never renders everything at once.
+- **Search reaches the whole catalogue, then paging applies.** Filter first, page second —
+  otherwise a match on row 221 is invisible. The suite proves exactly that case rather than
+  searching for something on page one.
+- **★ THE DETAIL PANEL'S SHAPE COMES FROM THE OBJECT, NOT FROM THE PAGE.** A market-priced
+  product and an appraisal-valued one are different things to a PM: one's price is the
+  market's and its only question is whether the feed is healthy; the other's price is the
+  firm's own and its questions are when it was last valued and whether its document is
+  written. One shape for both puts a dead "publish valuation" beside a tracker and buries the
+  overdue valuation that matters. Where a later surface has two genuinely different objects,
+  branch the panel rather than the copy.
+- **RETIRE, NEVER DELETE — and say what retiring does, in the words it actually does it in.**
+  The product stays in the catalogue and keeps being priced; its holders keep their positions
+  and can still sell; it accepts no new allocation; nothing is deleted. Enforced server-side in
+  three places (`request-allocation`, `execute-buy` behind `approve-allocation`, and
+  `resolveSymbols()`), never by hiding a control. A reason is required.
+- **★ DIM THE CHROME, NEVER THE WORDS.** A retired row is a background TINT. It carries no
+  `opacity` and no `filter`, and its name renders in the same colour as a live row's — proven
+  by reading both. Row 233 already shipped 2.59:1 once by fading the text that explained an
+  absence, which makes the explanation hardest to read exactly where it is needed.
+- **AN EDIT FORM'S ABSENCES ARE ITS DESIGN.** No unit-price input, no symbol input, no
+  pricing-model control — a price moves via the feed or a published valuation, a remapped
+  symbol would silently re-price every holder, and the model is permanent. The server refuses
+  all three regardless; the form simply does not offer what the server would reject, and states
+  the fixed values read-only beside the editable ones.
+- **★ CATCH THE DUPLICATE AT SEARCH TIME.** A symbol already in the catalogue is flagged AND
+  disabled in the results — before a PM fills a form, not after `add-product` returns a 409.
+  The server still refuses it; this is the earlier, cheaper stop.
+- **Two creation paths, the model chosen FIRST and permanent.** Market-priced: symbol search
+  across both providers, the asset class derived from the provider and locked. Appraisal:
+  no symbol at all, an opening unit price dated today. The appraisal submit reads
+  **"Create & write document"** and hands straight to the authoring page — the document is the
+  deliberate second act (row 200), not a second half of one form.
+- **A PREVIEW IS BUILT FROM DATA THE PAGE ALREADY HAS.** The publish-by-percentage impact table
+  is computed from the holders the catalogue read already returned — no second query — so the
+  preview and the row can never disagree. Verified by publishing and re-reading each holder
+  through `get-holdings`, never off `account_state` directly.
+- **Every read that feeds a display checks its error.** On this page an empty holder list and a
+  failed holder query look identical, and "nobody holds this" is the input to a retirement
+  decision. `buildProductCatalog()` wraps every batched read in `must()` and throws rather than
+  returning partial data; two wrong column names were caught by exactly this during the build,
+  where they had been rendering as empty panels.
+- **Surfaces**: `.pr-*` on white cards over the page ground; the health strip and the table sit
+  on `.glass` + `.glass-lift`. Secondary text is `#475569` — `#64748B` does not pass at 10.5px
+  on these grounds (§6, measured again here). One overlay hosts every panel: detail, retire,
+  create and edit.
+- **No export control**, for the same reason the portfolio card has none (row 208): nothing in
+  this project generates a catalogue export, and Documents & Reporting owns getting data out.
+
+---

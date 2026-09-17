@@ -165,60 +165,93 @@ async function main() {
 
   // ===========================================================================================
   // PART 1 — Add Product (a Crypto product with description + logoUrl), via the REAL
+  // ★ PM tool revamp part 6 (2026-09-16): admin-products.html was rebuilt onto an EXTERNAL
+  // admin-products-page.js with a wholly different control set — one dense table over 331
+  // products, a health strip that is also a filter set, and a detail panel shaped by pricing
+  // model. Every block below that used to drive its old inline modals now drives the real new
+  // controls. Two fields moved rather than vanished: a logo URL and an extended description are
+  // no longer offered at CREATION (the create flow follows the product's own two paths, and a
+  // market product's logo is resolved from its provider automatically — row 207); both are
+  // edited afterwards through the panel's own Edit details form, which is the real path a PM
+  // now takes, so this test takes it too.
+  async function loadProductsPage(ctx) {
+    const htmlPath = fileURLToPath(new URL('../admin-products.html', import.meta.url));
+    const dom = buildPageDom(htmlPath);
+    dom.window.MarketswaveData = ctx.MarketswaveData;
+    dom.window.eval(readFileSync(new URL('../format-helpers.js', import.meta.url), 'utf8'));
+    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8'));
+    dom.window.eval(readFileSync(new URL('../admin-products-page.js', import.meta.url), 'utf8'));
+    const D = dom.window.document;
+    await pollUntil(function () { return D.querySelectorAll('.pr-tr').length > 0; }, 30000);
+    return { dom: dom, D: D };
+  }
+  function prType(dom, el, v) { el.value = v; el.dispatchEvent(new dom.window.Event('input', { bubbles: true })); }
+  // The page's search matches NAME or TICKER, never the PROD-XXXX id (that is what the spec
+  // asks for), so a caller passes the name it created the product under.
+  async function prOpenProduct(dom, D, id, term) {
+    prType(dom, D.getElementById('pr-search'), term);
+    const ok = await pollUntil(function () { return !!D.querySelector('.pr-tr[data-id="' + id + '"]'); }, 15000);
+    if (!ok) throw new Error('product ' + id + ' never appeared for search "' + term + '"');
+    D.querySelector('.pr-tr[data-id="' + id + '"]').click();
+  }
+
   // admin-products.html UI, ADMIN context
   // ===========================================================================================
   console.log('\n=== PART 1: Add Product — Crypto, description + logoUrl (ADMIN context, real UI) ===\n');
   var cryptoProductId;
   await withContext(ADMIN_CTX, async function () {
-    const path = fileURLToPath(new URL('../admin-products.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'Products Catalog Fix');
-    const D = dom.window.document;
+    const { dom, D } = await loadProductsPage(ADMIN_CTX);
 
-    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
-    dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML); }, 20000);
-
-    D.getElementById('open-add-modal').click();
-    check('the real Add Product modal genuinely opens', !D.getElementById('add-modal').classList.contains('hidden'));
+    D.getElementById('pr-add-open').click();
+    check('the real create panel genuinely opens', !D.getElementById('pr-scrim').classList.contains('hidden'));
+    check('...on the market-priced path, with the model stated as permanent',
+      !!D.getElementById('pr-symbol') && /Permanent once created/i.test(D.querySelector('.pr-lock').textContent));
 
     const testLogoUrl = 'https://example.test/products-fix-' + suffix + '-logo.png';
     const testDescription = 'A diversified digital-asset basket added by the real Products Catalog Fix test — ' + suffix + '.';
-    // Live pricing, part 1 (2026-09-11): a Crypto product is MARKET-PRICED — created from a
-    // real symbol search, its class derived from the symbol and its first price taken live.
-    // The PM-typed starting price no longer exists for this model.
-    const searchInput = D.getElementById('add-symbol-search');
     // Dogecoin: real, priced on CoinGecko, and NOT in the seeded catalog — meme coins are
     // excluded from it by policy (row 211), which is exactly what makes DOGE a safe test
     // symbol: the product this test creates is deleted afterwards. (Litecoin, the original
     // choice, became a real product in the 2026-09-14 seed.)
-    searchInput.value = 'dogecoin';
-    searchInput.dispatchEvent(new dom.window.Event('input'));
-    await pollUntil(function () { return D.querySelectorAll('.symbol-result').length > 0; }, 30000);
-    const solResult = [...D.querySelectorAll('.symbol-result')].find(function (b) { return b.dataset.symbol === 'DOGE' && b.dataset.source === 'coingecko'; });
+    prType(dom, D.getElementById('pr-symbol'), 'dogecoin');
+    await pollUntil(function () { return D.querySelectorAll('.pr-res').length > 0; }, 30000);
+    const solResult = [...D.querySelectorAll('.pr-res')].find(function (b) { return b.dataset.symbol === 'DOGE' && b.dataset.source === 'coingecko'; });
     check('the real symbol search returns DOGE from CoinGecko', !!solResult);
     solResult.click();
-    await pollUntil(function () { return /Price will track DOGE/.test(D.getElementById('add-live-preview-label').textContent); }, 30000);
-    check('picking it shows the live preview and derives the asset class (Crypto)', D.getElementById('add-asset-class').value === 'Crypto' && D.getElementById('add-asset-class').disabled === true, 'preview label: ' + D.getElementById('add-live-preview-label').textContent + ' | results: ' + D.querySelectorAll('.symbol-result').length);
-    D.getElementById('add-name').value = 'Test Digital Basket ' + suffix;
-    D.getElementById('add-risk-tier').value = 'aggressive';
-    D.getElementById('add-investment-type').value = 'Index Basket';
-    D.getElementById('add-description').value = testDescription;
-    D.getElementById('add-logo-url').value = testLogoUrl;
-    D.getElementById('add-minimum-investment').value = '500';
+    await pollUntil(function () { return /Price will track DOGE/.test(D.getElementById('pr-prev-l').textContent); }, 30000);
+    check('picking it shows the live preview and derives the asset class (Crypto), locked',
+      D.getElementById('pr-class').value === 'Crypto' && D.getElementById('pr-class').hasAttribute('readonly'),
+      'preview: ' + D.getElementById('pr-prev-l').textContent + ' | results: ' + D.querySelectorAll('.pr-res').length);
+    D.getElementById('pr-name').value = 'Test Digital Basket ' + suffix;
+    D.getElementById('pr-tier').value = 'aggressive';
+    D.getElementById('pr-type').value = 'Index Basket';
+    D.getElementById('pr-desc').value = testDescription;
+    D.getElementById('pr-min').value = '500';
 
-    check('the Logo URL field is genuinely visible for a market-priced product (the conditional-field UI)', !D.getElementById('add-logo-url-field').classList.contains('hidden'));
+    var toastBefore = D.getElementById('pr-toast').textContent;
+    D.getElementById('pr-create-submit').click();
+    await pollUntil(function () { return !D.getElementById('pr-toast').classList.contains('hidden') && D.getElementById('pr-toast').textContent !== toastBefore; }, 20000);
+    check('the toast confirms the real product was created', /created\./.test(D.getElementById('pr-toast').textContent), D.getElementById('pr-toast').textContent);
 
-    var bodyBefore = D.getElementById('admin-toast-body').textContent;
-    D.getElementById('add-submit').click();
-    await pollUntil(function () { return !D.getElementById('admin-toast').classList.contains('hidden') && D.getElementById('admin-toast-body').textContent !== bodyBefore; }, 15000);
-    check('the toast confirms the real product was added', D.getElementById('admin-toast-title').textContent === 'Product Added', D.getElementById('admin-toast-title').textContent + ' / ' + D.getElementById('admin-toast-body').textContent);
-
-    const idMatch = /\(PROD-\d+\)/.exec(D.getElementById('admin-toast-body').textContent);
-    check('a real PROD-XXXX id was assigned and shown in the toast', !!idMatch, D.getElementById('admin-toast-body').textContent);
+    const idMatch = /\(PROD-\d+\)/.exec(D.getElementById('pr-toast').textContent);
+    check('a real PROD-XXXX id was assigned and shown in the toast', !!idMatch, D.getElementById('pr-toast').textContent);
     cryptoProductId = idMatch[0].slice(1, -1);
     createdProductIds.push(cryptoProductId);
+
+    // ★ The logo URL is set through the panel's own Edit details form — the real path now that
+    // creation derives a market product's logo from its provider instead of asking for one.
+    await pollUntil(function () { return !!D.querySelector('.pr-tr[data-id="' + cryptoProductId + '"]'); }, 20000);
+    await prOpenProduct(dom, D, cryptoProductId, 'Test Digital Basket ' + suffix);
+    D.getElementById('pr-edit').click();
+    check('the Edit details form offers a logo URL field, and no unit-price input',
+      !!D.getElementById('pr-e-logo') && !D.querySelector('input#pr-unit-price'));
+    D.getElementById('pr-e-logo').value = testLogoUrl;
+    toastBefore = D.getElementById('pr-toast').textContent;
+    D.getElementById('pr-edit-save').click();
+    await pollUntil(async function () {
+      const { data } = await admin.from('products').select('logo_url').eq('id', cryptoProductId).single();
+      return data && data.logo_url === testLogoUrl;
+    }, 20000);
 
     const { data: row } = await admin.from('products').select('*').eq('id', cryptoProductId).single();
     check('the real products row genuinely has all three new columns set correctly', row.description === testDescription && row.logo_url === testLogoUrl && row.extended_description === null, JSON.stringify(row));
@@ -233,39 +266,43 @@ async function main() {
   var peProductId;
   var peExtendedDescription = 'This fund concentrates on late-stage private equity positions across North American mid-market companies, added by the real Products Catalog Fix test — ' + suffix + '.';
   await withContext(ADMIN_CTX, async function () {
-    const path = fileURLToPath(new URL('../admin-products.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'Products Catalog Fix');
-    const D = dom.window.document;
+    const { dom, D } = await loadProductsPage(ADMIN_CTX);
 
-    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
-    dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML); }, 20000);
+    D.getElementById('pr-add-open').click();
+    // The model is chosen before anything else and cannot be changed later.
+    D.querySelector('[data-model="appraisal"]').click();
+    check('the appraisal path asks for an opening unit price and no symbol at all',
+      !!D.getElementById('pr-unit-price') && !D.getElementById('pr-symbol'));
+    D.getElementById('pr-name').value = 'Test Mid-Market PE Fund ' + suffix;
+    D.getElementById('pr-class').value = 'Private Equity';
+    D.getElementById('pr-tier').value = 'balanced';
+    D.getElementById('pr-type').value = 'Growth Fund';
+    D.getElementById('pr-desc').value = 'Short summary.';
+    D.getElementById('pr-min').value = '1000';
+    D.getElementById('pr-unit-price').value = '100.00';
 
-    D.getElementById('open-add-modal').click();
-    // Live pricing, part 1 (2026-09-11): choose "Valued by appraisal" first — the model is
-    // chosen before anything else and cannot be changed later.
-    [...D.querySelectorAll('.add-model-btn')].find(function (b) { return b.dataset.model === 'appraisal'; }).click();
-    D.getElementById('add-name').value = 'Test Mid-Market PE Fund ' + suffix;
-    D.getElementById('add-asset-class').value = 'Private Equity';
-    D.getElementById('add-asset-class').dispatchEvent(new dom.window.Event('change'));
-    D.getElementById('add-risk-tier').value = 'balanced';
-    D.getElementById('add-investment-type').value = 'Growth Fund';
-    D.getElementById('add-description').value = 'Short summary.';
-    D.getElementById('add-extended-description').value = peExtendedDescription;
-    D.getElementById('add-minimum-investment').value = '1000';
-    D.getElementById('add-unit-price').value = '100.00';
-
-    check('the Extended Description field is genuinely visible for a Private Equity product', !D.getElementById('add-appraisal-section').classList.contains('hidden'));
-
-    var bodyBefore = D.getElementById('admin-toast-body').textContent;
-    D.getElementById('add-submit').click();
-    await pollUntil(function () { return !D.getElementById('admin-toast').classList.contains('hidden') && D.getElementById('admin-toast-body').textContent !== bodyBefore; }, 15000);
-    const idMatch = /\(PROD-\d+\)/.exec(D.getElementById('admin-toast-body').textContent);
-    check('a second real product was created', !!idMatch, D.getElementById('admin-toast-body').textContent);
+    var toastBefore = D.getElementById('pr-toast').textContent;
+    D.getElementById('pr-create-submit').click();
+    await pollUntil(function () { return !D.getElementById('pr-toast').classList.contains('hidden') && D.getElementById('pr-toast').textContent !== toastBefore; }, 20000);
+    const idMatch = /\(PROD-\d+\)/.exec(D.getElementById('pr-toast').textContent);
+    check('a second real product was created', !!idMatch, D.getElementById('pr-toast').textContent);
     peProductId = idMatch[0].slice(1, -1);
     createdProductIds.push(peProductId);
+
+    // ★ The submit on this path reads "Create & write document" and hands straight over to the
+    // authoring page — the document is the deliberate second act (row 200) — so this test
+    // reloads the catalogue rather than continuing in a panel the page has navigated away from.
+    const second = await loadProductsPage(ADMIN_CTX);
+    await prOpenProduct(second.dom, second.D, peProductId, 'Test Mid-Market PE Fund ' + suffix);
+    second.D.getElementById('pr-edit').click();
+    check('the Edit details form offers an extended description for an appraisal-valued product',
+      !!second.D.getElementById('pr-e-ext'));
+    second.D.getElementById('pr-e-ext').value = peExtendedDescription;
+    second.D.getElementById('pr-edit-save').click();
+    await pollUntil(async function () {
+      const { data } = await admin.from('products').select('extended_description').eq('id', peProductId).single();
+      return data && data.extended_description === peExtendedDescription;
+    }, 20000);
 
     const { data: row } = await admin.from('products').select('*').eq('id', peProductId).single();
     check('the real row genuinely has extended_description set, logo_url null (never provided)', row.extended_description === peExtendedDescription && row.logo_url === null, JSON.stringify(row));
@@ -387,31 +424,23 @@ async function main() {
   // ===========================================================================================
   console.log('\n=== PART 6: Edit Product — reclassify Private Equity -> Real Assets (ADMIN context, real UI) ===\n');
   await withContext(ADMIN_CTX, async function () {
-    const path = fileURLToPath(new URL('../admin-products.html', import.meta.url));
-    const dom = buildPageDom(path);
-    dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'Products Catalog Fix');
-    const D = dom.window.document;
+    const { dom, D } = await loadProductsPage(ADMIN_CTX);
 
-    dom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js: the page's own <script src> in a real browser (row 207)
-    dom.window.eval(script);
-    await pollUntil(function () { return !/animate-pulse/.test(D.getElementById('products-list').innerHTML) && D.getElementById('products-list').innerHTML.indexOf(peProductId) !== -1; }, 20000);
+    // The real click path a PM uses: find the product, open it, Edit details.
+    await prOpenProduct(dom, D, peProductId, 'Test Mid-Market PE Fund ' + suffix);
+    D.getElementById('pr-edit').click();
+    check('the real Edit details form opens, pre-filled with the real current values',
+      !D.getElementById('pr-scrim').classList.contains('hidden') && D.getElementById('pr-e-class').value === 'Private Equity');
+    check('the read-only unit price is stated — confirming there is genuinely no editable unit-price input on this form',
+      D.getElementById('pr-e-price').textContent.indexOf('100.00') !== -1 && !D.querySelector('input#pr-e-price') && !D.querySelector('input#pr-unit-price'),
+      D.getElementById('pr-e-price').textContent);
 
-    // Expand the row and click Edit, exactly the real click path a PM uses.
-    const row = D.querySelector('.product-row[data-id="' + peProductId + '"]');
-    row.click();
-    await pollUntil(function () { return !!D.querySelector('.edit-btn[data-id="' + peProductId + '"]'); }, 5000);
-    D.querySelector('.edit-btn[data-id="' + peProductId + '"]').click();
-    check('the real Edit Product modal opens, pre-filled with the real current values', !D.getElementById('edit-modal').classList.contains('hidden') && D.getElementById('edit-asset-class').value === 'Private Equity');
-    check('the read-only Current Unit Price display shows the real price — confirming there is genuinely no editable unit price input on this form', D.getElementById('edit-unit-price-display').textContent.indexOf('100.00') !== -1 && !D.getElementById('edit-unit-price'), D.getElementById('edit-unit-price-display').textContent);
+    D.getElementById('pr-e-class').value = 'Real Assets';
 
-    D.getElementById('edit-asset-class').value = 'Real Assets';
-    D.getElementById('edit-asset-class').dispatchEvent(new dom.window.Event('change'));
-
-    var bodyBefore = D.getElementById('admin-toast-body').textContent;
-    D.getElementById('edit-submit').click();
-    await pollUntil(function () { return !D.getElementById('admin-toast').classList.contains('hidden') && D.getElementById('admin-toast-body').textContent !== bodyBefore; }, 15000);
-    check('the toast confirms the real product was updated', D.getElementById('admin-toast-title').textContent === 'Product Updated', D.getElementById('admin-toast-title').textContent);
+    var bodyBefore = D.getElementById('pr-toast').textContent;
+    D.getElementById('pr-edit-save').click();
+    await pollUntil(function () { return !D.getElementById('pr-toast').classList.contains('hidden') && D.getElementById('pr-toast').textContent !== bodyBefore; }, 20000);
+    check('the toast confirms the real product was updated', /updated\./.test(D.getElementById('pr-toast').textContent), D.getElementById('pr-toast').textContent);
 
     const { data: row2 } = await admin.from('products').select('*').eq('id', peProductId).single();
     check('the real row genuinely shows asset_class = Real Assets now', row2.asset_class === 'Real Assets', JSON.stringify(row2));

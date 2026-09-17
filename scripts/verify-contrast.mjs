@@ -475,6 +475,74 @@ PROFILES['pm-overview'] = [
 // the page introduces, in BOTH states where one exists (a gain figure and a loss figure, an
 // assigned address and an unassigned one), rather than one standing in for the other. The two
 // honest-absence notes are measured too: they are real copy a PM has to read, not decoration.
+// ★ PM tool revamp, part 6 — the products page. Three profiles, because the surfaces that
+// matter sit on three different grounds: the table's white, the RETIRED row's tint, and the
+// detail panel. The retired row is the one row 233 already got wrong once at 2.59:1 — a row
+// dimmed in its WORDS rather than in its chrome — so it is measured on its own ground rather
+// than assumed to inherit the table's.
+PROFILES['products'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'page title', sel: '.pr-top h2', limit: 1 },
+  { label: 'page subtitle', sel: '#pr-sub', limit: 1 },
+  { label: 'health label', sel: '.pr-hc .k', limit: 5 },
+  { label: 'health figure', sel: '.pr-hc:not(.is-warn) .v', limit: 5 },
+  { label: 'health figure (warn)', sel: '.pr-hc.is-warn .v', limit: 3 },
+  { label: 'health sub', sel: '.pr-hc .x', limit: 5 },
+  { label: 'pill', sel: '.pr-pill', limit: 8 },
+  { label: 'pill count', sel: '.pr-pill .n', limit: 8 },
+  { label: 'column head', sel: '.pr-th button', limit: 4 },
+  { label: 'column head (sorted)', sel: '.pr-th button.is-sorted', limit: 1 },
+  { label: 'product name', sel: '.pr-tr:not(.is-retired) .pr-nm b', limit: 8 },
+  { label: 'product ticker', sel: '.pr-tr:not(.is-retired) .pr-tk', limit: 8 },
+  { label: 'product meta', sel: '.pr-tr:not(.is-retired) .pr-meta > span:last-child', limit: 8 },
+  { label: 'ADR flag', sel: '.f-adr', limit: 3 },
+  { label: 'no-logo flag', sel: '.f-mono', limit: 3 },
+  { label: 'class pill', sel: '.pr-cls', limit: 8 },
+  { label: 'price', sel: '.pr-tr:not(.is-retired) .pr-px-cell', limit: 8 },
+  { label: 'price age', sel: '.pr-tr:not(.is-retired) .pr-px span', limit: 8 },
+  { label: 'change (up)', sel: '.pr-tr .pr-chg.pr-up', limit: 5 },
+  { label: 'change (down)', sel: '.pr-tr .pr-chg.pr-dn', limit: 5 },
+  { label: 'change (flat)', sel: '.pr-tr .pr-chg.pr-flat', limit: 3 },
+  { label: 'holder count', sel: '.pr-hold:not(.is-none) b', limit: 4 },
+  { label: 'holder value', sel: '.pr-hold:not(.is-none) span', limit: 4 },
+  { label: 'no holders', sel: '.pr-hold.is-none', limit: 4 },
+  { label: 'source', sel: '.pr-src', limit: 6 },
+  { label: 'paging count', sel: '.pr-more .cnt', limit: 1 }
+];
+
+PROFILES['products-retired'] = [
+  { label: 'retired product name', sel: '.pr-tr.is-retired .pr-nm b', limit: 4 },
+  { label: 'retired ticker', sel: '.pr-tr.is-retired .pr-tk', limit: 4 },
+  { label: 'retired meta — "no new allocations"', sel: '.pr-tr.is-retired .pr-meta > span:last-child', limit: 4 },
+  { label: 'retired flag', sel: '.f-ret', limit: 4 },
+  { label: 'retired class pill', sel: '.pr-tr.is-retired .pr-cls', limit: 4 },
+  { label: 'retired price', sel: '.pr-tr.is-retired .pr-px-cell', limit: 4 },
+  { label: 'retired price age', sel: '.pr-tr.is-retired .pr-px span', limit: 4 },
+  { label: 'retired source', sel: '.pr-tr.is-retired .pr-src', limit: 4 },
+  { label: 'retired holders', sel: '.pr-tr.is-retired .pr-hold', limit: 4 }
+];
+
+PROFILES['products-panel'] = [
+  { label: 'panel title', sel: '.pr-ph .tx b', limit: 1 },
+  { label: 'panel subtitle', sel: '.pr-ph .tx span', limit: 1 },
+  { label: 'section heading', sel: '.pr-sect', limit: 4 },
+  { label: 'kv key', sel: '.pr-kv .k', limit: 6 },
+  { label: 'kv value', sel: '.pr-kv .v', limit: 6 },
+  { label: 'kv age', sel: '.pr-kv .v em', limit: 2 },
+  { label: 'holder name', sel: '.pr-holder .hb', limit: 4 },
+  { label: 'holder units', sel: '.pr-holder .hu', limit: 4 },
+  { label: 'holder value', sel: '.pr-holder .hv', limit: 4 },
+  { label: 'document state', sel: '.pr-doc .db b', limit: 1 },
+  { label: 'document sub', sel: '.pr-doc .db span', limit: 1 },
+  { label: 'impact heading', sel: '.pr-impact-h', limit: 1 },
+  { label: 'impact name', sel: '.pr-impact-row .nm', limit: 3 },
+  { label: 'impact from', sel: '.pr-impact-row .fr', limit: 3 },
+  { label: 'impact to', sel: '.pr-impact-row .to', limit: 3 },
+  { label: 'impact delta', sel: '.pr-impact-row .dl', limit: 3 },
+  { label: 'impact total', sel: '.pr-impact-total', limit: 1 },
+  { label: 'panel hint', sel: '.pr-hint', limit: 3 }
+];
+
 PROFILES['client-profile'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
   { label: 'breadcrumb link', sel: '.cp-crumb a', limit: 1 },

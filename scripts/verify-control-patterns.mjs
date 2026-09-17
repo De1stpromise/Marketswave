@@ -92,6 +92,10 @@ async function connect() {
   });
   const evaluate = async (expr) => {
     const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
+    // ★ A PROTOCOL error used to fall through as `undefined`, which surfaced far away as
+    // "Cannot read properties of undefined (reading 'skipped')" — a swallowed read reported as
+    // a page that never rendered (register row 233's own class, in a harness). Say what failed.
+    if (r.error) throw new Error('CDP Runtime.evaluate failed: ' + JSON.stringify(r.error) + ' :: ' + String(expr).slice(0, 120));
     if (r.result && r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails));
     return r.result && r.result.result ? r.result.result.value : undefined;
   };
@@ -117,11 +121,26 @@ async function setViewport(cdp, width) {
 }
 
 async function goto(cdp, url, bootstrap) {
+  const want = new URL(url).pathname;
   await cdp.send('Page.navigate', { url: 'about:blank' });
   await sleep(120);
   await cdp.send('Page.navigate', { url });
-  await sleep(400);
   if (bootstrap) {
+    // ★ WAIT FOR A REAL SAME-ORIGIN DOCUMENT BEFORE WRITING THE SESSION — but do NOT wait for
+    // the requested path: an unauthenticated client page is SUPPOSED to bounce to login.html,
+    // and that bounced document is same-origin, so the storage writes land correctly there.
+    // What must not happen is writing to about:blank (origin "null"), where they go nowhere.
+    // A fixed 400ms sleep was enough on an idle machine and not enough under full-suite load;
+    // when it lost the race the page loaded unauthenticated and the guard redirected, which
+    // surfaced as "Inspected target navigated or closed" on the NEXT probe, several lines away
+    // from the actual cause.
+    const origin = new URL(url).origin;
+    let landed = false;
+    for (let i = 0; i < 80 && !landed; i++) {
+      await sleep(150);
+      landed = await cdp.evaluate('location.origin === ' + JSON.stringify(origin) + ' && !!document.body').catch(() => false);
+    }
+    if (!landed) throw new Error('never reached a same-origin document to write the session bootstrap (wanted ' + want + ')');
     await cdp.evaluate(bootstrap);
     await cdp.send('Page.navigate', { url });
   }
@@ -129,7 +148,8 @@ async function goto(cdp, url, bootstrap) {
     await sleep(200);
     // readyState alone is not enough: a page mid-redirect reports "complete" on an
     // empty document with a null body, and the probe then throws on document.body.
-    const ready = await cdp.evaluate('document.readyState === "complete" && !!document.body');
+    // The path check catches the third case — a guard that has bounced us to login.html.
+    const ready = await cdp.evaluate('document.readyState === "complete" && !!document.body && location.pathname === ' + JSON.stringify(want)).catch(() => false);
     if (ready) break;
   }
   await sleep(900);   // let the async render bundles settle

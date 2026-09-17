@@ -10132,6 +10132,57 @@ row 74.
   every empty state, no error card, a real note round trip landing in Postgres), and
   `verify-client-profile-visual` 40/40 (the rendered nav, 119 composited contrast measurements,
   the sheen audit, Inter-only, 390/375 on a real phone profile plus a real 320px iframe).
+- **★★★ PM tool revamp, part 6 — the products page (2026-09-16, register row 236).**
+  `admin-products.html` + `admin-products.css` (`.pr-*`) + `admin-products-page.js` over a new
+  admin-only `get-product-catalog` (on `_shared/product-catalog.ts`), plus `retire-product` and
+  a `product_retirement` migration. `PM_TOOL_VOCABULARY.md` §14 carries the patterns.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `products.status` IS ENFORCED IN THREE SERVER PLACES, AND ONE DELIBERATE ASYMMETRY IS
+    WHAT MAKES IT CORRECT.** `request-allocation` refuses a client's request, `execute-buy`
+    (behind `approve-allocation`) refuses a 409 so a request already pending cannot be approved
+    into it, and `resolveSymbols()` drops it from the Offered badge. `productsWithTickers()` is
+    deliberately UNCHANGED — the refresh must keep pricing a retired product, or its holders'
+    values freeze. `settleProduct()` does not branch on status either. If you add a fourth
+    reader, ask which side of that line it is on before copying either.
+  - **★ A NAV PUBLICATION LEAVES `account_state.allocated_capital` STALE ON RETURN, AND THAT IS
+    CORRECT.** It is a cache every reader refreshes (`computeTotalPortfolioValue`,
+    `get-account-state`, `get-holdings`, `get-returns-summary`, pm-briefing's `firmToday()` all
+    call `recomputeAllocatedCapital()` first; `get-client-list` and `get-product-catalog` derive
+    from units × price without reading the column at all). `publish-nav` carries a comment
+    saying so and ending "Do not add it" — a per-holder recompute would be a write per holder
+    for a value the next read recomputes anyway, and would still miss a client whose holdings
+    change before their next visit. The suite proves the stale-then-repaired sequence rather
+    than asserting the comment.
+  - **★ EDIT DETAILS' ABSENCES ARE ITS DESIGN — do not "complete" the form.** No unit-price
+    field, no symbol field, no pricing-model control. `edit-product` refuses all three
+    server-side regardless; the form simply does not offer what the server would reject, and
+    states them read-only instead. The asset class is a real `<select>` for an appraisal
+    product (Private Equity / Real Assets only) and a readonly input for a market one.
+  - **★ THE PAGE'S SEARCH MATCHES NAME OR TICKER, NEVER THE `PROD-XXXX` ID.** That is what the
+    spec asks for, and a test that searches by id finds nothing — `verify-products-catalog-fix`
+    passes the name it created the product under for exactly this reason.
+  - **The ADR substitution is read from the product's own extended description** ("US-listed
+    NYSE ADR; the London listing (AZN.L) is not available on the price feed"), which 87 of the
+    European names carry from the catalogue seed. The note IS the record; do not add a column.
+  - **The retired row is a background TINT** (`#F8FAFC`), never an opacity or a filter, and its
+    name renders in the same colour as a live row's — measured in the visual suite against a
+    live row captured BEFORE the Retired pill filters every live row off screen.
+  - **`get-holdings` returns the shaped ARRAY itself, not an envelope.** Costs a harness a run
+    if assumed otherwise.
+  - **`products.inception_unit_price` is NOT NULL** — a seed insert that omits it fails with a
+    message that reads like "the test product is not on screen" three assertions later.
+  **Verified**: `supabase-verify-product-catalog` 52/52, `verify-products-page-ui-wiring`
+  103/103 (the REAL page script in a real DOM — a search reaching a product 221 rows deep, pill
+  counts following the search, four sorts genuinely re-ordering, a duplicate caught at search
+  time, and real create / edit / retire / reinstate / publish round trips each landing in
+  Postgres), `verify-products-page-visual` 57/57 (the rendered nav rail, its active item and a
+  reachable Log out; three contrast profiles with the sheen composited, including the RETIRED
+  row on its own tinted ground; the detail panel at 390/375 on a real phone profile and a real
+  320px iframe). Repointed rather than left broken: `verify-live-pricing-ui-wiring` 12/12 (PART
+  A retired with a pointer), `verify-live-pricing-visual` 23/23 (six admin-products runs retired,
+  their dead probes deleted), `verify-products-catalog-fix` 39/39 (three admin blocks driven
+  through the real new controls), `verify-asset-pages-ui-wiring` 43/43, `verify-control-patterns`
+  41/41.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is
