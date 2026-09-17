@@ -10791,6 +10791,44 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   so an unconfigured stack is silent rather than erroring every 15 minutes. If prices stop
   refreshing or alerts stop firing, check `vault.decrypted_secrets` and `net._http_response`
   before suspecting the functions.
+- **★★ WHEN YOU REBUILD A PAGE, GREP FOR EVERY SUITE THAT READS IT — THE BLAST RADIUS IS NOT
+  THE SUITES THAT OBVIOUSLY DROVE IT (2026-09-16).** This has now bitten three PM-revamp parts
+  in a row: part 3 deleted seven queue pages and found readers scattered across ten suites;
+  part 5 rebuilt `admin-clients.html` and repointed its own suite while missing
+  `verify-view-as-client-isolation`, which sat broken until part 6's full suite found it; part 6
+  rebuilt `admin-products.html` and broke five more. Every one failed the same way —
+  `Could not find a script containing "<marker>"` — which is loud, but only when that suite
+  actually runs, and a targeted pass will not run it. **Before considering a rebuild finished,
+  grep the whole `scripts/` directory for the page's filename**, not just for its obvious suite:
+
+      grep -rln "<page>.html" scripts/
+
+  Then, for each hit, decide REPOINT or RETIRE-WITH-A-POINTER, and never silently delete an
+  assertion — name where each one now lives, the way `verify-admin-final-wiring`'s section 1 and
+  `verify-live-pricing-ui-wiring`'s PART A both do. Also grep `verify-contrast.mjs` and
+  `audit-glass-sheen.mjs`: a contrast PROFILE whose selectors match nothing measures nothing,
+  which those tools correctly report as a FAIL rather than a confident pass (§V, the vacuity
+  pattern) — and delete the dead probe constants with the runs that used them, because selectors
+  for markup that no longer exists are worse than no selectors at all.
+- **★ AN ASSERTION THAT ITS OWN FIXTURE IS "FIRST", "OLDEST" OR "ON SCREEN" ASSUMES THE STACK
+  HOLDS NOTHING OLDER — and that assumption expires (2026-09-16).** Two suites asserted their own
+  3-day fixture LEADS the approvals list. Gary's seeded pending allocation aged past three days
+  four days after he was seeded, and both failed for a reason that was real data behaving
+  correctly. Assert the PROPERTY (the list is genuinely oldest-first; the panel renders exactly
+  the payload's own first N, in its order) and then that the fixture is present with the right
+  shape WHEREVER it lands. The same applies to any panel with a row cap — `admin.html` renders
+  `b.approvals.slice(0, 6)`, so "my fixture is on screen" is only true while fewer than six
+  older items exist. **And check what the payload you are using as an oracle actually describes**:
+  the "Since you last looked" panel cannot be checked against a second briefing read, because the
+  page's own read RECORDS the visit and the second read then correctly returns nothing new.
+- **★ A LONG-RUNNING SUITE OUTLIVES ITS OWN PM TOKEN (2026-09-16).** A Supabase access token
+  lives one hour. `verify-round-robin-refresh` runs longer than that and failed at run 24 with
+  `Cannot read properties of undefined` — twenty-three clean runs from the cause — because every
+  call after the hour returned 401 with a body that had no such field. Row 211 recorded exactly
+  this once already, for the catalogue seeder that silently dropped its last 30 entries. Any
+  script holding one token for more than an hour must re-sign-in on a 401 and retry, AND read
+  success bodies through a helper that fails loudly on a non-2xx rather than letting `undefined`
+  travel to somewhere unrecognisable.
 - **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
   "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
   and the email tests genuinely send. Every other table returns to its exact starting count
