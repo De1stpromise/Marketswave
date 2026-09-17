@@ -480,6 +480,66 @@ PROFILES['pm-overview'] = [
 // detail panel. The retired row is the one row 233 already got wrong once at 2.59:1 — a row
 // dimmed in its WORDS rather than in its chrome — so it is measured on its own ground rather
 // than assumed to inherit the table's.
+// ★ PM tool revamp, part 7 — the deposit address book. Two profiles, because the surfaces that
+// matter sit on two different grounds: the white book, and the RETIRED row's tint. The retired
+// row is the one row 233 got wrong once at 2.59:1 — a row dimmed in its WORDS rather than its
+// chrome — and on this page the faded thing would be a 62-character address, which is the whole
+// reason a retired row is still on screen at all.
+PROFILES['address-book'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'page title', sel: '.da-top h2', limit: 1 },
+  { label: 'page subtitle', sel: '#da-sub', limit: 1 },
+  { label: 'blocked heading', sel: '.da-bh b', limit: 1 },
+  { label: 'blocked sub', sel: '.da-bh span', limit: 1 },
+  { label: 'blocked client name', sel: '.da-bn b', limit: 4 },
+  { label: 'blocked client detail', sel: '.da-bn span', limit: 4 },
+  { label: 'missing-currency chip', sel: '.da-miss', limit: 6 },
+  { label: 'strip label', sel: '.da-hc .k', limit: 4 },
+  { label: 'strip figure', sel: '.da-hc:not(.is-warn) .v', limit: 4 },
+  { label: 'strip figure (warn)', sel: '.da-hc.is-warn .v', limit: 2 },
+  { label: 'strip sub', sel: '.da-hc .x', limit: 4 },
+  { label: 'filter pill', sel: '.da-pill[aria-pressed="false"]', limit: 4 },
+  { label: 'filter pill (on)', sel: '.da-pill[aria-pressed="true"]', limit: 1 },
+  { label: 'filter pill count', sel: '.da-pill .n', limit: 4 },
+  { label: 'group name', sel: '.da-gh b', limit: 6 },
+  { label: 'group network', sel: '.da-net', limit: 6 },
+  { label: 'group counts', sel: '.da-gh .cnt', limit: 6 },
+  { label: 'group Add', sel: '.da-gh .addb', limit: 6 },
+  { label: 'empty route note', sel: '.da-gempty', limit: 4 },
+  { label: 'row index', sel: '.da-ar:not(.is-retired) .idx', limit: 6 },
+  { label: 'address', sel: '.da-ar:not(.is-retired) .da-addr', limit: 6 },
+  { label: 'address label', sel: '.da-ar:not(.is-retired) .da-lab', limit: 4 },
+  { label: 'client initials', sel: '.da-ar:not(.is-retired) .da-st', limit: 6 },
+  { label: 'client count', sel: '.da-ar:not(.is-retired) .da-who .ct', limit: 6 },
+  { label: 'received', sel: '.da-ar:not(.is-retired) .da-recv:not(.is-none)', limit: 6 },
+  { label: 'received (none)', sel: '.da-ar .da-recv.is-none', limit: 4 },
+  { label: 'status pill', sel: '.da-ar:not(.is-retired) .da-stp', limit: 6 }
+];
+
+PROFILES['address-book-retired'] = [
+  { label: 'retired row index', sel: '.da-ar.is-retired .idx', limit: 4 },
+  { label: 'retired ADDRESS', sel: '.da-ar.is-retired .da-addr', limit: 4 },
+  { label: 'retired label', sel: '.da-ar.is-retired .da-lab', limit: 4 },
+  { label: 'retired history ("Previously N")', sel: '.da-ar.is-retired .da-who .ct', limit: 4 },
+  { label: 'retired received', sel: '.da-ar.is-retired .da-recv', limit: 4 },
+  { label: 'retired status pill', sel: '.da-ar.is-retired .da-stp', limit: 4 }
+];
+
+PROFILES['address-book-panel'] = [
+  { label: 'panel title', sel: '.da-ph .tx b', limit: 1 },
+  { label: 'panel address', sel: '.da-ph .tx span', limit: 1 },
+  { label: 'section heading', sel: '.da-lbl', limit: 4 },
+  { label: 'client name', sel: '.da-cb b', limit: 4 },
+  { label: 'client detail', sel: '.da-cb span', limit: 4 },
+  { label: 'client value', sel: '.da-cv', limit: 4 },
+  { label: 'deposit client', sel: '.da-dd b', limit: 6 },
+  { label: 'deposit hash', sel: '.da-dd span', limit: 6 },
+  { label: 'deposit amount', sel: '.da-dv', limit: 6 },
+  { label: 'deposit date', sel: '.da-dt', limit: 6 },
+  { label: 'honest note', sel: '.da-note.is-info p', limit: 2 },
+  { label: 'warning note', sel: '.da-note.is-warn p', limit: 2 }
+];
+
 PROFILES['products'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
   { label: 'page title', sel: '.pr-top h2', limit: 1 },

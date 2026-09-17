@@ -1,0 +1,178 @@
+/* ★ PM tool revamp, part 7 (2026-09-17) — the deposit address book. Follows
+ * PM_TOOL_VOCABULARY.md; the `.da-*` namespace is this page's own.
+ *
+ * ★ NO `.glass` ANYWHERE ON THIS PAGE, deliberately and asserted — the same call the approval
+ * gate made (§13). White cards on the page ground, so the sheen question does not arise on a
+ * surface whose most important text is a 62-character address a PM has to read character by
+ * character. Secondary 10-10.5px text is #475569; #64748B measures 4.34-4.40:1 on these
+ * grounds and does not pass (§6, measured again here).
+ */
+
+.da-wrap { max-width: 1180px; }
+
+.da-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.da-top h2 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; color: #0F172A; }
+.da-sub { font-size: 12.5px; color: #475569; margin-top: 4px; }
+
+/* ---- blocked clients: amber, first, before anything else -----------------------------------
+ * ★ A client with no address on a route CANNOT DEPOSIT that currency — deploy-capital shows
+ * them an honest empty state where an address should be. That is a client blocked by an
+ * omission nobody made deliberately, which is why it leads the page rather than sitting in a
+ * filter. */
+.da-blocked { padding: 15px 17px; margin-bottom: 16px; border-radius: 13px; background: #FFFBEB; border: 1px solid #FDE68A; }
+.da-bh { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; flex-wrap: wrap; }
+.da-bh b { font-size: 13px; font-weight: 700; color: #92400E; }
+.da-bh span { font-size: 11.5px; color: #7C5A15; margin-left: auto; }
+.da-bl { display: flex; align-items: center; gap: 11px; min-height: 44px; padding: 6px 0; border-top: 1px solid rgba(180, 83, 9, .18); flex-wrap: wrap; }
+.da-bl:first-of-type { border-top: none; }
+.da-av { width: 28px; height: 28px; border-radius: 50%; background: #334155; color: #fff; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.da-bn { flex: 1; min-width: 140px; }
+.da-bn b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; }
+.da-bn span { display: block; font-size: 10.5px; color: #7C5A15; margin-top: 1px; }
+.da-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.da-miss { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; background: rgba(146, 64, 14, .14); color: #7C2D12; }
+.da-none { font-size: 12.5px; color: #475569; padding: 4px 0; }
+
+/* ---- strip --------------------------------------------------------------------------------- */
+.da-hs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; margin-bottom: 14px; }
+.da-hc { padding: 13px 15px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; }
+.da-hc .k { font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.da-hc .v { font-size: 21px; font-weight: 700; letter-spacing: -.025em; line-height: 1; font-variant-numeric: tabular-nums; color: #0F172A; }
+.da-hc .x { font-size: 10px; color: #475569; margin-top: 5px; }
+.da-hc.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+.da-hc.is-warn .v { color: #92400E; }
+
+/* ---- filter pills (kept from the page this replaced — a status filter is a real capability
+ * and the grouping does not provide it) ------------------------------------------------------- */
+.da-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.da-pill { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff; color: #475569; font: 600 11.5px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.da-pill .n { font-variant-numeric: tabular-nums; color: #64748B; }
+.da-pill[aria-pressed="true"] { background: #0F172A; border-color: #0F172A; color: #fff; }
+.da-pill[aria-pressed="true"] .n { color: #CBD5E1; }
+
+/* ---- groups ---------------------------------------------------------------------------------
+ * ★ GROUPED BY CURRENCY AND NETWORK, because several addresses per coin is the normal case —
+ * three Bitcoin addresses serving different clients — and a flat list makes them read as
+ * unrelated rows. USDT on TRC-20 and USDT on ERC-20 are two groups, never one with a toggle:
+ * they are two separate things and sending to the wrong one destroys the funds. */
+.da-panel { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; }
+.da-gh { display: flex; align-items: center; gap: 11px; padding: 11px 15px; background: #FAFBFC; border-bottom: 1px solid #E2E8F0; border-top: 1px solid #E2E8F0; flex-wrap: wrap; }
+.da-gh:first-child { border-top: none; }
+.da-gh .mk { flex-shrink: 0; }
+.da-gh b { font-size: 12.5px; font-weight: 700; color: #0F172A; }
+.da-net { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: #EEF2F7; color: #334155; }
+.da-gh .cnt { margin-left: auto; font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+.da-gh .addb { height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid #E2E8F0; background: #fff; color: #334155; font: 600 10.5px Inter, sans-serif; cursor: pointer; }
+.da-gh .addb:hover { background: #F8FAFC; }
+.da-gempty { padding: 13px 15px 13px 22px; font-size: 11.5px; color: #475569; border-bottom: 1px solid #F1F5F9; }
+
+/* ---- address row ---------------------------------------------------------------------------- */
+.da-ar { display: grid; grid-template-columns: 26px minmax(0, 1.5fr) 132px 108px 104px 28px; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 11px 15px 11px 22px; border: none; border-bottom: 1px solid #F1F5F9; background: #fff; cursor: pointer; font: inherit; transition: background .14s; }
+.da-ar:hover { background: #FAFBFC; }
+.da-ar:focus-visible { outline: 2px solid #B45309; outline-offset: -2px; }
+/* ★ #94A3B8 measured 2.56:1 on white and 2.45:1 on the retired tint. An index is small and
+ * quiet, but it is still text a PM reads to say "the third one" — so it clears the floor. */
+.da-ar .idx { font-size: 10px; font-weight: 700; color: #475569; font-variant-numeric: tabular-nums; }
+.da-ar .r { justify-self: end; text-align: right; }
+
+/* ★ THE RETIRED ROW IS TINTED, NOT FADED. The mockup dims the whole row with opacity:.5 — that
+ * is precisely the 2.59:1 failure register row 233 already shipped once, and it makes the
+ * address (the one thing worth reading on a retired row, because its history is why it is still
+ * here) the hardest text on the page. The row is marked by its own ground and its status pill;
+ * every character in it stays at full strength. */
+.da-ar.is-retired { background: #F8FAFC; }
+.da-ar.is-retired:hover { background: #F1F5F9; }
+
+/* ★ min-width: 0 IS LOAD-BEARING. A grid item's automatic minimum is its content's min-content
+ * width, and an address is `white-space: nowrap`, so without this the cell refuses to shrink and
+ * a 42-character address pushes the row past the viewport at 375px — the track being
+ * minmax(0, 1fr) is not enough on its own. Caught by measuring maxRight, which is why the probe
+ * now names the widest offender rather than reporting a bare number. */
+.da-cell { min-width: 0; overflow: hidden; }
+/* display:block so overflow/ellipsis apply to THIS box: an inline box ignores both, so the
+ * address rendered clipped but still measured its full nowrap width, which is a real
+ * overflow for anything reading layout (and meant the ellipsis never appeared). */
+.da-addr { display: block; font-size: 11.5px; color: #334155; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.da-lab { display: block; font-size: 10px; color: #475569; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.da-who { display: flex; align-items: center; justify-self: end; }
+.da-st { width: 24px; height: 24px; border-radius: 50%; background: #1E293B; color: #fff; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; margin-left: -8px; flex-shrink: 0; }
+.da-st:first-child { margin-left: 0; }
+.da-who .ct { font-size: 11px; color: #475569; margin-left: 7px; white-space: nowrap; }
+.da-recv { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0F172A; }
+.da-recv span { display: block; font-size: 10px; color: #475569; font-weight: 500; margin-top: 2px; }
+.da-recv.is-none { color: #64748B; }
+.da-recv.is-none span { color: #64748B; }
+.da-stp { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; display: inline-block; }
+.s-assigned { background: #DCFCE7; color: #14532D; }
+.s-available { background: #F1F5F9; color: #334155; }
+.s-retired { background: #FEF3C7; color: #7C2D12; }
+.da-chev { color: #94A3B8; justify-self: end; }
+.da-empty { padding: 26px 15px; text-align: center; font-size: 12.5px; color: #475569; }
+
+/* ---- overlay panel --------------------------------------------------------------------------- */
+/* ★ THE OPEN/CLOSED STATE IS THIS PAGE'S OWN CLASS, NOT TAILWIND'S `.hidden`, for two
+ * reasons. (1) A shared stylesheet that writes a `.hidden` rule claims ownership of that class
+ * as far as verify-shared-stylesheet-coverage is concerned, and every other admin page then
+ * reports as using a class only this file defines — the same trap admin-nav.css records for its
+ * badges. (2) Row 165: the Tailwind CDN silently emits NO CSS for a utility it does not
+ * recognise, and a scrim that fails to hide is a page-blocking overlay. Default closed, opened
+ * by an explicit class, so the failure mode is "does not open", not "cannot be dismissed". */
+.da-scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .5); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 60; overflow-y: auto; }
+.da-scrim.is-open { display: flex; }
+.da-panelbox { width: 100%; max-width: 560px; background: #fff; border-radius: 14px; box-shadow: 0 30px 70px -30px rgba(15, 23, 42, .55); overflow: hidden; }
+.da-ph { padding: 14px 16px; border-bottom: 1px solid #EEF2F7; display: flex; align-items: center; gap: 11px; }
+.da-ph .tx { flex: 1; min-width: 0; }
+.da-ph b { display: block; font-size: 13.5px; font-weight: 600; color: #0F172A; }
+.da-ph span { display: block; font-size: 11px; color: #475569; margin-top: 3px; font-variant-numeric: tabular-nums; word-break: break-all; }
+.da-pb { padding: 14px 16px; }
+.da-lbl { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748B; margin: 4px 0 6px; }
+.da-lbl:not(:first-child) { margin-top: 15px; }
+.da-cl { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 5px 0; border-top: 1px solid #F1F5F9; flex-wrap: wrap; }
+.da-cl:first-of-type { border-top: none; }
+.da-cb { flex: 1; min-width: 120px; }
+.da-cb b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; }
+.da-cb span { display: block; font-size: 10.5px; color: #475569; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.da-cv { text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; color: #0F172A; }
+.da-dep { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 4px 0; border-top: 1px solid #F1F5F9; font-size: 11.5px; flex-wrap: wrap; }
+.da-dep:first-of-type { border-top: none; }
+.da-dd { flex: 1; min-width: 110px; }
+.da-dd b { font-weight: 600; color: #0F172A; }
+.da-dd span { display: block; font-size: 10px; color: #475569; font-variant-numeric: tabular-nums; margin-top: 1px; word-break: break-all; }
+.da-dv { font-weight: 700; font-variant-numeric: tabular-nums; color: #0F172A; }
+.da-dt { color: #475569; font-variant-numeric: tabular-nums; min-width: 58px; text-align: right; }
+.da-note { display: flex; gap: 9px; padding: 11px 13px; border-radius: 10px; margin-top: 13px; }
+.da-note svg { flex-shrink: 0; margin-top: 1px; }
+.da-note p { font-size: 10.5px; line-height: 1.55; }
+.da-note.is-warn { background: #FFFBEB; border: 1px solid #FDE68A; }
+.da-note.is-warn p { color: #7C5A15; }
+.da-note.is-info { background: #F8FAFC; border: 1px solid #E2E8F0; }
+.da-note.is-info p { color: #475569; }
+.da-note.is-bad { background: #FEF2F2; border: 1px solid #FCA5A5; }
+.da-note.is-bad p { color: #991B1B; }
+.da-pf { padding: 12px 16px; border-top: 1px solid #EEF2F7; display: flex; gap: 8px; background: #FCFDFE; flex-wrap: wrap; }
+.da-pf .mw-btn { flex: 1; justify-content: center; min-width: 120px; }
+.da-pf .mw-btn.da-secondary { flex: 0 0 auto; min-width: 0; }
+.da-err { font-size: 11.5px; color: #B4402C; margin-top: 10px; display: none; }
+.da-err.is-shown { display: block; }
+.da-hint { font-size: 10.5px; color: #475569; margin-top: 7px; line-height: 1.5; }
+
+/* ---- add-address form ------------------------------------------------------------------------ */
+.da-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.da-vmsg { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 500; margin-top: 8px; min-height: 16px; }
+.da-vmsg.is-ok { color: #14532D; }
+.da-vmsg.is-bad { color: #B4402C; }
+.da-vmsg svg { flex-shrink: 0; }
+.da-readback { font-weight: 700; word-break: break-all; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 900px) {
+  /* ★ RESTACK, NEVER HIDE (§9 / register row 229). A PM on a phone still needs to know which
+   * address a row is, who it serves and what has arrived on it — dropping a column here would
+   * leave rows a PM cannot tell apart, which is exactly the mistake the approval gate made once. */
+  .da-hs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .da-ar { grid-template-columns: 26px minmax(0, 1fr) 28px; row-gap: 7px; }
+  .da-ar .da-who, .da-ar .da-recv, .da-ar .r.da-status { grid-column: 2 / 3; justify-self: start; text-align: left; }
+  .da-recv { display: flex; align-items: baseline; gap: 7px; }
+  .da-recv span { margin-top: 0; }
+  .da-two { grid-template-columns: 1fr; }
+  .da-gh .cnt { margin-left: 0; width: 100%; order: 5; }
+}

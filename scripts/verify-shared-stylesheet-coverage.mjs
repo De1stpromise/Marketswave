@@ -81,7 +81,7 @@ const SHARED = [
   'admin-client-list.css',
   // Products (2026-09-16, part 6): admin-products-page.js builds every .pr-* row, health
   // card, detail panel and create form at runtime; the page ships only empty shells.
-  'admin-products.css',
+  'admin-deposit-addresses.css', 'admin-products.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

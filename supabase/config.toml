@@ -916,6 +916,10 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-client-list/index.ts"
 
+[functions.get-deposit-address-book]
+enabled = true
+verify_jwt = false
+
 [functions.get-product-catalog]
 enabled = true
 verify_jwt = false
