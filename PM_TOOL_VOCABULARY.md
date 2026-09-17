@@ -327,3 +327,66 @@ The first PM surface where a PM's OMISSION silently blocks a client. What it est
   bare number.
 
 ---
+
+## 16. A page about the PM's own account (part 8 — Security)
+
+The first PM surface whose subject is the PM rather than a client, and the first where the
+honest answer to "can we build this panel?" was **partly no**. What it establishes:
+
+- **★ INVESTIGATE WHETHER THE DATA EXISTS, THEN REPORT IT, THEN BUILD.** Three questions were
+  answered against the real database before a line of the page was written, and two of them
+  changed the design. Sessions ARE listable. The password-change consequence IS true, measured on
+  a second device rather than read in documentation. Sign-in history is real but carries **no
+  failures, no device and no location** — so the panel that was specified could not be built as
+  specified, and saying so was the deliverable, not a blocker.
+- **★ A HEADING IS A CLAIM. "Recent sign-ins" over a successes-only list says nobody has failed
+  to sign in.** The data cannot support that, so the panel is "Recent account activity" and the
+  absence is stated in the panel itself: failed attempts are not recorded, and these entries
+  carry no device and no location. Renaming was cheaper than fabricating and more honest than
+  showing the list under a heading it cannot earn.
+- **★ PUT A CLAIM ABOUT ABSENT DATA IN THE PAYLOAD, NOT ONLY IN THE COPY.**
+  `failuresRecorded: false`, `devicesRecorded: false`, `locationsRecorded: false` travel with the
+  data, so the verification asserts them and fails the day the platform starts recording either.
+  A sentence in a page is a claim nobody re-checks; a field under test is one that expires loudly.
+- **NO CONTROL FOR SOMETHING THAT DOES NOT EXIST.** Two-factor is marked Planned with the real
+  constraint named (Supabase MFA is a Pro-plan feature; a real enrolment returns 422
+  `mfa_totp_enroll_not_enabled`) and carries no toggle, no button, no input — asserted absent, not
+  merely unstyled. On a security page a switch that flips and does nothing reads as protection
+  that is not there, which is worse than an honest gap. There is no display-name field either:
+  nothing renders a PM's name to anyone, so it would be a setting with no effect.
+- **★ STATE A CONSEQUENCE ONLY AFTER MEASURING IT — AND STATE ITS CAVEAT TOO.** "This signs you
+  out everywhere else" is printed because two devices were signed in, the password changed on one,
+  and the other's refresh genuinely failed. The same measurement produced the caveat the page also
+  prints: a revoked device keeps working for up to an hour, until the access token it already
+  holds expires. A comforting sentence without its caveat is a half-truth a PM would act on.
+- **★ A CONTROL THE UI DOES NOT RENDER IS NOT A GUARANTEE — THE SERVER MUST REFUSE IT TOO.**
+  The current session shows no Sign out, and `revoke-pm-session` refuses it 409 regardless. The
+  same rule the approval gate's own re-validation follows (§13), applied to a destructive control
+  rather than to money.
+- **★ A FUNCTION THAT TAKES A USER ID IS SERVICE_ROLE-ONLY, AND THE TEST CALLS IT TO PROVE IT.**
+  The four `SECURITY DEFINER` reads/writes over `auth.*` each take the user as an argument, so one
+  reachable by `authenticated` would be a real privilege escalation — EXECUTE is revoked from
+  `public`/`anon`/`authenticated`, and the suite CALLS each as a real client and as a real ADMIN
+  rather than reading the GRANT, with a `service_role` control so four refusals cannot pass for
+  the wrong reason (§V, the vacuity pattern).
+- **A NON-BROWSER SESSION IS NAMED FOR WHAT IT IS.** "Unknown device · Unknown browser" for a
+  `node` or `curl` session is accurate and useless, and on a security panel "unknown" invites
+  alarm where the honest answer is mundane. Script clients are labelled; anything genuinely
+  unrecognised still says Unknown.
+- **The one-per-request cost of an external lookup is capped, and the cap degrades honestly.**
+  Geolocation runs once per DISTINCT public IP, at most twelve per request; past that the location
+  is `null`, which renders "Unknown location" — the same as a private address or a provider miss,
+  never a guessed city.
+- **Surfaces**: `.glass` + `.glass-lift` cards (this page's headings sit in the sheen corner —
+  register row 204), secondary text `#475569`, and a quiet `.sec-note` block for every statement
+  of fact a reader needs in order to trust what is above it. **Those notes are never dimmed**: on
+  this page the caveats ARE the content (§6's rule, and row 233's 2.59:1).
+- **A five-column table is a `mw-card-table`.** Row 172's pattern: on a phone the last two columns
+  otherwise sit hundreds of pixels off-screen inside a scroll container nobody scrolls.
+- **★ WHAT THE PAGE ALREADY DID SURVIVES THE REBUILD.** The client security-actions log was on
+  this page and is the only reader of `getSecurityActionsLog()` anywhere in the project. Parts 5,
+  6 and 7 each nearly orphaned something; the log is driven end to end in the suite rather than
+  merely left in the markup, which is the difference between keeping it and assuming it still
+  works.
+
+---

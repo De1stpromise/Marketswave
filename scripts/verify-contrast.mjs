@@ -537,6 +537,37 @@ PROFILES['address-book-panel'] = [
   { label: 'warning note', sel: '.da-note.is-warn p', limit: 2 }
 ];
 
+// ★ PM tool revamp, part 8 (2026-09-17) — Account security. Three profiles, because the
+// three surfaces sit on genuinely different grounds: the page itself, the strength meter's
+// label (whose colour changes per level, and whose old palette used the BAR's saturated fill
+// as text), and the error card (red on red — the one place a failed read is explained).
+PROFILES['account-security'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'card heading', sel: '.sec-h', limit: 6 },
+  { label: 'card sub', sel: '.sec-sub', limit: 6 },
+  { label: 'identity key', sel: '.sec-kv dt', limit: 2 },
+  { label: 'identity value', sel: '.sec-kv dd', limit: 2 },
+  { label: 'note body', sel: '.sec-note', limit: 4 },
+  { label: 'note strong', sel: '.sec-note strong', limit: 3 },
+  { label: 'session title', sel: '.sec-title', limit: 6 },
+  { label: 'session meta', sel: '.sec-meta', limit: 6 },
+  { label: 'session detail', sel: '.sec-ua', limit: 6 },
+  { label: 'this-device pill', sel: '.sec-pill--now', limit: 1 },
+  { label: 'script pill', sel: '.sec-pill--script', limit: 2 },
+  { label: 'planned pill', sel: '.sec-pill--planned', limit: 1 },
+  { label: 'log table head', sel: '#log-list th', limit: 5 },
+  { label: 'log table cell', sel: '#log-list td', limit: 5 },
+  { label: 'field label', sel: '.mw-fld > label', limit: 3 }
+];
+
+PROFILES['account-security-strength'] = [
+  { label: 'strength label', sel: '#strength-text', limit: 1 }
+];
+
+PROFILES['account-security-error'] = [
+  { label: 'error card text', sel: '.sec-err.is-shown p', limit: 2 }
+];
+
 PROFILES['products'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
   { label: 'page title', sel: '.pr-top h2', limit: 1 },

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Account Security — Marketswave PM Tool</title>
+  <title>Account security — Marketswave PM Tool</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="responsive-tables.css">
+  <link rel="stylesheet" href="admin-security.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -18,300 +20,220 @@
 <body class="bg-slate-100 text-slate-800 antialiased">
 
   <div class="flex h-screen overflow-hidden">
-
     <div id="admin-sidebar-mount"></div>
 
     <div class="flex-1 flex flex-col overflow-hidden">
-
       <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
       <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
-          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
-          <p class="text-xs text-slate-500" id="live-date-time"></p>
+          <h2 class="text-base font-semibold text-slate-900">Account security</h2>
+          <p class="text-xs text-slate-600">Your own credentials, sessions and account activity</p>
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
-
-        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
-             in top-right whitespace -- same restraint/technique as the client dashboard
-             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
-             would break this scrollable container's own vertical scroll). -->
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
         <div class="blob blob--sm blob--teal -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
-        <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Account Security</h2>
-          <p class="text-slate-500 mt-1">Manage your own Portfolio Manager credentials, and review a chronological audit log of every password reset and 2FA reset performed against any client account — the log itself is not a queue, nothing there is pending or needs approval.</p>
-        </div>
+        <div class="sec-wrap mx-auto">
 
-        <!-- ========== MY ACCOUNT (Backend Migration Phase C — Stage 3, 2026-09-06) ==========
-             Distinct from the client-reset actions logged below: this section is a PM
-             resetting their OWN real Supabase Auth credentials, not a client's. -->
-        <div class="glass glass-lift rounded-2xl p-6 mb-8">
-          <h3 class="font-semibold text-slate-900 mb-1">My Account</h3>
-          <p class="text-sm text-slate-500 mb-5">Signed in as <span id="my-account-email" class="font-medium text-slate-700">—</span>.</p>
+          <!-- ========== 1. YOUR ACCOUNT ==========
+               Read-only, deliberately. There is NO display-name field: this project has one
+               shared PM identity per environment and nothing anywhere renders a PM's name to a
+               client, so a name field would be a setting with no effect — the category of thing
+               this tool does not ship (register row 224). It returns with multi-PM. -->
+          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-account-h">
+            <h3 class="sec-h" id="sec-account-h">Your account</h3>
+            <p class="sec-sub">Who you are signed in as. Neither field is editable here.</p>
 
-          <div class="pb-6 border-b border-slate-100">
-            <p class="text-sm font-medium text-slate-900 mb-4">Change Password</p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl">
+            <dl class="sec-kv mt-5">
+              <dt>Sign-in email</dt>
+              <dd id="sec-email">—</dd>
+              <dt>Role</dt>
+              <dd id="sec-role">Portfolio Manager</dd>
+            </dl>
+
+            <!-- ★ A PM could reasonably assume this address is what a client replies to. It is
+                 not, and getting that wrong means a client's reply goes to an inbox nobody
+                 reads. Stated here, next to the address itself, rather than left to be
+                 discovered. -->
+            <div class="sec-note mt-5">
+              <strong>Clients never see this address.</strong> Messages you send from the inbox are
+              headed &ldquo;A message from your Portfolio Manager&rdquo; and are sent from
+              <span class="font-semibold">noreply@marketswave.net</span>; a client replying to one
+              reaches <span class="font-semibold">support@marketswave.net</span>, which lands back
+              in the inbox. Your sign-in address is used for signing in and for the PM
+              notifications this tool sends you.
+            </div>
+          </section>
+
+          <!-- ========== 2. PASSWORD ========== -->
+          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-password-h">
+            <h3 class="sec-h" id="sec-password-h">Password</h3>
+            <p class="sec-sub">Changing your password re-verifies the current one first — Supabase&rsquo;s own
+              update call trusts your existing session and has no current-password step of its own,
+              so without that check the field above would be decorative.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mt-5">
               <div>
                 <div class="mw-fld mw-fld--admin">
-                  <input type="password" id="current-password" class="mw-field mw-field-admin" placeholder=" ">
-                  <label for="current-password">Current Password</label>
+                  <input type="password" id="current-password" class="mw-field mw-field-admin" placeholder=" " autocomplete="current-password">
+                  <label for="current-password">Current password</label>
                 </div>
               </div>
               <div>
                 <div class="mw-fld mw-fld--admin">
-                  <input type="password" id="new-password" class="mw-field mw-field-admin" placeholder=" ">
-                  <label for="new-password">New Password</label>
+                  <input type="password" id="new-password" class="mw-field mw-field-admin" placeholder=" " autocomplete="new-password">
+                  <label for="new-password">New password</label>
                 </div>
                 <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
                   <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
                 </div>
-                <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
+                <p class="text-xs mt-1" id="strength-text" style="color: #475569;">Enter a password</p>
               </div>
               <div>
                 <div class="mw-fld mw-fld--admin">
-                  <input type="password" id="confirm-password" class="mw-field mw-field-admin" placeholder=" ">
-                  <label for="confirm-password">Confirm New Password</label>
+                  <input type="password" id="confirm-password" class="mw-field mw-field-admin" placeholder=" " autocomplete="new-password">
+                  <label for="confirm-password">Confirm new password</label>
                 </div>
               </div>
             </div>
-            <p class="text-xs text-red-500 hidden mt-3" id="password-error"></p>
-            <button type="button" id="password-submit" class="mt-4 mw-btn mw-btn-admin">Update Password</button>
-          </div>
 
-          <!-- 2FA — investigated, genuinely deferred, reported plainly rather than a stub
-               that looks more real than it is. Supabase's own supabase/config.toml states
-               outright: "Multi-factor-authentication is available to Supabase Pro plan" —
-               confirmed live against the real local Auth server too (a real TOTP enroll
-               attempt returns a real 422 mfa_totp_enroll_not_enabled). This project has
-               deliberately stayed on Supabase's free tier throughout its entire migration
-               (the same category of real, external constraint that already blocked Firebase's
-               own Cloud Functions on the Blaze plan, and the whole reason this project moved
-               to Supabase in the first place) — enabling real PM 2FA would mean reintroducing
-               exactly that kind of paid-plan dependency. No toggle, no QR code, no fake
-               "enabled" state is shown here — only this honest note. -->
-          <div class="pt-6">
-            <p class="text-sm font-medium text-slate-900">Two-Factor Authentication</p>
-            <p class="text-xs text-slate-500 mt-1 max-w-2xl">Not available yet for Portfolio Manager accounts. Supabase's own real Auth MFA (TOTP) requires a Supabase Pro plan — confirmed directly against the real local Auth server, not assumed — and this project has deliberately stayed on Supabase's free tier throughout its migration. Tracked as its own deferred item, not built as a placeholder that would otherwise look more real than it is.</p>
-          </div>
+            <p class="text-xs text-red-600 hidden mt-3" id="password-error" role="alert"></p>
+            <button type="button" id="password-submit" class="mt-4 mw-btn mw-btn-admin">Update password</button>
+
+            <!-- ★ MEASURED BEFORE BEING PRINTED, not assumed from documentation. Signed the same
+                 account in on two devices, changed the password on one, then checked the other:
+                 sessions went 2 → 1, the other device's refresh returned "Invalid Refresh Token:
+                 Refresh Token Not Found", and this device's refresh still worked. The one-hour
+                 caveat is the honest part — a revoked session's already-issued access token is
+                 valid until it expires, because that is how bearer tokens work. -->
+            <div class="sec-note mt-5" id="sec-password-consequence">
+              <strong>This signs you out everywhere else.</strong> Every other session is ended and its
+              refresh token revoked, so no other device can sign itself back in without the new
+              password. This device stays signed in. A device that was already loaded keeps working
+              for up to an hour, until the access token it is holding expires — to cut one off now,
+              end its session below.
+            </div>
+          </section>
+
+          <!-- ========== 3. TWO-FACTOR ==========
+               ★ NO TOGGLE. Supabase's own config.toml states outright that MFA is a Pro-plan
+               feature, and a real TOTP enroll against the local Auth server returns a real 422
+               mfa_totp_enroll_not_enabled — confirmed directly rather than read. A switch that
+               flips and does nothing is worse than an absent one on a security page: it reads as
+               protection that is not there. -->
+          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-2fa-h">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h3 class="sec-h" id="sec-2fa-h">Two-factor authentication</h3>
+                <p class="sec-sub">Not available on Portfolio Manager accounts yet.</p>
+              </div>
+              <span class="sec-pill sec-pill--planned shrink-0" id="sec-2fa-status">Planned</span>
+            </div>
+            <div class="sec-note mt-4">
+              Supabase&rsquo;s own authenticator-app MFA requires a Supabase Pro plan — confirmed directly
+              against the running Auth server, which refuses a real enrolment with
+              <span class="font-semibold">mfa_totp_enroll_not_enabled</span>, not inferred from
+              documentation. This project has stayed on the free tier throughout its migration.
+              Nothing is enabled, and no switch is shown here, because there is nothing behind one.
+            </div>
+          </section>
+
+          <!-- ========== 4. WHERE YOU'RE SIGNED IN ========== -->
+          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-sessions-h">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div class="min-w-0">
+                <h3 class="sec-h" id="sec-sessions-h">Where you&rsquo;re signed in</h3>
+                <p class="sec-sub" id="sec-sessions-sub">Loading…</p>
+              </div>
+              <button type="button" id="sec-revoke-others" class="mw-btn mw-btn-admin mw-btn-sm shrink-0" hidden>Sign out everywhere else</button>
+            </div>
+
+            <div class="sec-err mt-4" id="sec-sessions-err" role="alert">
+              <p id="sec-sessions-err-text"></p>
+              <button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-sec-retry="sessions">Try again</button>
+            </div>
+
+            <div class="sec-list mt-4" id="sec-sessions"></div>
+
+            <div class="sec-note mt-4" id="sec-sessions-note">
+              Device is read from what each client sent when it signed in, and location from its IP
+              address — both are approximations, and a VPN or a mobile network resolves to its exit
+              point rather than to where you are. A session shown as a script is exactly that: a
+              verification or seeding script that signed in with these credentials.
+            </div>
+          </section>
+
+          <!-- ========== 5. RECENT ACCOUNT ACTIVITY ==========
+               ★ NOT CALLED "Recent sign-ins", deliberately. What exists is GoTrue's own audit
+               trail, which records successes and NOTHING ELSE — a query for any failed/invalid/
+               denied action returns empty, and ip_address is blank on all 62,564 rows on this
+               stack while the payload carries no user agent. A successes-only list under a
+               sign-ins heading reads as "nobody has failed to sign in", which is a claim this
+               data cannot make (register row 224's lesson, applied to a heading). -->
+          <section class="glass glass-lift rounded-2xl p-6 sec-card" aria-labelledby="sec-activity-h">
+            <div class="min-w-0">
+              <h3 class="sec-h" id="sec-activity-h">Recent account activity</h3>
+              <p class="sec-sub" id="sec-activity-sub">Loading…</p>
+            </div>
+
+            <div class="sec-err mt-4" id="sec-activity-err" role="alert">
+              <p id="sec-activity-err-text"></p>
+              <button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-sec-retry="activity">Try again</button>
+            </div>
+
+            <div class="sec-list mt-4" id="sec-activity"></div>
+
+            <div class="sec-note sec-note--amber mt-4" id="sec-activity-gap">
+              <strong>Failed sign-in attempts are not recorded.</strong> This is Supabase&rsquo;s own account
+              audit trail, and it logs successful actions only — there is no record anywhere of a
+              wrong password being tried against this account, and these entries carry no device and
+              no location because the audit table holds neither. Recording failures would mean
+              logging them ourselves on our own sign-in pages, which would miss any attempt made
+              anywhere else.
+            </div>
+          </section>
+
+          <!-- ========== 6. SECURITY ACTIONS LOG ==========
+               ★ THIS WAS ALREADY ON THE PAGE AND IS KEPT. The brief described this page as "a
+               change-password form and nothing else"; it also held this log, and it is the only
+               reader of getSecurityActionsLog() anywhere in the project (checked before anything
+               was removed — parts 5, 6 and 7 each nearly orphaned something). Different subject
+               from everything above it: these are actions a PM took against a CLIENT's
+               credentials, not their own. -->
+          <section class="glass glass-lift rounded-2xl sec-card overflow-hidden" aria-labelledby="sec-log-h">
+            <div class="px-6 py-4 border-b border-slate-100">
+              <h3 class="sec-h" id="sec-log-h">Client security actions <span id="log-count" class="text-slate-500 font-normal"></span></h3>
+              <p class="sec-sub">Password and 2FA resets you have performed against client accounts, and your own
+                password changes. A record, not a queue — nothing here is pending.</p>
+            </div>
+            <div id="log-list"></div>
+          </section>
+
         </div>
-
-        <div class="glass glass-lift rounded-2xl">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="font-semibold text-slate-900">Security Actions Log <span id="log-count" class="text-slate-400 font-normal"></span></h3>
-          </div>
-          <div id="log-list"></div>
-        </div>
-
       </main>
     </div>
   </div>
 
-  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-medium text-sm" id="admin-toast-title">Done</p>
-        <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
-      </div>
-      <button type="button" id="admin-toast-close" class="hidden text-white/60 hover:text-white transition text-lg leading-none shrink-0">&times;</button>
-    </div>
-  </div>
+  <div id="sec-toast" class="fixed bottom-6 right-6 z-[70] hidden max-w-sm rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg" role="status" aria-live="polite"></div>
 
+  <script src="responsive-tables.js"></script>
+  <script src="supabase-data.js"></script>
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
-  <script src="supabase-data.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. The approval gate shipped without this exact line and
+       rendered reachable then inescapable — no rail, no active item, no Log out — and neither a
+       real browser render nor a 69-assertion suite caught it, because everything looked at the
+       feature and nothing at the chrome (register row 228). Only admin-login.html may omit it.
+       This page's own suites assert the nav mounts, for that reason. -->
   <script>
     initAdminSidebar('security');
     if (typeof MarketswaveData !== 'undefined') MarketswaveData.useAdminClient();
   </script>
-
-  <script>
-    // Admin UI Wiring — Final Stage (2026-09-03): investigated directly, per instruction,
-    // rather than assumed. No real Supabase table or Edge Function exists anywhere for a
-    // password-reset/2FA-reset action log — confirmed via a project-wide grep of every
-    // supabase/migrations/*.sql file and supabase/functions/ directory for any table/function
-    // resembling "security_actions"/"reset_log"/similar; none exists. This mirrors
-    // settings.html's own Stage 5 finding that 2FA itself has no real Supabase backend
-    // (resetClientPassword()/resetClient2FA(), the two local functions this log records,
-    // remain 100% local engine-core.js calls — see admin-clients.html's own comment on those
-    // two functions for the full, still-accurate "why" of what each one really does). Left
-    // correctly local — wiring nothing fake here.
-    //
-    // Backend Migration Phase C — Stage 3 (2026-09-06): the log itself now ALSO records a
-    // genuinely new action type, PM_PASSWORD_CHANGE — a real PM changing their own real
-    // Supabase Auth password (below), via appendSelfSecurityLogEntry() (engine-core.js), a
-    // deliberately separate function from appendSecurityLogEntry() since this action has no
-    // clientId at all (the actor and the subject are the same person). Rendering was
-    // extended to show "(Own Account)" instead of a bare `null` for these entries.
-    (function () {
-      if (typeof getSecurityActionsLog !== 'function') return; // engine-core.js failed to load — bail defensively
-
-      var TYPE_STYLES = {
-        PASSWORD_RESET: { label: 'Password Reset', cls: 'bg-amber-50 text-amber-700' },
-        '2FA_RESET': { label: '2FA Reset', cls: 'bg-purple-50 text-purple-700' },
-        PM_PASSWORD_CHANGE: { label: 'PM Password Change', cls: 'bg-slate-100 text-slate-700' }
-      };
-
-      function renderLog() {
-        var log = getSecurityActionsLog().sort(function (a, b) {
-          return new Date(b.performedAt) - new Date(a.performedAt) || (b.id > a.id ? 1 : -1);
-        });
-        document.getElementById('log-count').textContent = log.length ? '(' + log.length + ')' : '';
-        var listEl = document.getElementById('log-list');
-
-        if (log.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No security actions have been taken yet.</p>';
-          return;
-        }
-
-        listEl.innerHTML = '<table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500"><tr>' +
-          '<th class="text-left font-medium px-6 py-3">Client</th>' +
-          '<th class="text-left font-medium px-6 py-3">Action</th>' +
-          '<th class="text-left font-medium px-6 py-3">Reason</th>' +
-          '<th class="text-left font-medium px-6 py-3">Performed By</th>' +
-          '<th class="text-left font-medium px-6 py-3">When</th>' +
-          '</tr></thead><tbody class="divide-y divide-slate-100">' +
-          log.map(function (e) {
-            var typeInfo = TYPE_STYLES[e.type] || { label: e.type, cls: 'bg-slate-100 text-slate-600' };
-            var clientCell = e.clientId
-              ? (e.clientName + ' <span class="text-slate-400 font-normal">(' + e.clientId + ')</span>')
-              : '<span class="text-slate-400 italic">(Own Account)</span>';
-            return '<tr class="hover:bg-slate-50/50">' +
-              '<td class="px-6 py-4 text-slate-900 font-medium">' + clientCell + '</td>' +
-              '<td class="px-6 py-4"><span class="text-xs font-medium px-2.5 py-1 rounded-full ' + typeInfo.cls + '">' + typeInfo.label + '</span></td>' +
-              '<td class="px-6 py-4 text-slate-600 max-w-md">' + (e.reason || '—') + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + e.performedBy + '</td>' +
-              '<td class="px-6 py-4 text-slate-500">' + e.performedAt + '</td>' +
-            '</tr>';
-          }).join('') + '</tbody></table>';
-      }
-
-      renderLog();
-
-      // ---- My Account: real self-service password change ----
-      // Mirrors settings.html's own client-facing Change Password flow exactly (same
-      // strength-meter thresholds, same real re-authentication discipline): Supabase's
-      // updateUser() trusts the already-authenticated session outright and has no "current
-      // password" parameter of its own, so "Current Password" would be purely decorative
-      // without a real re-verification step — this re-verifies it via a real
-      // signInWithPassword() call against the session's own real email before calling
-      // updateUser(), the same genuine, idiomatic Supabase re-authentication pattern.
-      // Uses MarketswaveData.getSupabaseClient() — once useAdminClient() (above) has
-      // redirected the shared client promise to the real admin-authenticated session, this
-      // resolves to THAT session, so the whole flow operates on whichever real PM is
-      // currently signed in, not a hardcoded account.
-      (function () {
-        var passwordInput = document.getElementById('new-password');
-        var strengthFill = document.getElementById('strength-fill');
-        var strengthText = document.getElementById('strength-text');
-        var emailEl = document.getElementById('my-account-email');
-
-        if (typeof MarketswaveData !== 'undefined') {
-          MarketswaveData.getCurrentUserEmail().then(function (email) {
-            emailEl.textContent = email || '—';
-          });
-        }
-
-        var levels = [
-          { width: '0%', color: '#E5E2DC', text: 'Enter a password' },
-          { width: '25%', color: '#DC2626', text: 'Weak' },
-          { width: '50%', color: '#F59E0B', text: 'Fair' },
-          { width: '75%', color: '#10B981', text: 'Good' },
-          { width: '100%', color: '#059669', text: 'Strong' }
-        ];
-
-        function applyLevel(level) {
-          strengthFill.style.width = level.width;
-          strengthFill.style.background = level.color;
-          strengthText.textContent = level.text;
-          strengthText.style.color = level.color;
-        }
-
-        passwordInput.addEventListener('input', function () {
-          var val = passwordInput.value;
-          var score = 0;
-          if (val.length >= 8) score++;
-          if (val.length >= 12) score++;
-          if (/[A-Z]/.test(val)) score++;
-          if (/[0-9]/.test(val)) score++;
-          if (/[^A-Za-z0-9]/.test(val)) score++;
-          applyLevel(val.length === 0 ? levels[0] : levels[Math.min(score, 4)]);
-        });
-
-        document.getElementById('password-submit').addEventListener('click', function () {
-          var current = document.getElementById('current-password').value;
-          var next = passwordInput.value;
-          var confirmVal = document.getElementById('confirm-password').value;
-          var errorEl = document.getElementById('password-error');
-          var btn = document.getElementById('password-submit');
-          var toast = document.getElementById('admin-toast');
-          var toastTitle = document.getElementById('admin-toast-title');
-          var toastBody = document.getElementById('admin-toast-body');
-
-          if (!current) {
-            errorEl.textContent = 'Please enter your current password.';
-            errorEl.classList.remove('hidden');
-            return;
-          }
-          if (!next || next.length < 8) {
-            errorEl.textContent = 'New password must be at least 8 characters.';
-            errorEl.classList.remove('hidden');
-            return;
-          }
-          if (next !== confirmVal) {
-            errorEl.textContent = 'Passwords do not match.';
-            errorEl.classList.remove('hidden');
-            return;
-          }
-          if (typeof MarketswaveData === 'undefined') {
-            errorEl.textContent = 'Password change is unavailable right now.';
-            errorEl.classList.remove('hidden');
-            return;
-          }
-          errorEl.classList.add('hidden');
-
-          var realEmail = null;
-          MarketswaveData.withButtonBusy(btn, 'Updating...', function () {
-            return MarketswaveData.getSupabaseClient().then(function (client) {
-              return client.auth.getSession().then(function (sessionResult) {
-                var email = sessionResult.data.session && sessionResult.data.session.user && sessionResult.data.session.user.email;
-                if (!email) throw new Error('Your session may have expired. Try refreshing the page.');
-                realEmail = email;
-                return client.auth.signInWithPassword({ email: email, password: current }).then(function (signInResult) {
-                  if (signInResult.error) throw new Error('Your current password is incorrect.');
-                  return client.auth.updateUser({ password: next });
-                });
-              });
-            }).then(function (updateResult) {
-              if (updateResult.error) throw new Error(updateResult.error.message);
-            });
-          }).then(function () {
-            document.getElementById('current-password').value = '';
-            passwordInput.value = '';
-            document.getElementById('confirm-password').value = '';
-            applyLevel(levels[0]);
-            // Real per-PM attribution: the PM's own real email, the same identity that just
-            // re-authenticated above — never a fabricated or generic value.
-            appendSelfSecurityLogEntry('PM_PASSWORD_CHANGE', 'Self-service password change.', realEmail);
-            renderLog();
-            toastTitle.textContent = 'Password Updated';
-            toastBody.textContent = 'Your password has been changed successfully.';
-            toast.classList.remove('hidden');
-            setTimeout(function () { toast.classList.add('hidden'); }, 4000);
-          }).catch(function (err) {
-            errorEl.textContent = (err && err.message) || 'Something went wrong. Please try again.';
-            errorEl.classList.remove('hidden');
-          });
-        });
-      })();
-    })();
-  </script>
-
+  <script src="admin-security-page.js"></script>
 </body>
 </html>

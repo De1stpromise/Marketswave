@@ -927,3 +927,11 @@ verify_jwt = false
 [functions.retire-product]
 enabled = true
 verify_jwt = false
+
+[functions.get-account-security]
+enabled = true
+verify_jwt = false
+
+[functions.revoke-pm-session]
+enabled = true
+verify_jwt = false

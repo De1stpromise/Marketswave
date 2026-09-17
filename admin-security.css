@@ -1,0 +1,169 @@
+/* ★ PM tool revamp, part 8 (2026-09-17) — Account security.
+ *
+ * Namespace: .sec-*. Own namespace, never a shared utility name — a rule written on a Tailwind
+ * utility in a shared stylesheet reads to verify-shared-stylesheet-coverage as this file
+ * "defining" that utility (the lesson part 7 recorded for .hidden).
+ *
+ * ★ SECONDARY TEXT IS #475569 AND NOT slate-500. Measured repeatedly across this tool: 10–12px
+ * slate-500 lands at 4.02–4.44:1 on the tinted grounds these cards sit on (register rows 151,
+ * 217, 233). The rule is not "prefer a darker grey" — it is that small text on a tinted or
+ * glass ground has to be measured, and every time it has been, slate-500 failed.
+ */
+
+.sec-wrap { max-width: 1080px; }
+
+.sec-card + .sec-card { margin-top: 20px; }
+
+.sec-h {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+}
+.sec-sub {
+  font-size: 12.5px;
+  color: #475569;
+  margin-top: 3px;
+  line-height: 1.55;
+  max-width: 68ch;
+}
+
+/* A statement of fact the reader needs in order to trust what is above it — the honest
+ * consequence of a password change, what clients actually see, what is not recorded. Quiet,
+ * but never dimmed: on this page the caveats ARE the content (register row 233 — dim the
+ * chrome, never the words). */
+.sec-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #475569;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-left: 3px solid #94A3B8;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.sec-note strong { color: #1E293B; font-weight: 600; }
+.sec-note--amber {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  border-left-color: #B45309;
+}
+.sec-note--amber strong { color: #92400E; }
+
+/* ---- read-only identity rows (Your account) ------------------------------------------- */
+.sec-kv {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: baseline;
+}
+.sec-kv dt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: #475569;
+}
+.sec-kv dd {
+  font-size: 14px;
+  color: #0F172A;
+  font-weight: 600;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sec-kv dd + dt { margin-top: 12px; }
+
+/* ---- sessions + activity lists ---------------------------------------------------------- */
+.sec-list { border-top: 1px solid #E2E8F0; }
+.sec-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  align-items: center;
+  padding: 13px 2px;
+  border-bottom: 1px solid #F1F5F9;
+}
+/* ★ min-width:0 on the text cell, and the one-line strings inside it are BLOCK boxes.
+ * minmax(0,1fr) on the track is not enough on its own: a grid item's automatic minimum is its
+ * content's min-content width. And overflow/text-overflow are ignored on an INLINE box, so a
+ * long user-agent string would render clipped while still MEASURING its full width — a real
+ * overflow to anything reading layout, with no ellipsis ever appearing (register row 237). */
+.sec-cell { min-width: 0; overflow: hidden; }
+
+.sec-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sec-meta {
+  display: block;
+  font-size: 12px;
+  color: #475569;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sec-ua {
+  display: block;
+  font-size: 11.5px;
+  color: #475569;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sec-pill {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.sec-pill--now { background: #ECFDF5; color: #065F46; }
+.sec-pill--script { background: #F1F5F9; color: #334155; }
+.sec-pill--planned { background: #FEF3C7; color: #92400E; }
+
+.sec-actions { display: flex; gap: 8px; align-items: center; justify-self: end; }
+
+.sec-empty {
+  font-size: 13px;
+  color: #475569;
+  padding: 18px 2px;
+}
+
+/* ---- the error card every panel shares -------------------------------------------------- */
+.sec-err {
+  display: none;
+  border: 1px solid #FCA5A5;
+  background: #FEF2F2;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.sec-err.is-shown { display: block; }
+.sec-err p { font-size: 13px; color: #7F1D1D; margin: 0 0 10px; line-height: 1.55; }
+
+/* ---- narrow widths: RESTACK, never hide -------------------------------------------------
+ * Register row 229's rule, and it has bitten this project once already: hiding the "who" and
+ * "when" columns on a narrow approval queue left rows that were indistinguishable from one
+ * another. Here the device, the location and the last-active time are the whole point of the
+ * row — a session you cannot identify is one you cannot decide about. They move to their own
+ * lines; nothing is dropped. */
+@media (max-width: 720px) {
+  .sec-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sec-actions { justify-self: start; }
+  .sec-kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .sec-kv dd + dt { margin-top: 14px; }
+  .sec-title, .sec-meta, .sec-ua { white-space: normal; overflow-wrap: anywhere; }
+}

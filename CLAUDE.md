@@ -10232,6 +10232,78 @@ row 74.
   the retired row's ADDRESS identical in colour to a live row's, 390/375 on a real phone profile
   and a real 320px iframe). Repointed rather than left broken: `verify-deposit-routing-ui-wiring`
   and `verify-deposit-routing-visual`, whose admin-UI halves drove markup this rebuild replaced.
+- **★★★ PM tool revamp, part 8 — the Security page (2026-09-17, register row 238).**
+  `admin-security.html` + `.css` (`.sec-*`) + `admin-security-page.js` over two new admin-only
+  Edge Functions (`get-account-security` on `_shared/account-security.ts`, `revoke-pm-session`)
+  and a migration adding four `SECURITY DEFINER` functions over `auth.sessions` /
+  `auth.audit_log_entries`. `PM_TOOL_VOCABULARY.md` §16 carries the patterns.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `auth.sessions` AND `auth.audit_log_entries` ARE REACHABLE ONLY THROUGH A SECURITY
+    DEFINER FUNCTION IN `public`.** PostgREST exposes `public` and `graphql_public` and never
+    `auth`, so no caller reaches them directly — not a client, not an admin, not `service_role`.
+    The four functions (`pm_auth_sessions`, `pm_auth_activity`, `pm_revoke_session`,
+    `pm_revoke_other_sessions`) each take a user id as an ARGUMENT, which is exactly why EXECUTE
+    is revoked from `public`/`anon`/`authenticated` and granted to `service_role` alone: one
+    reachable by `authenticated` would let any signed-in user read or end anyone else's sessions.
+    The suite CALLS all four as a real client and as a real admin to prove the refusal, with a
+    `service_role` control so the four passes are about the grant and not a broken function.
+  - **★ THE USER ID COMES FROM THE VERIFIED TOKEN, NEVER FROM THE BODY**, and neither endpoint
+    accepts a `userId`/`clientId` input at all. "This device" is matched on the requester's own
+    `session_id` claim — confirmed present on a real issued JWT before being relied on — so it is
+    a fact about the token rather than a guess about which row the browser is sitting in.
+  - **★ WHAT REVOCATION ACTUALLY MEANS, and why the page says it that way.** Deleting the session
+    row cascades to `auth.refresh_tokens` (`refresh_tokens_session_id_fkey` is ON DELETE CASCADE),
+    so that device can never mint another access token — proven by refreshing ON the revoked
+    device, not by observing a missing row. Its CURRENT access token stays valid until it expires
+    (one hour); the page states that rather than implying an instant cut-off it cannot deliver.
+    Revoking the session you are USING is refused 409 server-side as well as unrendered — a
+    control a UI does not offer is not the same guarantee as a server that will not do it.
+  - **★ GoTrue RECORDS NO FAILED SIGN-IN ATTEMPTS, AND NO DEVICE OR LOCATION FOR ANY ENTRY.**
+    Measured, not read: a query for any action matching fail/invalid/denied returns empty, a real
+    wrong-password attempt left no new row, and `ip_address` was blank on all 62,564 rows while
+    the payload carries no user agent. So the panel is "Recent account activity", not "Recent
+    sign-ins", and `failuresRecorded`/`devicesRecorded`/`locationsRecorded` are IN THE PAYLOAD —
+    the assertions fail the day either becomes untrue, which is the point of putting a claim about
+    absent data under test rather than in a comment.
+  - **A user agent that is not a browser is NAMED** (`node` → "Node.js script", `curl/…` → curl).
+    `parseUserAgent()` answers "Unknown device · Unknown browser" for those, which is accurate and
+    useless — and on a security panel "unknown" invites alarm where the honest answer is mundane.
+  - **Geolocation is one lookup per DISTINCT public IP, capped at 12 per request.** A PM with many
+    sessions (this stack's bootstrap account had 75, nearly all opened by verification scripts)
+    would otherwise turn one page load into dozens of provider calls. Past the cap the location is
+    honestly `null`, which renders "Unknown location" — the same as a private IP or a provider
+    miss, never a guessed city.
+  - **★ THE STRENGTH METER'S LABEL IS NOT THE BAR'S COLOUR.** The fill can be saturated; the words
+    are body text and `#F59E0B`/`#10B981` both fail 4.5:1. Measured in its own contrast profile,
+    at the red end, which is the one a careless palette gets wrong.
+  - **★ A `CONTRAST_PREPARE_JS` HOOK MUST WAIT FOR THE PAGE FIRST.** `verify-contrast` runs it
+    after a FIXED `CONTRAST_SETTLE_MS` (1800 ms), and an authenticated admin page is still
+    navigating then: `document.body` was genuinely null, the hook threw, and the profile reported
+    a confident "0 measurements" rather than an error. Every hook here shares one READY preamble.
+  - **The atmospheric blob is `aria-hidden` and clipped by `<main>`'s own `overflow-x: hidden`**,
+    so it reports a rect past the viewport while nothing scrolls. Decorative subtrees are excluded
+    from the overflow probe; `document.body.scrollWidth` remains the real answer (row 211).
+  - **The five-column log is a `mw-card-table`** (row 172): on a phone "Performed by" and "When"
+    otherwise sit hundreds of pixels off-screen inside a scroll container nobody scrolls.
+  - **★ THE CLIENT SECURITY-ACTIONS LOG WAS ALREADY HERE AND IS KEPT.** The brief described this
+    page as a change-password form and nothing else; it also held the ONLY reader of
+    `getSecurityActionsLog()` anywhere in the project. It is genuinely local — no Supabase table
+    or function exists for it, confirmed by grep in the Admin UI Wiring Final Stage and again for
+    part 8 — so nothing fake was wired; it is driven end to end in the suite instead.
+  **Verified**: `supabase-verify-account-security` 49/49 (401/403 on both functions; all four
+  RPCs refused for anon AND for a real admin, with a service_role non-vacuity control; two real
+  sessions with "This device" matched to the caller's own session_id claim; a real revoke
+  measured on the revoked device; the 409 self-revoke and the 404 foreign session with that
+  user's own session provably untouched; sign-out-everywhere-else; the password-change
+  consequence end to end; and a real wrong-password attempt proven to leave no audit trace),
+  `verify-account-security-ui-wiring` 53/53 (the REAL page script in a real DOM — a real device
+  signed out through the real UI with its refresh token then provably dead, the strength meter,
+  the log rendering a real entry as "(Own account)", and a failed read painting a real error card
+  on both panels with a retry that genuinely re-fetches), `verify-account-security-visual` 44/44
+  (the rendered nav, three contrast profiles including the strength label and the error card, the
+  sheen audit, 390/375 on a real phone profile and a real 320px iframe). Repointed rather than
+  left broken: `verify-pm-self-service-security`, which extracted an inline `<script>` by a
+  comment marker this rebuild moved into the external page script.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is

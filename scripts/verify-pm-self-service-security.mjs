@@ -59,13 +59,8 @@ function readLocalStackCredentials() {
   return { url: status.API_URL, anonKey: status.ANON_KEY, serviceRoleKey: status.SERVICE_ROLE_KEY };
 }
 
-function extractInlineScript(htmlPath, marker) {
-  const html = readFileSync(htmlPath, 'utf8');
-  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(function (m) { return m[1]; });
-  const target = scripts.find(function (s) { return s.indexOf(marker) !== -1; });
-  if (!target) throw new Error('Could not find a script containing "' + marker + '" in ' + htmlPath);
-  return target;
-}
+// extractInlineScript() was removed with part 8 — the page it served now keeps its script
+// in admin-security-page.js, and no other page in this suite has an inline one.
 
 function extractBodyMarkup(htmlPath) {
   const html = readFileSync(htmlPath, 'utf8');
@@ -117,7 +112,13 @@ async function main() {
 
   const engineCoreSource = readFileSync(fileURLToPath(new URL('../engine-core.js', import.meta.url)), 'utf8');
   const path = fileURLToPath(new URL('../admin-security.html', import.meta.url));
-  const script = extractInlineScript(path, 'Backend Migration Phase C — Stage 3');
+  // ★ PM tool revamp, part 8 (2026-09-17): the page's script moved OUT of admin-security.html
+  // into admin-security-page.js when the page was rebuilt. This suite used to extract an
+  // inline <script> by a comment marker, which is exactly the kind of coupling that breaks
+  // silently — extractInlineScript() throws rather than returning nothing, which is why this
+  // was caught by the blast-radius grep for the page's own filename before the pass ran
+  // rather than by a confusing failure during it.
+  const script = readFileSync(fileURLToPath(new URL('../admin-security-page.js', import.meta.url)), 'utf8');
   const bodyMarkup = extractBodyMarkup(path);
 
   // ONE real jsdom window, reused across BOTH PMs' flows — engine-core.js's
@@ -166,8 +167,8 @@ async function main() {
     dom.window.MarketswaveData = MarketswaveData;
     dom.window.eval(script);
 
-    await pollUntil(function () { return dom.window.document.getElementById('my-account-email').textContent !== '—'; }, 10000);
-    check(pmEmail + ': the real signed-in PM\'s own email renders in "Signed in as"', dom.window.document.getElementById('my-account-email').textContent === pmEmail, dom.window.document.getElementById('my-account-email').textContent);
+    await pollUntil(function () { return dom.window.document.getElementById('sec-email').textContent !== '—'; }, 10000);
+    check(pmEmail + ': the real signed-in PM\'s own email renders under "Your account"', dom.window.document.getElementById('sec-email').textContent === pmEmail, dom.window.document.getElementById('sec-email').textContent);
 
     const currentInput = dom.window.document.getElementById('current-password');
     const newInput = dom.window.document.getElementById('new-password');
@@ -194,9 +195,9 @@ async function main() {
     confirmInput.value = pmNewPassword;
     submitBtn.click();
 
-    const toast = dom.window.document.getElementById('admin-toast');
-    await pollUntil(function () { return !toast.classList.contains('hidden'); }, 10000);
-    check(pmEmail + ': the real password change succeeds (toast confirms)', !toast.classList.contains('hidden') && /Password Updated/.test(dom.window.document.getElementById('admin-toast-title').textContent));
+    const toast = dom.window.document.getElementById('sec-toast');
+    await pollUntil(function () { return !toast.classList.contains('hidden'); }, 15000);
+    check(pmEmail + ': the real password change succeeds (toast confirms)', !toast.classList.contains('hidden') && /Password updated/i.test(toast.textContent), toast.textContent);
 
     // THE REAL PROOF, per instruction — not just a success message: sign in with the NEW
     // password, in a genuinely separate, fresh client instance.
@@ -232,7 +233,8 @@ async function main() {
 
   console.log('\n4. 2FA — confirmed genuinely deferred, not silently built as a stub\n');
   const html = readFileSync(path, 'utf8');
-  check('the real page shows an honest "not available yet" note for 2FA, not a fake toggle', /Not available yet for Portfolio Manager accounts/.test(html));
+  check('the real page shows an honest "not available" note for 2FA, not a fake toggle',
+    /Not available on Portfolio Manager accounts yet/.test(html) && /mfa_totp_enroll_not_enabled/.test(html));
   check('no interactive 2FA control (button/toggle/input) exists in the real markup', !/id="(2fa|mfa)[-\w]*"/i.test(html));
 
   // Cleanup

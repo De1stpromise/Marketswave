@@ -107,7 +107,10 @@
     "verify-client-list-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-list-ui-wiring.mjs",
     "supabase-verify-product-catalog": "node verify-supabase-product-catalog.mjs",
     "supabase-verify-deposit-address-book": "node verify-supabase-deposit-address-book.js",
+    "supabase-verify-account-security": "node verify-supabase-account-security.js",
     "verify-deposit-address-book-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-deposit-address-book-ui-wiring.mjs",
+    "verify-account-security-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-account-security-ui-wiring.mjs",
+    "verify-account-security-visual": "node verify-account-security-visual.mjs",
     "verify-deposit-address-book-visual": "node verify-deposit-address-book-visual.mjs",
     "verify-products-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-page-ui-wiring.mjs",
     "verify-products-page-visual": "node verify-products-page-visual.mjs"
