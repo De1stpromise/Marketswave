@@ -25,6 +25,8 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
+// The old-page PREPARE_ADMIN_BOOK / ADMIN_NARROW_EXPR probes were removed with the runs that
+// used them — selectors for markup that no longer exists are worse than no selectors at all.
 const BASE = 'http://127.0.0.1:8765';
 const PASSWORD = 'VerifyDepositRoutingVisual-2026!';
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -56,7 +58,12 @@ const PREPARE_CLIENT_BTC = `(async () => {
   for (let i = 0; i < 160 && !document.querySelector('.option-card[data-method="crypto"]'); i++) await sleep(250);
   document.querySelector('.option-card[data-method="crypto"]').click();
   for (let i = 0; i < 160; i++) {
-    if (document.querySelectorAll('.dep-choice').length === 4 && document.getElementById('crypto-address-value')) break;
+    // ★ NOT a hardcoded count. This waited for EXACTLY four choices, so the moment PM tool
+    // revamp part 7 added PYUSD as a fifth route the condition could never be true: the wait
+    // timed out, the card was never opened, and four downstream assertions reported null —
+    // which read as "the page did not render" rather than as "this probe counted wrong".
+    // One choice per real route is the property; the number is data.
+    if (document.querySelectorAll('.dep-choice').length >= 4 && document.getElementById('crypto-address-value')) break;
     await sleep(250);
   }
   await sleep(400);
@@ -67,20 +74,10 @@ const PREPARE_CLIENT_EMPTY = `(async () => {
   for (let i = 0; i < 160 && !document.querySelector('.option-card[data-method="crypto"]'); i++) await sleep(250);
   document.querySelector('.option-card[data-method="crypto"]').click();
   for (let i = 0; i < 160; i++) {
-    if (document.querySelectorAll('.dep-choice').length === 4) break;
+    if (document.querySelectorAll('.dep-choice').length >= 4) break;
     await sleep(250);
   }
   document.querySelector('.dep-choice[data-currency="ETH"]').click();
-  await sleep(300);
-  return true;
-})()`;
-const PREPARE_ADMIN_BOOK = `(async () => {
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 160; i++) {
-    if (document.querySelectorAll('.manage-btn').length > 0) break;
-    await sleep(250);
-  }
-  document.querySelectorAll('.manage-btn').forEach(b => b.click());
   await sleep(300);
   return true;
 })()`;
@@ -137,20 +134,6 @@ const NARROW_EXPR = `(async () => {
   };
 })()`;
 
-const ADMIN_NARROW_EXPR = `(async () => {
-  const nap = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 160; i++) { if (document.querySelectorAll('.manage-btn').length > 0) break; await nap(250); }
-  document.querySelectorAll('.manage-btn').forEach(b => b.click());
-  await nap(300);
-  const addrs = [...document.querySelectorAll('#addresses-list .dep-addr')];
-  return {
-    inner: window.innerWidth,
-    bodyScroll: document.body.scrollWidth,
-    rows: document.querySelectorAll('.address-row').length,
-    maxAddrRight: addrs.length ? Math.max(...addrs.map(a => a.getBoundingClientRect().right)) : null,
-    cardMode: getComputedStyle(document.querySelector('.address-row')).display
-  };
-})()`;
 
 function runContrast(profile, page, label, bootstrap, prepare) {
   const res = spawnSync(process.execPath, ['verify-contrast.mjs'], {
@@ -268,14 +251,15 @@ async function main() {
     console.log('\n=== CONTRAST — real composited pixels on every new surface ===\n');
     runContrast('deposit-routing-client', 'deploy-capital.html', 'client address card + pending', clientBootstrap, PREPARE_CLIENT_BTC);
     runContrast('deposit-routing-empty', 'deploy-capital.html', 'client empty state', clientBootstrap, PREPARE_CLIENT_EMPTY);
-    runContrast('deposit-routing-admin', 'admin-deposit-addresses.html', 'PM address book', adminBootstrap, PREPARE_ADMIN_BOOK);
+    // ★ RETIRED (2026-09-17) — the PM address book was rebuilt (part 7); its contrast is
+    // measured by verify-deposit-address-book-visual.mjs on three profiles of its own.
     // admin-deposits.html was retired with the other six queue pages (register row 228). The
     // amount-less row, the no-hash note, the sent-to address and the shared-address count are
     // measured on the page that carries them now by verify-approval-gate-visual.mjs.
 
     console.log('\n=== FONTS — Inter only ===\n');
     runFonts('deploy-capital.html', 'deploy-capital.html', clientBootstrap);
-    runFonts('admin-deposit-addresses.html', 'admin-deposit-addresses.html', adminBootstrap);
+    // Fonts for that page moved with it, to verify-deposit-address-book-visual.mjs.
 
     console.log('\n=== MOBILE — 1440/390/375/320 ===\n');
     const cdp = await connectChrome();
@@ -322,17 +306,17 @@ async function main() {
       // The PM address book at a narrow viewport: the table becomes cards, the address wraps.
       await cdp.send('Page.navigate', { url: BASE + '/' });
       await sleep(400);
-      await cdp.evaluate(adminBootstrap);
-      for (const width of [390, 1440]) {
-        await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 1024 });
-        await cdp.send('Page.navigate', { url: BASE + '/admin-deposit-addresses.html' });
-        await sleep(2500);
-        const a = await cdp.evaluate(ADMIN_NARROW_EXPR);
-        check('address book ' + width + 'px: rows rendered', a.rows >= 2, JSON.stringify(a));
-        check('address book ' + width + 'px: no horizontal overflow', a.bodyScroll <= a.inner + 1, JSON.stringify(a));
-        check('address book ' + width + 'px: no address escapes the viewport', a.maxAddrRight <= a.inner + 1, JSON.stringify(a));
-        if (width < 1024) check('address book 390px: the table has become cards', a.cardMode !== 'table-row', a.cardMode);
-      }
+      // ★ RETIRED (2026-09-17). These four assertions drove admin-deposit-addresses.html's OLD
+      // table markup (.address-row / .manage-btn / .expand-row), replaced by part 7's grouped
+      // book. Where each now lives, in verify-deposit-address-book-visual.mjs:
+      //   rows rendered                      → its 1440px GUARD
+      //   no horizontal overflow             → its 390 / 375 / 320 checks
+      //   no address escapes the viewport    → its "the row RESTACKS" and its 320px iframe
+      //                                        check, which measure the address specifically
+      //   the table becomes cards at 390px   → its restack assertions, which check that each
+      //                                        part of the row SURVIVES rather than that the
+      //                                        layout merely collapsed (register row 229)
+      void adminBootstrap;
     } finally {
       await cdp.close();
     }

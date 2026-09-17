@@ -105,85 +105,52 @@ async function main() {
     check('real PM sign-in succeeds', !adminSignInErr, adminSignInErr && adminSignInErr.message);
     await MarketswaveData.useAdminClient();
 
-    const engineCoreSource = readFileSync(fileURLToPath(new URL('../engine-core.js', import.meta.url)), 'utf8');
-    const bookPath = fileURLToPath(new URL('../admin-deposit-addresses.html', import.meta.url));
-    let bookDom = buildPageDom(bookPath);
-    bookDom.window.MarketswaveData = MarketswaveData;
-    bookDom.window.eval(engineCoreSource);
-    let D = bookDom.window.document;
-    bookDom.window.eval(extractInlineScript(bookPath, 'the shared deposit address book'));
-    const listEl = () => D.getElementById('addresses-list');
-    // Wait for the real render, not merely the end of the skeleton: the route <select> is
-    // populated inside render(), so four options is proof the data genuinely arrived.
-    await pollUntil(() => D.querySelectorAll('#add-route option').length === 4, 30000);
-    check('the address book loads (routes populated from the real table)', D.querySelectorAll('#add-route option').length === 4, listEl().innerHTML.slice(0, 200));
-
-    // --- Add a BTC address through the real two-step modal ---
-    D.getElementById('open-add-modal').click();
-    check('Add modal opens with the four routes', D.querySelectorAll('#add-route option').length === 4, String(D.querySelectorAll('#add-route option').length));
-    D.getElementById('add-route').value = 'BTC|Bitcoin';
-    D.getElementById('add-address').value = BTC_ADDRESS;
-    D.getElementById('add-label').value = 'UI Test BTC ' + suffix;
-    D.getElementById('add-continue').click();
-    check('the review step shows the full address back before saving',
-      !D.getElementById('add-step-confirm').classList.contains('hidden') && D.getElementById('add-confirm-address').textContent === BTC_ADDRESS,
-      D.getElementById('add-confirm-address').textContent);
-    D.getElementById('add-submit').click();
-    await pollUntil(async () => ((await admin.from('deposit_addresses').select('id').eq('label', 'UI Test BTC ' + suffix)).data || []).length === 1, 30000);
-    const btcRow = (await admin.from('deposit_addresses').select('*').eq('label', 'UI Test BTC ' + suffix).single()).data;
-    check('★ Confirm & add creates a REAL address row', !!btcRow && btcRow.address === BTC_ADDRESS && btcRow.status === 'available');
+    // ★ PART 1's ADMIN-UI HALF IS RETIRED (2026-09-17). PM tool revamp part 7 rebuilt
+    // admin-deposit-addresses.html onto an EXTERNAL admin-deposit-addresses-page.js with a
+    // wholly different control set — blocked clients first, the book grouped by currency AND
+    // network, one overlay panel instead of three modals — so the inline script and the
+    // `.address-row` / `.expand-row` / `.assign-btn` markup this section drove no longer exist.
+    // Every assertion it carried moved to verify-deposit-address-book-ui-wiring.mjs, and was
+    // ported rather than dropped — the mapping, so a future reader can check:
+    //
+    //   the two-step review showing the address back        → its PART 6
+    //   a structurally-bad address refused with the real     → its PART 6 (live, before submit,
+    //     server message                                        AND through the real function)
+    //   assign through the real UI, the row reading           → its PART 7
+    //     "1 client" / Assigned
+    //   a client already on the address disabled in the       → its assignHTML options, asserted
+    //     picker                                                 in PART 7
+    //   the sharing consequence stated for a shared address   → its PART 5 (the panel's own
+    //                                                            "will not say who sent what")
+    //   avatars rendering real initials                       → its PART 4
+    //
+    // What stays here is the SETUP those client-facing parts need — a real address, assigned to
+    // two real clients — performed through the real Edge Functions rather than through a page
+    // that no longer has those controls.
+    console.log('(PART 1\'s admin-UI half is retired — see verify-deposit-address-book-ui-wiring.mjs)');
+    const addedBtc = await MarketswaveData.callFunction('add-deposit-address', {
+      currency: 'BTC', network: 'Bitcoin', address: BTC_ADDRESS, label: 'UI Test BTC ' + suffix
+    });
+    check('a real BTC address is created for the client-facing parts below',
+      !!addedBtc && !!addedBtc.id && addedBtc.status === 'available', JSON.stringify(addedBtc).slice(0, 140));
+    const btcRow = (await admin.from('deposit_addresses').select('*').eq('id', addedBtc.id).single()).data;
     addressIds.push(btcRow.id);
-    await pollUntil(() => listEl().textContent.indexOf('UI Test BTC ' + suffix) !== -1 && !/animate-pulse/.test(listEl().innerHTML), 30000);
-    check('...and it appears in the real list as Available / Unassigned',
-      /Available/.test(listEl().textContent) && /Unassigned/.test(listEl().textContent), listEl().textContent.replace(/\s+/g, ' ').slice(0, 300));
 
-    // A structurally-bad address through the same modal is refused with the server's message.
-    D.getElementById('open-add-modal').click();
-    D.getElementById('add-route').value = 'USDT|TRC-20';
-    D.getElementById('add-address').value = BTC_ADDRESS; // a Bitcoin address in the TRON slot
-    D.getElementById('add-continue').click();
-    D.getElementById('add-submit').click();
-    await pollUntil(() => !D.getElementById('add-confirm-error').classList.contains('hidden'), 30000);
-    check('a Bitcoin address pasted into the TRC-20 slot shows the real server rejection',
-      /TRON|TRC-20/.test(D.getElementById('add-confirm-error').textContent), D.getElementById('add-confirm-error').textContent);
-    D.getElementById('add-modal-close').click();
+    let rejectedMsg = '';
+    try {
+      await MarketswaveData.callFunction('add-deposit-address', {
+        currency: 'USDT', network: 'TRC-20', address: BTC_ADDRESS
+      });
+    } catch (e) { rejectedMsg = MarketswaveData.writeErrorMessage(e); }
+    check('a Bitcoin address in the TRC-20 slot is still refused by the real server',
+      /TRON|starts with T/i.test(rejectedMsg), rejectedMsg);
 
-    // --- Assign two clients through the real Assign modal ---
-    const assignBtnFor = () => [...D.querySelectorAll('.assign-btn')].find((b) => b.dataset.address === btcRow.id);
-    assignBtnFor().click();
-    check('the Assign modal names the route and shows the full address',
-      /Bitcoin/.test(D.getElementById('assign-route-label').textContent) && D.getElementById('assign-address-label').textContent === BTC_ADDRESS);
-    D.getElementById('assign-client').value = A.id;
-    D.getElementById('assign-submit').click();
-    await pollUntil(async () => ((await admin.from('deposit_address_assignments').select('id').eq('address_id', btcRow.id).is('removed_at', null)).data || []).length === 1, 30000);
-    await pollUntil(() => /1 client(?!s)/.test(listEl().textContent) && !/animate-pulse/.test(listEl().innerHTML), 30000);
-    check('★ assigning client A through the real UI creates a real assignment and the row reads "1 client" / Assigned',
-      /1 client(?!s)/.test(listEl().textContent) && /Assigned/.test(listEl().textContent), listEl().textContent.slice(0, 200));
-    check('...the row is auto-expanded into the management view', !!D.querySelector('.expand-row'));
-    check('...which lists A with an assignment date and "None yet" for last deposit',
-      new RegExp(A.name).test(D.querySelector('.expand-row').textContent) && /None yet/.test(D.querySelector('.expand-row').textContent));
-
-    // Second client on the SAME address.
-    [...D.querySelectorAll('.expand-row .assign-btn')][0].click();
-    const optionA = [...D.querySelectorAll('#assign-client option')].find((o) => o.value === A.id);
-    check('the Assign modal disables a client already on this address', optionA && optionA.disabled === true);
-    // ★ This suite does NOT own `deposit_addresses` — seed-client-gary.mjs (register row 223)
-    // keeps two real rows there permanently. Every read below is scoped to THIS suite's own
-    // address by id; an unscoped `.address-row`/`.expand-row` query reads whichever row
-    // happens to sort first, which is how this section started failing after that seed landed.
-    const ownRow = () => D.querySelector('.address-row[data-id="' + btcRow.id + '"]');
-    const ownExpand = () => { const r = ownRow(); return r && r.nextElementSibling && r.nextElementSibling.classList.contains('expand-row') ? r.nextElementSibling : null; };
-    const ownRowText = () => { const r = ownRow(); return r ? r.textContent : ''; };
-
-    D.getElementById('assign-client').value = B.id;
-    D.getElementById('assign-submit').click();
-    await pollUntil(() => /2 clients/.test(ownRowText()) && !/animate-pulse/.test(listEl().innerHTML), 30000);
-    check('★ a second client on the same address: row reads "2 clients"', /2 clients/.test(ownRowText()), ownRowText());
-    check('★ the sharing consequence is stated in the management view',
-      /Shared by 2 clients/.test(ownExpand().textContent) && /chain alone will not say who sent what/.test(ownExpand().textContent),
-      ownExpand().textContent.slice(0, 300));
-    check('...avatars render real initials for both', /RA/.test(ownRowText()) && /RB/.test(ownRowText()),
-      ownRowText().slice(0, 120));
+    await MarketswaveData.callFunction('assign-deposit-address', { addressId: btcRow.id, clientId: A.id });
+    await MarketswaveData.callFunction('assign-deposit-address', { addressId: btcRow.id, clientId: B.id });
+    const { data: bothAssigned } = await admin.from('deposit_address_assignments')
+      .select('client_id').eq('address_id', btcRow.id).is('removed_at', null);
+    check('both clients are genuinely assigned to it — the shared-address case these parts need',
+      (bothAssigned || []).length === 2, String((bothAssigned || []).length));
 
     // ===== PART 2: both clients see it on deploy-capital.html; one submits with a hash, one without =====
     console.log('\n=== PART 2: deploy-capital.html — both clients see the address; submit with and without a hash ===\n');
@@ -211,8 +178,17 @@ async function main() {
     let domA = await loadDeployCapitalAs(A);
     let P = domA.window.document;
     [...P.querySelectorAll('.option-card')].find((c) => c.dataset.method === 'crypto').click();
-    await pollUntil(() => P.querySelectorAll('.dep-choice').length === 4 && !/animate-pulse/.test(P.getElementById('crypto-address-region').innerHTML), 30000);
-    check('the crypto form offers FOUR distinct currency choices', P.querySelectorAll('.dep-choice').length === 4, String(P.querySelectorAll('.dep-choice').length));
+    await pollUntil(() => P.querySelectorAll('.dep-choice').length >= 4 && !/animate-pulse/.test(P.getElementById('crypto-address-region').innerHTML), 30000);
+    // ★ The count is read from the REAL deposit_routes table, never hardcoded. It was 4 until
+    // PM tool revamp part 7 added PYUSD, and this assertion failing on a 5th was the feature
+    // working — a client-facing picker that does NOT grow when a route is added is the bug.
+    const { data: liveRoutes } = await admin.from('deposit_routes').select('currency, network');
+    check('the crypto form offers one choice per real route (' + liveRoutes.length + ')',
+      P.querySelectorAll('.dep-choice').length === liveRoutes.length,
+      P.querySelectorAll('.dep-choice').length + ' vs ' + liveRoutes.length);
+    check('★ ...including PayPal USD, which reached the client picker with no page change',
+      [...P.querySelectorAll('.dep-choice')].some((c) => c.dataset.currency === 'PYUSD'),
+      [...P.querySelectorAll('.dep-choice')].map((c) => c.dataset.currency).join(','));
     const choiceLabels = [...P.querySelectorAll('.dep-choice')].map((c) => c.textContent.replace(/\s+/g, ' ').trim());
     check('...USDT TRC-20 and USDT ERC-20 are two separate choices, no network toggle anywhere',
       choiceLabels.filter((l) => /Tether/.test(l)).length === 2 && !P.getElementById('crypto-network'), JSON.stringify(choiceLabels));
@@ -340,43 +316,48 @@ async function main() {
     check('★ History shows the credited figure WITHOUT a spurious "(differs)" — nothing was requested to differ from',
       histRowA && /4,251|4,250/.test(histRowA.textContent) && !histRowA.querySelector('.ag-differs'), histRowA && histRowA.textContent);
 
-    // The address book now shows a real "last deposit" for both clients.
-    bookDom = buildPageDom(bookPath);
-    bookDom.window.MarketswaveData = MarketswaveData;
-    bookDom.window.eval(engineCoreSource);
-    D = bookDom.window.document;
-    bookDom.window.eval(extractInlineScript(bookPath, 'the shared deposit address book'));
-    await pollUntil(() => !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML) && D.getElementById('addresses-list').textContent.indexOf('UI Test BTC ' + suffix) !== -1, 30000);
-    [...D.querySelectorAll('.manage-btn')].find((b) => b.dataset.id === btcRow.id).click();
-    const expanded = D.querySelector('.expand-row');
+    // ★ RETIRED with the rest of PART 1's admin-UI half (2026-09-17). The same proof now runs
+    // against the rebuilt page in verify-deposit-address-book-ui-wiring.mjs's PART 5, which
+    // reads the panel's own per-client "last deposit" line. What is checked here instead is the
+    // FACT that proof depends on: the book's own read genuinely reports a last-deposit date per
+    // client once a deposit has been credited.
+    const bookNow = await MarketswaveData.callFunction('get-deposit-address-book');
+    const bookedRow = bookNow.addresses.filter(function (a) { return a.id === btcRow.id; })[0];
     const today = new Date().toISOString().slice(0, 10);
-    check('the management view now shows today as "last deposit" for both clients (no "None yet")',
-      expanded && (expanded.textContent.match(new RegExp(today, 'g')) || []).length >= 2 && !/None yet/.test(expanded.textContent), expanded && expanded.textContent.slice(0, 300));
+    check('the address book reports a real last-deposit date for both clients (never "no deposits yet")',
+      !!bookedRow && bookedRow.clients.length === 2 &&
+      bookedRow.clients.every(function (c) { return c.lastDepositAt && String(c.lastDepositAt).slice(0, 10) === today; }),
+      bookedRow && JSON.stringify(bookedRow.clients.map(function (c) { return c.lastDepositAt; })));
 
-    // ===== PART 4: remove both -> retired, and the retired address cannot be reassigned via the UI =====
-    console.log('\n=== PART 4: retirement through the real UI ===\n');
-    const removeBtns = [...(ownExpand() || expanded).querySelectorAll('.remove-btn')];
-    removeBtns[0].click();
-    check('removing the first of two clients does NOT warn about retirement', D.getElementById('remove-retire-warning').classList.contains('hidden'));
-    D.getElementById('remove-submit').click();
-    await pollUntil(() => !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML) && /1 client(?!s)/.test(ownRowText()), 30000);
-    const lastRemove = ownExpand().querySelector('.remove-btn');
-    lastRemove.click();
-    check('★ removing the LAST client warns that the address will be retired permanently',
-      !D.getElementById('remove-retire-warning').classList.contains('hidden') && /permanently/.test(D.getElementById('remove-retire-warning').textContent));
-    D.getElementById('remove-submit').click();
-    await pollUntil(async () => (await admin.from('deposit_addresses').select('status').eq('id', btcRow.id).single()).data.status === 'retired', 30000);
-    await pollUntil(() => /Retired/.test(ownRowText()) && !/animate-pulse/.test(D.getElementById('addresses-list').innerHTML), 30000);
-    check('the row now reads Retired / "Previously 2 clients"', /Previously 2 clients/.test(ownRowText()), ownRowText().slice(0, 200));
-    check('...and offers no Assign control anywhere for it', ![...D.querySelectorAll('.assign-btn')].some((b) => b.dataset.address === btcRow.id));
-    const retireDirect = await admin.from('deposit_address_assignments').insert({ address_id: btcRow.id, client_id: C.id, currency: 'BTC', network: 'Bitcoin' });
-    check('★★ and the DATABASE refuses a direct reassignment regardless of any UI', !!retireDirect.error && /DEPOSIT_ADDRESS_RETIRED/.test(retireDirect.error.message), JSON.stringify(retireDirect.error));
 
-    // A's Deploy Capital page now shows the empty state for BTC again (no longer assigned).
-    domA = await loadDeployCapitalAs(A);
-    P = domA.window.document;
-    [...P.querySelectorAll('.option-card')].find((c) => c.dataset.method === 'crypto').click();
-    await pollUntil(() => !/animate-pulse/.test(P.getElementById('crypto-address-region').innerHTML), 30000);
+    // ===== PART 4: retirement, enforced server-side =====
+    // ★ PART 4's ADMIN-UI HALF IS RETIRED (2026-09-17), for the same reason as PART 1's. Where
+    // each assertion now lives in verify-deposit-address-book-ui-wiring.mjs:
+    //
+    //   removing one of two clients does NOT warn about retirement → its PART 8 (the warning
+    //     text branches on whether this is the LAST client, and both branches are asserted)
+    //   removing the LAST client warns it will be retired            → its PART 8
+    //   the row reading Retired / "Previously N clients"             → its PART 9
+    //   no Assign control offered for a retired address              → its PART 9
+    //
+    // The DATABASE-level refusal below is NOT retired and stays here: it is the proof that the
+    // guarantee is server-side rather than a UI convention, which is the whole point of it.
+    console.log('(PART 4\'s admin-UI half is retired — see verify-deposit-address-book-ui-wiring.mjs)');
+    const { data: asgRows } = await admin.from('deposit_address_assignments')
+      .select('id, client_id').eq('address_id', btcRow.id).is('removed_at', null);
+    check('GUARD: two live assignments to remove', (asgRows || []).length === 2, String((asgRows || []).length));
+    for (const row of asgRows) {
+      await MarketswaveData.callFunction('remove-deposit-address-assignment', { assignmentId: row.id });
+    }
+    const { data: retiredNow } = await admin.from('deposit_addresses').select('status').eq('id', btcRow.id).single();
+    check('★ removing the last client RETIRES the address — a server-side trigger, not the UI',
+      retiredNow.status === 'retired', retiredNow.status);
+    const retireDirect = await admin.from('deposit_address_assignments')
+      .insert({ address_id: btcRow.id, client_id: A.id });
+    check('★★ and the DATABASE refuses a direct reassignment regardless of any UI',
+      !!retireDirect.error && /DEPOSIT_ADDRESS_RETIRED|retired/i.test(retireDirect.error.message),
+      retireDirect.error && retireDirect.error.message);
+
     check('after removal, A\'s page shows the empty state and the retired address is gone from it',
       !P.getElementById('crypto-empty-state').classList.contains('hidden') && P.body.textContent.indexOf(BTC_ADDRESS) === -1);
   } finally {

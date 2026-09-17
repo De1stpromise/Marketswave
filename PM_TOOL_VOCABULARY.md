@@ -267,3 +267,63 @@ The first PM surface holding hundreds of rows rather than dozens. What it establ
   this project generates a catalogue export, and Documents & Reporting owns getting data out.
 
 ---
+
+## 15. Reference data a client depends on (part 7 — the deposit address book)
+
+The first PM surface where a PM's OMISSION silently blocks a client. What it establishes:
+
+- **★ WHAT A PM HAS NOT DONE LEADS THE PAGE.** A client with no address on a route cannot
+  deposit that currency at all — they see an honest empty state where an address should be, and
+  nothing on their side says why. So the blocked clients sit in amber ABOVE the strip and the
+  book, with the currencies each is missing as chips and an Assign action on the row itself.
+  The Overview already counts them; this page is where the count is fixed, and the banner
+  SHRINKS as each route is assigned rather than being a snapshot taken at load.
+- **GROUP BY THE THING THAT MAKES TWO ROWS RELATED.** Several addresses per coin is the normal
+  case, so a flat list makes them read as unrelated. Each group header carries its own address
+  count, client count, total received and Add action. **USDT appears TWICE** — TRC-20 and
+  ERC-20 are two groups, never one with a network toggle, because sending to the wrong one
+  destroys the funds and a toggle invites exactly that.
+- **★ THE DETAIL PANEL'S EMPHASIS FOLLOWS THE OBJECT, not the page.** A SHARED address leads
+  with its clients, because the open question is who is on it — the chain alone will not say who
+  sent what. A SINGLE-CLIENT address leads with its deposits, because attribution there is
+  unambiguous and the deposits are what a PM came to see. Leading with the wrong one buries the
+  question that is actually open. (Part 6 branched a panel on a product's pricing model for the
+  same reason; this is the same rule applied to a different axis.)
+- **SAY WHAT THE PLATFORM DOES NOT DO.** Both panels carry it: only deposits a client
+  ACKNOWLEDGED through the platform are listed — Marketswave does not watch the chain. A figure
+  that looks like a balance and is really a sum of self-reports has to say so where it is read.
+- **★ AN IRREVERSIBLE INPUT GETS TWO DIFFERENT GUARDS, because they catch different mistakes.**
+  STRUCTURAL VALIDATION against the route's own format, live, per keystroke — catches a TRON
+  address in an ERC-20 slot, a truncated paste, an 0x missing a character. Then a READ-BACK step
+  spelling the address out again before it saves — the only defence against a WELL-FORMED address
+  belonging to someone else, which nothing client-side can validate and a human reading it
+  against their wallet can. Neither replaces the other, and the server re-runs the structural
+  check regardless.
+- **THE CLIENT-SIDE CHECK IS A COURTESY; THE SERVER IS THE AUTHORITY.** The page mirrors
+  `_shared/deposit-address-validation.ts` so a PM learns before submitting, and the suite proves
+  the rejection through the REAL function with no row created. Where a rule is mirrored, say so
+  at both ends — the same small, disclosed duplication `getHYSRate()` once carried.
+- **★ REFERENCE DATA LIVES IN A TABLE, SO ADDING ONE IS ONE ROW.** `deposit_routes` is the
+  catalogue of what a client may send. PYUSD was added as a single row: validation, the client's
+  deposit picker, `request-deposit` and this page all read it generically and needed no code
+  change. **A new route with no genuine address format is not a row** — PYUSD on Solana was left
+  out because Solana addresses are neither `evm` nor `tron` and a route a client can pick must be
+  one that is really validated.
+- **★ DIM THE CHROME, NEVER THE WORDS — and on this page the words are the point.** A retired
+  address is a background TINT with a status pill; the mockup faded the whole row at
+  `opacity:.5`, which is register row 233's 2.59:1 failure, and here the faded thing would be the
+  62-character address — the one text worth reading on a retired row, since its history is why
+  it is still on screen at all. Retirement keeps everything and refuses new assignment, and both
+  are enforced by a database trigger rather than by the UI.
+- **Surfaces**: white `.da-*` cards on the page ground, with **no `.glass` anywhere** — asserted,
+  the same call the approval gate made (§13), because the most important text here is an address
+  read character by character. Secondary 10–10.5px text is `#475569`. **A small quiet figure is
+  still text**: the row index at `#94A3B8` measured 2.56:1 and was darkened.
+- **A nowrap cell needs `min-width: 0` AND a block box.** An address is `white-space: nowrap`, so
+  a grid item's automatic minimum is the whole string — `minmax(0, 1fr)` on the track is not
+  enough. And `overflow`/`text-overflow` do not apply to an inline box, so the address rendered
+  clipped while still MEASURING its full width (and never showed an ellipsis). Both caught by
+  measuring `maxRight`, which is why the probe names the widest offender rather than printing a
+  bare number.
+
+---

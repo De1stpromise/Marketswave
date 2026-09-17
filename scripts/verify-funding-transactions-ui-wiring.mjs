@@ -157,9 +157,17 @@ async function main() {
 
   // Seeded BEFORE the page script runs: the page fetches the client's assigned addresses
   // once at load, exactly as it would for a real client whose PM assigned one earlier.
-  const { data: seededAddress } = await admin.from('deposit_addresses')
+  // ★ SWEEP FIRST, AND READ THE ERROR. This address is a fixed test vector, so a NEIGHBOURING
+  // suite that crashed before its own teardown leaves a row that makes this insert a unique
+  // violation — and `const { data }` alone reports that as a null a line later ("Cannot read
+  // properties of null"), which reads as a page bug rather than as leftover state.
+  await admin.from('deposit_address_assignments').delete().in('address_id',
+    ((await admin.from('deposit_addresses').select('id').eq('address', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')).data || []).map(function (r) { return r.id; }));
+  await admin.from('deposit_addresses').delete().eq('address', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4');
+  const { data: seededAddress, error: seedAddrErr } = await admin.from('deposit_addresses')
     .insert({ currency: 'BTC', network: 'Bitcoin', address: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4', label: 'Stage 3 test ' + suffix })
     .select().single();
+  if (seedAddrErr) throw new Error('could not seed the deposit address: ' + seedAddrErr.message);
   seededAddressId = seededAddress.id;
   await admin.from('deposit_address_assignments').insert({ address_id: seededAddress.id, client_id: clientId, currency: 'BTC', network: 'Bitcoin' });
   deployDom.window.eval(deployScript);

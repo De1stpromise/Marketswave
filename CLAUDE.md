@@ -10183,6 +10183,55 @@ row 74.
   their dead probes deleted), `verify-products-catalog-fix` 39/39 (three admin blocks driven
   through the real new controls), `verify-asset-pages-ui-wiring` 43/43, `verify-control-patterns`
   41/41.
+- **★★★ PM tool revamp, part 7 — the deposit address book (2026-09-17, register row 237).**
+  `admin-deposit-addresses.html` + `.css` (`.da-*`) + `admin-deposit-addresses-page.js` over a
+  new admin-only `get-deposit-address-book` (on `_shared/deposit-address-book.ts`), plus a
+  one-row migration adding PayPal USD. `PM_TOOL_VOCABULARY.md` §15 carries the patterns.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `public.deposit_routes` IS THE CURRENCY CATALOGUE, and adding a currency is ONE ROW.**
+    Validation (`address_format`), the client's deposit picker in `deploy-capital.html`,
+    `request-deposit` and this page all read it generically — none of them carries a list. PYUSD
+    needed no code change anywhere, only the row. **A route whose address format is not genuinely
+    validated must not be added**: PYUSD on Solana was deliberately left out because Solana
+    addresses are neither `evm` nor `tron`, and a client-pickable route that is not really
+    checked is worse than an absent one.
+  - **★ ...WHICH MEANS ANY HARDCODED ROUTE COUNT IN A TEST IS A TIME BOMB.** Three `=== 4`s
+    across two suites turned false the moment PYUSD landed. One failed an assertion honestly;
+    two were inside `for (...) { if (count === 4) break; }` WAITS, which simply timed out — and
+    a timed-out wait reports as null further down, reading as "the page did not render" rather
+    than "this probe counted wrong". Read the count from `deposit_routes`, or use `>=`.
+  - **★ `status` ON `deposit_addresses` IS DERIVED BY TRIGGER AND NEVER WRITTEN BY A CALLER.**
+    `available` on insert, `assigned` once any client is on it, `retired` once the last is
+    removed — and a retired address refuses a new assignment at the DATABASE, not in the UI.
+    Do not add a writer; the Edge Functions deliberately have none.
+  - **★ ONLY `credited` DEPOSITS COUNT AS RECEIVED.** A pending request is money a client SAYS
+    they sent. Every figure on this page is the sum of what a PM has acknowledged, and both
+    detail panels say so out loud, because a number that looks like a balance and is really a
+    sum of self-reports has to admit it where it is read. Marketswave does not watch the chain.
+  - **The blocked set is "active clients with no ACTIVE assignment on a route"**, which is the
+    same definition the Overview's own "clients with no deposit address assigned" line uses —
+    they must agree, and a removed assignment stops counting the moment it is removed.
+  - **The address book page carries NO `.glass`**, asserted — the most important text on it is a
+    62-character address. Secondary text is `#475569`; even the 10px row index needed darkening
+    from `#94A3B8` (2.56:1).
+  - **★ A NOWRAP CELL NEEDS `min-width: 0` AND `display: block`.** `minmax(0, 1fr)` on the grid
+    track is not enough: a grid item's automatic minimum is its content's min-content width, and
+    an address never wraps. And `overflow`/`text-overflow` are ignored on an INLINE box, so the
+    address rendered clipped while still measuring its full width — a real overflow to anything
+    reading layout, and the ellipsis never appeared. The visual probe names the widest offender
+    for exactly this reason: "maxRight 381" sends you reasoning about CSS, "SPAN.da-addr @381"
+    sends you to the element.
+  **Verified**: `supabase-verify-deposit-address-book` 42/42 (PYUSD end to end through the real
+  paths — added, assigned, seen by the client through the same RLS-scoped read deploy-capital
+  makes, a real deposit raised and credited; a TRON address refused on the PYUSD route with the
+  row count provably unchanged; the blocked set appearing and shrinking; a retired address
+  keeping its history and refusing reassignment; Gary's real figures cross-checked against an
+  independent sum over the ledger), `verify-deposit-address-book-ui-wiring` 55/55 (the REAL page
+  script in a real DOM, including a failed read painting an error card rather than an empty
+  book), `verify-deposit-address-book-visual` 60/60 (the rendered nav, three contrast profiles,
+  the retired row's ADDRESS identical in colour to a live row's, 390/375 on a real phone profile
+  and a real 320px iframe). Repointed rather than left broken: `verify-deposit-routing-ui-wiring`
+  and `verify-deposit-routing-visual`, whose admin-UI halves drove markup this rebuild replaced.
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
   many-client migration tool is separate work. **Idempotent two ways**: the auth user is

@@ -340,17 +340,14 @@ PROFILES['deposit-routing-empty'] = [
   { label: 'empty CTA', sel: '#crypto-empty-message-pm', limit: 1 }
 ];
 // The address book (glass card; the expanded management view is glass-subtle inside it).
-PROFILES['deposit-routing-admin'] = [
-  { label: 'currency name', sel: '#addresses-list .font-semibold', limit: 4 },
-  { label: 'network / status pill', sel: '#addresses-list [class*="text-[10px]"]', limit: 8 },
-  { label: 'address', sel: '#addresses-list .dep-addr', limit: 4 },
-  { label: 'avatar initials', sel: '#addresses-list .dep-av', limit: 3 },
-  { label: 'assigned-to text', sel: '#addresses-list td .text-xs', limit: 4 },
-  { label: 'management note', sel: '.expand-row p', limit: 8 },
-  { label: 'management cell', sel: '.expand-row td', limit: 8 },
-  { label: 'management head', sel: '.expand-row th', limit: 4 },
-  { label: 'management buttons', sel: '.expand-row button', limit: 4 }
-];
+// ★ RETIRED (2026-09-17): this profile's selectors are admin-deposit-addresses.html's OLD
+// markup (#addresses-list, .expand-row, .dep-addr), which PM tool revamp part 7 replaced. A
+// profile whose selectors match nothing MEASURES nothing, which verify-contrast correctly
+// reports as a FAIL rather than a confident pass (§V, the vacuity pattern) — so it is removed
+// rather than left to rot. The page's own contrast is measured by
+// verify-deposit-address-book-visual.mjs on three profiles: `address-book` (the book, the
+// blocked banner, the strip, the pills), `address-book-retired` (the tinted row on its own
+// ground — row 233's 2.59:1) and `address-book-panel` (the detail panel).
 // The deposits queue moved the same way (register row 228): the amount-less row, the no-hash
 // note, the sent-to address and the shared-address count are measured by
 // verify-approval-gate-visual.mjs, on admin-approvals.html.

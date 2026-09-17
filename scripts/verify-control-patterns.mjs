@@ -141,7 +141,20 @@ async function goto(cdp, url, bootstrap) {
       landed = await cdp.evaluate('location.origin === ' + JSON.stringify(origin) + ' && !!document.body').catch(() => false);
     }
     if (!landed) throw new Error('never reached a same-origin document to write the session bootstrap (wanted ' + want + ')');
-    await cdp.evaluate(bootstrap);
+    // ★ AND THE WRITE ITSELF CAN STILL RACE. The document we landed on may be mid-redirect (the
+    // client guard bouncing an unauthenticated load), and a navigation that STARTS during the
+    // evaluate kills it with "Inspected target navigated or closed". That is transient by
+    // definition — the next document is same-origin too — so retry rather than fail the run.
+    let wrote = false;
+    for (let i = 0; i < 6 && !wrote; i++) {
+      try { await cdp.evaluate(bootstrap); wrote = true; }
+      catch (e) {
+        if (!/navigated or closed/i.test(String(e && e.message))) throw e;
+        await sleep(300);
+        await cdp.evaluate('location.origin === ' + JSON.stringify(origin) + ' && !!document.body').catch(() => false);
+      }
+    }
+    if (!wrote) throw new Error('could not write the session bootstrap: the page kept navigating');
     await cdp.send('Page.navigate', { url });
   }
   for (let i = 0; i < 60; i++) {
