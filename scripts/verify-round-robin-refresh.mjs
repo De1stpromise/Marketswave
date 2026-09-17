@@ -257,7 +257,7 @@ async function main() {
       const selected = symbols.filter((s) => afterTs[s] !== beforeTs[s]);
       selected.forEach((s) => { refreshedCount[s]++; });
       const sameAsPrev = prevSelected && selected.length === prevSelected.length && selected.every((s) => prevSelected.indexOf(s) !== -1);
-      runs.push({ k, status: r.status, refreshed: r.body.stockSymbolsRefreshed, oldest: r.body.oldestStockAfterRun, selected, sameAsPrev, halted: r.body.haltedForRateLimit });
+      runs.push({ k, at: Date.now(), status: r.status, refreshed: r.body.stockSymbolsRefreshed, oldest: r.body.oldestStockAfterRun, selected, sameAsPrev, halted: r.body.haltedForRateLimit });
       console.log('    run ' + k + ': refreshed ' + r.body.stockSymbolsRefreshed + '/' + S + ', oldest after run = ' + r.body.oldestStockAfterRun.symbol + ' @ ' + r.body.oldestStockAfterRun.ageMinutes + ' min' + (r.body.haltedForRateLimit ? '  [halted]' : ''));
       prevSelected = selected;
       // A cycle passes: every row ages by one interval.
@@ -288,8 +288,26 @@ async function main() {
     // were indistinguishable; at 10 cycles — row 211 — they are 45 vs ~58 minutes, and the
     // original single-gap bound wrongly failed a series that was perfectly stable.) A real
     // deployment has no simulated ageing: the cron's own reports settled at 45.1 min.
-    const realGapMin = MINUTE_WINDOW_MS / 60000 + 0.5;
-    check('★ the reported oldest-symbol age STABILISES at the theoretical worst case (' + ((cycles - 1) * INTERVAL_MIN) + ' min of simulated ageing after a run, plus the real inter-run gaps) rather than growing without bound', steady.every((a) => a <= (cycles - 1) * (INTERVAL_MIN + realGapMin)) && steady[steady.length - 1] <= steady[0] + 0.5, JSON.stringify(ages));
+    // ★ MEASURE THE REAL INTER-RUN GAP, DO NOT ASSUME IT. The simulation pushes every row back
+    // INTERVAL_MIN per run ON TOP OF real clock time, so the real gap accrues once PER CYCLE.
+    // Assuming that gap is MINUTE_WINDOW_MS + a little understates it: `waitForClearMinute()`
+    // also waits out the minutes real cloud staging's own 5-minute cron occupies (register row
+    // 213 — the Finnhub key is shared), and the run itself takes time. At 10 cycles the assumed
+    // figure bounded at 59 min while a PERFECTLY STABLE series sat at 67-68, so the suite failed
+    // a result that was the rotation working exactly as designed. Read the real gap off the runs.
+    const gaps = [];
+    for (let i = 1; i < runs.length; i++) gaps.push((runs[i].at - runs[i - 1].at) / 60000);
+    const meanGapMin = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    const bound = (cycles - 1) * (INTERVAL_MIN + meanGapMin) + 2;   // +2 min of slack
+    // ★ STABILITY IS THE PROPERTY; the bound is the sanity check. "Not growing without bound" is
+    // what the rotation actually guarantees, and a spread assertion says that directly rather
+    // than inferring it from a ceiling that depends on how long the harness happened to wait.
+    const spread = Math.max(...steady) - Math.min(...steady);
+    check('★ the reported oldest-symbol age STABILISES rather than growing without bound — the steady window varies by under one refresh interval',
+      steady.length >= 3 && spread < INTERVAL_MIN,
+      'spread ' + spread.toFixed(1) + ' min over ' + steady.length + ' runs: ' + JSON.stringify(steady));
+    check('...and it settles at the theoretical worst case for ' + cycles + ' cycles at a measured ' + meanGapMin.toFixed(1) + '-min inter-run gap (≤ ' + bound.toFixed(1) + ' min)',
+      steady.every((a) => a <= bound), JSON.stringify(steady));
     check('...and the FIRST run\'s reported oldest age is the larger, staggered figure (the metric is real, not a constant)', ages[0] > (cycles - 1) * INTERVAL_MIN + 1, JSON.stringify(ages));
 
     // ===================================================================================
