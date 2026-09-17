@@ -164,7 +164,15 @@
       : a.total + (a.total === 1 ? ' entry' : ' entries') + ' in the last ' + a.days + ' days.';
 
     if (!a.rows.length) {
-      box.innerHTML = '<p class="sec-empty">No account activity has been recorded in this period.</p>';
+      // ★ AN EMPTY PANEL MUST SAY WHICH KIND OF EMPTY IT IS. Measured against the real hosted
+      // project on 2026-09-17: auth.audit_log_entries holds ZERO rows there in total, even
+      // seconds after a genuine sign-in — hosted GoTrue ships these events to the platform's own
+      // log storage rather than that table, while the local stack populates it normally. Without
+      // this sentence a PM reading an empty panel cannot tell "nothing happened" (implausible —
+      // they are signed in) from "nothing is recorded here".
+      box.innerHTML = '<p class="sec-empty">No account activity has been recorded in this period. ' +
+        'On this deployment the hosted authentication service may not write to the audit table at ' +
+        'all, in which case this panel stays empty however often you sign in.</p>';
       return;
     }
     box.innerHTML = a.rows.map(function (r) {

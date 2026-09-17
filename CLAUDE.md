@@ -10290,6 +10290,18 @@ row 74.
     `getSecurityActionsLog()` anywhere in the project. It is genuinely local — no Supabase table
     or function exists for it, confirmed by grep in the Admin UI Wiring Final Stage and again for
     part 8 — so nothing fake was wired; it is driven end to end in the suite instead.
+  - **★ A FINDING THE LOCAL STACK COULD NOT PRODUCE, measured on real cloud staging at deploy
+    time: `auth.audit_log_entries` there holds ZERO rows IN TOTAL** — confirmed by a raw
+    `count(*)` over the table, not only by the filtered read — and stays empty seconds after a
+    genuine sign-in by a brand-new user. Hosted GoTrue ships these events to the platform's own
+    log storage instead of that table, while the local stack populates it normally (62,568 rows).
+    So the Recent account activity panel renders real entries locally and its EMPTY STATE in
+    production, which is correct rather than broken — but an empty panel alone cannot distinguish
+    "nothing happened" (implausible: the reader is signed in) from "nothing is recorded here", so
+    the empty state names the platform behaviour outright. Everything else on the page — sessions,
+    revocation, the password-change consequence — was proven against the real deployment: 21 real
+    assertions including the 409 self-revoke and all four RPCs refused for a real client AND a real
+    admin with a `service_role` control.
   **Verified**: `supabase-verify-account-security` 49/49 (401/403 on both functions; all four
   RPCs refused for anon AND for a real admin, with a service_role non-vacuity control; two real
   sessions with "This device" matched to the caller's own session_id claim; a real revoke
