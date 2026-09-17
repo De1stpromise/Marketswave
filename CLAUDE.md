@@ -10358,6 +10358,10 @@ row 74.
   `job_run_details` too), `auth.sessions.refreshed_at` (null for every real PM session locally, its
   hosted behaviour never checked — `lastActiveAt` already falls back past it), and `_analytics`.
   Confirmed populated on the hosted project by this probe: `auth.sessions`, `auth.users.last_sign_in_at`.
+  **A disclosed side effect of the probe itself**: `supabase.auth.signOut()` defaults to `scope:
+  'global'`, so the 22:03Z probe ended EVERY one of the staging PM's 13 sessions (all verification-
+  script sessions from part 8's own proof), not just its own. A probe that signs in as a real
+  account must sign out with `{ scope: 'local' }`.
 
 - **★★ Seed script for one backdated client — `scripts/seed-client-gary.mjs`** (2026-09-14,
   register row 223): `node seed-client-gary.mjs` (local) / `--staging`. A script for ONE client; the
