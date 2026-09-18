@@ -10588,7 +10588,12 @@ row 74.
     "carrier" documents (an Onboarding Record, a Regulatory Levy) went too; the data they stood in
     for still has no real home — onboarding beyond the three persisted fields, and any invoice/fee
     concept — which is register row 224, open, not fixed here. Real demo documents for Gary would
-    need real bytes in Storage, not a byteless row.
+    need real bytes in Storage, not a byteless row. **★ CORRECTED 2026-09-18: that source fix
+    and the ROW cleanup are two separate actions, and part 9 did only the first.** A source fix
+    stops the next run; it does not undo the last one, and the seed was never re-run. Audited on
+    both environments the next session — LOCAL still held all 6 rows, STAGING 5 — and removed on
+    both by `service_role` deletes scoped to his `client_id`, re-read as 0. When a seed's source
+    is corrected, delete what the old seed already wrote, on every environment it ran against.
   - **Blast radius, repointed not dropped**: the six suites that read admin-documents.html —
     verify-cross-role-sync-bugfix and verify-documents-storage-integration (both now load the
     external `admin-documents-page.js` instead of the old inline script, and reach Download /
