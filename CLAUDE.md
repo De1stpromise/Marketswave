@@ -10609,6 +10609,93 @@ row 74.
   suites re-run green through the rebuilt page: verify-cross-role-sync-bugfix 38/38 and verify-documents-storage-integration 46/46 (both now loading the external page script and reaching Download / Mark Reviewed through the row's detail overlay), verify-upload-accessibility 43/43, verify-label-association PASS (the static publish form's controls revealed from their hidden modal and correctly named), verify-control-patterns 41/41 (every control at its tier, the filter pill floored to 44px on mobile), audit-glass-sheen genuinely 0 glass on admin-documents.html (matching the sibling admin pages, 127 measurements across 20 pages, 0 below 4.5:1). The fixture gate passed first; no
   Edge Function or migration changed, so no cloud-staging parity/deploy was needed.
 
+- **★★★ Task C — real signing (2026-09-18, register rows 248–249).** "Signed" was a status
+  flip a client wrote directly, capturing nothing. Now a signature is an append-only evidence
+  row written server-side BEFORE the status changes, a signed copy with a certificate page,
+  and a PM panel whose hash is re-checked live. Same shape as Tasks A and B.
+  **Things a future session needs to know before touching any of this:**
+  - **★ A CLIENT HAS NO UPDATE PATH ON `documents` AT ALL, and there must not be one.** The
+    Sign-scoped UPDATE policy was dropped because RLS `WITH CHECK` constrains only the columns
+    it names: PROVEN on the real policy, a client's Sign UPDATE could also rewrite `filename`,
+    `category`, `storage_path` and `created_at` on the firm-published document — a live hole,
+    closed first as its own commit by a BEFORE UPDATE trigger (row 248: for the `authenticated`
+    role, raise if anything but `status`/`is_new`/`deadline_label` differs from OLD, compared as
+    `to_jsonb()` minus those keys so a column added later is protected by default). The trigger
+    STAYS as defence in depth now that the policy is gone, and the documents-support suite
+    proves it still fires past RLS (superuser + `role=authenticated` claims) and passes for
+    `service_role`. Do not add a client UPDATE policy "for one field" — column-level RLS does
+    not exist, and this is the second time that shape has been needed (Task A's
+    `client_profiles` was the first).
+  - **★ THE ONLY WRITER IS `sign-document`, AND THE EVIDENCE IS THE GATE.** Order in the
+    function: read the bytes with the service role → hash → build the certificate → store the
+    signed copy → INSERT `document_signatures` → ONLY THEN `status='Signed'`. Keep that order.
+    A lost status flip after the insert is recovered on the next call from the existing row
+    (unique `document_id`), never re-signed. IP and user agent come from the REQUEST; the
+    client's own hash rides along as `client_reported_sha256`, recorded for dispute and NEVER
+    the fingerprint — the server hashes what it read itself.
+  - **★ `document_signatures` IS APPEND-ONLY FOR EVERY ROLE, `service_role` INCLUDED — do not
+    add a delete path "for tests."** Task B's exact trigger shape, no foreign keys (the trail
+    outlives client and document — denormalised snapshots), no client-side write policy. The
+    consequence is Task B's too: every verification run leaves permanent rows, on every
+    environment it runs against; `typed_name` names the suite. Gary's real signatures from the
+    visual suite are among them.
+  - **★ A SIGNATURE-REQUIRED DOCUMENT MUST BE A PDF, refused server-side in
+    `publish-document`** (bytes must start `%PDF-`). Every suite that publishes one uses
+    `scripts/lib/minimal-pdf.js` — a real, pure-ASCII PDF with a correct xref (pure ASCII so a
+    `File([string])` round trip stays byte-identical). Text bytes named `*.pdf` no longer pass.
+  - **★ THE SIGN CONTROL IS UNREACHABLE BEFORE RENDER, AND THE GATE IS NOT THE `disabled`
+    ATTRIBUTE.** `document-signing.js` disables the button until every page's
+    `render().promise` has resolved AND `submit()` re-checks `state.rendered` — a devtools-forced
+    button still cannot sign (proven with the CDN blocked at the network layer). If pdf.js
+    cannot load, the status says so and only Download remains. Keep both halves.
+  - **pdf.js 6.3.289 from cdnjs, pinned, dynamic `import()` at open time only** (~506 KB
+    gzipped, paid only when a client opens a document to sign). Cross-origin worker through
+    pdf.js's own blob wrapper — a real `type:"module"` Worker on the real marketswave.net
+    origin, proven by counting `Worker` constructions after a first probe came back
+    inconclusive. An `<iframe>` of the signed URL was rejected: no render event to gate on, iOS
+    shows page one only, and no way to tie rendered bytes to hashed bytes.
+  - **`npm:pdf-lib@1.17.1` is the project's first `npm:` specifier** (edge runtime 1.74.3 /
+    Deno 2.1.4, proven with a throwaway function deleted before any deploy). The certificate
+    page draws the 64-character fingerprint UNBROKEN on one line at 7.5pt — the first cut
+    wrapped it at 62 characters, which the suite's own decoded-content-stream check caught; a
+    hash split across two lines cannot be compared by eye.
+  - **The consent and capture statements are ONE block in TWO files**
+    (`_shared/signing.ts`, `document-signing.js`, between `SIGNING-TEXT-START/END`), the
+    onboarding-vocab discipline again; the backend suite fails if they differ, and the server
+    refuses a `consentText` that is not its own.
+  - **The re-check is admin-only and never cached**: `verify-document-signature` re-downloads
+    the CURRENT bytes on every call; the PM panel calls it on open and shows "matches" or
+    "DIFFERS — altered after signing" (the block turns red). A Signed document with no evidence
+    row (flipped before Task C) says so plainly rather than showing a fabricated panel.
+  - **The signed copy is retrieved by link, never attached** — `send-email.ts` has no
+    attachment support and a logged, authenticated retrieval already exists. "You'll receive a
+    signed copy by email" is true as a link.
+  - **★ `verify-document-signing-visual` points Gary's `clients.email` at a malformed
+    run-suffixed address for the ONE real send, restores it the moment that send is behind it,
+    and SWEEPS a prior run's residue on entry.** Its first two runs died mid-Part-C and
+    `finally` never ran, leaving Gary unreachable until repaired by hand. First blamed on the
+    libuv abort (a tiny probe had just printed that assertion); the log said `FATAL: script did
+    not complete within 90s` — `runVerifyMain`'s DEFAULT watchdog, which every sibling visual
+    suite overrides with 15–20 minutes and this one had not, and which `spawnSync` children only
+    let land at a child boundary. **A new visual suite must pass `watchdogMs`**, and any suite
+    that mutates a real record must restore it as early as it can, not in `finally`.
+  - **Two real contrast defects fixed by measuring, one pre-existing**: the client rows' Sign
+    button had been white on `amber-500` (2.15:1) since UI Wiring Stage 4 — no profile had ever
+    covered `documents.html`'s row actions — and the new Signed-copy button repeated row 188's
+    white-on-`emerald-600` (3.77:1). Both one step darker (amber-700/800, emerald-700/800).
+  - **PostgREST `.or()` treats `(` and `,` inside a VALUE as grammar.** A filter like
+    `filename.ilike.Second Agreement (%).pdf` silently matches nothing; use separate queries
+    (or quote the value). Caught by the sweep removing one leftover of two.
+  - **Not built, stated**: countersignature, non-PDF signing, a client-visible re-check.
+  **Verified**: `supabase-verify-document-signing` 66/66; `verify-document-signing-visual`
+  68/68 (a real Chrome-printed agreement published to Gary THROUGH the real
+  `publish-document`, rendered by real pdf.js, signed by a real click, every field read back
+  from Postgres/Storage, the gate proven closed with the CDN blocked, the PM panel in both
+  "matches" and "DIFFERS" states, contrast/sheen/fonts, 390/375 on a real phone profile, a real
+  320px iframe). Blast radius repointed, not dropped: documents-support 73/73,
+  hys-documents-ui-wiring 77/77, documents-page-ui-wiring 46/46, cross-role-sync 38/38,
+  documents-storage-integration 46/46, both email suites' fixtures.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

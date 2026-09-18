@@ -10,14 +10,14 @@
  * getSignedDownloadUrl, and — for an identity document — the shared identity-document-access.js
  * component (Task B, row 246), which owns the ONE logged `open-identity-document` path.
  *
- * ★ WHAT IS DELIBERATELY NOT BUILT (register row D, the absent-source pattern). The mockup
- * drew a "signature evidence" panel — typed name, timestamp, IP, device, document hash, a
- * generated signed copy — and a client signing flow. NONE of that is recorded anywhere: the
- * `documents` table has a `status` and a `created_at` and no signing timestamp, no evidence
- * column. Rendering that panel would show fabricated data as if real. Where a document is
- * "Signed" or awaiting a signature, this page shows only what is actually on record — the
- * status — and says plainly that no signature evidence is captured. Real signing is its own
- * task, with its own data layer, and comes next.
+ * ★ THE SIGNATURE-EVIDENCE PANEL IS REAL (Task C, 2026-09-18, register row 249). Part 9 shipped
+ * this page with an honest "no evidence captured" note in its place (register row D: the
+ * mockup drew the panel, nothing recorded it). Now every field comes from the client's own
+ * append-only `document_signatures` row — typed name, UTC time, address, device, the hash at
+ * signing — and the hash is RE-CHECKED LIVE on every open by `verify-document-signature`,
+ * which re-reads the stored bytes; the panel shows "matches" or "DIFFERS — altered after
+ * signing". A document marked Signed BEFORE Task C (no evidence row) still says so plainly
+ * rather than showing a fabricated panel.
  *
  * ★ EVERY READ THAT FEEDS A DISPLAY CHECKS ITS ERROR (register row 233). loadPageData throws
  * on any failed read rather than rendering an empty table that a PM would read as "no
@@ -31,6 +31,7 @@
   var state = {
     docs: [],            // unified rows (regular documents + identity documents)
     clientsById: {},
+    signatures: {},      // Task C (row 249): document_signatures rows keyed by document_id (admin reads all)
     filter: 'all',       // all | needs-review | awaiting-signature | signed | Contracts | Statements | General | Identity
     search: '',
     sort: 'date',        // date | name | client
@@ -155,7 +156,7 @@
 
   /* ---- health strip — each card is a filter ------------------------------------------ */
   function counts() {
-    var c = { review: 0, signature: 0, signed: 0, total: state.docs.length, oldestSig: null };
+    var c = { review: 0, signature: 0, signed: 0, signedWithEvidence: 0, total: state.docs.length, oldestSig: null };
     state.docs.forEach(function (r) {
       if (r.source === 'doc' && r.direction === 'upload' && r.status !== 'Reviewed') c.review++;
       if (r.source === 'doc' && r.status === 'Signature Required') {
@@ -163,7 +164,7 @@
         var ago = daysAgo(r.date);
         if (ago != null && (c.oldestSig == null || ago > c.oldestSig)) c.oldestSig = ago;
       }
-      if (r.source === 'doc' && r.status === 'Signed') c.signed++;
+      if (r.source === 'doc' && r.status === 'Signed') { c.signed++; if (state.signatures[r.id]) c.signedWithEvidence++; }
     });
     return c;
   }
@@ -184,7 +185,7 @@
     el.innerHTML =
       healthCard('needs-review', 'Awaiting your review', c.review, 'client uploads', c.review > 0) +
       healthCard('awaiting-signature', 'Awaiting signature', c.signature, sigSub, c.signature > 0) +
-      healthCard('signed', 'Signed', c.signed, 'status only — no signing evidence recorded', false) +
+      healthCard('signed', 'Signed', c.signed, (c.signed ? c.signedWithEvidence + ' of ' + c.signed + ' with evidence captured' : 'none signed yet'), false) +
       healthCard('all', 'Total documents', c.total, 'across ' + clientCount + ' client' + (clientCount === 1 ? '' : 's'), false);
   }
 
@@ -289,19 +290,41 @@
       (row.deadlineLabel ? '<div class="doc-kv"><span class="k">Due</span><span class="v">' + esc(row.deadlineLabel) + '</span></div>' : '') +
       '<div class="doc-kv"><span class="k">Date</span><span class="v">' + dayStr(row.date) + '</span></div>';
 
-    // ★ Where the mockup drew a signature-evidence panel, state the truth instead. Nothing is
-    // recorded beyond the status, so there is no signing time, name, address, device or hash
-    // to show — and inventing one would be register row D. Real signing is a separate task.
-    if (row.status === 'Signed') {
-      body += '<div class="doc-note is-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
-        '<p><b>No signature evidence is captured.</b> The status was set to Signed, but no typed name, timestamp, address, device or document hash is on record. Verifiable signing — with captured evidence — is a separate, upcoming feature.</p></div>';
-    } else if (row.status === 'Signature Required') {
+    // ★ Task C (row 249): the signature-evidence panel is REAL now — read from the client's
+    // append-only document_signatures row, with the hash RE-CHECKED live against the bytes in
+    // Storage by verify-document-signature (never a cached verdict). A Signed document with
+    // no evidence row (signed before Task C shipped, by the old status flip) says so plainly
+    // rather than showing a fabricated panel.
+    var sig = row.status === 'Signed' ? state.signatures[row.id] : null;
+    if (row.status === 'Signed' && sig) {
+      body += '<p class="doc-sect">Signature evidence</p>' +
+        '<div class="doc-evd" id="doc-evd">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+          '<div class="eb"><b>Signed ' + esc(dateTimeStr(sig.signed_at)) + ' UTC</b>' +
+          '<p>Typed name \u201c' + esc(sig.typed_name) + '\u201d \u00b7 consent affirmed \u00b7 from ' + esc(sig.ip_address || 'address not recorded') + ' \u00b7 ' + esc(deviceLabel(sig.user_agent)) + '</p></div>' +
+        '</div>' +
+        '<div class="doc-kv"><span class="k">Hash at signing</span><span class="v doc-hash" title="' + esc(sig.original_sha256) + '">' + esc(sig.original_sha256.slice(0, 8)) + '\u2026' + esc(sig.original_sha256.slice(-8)) + '</span></div>' +
+        '<div class="doc-kv"><span class="k">Stored file now</span><span class="v" id="doc-hash-check"><span class="doc-checking">checking\u2026</span></span></div>' +
+        '<div class="doc-kv"><span class="k">Signed copy</span><span class="v" id="doc-copy-check">' + (sig.signed_copy_storage_path ? 'Generated' : 'Not generated') + '</span></div>' +
+        (sig.client_reported_sha256 && sig.client_reported_sha256 !== sig.original_sha256
+          ? '<div class="doc-note is-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><p><b>The client\'s browser reported a different fingerprint</b> for what it rendered (' + esc(sig.client_reported_sha256.slice(0, 8)) + '\u2026). The server\'s own hash of the stored bytes is the one recorded above; this discrepancy is kept for dispute.</p></div>'
+          : '') +
+        '<div class="doc-note is-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
+        '<p>The hash proves the file signed is the file stored. If they ever differ, the document was altered after signing. This record is append-only \u2014 it cannot be edited or removed by anyone.</p></div>';
+    } else if (row.status === 'Signed') {
       body += '<div class="doc-note is-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
-        '<p>Awaiting the client\'s signature. Signing today only flips this status — no signature evidence is captured yet; that is a separate, upcoming feature.</p></div>';
+        '<p><b>No signature evidence is on record.</b> This document was marked Signed before evidence capture existed (its status was flipped directly). No typed name, timestamp, address, device or hash was recorded for it.</p></div>';
+    } else if (row.status === 'Signature Required') {
+      var ago = daysAgo(row.date);
+      body += '<div class="doc-note is-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
+        '<p>Awaiting the client\'s signature' + (ago != null ? ' \u2014 sent ' + (ago === 0 ? 'today' : ago + (ago === 1 ? ' day ago' : ' days ago')) : '') + '. When they sign, the typed name, time, address, device and a hash of the exact bytes are recorded here.</p></div>';
     }
     body += '</div>';
 
-    var actions = '<button type="button" class="download-btn mw-btn mw-btn-secondary" data-doc="' + esc(row.id) + '">Download</button>';
+    var actions = '<button type="button" class="download-btn mw-btn mw-btn-secondary" data-doc="' + esc(row.id) + '">' + (sig ? 'Original' : 'Download') + '</button>';
+    if (sig && sig.signed_copy_storage_path) {
+      actions += '<button type="button" class="signed-copy-btn mw-btn mw-btn-admin" data-doc="' + esc(row.id) + '">Signed copy</button>';
+    }
     if (row.source === 'doc' && row.direction === 'upload' && row.status !== 'Reviewed') {
       actions += '<button type="button" class="review-btn mw-btn mw-btn-approve" data-client="' + esc(row.clientId) + '" data-doc="' + esc(row.id) + '">Mark reviewed</button>';
     }
@@ -368,7 +391,38 @@
       loadAccessLog(row);
     } else {
       openPanel(regularDetailHTML(row));
+      if (row.status === 'Signed' && state.signatures[row.id]) recheckSignature(row);
     }
+  }
+
+  /* Task C (row 249): the live re-check. A fresh read of the bytes in Storage on every open —
+   * never a cached verdict. "matches" is the server comparing its OWN current hash to the hash
+   * it recorded at signing. */
+  function recheckSignature(row) {
+    D.callFunction('verify-document-signature', { documentId: row.id }).then(function (res) {
+      var el = document.getElementById('doc-hash-check');
+      var cp = document.getElementById('doc-copy-check');
+      if (!el) return;
+      if (res.original.readError) {
+        el.innerHTML = '<span class="dn">unreadable \u2014 ' + esc(res.original.readError) + '</span>';
+      } else if (res.original.matches) {
+        el.innerHTML = '<span class="up">matches</span>';
+      } else {
+        el.innerHTML = '<span class="dn">DIFFERS \u2014 altered after signing</span>';
+        var evd = document.getElementById('doc-evd'); if (evd) evd.classList.add('is-bad');
+      }
+      if (cp) cp.innerHTML = res.signedCopy.readError ? '<span class="dn">unreadable</span>' : (res.signedCopy.matches ? 'Generated \u00b7 <span class="up">intact</span>' : 'Generated \u00b7 <span class="dn">DIFFERS</span>');
+    }).catch(function (err) {
+      var el = document.getElementById('doc-hash-check');
+      if (el) el.innerHTML = '<span class="dn">could not check \u2014 ' + esc(D.writeErrorMessage(err)) + '</span>';
+    });
+  }
+
+  function deviceLabel(ua) {
+    if (!ua) return 'device not recorded';
+    var browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'a browser';
+    var os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'an unknown device';
+    return browser + ' on ' + os;
   }
 
   /* ---- publish overlay (static form) ------------------------------------------------- */
@@ -462,6 +516,17 @@
       return;
     }
 
+    var scBtn = e.target.closest('.signed-copy-btn');
+    if (scBtn) {
+      var sgn = state.signatures[scBtn.dataset.doc];
+      if (!sgn || !sgn.signed_copy_storage_path) { toast('No Signed Copy', 'No signed copy is on record.', true); return; }
+      D.getSignedDownloadUrl('documents', sgn.signed_copy_storage_path, 60).then(function (url) {
+        window.open(url, '_blank');
+        toast('Download Started', 'The signed copy is downloading.');
+      }).catch(function (err) { toast('Download Failed', D.writeErrorMessage(err), true); });
+      return;
+    }
+
     var openBtn = e.target.closest('#doc-idd-open');
     if (openBtn) {
       var idRow = byId(panel.dataset.docId, 'identity');
@@ -517,9 +582,12 @@
     dataPromise = Promise.all([
       D.selectTable('documents'),
       D.selectTable('identity_documents'),
-      D.selectTable('clients')
+      D.selectTable('clients'),
+      D.selectTable('document_signatures')
     ]).then(function (results) {
-      var documents = results[0], identity = results[1], clients = results[2];
+      var documents = results[0], identity = results[1], clients = results[2], signatures = results[3] || [];
+      state.signatures = {};
+      signatures.forEach(function (sg) { state.signatures[sg.document_id] = sg; });
       state.clientsById = {};
       clients.forEach(function (c) { state.clientsById[c.id] = c.name; });
       populateClientSelect(clients);

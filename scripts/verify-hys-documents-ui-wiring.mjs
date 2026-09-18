@@ -21,6 +21,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
+import { createRequire } from 'node:module';
+const { MINIMAL_PDF } = createRequire(import.meta.url)('./lib/minimal-pdf.js');
 
 let passed = 0;
 let failed = 0;
@@ -343,7 +345,9 @@ async function main() {
   // real Storage surface; see the dedicated verify-documents-storage-integration.mjs for that.
   const advisoryPath = clientId + '/published/seed-1/Advisory Agreement.pdf';
   const q3Path = clientId + '/published/seed-2/Q3 Statement.pdf';
-  await admin.storage.from('documents').upload(advisoryPath, Buffer.from('Seed content for Advisory Agreement.pdf'), { contentType: 'application/pdf' });
+  // Task C (row 249): a signature-required document must be a real PDF — sign-document reads,
+  // hashes and appends a certificate page to it; a text seed would be refused as not-a-PDF.
+  await admin.storage.from('documents').upload(advisoryPath, MINIMAL_PDF, { contentType: 'application/pdf' });
   await admin.storage.from('documents').upload(q3Path, Buffer.from('Seed content for Q3 Statement.pdf'), { contentType: 'application/pdf' });
 
   const { data: docRows, error: docSeedErr } = await admin.from('documents').insert([
@@ -363,6 +367,9 @@ async function main() {
   // dependency, since this is the only engine-core.js function documents.html's own Stage 4
   // script actually calls (confirmed via grep before writing this).
   docsDom.window.getAuthenticatedClientId = function () { return clientId; };
+  // Task C (row 249): documents.html loads document-signing.js (the signing modal) before its
+  // own inline script; the real file is evaluated into this DOM the same way.
+  docsDom.window.eval(readFileSync(new URL('../document-signing.js', import.meta.url), 'utf8'));
   const docsScript = extractInlineScript(docsPath, 'UI Wiring — Stage 4');
   const D = docsDom.window.document;
   const fromListEl = D.getElementById('from-list');
@@ -405,19 +412,54 @@ async function main() {
   const toast = D.getElementById('doc-toast');
   const toastTitle = D.getElementById('doc-toast-title');
 
-  console.log('\n4. Sign action — a real, RLS-scoped direct UPDATE (no Edge Function)');
+  console.log('\n4. Sign action — Task C (row 249): the signing modal, its render gate, and the real sign-document function');
   await (async function () {
+    // ★ jsdom has no canvas and no dynamic import(), so pdf.js can never render here. That is
+    // the point of this section: in a DOM where the document CANNOT be shown, the sign control
+    // must be unreachable — disabled, and refusing even when the disabled attribute is forced
+    // off and the name and consent are filled in. Real rendering + a real click-through signing
+    // is verify-document-signing-visual's job (a real browser on the real origin).
     const signBtn = fromListEl.querySelector('.sign-btn');
     signBtn.click();
-    check('the Sign button shows a genuine busy state immediately', signBtn.disabled === true);
-    await pollUntil(function () { return toastTitle.textContent === 'Signature Captured'; }, 15000);
-    check('the toast confirms the real signature', toastTitle.textContent === 'Signature Captured');
+    const modal = D.getElementById('dsg-modal');
+    check('clicking Sign opens the DocumentSigning modal (no direct table write any more)', !!modal && modal.hidden === false);
+    check('the modal names the document and carries the consent statement and the capture statement verbatim', D.getElementById('dsg-title').textContent === 'Advisory Agreement.pdf' && D.querySelector('.dsg-consent span').textContent === docsDom.window.DocumentSigning.CONSENT_TEXT && D.getElementById('dsg-capture').textContent === docsDom.window.DocumentSigning.CAPTURE_TEXT);
+    const submit = D.getElementById('dsg-submit');
+    check('the sign control is disabled before anything has rendered', submit.disabled === true && submit.getAttribute('aria-disabled') === 'true');
+    await pollUntil(function () { return D.getElementById('dsg-status').getAttribute('data-state') !== 'loading'; }, 20000);
+    check('★ in a DOM that cannot render the PDF, the status reports the failure honestly and the control stays disabled', D.getElementById('dsg-status').getAttribute('data-state') === 'error' && submit.disabled === true, D.getElementById('dsg-status-text').textContent);
+    // Fill everything else in, force the attribute off, click: submit() re-checks the render gate.
+    D.getElementById('dsg-name').value = 'Signing Test Client';
+    D.getElementById('dsg-name').dispatchEvent(new docsDom.window.Event('input', { bubbles: true }));
+    D.getElementById('dsg-consent').checked = true;
+    D.getElementById('dsg-consent').dispatchEvent(new docsDom.window.Event('change', { bubbles: true }));
+    check('name + consent alone do not enable the control (render gate still closed)', submit.disabled === true);
+    submit.disabled = false; submit.click();
+    await new Promise((r) => setTimeout(r, 1500));
+    let { data: rowStill } = await admin.from('documents').select('status').eq('id', sigReqDocId).single();
+    const { data: evNone } = await admin.from('document_signatures').select('id').eq('document_id', sigReqDocId);
+    check('★ a forced click cannot sign: the document is still Signature Required and no evidence row exists', rowStill.status === 'Signature Required' && evNone.length === 0, rowStill.status + ' / ' + evNone.length + ' rows');
+    D.getElementById('dsg-cancel').click();
+    check('"Not now" closes the modal', modal.hidden === true);
 
+    // The OLD direct-UPDATE path is gone (policy dropped): the page's own client session cannot
+    // flip the status any more.
+    let caughtOld = null;
+    try { await MarketswaveData.updateRow('documents', { id: sigReqDocId }, { status: 'Signed', is_new: false, deadline_label: null }); } catch (err) { caughtOld = err; }
+    ({ data: rowStill } = await admin.from('documents').select('status').eq('id', sigReqDocId).single());
+    check('★ the old direct Sign UPDATE no longer works from the client (no rows; status unchanged)', !!caughtOld && rowStill.status === 'Signature Required', caughtOld && caughtOld.message);
+
+    // Now the REAL signature, through the real function with the page's own real session —
+    // what the modal calls once the render gate opens in a real browser.
+    const res = await MarketswaveData.callFunction('sign-document', { documentId: sigReqDocId, typedName: 'Signing Test Client', consentText: docsDom.window.DocumentSigning.CONSENT_TEXT, consentAffirmed: true, clientReportedPages: 2 });
+    check('sign-document signs it for real (evidence returned)', !!(res && res.signature && res.signature.originalSha256), JSON.stringify(res).slice(0, 200));
     const { data: row } = await admin.from('documents').select('*').eq('id', sigReqDocId).single();
-    check('the real document row is genuinely Signed, is_new cleared, deadline cleared — all three fields the real RLS policy\'s WITH CHECK requires', row.status === 'Signed' && row.is_new === false && row.deadline_label === null, JSON.stringify(row));
+    check('the real document row is genuinely Signed, is_new cleared, deadline cleared — set by the function, only after the evidence row', row.status === 'Signed' && row.is_new === false && row.deadline_label === null, JSON.stringify(row));
+    const { data: ev } = await admin.from('document_signatures').select('typed_name, original_sha256, signed_copy_storage_path').eq('document_id', sigReqDocId).single();
+    check('the evidence row exists with the typed name, a hash and a signed copy path', ev && ev.typed_name === 'Signing Test Client' && /^[0-9a-f]{64}$/.test(ev.original_sha256) && !!ev.signed_copy_storage_path, JSON.stringify(ev));
   })();
 
-  console.log('\n5. Download action — a real, investigated finding: clearing is_new on Download is now structurally unreachable under Stage 6\'s real RLS (the sole UPDATE policy is scoped exclusively to the Sign transition), so the app no longer attempts it');
+  console.log('\n5. Download action — a real, investigated finding: clearing is_new on Download is structurally unreachable (a client has no UPDATE path on documents at all since Task C dropped the Sign policy), so the app does not attempt it');
   await (async function () {
     const downloadBtn = [...fromListEl.querySelectorAll('.doc-row')].find(function (r) { return r.textContent.indexOf('Q3 Statement.pdf') !== -1; }).querySelector('.download-btn');
     downloadBtn.click();
@@ -431,7 +473,7 @@ async function main() {
     try {
       await MarketswaveData.updateRow('documents', { id: plainNewDocId }, { is_new: false });
     } catch (err) { caught = err; }
-    check('a direct is_new-only UPDATE against a non-signature-required "from" document is genuinely rejected by RLS (the UPDATE policy\'s own USING clause requires status=\'Signature Required\')', !!caught, caught && caught.message);
+    check('a direct is_new-only UPDATE against a "from" document is genuinely rejected (no client UPDATE policy exists on documents at all)', !!caught, caught && caught.message);
 
     const { data: row } = await admin.from('documents').select('is_new').eq('id', plainNewDocId).single();
     check('the real document row\'s is_new flag is confirmed still true — Download no longer silently attempts (and fails) this write', row.is_new === true, JSON.stringify(row));

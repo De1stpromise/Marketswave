@@ -36,6 +36,9 @@ const crypto = require('crypto');
 // for real upload/download/signed-URL coverage), so content doesn't need to be realistic, only
 // genuinely present.
 const TEST_FILE_BASE64 = Buffer.from('Test file content for RLS/validation verification.').toString('base64');
+// Task C (row 249): a signature-required publish must be a real PDF (publish-document refuses
+// anything else server-side), so those calls use the genuine-PDF fixture.
+const { MINIMAL_PDF_BASE64: TEST_PDF_BASE64 } = require('./lib/minimal-pdf.js');
 const TEST_STORAGE_PATH = 'test-placeholder/rls-verification.pdf';
 
 let passed = 0;
@@ -172,7 +175,7 @@ async function main() {
     const user = await createTestClient(admin, email, password);
 
     const { data: published, error: publishErr } = await adminSignIn.client.functions.invoke('publish-document', {
-      body: { clientId: user.id, filename: 'Investment Management Agreement.pdf', category: 'Contracts', signatureRequired: true, dueDate: null, fileBase64: TEST_FILE_BASE64 }
+      body: { clientId: user.id, filename: 'Investment Management Agreement.pdf', category: 'Contracts', signatureRequired: true, dueDate: null, fileBase64: TEST_PDF_BASE64 }
     });
     check('publish-document succeeds', !publishErr, publishErr && publishErr.message);
     check('published document is direction=from, is_new=true, status=Signature Required', published && published.direction === 'from' && published.isNew === true && published.status === 'Signature Required', JSON.stringify(published));
@@ -206,38 +209,58 @@ async function main() {
   // -------------------------------------------------------------------------------------------
   // TEST 3 — Sign action: client direct UPDATE on their own `from` doc, the exact real shape.
   // -------------------------------------------------------------------------------------------
-  console.log('\n3. Client direct UPDATE — the Sign action, exact real shape, on a `from` document');
+  console.log('\n3. Client direct UPDATE on a `from` document — the old Sign shape is now REFUSED (Task C dropped the policy; the column guard stays)');
 
   await (async function () {
     const email = 'doc-sign-' + suffix + '@test.marketswave.local';
     const user = await createTestClient(admin, email, password);
     const c = await signIn(url, anonKey, email, password);
 
-    const { data: pubDoc } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'IMA.pdf', category: 'Contracts', signatureRequired: true, fileBase64: TEST_FILE_BASE64 } });
+    const { data: pubDoc } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'IMA.pdf', category: 'Contracts', signatureRequired: true, fileBase64: TEST_PDF_BASE64 } });
 
-    // ★ Register row 248 — the column-guard trigger. RLS WITH CHECK constrains only the columns
-    // the policy names, so before the trigger this exact UPDATE succeeded and rewrote the
+    // ★ Register row 248 — the column rewrite. RLS WITH CHECK constrains only the columns a
+    // policy names, so under the old Sign policy this exact UPDATE succeeded and rewrote the
     // firm-published document's filename, category, storage_path and date in the act of
-    // signing it (proven on the real policy, 2026-09-18). Attempted FIRST, while the row is
-    // still Signature Required — the live-vulnerability shape — and the row must be byte-for-
-    // byte untouched afterward, not merely "an error came back".
+    // signing it (proven on the real policy, 2026-09-18). Task C (row 249) then DROPPED that
+    // policy, so today the rewrite is filtered out by RLS before anything runs: no rows, and the
+    // row byte-for-byte untouched — asserted on the row, not on "an error came back".
     const { data: beforeGuard } = await admin.from('documents').select('*').eq('id', pubDoc.id).single();
     const rewrite = { status: 'Signed', is_new: false, deadline_label: null, filename: 'REWRITTEN.pdf', category: 'General', storage_path: user.id + '/uploads/elsewhere/other.pdf', created_at: '2001-01-01' };
     const { data: rewriteRows, error: rewriteErr } = await c.client.from('documents').update(rewrite).eq('id', pubDoc.id).select();
-    check('the column guard REFUSES a Sign UPDATE that also rewrites filename/category/storage_path/created_at', !!rewriteErr && /only status, is_new and deadline_label/.test(rewriteErr.message), rewriteErr ? rewriteErr.message : ('no error; rows=' + (rewriteRows || []).length));
+    check('★ a Sign UPDATE that also rewrites filename/category/storage_path/created_at affects NO rows (no client UPDATE policy exists)', !rewriteErr && (!rewriteRows || rewriteRows.length === 0), rewriteErr ? rewriteErr.message : ('rows=' + (rewriteRows || []).length));
     const { data: afterGuard } = await admin.from('documents').select('*').eq('id', pubDoc.id).single();
     check('...and the row is byte-for-byte untouched (still Signature Required, original filename/path/date)', JSON.stringify(afterGuard) === JSON.stringify(beforeGuard), JSON.stringify(afterGuard));
-    // One guarded column alone is enough to trip it — storage_path is the one that matters most.
-    const { error: pathOnlyErr } = await c.client.from('documents').update({ status: 'Signed', is_new: false, deadline_label: null, storage_path: user.id + '/uploads/elsewhere/other.pdf' }).eq('id', pubDoc.id).select();
-    check('the guard refuses a Sign UPDATE that only repoints storage_path', !!pathOnlyErr && /only status, is_new and deadline_label/.test(pathOnlyErr.message));
+    // ★ The row-248 column-guard TRIGGER stays as defence in depth, and it must be proven to
+    // still FIRE rather than assumed — RLS now stops the row before the trigger, so the only
+    // way to reach it is past RLS: as the Postgres superuser (RLS bypassed) with the request's
+    // JWT claims set to role=authenticated, inside a rolled-back transaction. The same
+    // statement with role=service_role must pass, proving the ROLE is the key, not the
+    // statement.
+    const guardSql = (role) => "begin; set local request.jwt.claims = '{\"role\":\"" + role + "\",\"sub\":\"" + user.id + "\"}'; update public.documents set filename = 'REWRITTEN.pdf' where id = '" + pubDoc.id + "'; rollback;";
+    let guardErr = null; try { execSync('docker exec -i supabase_db_Marketswave psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c ' + JSON.stringify(guardSql('authenticated')), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); } catch (e) { guardErr = String(e.stderr || e.message); }
+    check('★ the column-guard trigger still FIRES for the authenticated role even when RLS is bypassed (defence in depth, row 248)', !!guardErr && /only status, is_new and deadline_label/.test(guardErr), guardErr && guardErr.slice(0, 160));
+    let svcErr = null; try { execSync('docker exec -i supabase_db_Marketswave psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c ' + JSON.stringify(guardSql('service_role')), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); } catch (e) { svcErr = String(e.stderr || e.message); }
+    check('...and the identical statement passes for service_role (the role is the key; update-document keeps working)', svcErr === null, svcErr && svcErr.slice(0, 160));
 
+    // ★ Task C (row 249): the client UPDATE policy on documents is DROPPED — signing goes
+    // through sign-document (verify-supabase-document-signing.js proves that path). The exact
+    // UPDATE the page used to make is now a silent no-op under RLS: no rows, status unchanged.
     const { data: signed, error: signErr } = await c.client.from('documents').update({ status: 'Signed', is_new: false, deadline_label: null }).eq('id', pubDoc.id).select();
-    check('a client CAN directly sign their own from-document (real Sign action shape)', !signErr && signed && signed.length === 1, signErr && signErr.message);
-    check('the document is genuinely Signed now', signed && signed[0].status === 'Signed');
+    check('★ a client can NO LONGER directly sign their own from-document (the old Sign UPDATE affects no rows)', !signErr && (!signed || signed.length === 0), signErr && signErr.message);
+    const { data: stillReq } = await admin.from('documents').select('status').eq('id', pubDoc.id).single();
+    check('the document is still Signature Required', stillReq.status === 'Signature Required');
 
-    // Re-signing an already-signed document is refused (USING requires status='Signature Required').
+    // The real path: sign-document, as the client. (Full evidence coverage lives in
+    // verify-supabase-document-signing.js; this is the one round trip this suite needs so its
+    // later "already Signed" assertions still describe a real state.)
+    const { data: signedViaFn, error: fnErr } = await c.client.functions.invoke('sign-document', { body: { documentId: pubDoc.id, typedName: 'Documents Suite Client', consentText: 'I have read this document in full, I agree to be bound by it, and I accept that typing my name constitutes my signature.', consentAffirmed: true } });
+    check('the document IS signed through sign-document (evidence row + status flip)', !fnErr && signedViaFn && signedViaFn.signature && signedViaFn.signature.originalSha256, fnErr && fnErr.message);
+    const { data: nowSigned } = await admin.from('documents').select('status').eq('id', pubDoc.id).single();
+    check('the document is genuinely Signed now', nowSigned.status === 'Signed');
+
+    // Re-signing an already-signed document via a direct UPDATE is refused (no policy).
     const { data: reSignAttempt } = await c.client.from('documents').update({ status: 'Signed' }).eq('id', pubDoc.id).select();
-    check('a client cannot re-sign an already-Signed document (USING no longer matches)', !reSignAttempt || reSignAttempt.length === 0);
+    check('a client cannot touch an already-Signed document by direct UPDATE either (no rows)', !reSignAttempt || reSignAttempt.length === 0);
 
     // A client cannot use this same UPDATE path to sign a document that's not Signature Required.
     const { data: pubDoc2 } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'General Notice.pdf', category: 'General', signatureRequired: false, fileBase64: TEST_FILE_BASE64 } });
@@ -245,9 +268,9 @@ async function main() {
     check('a client cannot "sign" a document that was never Signature Required', !signNonRequired || signNonRequired.length === 0);
 
     // A client cannot use the Sign UPDATE path against a status value other than exactly 'Signed'.
-    const { data: pubDoc3 } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'IMA2.pdf', category: 'Contracts', signatureRequired: true, fileBase64: TEST_FILE_BASE64 } });
+    const { data: pubDoc3 } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'IMA2.pdf', category: 'Contracts', signatureRequired: true, fileBase64: TEST_PDF_BASE64 } });
     const { data: wrongTargetStatus } = await c.client.from('documents').update({ status: 'Reviewed', is_new: false, deadline_label: null }).eq('id', pubDoc3.id).select();
-    check('a client cannot use the Sign UPDATE path to set an arbitrary status (only exactly "Signed")', !wrongTargetStatus || wrongTargetStatus.length === 0);
+    check('a client cannot use a direct UPDATE to set an arbitrary status either (no rows)', !wrongTargetStatus || wrongTargetStatus.length === 0);
 
     // A client cannot sign someone else's document, or "sign" their own upload.
     const { data: ownUpload } = await c.client.from('documents').insert({ client_id: user.id, direction: 'upload', filename: 'My Upload.pdf', category: 'General', status: 'Received', is_new: false, deadline_label: null, storage_path: TEST_STORAGE_PATH }).select().single();

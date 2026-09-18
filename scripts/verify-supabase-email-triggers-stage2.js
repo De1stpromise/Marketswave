@@ -337,7 +337,8 @@ async function main() {
   console.log('\n15. publish-document\n');
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
-    const fileBase64 = Buffer.from('Stage 2 email trigger test document content.').toString('base64');
+    // Task C (row 249): a signature-required publish must be a real PDF (server-side refusal).
+    const fileBase64 = require('./lib/minimal-pdf.js').MINIMAL_PDF_BASE64;
 
     const before1 = new Date().toISOString();
     const { data: d1, error: e1 } = await pm.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'Statement.pdf', category: 'Statements & Reports', signatureRequired: false, fileBase64 } });

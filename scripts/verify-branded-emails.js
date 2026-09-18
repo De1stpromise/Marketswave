@@ -323,7 +323,8 @@ async function main() {
     await checkLoggedBranded('admin-update-conversation (ticket resolved)', 'conversation', ticket.id, /support request has been resolved/i, before);
 
     before = new Date().toISOString();
-    const fileBase64 = Buffer.from('test file content').toString('base64');
+    // Task C (row 249): a signature-required publish must be a real PDF (server-side refusal).
+    const fileBase64 = require('./lib/minimal-pdf.js').MINIMAL_PDF_BASE64;
     const r2 = await pm.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'test.pdf', category: 'Contracts', signatureRequired: true, dueDate: null, fileBase64, fileType: 'application/pdf' } });
     check('publish-document succeeds', !r2.error && r2.data.filename === 'test.pdf', r2.error && r2.error.message);
     await checkLoggedBranded('publish-document', 'document', r2.data && r2.data.id, /requires your signature/i, before);

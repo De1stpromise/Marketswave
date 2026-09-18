@@ -34,6 +34,8 @@ import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
+import { createRequire } from 'node:module';
+const { buildMinimalPdf } = createRequire(import.meta.url)('./lib/minimal-pdf.js');
 
 let passed = 0;
 let failed = 0;
@@ -316,7 +318,9 @@ async function main() {
   // =============================================================================================
   console.log('\n=== PART 2: PM Publish -> real bytes in Storage -> Client downloads the real bytes ===\n');
 
-  const PUBLISH_CONTENT = 'Real PM-published file contents — Docs Storage verification, ' + suffix;
+  // Task C (row 249): the published document is signature-required, so it must be a real PDF —
+  // the pure-ASCII fixture, titled with this run's suffix so the byte-for-byte check stays real.
+  const PUBLISH_CONTENT = buildMinimalPdf(2, 'Docs Storage verification ' + suffix).toString('latin1');
   let publishedDocId;
 
   console.log('4. Real Publish — a real file with real bytes, via the actual admin-documents.html UI');

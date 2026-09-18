@@ -943,3 +943,16 @@ verify_jwt = false
 [functions.open-identity-document]
 enabled = true
 verify_jwt = false
+
+
+[functions.sign-document]
+enabled = true
+verify_jwt = false
+import_map = "./functions/sign-document/deno.json"
+entrypoint = "./functions/sign-document/index.ts"
+
+[functions.verify-document-signature]
+enabled = true
+verify_jwt = false
+import_map = "./functions/verify-document-signature/deno.json"
+entrypoint = "./functions/verify-document-signature/index.ts"

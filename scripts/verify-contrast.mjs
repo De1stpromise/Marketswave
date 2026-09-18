@@ -1100,6 +1100,52 @@ PROFILES['identity-access-log'] = [
   { label: 'open control (profile)', sel: '[data-cp-idd-view]', limit: 2 }
 ];
 
+// Task C — real signing (2026-09-18, register row 249). The client's signing modal (plain
+// white over a darkened backdrop — the viewer paints pages on canvases, so the sampled text
+// is everything AROUND it), the client's Signed row, and the PM's evidence panel in both its
+// "matches" and "DIFFERS" states.
+PROFILES['document-signing-modal'] = [
+  { label: 'modal title', sel: '#dsg-title', limit: 1 },
+  { label: 'modal sub', sel: '#dsg-sub', limit: 1 },
+  { label: 'status line', sel: '#dsg-status-text', limit: 1 },
+  { label: 'page number', sel: '.dsg-page-num', limit: 2 },
+  { label: 'fingerprint', sel: '#dsg-fp', limit: 1 },
+  { label: 'name label', sel: '.dsg-name-lbl', limit: 1 },
+  { label: 'name field', sel: '#dsg-name', limit: 1 },
+  { label: 'consent text', sel: '.dsg-consent span', limit: 1 },
+  { label: 'capture text', sel: '#dsg-capture', limit: 1 },
+  { label: 'error', sel: '#dsg-error:not([hidden])', limit: 1 },
+  { label: 'sign button', sel: '#dsg-submit', limit: 1 },
+  { label: 'not-now button', sel: '#dsg-cancel', limit: 1 },
+  { label: 'download button', sel: '#dsg-download', limit: 1 }
+];
+PROFILES['documents-signed-row'] = [
+  { label: 'signed badge', sel: '#from-list .signature-badge', limit: 2 },
+  { label: 'signed copy button', sel: '#from-list .signed-copy-btn', limit: 2 },
+  { label: 'sign button', sel: '#from-list .sign-btn', limit: 2 },
+  { label: 'doc name', sel: '#from-list .doc-name', limit: 3 }
+];
+PROFILES['documents-evidence-panel'] = [
+  { label: 'evidence heading', sel: '#doc-evd .eb b', limit: 1 },
+  { label: 'evidence line', sel: '#doc-evd .eb p', limit: 1 },
+  { label: 'kv label', sel: '#doc-panel .doc-kv .k', limit: 8 },
+  { label: 'hash value', sel: '#doc-panel .doc-hash', limit: 1 },
+  { label: 'hash check', sel: '#doc-hash-check', limit: 1 },
+  { label: 'copy check', sel: '#doc-copy-check', limit: 1 },
+  { label: 'info note', sel: '#doc-panel .doc-note.is-info p', limit: 1 },
+  { label: 'warn note', sel: '#doc-panel .doc-note.is-warn p', limit: 1 },
+  { label: 'original button', sel: '#doc-panel .download-btn', limit: 1 },
+  { label: 'signed copy button', sel: '#doc-panel .signed-copy-btn', limit: 1 }
+];
+// The health strip's sub-lines, measured with NO panel open — under the detail scrim they
+// are genuinely obscured and the probe correctly reports them UNMEASURED.
+PROFILES['admin-documents-health'] = [
+  { label: 'health signed sub', sel: '.doc-hc[data-filter="signed"] .x', limit: 1 },
+  { label: 'health signature sub', sel: '.doc-hc[data-filter="awaiting-signature"] .x', limit: 1 },
+  { label: 'health value', sel: '.doc-hc .v', limit: 4 },
+  { label: 'health key', sel: '.doc-hc .k', limit: 4 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

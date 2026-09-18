@@ -85,6 +85,9 @@ const SHARED = [
   // Account security (2026-09-17, part 8): admin-security-page.js builds every .sec-*
   // session row, activity row and log table at runtime; the page ships only the shells.
   'admin-security.css',
+  // Real signing (2026-09-18, Task C, row 249): document-signing.js builds every .dsg-* class
+  // at runtime (the modal is injected on first use); documents.html ships no static markup.
+  'document-signing.css',
 ];
 
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');

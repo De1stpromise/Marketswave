@@ -30,6 +30,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
+import { isPdf } from '../_shared/signing.ts';
 
 const BUCKET = 'documents';
 
@@ -101,6 +102,13 @@ Deno.serve(async (req) => {
     const docId = crypto.randomUUID();
     const storagePath = clientId + '/published/' + docId + '/' + filename;
     const bytes = decodeBase64(fileBase64);
+    // ★ Task C (row 249): a document that requires a signature MUST be a PDF, refused HERE,
+    // server-side, never only in the publish form. The signing flow renders it in-page and
+    // sign-document appends a certificate page to it; neither is possible for anything else,
+    // and a client would otherwise be asked to sign something they cannot read on the page.
+    if (signatureRequired && !isPdf(bytes)) {
+      return jsonResponse({ error: 'A document that requires a signature must be a PDF.' }, 400);
+    }
     const { error: uploadErr } = await admin.storage.from(BUCKET).upload(storagePath, bytes, {
       contentType: fileType,
       upsert: false

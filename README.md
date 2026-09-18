@@ -2301,6 +2301,59 @@ spawns its own `http.server 8765` — make sure nothing else holds that port, an
 is serving it from the wrong directory (a server started from `scripts/` answers 404 to every
 page, which reads as "the page never rendered").
 
+
+### Task C — real signing (2026-09-18, register row 249)
+
+Until Task C "signed" was a status flip a client wrote directly (`Signature Required` →
+`Signed`), capturing nothing. Now:
+
+- **The only way a document becomes Signed is `sign-document`** (self-only, service_role). It
+  reads the stored bytes ITSELF, hashes them (SHA-256), appends a certificate page with
+  `pdf-lib` (`npm:pdf-lib@1.17.1` — the first `npm:` specifier in this project, proven in the
+  real edge runtime), stores that signed copy under `<uid>/signed/<doc id>/`, INSERTS the
+  evidence row, and ONLY THEN sets `status='Signed'`. If the evidence insert fails the document
+  is not signed. If the status flip is lost after the insert, the next call sees the row and
+  completes the flip — it never signs twice.
+- **`document_signatures` is append-only for every role, `service_role` included** (Task B's
+  trigger shape), has no foreign keys (a trail outlives its client and document), and has no
+  client-side write policy. **Verification rows are permanent by design**, on every environment
+  a suite runs against; `typed_name` names the suite.
+- **The client UPDATE policy on `documents` is dropped.** A client has no write path on a
+  firm-published document at all any more. Row 248's column-guard trigger stays as defence in
+  depth (the documents-support suite proves it still fires past RLS).
+- **A signature-required document must be a PDF** — `publish-document` refuses anything whose
+  bytes don't start with `%PDF-`, server-side. Test fixtures that publish one use
+  `scripts/lib/minimal-pdf.js` (a small genuine PDF, pure ASCII, correct xref).
+- **The client reads it in-page** (`document-signing.js`/`.css`, pinned pdf.js 6.3.289 from
+  cdnjs, imported dynamically at open time, the worker cross-origin through pdf.js's own blob
+  wrapper — proven a real off-main-thread Worker on the real marketswave.net origin). **The sign
+  control is unreachable before every page has rendered**: disabled, AND `submit()` re-checks
+  the render state, so a forced-enabled button still cannot sign. If pdf.js cannot load, the
+  status says so and the only way forward is Download.
+- **The hash is re-checkable**: `verify-document-signature` (admin-only) re-reads the CURRENT
+  bytes on every call and reports `matches`; `admin-documents.html`'s evidence panel calls it
+  on open and shows "matches" or "DIFFERS — altered after signing".
+- **The signed copy is retrieved by link** (a signed URL, client and PM), never attached to the
+  email — "You'll receive a signed copy by email" is true as a link.
+- **The consent and capture statements are one block in two files**,
+  `supabase/functions/_shared/signing.ts` and `document-signing.js`, between
+  `SIGNING-TEXT-START`/`SIGNING-TEXT-END`. The backend suite fails if they differ; the server
+  refuses a `consentText` that is not its own.
+
+Run the two suites from `scripts/`:
+
+```
+npm run supabase-verify-document-signing     # Task C backend: refusals, the evidence, the re-check, append-only, ordering (66)
+npm run verify-document-signing-visual        # Task C in a real browser as Gary: render, gate, sign, evidence, DIFFERS, phones
+```
+
+The visual suite needs Gary seeded and `GARY_SEED_PASSWORD` in `supabase/functions/.env`. It
+points Gary's `clients.email` at a malformed run-suffixed address for the duration (so the
+real "signed copy" email is refused synchronously by Resend and mails nobody), restores it the
+moment the one real send is behind it, and sweeps a prior run's residue on entry — this
+project's libuv abort (row 198) can skip a `finally`, and the first run of this suite did
+exactly that, leaving Gary unreachable until repaired by hand.
+
 ---
 
 ## Emulator Bootstrap Runbook

@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="document-signing.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
     @keyframes rowFlash {
@@ -235,6 +236,7 @@
   <script src="motion-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="document-signing.js"></script>
   <script src="upload-control.js"></script>
   <script src="chat-widget.js"></script>
   <script src="site-presence.js"></script>
@@ -273,6 +275,7 @@
       if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
       var allDocs = [];
+      var signaturesByDoc = {}; // Task C (row 249): the client's own document_signatures rows, keyed by document_id
       var dataPromise = null;
       var pendingFlashDocId = null; // set right before a write that should flash its own row once the post-write reload finishes rendering
 
@@ -286,8 +289,17 @@
 
       function loadDocuments() {
         if (dataPromise) return dataPromise;
-        dataPromise = MarketswaveData.selectTable('documents').then(function (rows) {
-          return rows.map(mapDocRow);
+        // ★ Task C (row 249): the evidence rows ride along — a Signed document's row carries the
+        // signed copy's storage path and the fingerprint at signing, both the client's own to read
+        // (RLS: own rows only). A failed evidence read is a real failure of this load, not a
+        // silent "no signatures" (row 233).
+        dataPromise = Promise.all([
+          MarketswaveData.selectTable('documents'),
+          MarketswaveData.selectTable('document_signatures')
+        ]).then(function (res) {
+          signaturesByDoc = {};
+          (res[1] || []).forEach(function (sg) { signaturesByDoc[sg.document_id] = sg; });
+          return res[0].map(mapDocRow);
         }).catch(function (err) {
           dataPromise = null;
           throw err;
@@ -353,9 +365,12 @@
         if (doc.deadlineLabel) parts.push('<span class="deadline-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600">' + doc.deadlineLabel + '</span>');
         if (isFrom && doc.status === 'Signature Required') {
           parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Signature Required</span>');
-          parts.push('<button type="button" class="sign-btn mw-btn mw-btn-sm bg-amber-500 text-white hover:bg-amber-600">Sign</button>');
+          parts.push('<button type="button" class="sign-btn mw-btn mw-btn-sm bg-amber-700 text-white hover:bg-amber-800">Sign</button>');
         } else if (isFrom && doc.status === 'Signed') {
-          parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Signed</span>');
+          var sg = signaturesByDoc[doc.id];
+          parts.push('<span class="signature-badge inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700" title="' + (sg ? 'Signed ' + new Date(sg.signed_at).toLocaleString('en-GB', { timeZone: 'UTC' }) + ' UTC as ' + sg.typed_name : '') + '">Signed</span>');
+          // Task C (row 249): the signed copy — original + certificate page — retrieved by link.
+          if (sg && sg.signed_copy_storage_path) parts.push('<button type="button" class="signed-copy-btn mw-btn mw-btn-sm bg-emerald-700 text-white hover:bg-emerald-800">Signed copy</button>');
         }
         if (isFrom) {
           parts.push('<button type="button" class="download-btn mw-btn mw-btn-secondary mw-btn-sm">Download</button>');
@@ -489,45 +504,44 @@
         });
       });
 
-      // ---- Sign action — UI Wiring Stage 4: the real, RLS-scoped UPDATE Stage 6 built for
-      // exactly this transition (direction='from' + status='Signature Required' ->
-      // status='Signed', is_new=false, deadline_label=null — this page's own call mirrors that
-      // policy's own `with check` verbatim, confirmed by reading the migration directly). No
-      // Edge Function is involved — this is a direct table write, same as Upload/Remove below. --
+      // ---- Sign action — Task C (row 249): opens the DocumentSigning component (in-page render,
+      // typed name, consent, capture statement) which calls the sign-document Edge Function.
+      // Was a direct RLS-scoped UPDATE (UI Wiring Stage 4) until that policy was dropped. --
       document.getElementById('from-list').addEventListener('click', function (e) {
         var signBtn = e.target.closest('.sign-btn');
+        var signedCopyBtn = e.target.closest('.signed-copy-btn');
         var downloadBtn = e.target.closest('.download-btn');
         if (signBtn) {
+          // ★ Task C (row 249): Sign is no longer a direct table write — the client UPDATE policy
+          // on documents is gone. DocumentSigning renders the document in-page, gates the sign
+          // control on every page having genuinely rendered, and calls the self-only
+          // sign-document function, which hashes the stored bytes itself, writes the append-only
+          // evidence row, and only then marks the document Signed.
           var docId = signBtn.closest('.doc-row').dataset.docId;
           var doc = allDocs.find(function (d) { return d.id === docId; });
-          if (!doc) return;
-          MarketswaveData.withButtonBusy(signBtn, 'Signing...', function () {
-            return MarketswaveData.updateRow('documents', { id: docId }, { status: 'Signed', is_new: false, deadline_label: null });
-          }).then(function () {
-            reloadDocuments(true);
-            showToast('Signature Captured', doc.filename + ' has been marked as signed.');
-          }).catch(function (err) {
-            showToast('Sign Failed', MarketswaveData.writeErrorMessage(err));
+          if (!doc || typeof DocumentSigning === 'undefined') return;
+          DocumentSigning.open(doc, {
+            onToast: showToast,
+            onSigned: function () { pendingFlashDocId = docId; reloadDocuments(true); }
           });
+        } else if (signedCopyBtn) {
+          var sId = signedCopyBtn.closest('.doc-row').dataset.docId;
+          var sg2 = signaturesByDoc[sId];
+          if (!sg2 || !sg2.signed_copy_storage_path) { showToast('No Signed Copy', 'No signed copy is on record for this document.'); return; }
+          MarketswaveData.getSignedDownloadUrl('documents', sg2.signed_copy_storage_path, 60).then(function (url) {
+            window.open(url, '_blank');
+          }).catch(function (err) { showToast('Download Failed', MarketswaveData.writeErrorMessage(err)); });
         } else if (downloadBtn) {
           var dId = downloadBtn.closest('.doc-row').dataset.docId;
           var d = allDocs.find(function (x) { return x.id === dId; });
           if (!d) return;
           // ★ A real, disclosed finding, not a silent behavior change: the local engine's own
-          // Download handler cleared isNew via updateDocument(dId, { isNew: false }), a plain
-          // single-field write with no RLS-equivalent restriction. Under Stage 6's real schema,
-          // the ONE client UPDATE policy on `documents` is scoped EXCLUSIVELY to the Sign
-          // transition (USING requires status='Signature Required', WITH CHECK requires the
-          // result be status='Signed') — there is structurally no client write path that clears
-          // is_new on its own, for ANY 'from' document, signature-required or not (even a
-          // signature-required one fails, since a bare is_new-clear leaves status unchanged,
-          // violating WITH CHECK's own status='Signed' requirement). This was tested directly
-          // and confirmed to always fail — 100% of the time, not an edge case — so the write
-          // attempt is removed entirely rather than kept as code that can never succeed; keeping
-          // it would just be a wasted round trip silently swallowed by a catch. The real,
-          // disclosed consequence: a "from" document's New badge now only ever clears via Sign,
-          // never via Download — confirmed via a real test, not assumed, and still true now that
-          // Download triggers a genuine file transfer below (a read-only signed URL, no write).
+          // Download handler cleared isNew via updateDocument(dId, { isNew: false }). Under the
+          // real schema a client has NO update path on `documents` at all — the one Sign-scoped
+          // UPDATE policy that used to exist was dropped by Task C (row 249) once signing moved
+          // to sign-document — so there is structurally no client write that clears is_new. The
+          // real, disclosed consequence: a "from" document's New badge only ever clears via Sign
+          // (server-side, in sign-document), never via Download, which is a read-only signed URL.
           //
           // ★ Real Storage integration (2026-09-04): this is now a genuine download — a real,
           // time-limited signed URL for the actual stored file, opened in a new tab, which is

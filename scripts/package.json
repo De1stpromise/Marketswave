@@ -1,6 +1,6 @@
 {
   "name": "marketswave-dev-scripts",
-  "description": "Backend Migration Phase 0 (Aug 26, 2026) \u2014 emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
+  "description": "Backend Migration Phase 0 (Aug 26, 2026) — emulator bootstrap + golden-path regression tooling, dev-only, run against the local Firebase Emulator Suite. Also now holds Supabase Migration Stage 1 (Aug 30, 2026) tooling, run against the local Supabase Docker stack. NOT deployed (separate from functions/, which IS deployed) and NOT the app itself. See ../README.md for the full runbooks (both backends, kept side by side during the migration).",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -118,7 +118,9 @@
     "verify-deposit-address-book-visual": "node verify-deposit-address-book-visual.mjs",
     "verify-products-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-page-ui-wiring.mjs",
     "verify-products-page-visual": "node verify-products-page-visual.mjs",
-    "verify-documents-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-page-ui-wiring.mjs"
+    "verify-documents-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-page-ui-wiring.mjs",
+    "supabase-verify-document-signing": "node verify-supabase-document-signing.js",
+    "verify-document-signing-visual": "node verify-document-signing-visual.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -126,5 +128,8 @@
     "firebase-admin": "^12.7.0",
     "jsdom": "^30.0.1",
     "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }

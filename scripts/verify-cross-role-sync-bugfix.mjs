@@ -55,6 +55,9 @@ import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
+import { createRequire } from 'node:module';
+// Task C (row 249): a signature-required publish must be a real PDF; pure-ASCII bytes as a string.
+const PDF_TEXT = createRequire(import.meta.url)('./lib/minimal-pdf.js').MINIMAL_PDF.toString('latin1');
 
 let passed = 0;
 let failed = 0;
@@ -243,7 +246,7 @@ async function main() {
     // the real supabase-js client that ultimately performs the storage upload lives), even
     // though the click reading `fileInput.files[0]` happens inside this jsdom window.
     var fileInput = D.getElementById('publish-file');
-    var publishFile = new File(['Real test file content — cross-role sync verification.'], 'Advisory Agreement.pdf', { type: 'application/pdf' });
+    var publishFile = new File([PDF_TEXT], 'Advisory Agreement.pdf', { type: 'application/pdf' });
     Object.defineProperty(fileInput, 'files', { value: [publishFile], configurable: true });
     var btn = D.getElementById('publish-submit');
     var toastTitle = D.getElementById('admin-toast-title');
