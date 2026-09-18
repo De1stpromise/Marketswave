@@ -243,7 +243,7 @@ async function main() {
     const clientBootstrap = 'localStorage.setItem(' + JSON.stringify(storageKey) + ', ' + JSON.stringify(JSON.stringify(cs.data.session)) + ');' +
       'sessionStorage.setItem("marketswave_authenticated_client_id", ' + JSON.stringify(uid) + ');sessionStorage.setItem("marketswave_current_client_id", ' + JSON.stringify(uid) + ');true';
     const SETTINGS_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < 300; i++) { const c = document.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && document.getElementById('countryOfResidence-display').textContent.trim() !== '' && document.readyState === 'complete') break; await nap(200); }
+      for (let i = 0; i < 300; i++) { const c = document.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && document.getElementById('countryOfResidence-display').textContent.trim().replace(/^—$/, '') !== '' && document.readyState === 'complete') break; await nap(200); }
       await nap(800); return true; })()`;
     await goto(cdp, BASE + '/thank-you.html'); await cdp.evaluate(clientBootstrap);
     await goto(cdp, BASE + '/settings.html'); await cdp.evaluate(SETTINGS_WAIT);
@@ -410,10 +410,10 @@ async function main() {
     const PROF_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-onboarding .cp-kv') && document.querySelector('[data-cp-idd]')) break; await nap(200); } await nap(900); })()`;
     runContrast('client-profile-onboarding', 'the profile\'s onboarding + identity block (submitted client)', adminBootstrap, PROF_PREP, BASE + '/admin-client-profile.html?client=' + uid);
     if (gary) runContrast('client-profile-onboarding', 'the profile\'s onboarding block (Gary, unsubmitted)', adminBootstrap, `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-onboarding .cp-kv') && document.querySelector('[data-cp-idd-empty]')) break; await nap(200); } await nap(900); })()`, BASE + '/admin-client-profile.html?client=' + gary.id);
-    const SET_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { const c = document.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && document.getElementById('countryOfResidence-display').textContent.trim() !== '') break; await nap(200); } await nap(900); })()`;
+    const SET_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { const c = document.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && document.getElementById('countryOfResidence-display').textContent.trim().replace(/^—$/, '') !== '') break; await nap(200); } await nap(900); })()`;
     runContrast('settings-onboarding', 'settings (submitted client)', clientBootstrap, SET_PREP, BASE + '/settings.html');
     runContrast('settings-onboarding', 'settings (honest empty state)', client2Bootstrap, SET_PREP, BASE + '/settings.html');
-    runContrast('settings-onboarding-modal', 'the group Request Change modal', clientBootstrap, SET_PREP + `.then(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); document.querySelector('.request-change-btn[data-field="financialProfile"]').click(); await nap(600); })`, BASE + '/settings.html');
+    runContrast('settings-onboarding-modal', 'the group Request Change modal', clientBootstrap, SET_PREP + `.then(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); const real = (id) => { const e = document.getElementById(id); const t = e ? e.textContent.trim() : ''; return t !== '' && t !== '—'; }; for (let i = 0; i < 200; i++) { if (real('financialProfile-display')) break; await nap(100); } document.querySelector('.request-change-btn[data-field="financialProfile"]').click(); for (let i = 0; i < 80; i++) { if (real('cm-group-current')) break; await nap(100); } await nap(400); })`, BASE + '/settings.html');
     const GATE_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && q.querySelector('.ag-row[data-id="${uid}"]')) break; await nap(200); } document.querySelector('.ag-row[data-id="${uid}"]').click(); for (let i = 0; i < 60; i++) { if (!document.getElementById('ag-scrim').hidden && document.getElementById('ag-pane').innerHTML.length > 0) break; await nap(100); } await nap(800); })()`;
     runContrast('approval-gate-application', 'the approval gate application panel', adminBootstrap, GATE_PREP, BASE + '/admin-approvals.html');
 
@@ -469,7 +469,7 @@ async function main() {
       const nap = (ms) => new Promise(r => setTimeout(r, ms));
       document.querySelectorAll('#mw320').forEach(n => n.remove());
       const f = document.createElement('iframe'); f.id = 'mw320'; f.style.cssText = 'position:fixed;left:0;top:0;width:320px;height:760px;border:0;z-index:99999'; f.src = '/settings.html'; document.body.appendChild(f);
-      for (let i = 0; i < 300; i++) { try { const dd = f.contentDocument; const c = dd && dd.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && dd.getElementById('countryOfResidence-display').textContent.trim() !== '') break; } catch (e) {} await nap(200); }
+      for (let i = 0; i < 300; i++) { try { const dd = f.contentDocument; const c = dd && dd.getElementById('onboarding-card'); if (c && !/animate-pulse/.test(c.innerHTML) && dd.getElementById('countryOfResidence-display').textContent.trim().replace(/^—$/, '') !== '') break; } catch (e) {} await nap(200); }
       await nap(1200);
       const dd = f.contentDocument, w = f.contentWindow;
       const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const s = w.getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
