@@ -129,13 +129,14 @@
         D.selectTable('deposit_addresses'),
         D.selectTable('deposit_address_assignments'),
         D.selectTable('hys_pockets'),
-        D.selectTable('client_profiles')
+        D.selectTable('client_profiles'),
+        D.selectTable('identity_documents')
       ]);
       return {
         clients: rows[0], dep: rows[1], wd: rows[2], alo: rows[3], sell: rows[4],
         hysDep: rows[5], hysWd: rows[6], prof: rows[7], products: rows[8],
         state: rows[9], holdings: rows[10], addresses: rows[11], assignments: rows[12],
-        pockets: rows[13], profiles: rows[14]
+        pockets: rows[13], profiles: rows[14], identityDocs: rows[15]
       };
     })();
     return cache;
@@ -306,6 +307,8 @@
     return k.slice(0, 2).map(function (x) { return String(obj[x]); }).join(' · ');
   }
   function fieldLabel(f) {
+    var V = window.OnboardingVocab;
+    if (V && V.VOCAB[f]) return V.VOCAB[f].label;
     return ({ legalName: 'Legal name', address: 'Address', idDocument: 'ID document', dateOfBirth: 'Date of birth' })[f] || humanizeKey(f);
   }
   /* Reuses format-helpers.js's shared formatter so the PM sees a requested value in the exact
@@ -404,13 +407,42 @@
       b += kv('Legal name', esc(p && p.legal_name ? [p.legal_name.firstName, p.legal_name.lastName].filter(Boolean).join(' ') : '—'));
       b += kv('Address', esc(p && p.address ? [p.address.city, p.address.country].filter(Boolean).join(', ') : '—'));
       b += kv('ID document', esc(p && p.id_document ? (p.id_document.documentType || 'Provided') : '—'));
-      // ★ The onboarding record (tax residence, risk profile, source of funds, experience,
-      // horizon) has NO server-side column anywhere — it lives in per-device localStorage.
-      // Register row 224. Saying so is better than an empty row a PM reads as "none given".
-      b += '<div class="ag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
-        '<p>Tax residence, risk profile and source of funds are collected at signup but have no server-side storage yet (register row 224), so they cannot be shown here.</p></div>';
-      b += '<div class="ag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-        '<p>Viewing an identity document is access-logged permanently.</p></div>';
+
+      // ★ Task A (2026-09-18, register row 242): the onboarding record and the identity
+      // documents are real server-side data now. Groups are labelled through the shared
+      // vocabulary; an unanswered group says "Not submitted" (never "none given"), and a
+      // client who applied before this shipped may have no record at all — that is said
+      // outright rather than left as a row of dashes.
+      var V = window.OnboardingVocab;
+      var dob = V && p ? V.dateOfBirthDisplay(p.date_of_birth) : null;
+      b += kv('Date of birth', dob ? esc(dob) : '<span class="ag-unsub">Not submitted</span>');
+      if (V) {
+        V.groupsForAccountType(c.account_type).forEach(function (key) {
+          var lines = V.describe(key, V.groupValueFromProfile(key, p)).filter(function (x) { return x.text !== null; });
+          var html = !lines.length
+            ? '<span class="ag-unsub">Not submitted</span>'
+            : (V.VOCAB[key].scalar ? esc(lines[0].text)
+              : '<span class="ag-lines">' + lines.map(function (x) { return '<span>' + esc(x.label) + ': ' + esc(x.text) + '</span>'; }).join('') + '</span>');
+          b += kv(V.VOCAB[key].label, html, 'ag-v-onb');
+        });
+      }
+      if (!(p && p.onboarding_submitted_at)) {
+        b += '<div class="ag-warn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
+          '<p>No onboarding record has been submitted for this applicant. Applications made before 18 September 2026 kept their answers only in the applicant’s own browser.</p></div>';
+      }
+      // Identity documents — metadata only. The bucket grants a PM no read; there is no
+      // logged view yet (Task B), so nothing here offers one.
+      var ids = (state.data.identityDocs || []).filter(function (x) { return x.client_id === c.id; });
+      var KIND = { id: 'Photo ID', address: 'Proof of address' };
+      if (!ids.length) {
+        b += kv('Identity documents', '<span class="ag-unsub" data-ag-idd-none>None on file</span>');
+      } else {
+        ids.forEach(function (x) {
+          b += kv(KIND[x.kind] || x.kind, esc(x.document_type) + ' · ' + esc(x.filename) + ' <span class="ag-onfile" data-ag-idd="' + esc(x.id) + '">On file</span>', 'ag-v-onb');
+        });
+        b += '<div class="ag-warn" data-ag-idd-locked><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+          '<p>Viewing an identity document is not available from the PM tool until every view is access-logged.</p></div>';
+      }
     } else if (it.kind === 'dep') {
       var r = it.raw;
       b += kv('Method', esc(r.method === 'crypto' ? 'Crypto' : 'Bank transfer'));

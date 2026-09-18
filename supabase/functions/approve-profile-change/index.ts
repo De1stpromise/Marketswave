@@ -15,11 +15,15 @@
 // other admin-only function in this project.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { VOCAB, labelFor } from '../_shared/onboarding-vocab.ts';
 import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 // Mirrors admin-profile-updates.html's own FIELD_LABELS exactly, so a client's email uses
 // the identical human-readable label a PM sees in the admin UI.
 const FIELD_LABELS: Record<string, string> = { legalName: 'Legal Name', address: 'Address', idDocument: 'ID / Document' };
+// Task A (2026-09-18, register row 242): the six onboarding groups, labelled from the shared
+// vocabulary so the email says exactly what the settings page says.
+for (const k of Object.keys(VOCAB)) FIELD_LABELS[k] = VOCAB[k].label;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -95,7 +99,7 @@ Deno.serve(async (req) => {
         introParagraphs: ['Hi ' + clientRow.name + ', your requested change has been approved and is now reflected on your account.'],
         detailRows: [
           { label: 'Field updated', value: FIELD_LABELS[request.field] || request.field },
-          { label: 'New value', value: String(request.requested_value) }
+          { label: 'New value', value: describeValue(request.field as string, request.requested_value) }
         ],
         cta: { text: 'Go to Settings', href: siteLink('settings.html') },
         footerType: 'general'
@@ -119,7 +123,27 @@ Deno.serve(async (req) => {
 function toColumn(field: string): string {
   if (field === 'legalName') return 'legal_name';
   if (field === 'idDocument') return 'id_document';
+  if (VOCAB[field]) return VOCAB[field].column;
   return field;
+}
+
+// A readable one-line rendering of an approved value for the client's email. Before Task A
+// this was String(requested_value), which rendered "[object Object]" for every field this
+// function has ever approved — legalName, address and idDocument are all objects.
+function describeValue(field: string, value: unknown): string {
+  const v = (value && typeof value === 'object') ? value as Record<string, unknown> : null;
+  if (field === 'legalName' && v) return [v.firstName, v.lastName].filter(Boolean).join(' ') || '—';
+  if (field === 'address' && v) return [v.street, v.city, v.state, v.zip, v.country].filter(Boolean).join(', ') || '—';
+  if (field === 'idDocument' && v) return String(v.documentType || '—') + (v.fileName ? ' (' + v.fileName + ')' : '');
+  if (VOCAB[field]) {
+    const g = VOCAB[field];
+    if (g.scalar) return labelFor(field, g.fields[0].key, value) || '—';
+    return g.fields
+      .map((f) => { const t = labelFor(field, f.key, v ? v[f.key] : null); return t ? f.label + ': ' + t : null; })
+      .filter(Boolean)
+      .join('; ') || '—';
+  }
+  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 function toClientShape(row: Record<string, unknown>) {

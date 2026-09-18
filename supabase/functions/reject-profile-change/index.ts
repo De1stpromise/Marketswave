@@ -13,11 +13,15 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as approve-profile-change.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { VOCAB } from '../_shared/onboarding-vocab.ts';
 import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
 
 // Mirrors admin-profile-updates.html's own FIELD_LABELS exactly, so a client's email uses
 // the identical human-readable label a PM sees in the admin UI.
 const FIELD_LABELS: Record<string, string> = { legalName: 'Legal Name', address: 'Address', idDocument: 'ID / Document' };
+// Task A (2026-09-18, register row 242): the six onboarding groups, labelled from the shared
+// vocabulary so the email says exactly what the settings page says.
+for (const k of Object.keys(VOCAB)) FIELD_LABELS[k] = VOCAB[k].label;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {

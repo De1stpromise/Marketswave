@@ -13,13 +13,18 @@
 // absence that reads as an absence (register row 224, and this project's own history of
 // removing fabricated figures from support.html and settings.html).
 //
-//   1. ONBOARDING — date of birth, nationality, tax residence, risk profile, source of funds,
-//      experience, horizon. These are collected by signup.html and written to
-//      `marketswave_client_onboarding:<clientId>` in the BROWSER'S OWN localStorage. There is
-//      no server-side onboarding table (checked: no migration and no function mentions it), so
-//      a PM on a different machine genuinely cannot read them. `client_profiles` holds exactly
-//      three fields — legal_name, address, id_document — and those three ARE returned below.
-//      The panel renders the real three and says plainly that the rest is not readable here.
+//   1. ONBOARDING — RESOLVED 2026-09-18 (Task A, register row 242). client_profiles now holds
+//      the record signup collects (date of birth, country of residence, financial profile,
+//      goals & preferences, risk questionnaire, entity/joint details) and it is returned below
+//      under `onboarding`, labelled through _shared/onboarding-vocab.ts. Two honesty points
+//      survive: (a) a client who signed up before 2026-09-18 has NO server-side record unless
+//      reclaim-on-login has fired for them — `onboarding.submittedAt` is null and the page
+//      says "not submitted", never "not on file" (which would imply it was lost); (b) signup
+//      asks for country of RESIDENCE, not nationality or tax residence — the panel shows what
+//      is collected, and the fee rules that need tax residence are flagged on the fees queue
+//      item. Identity documents are returned as METADATA ONLY under `identityDocuments`:
+//      the bytes live in the owner-only identity-documents bucket, which grants a PM nothing
+//      until access logging ships (Task B).
 //   2. ADVISORY FEE CHARGED TO DATE — there is no invoice concept anywhere in this project
 //      (project-wide grep for "invoice": zero hits). The RATE is real and is returned; the
 //      charged figure is not returned at all.
@@ -48,8 +53,8 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
   if (!client) return null;
 
   const now = new Date();
-  const [profile, account, pockets, docs, convs, watch, assignments, routes, notes] = await Promise.all([
-    admin.from('client_profiles').select('legal_name, address, id_document, updated_at').eq('client_id', clientId).maybeSingle(),
+  const [profile, account, pockets, docs, convs, watch, assignments, routes, notes, identityDocs] = await Promise.all([
+    admin.from('client_profiles').select('legal_name, address, id_document, updated_at, date_of_birth, country_of_residence, financial_profile, goals_preferences, risk_questionnaire, entity_details, joint_holder, onboarding_submitted_at').eq('client_id', clientId).maybeSingle(),
     admin.from('account_state').select('unallocated_capital, allocated_capital, asset_returns').eq('client_id', clientId).maybeSingle(),
     admin.from('hys_pockets').select('id, pocket_type, term_label, amount, projected_interest, maturity_date, status').eq('client_id', clientId).neq('status', 'withdrawn'),
     admin.from('documents').select('id, filename, category, direction, status, is_new, storage_path, created_at').eq('client_id', clientId).order('created_at', { ascending: false }),
@@ -59,7 +64,8 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
     admin.from('deposit_routes').select('currency, network'),
     // ★ The PM's OWN notes only. RLS on pm_client_notes enforces this independently; scoping
     // here as well means the service-role read cannot leak a colleague's note even by mistake.
-    admin.from('pm_client_notes').select('id, body, created_at').eq('client_id', clientId).eq('author_id', pmId).order('created_at', { ascending: false })
+    admin.from('pm_client_notes').select('id, body, created_at').eq('client_id', clientId).eq('author_id', pmId).order('created_at', { ascending: false }),
+    admin.from('identity_documents').select('id, kind, document_type, filename, uploaded_at').eq('client_id', clientId).order('kind')
   ]);
 
   // ★ EVERY ONE OF THE READS ABOVE IS ERROR-CHECKED HERE, AND THAT IS NOT DEFENSIVE NOISE.
@@ -72,7 +78,7 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
   // like a client with no data.
   const named: Array<[string, any]> = [
     ['client_profiles', profile], ['account_state', account], ['hys_pockets', pockets],
-    ['documents', docs], ['conversations', convs], ['watchlist_symbols', watch],
+    ['documents', docs], ['conversations', convs], ['watchlist_symbols', watch], ['identity_documents', identityDocs],
     ['deposit_address_assignments', assignments], ['deposit_routes', routes],
     ['pm_client_notes', notes]
   ];
@@ -192,7 +198,26 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
       idDocument: profile.data ? profile.data.id_document : null,
       updatedAt: profile.data ? profile.data.updated_at : null
     },
-    onboardingAvailable: false,
+    // The onboarding record signup collects, or an honest absence. `submittedAt` null means
+    // the client has never submitted one to the server (pre-2026-09-18 signup with no reclaim
+    // yet) — NOT that data was lost in transit.
+    onboarding: {
+      submittedAt: profile.data ? profile.data.onboarding_submitted_at : null,
+      dateOfBirth: profile.data ? profile.data.date_of_birth : null,
+      countryOfResidence: profile.data ? profile.data.country_of_residence : null,
+      financialProfile: profile.data ? profile.data.financial_profile : null,
+      goalsPreferences: profile.data ? profile.data.goals_preferences : null,
+      riskQuestionnaire: profile.data ? profile.data.risk_questionnaire : null,
+      entityDetails: profile.data ? profile.data.entity_details : null,
+      jointHolder: profile.data ? profile.data.joint_holder : null
+    },
+    onboardingAvailable: true,
+    // Metadata only. No URL, no path: the identity-documents bucket has no admin read policy
+    // and there is no logged read yet (Task B). What a PM can truthfully see is that a document
+    // of this type is on file, its filename, and when it was uploaded.
+    identityDocuments: (identityDocs.data || []).map(function (d: any) {
+      return { id: d.id, kind: d.kind, documentType: d.document_type, filename: d.filename, uploadedAt: d.uploaded_at };
+    }),
     money: {
       portfolioValue: round2(portfolioValue),
       unallocated: round2(Number(acct.unallocated_capital || 0)),

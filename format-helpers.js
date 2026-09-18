@@ -26,6 +26,17 @@
     if (field === 'dateOfBirth') return formatDateDisplay(value);
     if (field === 'address') return value.street + ', ' + value.city + ', ' + value.state + ' ' + value.zip + ', ' + value.country;
     if (field === 'idDocument') return value.fileName ? value.documentType + ' — ' + value.fileName : value.documentType;
+    // Task A (2026-09-18): the six onboarding groups render through the shared vocabulary
+    // (onboarding-vocab.js) when it is loaded — one "Label: value" per answered field, the
+    // form's own option text, never a raw enum key. Pages that load this file without the
+    // vocabulary never pass a group field, so the fall-through below is unreachable for them.
+    var V = typeof window !== 'undefined' && window.OnboardingVocab;
+    if (V && V.VOCAB[field]) {
+      var lines = V.describe(field, value).filter(function (d) { return d.text !== null; });
+      if (!lines.length) return '—';
+      if (V.VOCAB[field].scalar) return lines[0].text;
+      return lines.map(function (d) { return d.label + ': ' + d.text; }).join('; ');
+    }
     return '—';
   }
 

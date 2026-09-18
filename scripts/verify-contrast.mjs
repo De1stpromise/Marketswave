@@ -1024,6 +1024,55 @@ PROFILES['portfolio-overview-new'] = [
   { label: 'empty-state copy', sel: '.po-empty p', limit: 2 }
 ];
 
+// Task A (2026-09-18, register row 242): the three surfaces the onboarding record and the
+// identity documents now render on. Each is measured with real data on screen (a client who
+// submitted) and, for settings, again with the honest empty state (a client who has not).
+PROFILES['settings-onboarding'] = [
+  { label: 'card heading', sel: '#onboarding-card h3', limit: 1 },
+  { label: 'card sub', sel: '#onboarding-card > div > div > p', limit: 1 },
+  { label: 'row label', sel: '#onboarding-card [data-field-row]:not(.hidden) > div > p.text-xs', limit: 7 },
+  { label: 'row value', sel: '#onboarding-card [data-field-row]:not(.hidden) [id$="-display"]:not(:has(.ob-empty))', limit: 7 },
+  { label: 'group line label', sel: '#onboarding-card [data-field-row]:not(.hidden) [id$="-display"] .text-slate-500', limit: 6 },
+  { label: 'not-submitted hint', sel: '#onboarding-card [data-field-row]:not(.hidden) [id$="-empty-hint"]:not(.hidden)', limit: 7 },
+  { label: 'unsubmitted note', sel: '#onboarding-unsubmitted-note', limit: 1 },
+  { label: 'DOB support note', sel: '#onboarding-card [data-field-row="dateOfBirth"] span', limit: 1 },
+  { label: 'request button', sel: '#onboarding-card [data-field-row]:not(.hidden) .request-change-btn:not(.hidden)', limit: 6 },
+  { label: 'pending badge', sel: '#onboarding-card [data-field-row]:not(.hidden) .pending-badge:not(.hidden)', limit: 2 },
+  { label: 'profile not-submitted hint', sel: '[id$="-empty-hint"]:not(.hidden)', limit: 3 }
+];
+PROFILES['settings-onboarding-modal'] = [
+  { label: 'modal title', sel: '#change-modal-title', limit: 1 },
+  { label: 'current label', sel: '[data-body="group"] > div > label', limit: 1 },
+  { label: 'current value', sel: '#cm-group-current', limit: 1 },
+  { label: 'field label', sel: '#cm-group-fields label', limit: 6 },
+  { label: 'select text', sel: '#cm-group-fields select', limit: 6 },
+  { label: 'reason label', sel: 'label[for="change-modal-reason"]', limit: 1 }
+];
+PROFILES['client-profile-onboarding'] = [
+  { label: 'onboarding heading', sel: '#cp-onboarding .cp-ch b', limit: 1 },
+  { label: 'onboarding hint', sel: '#cp-onboarding .cp-hint', limit: 1 },
+  { label: 'onboarding key', sel: '#cp-onboarding .cp-k', limit: 10 },
+  { label: 'onboarding value', sel: '#cp-onboarding .cp-v', limit: 10 },
+  { label: 'group line key', sel: '#cp-onboarding .cp-olk', limit: 6 },
+  { label: 'not submitted', sel: '#cp-onboarding .cp-unsub', limit: 3 },
+  { label: 'absence note', sel: '#cp-onboarding .cp-absent p', limit: 1 },
+  { label: 'identity doc title', sel: '[data-cp-idd] .cp-dn b', limit: 2 },
+  { label: 'identity doc meta', sel: '[data-cp-idd] .cp-dn span', limit: 2 },
+  { label: 'identity pill', sel: '[data-cp-idd] .cp-p-res', limit: 2 },
+  { label: 'on-file pill', sel: '[data-cp-idd-onfile]', limit: 2 },
+  { label: 'not-available note', sel: '[data-cp-idd] .cp-locked p', limit: 1 },
+  { label: 'no-identity-doc note', sel: '[data-cp-idd-empty]', limit: 1 }
+];
+PROFILES['approval-gate-application'] = [
+  { label: 'panel title', sel: '#ag-pane-title', limit: 1 },
+  { label: 'panel key', sel: '#ag-pane .ag-k', limit: 12 },
+  { label: 'panel value', sel: '#ag-pane .ag-v', limit: 12 },
+  { label: 'group line', sel: '#ag-pane .ag-lines span', limit: 8 },
+  { label: 'not submitted', sel: '#ag-pane .ag-unsub', limit: 4 },
+  { label: 'on-file pill', sel: '#ag-pane .ag-onfile', limit: 2 },
+  { label: 'warn note', sel: '#ag-pane .ag-warn p', limit: 3 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

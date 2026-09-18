@@ -20,8 +20,14 @@
 // function applies.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { VOCAB, GROUP_ORDER, validateGroup, groupAppliesTo } from '../_shared/onboarding-vocab.ts';
 
-const REQUESTABLE_FIELDS = ['legalName', 'address', 'idDocument'];
+// Task A (2026-09-18, register row 242): the six onboarding groups are requestable through this
+// SAME flow — one request carries a whole group's value, the way legalName already carries
+// {firstName,lastName}. dateOfBirth is deliberately NOT here (an identity fact corrected through
+// support, decided Aug 21, 2026 and reaffirmed for this task). entityDetails/jointHolder are
+// accepted only for the account type they belong to.
+const REQUESTABLE_FIELDS = ['legalName', 'address', 'idDocument'].concat(GROUP_ORDER);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -55,11 +61,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'field must be one of: ' + REQUESTABLE_FIELDS.join(', ') + '.' }, 400);
     }
 
-    // Same per-field validation as validateSettingsFieldValue() itself, byte-for-byte.
+    // Same per-field validation as validateSettingsFieldValue() itself, byte-for-byte; the
+    // onboarding groups validate against the shared vocabulary the browser twin also carries.
     const validationError = validateFieldValue(field, requestedValue);
     if (validationError) return jsonResponse({ error: validationError }, 400);
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    if (VOCAB[field] && VOCAB[field].accountType) {
+      const { data: clientRow } = await admin.from('clients').select('account_type').eq('id', clientId).maybeSingle();
+      if (!groupAppliesTo(field, clientRow ? (clientRow.account_type as string) : null)) {
+        return jsonResponse({ error: VOCAB[field].label + ' does not apply to this account type.' }, 400);
+      }
+    }
 
     const { data: existingPending, error: pendingErr } = await admin
       .from('profile_change_requests')
@@ -115,6 +129,8 @@ function validateFieldValue(field: string, value: any): string | null {
     if (!value || !value.documentType) {
       return 'idDocument requires documentType.';
     }
+  } else if (VOCAB[field]) {
+    return validateGroup(field, value);
   }
   return null;
 }
@@ -122,6 +138,7 @@ function validateFieldValue(field: string, value: any): string | null {
 function toColumn(field: string): string {
   if (field === 'legalName') return 'legal_name';
   if (field === 'idDocument') return 'id_document';
+  if (VOCAB[field]) return VOCAB[field].column;
   return field; // 'address' is already the same in both cases
 }
 

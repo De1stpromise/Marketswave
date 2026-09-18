@@ -231,3 +231,10 @@
   .ag-pane { max-width: none; max-height: none; border-radius: 0; border: none; }
   .ag-srch { margin-left: 0; max-width: none; }
 }
+
+/* Task A (2026-09-18): onboarding groups and identity-document metadata on the application panel. */
+.ag-kv .ag-v.ag-v-onb { font-weight: 500; text-align: left; }
+.ag-lines { display: block; }
+.ag-lines span { display: block; line-height: 1.5; }
+.ag-unsub { color: #475569; font-style: italic; font-weight: 500; }
+.ag-onfile { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: #ECFDF5; color: #065F46; vertical-align: middle; }

@@ -935,3 +935,7 @@ verify_jwt = false
 [functions.revoke-pm-session]
 enabled = true
 verify_jwt = false
+
+[functions.submit-onboarding]
+enabled = true
+verify_jwt = false

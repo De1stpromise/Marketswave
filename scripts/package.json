@@ -104,6 +104,8 @@
     "supabase-verify-client-profile": "node verify-supabase-client-profile.mjs",
     "verify-client-profile-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-profile-ui-wiring.mjs",
     "verify-client-profile-visual": "node verify-client-profile-visual.mjs",
+    "supabase-verify-onboarding-persistence": "node verify-supabase-onboarding-persistence.js",
+    "verify-onboarding-persistence-visual": "node verify-onboarding-persistence-visual.mjs",
     "verify-client-list-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-client-list-ui-wiring.mjs",
     "supabase-verify-product-catalog": "node verify-supabase-product-catalog.mjs",
     "supabase-verify-deposit-address-book": "node verify-supabase-deposit-address-book.js",

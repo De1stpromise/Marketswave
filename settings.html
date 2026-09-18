@@ -167,7 +167,7 @@
               <div>
                 <p class="text-xs text-slate-500">Legal Name</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="legalName-display">—</p>
-                <p class="text-xs text-slate-400 mt-0.5 hidden" id="legalName-empty-hint">Not on file yet — submit a Request Change to add this.</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="legalName-empty-hint">Not submitted yet — you can add this with Request Change.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
@@ -179,7 +179,7 @@
               <div>
                 <p class="text-xs text-slate-500">Address</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="address-display">—</p>
-                <p class="text-xs text-slate-400 mt-0.5 hidden" id="address-empty-hint">Not on file yet — submit a Request Change to add this.</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="address-empty-hint">Not submitted yet — you can add this with Request Change.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
@@ -191,11 +191,114 @@
               <div>
                 <p class="text-xs text-slate-500">ID / Document</p>
                 <p class="text-sm font-medium text-navy mt-0.5" id="idDocument-display">—</p>
-                <p class="text-xs text-slate-400 mt-0.5 hidden" id="idDocument-empty-hint">Not on file yet — submit a Request Change to add this.</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="idDocument-empty-hint">Not submitted yet — you can add this with Request Change.</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
                 <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="idDocument" data-label="ID / Document">Request Change</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== ONBOARDING DETAILS ==========
+             Task A (2026-09-18, register row 242). The record signup.html collects — date of
+             birth, country of residence, financial profile, goals & preferences, the risk
+             questionnaire, entity/joint details — now lives in client_profiles and is shown
+             here. Six of the groups go through the SAME Request Change flow the three rows
+             above use (request-profile-change / a PM approves), rendered from the shared
+             onboarding vocabulary (onboarding-vocab.js) so this page, the PM profile and the
+             approval gate can never label a value differently.
+             DATE OF BIRTH HAS NO REQUEST CHANGE CONTROL, deliberately: an identity fact,
+             corrected through support (decided Aug 21, 2026, reaffirmed for this task).
+             The empty state says "not submitted" — a client who signed up before this shipped
+             has no server-side record unless their browser still held the local copy at their
+             next login; nothing was lost in transit, it was never sent. -->
+        <div class="glass glass-lift rounded-2xl p-6" id="onboarding-card">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <h3 class="font-semibold text-navy">Onboarding Details</h3>
+              <p class="text-xs text-slate-500 mt-0.5">What you told us when you applied. Changes are reviewed by your Portfolio Manager.</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-2 hidden" id="onboarding-unsubmitted-note">
+            No onboarding record has been submitted for this account yet. If you applied before this was available, you can add each section below with Request Change.
+          </p>
+          <div class="divide-y-0">
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="dateOfBirth">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Date of Birth</p>
+                <p class="text-sm font-medium text-navy mt-0.5" id="dateOfBirth-display">—</p>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="dateOfBirth-empty-hint">Not submitted yet.</p>
+              </div>
+              <div class="shrink-0">
+                <span class="text-xs text-slate-500">Corrected through Support</span>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="countryOfResidence" data-onboarding-group="countryOfResidence">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Country of Residence</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="countryOfResidence-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="countryOfResidence-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="countryOfResidence" data-label="Country of Residence">Request Change</button>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="financialProfile" data-onboarding-group="financialProfile">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Financial Profile</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="financialProfile-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="financialProfile-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="financialProfile" data-label="Financial Profile">Request Change</button>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="goalsPreferences" data-onboarding-group="goalsPreferences">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Goals & Preferences</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="goalsPreferences-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="goalsPreferences-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="goalsPreferences" data-label="Goals & Preferences">Request Change</button>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="riskQuestionnaire" data-onboarding-group="riskQuestionnaire">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Risk Questionnaire</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="riskQuestionnaire-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="riskQuestionnaire-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="riskQuestionnaire" data-label="Risk Questionnaire">Request Change</button>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3 border-b border-slate-100" data-field-row="entityDetails" data-onboarding-group="entityDetails">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Entity Details</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="entityDetails-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="entityDetails-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="entityDetails" data-label="Entity Details">Request Change</button>
+              </div>
+            </div>
+            <div class="flex items-start justify-between gap-4 py-3" data-field-row="jointHolder" data-onboarding-group="jointHolder">
+              <div class="min-w-0">
+                <p class="text-xs text-slate-500">Joint Account Holder</p>
+                <div class="text-sm font-medium text-navy mt-0.5 space-y-0.5" id="jointHolder-display">—</div>
+                <p class="text-xs text-slate-400 mt-0.5 hidden" id="jointHolder-empty-hint">Not submitted yet — you can add this with Request Change.</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="pending-badge hidden inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Pending Review</span>
+                <button type="button" class="request-change-btn mw-btn mw-btn-secondary mw-btn-sm" data-field="jointHolder" data-label="Joint Account Holder">Request Change</button>
               </div>
             </div>
           </div>
@@ -510,6 +613,16 @@
         </div>
       </div>
 
+      <!-- Onboarding groups (Task A): one body, built from the shared vocabulary at open time —
+           a select per enumerated field, a text input per free-text field. -->
+      <div class="change-body hidden space-y-4" data-body="group">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Current</label>
+          <div class="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 space-y-0.5" id="cm-group-current">—</div>
+        </div>
+        <div class="space-y-3" id="cm-group-fields"></div>
+      </div>
+
       <div class="mt-4">
         <div class="mw-fld">
           <textarea id="change-modal-reason" rows="3" class="mw-field" placeholder=" "></textarea>
@@ -536,6 +649,7 @@
   <script src="dashboard-common.js"></script>
   <script src="engine-core.js"></script>
   <script src="format-helpers.js"></script>
+  <script src="onboarding-vocab.js"></script>
   <!-- Motion UI Components (2026-09-08): see motion-helpers.js own header for the CDN/
        bundle-size investigation. Loaded here for the Notification Bell (all 10 client
        pages) -->
@@ -766,8 +880,15 @@
     (function () {
       if (typeof MarketswaveData === 'undefined') return;
 
-      const FIELDS = ['legalName', 'address', 'idDocument'];
+      // The three request-and-approve fields, plus (Task A, 2026-09-18) the six onboarding
+      // groups — same flow, same table, same Edge Function; only the value shapes differ.
+      const BASE_FIELDS = ['legalName', 'address', 'idDocument'];
+      const V = window.OnboardingVocab;
+      const GROUPS = V ? V.GROUP_ORDER.slice() : [];
+      const FIELDS = BASE_FIELDS.concat(GROUPS);
       let profile = { legalName: null, address: null, idDocument: null };
+      let onboarding = { submittedAt: null, dateOfBirth: null, groups: {} };
+      let accountType = null;
       let pendingRequests = [];
 
       var dataPromise = null;
@@ -775,15 +896,25 @@
         if (dataPromise) return dataPromise;
         dataPromise = Promise.all([
           MarketswaveData.selectTable('client_profiles'),
-          MarketswaveData.selectTable('profile_change_requests')
+          MarketswaveData.selectTable('profile_change_requests'),
+          MarketswaveData.selectTable('clients')
         ]).then(function (results) {
           var row = results[0] && results[0][0] ? results[0][0] : null;
+          var clientRow = results[2] && results[2][0] ? results[2][0] : null;
+          var groups = {};
+          GROUPS.forEach(function (k) { groups[k] = V.groupValueFromProfile(k, row); });
           return {
             profile: {
               legalName: row ? row.legal_name : null,
               address: row ? row.address : null,
               idDocument: row ? row.id_document : null
             },
+            onboarding: {
+              submittedAt: row ? row.onboarding_submitted_at : null,
+              dateOfBirth: row ? row.date_of_birth : null,
+              groups: groups
+            },
+            accountType: clientRow ? clientRow.account_type : null,
             requests: results[1].map(function (r) { return { id: r.id, field: r.field, status: r.status }; })
           };
         }).catch(function (err) {
@@ -802,13 +933,52 @@
       // (shown only when the real value is genuinely empty) so an intentional empty state
       // reads as intentional rather than looking broken to a real client seeing it for the
       // first time.
+      function esc(v) {
+        return String(v === null || v === undefined ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      // A group renders one line per answered field ("Label: value"); a group with nothing
+      // answered renders "—" and shows the not-submitted hint. Never a placeholder value.
+      function groupDisplayHTML(key, value) {
+        var lines = V.describe(key, value).filter(function (d) { return d.text !== null; });
+        // A lone dash in a wide box is below the contrast probe's non-vacuity floor (one glyph
+        // moves too few pixels to prove it was sampled); it is marked so the probe measures the
+        // not-submitted hint beside it instead of reporting the dash as unmeasurable.
+        if (!lines.length) return '<span class="ob-empty">—</span>';
+        if (lines.length === 1 && V.VOCAB[key].scalar) return esc(lines[0].text);
+        return lines.map(function (d) {
+          return '<span class="block"><span class="text-slate-500 font-normal">' + esc(d.label) + ':</span> ' + esc(d.text) + '</span>';
+        }).join('');
+      }
+
       function renderProfileDisplay() {
-        FIELDS.forEach(field => {
+        BASE_FIELDS.forEach(field => {
           const el = document.getElementById(`${field}-display`);
           const hintEl = document.getElementById(`${field}-empty-hint`);
           if (el) el.textContent = formatFieldDisplay(field, profile[field]);
           if (hintEl) hintEl.classList.toggle('hidden', !!profile[field]);
         });
+        // Onboarding (Task A). Entity/joint rows only for the account type they belong to.
+        var applicable = V ? V.groupsForAccountType(accountType) : [];
+        GROUPS.forEach(function (key) {
+          var row = document.querySelector('[data-onboarding-group="' + key + '"]');
+          var el = document.getElementById(key + '-display');
+          var hintEl = document.getElementById(key + '-empty-hint');
+          var applies = applicable.indexOf(key) !== -1;
+          if (row) row.classList.toggle('hidden', !applies);
+          if (!applies) return;
+          var value = onboarding.groups[key];
+          var has = V.hasAnyValue(key, value);
+          if (el) el.innerHTML = groupDisplayHTML(key, value);
+          if (hintEl) hintEl.classList.toggle('hidden', has);
+        });
+        var dobEl = document.getElementById('dateOfBirth-display');
+        var dobHint = document.getElementById('dateOfBirth-empty-hint');
+        var dobText = V ? V.dateOfBirthDisplay(onboarding.dateOfBirth) : null;
+        if (dobEl) dobEl.textContent = dobText || '—';
+        if (dobHint) dobHint.classList.toggle('hidden', !!dobText);
+        var note = document.getElementById('onboarding-unsubmitted-note');
+        if (note) note.classList.toggle('hidden', !!onboarding.submittedAt);
       }
 
       function renderPendingBadges() {
@@ -830,12 +1000,14 @@
       function reloadProfileChangeData(forceReload) {
         if (forceReload) dataPromise = null;
         MarketswaveData.renderAsyncBundle(
-          FIELDS.map(f => document.getElementById(`${f}-display`)),
+          FIELDS.concat(['dateOfBirth']).map(f => document.getElementById(`${f}-display`)).filter(Boolean),
           {
             skeletonHTML: MarketswaveData.skeleton.text('w-40'),
             load: loadProfileChangeData,
             render: function (data) {
               profile = data.profile;
+              onboarding = data.onboarding;
+              accountType = data.accountType;
               pendingRequests = data.requests;
               renderProfileDisplay();
               renderPendingBadges();
@@ -853,7 +1025,28 @@
       function closeModal() { modal.classList.add('hidden'); }
 
       function showBody(field) {
-        document.querySelectorAll('.change-body').forEach(b => b.classList.toggle('hidden', b.dataset.body !== field));
+        var body = (V && V.VOCAB[field]) ? 'group' : field;
+        document.querySelectorAll('.change-body').forEach(b => b.classList.toggle('hidden', b.dataset.body !== body));
+      }
+
+      // Builds the group body from the vocabulary: a <select> per enumerated field (with the
+      // form's own option text), an <input> per free-text field. Ids are cm-g-<fieldKey>.
+      function buildGroupForm(key) {
+        var g = V.VOCAB[key];
+        var wrap = document.getElementById('cm-group-fields');
+        wrap.innerHTML = g.fields.map(function (f) {
+          var id = 'cm-g-' + f.key;
+          if (f.enum) {
+            var opts = '<option value="">Select</option>' + Object.keys(f.enum).map(function (k) {
+              return '<option value="' + esc(k) + '">' + esc(f.enum[k]) + '</option>';
+            }).join('');
+            return '<div class="mw-fld mw-fld--static"><select id="' + id + '" class="mw-field" data-group-field="' + esc(f.key) + '">' + opts + '</select>' +
+              '<label for="' + id + '">New ' + esc(f.label) + '</label></div>';
+          }
+          return '<div class="mw-fld"><input type="text" id="' + id + '" class="mw-field" placeholder=" " data-group-field="' + esc(f.key) + '">' +
+            '<label for="' + id + '">New ' + esc(f.label) + '</label></div>';
+        }).join('');
+        document.getElementById('cm-group-current').innerHTML = groupDisplayHTML(key, onboarding.groups[key]);
       }
 
       function clearNewValueInputs() {
@@ -872,7 +1065,11 @@
         btn.addEventListener('click', () => {
           activeField = btn.dataset.field;
           titleEl.textContent = `Request Change — ${btn.dataset.label}`;
-          document.getElementById(`cm-${activeField}-current`).textContent = formatFieldDisplay(activeField, profile[activeField]);
+          if (V && V.VOCAB[activeField]) {
+            buildGroupForm(activeField);
+          } else {
+            document.getElementById(`cm-${activeField}-current`).textContent = formatFieldDisplay(activeField, profile[activeField]);
+          }
           clearNewValueInputs();
           reasonInput.value = '';
           errorEl.classList.add('hidden');
@@ -905,6 +1102,15 @@
             country: document.getElementById('cm-address-country').value.trim()
           };
         }
+        if (V && V.VOCAB[field]) {
+          var g = V.VOCAB[field];
+          var out = {};
+          document.querySelectorAll('#cm-group-fields [data-group-field]').forEach(function (inp) {
+            var v = String(inp.value || '').trim();
+            if (v) out[inp.getAttribute('data-group-field')] = v;
+          });
+          return g.scalar ? (out.value || '') : out;
+        }
         if (field === 'idDocument') {
           const fileInput = document.getElementById('cm-idDocument-file');
           const fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : null;
@@ -921,6 +1127,10 @@
         const reason = reasonInput.value.trim() || null;
         const field = activeField;
         const btn = document.getElementById('change-modal-submit');
+        if (V && V.VOCAB[field]) {
+          var preErr = V.validateGroup(field, requestedValue);
+          if (preErr) { errorEl.textContent = preErr; errorEl.classList.remove('hidden'); return; }
+        }
         MarketswaveData.withButtonBusy(btn, 'Submitting...', function () {
           return MarketswaveData.callFunction('request-profile-change', { field: field, requestedValue: requestedValue, reason: reason });
         }).then(function () {

@@ -1648,6 +1648,11 @@
       }
 
       return {
+        // ★ Task A (2026-09-18, register row 242): date of birth was read ONCE for the age
+        // check and dropped, and country of residence was never read by any script at all —
+        // two fields a client typed that went nowhere. Both are captured now.
+        dateOfBirth: val('input[name="date_of_birth"]'),
+        countryOfResidence: val('select[name="country"]'),
         entityDetails: accountType === 'entity' ? {
           name: val('input[name="entity_name"]'),
           registrationNumber: val('input[name="registration_number"]'),
@@ -1681,6 +1686,36 @@
           idDocument: { fileName: uploadedFileName('id'), documentType: 'Government-issued Photo ID' },
           proofOfAddress: { fileName: uploadedFileName('address'), documentType: 'Proof of Address' }
         }
+      };
+    }
+
+    // ★ Task A: the real File objects, uploaded to the identity-documents bucket at submit.
+    // Kept out of collectOnboardingData() because that record is also written to localStorage,
+    // and a File cannot be serialised there (which is exactly why no bytes ever persisted).
+    function collectIdentityFiles() {
+      return [
+        { kind: 'id', documentType: 'Government-issued Photo ID', file: uploadedFile('id') },
+        { kind: 'address', documentType: 'Proof of Address', file: uploadedFile('address') }
+      ].filter(function (d) { return !!d.file; });
+      function uploadedFile(uploadKey) {
+        const box = document.querySelector(`.mw-upload[data-upload="${uploadKey}"]`);
+        const input = box ? box.querySelector('.mw-upload-input') : null;
+        return input && input.files && input.files[0] ? input.files[0] : null;
+      }
+    }
+
+    // Strips the onboarding record down to what submit-onboarding accepts: the six groups plus
+    // date of birth and country. entity/joint groups are sent only when they apply (null
+    // otherwise), matching the server's own account-type check.
+    function onboardingPayload(record) {
+      return {
+        dateOfBirth: record.dateOfBirth || null,
+        countryOfResidence: record.countryOfResidence || null,
+        financialProfile: record.financialProfile || null,
+        goalsPreferences: record.goalsPreferences || null,
+        riskQuestionnaire: record.riskQuestionnaire || null,
+        entityDetails: record.entityDetails || null,
+        jointHolder: record.jointHolder || null
       };
     }
 
@@ -1741,6 +1776,43 @@
             });
             if (insertError) throw insertError;
 
+            // ★ Task A (2026-09-18, register row 242): THE ONBOARDING RECORD AND THE IDENTITY
+            // DOCUMENTS REACH THE SERVER. Both run while the signUp() session is still live
+            // (before the trailing signOut()), because both are self-only writes authenticated
+            // by the caller's own JWT: the bucket policy lets this uid write only into its own
+            // folder, identity_documents' INSERT policy pins client_id to auth.uid(), and
+            // submit-onboarding derives the client from the token.
+            //
+            // BEST-EFFORT, DELIBERATELY. The clients row above already exists and signUp()
+            // cannot be re-run for the same email, so a failure here cannot be "try again":
+            // it is logged, the PM sees an honest "not submitted / no document on file" on
+            // the application panel, and — for the onboarding record — login.html's
+            // reclaim-on-login re-sends the localStorage copy the next time this client
+            // signs in from this browser. Bytes have no such safety net; a failed document
+            // upload is a document the client will be asked for again.
+            const onboardingRecord = collectOnboardingData();
+            try {
+              for (const doc of collectIdentityFiles()) {
+                const rowId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2));
+                const safeName = doc.file.name.replace(/[^\w.\-]+/g, '_');
+                const path = uid + '/' + doc.kind + '/' + rowId + '/' + safeName;
+                const { error: upErr } = await supabase.storage.from('identity-documents').upload(path, doc.file, { contentType: doc.file.type || 'application/octet-stream' });
+                if (upErr) throw new Error('upload ' + doc.kind + ': ' + upErr.message);
+                const { error: rowErr } = await supabase.from('identity_documents').insert({
+                  id: rowId, client_id: uid, kind: doc.kind, document_type: doc.documentType, filename: doc.file.name, storage_path: path
+                });
+                if (rowErr) throw new Error('record ' + doc.kind + ': ' + rowErr.message);
+              }
+            } catch (docErr) {
+              console.warn('identity document upload failed (non-fatal; the PM will see no document on file):', docErr);
+            }
+            try {
+              const { error: onbErr } = await supabase.functions.invoke('submit-onboarding', { body: onboardingPayload(onboardingRecord) });
+              if (onbErr) throw onbErr;
+            } catch (onbErr) {
+              console.warn('submit-onboarding failed (non-fatal; reclaim-on-login will retry from the local copy):', onbErr);
+            }
+
             // Branded HTML Emails (2026-09-07): a real client-facing receipt + the first
             // PM-facing "new application" notification — see notify-new-client-application/
             // index.ts's own header for the full "why this is a separate notify call, not a
@@ -1761,7 +1833,9 @@
             // submission, after PM approval.
             await supabase.auth.signOut();
 
-            saveClientOnboardingData(uid, collectOnboardingData());
+            // The local copy is still written: it is what reclaim-on-login sends if the
+            // server write above failed, and the local engine's own readers still use it.
+            saveClientOnboardingData(uid, onboardingRecord);
             seedMinimalClientStores(uid, 0);
 
             window.location.href = 'thank-you.html?backend=supabase';

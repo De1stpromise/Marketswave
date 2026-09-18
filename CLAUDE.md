@@ -10395,7 +10395,8 @@ row 74.
   high, no position is at a loss, or the sell shape is wrong. (i) **Seeds send no email**: no Edge
   Function is called and `email_log` rows are written directly as a record of what the previous
   platform sent.
-- **★★ Two designed features have NO server-side storage — register row 224, OPEN** (2026-09-14):
+- **★★ Two designed features have NO server-side storage — register row 224, item 1 CLOSED by
+  Task A (2026-09-18, see the entry directly below), item 2 still OPEN** (2026-09-14):
   the **PM client-profile Onboarding panel** (date of birth, nationality, tax residence, risk
   profile, source of funds, experience, horizon) has nothing behind it — `client_profiles` is only
   `legal_name`/`address`/`id_document`, and the onboarding record lives in per-device browser
@@ -10417,6 +10418,68 @@ row 74.
   therefore track `requestWillBeSent` with no terminal event, not just failures. **The cheap part:
   21 of the 25 CDP suites ALREADY call `Network.enable`** (for `setCacheDisabled`), so the events
   are already flowing and simply nothing listens.
+
+- **★★★ Task A — signup's data actually persists (2026-09-18, register rows 242–245).**
+  Sixteen fields signup collected beyond name/email/phone/account type reached Supabase NOWHERE:
+  the onboarding record went to the browser's own localStorage, the two identity documents were a
+  FILENAME with no bytes anywhere, and two fields — date of birth (read once for the ≥18 check and
+  dropped) and country of residence (never read by any script) — went nowhere at all (row 243).
+  `client_profiles` got no row at signup either, which is why settings.html told a client their own
+  typed name was "not on file". Now: `client_profiles` carries the record as columns, identity
+  documents are real objects in their own owner-only bucket, and the three lying surfaces render
+  the data — or say plainly it was never submitted.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE IDENTITY-DOCUMENTS BUCKET HAS NO ADMIN READ POLICY, ON PURPOSE. Do not add one.** That
+    absence IS the Task B enforcement: until access logging ships, no PM can sign a URL for,
+    download, or list an identity document from anywhere — proven from a real admin session in
+    both the backend suite and the PM's own browser. Task B adds a service_role Edge Function that
+    writes the log row and returns a short-lived URL, and only then a View control. A PM sees
+    metadata ("On file" + type, filename, date) and a present-tense "viewing is not available" note;
+    there is deliberately no disabled button implying a capability arriving later.
+  - **★ NO CLIENT WRITE PATH ON `client_profiles`, still.** RLS cannot restrict which COLUMNS a
+    row write touches, so a client INSERT/UPDATE policy "for onboarding" would let a client rewrite
+    legal_name/address/id_document and bypass approval. Onboarding is written ONLY by
+    `submit-onboarding` (self-only, validates every value, once only → 409, writes only the
+    onboarding columns, sets legal_name only when the row has none — from clients.name, split
+    server-side by `split_client_legal_name()`, never from the caller). Every later change goes
+    through `request-profile-change`, whose `field` CHECK now includes the six groups.
+  - **★ DATE OF BIRTH IS NOT REQUESTABLE.** An identity fact corrected through support (Aug 21,
+    2026; reaffirmed for this task). `request-profile-change` refuses it (400) and settings.html
+    shows "Corrected through Support" where the other rows have Request Change.
+  - **★ THE VOCABULARY IS ONE BLOCK IN TWO FILES, AND THE SUITE HOLDS THEM IDENTICAL.**
+    `onboarding-vocab.js` (browser: settings.html, admin-client-profile.js, admin-approvals-page.js,
+    `formatFieldDisplay()`) and `_shared/onboarding-vocab.ts` (Deno: submit-onboarding,
+    request/approve/reject-profile-change) carry a byte-identical VOCAB literal between
+    `VOCAB-START`/`VOCAB-END` markers. Values are the form's own option values and labels are the
+    form's own option TEXT — extracted from signup.html by script, because a first draft typed
+    from memory had four labels wrong and nothing but reading the form caught it. Edit one, edit
+    the other; `supabase-verify-onboarding-persistence` fails by name if they diverge.
+  - **★ "NOT SUBMITTED", NEVER "NOT ON FILE".** A client who signed up before 2026-09-18 has no
+    server record unless reclaim-on-login fired; "not on file" implies something was lost in
+    transit, and nothing was — it was never sent. settings.html asserts the phrase appears nowhere;
+    the PM profile and the gate say "Not submitted" per group and explain the pre-2026-09-18 case.
+  - **Reclaim-on-login is best-effort and same-browser only.** login.html's Supabase branch reads
+    the local record through `getClientOnboardingData()`, checks the server has no
+    `onboarding_submitted_at`, and calls `submit-onboarding` once — fire-and-forget. Old local
+    records never had date of birth or country, so those stay honestly null. A client on a new
+    device has nothing to reclaim; they add each section via Request Change.
+  - **Signup's server writes are best-effort BY DESIGN** — the clients row already exists and
+    `signUp()` cannot be re-run for the same email, so a failure here cannot be "try again". An
+    onboarding failure is caught by reclaim; a document failure means the PM sees "None on file".
+    The browser suite reads the page's own console to prove neither write logged a failure.
+  - **Signup collects country of RESIDENCE, not tax residence (row 244).** The fees & billing
+    design keys regulatory fees to tax residence; signup does not ask for it. Do not relabel the
+    residence field to fill that gap.
+  - **`approve-profile-change`'s email said "[object Object]"** for every field it had ever
+    approved (`String(requested_value)` on a jsonb object). `describeValue()` fixes it for all nine.
+  - **Verify a migration LOCALLY before `--linked`** — done in that order this time
+    (`supabase migration up --local`, 67/67 + 100/100, then the deploy).
+  **Verified**: `supabase-verify-onboarding-persistence` 67/67; `verify-onboarding-persistence-
+  visual` 100/100 (a REAL signup through the real form with two real files, every field read back
+  from Postgres and both files from Storage byte-for-byte; both settings states; the profile with
+  zero controls on identity documents and a signed URL refused from the PM's own session; the gate;
+  Gary; five contrast profiles, the sheen audit, fonts, 390/375 on a real phone profile, a real
+  320px iframe). Row 242 has the full account, rows 243–245 the finding and the follow-ups.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

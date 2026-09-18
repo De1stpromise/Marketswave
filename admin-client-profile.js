@@ -286,40 +286,97 @@
     return head + rows + un;
   }
 
-  // ★ ONBOARDING — three real fields, and an honest statement about the rest.
+  // ★ ONBOARDING — the record signup collects, from client_profiles (Task A, 2026-09-18,
+  // register row 242), labelled through the shared vocabulary so this panel, settings.html and
+  // the approval gate can never disagree about a value. Two honesty rules: an empty group says
+  // "not submitted" (a client who applied before 2026-09-18 has no server record unless their
+  // browser reclaimed it at a later login — nothing was lost, it was never sent), and the panel
+  // shows what signup COLLECTS: country of residence, which is not tax residence.
   function renderOnboarding(d) {
     var p = d.p.profile;
-    var ln = p.legalName;
-    var legal = ln ? [ln.firstName, ln.lastName].filter(Boolean).join(' ') : null;
-    var ad = p.address;
-    var addr = ad ? [ad.line1, ad.city, ad.state, ad.postalCode, ad.country].filter(Boolean).join(', ') : null;
+    var o = d.p.onboarding || {};
+    var V = window.OnboardingVocab;
+    var legal = p.legalName ? [p.legalName.firstName, p.legalName.lastName].filter(Boolean).join(' ') : null;
+    var addr = p.address ? formatFieldDisplay('address', p.address) : null;
     var idd = p.idDocument;
     var idTxt = idd ? [idd.documentType, idd.fileName].filter(Boolean).join(' · ') : null;
+    var applicable = V ? V.groupsForAccountType(d.p.client.accountType) : [];
 
-    return '<div class="cp-ch"><b>Onboarding</b><span class="cp-hint">from the profile record</span></div>' +
+    var groups = applicable.map(function (key) {
+      var value = o[key];
+      var lines = V.describe(key, value).filter(function (x) { return x.text !== null; });
+      var body;
+      if (!lines.length) {
+        body = '<span class="cp-unsub" data-cp-unsubmitted="' + esc(key) + '">Not submitted</span>';
+      } else if (V.VOCAB[key].scalar) {
+        body = esc(lines[0].text);
+      } else {
+        body = lines.map(function (x) { return '<span class="cp-ol"><span class="cp-olk">' + esc(x.label) + '</span> ' + esc(x.text) + '</span>'; }).join('');
+      }
+      return '<div class="cp-og" data-cp-group="' + esc(key) + '"><div class="cp-k">' + esc(V.VOCAB[key].label) + '</div><div class="cp-v">' + body + '</div></div>';
+    }).join('');
+
+    var dob = V ? V.dateOfBirthDisplay(o.dateOfBirth) : null;
+    var submitted = o.submittedAt
+      ? '<span class="cp-hint">submitted ' + esc(dateShort(o.submittedAt)) + '</span>'
+      : '<span class="cp-hint">no onboarding record submitted</span>';
+
+    return '<div class="cp-ch"><b>Onboarding</b>' + submitted + '</div>' +
       '<div class="cp-kv">' +
         kv('Legal name', legal) +
         kv('Address', addr) +
         kv('ID document', idTxt) +
         kv('Account type', d.p.client.accountType) +
+        kvRaw('Date of birth', dob ? esc(dob) : '<span class="cp-unsub" data-cp-unsubmitted="dateOfBirth">Not submitted</span>') +
       '</div>' +
-      // Honest absence, not a placeholder. See client-profile.ts's header.
-      '<div class="cp-absent" data-cp-absent="onboarding">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
-        '<p><b>Date of birth, nationality, tax residence, risk profile, source of funds, experience and horizon are not readable here.</b> ' +
-        'Signup collects them into the client’s own browser storage, not the database, so no server-side record exists for a PM to read. ' +
-        'The four fields above are the ones the profile record genuinely holds.</p>' +
-      '</div>';
+      '<div class="cp-kv cp-kv-groups">' + groups + '</div>' +
+      (o.submittedAt ? '' :
+        '<div class="cp-absent" data-cp-absent="onboarding">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>' +
+          '<p><b>No onboarding record has been submitted for this client.</b> ' +
+          'Clients who applied before 18 September 2026 had their answers stored only in the browser they applied from; ' +
+          'they are sent to the server the next time that client signs in from the same browser, or the client can add each section through Settings.</p>' +
+        '</div>');
+  }
+  function kvRaw(k, html) {
+    return '<div><div class="cp-k">' + esc(k) + '</div><div class="cp-v">' + html + '</div></div>';
   }
   function kv(k, v) {
     return '<div><div class="cp-k">' + esc(k) + '</div><div class="cp-v">' + (v ? esc(v) : '—') + '</div></div>';
   }
 
-  // ★ DOCUMENTS — identity documents are request-and-log, never open-freely.
+  // ★ IDENTITY DOCUMENTS (Task A, 2026-09-18) — METADATA ONLY, NO CONTROL. The bytes live in
+  // the identity-documents bucket, whose SELECT policy grants a PM nothing; there is no logged
+  // read yet (Task B). What is true now, and all that is rendered: a document of this type is
+  // on file, its filename, and when it was uploaded. No View, no Request, no disabled button
+  // implying a capability arriving later.
+  function renderIdentityDocuments(ids) {
+    if (!ids || !ids.length) {
+      return '<div class="cp-idd-empty" data-cp-idd-empty>No identity documents on file. ' +
+        'Signup uploads a photo ID and a proof of address; clients who applied before 18 September 2026 were never asked for the file itself.</div>';
+    }
+    var KIND = { id: 'Photo ID', address: 'Proof of address' };
+    return '<div class="cp-idd" data-cp-idd>' + ids.map(function (x) {
+      return '<div class="cp-doc" data-cp-idd-row="' + esc(x.id) + '">' +
+        '<div class="cp-ic cp-i-doc">' + ICONS.doc + '</div>' +
+        '<div class="cp-dn"><b>' + esc(x.documentType) + ' <span class="cp-pill cp-p-res">Identity</span></b>' +
+          '<span>' + esc(KIND[x.kind] || x.kind) + ' · ' + esc(x.filename) + ' · uploaded ' + esc(dateShort(x.uploadedAt)) + '</span></div>' +
+        '<span class="cp-pill" data-cp-idd-onfile>On file</span>' +
+        '</div>';
+    }).join('') +
+      '<div class="cp-locked" data-cp-locked>' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+        '<p><b>Viewing identity documents is not available.</b> Every view will be access-logged before any PM can open one; until that is in place there is no way to open these from the PM tool.</p>' +
+      '</div></div>';
+  }
+
+  // ★ DOCUMENTS — the Documents & Reporting rows. (Identity documents used to be detected here
+  // by a filename regex; they now come from their own table and render above these rows.)
   function renderDocuments(d) {
     var head = '<div class="cp-ch"><b>Documents</b><a href="admin-documents.html">All documents →</a></div>';
+    var idd = renderIdentityDocuments(d.p.identityDocuments);
     var docs = d.p.documents;
-    if (!docs.length) return head + '<div class="cp-empty">No documents yet.</div>';
+    if (!docs.length) return head + idd + '<div class="cp-empty">No other documents yet.</div>';
     var anyRestricted = docs.some(function (x) { return x.restricted; });
     var rows = docs.slice(0, 6).map(function (x) {
       var sub = (x.direction === 'upload' ? 'Uploaded ' : 'Sent ') + dateShort(x.createdAt) +
@@ -346,7 +403,7 @@
         '<p><b>Identity documents are access-logged.</b> Requesting one records who asked, when and why. ' +
         'The client is not notified, but the record is permanent.</p>' +
       '</div>') : '';
-    return head + rows + warn;
+    return head + idd + rows + warn;
   }
 
   var CH = { chat: 'cp-c-chat', email: 'cp-c-email', ticket: 'cp-c-ticket' };

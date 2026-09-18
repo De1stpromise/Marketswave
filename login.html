@@ -589,6 +589,36 @@
       // client row is missing, and when the status gate rejects - none of which could put it
       // on screen before, so none of which used to need to take it down.
       function hideLoading() { loadingScreen.classList.remove('is-active'); }
+
+      // See the call site in the Supabase branch. Reads the local record through the local
+      // engine's own getter (never a raw key guess), asks the server whether an onboarding
+      // record already exists, and only then calls submit-onboarding — which itself refuses a
+      // second submission, so a race between two tabs cannot double-write. Pre-2026-09-18
+      // local records never carried a date of birth or a country (signup did not store
+      // them anywhere), so those arrive as null and stay honestly empty on every surface.
+      async function reclaimLocalOnboarding(uid) {
+        try {
+          if (typeof getClientOnboardingData !== 'function') return;
+          const local = getClientOnboardingData(uid);
+          if (!local) return;
+          const { data: row, error: readErr } = await supabase
+            .from('client_profiles').select('onboarding_submitted_at').eq('client_id', uid).maybeSingle();
+          if (readErr || (row && row.onboarding_submitted_at)) return;
+          const payload = {
+            dateOfBirth: local.dateOfBirth || null,
+            countryOfResidence: local.countryOfResidence || null,
+            financialProfile: local.financialProfile || null,
+            goalsPreferences: local.goalsPreferences || null,
+            riskQuestionnaire: local.riskQuestionnaire || null,
+            entityDetails: local.entityDetails || null,
+            jointHolder: local.jointHolder || null
+          };
+          const { error } = await supabase.functions.invoke('submit-onboarding', { body: payload });
+          if (error) console.warn('reclaim-on-login: submit-onboarding refused the local record (non-fatal):', error);
+        } catch (e) {
+          console.warn('reclaim-on-login failed (non-fatal):', e);
+        }
+      }
       const loginError = document.getElementById('login-error');
       const emailInput = document.getElementById('email');
       const passwordInput = document.getElementById('password');
@@ -688,6 +718,15 @@
                 applicationReason: clientRow.application_reason || null
               });
               setClientAuthenticated(uid);
+
+              // ★ RECLAIM-ON-LOGIN (Task A, 2026-09-18, register row 242). Every client who
+              // signed up before 2026-09-18 has an onboarding record ONLY in the browser they
+              // signed up from (marketswave_client_onboarding:<uid>); the server has none.
+              // The one honest migration path: if THIS browser still holds that record and
+              // the server has no onboarding for this client, send it once. Best-effort and
+              // fire-and-forget — it must never delay or fail a login, and a client who signed
+              // up elsewhere simply gets nothing here, which is the truth.
+              reclaimLocalOnboarding(uid);
 
               // Stage 3 of 3 — the session is real and set; this is the pre-navigation dwell.
               setStage('Opening your portal');
