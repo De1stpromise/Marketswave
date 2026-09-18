@@ -345,12 +345,13 @@
     return '<div><div class="cp-k">' + esc(k) + '</div><div class="cp-v">' + (v ? esc(v) : '—') + '</div></div>';
   }
 
-  // ★ IDENTITY DOCUMENTS (Task A, 2026-09-18) — METADATA ONLY, NO CONTROL. The bytes live in
-  // the identity-documents bucket, whose SELECT policy grants a PM nothing; there is no logged
-  // read yet (Task B). What is true now, and all that is rendered: a document of this type is
-  // on file, its filename, and when it was uploaded. No View, no Request, no disabled button
-  // implying a capability arriving later.
-  function renderIdentityDocuments(ids) {
+  // ★ IDENTITY DOCUMENTS (Task A, 2026-09-18; View added by Task B the same day, register row
+  // 246). The bytes live in the identity-documents bucket, whose SELECT policy grants a PM
+  // nothing; the ONLY way to open one is identity-document-access.js → the admin-only
+  // open-identity-document function, which writes the append-only access-log row (reason
+  // required) and only then returns a 60-second signed URL. What is rendered: the metadata,
+  // an "Open" that goes through that modal, and a plain statement that every open is recorded.
+  function renderIdentityDocuments(ids, clientName) {
     if (!ids || !ids.length) {
       return '<div class="cp-idd-empty" data-cp-idd-empty>No identity documents on file. ' +
         'Signup uploads a photo ID and a proof of address; clients who applied before 18 September 2026 were never asked for the file itself.</div>';
@@ -362,11 +363,14 @@
         '<div class="cp-dn"><b>' + esc(x.documentType) + ' <span class="cp-pill cp-p-res">Identity</span></b>' +
           '<span>' + esc(KIND[x.kind] || x.kind) + ' · ' + esc(x.filename) + ' · uploaded ' + esc(dateShort(x.uploadedAt)) + '</span></div>' +
         '<span class="cp-pill" data-cp-idd-onfile>On file</span>' +
+        '<button type="button" class="mw-btn mw-btn-sm mw-btn-admin" data-cp-idd-view="' + esc(x.id) + '" data-kind="' + esc(x.kind) + '" data-type="' + esc(x.documentType) + '" data-filename="' + esc(x.filename) + '">Open</button>' +
         '</div>';
     }).join('') +
       '<div class="cp-locked" data-cp-locked>' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-        '<p><b>Viewing identity documents is not available.</b> Every view will be access-logged before any PM can open one; until that is in place there is no way to open these from the PM tool.</p>' +
+        '<p><b>Every open is access-logged</b> — who asked, when, which document, and the reason given — and the log cannot be edited or removed by anyone. ' +
+        'The client is not notified, but is entitled to see the log on request. Refused attempts are recorded too. ' +
+        '<a href="admin-security.html#identity-access">See the log →</a></p>' +
       '</div></div>';
   }
 
@@ -374,7 +378,7 @@
   // by a filename regex; they now come from their own table and render above these rows.)
   function renderDocuments(d) {
     var head = '<div class="cp-ch"><b>Documents</b><a href="admin-documents.html">All documents →</a></div>';
-    var idd = renderIdentityDocuments(d.p.identityDocuments);
+    var idd = renderIdentityDocuments(d.p.identityDocuments, d.p.client && d.p.client.name);
     var docs = d.p.documents;
     if (!docs.length) return head + idd + '<div class="cp-empty">No other documents yet.</div>';
     var anyRestricted = docs.some(function (x) { return x.restricted; });
@@ -573,6 +577,17 @@
           D.getElementById('cp-tabs').innerHTML = renderTabs(d);
         });
       }).catch(function (e) { toast(MarketswaveData.writeErrorMessage(e)); });
+      return;
+    }
+    var view = t.closest && t.closest('[data-cp-idd-view]');
+    if (view) {
+      if (!window.IdentityDocumentAccess) { toast('Could not reach the server.'); return; }
+      var nameEl = D.querySelector('.cp-idt h1');
+      IdentityDocumentAccess.open({
+        id: view.getAttribute('data-cp-idd-view'), kind: view.getAttribute('data-kind'),
+        documentType: view.getAttribute('data-type'), filename: view.getAttribute('data-filename'),
+        clientName: nameEl ? nameEl.textContent.replace(/\s+/g, ' ').trim() : null
+      }, { onToast: toast });
       return;
     }
     var req = t.closest && t.closest('[data-cp-request-doc]');

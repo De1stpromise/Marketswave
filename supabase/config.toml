@@ -939,3 +939,7 @@ verify_jwt = false
 [functions.submit-onboarding]
 enabled = true
 verify_jwt = false
+
+[functions.open-identity-document]
+enabled = true
+verify_jwt = false

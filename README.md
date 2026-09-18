@@ -2277,6 +2277,12 @@ What signup writes now, and where to look when a client's onboarding looks empty
   write failed at signup). Their answers exist only in the browser they applied from; the next
   login from that browser sends them. From any other device, the client adds each section
   through Settings → Request Change. Nothing was lost in transit — it was never sent.
+- **Opening an identity document (Task B, 2026-09-18)** goes through `open-identity-document`
+  only: a required free-text reason (≥10 characters), a row in `identity_document_access_log`
+  written BEFORE the 60-second signed URL is returned, refused attempts logged too. The log is
+  append-only for every role including `service_role` (a trigger), has no foreign keys (a trail
+  outlives its client), and is readable by every PM on `admin-security.html`. Verification rows
+  are permanent by design and name their suite in the reason.
 - **The vocabulary** (values + the form's own option text) is one block in two files,
   `onboarding-vocab.js` and `supabase/functions/_shared/onboarding-vocab.ts`. Edit both; the
   backend suite fails if they differ.
@@ -2286,6 +2292,8 @@ Run the two suites from `scripts/`:
 ```
 npm run supabase-verify-onboarding-persistence     # backend: RLS, the bucket, the flow (67)
 npm run verify-onboarding-persistence-visual        # a REAL signup with real files, then every surface (100)
+npm run supabase-verify-identity-document-access   # Task B: the log, the gate, append-only for everyone (34)
+npm run verify-identity-document-access-visual      # Task B: the real Open → modal → logged → real bytes (52)
 ```
 
 The visual suite needs Gary seeded (`node seed-client-gary.mjs`) for its Gary section and

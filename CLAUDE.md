@@ -10481,6 +10481,42 @@ row 74.
   Gary; five contrast profiles, the sheen audit, fonts, 390/375 on a real phone profile, a real
   320px iframe). Row 242 has the full account, rows 243–245 the finding and the follow-ups.
 
+- **★★★ Task B — access logging for identity documents (2026-09-18, register row 246).** The
+  read Task A deliberately withheld: a PM opens an identity document through ONE path — the
+  admin-only `open-identity-document` function — with a required free-text reason, and every
+  attempt (opened OR refused) is a row in `identity_document_access_log` before any URL exists.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE LOG IS APPEND-ONLY FOR EVERYONE, `service_role` INCLUDED, AND THAT IS THE POINT.**
+    A trigger refuses UPDATE/DELETE/TRUNCATE for every role; there is no client-side write
+    policy at all. **Do not add a delete path "for tests"** — the suites' rows are permanent
+    by design and each names its suite in the reason. If a PM (or anyone with the service key)
+    could quietly remove a row, the trail would prove nothing.
+  - **★ THE LOG IS THE GATE, NOT A SIDE EFFECT.** The function signs the URL first (no visible
+    effect), inserts the row, and returns the URL only if the insert succeeded. Keep that order.
+    Never widen the bucket policy: it is still owner-only with no admin clause, re-asserted.
+  - **★ NO FOREIGN KEYS on the log, deliberately.** A trail row must outlive the client and the
+    document; it carries denormalised snapshots (client name/email, document kind/type/
+    filename, PM email). Proven: delete the client, the rows stay and still read correctly.
+  - **Refused attempts are rows** (403 non-PM, 400 short reason, 404 unknown document, 502
+    storage failure) — only a session-less 401 is not, since there is nobody to attribute it
+    to. Recording only successes would leave no trace of the interesting case.
+  - **Reason: free text, ≥10 characters after trimming**, enforced in the modal (live count,
+    Submit disabled), in the component's own second check, in the function, AND by the table's
+    CHECK. Never a picker.
+  - **"Not notified" is not "not disclosable."** The client is not told of an open today, but
+    a client making a data access request is entitled to this log. The wording appears on the
+    modal, both PM surfaces and the log page; keep it if the notification decision changes.
+  - **One shared component, `identity-document-access.js`**, used by the profile and the gate.
+    It rebuilds the href from `signedPath` against the page's OWN project URL (row 200's
+    stack-internal-origin finding again) and reports a blocked pop-up rather than losing an
+    already-logged open.
+  - **Every PM sees every access** — built that way now because the other way would need undoing.
+  **Verified**: `supabase-verify-identity-document-access` 34/34; `verify-identity-document-
+  access-visual` 52/52 (a real captured `window.open` serving the client's real bytes, the
+  server refusing a short reason with the modal bypassed entirely, the gate's own open, the
+  security page rendering every row newest-first with refusal reasons, contrast, sheen, fonts,
+  390/375 real phone, 320 iframe). Row 246 has the full account; row 245 item 1 is closed.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

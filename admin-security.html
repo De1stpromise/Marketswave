@@ -192,6 +192,27 @@
             <div id="log-list"></div>
           </section>
 
+          <!-- ========== 6. IDENTITY DOCUMENT ACCESS LOG ==========
+               Task B (2026-09-18, register row 246). Every time a PM opens — or is refused —
+               a client's identity document, the open-identity-document function writes a row
+               here BEFORE any URL is returned. Append-only at the database (no UPDATE/DELETE
+               for anyone, service_role included), readable by every PM. One PM today means it
+               has no immediate reader; it is here for the deployment where it matters — a
+               second PM, a compliance review, a subject access request — because a trail
+               retrofitted later has no history before the day it was added. The client is not
+               notified of an open, but is entitled to this record on request. -->
+          <section class="glass glass-lift rounded-2xl sec-card overflow-hidden" aria-labelledby="sec-idac-h" id="identity-access">
+            <div class="px-6 py-4 border-b border-slate-100">
+              <h3 class="sec-h" id="sec-idac-h">Identity document access <span id="idac-count" class="text-slate-500 font-normal"></span></h3>
+              <p class="sec-sub" id="idac-sub">Every open of a client’s identity document by any Portfolio Manager — and every refused attempt. Permanent: nothing here can be edited or removed.</p>
+            </div>
+            <div class="sec-err mx-6 mt-4" id="sec-idac-err" role="alert">
+              <p id="sec-idac-err-text"></p>
+              <button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-sec-retry="idac">Try again</button>
+            </div>
+            <div id="idac-list"></div>
+          </section>
+
         </div>
       </main>
     </div>

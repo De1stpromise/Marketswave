@@ -271,12 +271,14 @@ async function main() {
       callFunction: () => Promise.reject(new Error('simulated read failure')),
       writeErrorMessage: () => 'Could not reach the server.',
       withButtonBusy: (btn, label, fn) => fn(),
-      getCurrentUserEmail: () => Promise.resolve(pmEmail)
+      getCurrentUserEmail: () => Promise.resolve(pmEmail),
+      // Task B (row 246): the page now reads identity_document_access_log at init.
+      selectTable: () => Promise.resolve([])
     });
     await pollUntil(() => q(brokenDom, '#sec-sessions-err').classList.contains('is-shown'), 10000);
     check('the sessions panel shows a real error card', q(brokenDom, '#sec-sessions-err').classList.contains('is-shown'));
     check('it does not render a reassuring empty list instead', sessionRows(brokenDom).length === 0);
-    check('the error card carries a real retry control', all(brokenDom, '[data-sec-retry]').length === 1);
+    check('the error card carries a real retry control', all(brokenDom, '[data-sec-retry="sessions"]').length === 1 && q(brokenDom, '#sec-sessions-err [data-sec-retry]') !== null);
     check('★ the identity still renders — a failed sessions read must not read as "we do not know who you are"',
       txt(q(brokenDom, '#sec-email')) === pmEmail, txt(q(brokenDom, '#sec-email')));
     check('and the "Sign out everywhere else" control is not offered against data that failed to load',
@@ -288,10 +290,12 @@ async function main() {
       callFunction: () => { calls += 1; return Promise.reject(new Error('still failing')); },
       writeErrorMessage: () => 'Could not reach the server.',
       withButtonBusy: (btn, label, fn) => fn(),
-      getCurrentUserEmail: () => Promise.resolve(pmEmail)
+      getCurrentUserEmail: () => Promise.resolve(pmEmail),
+      // Task B (row 246): the page now reads identity_document_access_log at init.
+      selectTable: () => Promise.resolve([])
     });
     await pollUntil(() => calls === 1, 10000);
-    q(retryDom, '[data-sec-retry]').click();
+    q(retryDom, '[data-sec-retry="sessions"]').click();
     await pollUntil(() => calls === 2, 10000);
     check('Try again genuinely re-fetches rather than only clearing the message', calls === 2, String(calls));
     // ★ NOT closed. Both pages still hold a pending promise chain that legitimately resolves

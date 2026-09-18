@@ -308,7 +308,7 @@ async function main() {
     check('GUARD: 1440px is genuinely 1440', d.inner === 1440, String(d.inner));
     check('real session rows render', d.sessions >= 2, String(d.sessions));
     check('★ the activity panel is absent from the rendered page (register row 239)', d.activityPresent === false);
-    check('all five cards render', d.cards === 5, String(d.cards));
+    check('all six cards render (Task B added the identity-document access log)', d.cards === 6, String(d.cards));
     check('the page genuinely uses .glass (so the sheen audit above was not vacuous)',
       d.glassCount >= 4, String(d.glassCount));
     check('★ the 2FA panel carries NO interactive control in the rendered page',

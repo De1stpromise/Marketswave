@@ -1073,6 +1073,33 @@ PROFILES['approval-gate-application'] = [
   { label: 'warn note', sel: '#ag-pane .ag-warn p', limit: 3 }
 ];
 
+// Task B (2026-09-18, register row 246): the identity-document access modal (opened by
+// CONTRAST_PREPARE_JS on the profile) and the access log on admin-security.html.
+PROFILES['identity-access-modal'] = [
+  { label: 'modal title', sel: '#ida-title', limit: 1 },
+  { label: 'modal description', sel: '#ida-desc', limit: 1 },
+  { label: 'warning body', sel: '#ida-warn', limit: 1 },
+  { label: 'warning strong', sel: '#ida-warn b', limit: 1 },
+  { label: 'reason label', sel: 'label[for="ida-reason"]', limit: 1 },
+  { label: 'character count', sel: '#ida-count', limit: 1 },
+  { label: 'error text', sel: '#ida-error:not(.hidden)', limit: 1 },
+  { label: 'buttons', sel: '#ida-submit, #ida-cancel', limit: 2 }
+];
+PROFILES['identity-access-log'] = [
+  { label: 'section heading', sel: '#sec-idac-h', limit: 1 },
+  { label: 'section sub', sel: '#idac-sub', limit: 1 },
+  { label: 'table head', sel: '[data-idac-table] th', limit: 6 },
+  { label: 'when cell', sel: '[data-idac-table] td:nth-child(1)', limit: 3 },
+  { label: 'client cell', sel: '[data-idac-table] td:nth-child(2)', limit: 3 },
+  { label: 'document cell', sel: '[data-idac-table] td:nth-child(3)', limit: 3 },
+  { label: 'opened pill', sel: '[data-idac-table] .bg-emerald-50', limit: 2 },
+  { label: 'refused pill', sel: '[data-idac-table] .bg-red-50', limit: 2 },
+  { label: 'refusal reason', sel: '[data-idac-table] [data-outcome="refused"] td:nth-child(4) span.block', limit: 2 },
+  { label: 'reason cell', sel: '[data-idac-table] td:nth-child(5)', limit: 3 },
+  { label: 'opened-by cell', sel: '[data-idac-table] td:nth-child(6)', limit: 3 },
+  { label: 'open control (profile)', sel: '[data-cp-idd-view]', limit: 2 }
+];
+
 const SELECTORS = PROFILES[process.env.CONTRAST_PROFILE || 'resources'];
 if (!SELECTORS) throw new Error('unknown CONTRAST_PROFILE: ' + process.env.CONTRAST_PROFILE);
 

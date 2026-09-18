@@ -438,10 +438,13 @@
         b += kv('Identity documents', '<span class="ag-unsub" data-ag-idd-none>None on file</span>');
       } else {
         ids.forEach(function (x) {
-          b += kv(KIND[x.kind] || x.kind, esc(x.document_type) + ' · ' + esc(x.filename) + ' <span class="ag-onfile" data-ag-idd="' + esc(x.id) + '">On file</span>', 'ag-v-onb');
+          b += kv(KIND[x.kind] || x.kind, esc(x.document_type) + ' · ' + esc(x.filename) + ' <span class="ag-onfile" data-ag-idd="' + esc(x.id) + '">On file</span> ' +
+            '<button type="button" class="mw-btn mw-btn-sm mw-btn-admin ag-idd-open" data-ag-idd-view="' + esc(x.id) + '" data-kind="' + esc(x.kind) + '" data-type="' + esc(x.document_type) + '" data-filename="' + esc(x.filename) + '" data-client="' + esc(c.name || '') + '">Open</button>', 'ag-v-onb');
         });
+        // Task B (row 246): every open goes through identity-document-access.js and is logged
+        // permanently (reason required); refused attempts are logged too.
         b += '<div class="ag-warn" data-ag-idd-locked><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-          '<p>Viewing an identity document is not available from the PM tool until every view is access-logged.</p></div>';
+          '<p>Opening an identity document is access-logged permanently — who, when, which document, and your reason. The log cannot be edited or removed; the client can see it on request.</p></div>';
       }
     } else if (it.kind === 'dep') {
       var r = it.raw;
@@ -752,7 +755,34 @@
     if (v === 'history') renderHistory();
   }
 
+  // A small status toast (the gate had none — its actions report inside the panel). Injected
+  // on first use, same classes as admin-client-profile.html's own #cp-toast.
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById('ag-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'ag-toast';
+      t.className = 'fixed bottom-6 right-6 z-50 hidden max-w-sm rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg';
+      t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite');
+      document.body.appendChild(t);
+    }
+    t.textContent = msg; t.classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 4000);
+  }
+
   document.addEventListener('click', function (e) {
+    var viewBtn = e.target.closest && e.target.closest('[data-ag-idd-view]');
+    if (viewBtn) {
+      if (!window.IdentityDocumentAccess) { toast('Could not reach the server.'); return; }
+      IdentityDocumentAccess.open({
+        id: viewBtn.getAttribute('data-ag-idd-view'), kind: viewBtn.getAttribute('data-kind'),
+        documentType: viewBtn.getAttribute('data-type'), filename: viewBtn.getAttribute('data-filename'),
+        clientName: viewBtn.getAttribute('data-client') || null
+      }, { onToast: toast });
+      return;
+    }
     var t = e.target;
     var row = t.closest && t.closest('.ag-row');
     var fp = t.closest && t.closest('[data-f]');

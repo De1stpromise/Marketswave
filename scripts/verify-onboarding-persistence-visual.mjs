@@ -353,8 +353,11 @@ async function main() {
     check('  groups render for the account type (no entity/joint for an Individual)', pr.groups.join() === 'countryOfResidence,financialProfile,goalsPreferences,riskQuestionnaire', JSON.stringify(pr.groups));
     check('  nothing reads "Not submitted" and no absence note shows for a client who submitted', pr.unsub.length === 0 && pr.absent === false, JSON.stringify(pr.unsub));
     check('★ both identity documents render as metadata (type · filename · upload date)', pr.idd.length === 2 && /Photo ID/.test(pr.idd.join()) && /Proof of address/.test(pr.idd.join()) && /taska-passport/.test(pr.idd.join()), JSON.stringify(pr.idd));
-    check('★ NO control on an identity document — no View, no Request, no disabled button', pr.iddButtons === 0, String(pr.iddButtons));
-    check('★ the "viewing is not available" note is stated, in the present tense', pr.iddLocked === true && /not available/i.test(pr.text + (await cdp.evaluate('document.querySelector("[data-cp-idd] .cp-locked p").textContent'))));
+    // Task B (row 246): each identity document now carries exactly one control — "Open", which
+    // goes through the reason-required, permanently-logged modal — and the note says so.
+    const openCtl = await cdp.evaluate('({ open: document.querySelectorAll("[data-cp-idd-view]").length, direct: document.querySelectorAll("[data-cp-idd] a[href*=storage]").length, buttons: document.querySelectorAll("[data-cp-idd] button").length })');
+    check('★ exactly one control per identity document (Open), and it is the logged path, not a direct link', openCtl.open === 2 && openCtl.buttons === 2 && openCtl.direct === 0, JSON.stringify(openCtl));
+    check('★ the note states that every open is access-logged and cannot be edited or removed', pr.iddLocked === true && /access-logged/i.test(await cdp.evaluate('document.querySelector("[data-cp-idd] .cp-locked p").textContent')));
     // the Task B enforcement, proven from the PM's own real browser session
     const pmSign = await cdp.evaluate(`(async () => {
       const { supabase } = await import('./admin-supabase-config.js');
@@ -380,14 +383,14 @@ async function main() {
       await nap(600);
       const pane = document.getElementById('ag-pane');
       return { found: true, text: pane.innerText, unsub: pane.querySelectorAll('.ag-unsub').length, onfile: pane.querySelectorAll('.ag-onfile').length,
-        locked: !!pane.querySelector('[data-ag-idd-locked]'), iddControls: pane.querySelectorAll('[data-ag-idd] button, [data-ag-idd] a').length,
-        stale: /no server-side storage|register row 224|access-logged permanently/i.test(pane.innerText) };
+        locked: !!pane.querySelector('[data-ag-idd-locked]'), iddControls: pane.querySelectorAll('[data-ag-idd-view]').length, iddDirect: pane.querySelectorAll('a[href*="storage"]').length,
+        stale: /no server-side storage|register row 224/i.test(pane.innerText) };
     })()`);
     check('the new application is in the gate\'s queue', gate.found === true, JSON.stringify(gate.rows));
     check('★ the panel shows the real onboarding record with the form\'s own labels', gate.found && /12 April 1988/.test(gate.text) && /Norway/.test(gate.text) && /Marine engineer/.test(gate.text) && /Aggressive growth/.test(gate.text), (gate.text || '').slice(0, 300));
     check('  nothing on the panel reads "Not submitted" for this applicant', gate.unsub === 0, String(gate.unsub));
-    check('★ both identity documents are listed "On file" with no view control, and the not-available note is present', gate.onfile === 2 && gate.iddControls === 0 && gate.locked === true, JSON.stringify({ onfile: gate.onfile, c: gate.iddControls, l: gate.locked }));
-    check('★ the old "no server-side storage" and "access-logged permanently" copy is gone', gate.stale === false);
+    check('★ both identity documents are listed "On file" with one Open control each (the logged path), and the access-logged note is present', gate.onfile === 2 && gate.iddControls === 2 && gate.iddDirect === 0 && gate.locked === true, JSON.stringify({ onfile: gate.onfile, c: gate.iddControls, d: gate.iddDirect, l: gate.locked }));
+    check('★ the old "no server-side storage" copy is gone', gate.stale === false);
 
     // =========================================================================================
     console.log('\n=== PART E — Gary, seeded before this existed ===\n');

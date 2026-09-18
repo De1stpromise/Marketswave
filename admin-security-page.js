@@ -190,7 +190,7 @@
   // ---- actions ------------------------------------------------------------------------------
   document.addEventListener('click', function (e) {
     var retry = e.target.closest && e.target.closest('[data-sec-retry]');
-    if (retry) { load(); return; }
+    if (retry) { if (retry.getAttribute('data-sec-retry') === 'idac') loadAccessLog(); else load(); return; }
 
     var revoke = e.target.closest && e.target.closest('[data-sec-revoke]');
     if (revoke) {
@@ -275,6 +275,58 @@
           '<td class="px-6 py-4 text-slate-600">' + esc(entry.performedAt) + '</td>' +
         '</tr>';
       }).join('') + '</tbody></table></div>';
+  }
+
+  // ---- identity document access log (Task B, row 246) -----------------------------------------
+  // A direct RLS-authorised read (admins read all); newest first. Every row is rendered — an
+  // audit trail that hides rows is not one. Refused attempts carry their refusal reason.
+  function renderAccessLog(rows) {
+    var listEl = el('idac-list');
+    el('idac-count').textContent = rows.length ? '(' + rows.length + ')' : '';
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="sec-empty px-6 py-8" data-idac-empty>No identity document has been opened or requested yet.</p>';
+      return;
+    }
+    var KIND = { id: 'Photo ID', address: 'Proof of address' };
+    listEl.innerHTML = '<div class="overflow-x-auto"><table class="w-full text-sm mw-card-table" data-idac-table><thead class="bg-slate-50 text-slate-600"><tr>' +
+      '<th class="text-left font-semibold px-6 py-3">When</th>' +
+      '<th class="text-left font-semibold px-6 py-3">Client</th>' +
+      '<th class="text-left font-semibold px-6 py-3">Document</th>' +
+      '<th class="text-left font-semibold px-6 py-3">Outcome</th>' +
+      '<th class="text-left font-semibold px-6 py-3">Reason</th>' +
+      '<th class="text-left font-semibold px-6 py-3">Opened by</th>' +
+      '</tr></thead><tbody class="divide-y divide-slate-100">' +
+      rows.map(function (r) {
+        var opened = r.outcome === 'opened';
+        var doc = r.document_type ? (esc(r.document_type) + (r.filename ? ' <span class="text-slate-500 font-normal">' + esc(r.filename) + '</span>' : ''))
+          : '<span class="text-slate-600 italic">' + (r.identity_document_id ? esc(r.identity_document_id) : 'unknown document') + '</span>';
+        var outcome = opened
+          ? '<span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800">Opened</span>'
+          : '<span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-800">Refused</span>' +
+            (r.refusal_reason ? '<span class="block text-xs text-slate-600 mt-1">' + esc(r.refusal_reason) + '</span>' : '');
+        var client = r.client_name ? esc(r.client_name) + (r.client_email ? ' <span class="text-slate-500 font-normal">' + esc(r.client_email) + '</span>' : '')
+          : '<span class="text-slate-600 italic">' + esc(r.client_id) + '</span>';
+        return '<tr class="hover:bg-slate-50/50" data-idac-row="' + esc(r.id) + '" data-outcome="' + esc(r.outcome) + '">' +
+          '<td class="px-6 py-4 text-slate-600 whitespace-nowrap">' + esc(absTime(r.requested_at)) + '</td>' +
+          '<td class="px-6 py-4 text-slate-900 font-medium">' + client + '</td>' +
+          '<td class="px-6 py-4 text-slate-700">' + (r.document_kind ? '<span class="text-slate-500">' + esc(KIND[r.document_kind] || r.document_kind) + ' · </span>' : '') + doc + '</td>' +
+          '<td class="px-6 py-4">' + outcome + '</td>' +
+          '<td class="px-6 py-4 text-slate-700 max-w-md">' + esc(r.reason || '—') + '</td>' +
+          '<td class="px-6 py-4 text-slate-600">' + esc(r.pm_email || r.pm_user_id) + '</td>' +
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function loadAccessLog() {
+    if (typeof MarketswaveData === 'undefined' || typeof MarketswaveData.selectTable !== 'function') { showError('idac', 'Could not reach the server.'); return Promise.resolve(); }
+    clearError('idac');
+    el('idac-list').innerHTML = '<p class="sec-empty px-6 py-8">Loading the access log…</p>';
+    return MarketswaveData.selectTable('identity_document_access_log', function (q) { return q.order('requested_at', { ascending: false }); }).then(function (rows) {
+      renderAccessLog(rows || []);
+    }).catch(function (err) {
+      showError('idac', MarketswaveData.writeErrorMessage(err));
+      el('idac-list').innerHTML = '';
+    });
   }
 
   // ---- password change ----------------------------------------------------------------------
@@ -375,6 +427,7 @@
   wirePassword();
   renderAccountFromSession();
   load();
+  loadAccessLog();
 
   // The verification drives a reload and a log re-render without synthesising a click on a
   // control the page does not have. Both are the page's own functions, not test-only paths.
