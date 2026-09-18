@@ -174,8 +174,14 @@ async function main() {
     check('presence is honestly false, not absent', e.presence && e.presence.live === false, JSON.stringify(e.presence));
 
     console.log('\n=== PART 5: the three absent sources are reported as absent, never faked ===\n');
-    check('★ onboarding is flagged unavailable — the seven signup fields live in browser storage',
-      e.onboardingAvailable === false, String(e.onboardingAvailable));
+    // Onboarding was absent-by-design until Task A (2026-09-18, register row 242) gave it real
+    // storage. For a client who has never submitted one, the honest answer is now an
+    // onboarding block with submittedAt null and every group null — never a placeholder.
+    check('★ onboarding is available as a source now, and this empty client reports an honest unsubmitted record',
+      e.onboardingAvailable === true && e.onboarding && e.onboarding.submittedAt === null && e.onboarding.riskQuestionnaire === null && e.onboarding.dateOfBirth === null,
+      JSON.stringify(e.onboarding));
+    check('★ identity documents are METADATA only — an empty list for this client, and the field exists',
+      Array.isArray(e.identityDocuments) && e.identityDocuments.length === 0, JSON.stringify(e.identityDocuments));
     check('★ no advisory-fee-charged figure is returned at all',
       e.health.advisoryFeeChargedAvailable === false && !('advisoryFeeCharged' in e.health),
       JSON.stringify(e.health));

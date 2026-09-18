@@ -57,6 +57,10 @@ function buildDom(MarketswaveData, clientId, extras) {
   // ★ The real page loads asset-mark.js via its own script tag; this harness strips scripts, so
   // it must load it explicitly. Row 207: each window gets its OWN copy and must be configured
   // per window, because the stored logo_url is a PATH and the base differs per environment.
+  // The page's own script order (admin-client-profile.html): format-helpers and the onboarding
+  // vocabulary come before the page script and it calls both (Task A, 2026-09-18, row 242).
+  dom.window.eval(readFileSync(path.join(ROOT, 'format-helpers.js'), 'utf8'));
+  dom.window.eval(readFileSync(path.join(ROOT, 'onboarding-vocab.js'), 'utf8'));
   dom.window.eval(readFileSync(path.join(ROOT, 'asset-mark.js'), 'utf8'));
   if (dom.window.AssetMark && dom.window.AssetMark.configure) {
     dom.window.AssetMark.configure({ storageBase: 'http://127.0.0.1:54321' });
@@ -181,13 +185,20 @@ async function main() {
       // ---- the three honest absences -------------------------------------------------------
       console.log('\n=== PART 3: what has no data source is stated, never faked ===\n');
       const onb = txt(dom, '#cp-onboarding');
-      check('★ onboarding renders the THREE fields client_profiles genuinely holds',
+      // Task A (2026-09-18, row 242): onboarding has real storage now. Gary was seeded before it
+      // existed, so the honest rendering is his three profile fields, "Not submitted" for every
+      // onboarding group, and the absence note explaining WHY (never "not on file").
+      check('★ onboarding renders the three profile fields Gary genuinely has',
         /Legal name/.test(onb) && /Address/.test(onb) && /ID document/.test(onb), onb.slice(0, 120));
-      check('★ ...and says plainly that DOB, nationality, tax residence, risk profile, source of funds, experience and horizon are NOT readable',
+      check('★ ...every onboarding group reads "Not submitted" with the absence note explaining the pre-2026-09-18 case',
         !!D.querySelector('#cp-onboarding [data-cp-absent="onboarding"]') &&
-        /not readable here/i.test(onb) && /browser storage/i.test(onb), onb.slice(-220));
+        D.querySelectorAll('#cp-onboarding .cp-unsub').length >= 4 &&
+        /No onboarding record has been submitted/i.test(onb) && !/not on file/i.test(onb), onb.slice(-260));
       check('★ NO fabricated onboarding value appears — no risk profile, no nationality, no tax residence as data',
-        !/Balanced|Swedish|Employment|Intermediate|5–10 years/.test(onb), onb.slice(0, 200));
+        !/Balanced|Swedish|Employment \/ Salary|Intermediate|5–10 years/.test(onb), onb.slice(0, 200));
+      check('★ identity documents: none on file for Gary, said in a sentence, with no control offered',
+        !!D.querySelector('[data-cp-idd-empty]') && D.querySelectorAll('[data-cp-idd-row], [data-cp-idd] button').length === 0,
+        txt(dom, '#cp-documents').slice(0, 160));
       const health = txt(dom, '#cp-health');
       check('★ account health shows the REAL advisory fee RATE', /Advisory fee rate/.test(health) && /%/.test(health), health.slice(0, 160));
       check('★ ...and states that nothing has been billed and no statement issued',
@@ -262,7 +273,8 @@ async function main() {
       /No holdings/i.test(txt(dom2, '#cp-holdings')), txt(dom2, '#cp-holdings').slice(0, 120));
     check('★ nothing pending → says so, and offers no Review action',
       /Nothing pending/i.test(txt(dom2, '#cp-attention')) && !D2.querySelector('#cp-attention [data-cp-pending]'));
-    check('★ no documents → a real sentence', /No documents/i.test(txt(dom2, '#cp-documents')));
+    check('★ no documents → a real sentence (and no identity documents, likewise a sentence)',
+      /No other documents yet/i.test(txt(dom2, '#cp-documents')) && /No identity documents on file/i.test(txt(dom2, '#cp-documents')), txt(dom2, '#cp-documents').slice(0, 200));
     check('★ no conversations → a real sentence', /No conversations/i.test(txt(dom2, '#cp-conversations')));
     check('★ no watchlist → a real sentence', /Nothing on the watchlist/i.test(txt(dom2, '#cp-watchlist')));
     check('★ no notes → a real sentence, and the add control is still offered',
