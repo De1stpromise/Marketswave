@@ -215,6 +215,22 @@ async function main() {
 
     const { data: pubDoc } = await adminSignIn.client.functions.invoke('publish-document', { body: { clientId: user.id, filename: 'IMA.pdf', category: 'Contracts', signatureRequired: true, fileBase64: TEST_FILE_BASE64 } });
 
+    // ★ Register row 248 — the column-guard trigger. RLS WITH CHECK constrains only the columns
+    // the policy names, so before the trigger this exact UPDATE succeeded and rewrote the
+    // firm-published document's filename, category, storage_path and date in the act of
+    // signing it (proven on the real policy, 2026-09-18). Attempted FIRST, while the row is
+    // still Signature Required — the live-vulnerability shape — and the row must be byte-for-
+    // byte untouched afterward, not merely "an error came back".
+    const { data: beforeGuard } = await admin.from('documents').select('*').eq('id', pubDoc.id).single();
+    const rewrite = { status: 'Signed', is_new: false, deadline_label: null, filename: 'REWRITTEN.pdf', category: 'General', storage_path: user.id + '/uploads/elsewhere/other.pdf', created_at: '2001-01-01' };
+    const { data: rewriteRows, error: rewriteErr } = await c.client.from('documents').update(rewrite).eq('id', pubDoc.id).select();
+    check('the column guard REFUSES a Sign UPDATE that also rewrites filename/category/storage_path/created_at', !!rewriteErr && /only status, is_new and deadline_label/.test(rewriteErr.message), rewriteErr ? rewriteErr.message : ('no error; rows=' + (rewriteRows || []).length));
+    const { data: afterGuard } = await admin.from('documents').select('*').eq('id', pubDoc.id).single();
+    check('...and the row is byte-for-byte untouched (still Signature Required, original filename/path/date)', JSON.stringify(afterGuard) === JSON.stringify(beforeGuard), JSON.stringify(afterGuard));
+    // One guarded column alone is enough to trip it — storage_path is the one that matters most.
+    const { error: pathOnlyErr } = await c.client.from('documents').update({ status: 'Signed', is_new: false, deadline_label: null, storage_path: user.id + '/uploads/elsewhere/other.pdf' }).eq('id', pubDoc.id).select();
+    check('the guard refuses a Sign UPDATE that only repoints storage_path', !!pathOnlyErr && /only status, is_new and deadline_label/.test(pathOnlyErr.message));
+
     const { data: signed, error: signErr } = await c.client.from('documents').update({ status: 'Signed', is_new: false, deadline_label: null }).eq('id', pubDoc.id).select();
     check('a client CAN directly sign their own from-document (real Sign action shape)', !signErr && signed && signed.length === 1, signErr && signErr.message);
     check('the document is genuinely Signed now', signed && signed[0].status === 'Signed');
