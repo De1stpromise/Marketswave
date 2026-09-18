@@ -117,7 +117,8 @@
     "verify-account-security-visual": "node verify-account-security-visual.mjs",
     "verify-deposit-address-book-visual": "node verify-deposit-address-book-visual.mjs",
     "verify-products-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-page-ui-wiring.mjs",
-    "verify-products-page-visual": "node verify-products-page-visual.mjs"
+    "verify-products-page-visual": "node verify-products-page-visual.mjs",
+    "verify-documents-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-page-ui-wiring.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

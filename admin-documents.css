@@ -1,0 +1,178 @@
+/* ★ PM tool revamp, part 9 (2026-09-18) — the Documents page.
+ *
+ * The three stacked sections (Client Uploads Awaiting Review · Publish to Client · History)
+ * become ONE searchable, sortable table over every document — client uploads, documents
+ * published from Marketswave, AND identity documents — with a health strip that is also a
+ * filter set (PM_TOOL_VOCABULARY.md §14) and a detail panel whose SHAPE follows the object:
+ *
+ *   - a regular document shows its status and the honest fact that NO signature evidence is
+ *     captured — the mockup drew a full evidence panel (typed name, IP, device, document
+ *     hash) but none of that is recorded, and rendering it would be register row D exactly;
+ *   - an identity document shows the Task B access record (row 246) and the ONE Open control
+ *     that routes through identity-document-access.js — reused, never rebuilt.
+ *
+ * Follows the vocabulary throughout: 9–11px semibold uppercase for structure, 12–13.5px for
+ * content, #B45309 as the single accent, #475569 for secondary text (never slate-500, which
+ * measures 4.02–4.44:1 at this size on these grounds — §6), tabular figures, Inter only. */
+
+.doc-wrap { max-width: 1180px; }
+
+/* ---- header ------------------------------------------------------------------------- */
+.doc-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.doc-top h2 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; color: #0F172A; }
+.doc-sub { font-size: 12.5px; color: #475569; margin-top: 4px; }
+
+/* ---- health strip — each card is a filter (§14) ------------------------------------- */
+.doc-health { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.doc-hc {
+  padding: 12px 14px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff;
+  cursor: pointer; text-align: left; transition: border-color .16s, background .16s; min-height: 0;
+}
+.doc-hc:hover { border-color: #CBD5E1; }
+.doc-hc[aria-pressed="true"] { border-color: #B45309; box-shadow: inset 0 0 0 1px #B45309; }
+.doc-hc.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+.doc-hc.is-warn[aria-pressed="true"] { border-color: #B45309; box-shadow: inset 0 0 0 1px #B45309; }
+.doc-hc .k { display: block; font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.doc-hc .v { display: block; font-size: 21px; font-weight: 700; letter-spacing: -.025em; line-height: 1; font-variant-numeric: tabular-nums; color: #0F172A; }
+.doc-hc.is-warn .v { color: #92400E; }
+.doc-hc .x { display: block; font-size: 10px; color: #475569; margin-top: 5px; }
+
+/* ---- toolbar ------------------------------------------------------------------------ */
+.doc-bar { padding: 12px 14px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; }
+.doc-pill {
+  height: 32px; padding: 0 11px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff;
+  color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  /* NO `min-height: 0` here — that would be (0,1,0) and out-specify tap-targets.css's own
+     `button { min-height: 44px }` (0,0,1) below `lg`, taking a filter pill to 32px on a
+     phone, exactly the row 171/172 floor those batches exist to hold. Left unset so the
+     pill is a comfortable 32px on desktop and tap-targets floors it to 44px on mobile. */
+}
+.doc-pill[aria-pressed="true"] { background: #1E293B; border-color: #1E293B; color: #fff; }
+.doc-pill .n { font-size: 9.5px; padding: 1px 5px; border-radius: 4px; background: rgba(15,23,42,.08); font-variant-numeric: tabular-nums; }
+.doc-pill[aria-pressed="true"] .n { background: rgba(255,255,255,.22); }
+.doc-search { position: relative; margin-left: auto; min-width: 210px; flex: 0 1 260px; }
+.doc-search input { width: 100%; height: 32px; padding: 0 11px 0 29px; border: 1px solid #E2E8F0; border-radius: 9px; background: #F8FAFC; font: 500 11.5px Inter, sans-serif; color: #0F172A; outline: none; min-height: 0; }
+.doc-search input:focus { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180,83,9,.14); }
+.doc-search .ic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+/* ---- table -------------------------------------------------------------------------- */
+.doc-table { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; }
+.doc-th, .doc-tr { display: grid; grid-template-columns: 38px minmax(0, 1.35fr) minmax(0, .85fr) 116px 116px 92px 30px; gap: 12px; align-items: center; }
+.doc-th { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; background: #FAFBFC; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
+.doc-th button {
+  background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; min-height: 0; min-width: 0; text-transform: inherit; letter-spacing: inherit;
+}
+.doc-th button.is-sorted { color: #0F172A; }
+.doc-th .r, .doc-tr .r { justify-self: end; text-align: right; }
+.doc-tr { padding: 11px 15px; border-bottom: 1px solid #F1F5F9; cursor: pointer; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font: inherit; }
+.doc-tr:hover { background: #FAFBFC; }
+.doc-tr:last-of-type { border-bottom: none; }
+.doc-tr:focus-visible { outline: 2px solid #B45309; outline-offset: -2px; }
+
+.doc-ic { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.i-con { background: #EDE9FE; }
+.i-sta { background: #DBEAFE; }
+.i-gen { background: #F1F5F9; }
+.i-kyc { background: #FEF3C7; }
+
+.doc-nm { min-width: 0; }
+.doc-nm b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-nm span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.doc-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.doc-av { width: 26px; height: 26px; border-radius: 50%; background: #334155; color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.doc-who b { font-size: 12px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.doc-dir { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; }
+.doc-dir svg { flex-shrink: 0; }
+
+.doc-st { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
+.st-received { background: #F1F5F9; color: #475569; }
+.st-review { background: #FEF3C7; color: #92400E; }
+.st-reviewed { background: #DCFCE7; color: #166534; }
+.st-delivered { background: #DCFCE7; color: #166534; }
+.st-sig { background: #FFEDD5; color: #9A3412; }
+.st-signed { background: #DCFCE7; color: #166534; }
+.st-onfile { background: #DBEAFE; color: #1E40AF; }
+
+.doc-dt { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+.doc-chev { color: #94A3B8; justify-self: end; }
+
+.doc-empty { padding: 34px 16px; text-align: center; font-size: 12.5px; color: #475569; }
+.doc-more { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 0; border-top: 1px solid #F1F5F9; }
+.doc-more .cnt { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+
+/* ---- overlay panels (detail + publish) ---------------------------------------------- */
+.doc-scrim { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 60; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px; overflow-y: auto; }
+.doc-panel { position: relative; width: 100%; max-width: 560px; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 24px 60px -24px rgba(15,23,42,.45); overflow: hidden; }
+.doc-ph { padding: 14px 16px; border-bottom: 1px solid #EEF2F7; display: flex; align-items: center; gap: 11px; }
+.doc-ph .tx { flex: 1; min-width: 0; }
+.doc-ph b { display: block; font-size: 13.5px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-ph span { display: block; font-size: 11px; color: #475569; margin-top: 2px; }
+.doc-ph .x { flex-shrink: 0; }
+.doc-pb { padding: 14px 16px; }
+.doc-pf { padding: 12px 16px; border-top: 1px solid #EEF2F7; display: flex; gap: 8px; background: #FCFDFE; flex-wrap: wrap; }
+.doc-pf .mw-btn { flex: 1 1 auto; justify-content: center; }
+
+.doc-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 35px; border-top: 1px solid #F1F5F9; font-size: 12px; padding: 4px 0; }
+.doc-kv:first-child { border-top: none; }
+.doc-kv .k { color: #475569; }
+.doc-kv .v { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; color: #0F172A; word-break: break-word; }
+
+.doc-sect { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; margin: 14px 0 4px; }
+
+/* access record (Task B log rows, row 246) — a row per open/refused, newest first */
+.doc-log { display: flex; align-items: baseline; gap: 10px; min-height: 36px; border-top: 1px solid #F1F5F9; font-size: 11.5px; padding: 6px 0; }
+.doc-log:first-of-type { border-top: none; }
+.doc-log .lw { flex: 1; min-width: 0; color: #0F172A; }
+.doc-log .lw b { font-weight: 600; }
+.doc-log .lw .rr { display: block; font-size: 10.5px; color: #B4402C; margin-top: 2px; }
+.doc-log .lt { color: #475569; font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
+.doc-log .lo { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.lo-opened { background: #DCFCE7; color: #166534; }
+.lo-refused { background: #FEE2E2; color: #991B1B; }
+.doc-log-empty { font-size: 11.5px; color: #475569; padding: 6px 0; }
+
+.doc-note { display: flex; gap: 9px; padding: 10px 12px; border-radius: 9px; margin-top: 12px; }
+.doc-note svg { flex-shrink: 0; margin-top: 1px; }
+.doc-note p { font-size: 11px; line-height: 1.55; }
+.doc-note p b { font-weight: 700; }
+.doc-note.is-warn { background: #FFFBEB; border: 1px solid #FDE68A; }
+.doc-note.is-warn p { color: #7A5207; }
+.doc-note.is-info { background: #F0F9FF; border: 1px solid #BAE6FD; }
+.doc-note.is-info p { color: #0C4A6E; }
+
+/* ---- publish form (static, hosted in its own modal so the accessible .mw-upload component
+ * is enhanced by upload-control.js at load — the three suites that scan .mw-upload/#publish-file
+ * /labels do so on the initial DOM, so this form cannot be a dynamically-injected overlay) --- */
+.doc-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 16px; }
+.doc-form-grid .col-2 { grid-column: 1 / -1; }
+.doc-check { display: flex; align-items: center; gap: 8px; }
+.doc-check label { font-size: 13px; color: #334155; }
+.doc-err { font-size: 11.5px; color: #B4402C; font-weight: 600; }
+
+/* ---- responsive --------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  /* ★ NARROW RESTACKS, IT DOES NOT HIDE (register row 228's finding, and §13). The client
+   * and the date survive on a second line — a PM on a phone still needs to tell two clients'
+   * documents apart and read the one field the table is ordered by. Only the direction,
+   * the category sub-line's own cell and the chevron give way. */
+  .doc-th { display: none; }
+  .doc-tr { grid-template-columns: 34px minmax(0, 1fr); grid-template-areas: "ic name" "sub sub"; row-gap: 8px; }
+  .doc-tr > .doc-ic { grid-area: ic; }
+  .doc-tr > .doc-nm { grid-area: name; }
+  .doc-tr > .doc-sub { grid-area: sub; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .doc-tr > .doc-chev { display: none; }
+  .doc-search { margin-left: 0; flex: 1 1 100%; }
+}
+@media (min-width: 901px) {
+  .doc-tr > .doc-sub { display: contents; }
+}
+@media (max-width: 560px) {
+  .doc-health { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .doc-form-grid { grid-template-columns: 1fr; }
+  .doc-pf { flex-direction: column; }
+  .doc-pf .mw-btn { width: 100%; }
+}

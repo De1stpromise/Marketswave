@@ -199,7 +199,11 @@ async function main() {
     const path = fileURLToPath(new URL('../admin-documents.html', import.meta.url));
     const dom = buildPageDom(path);
     dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'MarketswaveData.useAdminClient()');
+    // PM tool revamp, part 9 (2026-09-18): the three stacked sections became ONE table and the
+    // page logic moved into the external admin-documents-page.js. Publish stays a static form
+    // (#publish-* ids and .mw-upload unchanged); Download and Mark Reviewed moved into the row's
+    // detail overlay. Repointed here, not dropped.
+    const script = readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
     return { dom: dom, script: script };
   }
   function buildClientDocumentsDom() {
@@ -296,15 +300,19 @@ async function main() {
     // artificial "just re-read the array" shortcut.
     const { dom, script } = buildAdminDocumentsDom();
     const AD = dom.window.document;
-    const pendingListEl = AD.getElementById('pending-list');
+    const docTableEl = AD.getElementById('doc-table');
     await withContext(ADMIN_CTX, function () {
       dom.window.eval(script);
-      return pollUntil(function () { return !/animate-pulse/.test(pendingListEl.innerHTML); }, 20000);
+      return pollUntil(function () { return AD.querySelectorAll('.doc-tr').length > 0; }, 20000);
     });
-    check('the real client upload now genuinely appears in the PM\'s own real Client Uploads Awaiting Review — the exact reverse-direction gap the investigation found', pendingListEl.textContent.indexOf('Passport Scan.pdf') !== -1 && pendingListEl.textContent.indexOf(clientName) !== -1, pendingListEl.textContent.slice(0, 400));
+    check('the real client upload now genuinely appears in the PM\'s own real unified Documents table — the exact reverse-direction gap the investigation found', docTableEl.textContent.indexOf('Passport Scan.pdf') !== -1 && docTableEl.textContent.indexOf(clientName) !== -1, docTableEl.textContent.slice(0, 400));
 
     console.log('\n4. Mark Reviewed — a real PM write, round-tripping correctly');
-    var reviewBtn = pendingListEl.querySelector('.review-btn');
+    var uploadRow = docTableEl.querySelector('.doc-tr[data-id="' + rows[0].id + '"]');
+    check('the real client upload is a clickable row in the unified table', !!uploadRow, docTableEl.innerHTML.slice(0, 300));
+    uploadRow.click();
+    await pollUntil(function () { return !!AD.getElementById('doc-panel').querySelector('.review-btn'); }, 5000);
+    var reviewBtn = AD.getElementById('doc-panel').querySelector('.review-btn');
     var adToastTitle = AD.getElementById('admin-toast-title');
     await withContext(ADMIN_CTX, function () {
       reviewBtn.click();

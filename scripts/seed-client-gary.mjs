@@ -475,17 +475,18 @@ async function writeEverything(db, uid, R, snaps, bySym) {
     client_id: uid, product_id: pid('ETH'), requested_amount: PENDING_ALLOC, status: 'pending', requested_at: twoDaysAgo,
   }));
 
-  /* Four real documents both directions, plus the two CARRIERS for data that has no column
-   * anywhere (register row 224). These are documents, not structured data — nobody should read
-   * them as evidence that a risk-profile or invoice field exists. */
-  must('documents')(await db.from('documents').insert([
-    { client_id: uid, direction: 'from', filename: 'Advisory Agreement — Gary Sizemore.pdf', category: 'Contracts', status: 'Signed', is_new: false, created_at: at('2021-10-09', '11:00') },
-    { client_id: uid, direction: 'from', filename: 'Portfolio Statement — Q2 2026.pdf', category: 'Statements & Reports', status: 'Reviewed', is_new: false, created_at: at('2026-07-05', '08:00') },
-    { client_id: uid, direction: 'upload', filename: 'proof-of-address-2021.pdf', category: 'General', status: 'Reviewed', is_new: false, created_at: at('2021-10-08', '15:20') },
-    { client_id: uid, direction: 'upload', filename: 'passport-gary-sizemore.pdf', category: 'General', status: 'Reviewed', is_new: false, created_at: at('2021-10-08', '15:25') },
-    { client_id: uid, direction: 'from', filename: 'Regulatory Levy — 13 May 2024 — PAID.pdf', category: 'Statements & Reports', status: 'Reviewed', is_new: false, created_at: at('2024-05-13', '10:00') },
-    { client_id: uid, direction: 'from', filename: 'Onboarding Record — Gary Sizemore.pdf', category: 'General', status: 'Reviewed', is_new: false, created_at: at(GARY.since, '09:10') },
-  ]));
+  /* ★ NO fake document catalogue (2026-09-18). This seed used to insert six `documents`
+   * rows -- four "real" documents both directions plus two CARRIERS for data with no column
+   * (register row 224) -- but every one of them had NO storage_path, so no bytes existed
+   * behind any of them. On the rebuilt Documents page (part 9) that is register row D
+   * exactly: a Download button that finds no file, a document that looks real and is not. A
+   * demo built on byteless documents is dishonest, so it is removed at the SOURCE rather than
+   * the rows, so a re-run cannot restore it. Gary is left with an honest EMPTY Documents page.
+   * The two carriers (an Onboarding Record, a Regulatory Levy) went with it; the data they
+   * stood in for still has no real home -- onboarding beyond the three persisted fields, and
+   * any invoice/fee concept -- which is register row 224, open, not fixed by this seed. If
+   * Gary ever needs real demo documents, they must carry real bytes uploaded to Storage
+   * (the way the Task B staging proof uploads a real object), not a byteless row. */
 
   const WATCH = [['BTC', 'Bitcoin', 'crypto', 'bitcoin'], ['NVDA', 'NVIDIA Corporation', 'stock', 'NVDA'],
                  ['TSLA', 'Tesla, Inc.', 'stock', 'TSLA'], ['VGK', 'Vanguard FTSE Europe ETF', 'stock', 'VGK'],
@@ -549,7 +550,7 @@ async function writeEverything(db, uid, R, snaps, bySym) {
 
   console.log(`   clients / client_profiles / account_state, ${R.positions.length} holdings, ${txRows.length} transactions`);
   console.log(`   ${ADDRESSES.length} deposit addresses + assignments, ${DEPOSITS.length} credited deposits`);
-  console.log(`   ${POCKETS.length} savings pockets, 1 pending allocation request, 6 documents`);
+  console.log(`   ${POCKETS.length} savings pockets, 1 pending allocation request, 0 documents (fake catalogue scrapped — row 224/D)`);
   console.log(`   ${WATCH.length} watchlist symbols (1 armed + 1 fired alert), 1 conversation (2 email + 3 chat messages), 0 tickets`);
   console.log(`   ${snaps.length} portfolio snapshots, ${DEPOSITS.length + 1} email_log records (none sent)`);
 }

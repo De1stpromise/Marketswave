@@ -10535,6 +10535,75 @@ row 74.
   security page rendering every row newest-first with refusal reasons, contrast, sheen, fonts,
   390/375 real phone, 320 iframe). Row 246 has the full account; row 245 item 1 is closed.
 
+- **★★★ PM tool revamp, part 9 — the Documents page (2026-09-18, register row 247).** The
+  three stacked sections (Client Uploads Awaiting Review · Publish to Client · History) become
+  ONE searchable, sortable table over every document — client uploads, documents published from
+  Marketswave, AND identity documents — with a health strip that is also a filter set and a
+  detail overlay whose shape follows the object. Built to the approved `pm_documents.html`
+  mockup, but only PART 1 of it. **Presentation only** — no new schema, no new Edge Function.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE SIGNATURE-EVIDENCE PANEL AND THE CLIENT SIGNING FLOW WERE NOT BUILT, ON PURPOSE
+    (register row D, the absent-source pattern).** The mockup drew a full evidence panel — typed
+    name, timestamp, IP, device, document hash, a generated signed copy — and a client signing
+    flow. NONE of that is recorded: the `documents` table has a `status` and a `created_at` and
+    no signing timestamp, no evidence column. Where a document is Signed or awaiting a signature,
+    the detail states ONLY what is on record (the status) and says plainly that no signature
+    evidence is captured. Real signing is its own task, with its own data layer, and comes next.
+    The ui-wiring suite asserts the honest note AND asserts no fabricated VALUE (an IP, a device
+    string, a "hash at signing" line) can appear — guarding the absence, not the note's own words.
+  - **★ IDENTITY DOCUMENTS ARE FOLDED INTO THE SAME TABLE, AND THE ACCESS RECORD IS TASK B's,
+    REUSED (row 246).** An identity row opens a detail showing the access record (read lazily
+    from `identity_document_access_log`, filtered to that document, newest first) + the ONE
+    logged Open control, which routes through the existing `identity-document-access.js`
+    component — never a second one. The disclosure ("recorded permanently, the client isn't
+    notified, but the record can't be removed and a client is entitled to see it on request") is
+    Task B's wording. An identity document has NO review lifecycle (no status column), so it
+    reads "On file", never a fabricated "Needs review", and is never counted as awaiting review.
+  - **★ THE PUBLISH FORM STAYS STATIC, in a hidden modal revealed by the header button — NOT a
+    dynamically-injected overlay.** Three suites (upload-accessibility, control-patterns,
+    label-association) scan `.mw-upload`/`#publish-file`/labels on the INITIAL DOM, and
+    upload-control.js enhances `.mw-upload` at load; a dynamically-injected form would be invisible
+    to all four. `#publish-client` is populated at load, so the publish flow works whether or not
+    the modal is open. The DETAIL overlay (`#doc-scrim`/`#doc-panel`) is separate and dynamically
+    filled. Two overlays, deliberately — the one-overlay §14 precedent doesn't fit an accessible
+    file input that must be enhanced at load.
+  - **★ NO `.glass` ANYWHERE, matching admin-products / the approval gate (§13/§14).** Plain white
+    `.doc-*` cards on the page ground; the atmospheric blob is decorative/aria-hidden. audit-glass-sheen
+    finds genuinely 0 glass and passes. Secondary text is `#475569`.
+  - **★ A FILTER PILL MUST NOT CARRY `min-height: 0`.** `.doc-pill { min-height: 0 }` would be
+    (0,1,0) and out-specify tap-targets.css's own `button { min-height: 44px }` (0,0,1) below
+    `lg`, taking a pill to 32px on a phone — the row 171/172 floor. Left unset: 32px on desktop,
+    floored to 44px on mobile. (Two `min-height` declarations ARE a specificity contest, unlike a
+    `min-height` vs a `height` utility.)
+  - **The unified data**: `loadPageData` reads `documents` + `identity_documents` + `clients` in
+    one Promise.all, throwing on any read error (row 233) so renderAsyncBundle shows a retry
+    rather than an empty "no documents". Download → `getSignedDownloadUrl` (honest "No File
+    Attached" for a null `storage_path`); Mark Reviewed → `update-document`; Publish → the file's
+    bytes base64'd to `publish-document`. All already-deployed. Direction reads client-POV: a
+    published doc is "To client", an upload/identity is "From client".
+  - **★ GARY'S FAKE DOCUMENT CATALOG WAS SCRAPPED AT THE SEED SOURCE (`scripts/seed-client-gary.mjs`).**
+    His seed carried six `documents` rows with NO `storage_path` — byteless, so the rebuilt
+    Download finds no file: register row D exactly. Removed at the source (not the rows) so a
+    re-run cannot restore them; Gary is left with an honest EMPTY Documents page. The two
+    "carrier" documents (an Onboarding Record, a Regulatory Levy) went too; the data they stood in
+    for still has no real home — onboarding beyond the three persisted fields, and any invoice/fee
+    concept — which is register row 224, open, not fixed here. Real demo documents for Gary would
+    need real bytes in Storage, not a byteless row.
+  - **Blast radius, repointed not dropped**: the six suites that read admin-documents.html —
+    verify-cross-role-sync-bugfix and verify-documents-storage-integration (both now load the
+    external `admin-documents-page.js` instead of the old inline script, and reach Download /
+    Mark Reviewed through the row's detail overlay where they now live, `#pending-list` →
+    `#doc-table`); verify-upload-accessibility, verify-control-patterns, verify-label-association
+    (the static publish form's ids/`.mw-upload`/labels are unchanged, revealed from their hidden
+    modal exactly as those suites already reveal modals); audit-glass-sheen (0 glass now). Plus a
+    new `verify-documents-page-ui-wiring` for the behaviours those six don't cover.
+  **Verified**: `verify-documents-page-ui-wiring` 33/33 (nav mounts; the unified table merges
+  documents + identity docs; health/pill filtering with counts-follow-search; search; sort; the
+  honest no-signature-evidence note with no fabricated value; the identity access record's honest
+  empty/base state + the one logged Open control; the static publish modal). The six blast-radius
+  suites re-run green through the rebuilt page: verify-cross-role-sync-bugfix 38/38 and verify-documents-storage-integration 46/46 (both now loading the external page script and reaching Download / Mark Reviewed through the row's detail overlay), verify-upload-accessibility 43/43, verify-label-association PASS (the static publish form's controls revealed from their hidden modal and correctly named), verify-control-patterns 41/41 (every control at its tier, the filter pill floored to 44px on mobile), audit-glass-sheen genuinely 0 glass on admin-documents.html (matching the sibling admin pages, 127 measurements across 20 pages, 0 below 4.5:1). The fixture gate passed first; no
+  Edge Function or migration changed, so no cloud-staging parity/deploy was needed.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

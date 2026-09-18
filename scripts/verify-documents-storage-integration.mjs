@@ -209,7 +209,9 @@ async function main() {
     const path = fileURLToPath(new URL('../admin-documents.html', import.meta.url));
     const dom = buildPageDom(path);
     dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
-    const script = extractInlineScript(path, 'MarketswaveData.useAdminClient()');
+    // Part 9 (2026-09-18): page logic moved to the external admin-documents-page.js; the three
+    // sections became one table and Download moved into the row's detail overlay. Repointed.
+    const script = readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
     return { dom: dom, script: script };
   }
   function buildClientDocumentsDom(ctx, clientId) {
@@ -282,17 +284,18 @@ async function main() {
   await (async function () {
     const { dom, script } = buildAdminDocumentsDom();
     const D = dom.window.document;
-    const pendingListEl = D.getElementById('pending-list');
+    const docTableEl = D.getElementById('doc-table');
     await withContext(ADMIN_CTX, function () {
       dom.window.eval(script);
-      return pollUntil(function () { return !/animate-pulse/.test(pendingListEl.innerHTML); }, 20000);
+      return pollUntil(function () { return D.querySelectorAll('.doc-tr').length > 0; }, 20000);
     });
-    check('Client A\'s real upload genuinely appears in the PM\'s real Pending list', pendingListEl.textContent.indexOf('Client A Proof of Address.pdf') !== -1 && pendingListEl.textContent.indexOf(clientA.clientName) !== -1, pendingListEl.textContent.slice(0, 400));
+    check('Client A\'s real upload genuinely appears in the PM\'s real unified Documents table', docTableEl.textContent.indexOf('Client A Proof of Address.pdf') !== -1 && docTableEl.textContent.indexOf(clientA.clientName) !== -1, docTableEl.textContent.slice(0, 400));
 
     var capturedUrl = null;
     dom.window.open = function (theUrl) { capturedUrl = theUrl; };
-    const downloadBtn = pendingListEl.querySelector('.download-btn[data-doc="' + clientAUploadRow.id + '"]');
-    check('the real Download button carries the real document id', !!downloadBtn);
+    D.querySelector('.doc-tr[data-id="' + clientAUploadRow.id + '"]').click();
+    const downloadBtn = D.getElementById('doc-panel').querySelector('.download-btn[data-doc="' + clientAUploadRow.id + '"]');
+    check('the real Download button (in the row detail) carries the real document id', !!downloadBtn);
     const toastTitle = D.getElementById('admin-toast-title');
     var before = toastTitle.textContent;
     await withContext(ADMIN_CTX, function () {
@@ -526,10 +529,11 @@ async function main() {
     const AD = dom.window.document;
     await withContext(ADMIN_CTX, function () {
       dom.window.eval(script);
-      return pollUntil(function () { return !/animate-pulse/.test(AD.getElementById('pending-list').innerHTML); }, 20000);
+      return pollUntil(function () { return AD.querySelectorAll('.doc-tr').length > 0; }, 20000);
     });
-    const adminDownloadBtn = AD.getElementById('pending-list').querySelector('.download-btn[data-doc="' + legacyUpload.id + '"]');
-    check('the real legacy upload appears in the PM\'s real Pending list with a real Download button', !!adminDownloadBtn);
+    AD.querySelector('.doc-tr[data-id="' + legacyUpload.id + '"]').click();
+    const adminDownloadBtn = AD.getElementById('doc-panel').querySelector('.download-btn[data-doc="' + legacyUpload.id + '"]');
+    check('the real legacy upload appears in the PM\'s real unified table with a real Download button (in the row detail)', !!adminDownloadBtn);
     const adminToastTitle = AD.getElementById('admin-toast-title');
     var adminBefore = adminToastTitle.textContent;
     await withContext(ADMIN_CTX, function () {

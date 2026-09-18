@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="tap-targets.css">
   <link rel="stylesheet" href="control-patterns.css">
   <link rel="stylesheet" href="admin-nav.css">
-  <link rel="stylesheet" href="responsive-tables.css">
+  <link rel="stylesheet" href="admin-documents.css">
   <style>
     body { font-family: 'Inter', sans-serif; }
   </style>
@@ -19,395 +19,153 @@
 <body class="bg-slate-100 text-slate-800 antialiased">
 
   <div class="flex h-screen overflow-hidden">
-
     <div id="admin-sidebar-mount"></div>
 
     <div class="flex-1 flex flex-col overflow-hidden">
-
       <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
         Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
       </div>
 
       <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
         <div>
-          <p class="text-sm font-medium text-slate-900" id="live-day">Loading...</p>
-          <p class="text-xs text-slate-500" id="live-date-time"></p>
+          <h2 class="text-base font-semibold text-slate-900">Documents</h2>
+          <p class="text-xs text-slate-600">Everything sent to and received from clients — every identity access recorded</p>
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
-
-        <!-- Admin/PM Tool Visual Treatment (2026-09-06): one restrained atmospheric blob
-             in top-right whitespace -- same restraint/technique as the client dashboard
-             (relative overflow-x-hidden on <main> substitutes for .blob-field, which
-             would break this scrollable container's own vertical scroll). -->
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
+        <!-- Admin/PM Tool Visual Treatment: one restrained atmospheric blob in top-right
+             whitespace (relative overflow-x-hidden on <main> substitutes for .blob-field,
+             which would break this scrollable container's own vertical scroll). -->
         <div class="blob blob--sm blob--gold -z-10" style="top:-80px; right:-60px;" aria-hidden="true"></div>
 
-        <div class="mb-8">
-          <h2 class="text-2xl font-semibold text-slate-900">Documents</h2>
-          <p class="text-slate-500 mt-1">Client uploads awaiting review, and documents published from Marketswave — across every client.</p>
-        </div>
+        <div class="doc-wrap mx-auto">
 
-        <!-- Client uploads awaiting review -->
-        <div class="glass glass-lift rounded-2xl mb-8">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="font-semibold text-slate-900">Client Uploads Awaiting Review <span id="pending-count" class="text-slate-400 font-normal"></span></h3>
-          </div>
-          <div id="pending-list"></div>
-        </div>
-
-        <!-- Publish to Client — deliberately left clean (not glass): this is a form, matching
-             the "every form, input, filter... stay clean" instruction, unlike its two
-             siblings above/below which are real list containers. -->
-        <div class="bg-white rounded-2xl border border-slate-200 mb-8">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="font-semibold text-slate-900">Publish to Client</h3>
-            <p class="text-xs text-slate-500 mt-1">Delivers a new "From Marketswave" document straight into the selected client's Documents &amp; Reporting page.</p>
-          </div>
-          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="doc-top">
             <div>
-              <div class="mw-fld mw-fld--static mw-fld--admin">
-                <select id="publish-client" class="mw-field mw-field-admin"></select>
-                <label for="publish-client">Client</label>
-              </div>
+              <h2>Documents</h2>
+              <p class="doc-sub" id="doc-sub">Loading…</p>
             </div>
-            <div>
-              <div class="mw-fld mw-fld--static mw-fld--admin">
-                <select id="publish-category" class="mw-field mw-field-admin">
-                <option value="Contracts">Contracts</option>
-                <option value="Statements & Reports">Statements &amp; Reports</option>
-                <option value="Signature Required">Signature Required</option>
-                <option value="General">General</option>
-              </select>
-                <label for="publish-category">Category</label>
-              </div>
-            </div>
-            <div class="md:col-span-2">
-              <label for="publish-file" class="block text-sm font-medium text-slate-700 mb-1">Document File</label>
-              <div class="mw-upload is-empty mw-upload-admin">
-              <input type="file" id="publish-file" class="mw-upload-input"
-                     aria-describedby="publish-file-hint publish-file-state">
-              <label class="mw-upload-face" for="publish-file">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>Choose the document to publish</span>
-              </label>
-              <p class="mw-upload-error" id="publish-file-error" hidden></p>
-              <div class="mw-upload-meta">
-                <p class="mw-upload-hint" id="publish-file-hint">This file is sent to the client.</p>
-                <p class="mw-upload-state" id="publish-file-state" role="status">No file chosen</p>
-              </div>
-              <button type="button" class="mw-upload-clear" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove file</button>
-            </div>
-            </div>
-            <div>
-              <div class="mw-fld mw-fld--static mw-fld--admin">
-                <input type="date" id="publish-due-date" class="mw-field mw-field-admin" />
-                <label for="publish-due-date">Due Date <span class="text-slate-400 font-normal">(optional)</span></label>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 mt-6">
-              <input type="checkbox" id="publish-signature-required" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-              <label for="publish-signature-required" class="text-sm text-slate-700">Signature required</label>
-            </div>
-            <p class="text-xs text-red-500 hidden md:col-span-2" id="publish-error"></p>
-            <div class="md:col-span-2">
-              <button type="button" id="publish-submit" class="mw-btn mw-btn-admin">Publish Document</button>
+            <div style="display:flex;gap:8px">
+              <button type="button" id="doc-publish-open" class="mw-btn mw-btn-admin mw-btn-sm">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v13"/></svg>
+                Publish to a client
+              </button>
             </div>
           </div>
-        </div>
 
-        <!-- History -->
-        <div class="glass glass-lift rounded-2xl">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="font-semibold text-slate-900">History</h3>
-            <p class="text-xs text-slate-500 mt-1">Every document published from Marketswave, plus reviewed client uploads — across every client, newest first.</p>
+          <!-- Health strip. Each card is a filter — the day's headline numbers, one click from
+               the rows behind each (PM_TOOL_VOCABULARY.md §14). -->
+          <div class="doc-health" id="doc-health" role="group" aria-label="Documents at a glance"></div>
+
+          <div class="doc-bar">
+            <div id="doc-pills" style="display:flex;gap:7px;flex-wrap:wrap" role="group" aria-label="Filter documents"></div>
+            <div class="doc-search">
+              <span class="ic" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+              <label for="doc-search" class="sr-only">Search documents by filename or client</label>
+              <input type="search" id="doc-search" placeholder="Search filename or client" autocomplete="off" />
+            </div>
           </div>
-          <div id="history-list" class="overflow-x-auto"></div>
-        </div>
 
+          <section class="doc-table" id="doc-table" aria-label="Documents"></section>
+        </div>
       </main>
     </div>
   </div>
 
-  <!-- Toast -->
-  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-50">
+  <!-- Detail overlay — dynamically filled. Shaped by the document: a regular document shows
+       its status and the honest fact that no signature evidence is captured; an identity
+       document shows the Task B access record (row 246) and the one logged Open control. -->
+  <div id="doc-scrim" class="doc-scrim hidden" role="dialog" aria-modal="true" aria-labelledby="doc-panel-title">
+    <div class="doc-panel" id="doc-panel"></div>
+  </div>
+
+  <!-- Publish overlay — STATIC, hidden, revealed by "Publish to a client". Kept static (not
+       injected) so upload-control.js enhances the accessible .mw-upload at load and the
+       suites that scan .mw-upload / #publish-file / labels find them on the initial DOM. -->
+  <div id="doc-publish-scrim" class="doc-scrim hidden" role="dialog" aria-modal="true" aria-labelledby="doc-publish-title">
+    <div class="doc-panel">
+      <div class="doc-ph">
+        <div class="tx">
+          <b id="doc-publish-title">Publish to a client</b>
+          <span>Delivers a new "From Marketswave" document into the client's Documents &amp; Reporting page.</span>
+        </div>
+        <button type="button" id="doc-publish-close" class="mw-btn mw-btn-sm x" aria-label="Close">&times;</button>
+      </div>
+      <div class="doc-form-grid">
+        <div>
+          <div class="mw-fld mw-fld--static mw-fld--admin">
+            <select id="publish-client" class="mw-field mw-field-admin"></select>
+            <label for="publish-client">Client</label>
+          </div>
+        </div>
+        <div>
+          <div class="mw-fld mw-fld--static mw-fld--admin">
+            <select id="publish-category" class="mw-field mw-field-admin">
+              <option value="Contracts">Contracts</option>
+              <option value="Statements & Reports">Statements &amp; Reports</option>
+              <option value="Signature Required">Signature Required</option>
+              <option value="General">General</option>
+            </select>
+            <label for="publish-category">Category</label>
+          </div>
+        </div>
+        <div class="col-2">
+          <label for="publish-file" class="block text-sm font-medium text-slate-700 mb-1">Document file</label>
+          <div class="mw-upload is-empty mw-upload-admin">
+            <input type="file" id="publish-file" class="mw-upload-input"
+                   aria-describedby="publish-file-hint publish-file-state">
+            <label class="mw-upload-face" for="publish-file">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Choose the document to publish</span>
+            </label>
+            <p class="mw-upload-error" id="publish-file-error" hidden></p>
+            <div class="mw-upload-meta">
+              <p class="mw-upload-hint" id="publish-file-hint">This file is sent to the client.</p>
+              <p class="mw-upload-state" id="publish-file-state" role="status">No file chosen</p>
+            </div>
+            <button type="button" class="mw-upload-clear" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Remove file</button>
+          </div>
+        </div>
+        <div>
+          <div class="mw-fld mw-fld--static mw-fld--admin">
+            <input type="date" id="publish-due-date" class="mw-field mw-field-admin" />
+            <label for="publish-due-date">Due date <span class="text-slate-400 font-normal">(optional)</span></label>
+          </div>
+        </div>
+        <div class="doc-check">
+          <input type="checkbox" id="publish-signature-required" class="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+          <label for="publish-signature-required">Signature required</label>
+        </div>
+        <p class="doc-err col-2 hidden" id="publish-error"></p>
+      </div>
+      <div class="doc-pf">
+        <button type="button" id="publish-submit" class="mw-btn mw-btn-admin">Publish document</button>
+        <button type="button" id="doc-publish-cancel" class="mw-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast (ids preserved for the cross-role/storage suites that read them). -->
+  <div id="admin-toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-lg px-5 py-4 max-w-sm z-[70]">
     <p class="font-medium text-sm" id="admin-toast-title">Done</p>
     <p class="text-sm text-white/80 mt-0.5" id="admin-toast-body"></p>
   </div>
 
+  <script src="supabase-data.js"></script>
   <script src="admin-sidebar.js"></script>
   <script src="dashboard-common.js"></script>
-  <script src="engine-core.js"></script>
-  <script src="supabase-data.js"></script>
   <script src="upload-control.js"></script>
-  <script src="responsive-tables.js"></script>
+  <script src="identity-document-access.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. The approval gate shipped without this exact line and
+       rendered reachable then inescapable — no rail, no active item, no Log out — and neither
+       a real browser render nor its own suite caught it, because everything looked at the
+       feature and nothing at the chrome (register row 228). Only admin-login.html may omit
+       it. This page's own suites assert the nav mounts, for that reason. -->
   <script>
     initAdminSidebar('documents');
   </script>
-
-  <script>
-    // Bug-fix follow-up to Admin UI Wiring Stage 1 (2026-09-03): wired to the real
-    // `documents` table + publish-document/update-document Edge Functions — closing an
-    // investigated, confirmed BIDIRECTIONAL local/Supabase split. Client Uploads Awaiting
-    // Review + History both used to read only engine-core.js's local getAllClientDocuments()
-    // — meaning a real client upload via documents.html (wired Stage 4, Phase B Stage 6's
-    // real direct client INSERT policy) was invisible here, and Publish/Mark Reviewed used to
-    // write only to local localStorage, which the real Supabase-backed documents.html could
-    // never see — the exact bug reported (a published document never appearing on the
-    // client's real page despite a real notification firing off the same stale local data).
-    // See admin-deposits.html's own comment for the base useAdminClient()/cross-client-RLS
-    // reasoning, identical here — `documents`' own SELECT policy already grants self-or-admin.
-    (function () {
-      if (typeof MarketswaveData === 'undefined') return;
-      MarketswaveData.useAdminClient();
-
-      var toast = document.getElementById('admin-toast');
-      var toastTitle = document.getElementById('admin-toast-title');
-      var toastBody = document.getElementById('admin-toast-body');
-      var toastTimer;
-      function showToast(title, body, isError) {
-        toastTitle.textContent = title;
-        toastBody.textContent = body;
-        toast.classList.toggle('bg-red-700', !!isError);
-        toast.classList.toggle('bg-slate-900', !isError);
-        toast.classList.remove('hidden');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.classList.add('hidden'); }, 4000);
-      }
-
-      function formatDisplayDate(isoDate) {
-        var d = new Date(isoDate + 'T00:00:00Z');
-        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' });
-      }
-
-      var documentsData = [];
-      var clientsById = {};
-
-      // ---- Client dropdown for the Publish to Client form — real, cross-client, fetched
-      // alongside the documents themselves in one combined loadPageData(). ----
-      var clientSelect = document.getElementById('publish-client');
-      function populateClientSelect(clients) {
-        clientSelect.innerHTML = clients.map(function (c) {
-          return '<option value="' + c.id + '">' + c.name + ' (' + c.id + ')</option>';
-        }).join('');
-      }
-
-      function renderPending() {
-        var uploads = documentsData
-          .filter(function (d) { return d.direction === 'upload' && d.status !== 'Reviewed'; })
-          .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
-        document.getElementById('pending-count').textContent = uploads.length ? '(' + uploads.length + ')' : '';
-        var listEl = document.getElementById('pending-list');
-
-        if (uploads.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No client uploads awaiting review.</p>';
-          return;
-        }
-
-        listEl.innerHTML = '<div class="divide-y divide-slate-100">' + uploads.map(function (d) {
-          var statusClass = d.status === 'Under Review' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
-          return '<div class="px-6 py-4 flex flex-wrap items-center justify-between gap-4">' +
-            '<div class="min-w-0">' +
-              '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
-                '<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">' + d.clientName + ' (' + d.clientId + ')</span>' +
-                '<span class="text-xs font-medium px-2.5 py-1 rounded-full ' + statusClass + '">' + (d.status || 'Received') + '</span>' +
-              '</div>' +
-              '<p class="text-sm font-medium text-slate-900">' + d.filename + '</p>' +
-              '<p class="text-xs text-slate-500">' + d.category + ' · Uploaded ' + formatDisplayDate(d.date) + '</p>' +
-            '</div>' +
-            '<div class="shrink-0 flex gap-2">' +
-              '<button type="button" class="download-btn mw-btn mw-btn-secondary mw-btn-sm" data-doc="' + d.id + '">Download</button>' +
-              '<button type="button" class="review-btn mw-btn mw-btn-approve mw-btn-sm" data-client="' + d.clientId + '" data-doc="' + d.id + '">Mark Reviewed</button>' +
-            '</div>' +
-          '</div>';
-        }).join('') + '</div>';
-      }
-
-      function renderHistory() {
-        var items = documentsData
-          .filter(function (d) { return d.direction === 'from' || d.status === 'Reviewed'; })
-          .sort(function (a, b) { return (a.date < b.date) ? 1 : -1; });
-        var listEl = document.getElementById('history-list');
-
-        if (items.length === 0) {
-          listEl.innerHTML = '<p class="text-sm text-slate-400 px-6 py-8 text-center">No document activity yet.</p>';
-          return;
-        }
-
-        // Mobile fixes, Batch 3 (2026-09-08): found by this batch's own sweep, not by the audit —
-        // 799px table inside a 324px wrapper at 390px, which pushed the Download / Mark Reviewed
-        // action in the last column completely off-screen. `mw-card-table` stacks each row as a
-        // self-labelling card below the lg breakpoint (responsive-tables.css), which brings that
-        // action back into view. This page has no drill-down modal, so every field the table shows
-        // is surfaced on the card itself.
-        listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-slate-50 text-slate-500"><tr>' +
-          '<th class="text-left font-medium px-6 py-3">Client</th>' +
-          '<th class="text-left font-medium px-6 py-3">Document</th>' +
-          '<th class="text-left font-medium px-6 py-3">Category</th>' +
-          '<th class="text-left font-medium px-6 py-3">Direction</th>' +
-          '<th class="text-left font-medium px-6 py-3">Status</th>' +
-          '<th class="text-left font-medium px-6 py-3">Date</th>' +
-          '<th class="text-left font-medium px-6 py-3"></th>' +
-          '</tr></thead><tbody class="divide-y divide-slate-100">' +
-          items.map(function (d) {
-            var directionLabel = d.direction === 'from' ? 'From Marketswave' : 'Uploaded by Client';
-            var actionCell = d.direction === 'upload'
-              ? '<button type="button" class="download-btn mw-btn mw-btn-secondary mw-btn-sm" data-doc="' + d.id + '">Download</button>'
-              : '';
-            return '<tr class="hover:bg-slate-50/50">' +
-              '<td data-label="Client" class="px-6 py-4 text-slate-500">' + d.clientName + ' (' + d.clientId + ')</td>' +
-              '<td data-label="Document" class="px-6 py-4 font-medium text-slate-900">' + d.filename + '</td>' +
-              '<td data-label="Category" class="px-6 py-4 text-slate-500">' + d.category + '</td>' +
-              '<td data-label="Direction" class="px-6 py-4 text-slate-500">' + directionLabel + '</td>' +
-              '<td data-label="Status" class="px-6 py-4 text-slate-500">' + (d.status || '—') + '</td>' +
-              '<td data-label="Date" class="px-6 py-4 text-slate-500">' + formatDisplayDate(d.date) + '</td>' +
-              '<td data-label="" class="px-6 py-4 text-right">' + actionCell + '</td>' +
-            '</tr>';
-          }).join('') + '</tbody></table>';
-      }
-
-      var dataPromise = null;
-      function loadPageData() {
-        if (dataPromise) return dataPromise;
-        dataPromise = Promise.all([
-          MarketswaveData.selectTable('documents'),
-          MarketswaveData.selectTable('clients')
-        ]).then(function (results) {
-          clientsById = {};
-          results[1].forEach(function (c) { clientsById[c.id] = c.name; });
-          populateClientSelect(results[1]);
-          return results[0].map(function (d) {
-            return {
-              id: d.id, clientId: d.client_id, clientName: clientsById[d.client_id] || d.client_id,
-              direction: d.direction, filename: d.filename, category: d.category,
-              status: d.status, isNew: d.is_new, deadlineLabel: d.deadline_label, date: d.created_at,
-              storagePath: d.storage_path
-            };
-          });
-        }).catch(function (err) {
-          dataPromise = null;
-          throw err;
-        });
-        return dataPromise;
-      }
-
-      function reloadPageData(forceReload) {
-        if (forceReload) dataPromise = null;
-        MarketswaveData.renderAsyncBundle(document.getElementById('pending-list'), {
-          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-12 bg-slate-100 rounded-xl"></div><div class="h-12 bg-slate-100 rounded-xl"></div></div>',
-          load: loadPageData,
-          render: function (data) { documentsData = data; renderPending(); }
-        });
-        MarketswaveData.renderAsyncBundle(document.getElementById('history-list'), {
-          skeletonHTML: '<div class="animate-pulse space-y-3 p-6"><div class="h-8 bg-slate-100 rounded"></div><div class="h-8 bg-slate-100 rounded"></div></div>',
-          load: loadPageData,
-          render: function (data) { documentsData = data; renderHistory(); }
-        });
-      }
-
-      // ★ Real Storage integration (2026-09-04): genuinely downloads the client-uploaded
-      // file's real bytes via a real, time-limited signed URL — the storage migration's own
-      // SELECT policy on storage.objects grants an admin-claimed session cross-client read
-      // access (`... or public.is_admin()`), so this works identically for a PM reviewing ANY
-      // client's upload, not just their own. A null storagePath (a document uploaded before
-      // this feature shipped) is a real, honest "no file attached" state, not an error.
-      function handleDownloadClick(e) {
-        var btn = e.target.closest('.download-btn');
-        if (!btn) return;
-        var doc = documentsData.find(function (d) { return d.id === btn.dataset.doc; });
-        if (!doc) return;
-        if (!doc.storagePath) {
-          showToast('No File Attached', doc.filename + ' has no file on record yet.');
-          return;
-        }
-        MarketswaveData.getSignedDownloadUrl('documents', doc.storagePath, 60).then(function (url) {
-          window.open(url, '_blank');
-          showToast('Download Started', doc.filename + ' is downloading.');
-        }).catch(function (err) {
-          showToast('Download Failed', MarketswaveData.writeErrorMessage(err), true);
-        });
-      }
-
-      document.getElementById('pending-list').addEventListener('click', function (e) {
-        handleDownloadClick(e);
-        var btn = e.target.closest('.review-btn');
-        if (!btn) return;
-        var clientId = btn.dataset.client;
-        var docId = btn.dataset.doc;
-        MarketswaveData.withButtonBusy(btn, 'Reviewing...', function () {
-          return MarketswaveData.callFunction('update-document', { clientId: clientId, docId: docId, patch: { status: 'Reviewed' } });
-        }).then(function (result) {
-          showToast('Document Reviewed', result.filename + ' marked as reviewed.');
-          reloadPageData(true);
-        }).catch(function (err) {
-          showToast('Error', MarketswaveData.writeErrorMessage(err), true);
-        });
-      });
-
-      document.getElementById('history-list').addEventListener('click', handleDownloadClick);
-
-      // ★ Real Storage integration (2026-09-04): reads the chosen file's real bytes and
-      // base64-encodes them client-side (publish-document's own request body stays plain
-      // JSON, matching every other Edge Function in this project, rather than restructuring
-      // this one endpoint as multipart) — a chunked loop, not a spread/`String.fromCharCode(...
-      // bytes)` one-shot call, so a real, reasonably large document file doesn't risk
-      // "Maximum call stack size exceeded" the way spreading a large typed array into a
-      // function call can.
-      function arrayBufferToBase64(buffer) {
-        var bytes = new Uint8Array(buffer);
-        var chunkSize = 0x8000;
-        var chunks = [];
-        for (var i = 0; i < bytes.length; i += chunkSize) {
-          chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
-        }
-        return btoa(chunks.join(''));
-      }
-
-      document.getElementById('publish-submit').addEventListener('click', function () {
-        var errorEl = document.getElementById('publish-error');
-        errorEl.classList.add('hidden');
-        var clientId = clientSelect.value;
-        var category = document.getElementById('publish-category').value;
-        var fileInput = document.getElementById('publish-file');
-        var file = fileInput.files && fileInput.files[0];
-        var dueDate = document.getElementById('publish-due-date').value || null;
-        var signatureRequired = document.getElementById('publish-signature-required').checked;
-        var selectedClientLabel = clientSelect.options[clientSelect.selectedIndex] ? clientSelect.options[clientSelect.selectedIndex].text : clientId;
-
-        if (!file) {
-          errorEl.textContent = 'Choose a file to publish.';
-          errorEl.classList.remove('hidden');
-          return;
-        }
-
-        var btn = document.getElementById('publish-submit');
-        MarketswaveData.withButtonBusy(btn, 'Publishing...', function () {
-          return file.arrayBuffer().then(function (buffer) {
-            return MarketswaveData.callFunction('publish-document', {
-              clientId: clientId,
-              filename: file.name,
-              category: category,
-              signatureRequired: signatureRequired,
-              dueDate: dueDate,
-              fileBase64: arrayBufferToBase64(buffer),
-              fileType: file.type || 'application/octet-stream'
-            });
-          });
-        }).then(function (result) {
-          showToast('Document Published', result.filename + ' delivered to ' + selectedClientLabel + '.');
-          fileInput.value = '';
-          document.getElementById('publish-due-date').value = '';
-          document.getElementById('publish-signature-required').checked = false;
-          reloadPageData(true);
-        }).catch(function (err) {
-          errorEl.textContent = MarketswaveData.writeErrorMessage(err);
-          errorEl.classList.remove('hidden');
-        });
-      });
-
-      reloadPageData(true);
-    })();
-  </script>
+  <script src="admin-documents-page.js"></script>
 
 </body>
 </html>
