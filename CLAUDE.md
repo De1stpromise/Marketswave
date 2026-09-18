@@ -9622,7 +9622,17 @@ row 74.
     `(cycles − 1) × (INTERVAL_MIN + realGap)` now, and the watchdog allows an hour (30
     measured runs × 66s). A run the watchdog kills skips its `finally` — the local cron jobs
     were found paused and the staggered cache timestamps left in place afterwards; check
-    `cron.job.active` after any forced exit of that suite. **Two findings recorded as open
+    `cron.job.active` after any forced exit of that suite. **★ Confirmed again 2026-09-18:
+    the restore-in-`finally` mitigation does NOT intersect the failure mode that actually
+    occurs.** A libuv abort (exit 0xC0000409, row 198) terminates the process before
+    `finally` runs — exactly as the watchdog kill does — so the retry/restore added to the
+    `finally` last time cannot fire on the case that needs it, and four paused jobs had to be
+    re-activated by hand once more (`select cron.alter_job(jobid, active := true) from
+    cron.job where not active`). A restore that only runs on a clean exit is not a restore
+    for the abnormal exit. The reliable fix does not depend on this process's own orderly
+    shutdown — re-activate unconditionally at suite START, or leave the restore to a separate
+    guard — but that is a change to the suite, not made here; recorded so the gap is not
+    mistaken for closed. **Two findings recorded as open
     register rows rather than fixed here**: (row 213) the Finnhub key is SHARED with real
     cloud staging, whose 5-minute cron now spends 30 of the minute's 60 calls at :00/:05/… —
     any timing-sensitive local run can be starved by staging, and pausing the local cron no
@@ -10491,6 +10501,14 @@ row 74.
     policy at all. **Do not add a delete path "for tests"** — the suites' rows are permanent
     by design and each names its suite in the reason. If a PM (or anyone with the service key)
     could quietly remove a row, the trail would prove nothing.
+  - **★ VERIFYING AN APPEND-ONLY LOG LEAVES PERMANENT ROWS ON EVERY ENVIRONMENT IT RUNS
+    AGAINST, AND THAT IS CORRECT — the real-staging proof's two rows are on cloud staging
+    forever.** This is the trigger working, not residue: a future session that finds a stray
+    "Task B real-staging verification" opened/refused pair and tries to tidy it will discover
+    no delete path exists for any role, including `service_role`, which is the whole guarantee
+    the feature exists to make. Leave them; the reasons name the suite so a reader knows what
+    they are. Any test of an append-only trail has the same standing cost — its own rows
+    outlive it by design, and that is the price of the property, not a leak to chase.
   - **★ THE LOG IS THE GATE, NOT A SIDE EFFECT.** The function signs the URL first (no visible
     effect), inserts the row, and returns the URL only if the insert succeeded. Keep that order.
     Never widen the bucket policy: it is still owner-only with no admin clause, re-asserted.
