@@ -179,8 +179,13 @@ async function main() {
     const assignmentsSeenByB = (await B.client.from('deposit_address_assignments').select('client_id')).data || [];
     check('B sees only their own assignment row, never A\'s on the shared address',
       assignmentsSeenByB.length === 1 && assignmentsSeenByB[0].client_id === B.id, JSON.stringify(assignmentsSeenByB));
+    // deposit_routes is the currency catalogue and adding a currency is one row (row 237's PYUSD
+    // made this exact literal false), so the expected count is READ from the table with the
+    // service role, never asserted as a number. The guard keeps the comparison non-vacuous.
     const routesSeenByC = (await C.client.from('deposit_routes').select('currency, network')).data || [];
-    check('the four routes are readable by any signed-in client (the form needs them even with no address)', routesSeenByC.length === 4, String(routesSeenByC.length));
+    const routesInTable = (await admin.from('deposit_routes').select('currency, network')).data || [];
+    check('GUARD: the routes catalogue is non-empty', routesInTable.length > 0, String(routesInTable.length));
+    check('every route in the catalogue is readable by any signed-in client (the form needs them even with no address)', routesSeenByC.length === routesInTable.length, routesSeenByC.length + ' seen vs ' + routesInTable.length + ' in the table');
     const anonClient = createClient(url, anonKey, { auth: { persistSession: false } });
     const anonSees = await anonClient.from('deposit_addresses').select('id');
     check('anon sees nothing', !anonSees.error && (anonSees.data || []).length === 0, JSON.stringify(anonSees));
