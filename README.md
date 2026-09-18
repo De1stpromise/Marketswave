@@ -2258,6 +2258,41 @@ Never a name-based kill: `node.exe` matches far more than this. The same applies
 `python -m http.server 8765` started for the visual/contrast harnesses — not part of the
 stack, and a genuine leftover once those runs are done.
 
+### ★ Signup persistence and identity documents — Task A (2026-09-18)
+
+What signup writes now, and where to look when a client's onboarding looks empty.
+
+- **The onboarding record** (date of birth, country of residence, financial profile, goals &
+  preferences, the risk questionnaire, entity/joint details) lives on `client_profiles` as
+  columns, written ONLY by the `submit-onboarding` Edge Function — once per client
+  (`onboarding_submitted_at`), from the signup form or from `login.html`'s reclaim-on-login.
+  There is deliberately no client-side write policy on that table; changes go through the
+  existing `request-profile-change` flow, whose `field` now accepts six groups.
+- **Identity documents** are real objects in the private `identity-documents` bucket
+  (`<uid>/<id|address>/<row id>/<filename>`) with a metadata row in `identity_documents`.
+  **The bucket has no admin read policy, on purpose.** A PM cannot sign a URL for, download or
+  list one from anywhere until access logging (Task B) ships a logged, service_role read. If
+  you are asked to "just let the PM open it", the answer is Task B, not a policy edit.
+- **A client whose Onboarding panel says "Not submitted"** signed up before 2026-09-18 (or the
+  write failed at signup). Their answers exist only in the browser they applied from; the next
+  login from that browser sends them. From any other device, the client adds each section
+  through Settings → Request Change. Nothing was lost in transit — it was never sent.
+- **The vocabulary** (values + the form's own option text) is one block in two files,
+  `onboarding-vocab.js` and `supabase/functions/_shared/onboarding-vocab.ts`. Edit both; the
+  backend suite fails if they differ.
+
+Run the two suites from `scripts/`:
+
+```
+npm run supabase-verify-onboarding-persistence     # backend: RLS, the bucket, the flow (67)
+npm run verify-onboarding-persistence-visual        # a REAL signup with real files, then every surface (100)
+```
+
+The visual suite needs Gary seeded (`node seed-client-gary.mjs`) for its Gary section and
+spawns its own `http.server 8765` — make sure nothing else holds that port, and that nothing
+is serving it from the wrong directory (a server started from `scripts/` answers 404 to every
+page, which reads as "the page never rendered").
+
 ---
 
 ## Emulator Bootstrap Runbook
