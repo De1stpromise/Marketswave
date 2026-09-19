@@ -6,9 +6,15 @@
 // consistent API surface across all 4 read functions and because holdings.RLS already
 // supports the identical self-or-admin read. See get-account-state/index.ts's own header
 // for the full "why" of settling products first.
+//
+// ★ PRICE STATUS (2026-09-19, row 251). Each row now also carries the product's pricing
+// model, status, as-of time and stale flag, derived by _shared/price-status.ts — the same
+// derivation get-returns-summary and get-portfolio-overview use. The array shape is unchanged
+// (an array, not an envelope): existing readers ignore the new fields.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { settleAllProducts, recomputeAllocatedCapital } from '../_shared/portfolio-engine.ts';
+import { staleAfterMinutes, productPricing } from '../_shared/price-status.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -53,12 +59,23 @@ Deno.serve(async (req) => {
     // (register row 235). Same class, three more call sites.
     await recomputeAllocatedCapital(admin, targetClientId, holdings || [], products);
 
-    const shaped = (holdings || []).map((h: any) => ({
-      id: h.id,
-      productId: h.product_id,
-      units: h.units,
-      costBasis: h.cost_basis
-    }));
+    const staleAfter = await staleAfterMinutes(admin);
+    const now = new Date();
+    const shaped = (holdings || []).map((h: any) => {
+      const product = products.find((p) => p.id === h.product_id);
+      const pricing = product ? productPricing(product, staleAfter, now) : null;
+      return {
+        id: h.id,
+        productId: h.product_id,
+        units: h.units,
+        costBasis: h.cost_basis,
+        pricingModel: pricing ? pricing.pricingModel : null,
+        priceStatus: pricing ? pricing.priceStatus : null,
+        priceAsOf: pricing ? pricing.priceAsOf : null,
+        priceStale: pricing ? pricing.priceStale : false,
+        priceAgeMinutes: pricing ? pricing.priceAgeMinutes : null
+      };
+    });
 
     return jsonResponse(shaped, 200);
   } catch (err) {

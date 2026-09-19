@@ -1,5 +1,6 @@
-/* ★ Portfolio overview (2026-09-12) — the value chart, the pending-requests panel and the
-   upcoming-maturities panel on dashboard.html. Plain CSS in the .po-* namespace (built by
+/* ★ Portfolio overview (2026-09-12; redesign 2026-09-19, row 251) — the portfolio card (the
+   account total in four parts, the priced pill, the four-cell band, the value chart), the
+   pending-requests panel and the savings-pockets panel on dashboard.html. Plain CSS in the .po-* namespace (built by
    portfolio-overview.js at runtime, so verify-shared-stylesheet-coverage registers this file).
 
    Colours: every grey here was measured on the glass card, not assumed from the mockup —
@@ -26,30 +27,45 @@
    never on the band itself — row 206: an element cannot query its own size), so the cells
    stack whether the width is lost to a phone or to the sidebar. */
 #po-value-card { container-type: inline-size; padding: 0; }
-.po-hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 28px 0; }
-.po-hd .po-title { font-size: 13.5px; font-weight: 600; color: #3E4A52; }
+.po-hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 28px 0; }
+.po-hd .po-title { font-size: 11px; font-weight: 600; color: #5C6367; letter-spacing: 0.01em; }
 .po-hr { display: flex; align-items: center; gap: 8px; }
-.po-asof { font-size: 11px; color: #5C6367; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
-.po-asof i { width: 6px; height: 6px; border-radius: 50%; background: #137254; box-shadow: 0 0 6px rgba(19, 114, 84, 0.5); }
+/* ★ The PRICED pill (row 251). Green dot + "Priced N min ago" — the real age of the oldest
+   market price behind the figure. Amber (.is-stale) with the statement when any holding is
+   stale or failed: measured composited under the sheen, the amber ink is #6B4706 on a
+   0.16-alpha gold tint (the same pair the pending chip already carries). */
+.po-asof { font-size: 11px; color: #3E4A52; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; background: rgba(27, 58, 75, 0.05); padding: 5px 10px; border-radius: 999px; max-width: 100%; }
+.po-asof i { width: 6px; height: 6px; border-radius: 50%; background: #137254; box-shadow: 0 0 6px rgba(19, 114, 84, 0.5); flex-shrink: 0; }
+.po-asof.is-stale { background: rgba(200, 134, 10, 0.16); color: #6B4706; font-weight: 600; }
+.po-asof.is-stale i { background: #B07908; box-shadow: 0 0 6px rgba(176, 121, 8, 0.55); }
+.po-asof[hidden] { display: none; }
 
-.po-band { display: grid; grid-template-columns: 1.35fr 1fr 1fr; padding: 18px 28px 22px; }
-.po-cell { padding-right: 24px; margin-right: 24px; border-right: 1px solid rgba(27, 58, 75, 0.1); position: relative; min-width: 0; }
-.po-cell:last-child { border-right: none; margin-right: 0; padding-right: 0; }
-.po-band .ret-k { font-size: 11px; color: #5C6367; margin-bottom: 9px; }
-.po-band .ret-v { font-size: 24px; letter-spacing: -0.028em; }
-.po-band .po-lead .ret-v { font-size: 38px; }
-.po-band .ret-class { font-size: 24px; letter-spacing: -0.028em; line-height: 1; font-weight: 600; }
-.po-band .ret-sub { font-size: 11px; margin-top: 8px; line-height: 1.55; }
-.po-x { font-size: 11px; color: #5C6367; margin-top: 8px; line-height: 1.55; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
-.po-x b { font-weight: 700; color: #12283A; }
+/* The headline: the account total, the four-part bar (returns-display.css's .ap-tbar, the
+   same one asset-performance.html draws), growth since joining, this month. */
+.po-head { padding: 8px 28px 0; }
+.po-head .ret-v.po-big { font-size: 39px; letter-spacing: -0.033em; line-height: 1; }
+.po-head .po-tbar { margin-top: 14px; height: 7px; max-width: 520px; }
+.po-x { font-size: 12.5px; color: #5C6367; margin-top: 10px; line-height: 1.55; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.po-x b { font-weight: 600; color: #12283A; }
 .po-x b.is-up { color: #137254; }
 .po-x b.is-dn { color: #A8452F; }
 .po-x[hidden], .po-sub[hidden] { display: none; }
-.po-sub { display: inline-flex; align-items: center; gap: 8px; }
-/* The separator between the two horizons trails the since-span, so a wrapped line never
+.po-sub { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.po-sub .po-dep { color: #5C6367; font-weight: 400; }
+/* The separator between the two horizons trails the growth-span, so a wrapped line never
    opens with a lone middot. */
 .po-sub:not([hidden]):has(+ .po-tm:not([hidden]))::after { content: '\00b7'; margin-left: 2px; color: #5C6367; }
 .po-tm > b { margin-right: 4px; }
+
+/* The four-cell band: Portfolio / Savings pockets / Total return / Best performing class. */
+.po-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px; border-top: 1px solid rgba(27, 58, 75, 0.09); padding: 0 28px; }
+.po-cell { padding: 15px 18px 16px 0; margin-right: 18px; border-right: 1px solid rgba(27, 58, 75, 0.1); position: relative; min-width: 0; }
+.po-cell:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+.po-band .ret-k { font-size: 10.5px; color: #5C6367; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.po-kd { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
+.po-band .ret-v { font-size: 20px; letter-spacing: -0.024em; line-height: 1; }
+.po-band .ret-class { font-size: 20px; letter-spacing: -0.024em; line-height: 1; font-weight: 600; }
+.po-band .ret-sub { font-size: 11px; margin-top: 7px; line-height: 1.5; color: #5C6367; }
 .po-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; }
 .po-pill.is-up { background: rgba(19, 114, 84, 0.10); color: #137254; }
 .po-pill.is-dn { background: rgba(168, 69, 47, 0.10); color: #A8452F; }
@@ -70,11 +86,12 @@
 .po-split .is-r { background: #3A6785; }
 .po-split[hidden] { display: none; }
 
-/* Chart section */
+/* Chart section — titled "Portfolio value over time" and stating its own scope. */
 .po-chart-sec { padding: 0 28px 22px; }
-.po-ch-h { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding-top: 18px; border-top: 1px solid rgba(27, 58, 75, 0.09); flex-wrap: wrap; }
-.po-ch-l { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.po-ch-l .ret-k { margin: 0; font-size: 11px; color: #5C6367; }
+.po-ch-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding-top: 18px; border-top: 1px solid rgba(27, 58, 75, 0.09); flex-wrap: wrap; }
+.po-ch-l { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.po-ch-l .ret-k { margin: 0; font-size: 13px; color: #3E4A52; font-weight: 600; display: block; }
+.po-ch-scope { display: block; font-size: 11.5px; color: #5C6367; margin-top: 4px; line-height: 1.5; max-width: 48ch; }
 .po-leg { display: flex; gap: 14px; font-size: 11px; color: #5C6367; flex-wrap: wrap; }
 .po-leg span { display: flex; align-items: center; gap: 6px; }
 .po-leg i { width: 14px; height: 2.5px; border-radius: 2px; display: block; background: #137254; }
@@ -124,27 +141,43 @@
 .po-newc p { font-size: 12.5px; color: #5C6367; line-height: 1.65; }
 .po-newc .po-newc-sub { font-size: 12px; color: #5C6367; margin-top: 10px; }
 
-@container (max-width: 820px) {
-  .po-band { grid-template-columns: 1fr; gap: 16px; }
-  .po-cell { border-right: none; margin-right: 0; padding-right: 0; padding-bottom: 16px; border-bottom: 1px solid rgba(27, 58, 75, 0.1); }
-  .po-cell:last-child { border-bottom: none; padding-bottom: 0; }
+/* The mockup's three breakpoints, translated to the CARD's own width (a container query on
+   the card, never on the band — row 206): two-up at tablet, stacked on phone, tighter still
+   on a small phone. */
+@container (max-width: 880px) {
+  .po-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .po-cell { padding: 14px 18px 14px 0; }
+  .po-cell:nth-child(2) { border-right: none; margin-right: 0; padding-right: 0; }
+  .po-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(27, 58, 75, 0.09); }
   .po-msp { display: none; }
   .po-pf { flex-wrap: wrap; gap: 12px; }
   .po-pf > div { flex: 0 0 calc(50% - 6px); border-right: none; margin-right: 0; padding-right: 0; }
 }
-@container (max-width: 520px) {
-  .po-hd, .po-band, .po-chart-sec { padding-left: 20px; padding-right: 20px; }
-  .po-band .po-lead .ret-v { font-size: 32px; }
+@container (max-width: 620px) {
+  .po-hd, .po-head, .po-band, .po-chart-sec { padding-left: 18px; padding-right: 18px; }
+  .po-hd { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .po-hd .po-hr { order: 1; }
+  .po-head .ret-v.po-big { font-size: 31px; }
+  .po-band { grid-template-columns: 1fr; margin-top: 16px; }
+  .po-cell, .po-cell:nth-child(2) { border-right: none; margin-right: 0; padding: 13px 0; border-bottom: 1px solid rgba(27, 58, 75, 0.09); }
+  .po-cell:last-child { border-bottom: none; }
+  .po-band .ret-v, .po-band .ret-class { font-size: 19px; }
+  .po-ch-h { flex-direction: column; align-items: stretch; }
+  .po-ch-scope { max-width: none; }
+  .po-ranges { width: 100%; }
+  .po-rg.mw-btn { flex: 1; }
+  .po-chart { height: 150px; }
+}
+@container (max-width: 380px) {
+  .po-head .ret-v.po-big { font-size: 27px; }
+  .po-ranges { flex-wrap: wrap; }
 }
 
-/* Panel headers */
-.po-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-.po-hd .po-t { font-size: 13.5px; font-weight: 600; color: #3E4A52; }
-.po-hd .po-s { font-size: 12px; color: #5C6367; margin-top: 3px; }
-
-/* Pending requests */
-.po-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); text-decoration: none; color: inherit; }
+/* Pending requests — each row with its AGE (row 251). */
+.po-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); text-decoration: none; color: inherit; min-height: 60px; }
 .po-row:first-child { border-top: none; padding-top: 4px; }
+.po-age { font-size: 11px; color: #6B4706; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.po-chips { display: none; }
 .po-row:hover .po-rt { text-decoration: underline; }
 .po-ic { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .po-ic.dep { background: rgba(19, 114, 84, 0.1); color: #137254; }
@@ -160,9 +193,12 @@
 .po-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px; padding: 2px 7px; border-radius: 5px; background: rgba(200, 134, 10, 0.14); color: #6B4706; display: inline-block; }
 .po-chip.is-internal { background: rgba(27, 58, 75, 0.08); color: #2C4658; margin-left: 4px; }
 
-/* Maturities */
-.po-mat { padding: 14px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); }
+/* Savings pockets — a matured pocket is marked "earning nothing" and offered its next step. */
+.po-mat { padding: 13px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); }
 .po-mat:first-child { border-top: none; padding-top: 4px; }
+.po-md.is-matured { color: #6B4706; font-weight: 600; }
+.po-mact { display: inline-flex; align-items: center; min-height: 44px; font-size: 11.5px; font-weight: 600; color: #137254; text-decoration: none; margin-top: -4px; }
+.po-mact:hover { text-decoration: underline; }
 .po-mr1 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .po-mn { font-size: 13.5px; font-weight: 600; color: #12283A; }
 .po-mv { font-size: 13.5px; font-weight: 700; color: #12283A; font-variant-numeric: tabular-nums; }

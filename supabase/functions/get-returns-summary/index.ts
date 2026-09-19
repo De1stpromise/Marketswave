@@ -59,6 +59,16 @@
 // as a denominator — each describes a position you still hold, so capital you already took
 // back out of a different, closed position is not part of what produced it. Only the
 // portfolio-level `totalPercent` spans both, because only its numerator does.
+//
+// ★ PRICE STATUS (2026-09-19, row 251). Every position carries `pricingModel`, `priceStatus`,
+// `priceAsOf`, `priceStale` and `priceAgeMinutes`, and the payload carries a `pricing` summary
+// naming how many held positions are failed or stale and the value they carry. Until this, no
+// client-facing function carried price_status at all, so a failed read rendered as a normal
+// value (row 235's class) on the most important figure in the product. The derivation lives in
+// _shared/price-status.ts so get-holdings and get-portfolio-overview cannot disagree with it.
+//
+// `largestPosition` is the PM briefing's own concentration signal (_shared/concentration.ts),
+// so the dashboard's Risk metrics row and the PM's Opportunities panel apply one rule.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import {
@@ -67,6 +77,8 @@ import {
   unitPriceSeries,
   round2
 } from '../_shared/portfolio-engine.ts';
+import { staleAfterMinutes, productPricing, summarisePricing } from '../_shared/price-status.ts';
+import { largestPosition } from '../_shared/concentration.ts';
 
 const TREND_DAYS = 30;
 
@@ -118,6 +130,8 @@ Deno.serve(async (req) => {
 
     const { data: state } = await admin
       .from('account_state').select('*').eq('client_id', targetClientId).maybeSingle();
+    const staleAfter = await staleAfterMinutes(admin);
+    const now = new Date();
 
     // The closed-position accumulator behind the panel.
     //
@@ -172,9 +186,11 @@ Deno.serve(async (req) => {
       const unrealized = round2(h.units * unitPrice - h.cost_basis);
       const unrealizedPercent =
         h.cost_basis === 0 ? 0 : round2((unrealized / h.cost_basis) * 100);
+      const pricing = product ? productPricing(product, staleAfter, now) : null;
       return {
         productId: h.product_id,
         name: product ? product.name : h.product_id,
+        ticker: product ? (product.ticker || null) : null,
         assetClass: product ? product.asset_class : null,
         investmentType: product ? product.investment_type : null,
         units: h.units,
@@ -183,6 +199,11 @@ Deno.serve(async (req) => {
         currentValue: currentValue,
         unrealized: unrealized,
         unrealizedPercent: unrealizedPercent,
+        pricingModel: pricing ? pricing.pricingModel : null,
+        priceStatus: pricing ? pricing.priceStatus : null,
+        priceAsOf: pricing ? pricing.priceAsOf : null,
+        priceStale: pricing ? pricing.priceStale : false,
+        priceAgeMinutes: pricing ? pricing.priceAgeMinutes : null,
         // A holding that ALSO has closed-position history: the client still holds part of it
         // and sold the rest, so it legitimately appears in both the Return Table and the
         // closed-positions panel. Keyed on the EXISTENCE of a SELL row, deliberately not on
@@ -270,10 +291,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Totals-level price status over the held positions, and the concentration signal.
+    const pricing = summarisePricing(
+      (holdings || []).map((h: any) => {
+        const product = products.find((p) => p.id === h.product_id);
+        const pos = positions.find((p) => p.productId === h.product_id);
+        return { product: product || { id: h.product_id }, currentValue: pos ? pos.currentValue : 0 };
+      }),
+      staleAfter, now
+    );
+    const tpv = round2((state ? Number(state.unallocated_capital || 0) : 0) + currentValue + Number(realized || 0));
+    const largest = largestPosition(
+      positions.map((p) => ({ productId: p.productId, name: p.name, ticker: p.ticker, assetClass: p.assetClass || undefined, currentValue: p.currentValue })),
+      tpv
+    );
+
     return jsonResponse({
       realized, unrealized, total, totalPercent,
       costBasis, currentValue, capitalDeployed,
       positions, byClass, bestClass,
+      pricing,
+      largestPosition: largest,
       closedPositions,
       closedTotals: {
         count: closedPositions.length,

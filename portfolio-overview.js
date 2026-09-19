@@ -8,9 +8,19 @@
 // computation — the period stats are looked up by range key, never recomputed here).
 //
 // Plain global, same convention as dashboard-sidebar.js / fund-document.js:
-//   window.MarketswavePortfolioOverview.render(payload, { changeEl, thisMonthEl, sparkEl,
+//   window.MarketswavePortfolioOverview.render(payload, { totalEl, tbarEl, changeEl,
+//     thisMonthEl, portfolioEl, portfolioSubEl, pocketsEl, pocketsSubEl, sparkEl,
 //     legendEl, rangesEl, chartWrap, newcEl, statsEl, asOfEl,
-//     pendingEl, maturitiesEl })
+//     pendingEl, pendingMetaEl, maturitiesEl, maturitiesMetaEl })
+//
+// ★ REDESIGN (2026-09-19, register row 251). The headline is the ACCOUNT total in the four
+// parts asset-performance.html ships (`payload.account`: deployed / unallocated / savings
+// pockets / realised), growth is against `account.deposited` (external flows only), and
+// the as-of pill is the REAL age of the oldest market price behind the figure — amber, with
+// a plain statement, when `payload.pricing` reports any held position stale or failed.
+// "Updated just now" (this function's own response time) is gone: during the 19 Sep 2026
+// outage it labelled a two-hour-old failed read as fresh. Pending rows carry the server's
+// `ageSeconds`; the pockets panel marks a matured pocket "earning nothing".
 //
 // THE CHART THRESHOLD. A line through two points is not a chart. The server reports
 // `history.chartReady` (>= CHART_MIN_ANCHORS = 3 real stored anchors); below that the card
@@ -95,23 +105,55 @@
   function signedPct1(p) { return signed(p, function (a) { return a.toFixed(1) + '%'; }); }
   function tone(n) { return n > 0 ? 'is-up' : n < 0 ? 'is-dn' : 'is-flat'; }
 
-  // ---------------------------------------------------------------- band: both horizons
-  // Since the first recorded month — a pill plus "since <month>". Shown only once the chart
-  // is (the server sends changeSinceFirst null below the threshold); with nothing to show the
-  // span is hidden rather than filled with a caveat.
-  function renderChange(h, changeEl) {
-    changeEl.textContent = '';
-    if (!h.chartReady || !h.firstAnchor || !h.changeSinceFirst) {
-      changeEl.hidden = true;
-      return;
+  // ---------------------------------------------------------------- headline
+  // The account total in four parts (row 250's identity) and growth since joining against
+  // what was DEPOSITED — external flows only, never capitalIn.current (which subtracts
+  // transfers into savings for the portfolio line). With nothing deposited there is no
+  // denominator and the line is hidden rather than filled with a caveat.
+  var PART_FILLS = { deployed: '#4B2E83', unallocated: '#C4BEDA', pockets: '#B07908', realised: '#137254' };
+  function renderAccount(a, h, els) {
+    if (!a) return;
+    if (els.totalEl) els.totalEl.textContent = formatUSD(a.total, 2);
+    if (els.tbarEl) {
+      els.tbarEl.textContent = '';
+      var parts = [['deployed', a.deployed, 'Deployed in assets'], ['unallocated', a.unallocated, 'Unallocated'], ['pockets', a.pockets, 'Savings pockets'], ['realised', a.realised, 'Realised gains']];
+      if (a.total > 0) parts.forEach(function (p) {
+        if (p[1] <= 0) return;
+        var i = el('i'); i.style.width = ((p[1] / a.total) * 100).toFixed(2) + '%'; i.style.background = PART_FILLS[p[0]]; i.title = p[2]; i.dataset.part = p[0];
+        els.tbarEl.appendChild(i);
+      });
     }
-    changeEl.hidden = false;
-    var c = h.changeSinceFirst;
-    var pill = el('span', 'po-pill ' + tone(c.amount));
-    var amt = signed(Math.round(c.amount), function (a) { return formatUSD(a); });
-    pill.textContent = c.percent === null ? amt : amt + ' \u00b7 ' + signedPct1(c.percent);
-    changeEl.appendChild(pill);
-    changeEl.appendChild(el('span', 'po-since', 'since ' + fmtMonYYYY(parseDate(h.firstAnchor.date))));
+    var changeEl = els.changeEl;
+    if (changeEl) {
+      changeEl.textContent = '';
+      if (a.deposited > 0) {
+        changeEl.hidden = false;
+        var g = el('b', a.growth < 0 ? 'is-dn' : 'is-up', signed(Math.round(a.growth), function (x) { return formatUSD(x); }) + ' since you joined');
+        changeEl.appendChild(g);
+        var yrs = h && h.clientSince ? Math.max(0, new Date().getUTCFullYear() - new Date(h.clientSince).getUTCFullYear()) : null;
+        changeEl.appendChild(el('span', 'po-dep', '\u00b7 ' + formatUSD(a.deposited, 2) + ' deposited' + (yrs === null ? '' : ' over ' + (yrs < 1 ? 'less than a year' : yrs + (yrs === 1 ? ' year' : ' years')))));
+      } else {
+        changeEl.hidden = true;
+      }
+    }
+    // The band's Portfolio cell — the chart's own measure — and the Savings cell.
+    if (els.portfolioEl) els.portfolioEl.textContent = formatUSD(h ? h.currentValue : a.total - a.pockets, 2);
+    if (els.portfolioSubEl) els.portfolioSubEl.textContent = 'Invested, uninvested and realised';
+    if (els.pocketsEl) els.pocketsEl.textContent = formatUSD(a.pockets, 2);
+  }
+  function renderPocketsSub(list, subEl) {
+    if (!subEl) return;
+    var live = list.filter(function (m) { return m.status !== 'withdrawn'; });
+    if (!live.length) { subEl.textContent = 'No savings pockets yet'; return; }
+    var matured = live.filter(function (m) { return m.status === 'matured'; }).length;
+    var active = live.filter(function (m) { return m.kind === 'fixed' && m.status !== 'matured'; });
+    var flexible = live.filter(function (m) { return m.kind === 'flexible'; }).length;
+    var bits = [live.length + (live.length === 1 ? ' pocket' : ' pockets')];
+    if (matured) bits.push(matured === 1 ? 'one matured' : matured + ' matured');
+    if (active.length === 1 && active[0].rate !== null) bits.push('one at ' + active[0].rate + '%');
+    else if (active.length > 1) bits.push(active.length + ' earning');
+    if (flexible) bits.push(flexible === 1 ? 'one flexible' : flexible + ' flexible');
+    subEl.textContent = bits.join(' \u00b7 ');
   }
   // This month — the current month's anchor against the live value, as a figure. A month that
   // opened at $0 with money now has no honest change figure ("+$94,874 this month" is the
@@ -451,27 +493,64 @@
     newcEl.appendChild(body);
   }
 
-  // ---------------------------------------------------------------- as-of indicator
+  // ---------------------------------------------------------------- priced pill
+  // The REAL age of the oldest market price behind the figure (pricing.oldestPriceAsOf),
+  // repainted every minute so it grows honestly between refreshes. Amber with a plain
+  // statement when any held position is stale or failed: a failed read must never render as
+  // a normal value (row 235). Nothing market-priced (an all-appraisal book, or no holdings)
+  // says so rather than inventing an age.
   var asOfTimer = null;
-  function renderAsOf(asOfEl, at) {
+  function ageText(iso) {
+    var mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!isFinite(mins) || mins < 0) mins = 0;
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + ' h ' + (mins % 60) + ' min ago';
+    return Math.floor(hrs / 24) + ' d ago';
+  }
+  function renderPriced(asOfEl, pricing, account) {
     if (!asOfEl) return;
-    function paint() {
-      var mins = Math.floor((Date.now() - at) / 60000);
-      var text = mins < 1 ? 'Updated just now' : 'Updated ' + mins + ' min ago';
-      asOfEl.textContent = '';
-      var dot = el('i'); dot.setAttribute('aria-hidden', 'true'); asOfEl.appendChild(dot);
-      asOfEl.appendChild(document.createTextNode(text));
+    if (asOfTimer) { clearInterval(asOfTimer); asOfTimer = null; }
+    asOfEl.classList.remove('is-stale');
+    asOfEl.removeAttribute('title');
+    var t = asOfEl.querySelector('.po-asof-t') || asOfEl;
+    if (!pricing) { asOfEl.hidden = true; return; }
+    asOfEl.hidden = false;
+    if (pricing.affected > 0) {
+      var word = pricing.failed > 0 && pricing.stale > 0 ? 'not priced' : pricing.failed > 0 ? 'failed to price' : 'stale';
+      t.textContent = pricing.affected + ' of ' + pricing.marketPriced + ' holding' + (pricing.marketPriced === 1 ? '' : 's') + ' ' + word + ' \u2014 total may be out of date';
+      asOfEl.classList.add('is-stale');
+      asOfEl.setAttribute('title', (pricing.affectedProducts || []).map(function (p) {
+        return p.name + (p.ticker ? ' (' + p.ticker + ')' : '') + ': ' + (p.status === 'failed' ? 'last refresh failed' : 'older than ' + pricing.staleAfterMinutes + ' min') + (p.priceAsOf ? ', priced ' + ageText(p.priceAsOf) : ', never priced');
+      }).join('\n'));
+      return;
     }
+    if (pricing.marketPriced === 0) {
+      t.textContent = account && account.holdings > 0 ? 'Valued at last appraisal' : 'No holdings to price';
+      return;
+    }
+    function paint() { t.textContent = 'Priced ' + ageText(pricing.oldestPriceAsOf); }
     paint();
-    if (asOfTimer) clearInterval(asOfTimer);
     asOfTimer = setInterval(paint, 60000);
   }
 
   // ---------------------------------------------------------------- pending requests
   var ICON_FOR = { deposit: ['dep', 'down'], withdrawal: ['wd', 'up'], allocation: ['alo', 'chart'], sell: ['alo', 'chart'], hys_deposit: ['hys', 'lock'], hys_withdrawal: ['hys', 'lock'], profile_change: ['prof', 'user'] };
 
-  function renderPending(list, container) {
+  // Age from the server's ageSeconds (never the browser clock against requestedAt).
+  function ageWord(sec) {
+    if (sec === null || sec === undefined) return '';
+    if (sec < 60) return 'just now';
+    var m = Math.floor(sec / 60); if (m < 60) return m + ' min';
+    var h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour' : ' hours');
+    var d = Math.floor(h / 24); if (d < 14) return d + (d === 1 ? ' day' : ' days');
+    var w = Math.floor(d / 7); if (d < 60) return w + (w === 1 ? ' week' : ' weeks');
+    var mo = Math.floor(d / 30); return mo + (mo === 1 ? ' month' : ' months');
+  }
+  function renderPending(list, container, metaEl) {
     container.textContent = '';
+    if (metaEl) metaEl.textContent = list.length ? list.length + ' with your manager' : 'Nothing waiting';
     if (!list.length) {
       var e = el('div', 'po-empty');
       var ei = el('div', 'po-ei'); ei.appendChild(svgIcon('check')); e.appendChild(ei);
@@ -492,8 +571,13 @@
       rb.appendChild(el('div', 'po-rs', 'Requested ' + fmtDay(new Date(r.requestedAt)) + ' · ' + r.detail));
       row.appendChild(rb);
       var ra = el('div', 'po-ra');
-      ra.appendChild(el('div', 'po-v', r.amount !== null ? formatUSD(r.amount, r.amount % 1 ? 2 : 0) : r.units !== null ? String(r.units) + ' units' : '—'));
-      var chips = el('div');
+      ra.appendChild(el('div', 'po-v', r.amount !== null ? formatUSD(r.amount, r.amount % 1 ? 2 : 0) : r.units !== null ? String(r.units) + ' units' : 'Awaiting'));
+      // ★ THE AGE (row 251) — what turns a list into an indicator. Server-side ageSeconds.
+      var age = el('div', 'po-age', ageWord(r.ageSeconds));
+      age.dataset.ageSeconds = String(r.ageSeconds);
+      age.setAttribute('title', 'Requested ' + fmtDay(new Date(r.requestedAt)));
+      ra.appendChild(age);
+      var chips = el('div', 'po-chips');
       chips.appendChild(el('span', 'po-chip', 'Pending'));
       if (r.internalTransfer) chips.appendChild(el('span', 'po-chip is-internal', 'Internal transfer'));
       ra.appendChild(chips);
@@ -503,8 +587,9 @@
   }
 
   // ---------------------------------------------------------------- maturities
-  function renderMaturities(list, container) {
+  function renderMaturities(list, container, metaEl) {
     container.textContent = '';
+    if (metaEl) metaEl.textContent = list.length ? list.length + (list.length === 1 ? ' pocket' : ' pockets') : '';
     if (!list.length) {
       var e = el('div', 'po-empty');
       var ei = el('div', 'po-ei'); ei.appendChild(svgIcon('lock')); e.appendChild(ei);
@@ -513,31 +598,44 @@
       container.appendChild(e);
       return;
     }
-    list.forEach(function (m) {
-      var row = el('div', 'po-mat');
+    // Matured pockets first: a pocket earning nothing is the one decision on this panel.
+    var ordered = list.slice().sort(function (a, b) { return (b.status === 'matured' ? 1 : 0) - (a.status === 'matured' ? 1 : 0); });
+    ordered.forEach(function (m) {
+      var row = el('div', 'po-mat' + (m.status === 'matured' ? ' is-matured' : ''));
       row.dataset.pocketId = m.id;
       row.dataset.kind = m.kind;
+      row.dataset.status = m.status;
+      var accrued = m.interestAccrued || 0;
       var r1 = el('div', 'po-mr1');
-      r1.appendChild(el('span', 'po-mn', m.name));
-      r1.appendChild(el('span', 'po-mv', formatUSD(m.amount, m.amount % 1 ? 2 : 0)));
+      r1.appendChild(el('span', 'po-mn', m.kind === 'fixed' && m.rate !== null && m.status !== 'matured' ? m.name + ' \u00b7 ' + m.rate + '%' : m.name));
+      // The value the account total counts: principal plus interest accrued to date.
+      r1.appendChild(el('span', 'po-mv', formatUSD(m.amount + accrued, 2)));
       row.appendChild(r1);
       var r2 = el('div', 'po-mr2');
       if (m.kind === 'fixed') {
-        var md = m.status === 'matured'
-          ? 'Matured ' + fmtDay(new Date(m.maturityDate)) + ' · ready to withdraw'
-          : 'Matures ' + fmtDay(new Date(m.maturityDate)) + ' · ' + m.daysRemaining + ' day' + (m.daysRemaining === 1 ? '' : 's');
-        r2.appendChild(el('span', 'po-md', md));
-        r2.appendChild(el('span', 'po-mi', '+' + formatUSD(m.interestAccrued, 2) + (m.status === 'matured' ? ' interest' : ' accrued · ' + formatUSD(m.interestAtMaturity, 2) + ' at maturity')));
-        row.appendChild(r2);
-        var bar = el('div', 'po-bar');
-        bar.setAttribute('role', 'progressbar');
-        bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-valuenow', String(Math.round(m.progressPercent)));
-        bar.setAttribute('aria-label', 'Progress toward term');
-        var fill = el('i'); fill.style.width = Math.max(0, Math.min(100, m.progressPercent)) + '%'; bar.appendChild(fill);
-        row.appendChild(bar);
+        if (m.status === 'matured') {
+          // ★ "earning nothing" (row 251): a matured fixed pocket has stopped accruing and is
+          // waiting on the client — the one line on this page that names a decision to make.
+          r2.appendChild(el('span', 'po-md is-matured', 'Matured ' + fmtDay(new Date(m.maturityDate)) + ' \u00b7 earning nothing'));
+          r2.appendChild(el('span', 'po-mi', '+' + formatUSD(accrued, 2) + ' interest'));
+          row.appendChild(r2);
+          var act = el('a', 'po-mact', 'Withdraw or reinvest \u2192');
+          act.href = 'high-yield-savings.html';
+          row.appendChild(act);
+        } else {
+          r2.appendChild(el('span', 'po-md', 'Matures ' + fmtDay(new Date(m.maturityDate)) + ' \u00b7 ' + Math.round(m.progressPercent) + '% elapsed'));
+          r2.appendChild(el('span', 'po-mi', '+' + formatUSD(accrued, 2) + ' accrued \u00b7 ' + formatUSD(m.interestAtMaturity, 2) + ' at maturity'));
+          row.appendChild(r2);
+          var bar = el('div', 'po-bar');
+          bar.setAttribute('role', 'progressbar');
+          bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-valuenow', String(Math.round(m.progressPercent)));
+          bar.setAttribute('aria-label', 'Progress toward term');
+          var fill = el('i'); fill.style.width = Math.max(0, Math.min(100, m.progressPercent)) + '%'; bar.appendChild(fill);
+          row.appendChild(bar);
+        }
       } else {
-        r2.appendChild(el('span', 'po-md', 'No fixed term · withdraw anytime'));
-        r2.appendChild(el('span', 'po-mi is-none', 'No interest · flexible access'));
+        r2.appendChild(el('span', 'po-md', 'No fixed term \u00b7 withdraw anytime'));
+        r2.appendChild(el('span', 'po-mi is-none', 'No interest \u00b7 flexible access'));
         row.appendChild(r2);
       }
       container.appendChild(row);
@@ -546,7 +644,8 @@
 
   function render(payload, els, opts) {
     var h = payload.history;
-    renderChange(h, els.changeEl);
+    renderAccount(payload.account, h, els);
+    renderPocketsSub(payload.maturities || [], els.pocketsSubEl);
     if (els.thisMonthEl) renderThisMonth(h, els.thisMonthEl);
     if (els.sparkEl) renderSparkline(h, els.sparkEl);
     if (h.chartReady) {
@@ -563,10 +662,10 @@
       els.newcEl.classList.remove('hidden');
       renderNewClient(h, els.newcEl);
     }
-    renderAsOf(els.asOfEl, opts && opts.at ? opts.at : Date.now());
-    renderPending(payload.pending || [], els.pendingEl);
-    renderMaturities(payload.maturities || [], els.maturitiesEl);
+    renderPriced(els.asOfEl, payload.pricing, payload.account);
+    renderPending(payload.pending || [], els.pendingEl, els.pendingMetaEl);
+    renderMaturities(payload.maturities || [], els.maturitiesEl, els.maturitiesMetaEl);
   }
 
-  window.MarketswavePortfolioOverview = { render: render, formatUSD: formatUSD, pointsFor: pointsFor, capitalSeriesFor: capitalSeriesFor, eventPointsFor: eventPointsFor };
+  window.MarketswavePortfolioOverview = { render: render, formatUSD: formatUSD, pointsFor: pointsFor, capitalSeriesFor: capitalSeriesFor, eventPointsFor: eventPointsFor, ageWord: ageWord, ageText: ageText };
 })();

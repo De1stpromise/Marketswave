@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="asset-mark.css">
   <link rel="stylesheet" href="portfolio-overview.css">
   <link rel="stylesheet" href="allocation-donut.css">
+  <link rel="stylesheet" href="dashboard-cards.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -86,56 +87,69 @@
           <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
         </div>
 
-        <!-- ★ THE BUNDLED PORTFOLIO CARD (2026-09-13). The three summary cards (Total portfolio
-             value, Total return, Best performing class) and the separate "Portfolio value over
-             time" chart card became ONE glass card, per the approved bundled_card_v2 mockup:
-             a header (title, as-of indicator), a three-cell band, then the chart
-             section under a rule — the chart now carrying a stepped, dashed capital-in
-             reference line derived from the ledger (deposits, withdrawals and transfers into
-             savings — see _shared/portfolio-overview.ts for exactly what counts and why), the
-             capital events as dots on the portfolio line, a three-row tooltip, and a period-
-             stats footer that recomputes with the range controls.
+        <!-- ★ THE PORTFOLIO CARD (redesign 2026-09-19, register row 251; bundled card 2026-09-13
+             before it). Leads the page. The headline is TOTAL ACCOUNT VALUE — the same figure
+             asset-performance.html leads with (row 250), in the same FOUR parts, so a client
+             never meets two totals:
+                 total = deployed + unallocated + savings pockets (principal + accrued) + realised
+                       = Portfolio value (the chart's measure) + Savings pockets
+             Every figure on this card is a server figure from get-portfolio-overview's `account`
+             (row 251) and get-returns-summary; the page only formats.
 
-             Every id the earlier cards carried is kept (tpv-amount, tpv-monthly-change,
-             total-return-*, best-performing-*, po-*) — the existing suites and contrast
-             profiles read them by id. The value figure sits top-left of a full glass card,
-             exactly the sheen's failing case (row 204): the card carries .glass-lift and the
-             figure is measured with the sheen composited.
+             "PRICED N MIN AGO", never "Updated just now". The pill (#po-asof) reads the REAL age
+             of the oldest market price behind the figure, and turns amber with a plain statement
+             when any holding's price is stale or failed — during the 19 Sep 2026 outage every
+             crypto holder saw a two-hour-old failed read labelled as fresh. A failed read must
+             never render as a normal value (row 235's class).
 
-             THE CHART SECTION NEVER RESTATES THE VALUE (2026-09-12) — the band's lead cell is
-             the one place on the page the figure appears. -->
-        <div class="glass glass-lift rounded-2xl mb-8" id="po-value-card">
+             Growth is against `accountDeposited` — external flows only. capitalIn.current
+             subtracts HYS_TRANSFER_IN by design (a PORTFOLIO reference line) and is the wrong
+             number for an account-scoped card (row 250).
+
+             Every id the earlier card carried is kept (tpv-amount — now the ACCOUNT total —
+             tpv-monthly-change, total-return-*, best-performing-*, po-*): the suites and contrast
+             profiles read them by id. The card carries .glass-lift (row 204). -->
+        <div class="glass glass-lift rounded-2xl mb-6" id="po-value-card">
           <div class="po-hd">
-            <span class="po-title">Portfolio</span>
-            <!-- No export control here (2026-09-13): there is no history to export yet, and
-                 Documents & Reporting owns getting data out of the platform — a CSV button in
-                 a card corner would be a second, lesser export path competing with the real one. -->
+            <span class="po-title">Total account value</span>
+            <!-- No export control here (2026-09-13): Documents & Reporting owns export. -->
             <div class="po-hr">
-              <span class="po-asof" id="po-asof"><i aria-hidden="true"></i>Updated just now</span>
+              <span class="po-asof" id="po-asof" hidden><i aria-hidden="true"></i><span class="po-asof-t"></span></span>
             </div>
           </div>
 
+          <div class="po-head po-lead">
+            <p class="ret-v po-big" id="tpv-amount"><span class="inline-block h-9 w-56 bg-slate-200 rounded animate-pulse"></span></p>
+            <!-- The four-part bar asset-performance.html draws under ITS total (.ap-tbar,
+                 returns-display.css): deployed / unallocated / savings pockets / realised. -->
+            <div class="ap-tbar po-tbar" id="po-tbar" aria-hidden="true"></div>
+            <div class="po-x">
+              <span class="po-sub" id="po-change" hidden></span>
+              <span id="tpv-monthly-change"><span class="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse"></span></span>
+            </div>
+          </div>
+
+          <!-- The four-cell band. Portfolio (the chart's own measure — invested, uninvested and
+               realised) / Savings pockets / Total return / Best performing class. Portfolio +
+               Savings pockets = the headline, stated in the Portfolio cell's sub-line. -->
           <div class="po-band">
-            <!-- (a) Total portfolio value. Solid navy, never gradient text (row 147: measured
-                 ~2.8:1 at the gold stop). Both horizons beneath it: since the first recorded
-                 month as a pill (withheld under the chart threshold, row 205), and this month
-                 as a figure (withheld when the month opened at $0 — the same bug on a shorter
-                 horizon — where it reads "New this month"). -->
-            <div class="po-cell po-lead">
-              <p class="ret-k">Total portfolio value</p>
-              <p class="ret-v" id="tpv-amount"><span class="inline-block h-9 w-56 bg-slate-200 rounded animate-pulse"></span></p>
-              <div class="po-x">
-                <span class="po-sub" id="po-change" hidden></span>
-                <span id="tpv-monthly-change"><span class="inline-block h-4 w-32 bg-slate-200 rounded animate-pulse"></span></span>
-              </div>
+            <div class="po-cell" id="po-portfolio-cell">
+              <p class="ret-k"><i class="po-kd" style="background:#1B3A4B" aria-hidden="true"></i>Portfolio</p>
+              <p class="ret-v" id="po-portfolio-value"><span class="inline-block h-7 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+              <p class="ret-sub" id="po-portfolio-sub">Invested, uninvested and realised</p>
             </div>
 
-            <!-- (b) Total return — DISCLOSURE, not a new calculation: the realised figure is
+            <div class="po-cell" id="po-pockets-cell">
+              <p class="ret-k"><i class="po-kd" style="background:#B07908" aria-hidden="true"></i>Savings pockets</p>
+              <p class="ret-v" id="po-pockets-value"><span class="inline-block h-7 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+              <p class="ret-sub" id="po-pockets-sub"><span class="inline-block h-4 w-36 bg-slate-200 rounded animate-pulse"></span></p>
+            </div>
+
+            <!-- Total return — DISCLOSURE, not a new calculation: the realised figure is
                  byte-for-byte account_state.asset_returns (still #asset-returns-amount) and is
-                 never blended with the unrealised one. The split bar shows their ratio by
-                 magnitude; the sparkline top-right is the RETURN series (value minus capital
-                 in) from the same snapshot anchors the chart draws, so it cannot climb on a
-                 deposit. -->
+                 never blended with the unrealised one. The sparkline top-right is the RETURN
+                 series (value minus capital in) from the same anchors the chart draws, so it
+                 cannot climb on a deposit. -->
             <div class="po-cell" id="po-return-cell">
               <svg class="po-msp" id="po-spark" viewBox="0 0 70 26" preserveAspectRatio="none" aria-hidden="true" hidden></svg>
               <p class="ret-k">Total return</p>
@@ -147,13 +161,10 @@
               <div class="po-split" id="po-split" hidden aria-hidden="true"><i class="is-u"></i><i class="is-r"></i></div>
             </div>
 
-            <!-- (c) Best performing class — ONLY that: the class, its percentage as a pill,
-                 and "of N classes". The ranking that used to be proposed here duplicated the
-                 allocation pie. The figure was ALWAYS unrealised and says so in the markup so
-                 the word cannot go missing on an error path; the "Most resilient class ·
-                 every class is down" relabel for the all-negative case (row 205) stays — for
-                 TWO or more classes. With one held class every comparative qualifier goes and
-                 the label reads "Asset class" (see the render). -->
+            <!-- Best performing class — ONLY that: the class, its percentage as a pill, and
+                 "of N classes". "Most resilient class · every class is down" for the
+                 all-negative case (row 205) stays — for TWO or more classes. With one held
+                 class every comparative qualifier goes and the label reads "Asset class". -->
             <div class="po-cell">
               <p class="ret-k" id="best-performing-label">Best performing class</p>
               <p class="ret-class" id="best-performing-class"><span class="inline-block h-6 w-28 bg-slate-200 rounded animate-pulse"></span></p>
@@ -161,16 +172,21 @@
             </div>
           </div>
 
-          <!-- Chart section. The chart replaces the new-client explanation only once 3 real
-               stored anchors exist (a line through two points is not a chart); the period
-               stats are suppressed under the threshold too — there is nothing to compute. -->
+          <!-- Chart section. Titled for what it charts and states its own scope: the PORTFOLIO
+               only — a fixed pocket does not move with the market, so savings sit outside the
+               line and are stated in the band above. The chart replaces the new-client
+               explanation only once 3 real stored anchors exist (a line through two points is
+               not a chart); the period stats are suppressed under the threshold too. -->
           <div class="po-chart-sec">
             <div class="po-ch-h">
               <div class="po-ch-l">
-                <span class="ret-k po-ch-title">Value over time</span>
+                <div>
+                  <span class="ret-k po-ch-title">Portfolio value over time</span>
+                  <span class="po-ch-scope">Charts the portfolio only. Savings pockets sit outside it and are shown in the band above.</span>
+                </div>
                 <div class="po-leg" id="po-legend" hidden>
-                  <span><i></i>Portfolio</span>
-                  <span><i class="is-dash"></i>Capital in</span>
+                  <span><i></i>Portfolio value</span>
+                  <span><i class="is-dash"></i>Capital you put in</span>
                   <span><i class="is-dot"></i>Deposit</span>
                   <span id="po-legend-out" hidden><i class="is-dot-out"></i>Withdrawal / transfer out</span>
                 </div>
@@ -183,27 +199,13 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div class="glass glass-lift rounded-2xl p-6" id="po-pending-card">
-            <div class="po-hd"><div><div class="po-t">Pending requests</div><div class="po-s">Awaiting review by your portfolio manager</div></div></div>
-            <div id="po-pending"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
-          </div>
-          <div class="glass glass-lift rounded-2xl p-6" id="po-maturities-card">
-            <div class="po-hd"><div><div class="po-t">Upcoming maturities</div><div class="po-s">Savings pockets reaching term</div></div></div>
-            <div id="po-maturities"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
-          </div>
-        </div>
-
-        <!-- Second Row: Allocation + Risk + Activity -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-          <!-- Portfolio Allocation (5 classes)
-               Glass Language Extension (2026-09-07): a standalone informational/visual
-               display card, matching the exact category Risk Metrics/Market Snapshot were
-               already treated under on this same page -- genuinely missed in that earlier
-               pass (confirmed via direct read), not deliberately excluded. -->
-          <div class="lg:col-span-2 glass rounded-2xl p-6">
-            <h3 class="font-semibold text-navy mb-5">Portfolio Allocation</h3>
+        <!-- ALLOCATION + SAVINGS POCKETS. The pockets are promoted out from under the chart
+             (row 251): a matured pocket earning nothing is a decision the client owns, and it
+             used to sit 467px below the fold. The donut reads get-returns-summary.byClass —
+             the server's own per-class values — never holdings × unit_price in the browser. -->
+        <div class="dc-cols mb-6">
+          <div class="glass glass-lift rounded-2xl dc-card" id="allocation-card">
+            <div class="dc-hd"><h3 class="dc-t">Portfolio allocation</h3><a class="dc-link" href="asset-performance.html">Asset &amp; performance →</a></div>
             <!-- Donut (2026-09-15): hand-drawn SVG arcs, no charting library. See
                  allocation-donut.css for the palette's meaning and why the centre is empty.
                  The aria-label is rewritten with the real class/percentage list on every
@@ -220,117 +222,122 @@
             </div>
           </div>
 
-          <!-- Risk Metrics + Recent Activity -->
-          <div class="space-y-6">
-            <!-- Risk Metrics — standalone card (not part of a dense multi-card row), so
-                 it gets the fuller .glass treatment rather than .glass-subtle. -->
-            <div class="glass rounded-2xl p-6">
-              <h3 class="font-semibold text-navy mb-4">Risk Metrics</h3>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between gap-2 flex-wrap">
-                  <span class="text-sm text-slate-600">Cash Reserve</span>
-                  <span class="text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap" id="risk-cash-reserve">—</span>
-                </div>
-                <div class="flex items-center justify-between gap-2 flex-wrap">
-                  <span class="text-sm text-slate-600">Set Risk Profile</span>
-                  <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 whitespace-nowrap" id="risk-profile-badge">—</span>
-                </div>
-                <div class="flex items-center justify-between gap-2 flex-wrap">
-                  <span class="text-sm text-slate-600">Allocation Utilization</span>
-                  <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-navy/10 text-navy whitespace-nowrap" id="risk-allocation-util">—</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Recent Activity
-                 Glass Language Extension (2026-09-07): a div-based activity feed (confirmed
-                 via direct read of its own render function, not a <table>), matching
-                 documents.html's own list-container precedent -- genuinely missed earlier,
-                 not deliberately excluded. -->
-            <div class="glass rounded-2xl p-6">
-              <h3 class="font-semibold text-navy mb-4">Recent Activity</h3>
-              <div class="space-y-4" id="recent-activity-list"></div>
-            </div>
+          <div class="glass glass-lift rounded-2xl dc-card" id="po-maturities-card">
+            <div class="dc-hd"><h3 class="dc-t">Savings pockets</h3><span class="dc-meta" id="po-maturities-meta"></span></div>
+            <div class="dc-body" id="po-maturities"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
           </div>
         </div>
 
-        <!-- Third Row: Currency Converter — moved above Market Snapshot (2026-09-06) so
-             Market Snapshot (below) can sit full-width, with room to grow into a larger
-             20-30 symbol grid in a later batch, instead of sharing a 2/3 split with this
-             card. Currency Converter keeps its original compact width by staying the lone
-             occupant of a lg:grid-cols-3 row (1 of 3 columns) rather than being stretched
-             full-width itself — it's a small form, not a data surface that benefits from
-             extra width. -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-          <!-- Simple Currency Converter
-               Glass Language Extension (2026-09-07): deliberately left plain -- a real,
-               always-visible form (matching admin-documents.html's own explicit "every
-               form, input, filter... stay clean" precedent). Distinct from deploy-
-               capital.html's own glassed forms, which are conditionally-revealed,
-               single-focus action panels (`.form-panel { display: none }` until an option
-               is picked), not permanent page furniture the way this one is. -->
-          <div class="bg-white rounded-2xl border border-slate-200 p-6">
-            <h3 class="font-semibold text-navy mb-4">Currency Converter</h3>
-            <div class="space-y-3">
-              <div>
-                <div class="mw-fld">
-                  <input type="number" value="1000" class="mw-field mw-field-sm" id="convert-amount" placeholder=" ">
-                  <label for="convert-amount">Amount</label>
+        <!-- RISK METRICS + CURRENCY CONVERTER. Four rows, each a real signal: Cash reserve
+             (the PRESENT model, unallocated / portfolio against a 20% target, the target drawn
+             as a mark on the bar); Allocation utilisation; Largest position — the concentration
+             signal the PM briefing has computed since row 221 (≥40% of total portfolio value,
+             _shared/concentration.ts) and a client had never seen, since the donut shows class
+             weight, not position weight; Risk profile as a COMPARISON against the actual crypto
+             share. The profile itself still lives in this browser's localStorage (row 251
+             reports what a server home costs); the row says so when none is set here. -->
+        <div class="dc-cols mb-6">
+          <div class="glass glass-lift rounded-2xl dc-card" id="risk-card">
+            <div class="dc-hd"><h3 class="dc-t">Risk metrics</h3><span class="dc-meta">Reviewed continuously</span></div>
+            <div class="dc-body" id="risk-rows">
+              <div class="rm-row" id="risk-row-cash">
+                <div class="rm-b">
+                  <div class="rm-t"><b>Cash reserve</b><span class="rm-sig" id="risk-cash-reserve">—</span></div>
+                  <div class="rm-d" id="risk-cash-desc"><span class="inline-block h-3 w-56 bg-slate-200 rounded animate-pulse"></span></div>
+                  <div class="rm-prog" id="risk-cash-bar" aria-hidden="true"><i></i><span class="rm-mark" style="left:20%"></span></div>
                 </div>
+                <div class="rm-v"><b id="risk-cash-value">—</b><span>target 20%</span></div>
               </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <div class="mw-fld mw-fld--static">
-                    <select class="mw-field mw-field-sm" id="convert-from">
+              <div class="rm-row" id="risk-row-util">
+                <div class="rm-b">
+                  <div class="rm-t"><b>Allocation utilisation</b><span class="rm-sig" id="risk-util-sig">—</span></div>
+                  <div class="rm-d" id="risk-util-desc"><span class="inline-block h-3 w-56 bg-slate-200 rounded animate-pulse"></span></div>
+                  <div class="rm-prog" id="risk-util-bar" aria-hidden="true"><i></i></div>
+                </div>
+                <div class="rm-v"><b id="risk-allocation-util">—</b><span>deployed</span></div>
+              </div>
+              <div class="rm-row" id="risk-row-largest">
+                <div class="rm-b">
+                  <div class="rm-t"><b>Largest position</b><span class="rm-sig" id="risk-largest-sig">—</span></div>
+                  <div class="rm-d" id="risk-largest-desc"><span class="inline-block h-3 w-56 bg-slate-200 rounded animate-pulse"></span></div>
+                  <div class="rm-prog" id="risk-largest-bar" aria-hidden="true"><i></i><span class="rm-mark" style="left:40%"></span></div>
+                </div>
+                <div class="rm-v"><b id="risk-largest-value">—</b><span id="risk-largest-name"></span></div>
+              </div>
+              <div class="rm-row" id="risk-row-profile">
+                <div class="rm-b">
+                  <div class="rm-t"><b>Risk profile</b><span class="rm-sig" id="risk-profile-badge">—</span></div>
+                  <div class="rm-d" id="risk-profile-desc"><span class="inline-block h-3 w-56 bg-slate-200 rounded animate-pulse"></span></div>
+                </div>
+                <div class="rm-v"><a class="rm-link" href="risk-management.html" id="risk-profile-link">Review</a></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Currency converter. A real, always-visible form, so deliberately NOT glass
+               (admin-documents.html's "every form, input, filter... stay clean" precedent).
+               Fetches ONLY when used (row 251): it no longer fires a Frankfurter call on
+               every page load for a default 1,000 USD → EUR nobody asked for. -->
+          <div class="bg-white rounded-2xl border border-slate-200 dc-card" id="converter-card">
+            <div class="dc-hd"><h3 class="dc-t">Currency converter</h3><span class="dc-meta">Live mid-market rate</span></div>
+            <div class="dc-body dc-pad">
+              <div class="mw-fld">
+                <input type="number" value="1000" class="mw-field mw-field-sm" id="convert-amount" placeholder=" ">
+                <label for="convert-amount">Amount</label>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-3">
+                <div class="mw-fld mw-fld--static">
+                  <select class="mw-field mw-field-sm" id="convert-from">
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="GBP">GBP</option>
                     <option value="SEK">SEK</option>
                   </select>
-                    <label for="convert-from">From</label>
-                  </div>
+                  <label for="convert-from">From</label>
                 </div>
-                <div>
-                  <div class="mw-fld mw-fld--static">
-                    <select class="mw-field mw-field-sm" id="convert-to">
+                <div class="mw-fld mw-fld--static">
+                  <select class="mw-field mw-field-sm" id="convert-to">
                     <option value="EUR">EUR</option>
                     <option value="USD">USD</option>
                     <option value="GBP">GBP</option>
                     <option value="SEK">SEK</option>
                   </select>
-                    <label for="convert-to">To</label>
-                  </div>
+                  <label for="convert-to">To</label>
                 </div>
               </div>
-              <div class="pt-2">
-                <p class="text-xs text-slate-500">Result</p>
-                <p class="text-xl font-semibold text-navy" id="convert-result">—</p>
-                <p class="text-xs text-slate-400 mt-1 hidden" id="convert-rate-note"></p>
+              <div class="pt-3">
+                <p class="text-xs text-slate-600">Result</p>
+                <p class="text-xl font-semibold text-navy tabular-nums" id="convert-result">—</p>
+                <p class="text-xs text-slate-600 mt-1" id="convert-rate-note">Change the amount or a currency to convert.</p>
               </div>
             </div>
           </div>
-
         </div>
 
-        <!-- Fourth Row: MARKET SNAPSHOT + WATCHLIST (2026-09-11).
-             This card used to be a fixed six-symbol read of get-market-snapshot. It is now
-             one feature: the six symbols are the client's editable DEFAULT, they can add any
-             stock, ETF or coin either provider can price, and each row carries one price
-             alert that fires once by email and then clears. It supersedes the separate
-             watchlist and price-alerts items that were queued as three things.
+        <!-- PENDING REQUESTS + ACTIVITY. Pending keeps its own card and each row carries its
+             AGE (server-side ageSeconds, row 251) — that is what makes it an indicator rather
+             than a list. Activity stays transactions only, most recent first. -->
+        <div class="dc-cols dc-even mb-6">
+          <div class="glass glass-lift rounded-2xl dc-card" id="po-pending-card">
+            <div class="dc-hd"><h3 class="dc-t">Pending requests</h3><span class="dc-meta" id="po-pending-meta"></span></div>
+            <div class="dc-body" id="po-pending"><div class="h-4 w-3/4 bg-slate-200 rounded animate-pulse"></div></div>
+          </div>
+          <div class="glass glass-lift rounded-2xl dc-card" id="activity-card">
+            <div class="dc-hd"><h3 class="dc-t">Activity</h3><a class="dc-link" href="transactions.html">Full ledger →</a></div>
+            <div class="dc-body" id="recent-activity-list"></div>
+          </div>
+        </div>
 
-             Offered vs Tracking only is a real lookup, not decoration: a row is Offered when
-             its symbol maps to a catalog product via products.ticker (the shared primitive
-             in _shared/symbol-catalog.ts), and only then does it carry a real Allocate
-             action. "Delayed" stays — these prices come from a cache the scheduler refreshes
-             in rotation (every 5 minutes since 2026-09-14, 30 stock symbols a cycle), and a
-             card that looked live would be claiming something untrue. -->
+        <!-- MARKET SNAPSHOT + WATCHLIST (2026-09-11) — last (row 251). The six symbols are
+             the client's editable DEFAULT; each card renders its OWN price age from
+             get-watchlist's lastUpdated (row 251) — a static "Delayed" said the same thing
+             whether a price was four minutes or four hours old. Offered vs Tracking only is a
+             real lookup via products.ticker (_shared/symbol-catalog.ts). -->
         <div class="glass glass-lift rounded-2xl p-6" id="watchlist-card">
           <div class="wl-head">
             <h3 class="font-semibold text-navy">Market snapshot</h3>
             <div class="wl-head-right">
-              <span class="wl-delayed"><i></i>Delayed</span>
+              <span class="wl-delayed" id="wl-delayed"><i></i>Delayed</span>
               <button type="button" class="mw-btn mw-btn-sm mw-btn-secondary" id="wl-add-toggle" aria-expanded="false" aria-controls="wl-addpanel">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                 Add symbol
@@ -401,37 +408,29 @@
   </script>
 
   <script>
-    // UI Wiring — Stage 1 (2026-09-03): this page's portfolio data (Total Portfolio Value,
-    // the allocation pie chart + legend, Risk Metrics' cash/utilization figures, and Recent
-    // Activity) now comes from REAL Supabase Edge Functions/tables (Backend Migration Phase
-    // B, Stage 1's get-account-state/get-holdings/get-transaction-ledger/
-    // get-total-portfolio-value, plus a direct authorized read of the `products` table) —
-    // this is the FIRST page in the project wired to any real Supabase backend logic.
-    // Market Snapshot and Currency Converter were deliberately left untouched at the time this
-    // comment was written — both needed real external market/FX data. Closed by Backend
-    // Migration Phase D, Stage 1 (2026-09-06): see the separate script block below this one,
-    // wired to the new get-market-snapshot/convert-currency Edge Functions.
+    // UI Wiring — Stage 1 (2026-09-03) wired this page to real Supabase for the first time;
+    // the dashboard redesign of 2026-09-19 (register row 251) rebuilt it around THREE reads:
+    //   get-portfolio-overview  — the account total in four parts, the value history, the
+    //                             pending requests (with their age), the savings pockets, and
+    //                             the totals-level price status (`pricing`)
+    //   get-returns-summary     — unrealised / realised, per-class values (the donut), the
+    //                             best class, the largest position (concentration)
+    //   get-transaction-ledger  — the Activity panel
+    // get-account-state, get-holdings, get-total-portfolio-value and the direct `products`
+    // read this page used to make are gone from it: every figure they fed is now carried by
+    // the two overview functions, computed server-side (row 185 — no money computation in the
+    // browser; the donut no longer multiplies holdings by unit_price here). Page-load round
+    // trips fell from 17 to 11 (the bell's seven are its own).
     //
-    // ---- IDENTITY, investigated before changing anything, per instruction ----
-    // This page does NOT need to start reading the real Supabase session directly for
-    // identity/gating purposes. dashboard-sidebar.js's own file-load-time guard already reads
-    // the real session (via getAuthenticatedClientId(), itself backed by the hybrid bridge
-    // login.html's real Supabase branch established — mirrorAuthenticatedClientLocally() +
-    // setClientAuthenticated(uid), using the REAL Supabase Auth uid) and redirects to
-    // login.html before this script ever runs if nobody is authenticated. The welcome-heading
-    // name lookup (getClient(getAuthenticatedClientId())) already reads accurate name data —
-    // the local shadow copy mirrorAuthenticatedClientLocally() writes at login time — so it's
-    // left completely unchanged below. The ONLY new identity concern this stage introduces is
-    // that the NEW Supabase calls need a REAL, currently-valid Supabase session (a JWT) to
-    // authenticate with — supabase-data.js's getSupabaseClient() obtains this by importing the
-    // same supabase-config.js singleton signup.html/login.html already created and signed in
-    // (persistSession: true means that real session is already sitting in localStorage from
-    // the real login that got this client here) — no new sign-in step, no session-shape
-    // change, nothing to build here beyond calling the new shared helper.
+    // ---- IDENTITY ----
+    // dashboard-sidebar.js's file-load-time guard reads the real session and redirects to
+    // login.html before this script runs if nobody is authenticated. The Supabase calls
+    // below authenticate with the real JWT already in localStorage from the real login
+    // (supabase-config.js, persistSession: true) — no new sign-in step.
     (function () {
       if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
-      // Identity display (unchanged from before this stage — see the comment above for why).
+      // Identity display.
       (function () {
         var heading = document.getElementById('welcome-heading');
         if (!heading || typeof getClient !== 'function' || typeof getAuthenticatedClientId !== 'function') return;
@@ -439,35 +438,20 @@
         if (client) { heading.textContent = 'Welcome Back, ' + client.name.trim().split(/\s+/)[0]; return; }
         // No local mirror (login.html writes it; a cleared localStorage with a session still
         // in place, or any harness bootstrap, has none): read the real name from the client's
-        // own `clients` row instead of leaving the skeleton pulsing forever — found 2026-09-13
-        // as the reason the sheen audit's "settled" wait timed out on every dashboard load.
-        if (typeof MarketswaveData === 'undefined') { heading.textContent = 'Welcome Back'; return; }
+        // own `clients` row instead of leaving the skeleton pulsing forever (2026-09-13).
         MarketswaveData.selectTable('clients').then(function (rows) {
           var row = rows && rows[0];
           heading.textContent = row && row.name ? 'Welcome Back, ' + String(row.name).trim().split(/\s+/)[0] : 'Welcome Back';
         }).catch(function () { heading.textContent = 'Welcome Back'; });
       })();
 
-      // Set Risk Profile (unchanged — a purely local-only feature with no Supabase
-      // equivalent anywhere in this migration; genuinely out of this stage's scope, not
-      // skipped by oversight). Same STORAGE_KEY/validation/default as
-      // risk-management.html's own script.
-      (function () {
-        var RISK_PROFILE_LEVELS = ['conservative', 'balanced', 'aggressive'];
-        var RISK_PROFILE_LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
-        var storedProfile = localStorage.getItem(clientScopedKey('marketswave_risk_profile'));
-        var profileLevel = RISK_PROFILE_LEVELS.indexOf(storedProfile) !== -1 ? storedProfile : 'balanced';
-        var profileEl = document.getElementById('risk-profile-badge');
-        if (profileEl) profileEl.textContent = RISK_PROFILE_LABELS[profileLevel];
-      })();
-
       // Allocation donut palette (2026-09-15). Two ramps that MEAN something: purples are
       // market-priced, oranges are valued by appraisal, and the lavender between them is cash
-      // awaiting deployment. `sub` is not decoration — it states how the class is priced and
-      // matches products.pricing_model for real ('market' vs 'appraisal', register row 199).
+      // awaiting deployment. `sub` states how the class is priced and matches
+      // products.pricing_model for real ('market' vs 'appraisal', register row 199).
       // `dark` marks every fill that cannot carry WHITE text. MEASURED, not taken from the
-      // mockup: the mockup put white on #8B7CB5 (3.72:1) and #E08B14 (2.67:1), both of which
-      // fail the 4.5:1 floor. Only the deep purple #4B2E83 clears it (10.41:1). See row 226.
+      // mockup: white on #8B7CB5 is 3.72:1 and on #E08B14 2.67:1 — both fail the 4.5:1
+      // floor. Only the deep purple #4B2E83 clears it (10.41:1). See row 226.
       //
       // SEGMENT ORDER IS THE MEANING and is never re-sorted by size: the two ramps must stay
       // adjacent, with the cash band between them.
@@ -478,10 +462,6 @@
         { key: 'Private Equity', label: 'Private Equity', sub: 'Valued by appraisal', fill: '#E08B14', dark: true  },
         { key: 'Real Assets',    label: 'Real Assets',    sub: 'Valued by appraisal', fill: '#F5C377', dark: true  }
       ];
-      // Grouping keys for computeClassBreakdown() — order here is irrelevant (it only seeds
-      // the totals map); the donut's own display order lives in ALLOCATION_SEGMENTS above.
-      var ASSET_CLASS_ORDER = ['Private Equity', 'Real Assets', 'Stocks & ETFs', 'Crypto'];
-
 
       function formatUSD(n, decimals) {
         var sign = n < 0 ? '-' : '';
@@ -491,122 +471,193 @@
           maximumFractionDigits: decimals || 0
         });
       }
-
-      // 'YYYY-MM-DDTHH:mm:ss...' -> 'YYYY-MM-DD' — get-transaction-ledger's real createdAt is
-      // a full timestamptz (unlike the local engine's own plain date string), so this needs
-      // an explicit conversion to keep Recent Activity's date display unchanged.
-      function toDateOnly(iso) {
-        return typeof iso === 'string' ? iso.slice(0, 10) : iso;
+      // Sign is carried explicitly on every figure, so gain/loss never depends on colour
+      // alone. U+2212 MINUS SIGN, matching the approved mockup — not a hyphen.
+      function signedUSD(n) {
+        var rounded = Math.round(n);
+        if (rounded < 0) return '−' + formatUSD(Math.abs(rounded));
+        return '+' + formatUSD(rounded);
+      }
+      function signedPct(n) {
+        if (n < 0) return '−' + Math.abs(n).toFixed(1) + '%';
+        return '+' + n.toFixed(1) + '%';
+      }
+      function esc(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      function fmtDay(iso) {
+        var d = new Date(iso);
+        return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
       }
 
-      // ---- The shared data load, cached so all 4 async-bundle regions below (which run
-      // concurrently at page init) trigger exactly ONE real round trip, not four. Reset to
-      // null on failure so a Try Again click genuinely re-fetches rather than replaying the
-      // same rejected promise forever — see supabase-data.js's own renderAsyncBundle() header
-      // for the full loading/error convention this relies on. ----
-      var dataPromise = null;
-      function loadDashboardData() {
-        if (dataPromise) return dataPromise;
-        dataPromise = Promise.all([
-          // A brand-new client (or one with no money credited yet) genuinely has no
-          // account_state row on the Supabase side yet — confirmed by reading
-          // get-account-state/index.ts directly, it returns a real 404 in that case. The
-          // real LOCAL engine's own readAccountStateForClient() has always defaulted to a
-          // genuine $0 state rather than treating "not found" as an error; mirrored here so
-          // a fresh/unfunded client sees an honest empty portfolio, not an error card.
-          MarketswaveData.callFunction('get-account-state').catch(function (err) {
-            if (err && err.status === 404) {
-              return { clientId: null, unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
-            }
-            throw err;
-          }),
-          MarketswaveData.callFunction('get-holdings'),
-          MarketswaveData.callFunction('get-transaction-ledger'),
-          MarketswaveData.callFunction('get-total-portfolio-value'),
-          // Direct, RLS-authorized read — no Edge Function exists (or is needed) for the
-          // product catalog; Phase B Stage 1's own migration already grants every
-          // authenticated client a SELECT policy on `products`.
-          MarketswaveData.selectTable('products')
-        ]).then(function (results) {
-          var account = results[0];
-          var holdings = results[1].map(function (h) {
-            return { id: h.id, productId: h.productId, units: h.units, costBasis: h.costBasis };
-          });
-          var transactions = results[2]; // already shaped camelCase, already newest-first
-          var tpv = results[3].totalPortfolioValue;
-          var products = results[4].map(function (p) {
-            return { id: p.id, name: p.name, assetClass: p.asset_class, unitPrice: p.unit_price };
-          });
-          return { account: account, holdings: holdings, transactions: transactions, tpv: tpv, products: products };
-        }).catch(function (err) {
-          dataPromise = null;
-          throw err;
-        });
-        return dataPromise;
+      // ---- The three reads, each cached so every region that needs one triggers exactly
+      // ONE real round trip. Reset on failure so a Try Again click genuinely re-fetches
+      // rather than replaying the same rejected promise (supabase-data.js's convention). ----
+      function cachedCall(name) {
+        var p = null;
+        return function () {
+          if (p) return p;
+          p = MarketswaveData.callFunction(name).catch(function (err) { p = null; throw err; });
+          return p;
+        };
+      }
+      var loadOverview = cachedCall('get-portfolio-overview');
+      var loadReturnsSummary = cachedCall('get-returns-summary');
+      var loadLedger = cachedCall('get-transaction-ledger');
+      function loadOverviewAndReturns() {
+        return Promise.all([loadOverview(), loadReturnsSummary()]).then(function (r) { return { overview: r[0], returns: r[1] }; });
       }
 
-      // ---- Total Portfolio Value ----
+      // ---- ★ The portfolio card + pockets + pending: one real read, rendered by
+      // portfolio-overview.js (the account total in four parts, the priced pill, growth since
+      // joining, the band's Portfolio and Savings cells, the chart, the pending list with
+      // ages, the pockets panel). A failed read shows one error card with Try Again across
+      // every region it feeds. ----
       var tpvEl = document.getElementById('tpv-amount');
-      MarketswaveData.renderAsyncBundle(tpvEl, {
-        skeletonHTML: MarketswaveData.skeleton.text('w-56', { height: 'h-9' }),
-        load: loadDashboardData,
-        render: function (data) {
+      var poPortfolioEl = document.getElementById('po-portfolio-value');
+      var poPocketsEl = document.getElementById('po-pockets-value');
+      var poThisMonthEl = document.getElementById('tpv-monthly-change');
+      var poPendingEl = document.getElementById('po-pending');
+      var poMaturitiesEl = document.getElementById('po-maturities');
+      MarketswaveData.renderAsyncBundle([tpvEl, poPortfolioEl, poPocketsEl, poThisMonthEl, poPendingEl, poMaturitiesEl], {
+        skeletonHTML: MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2'], { gap: 'space-y-3' }),
+        load: loadOverview,
+        render: function (overview) {
+          window.MarketswavePortfolioOverview.render(overview, {
+            totalEl: tpvEl, tbarEl: document.getElementById('po-tbar'),
+            changeEl: document.getElementById('po-change'), thisMonthEl: poThisMonthEl,
+            portfolioEl: poPortfolioEl, portfolioSubEl: document.getElementById('po-portfolio-sub'),
+            pocketsEl: poPocketsEl, pocketsSubEl: document.getElementById('po-pockets-sub'),
+            sparkEl: document.getElementById('po-spark'),
+            legendEl: document.getElementById('po-legend'), legendOutEl: document.getElementById('po-legend-out'),
+            rangesEl: document.getElementById('po-ranges'), chartWrap: document.getElementById('po-chart-wrap'),
+            newcEl: document.getElementById('po-newc'), statsEl: document.getElementById('po-stats'),
+            asOfEl: document.getElementById('po-asof'),
+            pendingEl: poPendingEl, pendingMetaEl: document.getElementById('po-pending-meta'),
+            maturitiesEl: poMaturitiesEl, maturitiesMetaEl: document.getElementById('po-maturities-meta')
+          });
           // Motion UI Components (2026-09-08): a genuine "hero number reveal" — this fetch
-          // resolves exactly once per real page load (renderAsyncBundle's own attempt(),
-          // never a live/polling subscription), so a count-up here reads as "here's your
-          // real number," never a misleading live-ticker impression. Falls back to the
-          // plain formatted value instantly if Motion/prefers-reduced-motion say no.
-          if (window.MotionHelpers) {
-            window.MotionHelpers.countUp(tpvEl, { to: Math.round(data.tpv), format: formatUSD });
-          } else {
-            tpvEl.textContent = formatUSD(Math.round(data.tpv));
+          // resolves exactly once per real page load, so a count-up reads as "here's your
+          // real number", never a live-ticker impression. The rendered text is already the
+          // final figure; the count-up only animates toward it.
+          if (window.MotionHelpers && overview.account) {
+            window.MotionHelpers.countUp(tpvEl, { to: Math.round(overview.account.total), format: formatUSD });
           }
         }
       });
 
-      // ---- Dashboard Real-Data Fixes (2026-09-03): computeClassBreakdown(data) is the exact
-      // same per-class grouping the pie chart/legend already built (holdings × current
-      // unit_price, grouped by products.asset_class) — read directly from the real code before
-      // touching it, then extracted into its own function (rather than rebuilt) so the Best
-      // Performing Class card below can reuse it verbatim, plus now also sums each class's real
-      // cost basis (holding.costBasis, already present in loadDashboardData()'s own holdings
-      // mapping — no new field needed) for the real per-class return computation. ----
-      function computeClassBreakdown(data) {
-        var totals = {};
-        var costBasis = {};
-        ASSET_CLASS_ORDER.forEach(function (c) { totals[c] = 0; costBasis[c] = 0; });
-        data.holdings.forEach(function (h) {
-          var product = data.products.find(function (p) { return p.id === h.productId; });
-          if (!product || !totals.hasOwnProperty(product.assetClass)) return;
-          totals[product.assetClass] += h.units * product.unitPrice;
-          costBasis[product.assetClass] += h.costBasis;
-        });
-        return { totals: totals, costBasis: costBasis };
-      }
+      // ---- Total return + Best performing class: get-returns-summary, formatted only. ----
+      // The realised half keeps the id #asset-returns-amount and carries
+      // account_state.asset_returns and nothing else — realised-only, never blended.
+      var totalReturnEl = document.getElementById('total-return-amount');
+      var totalReturnPctEl = document.getElementById('total-return-pct');
+      var totalReturnSplitEl = document.getElementById('total-return-split');
+      MarketswaveData.renderAsyncBundle([totalReturnEl, totalReturnSplitEl], {
+        skeletonHTML: MarketswaveData.skeleton.text('w-32', { height: 'h-7' }),
+        load: loadReturnsSummary,
+        render: function (r) {
+          if (window.MotionHelpers) {
+            window.MotionHelpers.countUp(totalReturnEl, {
+              to: Math.round(r.total),
+              format: function (v) { return signedUSD(v); }
+            });
+          } else {
+            totalReturnEl.textContent = signedUSD(r.total);
+          }
+          totalReturnEl.className = 'ret-v' + (r.total > 0 ? ' is-gain' : r.total < 0 ? ' is-loss' : '');
 
-      // ---- Portfolio Allocation: donut + legend, grouped from live holdings. Only the
-      // legend gets a skeleton/error card — the ring's own <g> elements start genuinely
-      // empty (no stale/wrong arcs ever drawn) and are only ever populated inside render(), on
-      // success. ----
+          // The 4px split bar: unrealised against realised, by magnitude. Both at $0 means
+          // there is no ratio to show, so the bar stays hidden rather than painting a guess.
+          var splitEl = document.getElementById('po-split');
+          if (splitEl) {
+            var au = Math.abs(r.unrealized), ar = Math.abs(r.realized), tot = au + ar;
+            if (tot > 0) {
+              splitEl.children[0].style.width = ((au / tot) * 100).toFixed(1) + '%';
+              splitEl.children[1].style.width = ((ar / tot) * 100).toFixed(1) + '%';
+              splitEl.hidden = false;
+            } else {
+              splitEl.hidden = true;
+            }
+          }
+
+          // No cost basis means no honest denominator — no pill rather than a fabricated 0%.
+          if (r.totalPercent === null || r.totalPercent === undefined) {
+            totalReturnPctEl.textContent = '';
+            totalReturnPctEl.className = '';
+          } else {
+            totalReturnPctEl.textContent = signedPct(r.totalPercent);
+            totalReturnPctEl.className = 'ret-pc ' + (r.totalPercent < 0 ? 'is-loss' : 'is-gain');
+          }
+          totalReturnSplitEl.innerHTML =
+            '<span class="ret-u' + (r.unrealized < 0 ? ' is-loss' : '') + '" id="total-unrealized-amount">' +
+              signedUSD(r.unrealized) +
+            '</span> unrealised &middot; ' +
+            '<span class="ret-r" id="asset-returns-amount">' + formatUSD(Math.round(r.realized)) + '</span> realised';
+        }
+      });
+
+      var bestClassEl = document.getElementById('best-performing-class');
+      var bestClassReturnEl = document.getElementById('best-performing-return');
+      MarketswaveData.renderAsyncBundle([bestClassEl, bestClassReturnEl], {
+        skeletonHTML: MarketswaveData.skeleton.text('w-28', { height: 'h-6' }),
+        load: loadReturnsSummary,
+        render: function (r) {
+          if (!r.bestClass) {
+            bestClassEl.textContent = '—';
+            bestClassReturnEl.textContent = 'No holdings yet';
+            bestClassReturnEl.className = 'ret-sub';
+            document.getElementById('best-performing-label').textContent = 'Best performing class';
+            return;
+          }
+          bestClassEl.textContent = r.bestClass.assetClass;
+          var pct = r.bestClass.unrealizedPercent;
+          // The server picks the class with the HIGHEST unrealised return — correct arithmetic
+          // even when negative, but "Best performing · −2.2%" reads as a contradiction (found
+          // on the live site, 2026-09-12). A negative best means EVERY class is down: the card
+          // is relabelled "Most resilient class" and says so, rather than hiding a real figure.
+          var allDown = pct < 0;
+          var held = (r.byClass || []).filter(function (c) { return c.costBasis > 0; }).length;
+          // ONE held class (2026-09-13): every comparative qualifier is a comparison against
+          // classes that do not exist. Label "Asset class", the figure alone, no count.
+          var single = held === 1;
+          document.getElementById('best-performing-label').textContent = single ? 'Asset class' : (allDown ? 'Most resilient class' : 'Best performing class');
+          bestClassReturnEl.className = 'ret-sub';
+          bestClassReturnEl.innerHTML =
+            '<span class="ret-pc ret-u' + (allDown ? ' is-loss' : ' is-gain') + '">' +
+              signedPct(pct) +
+            '</span> unrealised' + (allDown && !single ? ' · every class is down' : '') +
+            (held > 1 ? ' · of ' + held + ' classes' : '');
+        }
+      });
+
+      // ---- Portfolio allocation: donut + legend from get-returns-summary.byClass (the
+      // server's own per-class current values) and the account's unallocated capital. Only
+      // the legend gets a skeleton/error card — the ring's own <g> elements start genuinely
+      // empty and are only ever populated inside render(), on success. ----
       var legendEl = document.getElementById('allocation-legend');
       var legendDefaultClass = legendEl.className;
       var chartWrapper = document.getElementById('allocation-chart-wrapper');
       MarketswaveData.renderAsyncBundle(legendEl, {
         skeletonHTML: MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-full', 'w-4/5', 'w-full'], { gap: 'space-y-3' }),
-        load: loadDashboardData,
+        load: loadOverviewAndReturns,
         render: function (data) {
-          // Genuinely $0 Total Portfolio Value (nothing deposited at all) — an honest empty
-          // state instead of a blank/degenerate pie (every slice would divide-by-zero to 0%).
-          // Real unallocated cash with nothing allocated into products yet is NOT this case —
-          // data.tpv already includes unallocatedCapital, so that scenario renders normally
-          // below with a real 100% Unallocated slice, exactly as it always has.
-          if (data.tpv === 0) {
+          var account = data.overview.account || { unallocated: 0, deployed: 0 };
+          var byClass = {};
+          (data.returns.byClass || []).forEach(function (c) { byClass[c.assetClass] = c.currentValue; });
+
+          // ★ DENOMINATOR (row 226): the allocated total — deployed + unallocated — NEVER the
+          // portfolio value, which also carries realised gains that belong to no slice. The
+          // old pie divided by tpv and its percentages summed to 88.56% on a real client.
+          var allocTotal = ALLOCATION_SEGMENTS.reduce(function (s, seg) {
+            return s + (seg.key === '__unallocated' ? (account.unallocated || 0) : (byClass[seg.key] || 0));
+          }, 0);
+
+          // Genuinely nothing allocated or awaiting allocation — an honest empty state instead
+          // of a degenerate ring. Real unallocated cash with nothing deployed yet is NOT this
+          // case: it renders below as a real 100% Unallocated band.
+          if (allocTotal <= 0) {
             if (chartWrapper) chartWrapper.classList.add('hidden');
-            // Dashed ring + muted pie icon standing in for the chart, headline + supporting
-            // line + a real "Deploy Capital" CTA below — reuses the ring's own sizing classes
-            // from allocation-chart-wrapper above so its diameter roughly matches the real
-            // pie chart, and the exact bg-navy/rounded-lg button classes used everywhere else
-            // in this app rather than a bare link.
             legendEl.className = 'w-full flex flex-col items-center justify-center text-center py-4';
             legendEl.innerHTML =
               '<div class="w-full max-w-[13rem] sm:max-w-[14rem] md:max-w-[15rem] lg:max-w-[18rem] xl:max-w-[20rem] 2xl:max-w-[22rem] aspect-square rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center mb-5">' +
@@ -616,37 +667,18 @@
                 '</svg>' +
               '</div>' +
               '<h4 class="font-semibold text-navy mb-1">No capital deployed yet.</h4>' +
-              '<p class="text-sm text-slate-400 mb-5">Your allocation across asset classes will appear here once capital is deployed.</p>' +
+              '<p class="text-sm text-slate-600 mb-5">Your allocation across asset classes will appear here once capital is deployed.</p>' +
               '<a href="deploy-capital.html" class="inline-flex items-center mw-btn mw-btn-primary">Deploy Capital</a>';
             return;
           }
           if (chartWrapper) chartWrapper.classList.remove('hidden');
           legendEl.className = legendDefaultClass;
 
-          var breakdown = computeClassBreakdown(data);
-
-          // ---- Allocation donut (2026-09-15) ------------------------------------------
-          // Hand-drawn SVG arcs. Geometry: outer radius fills the 340x340 viewBox, inner at
-          // 62% of outer, segments run clockwise from 12 o'clock, separated by a 2.5px stroke
-          // in the page background colour.
-          //
-          // ★ DENOMINATOR — a real bug in the chart this replaces, fixed here.
-          // The old pie divided every slice by data.tpv, but tpv is
-          // unallocated + allocated + asset_returns, while the slices only ever covered
-          // allocated + unallocated. Realised gains are a permanent additive term in tpv and
-          // are not allocated to anything, so they belong to no slice — which meant the
-          // percentages silently summed to LESS than 100%. Measured on a real client before
-          // touching this: 88.56%. The donut divides by the allocated total instead, so the
-          // segments sum to 100% by construction. See register row 226.
-          var allocTotal = ASSET_CLASS_ORDER.reduce(function (s, c) { return s + breakdown.totals[c]; }, 0)
-            + data.account.unallocatedCapital;
-
           // A class with ZERO value is omitted entirely — from the ring AND the legend. A
           // zero-width arc is not drawable, and since the legend is the chart's only key, a
-          // "$0 / 0.0%" row would advertise a segment that is not there. A client who has
-          // never held Private Equity is not told about Private Equity.
+          // "$0 / 0.0%" row would advertise a segment that is not there.
           var segs = ALLOCATION_SEGMENTS.map(function (s) {
-            var value = s.key === '__unallocated' ? data.account.unallocatedCapital : breakdown.totals[s.key];
+            var value = s.key === '__unallocated' ? (account.unallocated || 0) : (byClass[s.key] || 0);
             return { seg: s, value: value || 0 };
           }).filter(function (r) { return r.value > 0; });
 
@@ -674,10 +706,9 @@
             path.setAttribute('fill', r.seg.fill);
 
             if (segs.length === 1) {
-              // ★ ONE CLASS = A FULL RING. A single 360 degree arc is where SVG arc paths
-              // break: the start and end points are identical, so the A command is a no-op and
-              // the segment renders as NOTHING. Drawn as two 180 degree arcs per edge instead
-              // (an even-odd annulus), which is a real ring rather than a degenerate path.
+              // ★ ONE CLASS = A FULL RING. A single 360° arc is where SVG arc paths break:
+              // start and end coincide and the A command is a no-op. Two 180° arcs per edge
+              // (an even-odd annulus) draw a real ring.
               var oTop = pointAt(0, R), oBot = pointAt(180, R);
               var iTop = pointAt(0, IR), iBot = pointAt(180, IR);
               path.setAttribute('d',
@@ -703,15 +734,13 @@
             }
             ring.appendChild(path);
 
-            // Percentage inside the band at mid-radius. Ink is chosen by the segment's own
-            // `dark` flag (measured, see ALLOCATION_SEGMENTS). Under 9% drops a font size.
+            // Percentage inside the band at mid-radius. Ink by the segment's own `dark` flag
+            // (measured). Under 9% drops a font size.
             //
-            // ★ BELOW 3% NO LABEL IS DRAWN AT ALL. Not a style choice — a 3% segment is only
-            // ~23px of arc at mid-radius, and even the small label is ~16px wide before the
-            // 2.5px separator on each side, so the digits physically spill across the stroke
-            // onto the neighbouring segment. Caught by measuring a real client whose Private
-            // Equity band was 1.5% (a 12px arc under a 16px label). Nothing is lost: the
-            // legend is the chart's key and still carries every percentage.
+            // ★ BELOW 3% NO LABEL IS DRAWN AT ALL. A 3% segment is ~23px of arc at mid-radius
+            // and even the small label is ~16px wide before the separators, so the digits
+            // physically spill onto the neighbour (measured on a real 1.5% band). The legend
+            // is the chart's key and still carries every percentage.
             var mid = segs.length === 1 ? 0 : cursor - (pct * 360) / 2;
             if (pct >= 0.03) {
               var mp = pointAt(mid, (R + IR) / 2);
@@ -731,7 +760,6 @@
 
           // The legend IS the key — the ring carries none — so every row states what prices
           // the class, not just its colour.
-          legendEl.className = legendDefaultClass;
           legendEl.innerHTML = segs.map(function (r) {
             var pct = r.value / allocTotal;
             return '<div class="ad-row">' +
@@ -744,256 +772,163 @@
         }
       });
 
-      // ---- Total return + Best performing class -------------------------------------
-      // Both cards read ONE new endpoint, get-returns-summary, rather than assembling money
-      // figures in the browser. Unrealised used to be computed client-side here and on
-      // asset-performance.html (row 121's own disclosed call); a figure a client reads as
-      // their return should not be assembled in the page, so the maths moved server-side and
-      // this file now only formats what it is given.
-      //
-      // The realised half keeps the id #asset-returns-amount and still carries
-      // account_state.asset_returns and nothing else — realised-only, never blended. That
-      // rule is locked and this change does not touch it. All that changed is that the
-      // number no longer stands alone implying a portfolio did nothing.
-      function loadReturnsSummary() {
-        if (!loadReturnsSummary._p) {
-          loadReturnsSummary._p = MarketswaveData.callFunction('get-returns-summary');
-        }
-        return loadReturnsSummary._p;
+      // ---- Risk metrics: four rows, every input a server figure. ----
+      // Signals are three tones the mockup names: ok / watch / act. A signal is never colour
+      // alone — the word is in the badge.
+      function setSig(id, tone, text) {
+        var elx = document.getElementById(id);
+        if (!elx) return;
+        elx.textContent = text;
+        elx.className = 'rm-sig rm-' + tone;
       }
-
-      // Sign is carried explicitly on every figure, so gain/loss never depends on colour
-      // alone. U+2212 MINUS SIGN, matching the approved mockup — not a hyphen.
-      function signedUSD(n) {
-        var rounded = Math.round(n);
-        if (rounded < 0) return '\u2212' + formatUSD(Math.abs(rounded));
-        return '+' + formatUSD(rounded);
+      function setBar(id, pct, tone) {
+        var bar = document.getElementById(id);
+        if (!bar) return;
+        var fill = bar.querySelector('i');
+        fill.style.width = Math.max(0, Math.min(100, pct)).toFixed(1) + '%';
+        fill.className = 'is-' + tone;
       }
-      function signedPct(n) {
-        if (n < 0) return '\u2212' + Math.abs(n).toFixed(1) + '%';
-        return '+' + n.toFixed(1) + '%';
-      }
-
-      var totalReturnEl = document.getElementById('total-return-amount');
-      var totalReturnPctEl = document.getElementById('total-return-pct');
-      var totalReturnSplitEl = document.getElementById('total-return-split');
-      MarketswaveData.renderAsyncBundle([totalReturnEl, totalReturnSplitEl], {
-        skeletonHTML: MarketswaveData.skeleton.text('w-32', { height: 'h-7' }),
-        load: loadReturnsSummary,
-        render: function (r) {
-          var isLoss = r.total < 0;
-          if (window.MotionHelpers) {
-            window.MotionHelpers.countUp(totalReturnEl, {
-              to: Math.round(r.total),
-              format: function (v) { return signedUSD(v); }
-            });
-          } else {
-            totalReturnEl.textContent = signedUSD(r.total);
-          }
-          // The figure carries the sign explicitly (signedUSD) and, in the bundled band,
-          // the gain/loss tone as well — never colour alone.
-          totalReturnEl.className = 'ret-v' + (r.total > 0 ? ' is-gain' : r.total < 0 ? ' is-loss' : '');
-
-          // The 4px split bar: unrealised against realised, by magnitude. Both at $0 means
-          // there is no ratio to show, so the bar stays hidden rather than painting a guess.
-          var splitEl = document.getElementById('po-split');
-          if (splitEl) {
-            var au = Math.abs(r.unrealized), ar = Math.abs(r.realized), tot = au + ar;
-            if (tot > 0) {
-              splitEl.children[0].style.width = ((au / tot) * 100).toFixed(1) + '%';
-              splitEl.children[1].style.width = ((ar / tot) * 100).toFixed(1) + '%';
-              splitEl.hidden = false;
-            } else {
-              splitEl.hidden = true;
-            }
-          }
-
-          // No cost basis means no honest denominator — show no pill rather than a
-          // fabricated 0%.
-          if (r.totalPercent === null || r.totalPercent === undefined) {
-            totalReturnPctEl.textContent = '';
-            totalReturnPctEl.className = '';
-          } else {
-            totalReturnPctEl.textContent = signedPct(r.totalPercent);
-            totalReturnPctEl.className = 'ret-pc ' + (r.totalPercent < 0 ? 'is-loss' : 'is-gain');
-          }
-
-          totalReturnSplitEl.innerHTML =
-            '<span class="ret-u' + (r.unrealized < 0 ? ' is-loss' : '') + '" id="total-unrealized-amount">' +
-              signedUSD(r.unrealized) +
-            '</span> unrealised &middot; ' +
-            '<span class="ret-r" id="asset-returns-amount">' + formatUSD(Math.round(r.realized)) + '</span> realised';
-        }
-      });
-
-      // Best performing class now comes from the server's own per-class breakdown rather
-      // than a second client-side grouping of the same data. A class with no real cost basis
-      // is excluded there rather than reported at a fabricated 0%, and a client holding
-      // nothing anywhere gets a genuine null, rendered as an honest em dash.
-      var bestClassEl = document.getElementById('best-performing-class');
-      var bestClassReturnEl = document.getElementById('best-performing-return');
-      MarketswaveData.renderAsyncBundle([bestClassEl, bestClassReturnEl], {
-        skeletonHTML: MarketswaveData.skeleton.text('w-28', { height: 'h-6' }),
-        load: loadReturnsSummary,
-        render: function (r) {
-          if (!r.bestClass) {
-            bestClassEl.textContent = '\u2014';
-            bestClassReturnEl.textContent = 'No holdings yet';
-            bestClassReturnEl.className = 'ret-sub';
-            return;
-          }
-          bestClassEl.textContent = r.bestClass.assetClass;
-          var pct = r.bestClass.unrealizedPercent;
-          // The server picks the class with the HIGHEST unrealised return, which is correct
-          // arithmetic even when that return is negative — but "Best performing · −2.2%"
-          // reads as a contradiction (found on the live site, 2026-09-12). The best is the
-          // maximum, so a negative best means EVERY class is down: the card is relabelled
-          // "Most resilient class" and says so, rather than hiding a real, honest figure.
-          var allDown = pct < 0;
-          // "of N classes" — N is the number of classes the client genuinely holds (a real
-          // cost basis), the same set the server picked the best from. ONLY that: a ranking
-          // here would duplicate the allocation pie below.
-          var held = (r.byClass || []).filter(function (c) { return c.costBasis > 0; }).length;
-          // ONE held class (2026-09-13): "Best performing", "Most resilient" and "every class
-          // is down" are all comparisons against classes that do not exist — a client holding
-          // only Crypto once read "Most resilient class · −2.7% unrealised · every class is
-          // down · of 1 class", three qualifiers on one holding. The honest whole of it is the
-          // class and its figure: label "Asset class", no comparative wording, no count.
-          var single = held === 1;
-          document.getElementById('best-performing-label').textContent = single ? 'Asset class' : (allDown ? 'Most resilient class' : 'Best performing class');
-          bestClassReturnEl.className = 'ret-sub';
-          bestClassReturnEl.innerHTML =
-            '<span class="ret-pc ret-u' + (allDown ? ' is-loss' : ' is-gain') + '">' +
-              signedPct(pct) +
-            '</span> unrealised' + (allDown && !single ? ' · every class is down' : '') +
-            (held > 1 ? ' · of ' + held + ' classes' : '');
-        }
-      });
-
-      // ---- "This month" (2026-09-13): folded into the bundled card's one overview read
-      // (get-portfolio-overview writes the current month's anchor for the caller's own read,
-      // the job get-portfolio-monthly-change used to do lazily). Rendered below with the
-      // rest of the card by portfolio-overview.js into #tpv-monthly-change. ----
-
-      // ---- Risk Metrics: Cash Reserve + Allocation Utilization (Set Risk Profile is the
-      // separate, purely-local read above). ----
       var cashReserveEl = document.getElementById('risk-cash-reserve');
       var utilEl = document.getElementById('risk-allocation-util');
-      MarketswaveData.renderAsyncBundle([cashReserveEl, utilEl], {
-        skeletonHTML: MarketswaveData.skeleton.text('w-20', { height: 'h-5', pill: true }),
-        load: loadDashboardData,
+      var largestEl = document.getElementById('risk-largest-value');
+      var profileBadgeEl = document.getElementById('risk-profile-badge');
+      MarketswaveData.renderAsyncBundle([document.getElementById('risk-cash-desc'), document.getElementById('risk-util-desc'), document.getElementById('risk-largest-desc'), document.getElementById('risk-profile-desc')], {
+        skeletonHTML: MarketswaveData.skeleton.text('w-56', { height: 'h-3' }),
+        load: loadOverviewAndReturns,
         render: function (data) {
-          var cashReservePct = data.tpv > 0 ? (data.account.unallocatedCapital / data.tpv) * 100 : 0;
-          if (cashReserveEl) {
-            var isPoor = cashReservePct < 20;
-            cashReserveEl.textContent = (isPoor ? 'Poor' : 'Adequate') + ' (' + cashReservePct.toFixed(1) + '%)';
-            cashReserveEl.className = 'text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap ' +
-              (isPoor ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700');
+          var account = data.overview.account || { unallocated: 0, deployed: 0, realised: 0 };
+          var r = data.returns;
+          // The PRESENT model: cash reserve = unallocated / portfolio value (the chart's
+          // measure: unallocated + deployed + realised), against a 20% target.
+          var portfolio = data.overview.history ? data.overview.history.currentValue : 0;
+          var cashPct = portfolio > 0 ? (account.unallocated / portfolio) * 100 : 0;
+          var cashLow = cashPct < 20;
+          document.getElementById('risk-cash-value').textContent = cashPct.toFixed(1) + '%';
+          document.getElementById('risk-cash-desc').textContent = portfolio > 0
+            ? formatUSD(account.unallocated, 2) + ' uninvested of ' + formatUSD(portfolio) + '. A 20% reserve is the target for flexibility.'
+            : 'Nothing in the portfolio yet. A 20% reserve is the target for flexibility.';
+          setSig('risk-cash-reserve', portfolio > 0 ? (cashLow ? 'act' : 'ok') : 'flat', portfolio > 0 ? (cashLow ? 'Low' : 'Adequate') : '—');
+          setBar('risk-cash-bar', cashPct, cashLow ? 'act' : 'ok');
+
+          var utilPct = portfolio > 0 ? (account.deployed / portfolio) * 100 : 0;
+          var utilTone = utilPct >= 80 ? 'ok' : utilPct >= 50 ? 'watch' : 'act';
+          utilEl.textContent = utilPct.toFixed(1) + '%';
+          document.getElementById('risk-util-desc').textContent = portfolio > 0
+            ? formatUSD(account.deployed) + ' of ' + formatUSD(portfolio) + ' is deployed into assets.'
+            : 'Nothing deployed yet.';
+          setSig('risk-util-sig', portfolio > 0 ? utilTone : 'flat', portfolio > 0 ? (utilPct >= 80 ? 'Strong' : utilPct >= 50 ? 'Moderate' : 'Low') : '—');
+          setBar('risk-util-bar', utilPct, utilTone);
+
+          // Largest position — the PM briefing's own concentration rule, computed server-side
+          // in get-returns-summary (_shared/concentration.ts): share of TOTAL PORTFOLIO VALUE,
+          // flagged at ≥ 40% once the portfolio is ≥ $10k. The 40% mark is drawn on the bar.
+          var lp = r.largestPosition;
+          var descEl = document.getElementById('risk-largest-desc');
+          var nameEl = document.getElementById('risk-largest-name');
+          if (!lp || lp.shareOfPortfolio === null) {
+            largestEl.textContent = '—';
+            nameEl.textContent = '';
+            descEl.textContent = 'No positions held yet.';
+            setSig('risk-largest-sig', 'flat', '—');
+            setBar('risk-largest-bar', 0, 'ok');
+          } else {
+            var share = lp.shareOfPortfolio * 100;
+            var thr = lp.threshold * 100;
+            var lpTone = lp.concentrated ? 'act' : share >= thr * 0.75 ? 'watch' : 'ok';
+            largestEl.textContent = share.toFixed(1) + '%';
+            nameEl.textContent = lp.name;
+            descEl.textContent = lp.name + ' is ' + share.toFixed(1) + '% of your portfolio. ' +
+              (lp.concentrated ? 'Above ' + thr + '% we would suggest rebalancing.' : 'Above ' + thr + '% we would suggest rebalancing.');
+            setSig('risk-largest-sig', lpTone, lp.concentrated ? 'Concentrated' : lpTone === 'watch' ? 'Watch' : 'OK');
+            setBar('risk-largest-bar', share, lpTone);
           }
-          var utilizationPct = data.tpv > 0 ? (data.account.allocatedCapital / data.tpv) * 100 : 0;
-          if (utilEl) {
-            utilEl.textContent = utilizationPct.toFixed(1) + '%';
-            utilEl.className = 'text-xs font-medium px-2.5 py-1 rounded-full bg-navy/10 text-navy whitespace-nowrap';
+
+          // Risk profile as a COMPARISON. The chosen profile lives in localStorage
+          // (risk-management.html sets it — no server home yet, row 251); the crypto share
+          // is the server's byClass value against the portfolio. The model mixes are
+          // risk-management.html's own MODEL_MIXES crypto weights (5 / 12 / 25) — a small,
+          // disclosed duplication of three numbers; the guide is that weight plus 10 points.
+          var LEVELS = ['conservative', 'balanced', 'aggressive'];
+          var LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
+          var CRYPTO_WEIGHT = { conservative: 5, balanced: 12, aggressive: 25 };
+          var stored = null;
+          try { stored = localStorage.getItem(clientScopedKey('marketswave_risk_profile')); } catch (e) { stored = null; }
+          var level = LEVELS.indexOf(stored) !== -1 ? stored : null;
+          var crypto = 0;
+          (r.byClass || []).forEach(function (c) { if (c.assetClass === 'Crypto') crypto = c.currentValue; });
+          var cryptoPct = portfolio > 0 ? (crypto / portfolio) * 100 : 0;
+          var pdesc = document.getElementById('risk-profile-desc');
+          if (!level) {
+            pdesc.innerHTML = 'No risk profile is set on this device. ' + (cryptoPct > 0 ? cryptoPct.toFixed(1) + '% of your portfolio is crypto.' : '');
+            setSig('risk-profile-badge', 'flat', 'Not set');
+            document.getElementById('risk-profile-link').textContent = 'Set profile';
+          } else {
+            var guide = CRYPTO_WEIGHT[level];
+            var above = cryptoPct > guide + 10;
+            pdesc.innerHTML = 'You’re set to <b>' + LABELS[level] + '</b>' +
+              (portfolio > 0
+                ? (above ? ', but ' : '; ') + cryptoPct.toFixed(1) + '% of your portfolio is crypto' + (above ? '.' : ', within its ' + guide + '% guide.')
+                : '.');
+            setSig('risk-profile-badge', above ? 'watch' : 'ok', above ? 'Above profile' : 'In line');
+            document.getElementById('risk-profile-link').textContent = 'Review';
           }
         }
       });
 
-      // ---- Recent Activity: most recent entries straight from the transaction ledger.
-      // get-transaction-ledger already queries ORDER BY created_at DESC (newest first) —
-      // genuinely different from the local engine's own plain insertion-order array (oldest
-      // first), which the old code compensated for with .slice(-3).reverse(). Blindly
-      // reusing that same slicing here would silently show the 3 OLDEST transactions,
-      // reversed into a wrong order — .slice(0, 3) is the correct equivalent against this
-      // real query's own real ordering. ----
+      // ---- Activity: the most recent ledger entries, newest first. get-transaction-ledger
+      // already orders by created_at DESC, so .slice(0, N) is the right read. Product names
+      // come from get-returns-summary (held positions + closed positions cover every product
+      // a BUY or SELL row can reference), so the page no longer reads the catalog. ----
       var activityEl = document.getElementById('recent-activity-list');
       MarketswaveData.renderAsyncBundle(activityEl, {
         skeletonHTML: MarketswaveData.skeleton.lines(['w-5/6', 'w-2/3', 'w-3/4'], { gap: 'space-y-4' }),
-        load: loadDashboardData,
+        load: function () { return Promise.all([loadLedger(), loadReturnsSummary()]).then(function (x) { return { transactions: x[0], returns: x[1] }; }); },
         render: function (data) {
-          var recent = data.transactions.slice(0, 3);
+          var names = {};
+          (data.returns.positions || []).forEach(function (p) { names[p.productId] = p.name; });
+          (data.returns.closedPositions || []).forEach(function (p) { names[p.productId] = p.name; });
+          var recent = data.transactions.slice(0, 4);
           if (recent.length === 0) {
-            activityEl.innerHTML = '<p class="text-sm text-slate-400">No recent activity yet.</p>';
+            activityEl.innerHTML = '<div class="dc-empty"><b>No activity yet</b><p>Deposits, allocations, sales and savings moves appear here once they complete.</p></div>';
             return;
           }
+          var ICONS = {
+            dep: '<path d="M12 5v14M5 12l7 7 7-7"/>',
+            wd: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+            buy: '<path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/>',
+            sell: '<path d="M3 21V3h18"/><path d="M18.7 16 12 9.3l-3.5 3.5L3 7.6"/>',
+            hys: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+          };
+          function methodLabel(m) { return m === 'crypto' ? 'Crypto' : m === 'internal' ? 'Internal transfer' : 'Bank transfer'; }
           activityEl.innerHTML = recent.map(function (txn) {
-            var isSell = txn.type === 'SELL';
-            var isDeposit = txn.type === 'DEPOSIT';
-            var isHysDeposit = txn.type === 'HYS_DEPOSIT';
-            var isWithdrawal = txn.type === 'WITHDRAWAL';
-            var isHysWithdrawal = txn.type === 'HYS_WITHDRAWAL';
-            var isHysTransferIn = txn.type === 'HYS_TRANSFER_IN';
-            var title, detail, dotColor;
-            var dateOnly = toDateOnly(txn.createdAt);
-            if (isDeposit) {
-              dotColor = 'bg-blue-500';
-              title = 'Deposit credited';
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
-                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
-            } else if (isHysDeposit) {
-              dotColor = 'bg-purple-500';
-              title = 'HYS pocket funded';
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
-                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
-            } else if (isWithdrawal) {
-              dotColor = 'bg-orange-500';
-              title = 'Withdrawal processed';
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
-                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
-            } else if (isHysWithdrawal) {
-              dotColor = 'bg-amber-500';
-              title = 'HYS pocket withdrawal processed';
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
-                (txn.method ? ' · ' + (txn.method === 'crypto' ? 'Crypto' : 'Bank Transfer') : '');
-            } else if (isHysTransferIn) {
-              // Savings deposit from unallocated capital (2026-09-11). Handled explicitly
-              // BEFORE the product-lookup branch below: an HYS_TRANSFER_IN has no productId,
-              // so falling through would render the literal "Capital allocated — null" this
-              // page has already had to fix twice (DEPOSIT, then HYS_WITHDRAWAL).
-              dotColor = 'bg-teal-500';
-              title = 'Moved to HYS pocket';
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly + ' · From unallocated capital';
-            } else {
-              var product = data.products.find(function (p) { return p.id === txn.productId; });
-              var productName = product ? product.name : txn.productId;
-              dotColor = !isSell ? 'bg-navy' : (txn.realizedReturn >= 0 ? 'bg-emerald-500' : 'bg-red-500');
-              title = (isSell ? 'Position sold' : 'Capital allocated') + ' — ' + productName;
-              detail = formatUSD(Math.round(txn.totalValue)) + ' · ' + dateOnly +
-                (isSell ? ' · ' + (txn.realizedReturn >= 0 ? '+' : '') + formatUSD(Math.round(txn.realizedReturn)) + ' realized' : '');
+            var kind, title, sub, amount, tone = '';
+            var when = fmtDay(txn.createdAt);
+            var v = Math.round(txn.totalValue);
+            switch (txn.type) {
+              case 'DEPOSIT': kind = 'dep'; title = 'Deposit credited'; sub = methodLabel(txn.method); amount = '+' + formatUSD(v); break;
+              case 'HYS_DEPOSIT': kind = 'hys'; title = 'Savings pocket funded'; sub = methodLabel(txn.method); amount = '+' + formatUSD(v); break;
+              case 'WITHDRAWAL': kind = 'wd'; title = 'Withdrawal processed'; sub = methodLabel(txn.method); amount = '−' + formatUSD(v); break;
+              case 'HYS_WITHDRAWAL': kind = 'wd'; title = 'Savings pocket withdrawn'; sub = methodLabel(txn.method); amount = '−' + formatUSD(v); break;
+              case 'HYS_TRANSFER_IN':
+                // Handled explicitly BEFORE the product branch: it has no productId, and
+                // falling through would render "Capital allocated — null" (fixed twice before).
+                kind = 'hys'; title = 'Moved to savings pocket'; sub = 'From unallocated capital'; amount = '−' + formatUSD(v); break;
+              case 'SELL':
+                kind = 'sell'; title = 'Sold · ' + (names[txn.productId] || txn.productId);
+                sub = (txn.realizedReturn >= 0 ? 'realised +' : 'realised −') + formatUSD(Math.abs(Math.round(txn.realizedReturn || 0)));
+                tone = txn.realizedReturn >= 0 ? 'is-up' : 'is-dn';
+                amount = formatUSD(v); break;
+              default:
+                kind = 'buy'; title = 'Capital allocated · ' + (names[txn.productId] || txn.productId); sub = 'From unallocated capital'; amount = formatUSD(v);
             }
-            return '<div class="flex items-start gap-3">' +
-              '<div class="w-2 h-2 mt-2 rounded-full ' + dotColor + '"></div>' +
-              '<div><p class="text-sm font-medium">' + title + '</p>' +
-              '<p class="text-xs text-slate-500">' + detail + '</p></div>' +
+            return '<div class="ac-row" data-txn-type="' + esc(txn.type) + '">' +
+              '<span class="ac-ic ac-' + kind + '" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[kind] + '</svg></span>' +
+              '<div class="ac-b"><b>' + esc(title) + '</b><span class="ac-s' + (tone ? ' ' + tone : '') + '" data-when="' + esc(' · ' + when) + '">' + esc(sub) + '</span></div>' +
+              '<div class="ac-amt">' + esc(amount) + '</div>' +
+              '<div class="ac-when">' + esc(when) + '</div>' +
+              '<span class="ac-st">Complete</span>' +
               '</div>';
           }).join('');
-        }
-      });
-
-      // ---- ★ Portfolio overview (2026-09-12): one real read, three regions. The row's own
-      // helper (portfolio-overview.js) draws the chart, the pending list and the maturities;
-      // a failed read shows one error card with Try Again across all three regions.
-      var poChangeEl = document.getElementById('po-change');
-      var poThisMonthEl = document.getElementById('tpv-monthly-change');
-      var poRangesEl = document.getElementById('po-ranges');
-      var poChartWrap = document.getElementById('po-chart-wrap');
-      var poNewcEl = document.getElementById('po-newc');
-      var poPendingEl = document.getElementById('po-pending');
-      var poMaturitiesEl = document.getElementById('po-maturities');
-      // The this-month span is the band's own dependency on this read: it is where the
-      // skeleton paints and, on a failed read, where the error card with Try Again lands.
-      MarketswaveData.renderAsyncBundle([poThisMonthEl, poPendingEl, poMaturitiesEl], {
-        skeletonHTML: MarketswaveData.skeleton.lines(['w-3/4', 'w-1/2'], { gap: 'space-y-3' }),
-        load: function () { return MarketswaveData.callFunction('get-portfolio-overview'); },
-        render: function (overview) {
-          window.MarketswavePortfolioOverview.render(overview, {
-            changeEl: poChangeEl, thisMonthEl: poThisMonthEl,
-            sparkEl: document.getElementById('po-spark'),
-            legendEl: document.getElementById('po-legend'), legendOutEl: document.getElementById('po-legend-out'),
-            rangesEl: poRangesEl, chartWrap: poChartWrap, newcEl: poNewcEl,
-            statsEl: document.getElementById('po-stats'),
-            asOfEl: document.getElementById('po-asof'),
-            pendingEl: poPendingEl, maturitiesEl: poMaturitiesEl
-          });
         }
       });
     })();
@@ -1111,10 +1046,31 @@
           '<div class="wl-px-v">' + wlEscape(wlPrice(row.price, row.assetType)) + '</div>' +
           '<div class="wl-foot">' +
             '<span class="wl-px-c ' + changeClass + '">' + changeText + '</span>' +
+            // ★ Each card's OWN price age (row 251), from get-watchlist's lastUpdated — the
+            // cache row's real timestamp, which under the round-robin refresh (row 202) can
+            // differ by up to 50 minutes between two cards on the same grid.
+            '<span class="wl-age" data-wl-age="' + wlEscape(row.lastUpdated || '') + '">' + wlEscape(wlAge(row.lastUpdated)) + '</span>' +
             wlBadgeHTML(row) +
           '</div>' +
         '</div>';
       }
+
+      // "just now" / "N min ago" / "N h ago" / "—" for a symbol never priced. Repainted
+      // every minute so a card's age grows honestly between refreshes.
+      function wlAge(iso) {
+        if (!iso) return '—';
+        var mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+        if (!isFinite(mins) || mins < 0) return '—';
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + ' min ago';
+        var h = Math.floor(mins / 60);
+        return h < 24 ? h + ' h ago' : Math.floor(h / 24) + ' d ago';
+      }
+      setInterval(function () {
+        Array.prototype.forEach.call(document.querySelectorAll('.wl-age[data-wl-age]'), function (elx) {
+          elx.textContent = wlAge(elx.getAttribute('data-wl-age'));
+        });
+      }, 60000);
 
       function wlDrawerHTML(row) {
         var allocate = row.offered
@@ -1427,7 +1383,8 @@
         var amount = parseFloat(amountInput.value);
         if (!isFinite(amount) || amount < 0) {
           resultEl.textContent = '—';
-          rateNoteEl.classList.add('hidden');
+          rateNoteEl.textContent = 'Enter an amount to convert.';
+          rateNoteEl.classList.remove('hidden');
           return;
         }
         MarketswaveData.callFunction('convert-currency', { amount: amount, from: fromSelect.value, to: toSelect.value }).then(function (result) {
@@ -1441,7 +1398,8 @@
           }
         }).catch(function () {
           resultEl.textContent = 'Unavailable';
-          rateNoteEl.classList.add('hidden');
+          rateNoteEl.textContent = 'The rate service could not be reached. Try again in a moment.';
+          rateNoteEl.classList.remove('hidden');
         });
       }
 
@@ -1454,7 +1412,9 @@
       fromSelect.addEventListener('change', runConversion);
       toSelect.addEventListener('change', runConversion);
 
-      runConversion();
+      // ★ NO conversion on load (row 251). This used to fire a real Frankfurter call on every
+      // dashboard visit for a default 1,000 USD → EUR nobody had asked for. The result reads
+      // "—" with a one-line prompt until the client actually changes the amount or a currency.
     })();
   </script>
 </body>

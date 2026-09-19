@@ -92,6 +92,12 @@ export interface ProductRow {
   price_source?: 'finnhub' | 'coingecko' | null;
   provider_id?: string | null;
   price_as_of?: string | null;
+  // Price status (row 199; carried to client-facing reads in row 251 via _shared/price-status.ts).
+  // 'quote_failed' means the last refresh could not price this symbol and unit_price is the
+  // LAST GOOD price, kept deliberately. settleProduct() does not branch on it.
+  price_status?: string | null;
+  price_last_failed_at?: string | null;
+  price_failure_reason?: string | null;
   // Retirement (2026-09-16). settleProduct() itself does NOT branch on this — a retired
   // product keeps being priced, forever, for the clients who still hold it. It is carried
   // here so execute-buy can refuse a buy against a settled row without a second read.

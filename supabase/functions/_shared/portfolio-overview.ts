@@ -10,8 +10,9 @@
 // row: the scheduled snapshot-portfolio-values run (00:05 UTC on the 1st, every client) and
 // get-portfolio-monthly-change's lazy first-visit-of-the-month insert — both idempotent on
 // the (client_id, month_start_date) unique index, so a visit never overwrites the schedule.
-import { computeTotalPortfolioValue } from './portfolio-engine.ts';
+import { computeTotalPortfolioValue, settleAllProducts, recomputeAllocatedCapital, round2 as engineRound2 } from './portfolio-engine.ts';
 import { resolveEffectivePocketStatus } from './hys-engine.ts';
+import { staleAfterMinutes, summarisePricing, type PricingSummary } from './price-status.ts';
 
 // A line through two points is not a chart: the chart replaces the new-client explanation
 // only once this many REAL stored anchors exist. Today's live value is appended as the
@@ -288,6 +289,7 @@ export interface PendingRequest {
   title: string;
   detail: string;
   requestedAt: string;
+  ageSeconds: number;        // now - requestedAt, server-side, so the page never reads its own clock (row 251)
   amount: number | null;
   units: number | null;
   internalTransfer: boolean;
@@ -350,8 +352,66 @@ export async function pendingRequests(admin: any, clientId: string): Promise<Pen
     id: r.id, type: 'profile_change', title: 'Profile update · ' + (FIELD_LABEL[r.field] || r.field), detail: 'Identity change under review',
     requestedAt: r.requested_at, amount: null, units: null, internalTransfer: false, href: 'settings.html'
   });
+  const nowMs = Date.now();
+  for (const r of out) r.ageSeconds = Math.max(0, Math.round((nowMs - new Date(r.requestedAt).getTime()) / 1000));
   out.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
   return out;
+}
+
+// ---------------------------------------------------------------------------------------
+// ★ Account summary (2026-09-19, row 251) — the dashboard's headline, in the SAME four parts
+// asset-performance.html ships (row 250), so the two pages read the same figure to the cent:
+//     total = deployed + unallocated + pockets (principal + accrued) + realised
+//           = portfolio value (unallocated + allocated + asset_returns) + savings pockets.
+// `growth` is against accountDeposited — external flows only (row 250's finding: capitalIn
+// subtracts HYS_TRANSFER_IN because it is a PORTFOLIO reference line; an account-scoped
+// figure wants deposits and withdrawals across both pools).
+//
+// `pricing` is the totals-level price status over the held positions (price-status.ts): how
+// many are failed or stale and the value they carry, so the page can state it beside the
+// figure instead of rendering "Updated just now" over a two-hour-old failed read.
+// ---------------------------------------------------------------------------------------
+export interface AccountSummary {
+  total: number;
+  deployed: number;
+  unallocated: number;
+  pockets: number;
+  pocketsCount: number;
+  realised: number;
+  deposited: number;
+  growth: number;
+  holdings: number;
+  pricing: PricingSummary;
+}
+
+export async function accountSummary(admin: any, clientId: string, maturities: PocketMaturity[], accountDeposited: number): Promise<AccountSummary> {
+  const products = await settleAllProducts(admin);
+  const { data: holdings, error: hErr } = await admin.from('holdings').select('product_id, units, cost_basis').eq('client_id', clientId);
+  if (hErr) throw new Error('accountSummary: failed to read holdings: ' + hErr.message);
+  await recomputeAllocatedCapital(admin, clientId, holdings || [], products);
+  const { data: state, error: sErr } = await admin.from('account_state').select('*').eq('client_id', clientId).maybeSingle();
+  if (sErr) throw new Error('accountSummary: failed to read account_state: ' + sErr.message);
+  const byId: Record<string, any> = {}; for (const p of products) byId[p.id] = p;
+  // Per-position rounded, then summed — get-returns-summary's order (row 250), so `deployed`
+  // here equals that function's currentValue and the class table's total.
+  const rows = (holdings || []).map((h: any) => {
+    const p = byId[h.product_id];
+    return { product: p || { id: h.product_id }, currentValue: engineRound2(Number(h.units) * (p ? Number(p.unit_price) : 0)) };
+  });
+  const deployed = engineRound2(rows.reduce((s: number, r: any) => s + r.currentValue, 0));
+  const unallocated = engineRound2(state ? Number(state.unallocated_capital || 0) : 0);
+  const realised = engineRound2(state ? Number(state.asset_returns || 0) : 0);
+  const live = maturities.filter((m) => m.status !== 'withdrawn');
+  const pockets = engineRound2(live.reduce((s, m) => s + m.amount + (m.interestAccrued || 0), 0));
+  const total = engineRound2(deployed + unallocated + pockets + realised);
+  const staleAfter = await staleAfterMinutes(admin);
+  return {
+    total, deployed, unallocated, pockets, pocketsCount: live.length, realised,
+    deposited: engineRound2(accountDeposited),
+    growth: engineRound2(total - accountDeposited),
+    holdings: rows.length,
+    pricing: summarisePricing(rows, staleAfter)
+  };
 }
 
 // ---------------------------------------------------------------------------------------

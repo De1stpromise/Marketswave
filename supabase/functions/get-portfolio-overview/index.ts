@@ -11,7 +11,7 @@
 // getUser()).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { valueHistory, pendingRequests, pocketMaturities, writeMonthAnchor, monthStartIso } from '../_shared/portfolio-overview.ts';
+import { valueHistory, pendingRequests, pocketMaturities, accountSummary, writeMonthAnchor, monthStartIso } from '../_shared/portfolio-overview.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -62,8 +62,11 @@ Deno.serve(async (req) => {
       pendingRequests(admin, targetClientId),
       pocketMaturities(admin, targetClientId)
     ]);
+    // ★ Row 251: the four-part account total (row 250's identity) and the totals-level price
+    // status, computed after the history so both read the same settled prices.
+    const account = await accountSummary(admin, targetClientId, maturities, history.accountDeposited);
 
-    return jsonResponse({ clientId: targetClientId, history, pending, maturities, asOf: new Date().toISOString() }, 200);
+    return jsonResponse({ clientId: targetClientId, history, pending, maturities, account, pricing: account.pricing, asOf: new Date().toISOString() }, 200);
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 500);
   }

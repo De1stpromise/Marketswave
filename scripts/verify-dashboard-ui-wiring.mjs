@@ -30,6 +30,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { JSDOM, VirtualConsole } from 'jsdom';
 
 let passed = 0;
 let failed = 0;
@@ -252,50 +253,73 @@ async function main() {
   check('real distinctive account_state/holdings/transactions seeded for the real test client', true);
 
   // ===========================================================================================
-  // TEST 3 — dashboard.html's REAL inline script, extracted verbatim, run against a real,
-  // authenticated Supabase session for this real distinctive test client.
+  // TEST 3 — dashboard.html's REAL inline script, extracted verbatim, run in a REAL DOM
+  // (jsdom, the harness every later UI-wiring suite uses) against a real, authenticated
+  // Supabase session for this real distinctive test client.
+  //
+  // ★ Redesign (2026-09-19, row 251): the page is rendered by portfolio-overview.js from
+  // get-portfolio-overview (the account total, the band, the pockets, the pending list) plus
+  // get-returns-summary and get-transaction-ledger — the hand-rolled fake DOM this suite used
+  // until then cannot host that renderer, so Tests 3 and 4 moved onto jsdom. The assertions
+  // are the same ones, cross-checked against Postgres, never against the page's own logic.
   // ===========================================================================================
   console.log('\n3. dashboard.html\'s real inline script — genuine Supabase data, not localStorage');
+
+  // The overview reads the client's own `clients` row (client since); a real client has one.
+  await admin.from('clients').insert({ id: clientId, name: 'Dash Wiring', email: 'dashwiring-' + clientId, phone: '+1', account_type: 'Individual Account', status: 'active' });
 
   const client = await MarketswaveData.getSupabaseClient();
   const { error: signInErr } = await client.auth.signInWithPassword({ email, password });
   check('real signInWithPassword against the local stack succeeds', !signInErr, signInErr && signInErr.message);
 
-  const dashboardIds = ['welcome-heading', 'risk-profile-badge', 'tpv-amount', 'allocation-legend', 'allocation-donut', 'allocation-ring', 'allocation-vals', 'risk-cash-reserve', 'risk-allocation-util', 'recent-activity-list'];
-  const doc = makeFakeDocument(dashboardIds);
-  globalThis.document = doc;
-  globalThis.clientScopedKey = function (key) { return key; }; // real per-client scoping is out of this stage's scope — a plain passthrough is sufficient for this test
-  globalThis.MarketswaveData = MarketswaveData;
-
+  const dashHtml = readFileSync(new URL('../dashboard.html', import.meta.url), 'utf8');
+  const overviewSource = readFileSync(new URL('../portfolio-overview.js', import.meta.url), 'utf8');
   const scriptSource = extractDashboardScript();
-  const runDashboardScript = new Function(scriptSource);
-
-  runDashboardScript(); // synchronous portion runs immediately — this is where skeletons paint
+  function loadDashboard() {
+    const body = dashHtml.match(/<body[^>]*>([\s\S]*)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
+    const vc = new VirtualConsole(); vc.on('jsdomError', function () {});
+    const dom = new JSDOM('<!doctype html><html><body>' + body + '</body></html>', { url: 'http://localhost/', runScripts: 'outside-only', virtualConsole: vc });
+    dom.window.MarketswaveData = MarketswaveData;
+    dom.window.clientScopedKey = function (key) { return key; }; // real per-client scoping is out of this stage's scope — a plain passthrough is sufficient for this test
+    dom.window.Chart = function () { return { destroy() {}, update() {} }; };
+    dom.window.eval(overviewSource);
+    dom.window.eval(scriptSource); // synchronous portion runs immediately — this is where skeletons paint
+    return dom.window.document;
+  }
+  const doc = loadDashboard();
 
   const tpvEl = doc.getElementById('tpv-amount');
   const legendEl = doc.getElementById('allocation-legend');
   const activityEl = doc.getElementById('recent-activity-list');
   const cashReserveEl = doc.getElementById('risk-cash-reserve');
+  const cashDescEl = doc.getElementById('risk-cash-desc');
   const utilEl = doc.getElementById('risk-allocation-util');
 
   check('the loading skeleton genuinely appears immediately (TPV)', /animate-pulse/.test(tpvEl.innerHTML), tpvEl.innerHTML);
   check('the loading skeleton genuinely appears immediately (allocation legend)', /animate-pulse/.test(legendEl.innerHTML));
   check('the loading skeleton genuinely appears immediately (recent activity)', /animate-pulse/.test(activityEl.innerHTML));
-  check('the loading skeleton genuinely appears immediately (risk metrics)', /animate-pulse/.test(cashReserveEl.innerHTML) && /animate-pulse/.test(utilEl.innerHTML));
+  check('the loading skeleton genuinely appears immediately (risk metrics)', /animate-pulse/.test(cashDescEl.innerHTML) && /animate-pulse/.test(doc.getElementById('risk-util-desc').innerHTML));
 
-  // Let the real network round trip to the local Supabase stack actually complete — poll
+  // Let the real network round trips to the local Supabase stack actually complete — poll
   // rather than a fixed sleep, since cold Edge Function invocations can take several seconds.
-  const settled = await pollUntil(function () { return !/animate-pulse/.test(tpvEl.innerHTML); }, 20000);
-  check('the real network round trip genuinely completed within 20s (not still loading)', settled, tpvEl.innerHTML);
+  const settled = await pollUntil(function () { return !/animate-pulse/.test(tpvEl.innerHTML) && !/animate-pulse/.test(legendEl.innerHTML) && !/animate-pulse/.test(activityEl.innerHTML) && !/animate-pulse/.test(cashDescEl.innerHTML); }, 30000);
+  check('the real network round trips genuinely completed within 30s (not still loading)', settled, tpvEl.innerHTML);
 
   // Independently re-derive the expected numbers directly from Postgres — not from the app's
   // own rendering logic, so this is a genuine cross-check, not a tautology.
   const { data: liveNordic } = await admin.from('products').select('unit_price').eq('id', nordicFund.id).single();
   const { data: liveEquity } = await admin.from('products').select('unit_price').eq('id', equityEtf.id).single();
-  const expectedAllocated = Math.round((nordicUnits * liveNordic.unit_price + equityUnits * liveEquity.unit_price) * 100) / 100;
-  const expectedTpv = DISTINCTIVE_UNALLOCATED + expectedAllocated + DISTINCTIVE_ASSET_RETURNS;
+  const r2 = function (n) { return Math.round(n * 100) / 100; };
+  // Per-position rounded, then summed — the engine's order (rows 185/250).
+  const expectedAllocated = r2(r2(nordicUnits * liveNordic.unit_price) + r2(equityUnits * liveEquity.unit_price));
+  const expectedTpv = r2(DISTINCTIVE_UNALLOCATED + expectedAllocated + DISTINCTIVE_ASSET_RETURNS);
+  const usd2 = function (n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 
-  check('TPV renders the REAL, distinctive computed total (not $1,284,500 or any old hardcoded figure)', tpvEl.textContent === '$' + Math.round(expectedTpv).toLocaleString('en-US'), 'got="' + tpvEl.textContent + '" expected=$' + Math.round(expectedTpv).toLocaleString('en-US'));
+  // ★ Row 251: the headline is the ACCOUNT total (deployed + unallocated + pockets + realised).
+  // This client has no savings pockets, so it equals the portfolio value exactly.
+  check('the headline renders the REAL, distinctive account total (not $1,284,500 or any old hardcoded figure) — with no pockets, the portfolio value to the cent', tpvEl.textContent === usd2(expectedTpv) && doc.getElementById('po-portfolio-value').textContent === usd2(expectedTpv), 'got="' + tpvEl.textContent + '" expected=' + usd2(expectedTpv));
+  check('the four-part bar carries deployed, unallocated and realised segments (no pockets)', [...doc.querySelectorAll('#po-tbar i')].map(function (i) { return i.dataset.part; }).join(',') === 'deployed,unallocated,realised');
+  check('the priced pill is real and green: this client holds a Private Equity fund (appraisal) and a market-priced ETF, so it reads "Priced N ago" from the ETF\'s own price_as_of', /^Priced .* ago$/.test(doc.getElementById('po-asof').textContent.trim()) && !doc.getElementById('po-asof').classList.contains('is-stale') && !/Updated just now/.test(doc.getElementById('po-value-card').textContent), doc.getElementById('po-asof').textContent);
   // Detail added 2026-09-15: this failed once with no way to tell WHICH half was false. The
   // legend markup changed shape with the donut (row 226), so report what was actually there.
   check('the allocation legend genuinely reflects real holdings (Private Equity % present and non-zero)',
@@ -304,20 +328,24 @@ async function main() {
   check('the allocation legend is no longer showing skeleton bars', !/animate-pulse/.test(legendEl.innerHTML));
 
   const expectedCashPct = (DISTINCTIVE_UNALLOCATED / expectedTpv * 100).toFixed(1);
-  check('Risk Metrics Cash Reserve % matches the real, independently-computed percentage', cashReserveEl.textContent.indexOf(expectedCashPct + '%') !== -1, cashReserveEl.textContent + ' vs expected ' + expectedCashPct + '%');
+  check('Risk Metrics Cash Reserve % matches the real, independently-computed percentage, with the signal word in the badge and the target stated', doc.getElementById('risk-cash-value').textContent === expectedCashPct + '%' && cashReserveEl.textContent === (Number(expectedCashPct) < 20 ? 'Low' : 'Adequate') && /target 20%/.test(doc.getElementById('risk-row-cash').textContent), doc.getElementById('risk-cash-value').textContent + ' / ' + cashReserveEl.textContent + ' vs expected ' + expectedCashPct + '%');
+  const expectedUtilPct = (expectedAllocated / expectedTpv * 100).toFixed(1);
+  check('Allocation utilisation matches the real, independently-computed percentage', utilEl.textContent === expectedUtilPct + '%', utilEl.textContent + ' vs ' + expectedUtilPct);
+  // Largest position: the bigger of the two real holdings, as a share of the real TPV.
+  const nordicValue = r2(nordicUnits * liveNordic.unit_price), equityValue = r2(equityUnits * liveEquity.unit_price);
+  const largest = nordicValue >= equityValue ? { name: 'Nordic Growth Fund', v: nordicValue } : { name: 'Global Equity ETF', v: equityValue };
+  const expectedLargestPct = (largest.v / expectedTpv * 100).toFixed(1);
+  check('★ Largest position is the PM briefing\'s own concentration signal: the biggest real holding as a share of total portfolio value, named, with the 40% rule stated', doc.getElementById('risk-largest-value').textContent === expectedLargestPct + '%' && doc.getElementById('risk-largest-name').textContent === largest.name && /Above 40%/.test(doc.getElementById('risk-largest-desc').textContent), doc.getElementById('risk-row-largest').textContent.replace(/\s+/g, ' '));
+  check('Risk profile: none set on this device, so the row says so honestly and the link reads "Set profile" — never a fabricated "Balanced"', doc.getElementById('risk-profile-badge').textContent === 'Not set' && /No risk profile is set on this device/.test(doc.getElementById('risk-profile-desc').textContent) && doc.getElementById('risk-profile-link').textContent === 'Set profile', doc.getElementById('risk-row-profile').textContent.replace(/\s+/g, ' '));
 
-  check('Recent Activity shows the 3 MOST RECENT transactions, newest first (WITHDRAWAL, then SELL, then BUY — the oldest DEPOSIT correctly excluded)', function () {
-    const html = activityEl.innerHTML;
-    const wIdx = html.indexOf('Withdrawal processed');
-    const sIdx = html.indexOf('Position sold');
-    const bIdx = html.indexOf('Capital allocated');
-    const dIdx = html.indexOf('Deposit credited');
-    return wIdx !== -1 && sIdx !== -1 && bIdx !== -1 && dIdx === -1 && wIdx < sIdx && sIdx < bIdx;
-  }(), activityEl.innerHTML);
-  // The real app's own formatUSD() always rounds to whole dollars (Math.round(...)), same as
-  // every other dollar figure on this page — $250.75 correctly renders as "+$251", not the
-  // unrounded cents value.
-  check('the realized return on the SELL entry renders correctly, rounded to whole dollars (+$251)', activityEl.innerHTML.indexOf('+$251') !== -1, activityEl.innerHTML);
+  check('Activity shows the most recent transactions newest first (WITHDRAWAL, then SELL, then BUY, then the DEPOSIT)', function () {
+    const types = [...activityEl.querySelectorAll('.ac-row')].map(function (r) { return r.dataset.txnType; });
+    return types.join(',') === 'WITHDRAWAL,SELL,BUY,DEPOSIT';
+  }(), [...activityEl.querySelectorAll('.ac-row')].map(function (r) { return r.dataset.txnType; }).join(','));
+  // The real app's own formatUSD() always rounds to whole dollars, same as every other dollar
+  // figure on this page — $250.75 correctly renders as "+$251", not the unrounded cents value.
+  check('the realised return on the SELL entry renders correctly, rounded to whole dollars (+$251), with the product named from the returns payload, not a catalog read', /realised \+\$251/.test(activityEl.textContent) && /Sold · Global Equity ETF/.test(activityEl.textContent), activityEl.textContent.replace(/\s+/g, ' ').slice(0, 300));
+  check('every activity row carries its date both as its own cell and folded into the sub-line (data-when) for the phone layout', [...activityEl.querySelectorAll('.ac-row')].every(function (r) { return r.querySelector('.ac-when').textContent.length > 0 && r.querySelector('.ac-s').getAttribute('data-when') === ' · ' + r.querySelector('.ac-when').textContent; }));
 
   // ===========================================================================================
   // TEST 4 — an intentionally-failed call (a genuinely invalid/expired session) shows the
@@ -330,11 +358,7 @@ async function main() {
   // instance for the page's lifetime, exactly as a real page reload wouldn't happen mid-
   // session) — calling a function now must fail with a real 401, unauthenticated.
 
-  const doc2 = makeFakeDocument(dashboardIds);
-  globalThis.document = doc2;
-
-  const runDashboardScript2 = new Function(scriptSource);
-  runDashboardScript2();
+  const doc2 = loadDashboard();
   await pollUntil(function () { return !/animate-pulse/.test(doc2.getElementById('tpv-amount').innerHTML); }, 20000);
 
   const tpvEl2 = doc2.getElementById('tpv-amount');
@@ -350,6 +374,8 @@ async function main() {
     await admin.from('transactions').delete().eq('client_id', clientId);
     await admin.from('holdings').delete().eq('client_id', clientId);
     await admin.from('account_state').delete().eq('client_id', clientId);
+    await admin.from('portfolio_value_snapshots').delete().eq('client_id', clientId);
+    await admin.from('clients').delete().eq('id', clientId);
     await admin.auth.admin.deleteUser(clientId);
   }
 

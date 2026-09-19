@@ -63,6 +63,7 @@ function extractBodyMarkup(htmlPath) {
   return bodyMatch[1].replace(/<script[\s\S]*?<\/script>/g, '');
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function main() {
   console.log('Backend Migration Phase D — Stage 1 verification (dashboard.html Market Snapshot + Currency Converter UI)\n');
   const { url, anonKey } = readLocalStackCredentials();
@@ -105,19 +106,26 @@ async function main() {
   check('the merged watchlist card is what replaced it', !!D.getElementById('watchlist-card') && !!D.getElementById('wl-rows'));
   check('...and the Delayed label survived the merge — these prices are still cached, not live', !!D.querySelector('#watchlist-card .wl-delayed'));
 
-  console.log('\n2. Currency Converter — a real conversion runs automatically on load, and on input change\n');
+  // ★ Row 251: NO conversion on load. This card used to fire a real Frankfurter call on every
+  // dashboard visit for a default 1,000 USD → EUR nobody had asked for. The result now stays
+  // "—" with a one-line prompt until the client changes the amount or a currency — proven by
+  // COUNTING the real convert-currency calls, not by reading the placeholder alone.
+  console.log('\n2. Currency Converter — nothing fires on load; a real conversion runs on input change\n');
   const resultEl = D.getElementById('convert-result');
-  await pollUntil(() => resultEl.textContent !== '—' && resultEl.textContent !== '', 15000);
-  check('a real result renders on load (the default 1000 USD -> EUR from the real static form values)', resultEl.textContent !== '—' && /€/.test(resultEl.textContent), resultEl.textContent);
   const rateNote = D.getElementById('convert-rate-note');
-  check('the real exchange rate is shown as supporting context, not fabricated', !rateNote.classList.contains('hidden') && /1 USD = /.test(rateNote.textContent), rateNote.textContent);
+  const realCall = MarketswaveData.callFunction;
+  let convertCalls = 0;
+  MarketswaveData.callFunction = function (name, body) { if (name === 'convert-currency') convertCalls++; return realCall.call(MarketswaveData, name, body); };
+  await sleep(1500);
+  check('★ no convert-currency call is made on load, and the result reads "—" with a prompt rather than a fabricated figure', convertCalls === 0 && resultEl.textContent === '—' && /Change the amount or a currency/.test(rateNote.textContent), 'calls=' + convertCalls + ' result=' + resultEl.textContent);
 
   const amountInput = D.getElementById('convert-amount');
   const beforeChangeResult = resultEl.textContent;
   amountInput.value = '2000';
   amountInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
   await pollUntil(() => resultEl.textContent !== beforeChangeResult, 15000);
-  check('changing the amount triggers a genuinely new real conversion (not a stale/frozen result)', resultEl.textContent !== beforeChangeResult, resultEl.textContent);
+  check('changing the amount triggers a genuinely new real conversion — exactly one call, a real EUR result', convertCalls === 1 && resultEl.textContent !== beforeChangeResult && /€/.test(resultEl.textContent), 'calls=' + convertCalls + ' ' + resultEl.textContent);
+  check('the real exchange rate is shown as supporting context, not fabricated', !rateNote.classList.contains('hidden') && /1 USD = /.test(rateNote.textContent), rateNote.textContent);
 
   const fromSelect = D.getElementById('convert-from');
   const toSelect = D.getElementById('convert-to');

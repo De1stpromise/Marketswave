@@ -170,6 +170,19 @@
 .wl-up { color: #137254; }
 .wl-dn { color: #A8452F; }
 .wl-flat { color: #5C6367; }
+/* ★ The card's OWN price age (row 251): the cache row's real lastUpdated, growing by the
+   minute. Sits between the change and the badge; 11px is the floor on this glass card
+   (row 193 — an 11px secondary grey at #5C6367 is what the card's own name already
+   measures at), so the age is the same colour and weight, never lighter. */
+.wl-age {
+  font-size: 11px;
+  font-weight: 500;
+  color: #5C6367;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: auto;
+  margin-right: 6px;
+}
 
 /* Offered = this symbol is a real product in the catalog, so its drawer carries a real
    Allocate action. Tracking only = it is not, and there is genuinely no allocation path —

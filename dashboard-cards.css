@@ -1,0 +1,96 @@
+/* ★ Dashboard cards (2026-09-19, register row 251) — the card chrome, the Risk metrics rows
+   and the Activity rows on dashboard.html. Plain CSS in the .dc-* / .rm-* / .ac-* namespaces
+   (Risk metrics and Activity are built by dashboard.html's own script at runtime, so
+   verify-shared-stylesheet-coverage registers this file).
+
+   Colours were measured on the glass card, not taken from the mockup: the mockup's #8A9298
+   secondary grey measures below 4.5:1 inside a backdrop-filter layer (rows 193/200), so
+   secondary text here is #5C6367 at 12px and up and #475569 below that; the signal badges
+   are the returns-display gain/loss pair plus the locked gold, at the darker ink the
+   8.5–10px uppercase text needs. Figures are Inter with tabular-nums (row 192). */
+
+/* Two-column rows of cards. The left column is a little wider (donut + legend; the four
+   metric rows) than the right (pockets; converter). Collapses to ONE column at the page's
+   own lg breakpoint region — below 1024px the sidebar is a drawer and the content width is
+   the viewport, so a viewport query is the right one here (the cards are direct children of
+   <main>, not of a queried container). */
+.dc-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.dc-cols.dc-even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dc-card { display: flex; flex-direction: column; min-width: 0; }
+.dc-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px 0; min-height: 40px; }
+.dc-t { font-size: 13.5px; font-weight: 600; color: #3E4A52; margin: 0; }
+.dc-meta { font-size: 11.5px; color: #5C6367; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dc-link { font-size: 11.5px; color: #137254; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.dc-link:hover { text-decoration: underline; }
+.dc-body { flex: 1; padding: 10px 22px 8px; }
+.dc-pad { padding: 14px 22px 20px; }
+.dc-empty { padding: 26px 10px; text-align: center; }
+.dc-empty b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; margin-bottom: 5px; }
+.dc-empty p { font-size: 12.5px; color: #5C6367; line-height: 1.7; max-width: 40ch; margin: 0 auto; }
+/* The donut card's own body keeps allocation-donut.css's layout; only its padding is set here. */
+#allocation-card .ad-body { padding: 10px 22px 20px; }
+
+/* ---- Risk metrics: four rows, each label + signal + description (+ bar) and a figure. ---- */
+.rm-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); min-height: 66px; }
+.rm-row:first-child { border-top: none; padding-top: 4px; }
+.rm-b { flex: 1; min-width: 0; }
+.rm-t { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rm-t b { font-size: 12.5px; font-weight: 600; color: #12283A; }
+.rm-d { font-size: 11.5px; color: #475569; margin-top: 4px; line-height: 1.5; }
+.rm-d b { font-weight: 600; color: #12283A; }
+/* Signal badges. 10px uppercase — measured under the sheen on this glass card, the mockup's
+   8.5px tints fell under 4.5:1; the ink is one step darker than the mockup on every tone. */
+.rm-sig { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; white-space: nowrap; line-height: 1.4; }
+.rm-sig.rm-ok { background: rgba(19, 114, 84, 0.13); color: #0F5C44; }
+.rm-sig.rm-watch { background: rgba(200, 134, 10, 0.16); color: #6B4706; }
+.rm-sig.rm-act { background: rgba(168, 69, 47, 0.13); color: #7E3120; }
+.rm-sig.rm-flat { background: rgba(27, 58, 75, 0.08); color: #3E4A52; }
+/* The bar with its target mark. */
+.rm-prog { height: 4px; border-radius: 2px; background: rgba(27, 58, 75, 0.08); margin-top: 8px; position: relative; overflow: visible; }
+.rm-prog i { display: block; height: 100%; border-radius: 2px; background: #137254; max-width: 100%; }
+.rm-prog i.is-ok { background: #137254; }
+.rm-prog i.is-watch { background: #B07908; }
+.rm-prog i.is-act { background: #A8452F; }
+.rm-mark { position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px; background: rgba(27, 58, 75, 0.45); }
+.rm-v { text-align: right; flex-shrink: 0; min-width: 66px; }
+.rm-v b { display: block; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: #12283A; font-variant-numeric: tabular-nums; }
+.rm-v span { display: block; font-size: 10.5px; color: #475569; margin-top: 3px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: auto; }
+.rm-link { font-size: 11.5px; color: #137254; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; }
+.rm-link:hover { text-decoration: underline; }
+
+/* ---- Activity rows: icon / title + sub / amount / date / status. ---- */
+.ac-row { display: grid; grid-template-columns: 30px minmax(0, 1.4fr) auto auto auto; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); min-height: 56px; }
+.ac-row:first-child { border-top: none; padding-top: 4px; }
+.ac-ic { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ac-ic.ac-dep { background: rgba(19, 114, 84, 0.11); color: #0F5C44; }
+.ac-ic.ac-wd { background: rgba(168, 69, 47, 0.11); color: #7E3120; }
+.ac-ic.ac-buy { background: rgba(27, 58, 75, 0.08); color: #2C4658; }
+.ac-ic.ac-sell { background: rgba(200, 134, 10, 0.14); color: #6B4706; }
+.ac-ic.ac-hys { background: rgba(200, 134, 10, 0.14); color: #6B4706; }
+.ac-b { min-width: 0; }
+.ac-b b { display: block; font-size: 12.5px; font-weight: 600; color: #12283A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-s { display: block; font-size: 11px; color: #475569; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ac-s.is-up { color: #0F5C44; }
+.ac-s.is-dn { color: #7E3120; }
+.ac-amt { font-size: 12.5px; font-weight: 700; color: #12283A; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.ac-when { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.ac-st { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; background: rgba(19, 114, 84, 0.12); color: #0F5C44; justify-self: end; white-space: nowrap; }
+
+/* ---- Tablet: one column of cards. ---- */
+@media (max-width: 1023.98px) {
+  .dc-cols, .dc-cols.dc-even { grid-template-columns: 1fr; }
+}
+
+/* ---- Phone: activity folds its date into the sub-line rather than dropping it. ---- */
+@media (max-width: 620px) {
+  .dc-hd { padding: 15px 17px 0; }
+  .dc-body { padding: 8px 17px 8px; }
+  .dc-pad { padding: 12px 17px 18px; }
+  #allocation-card .ad-body { padding: 8px 17px 16px; }
+  .rm-row { min-height: 0; }
+  .rm-v b { font-size: 17px; }
+  .ac-row { grid-template-columns: 30px minmax(0, 1fr) auto; row-gap: 4px; }
+  .ac-when { display: none; }
+  .ac-s::after { content: attr(data-when); }
+  .ac-st { grid-column: 3; }
+}

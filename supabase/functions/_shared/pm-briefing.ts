@@ -37,11 +37,13 @@
 import { settleAllProducts, recomputeAllocatedCapital, type ProductRow } from './portfolio-engine.ts';
 import { STOCK_SYMBOLS_PER_REFRESH_RUN, REFRESH_INTERVAL_MINUTES, cyclesToCoverStocks, worstCaseStalenessMinutes } from './market-providers.ts';
 import { LIVE_WINDOW_SECONDS } from './visitor-presence.ts';
+import { CONCENTRATION_SHARE, CONCENTRATION_MIN_TPV } from './concentration.ts';
 
 export const OVERDUE_HOURS = 24;
 export const HOT_HOURS = 24;
-export const CONCENTRATION_SHARE = 0.40;
-export const CONCENTRATION_MIN_TPV = 10000;
+// Concentration thresholds moved to _shared/concentration.ts (row 251) so the client dashboard's
+// "Largest position" row and this briefing cannot disagree; re-exported here unchanged.
+export { CONCENTRATION_SHARE, CONCENTRATION_MIN_TPV } from './concentration.ts';
 export const DORMANT_DAYS = 60;
 export const PM_SESSION_GAP_MINUTES = 30;
 export const COMING_UP_DAYS = 30;
