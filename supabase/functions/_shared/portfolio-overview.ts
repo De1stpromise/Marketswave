@@ -50,6 +50,14 @@ export interface ValueHistory {
   changeSinceFirst: { amount: number; percent: number | null } | null;
   thisMonth: { anchorValue: number; amount: number; percent: number | null } | null;
   capitalIn: { current: number; events: CapitalEvent[] };
+  // ★ Asset & Performance's Total ACCOUNT value card (2026-09-19). A DIFFERENT scope from
+  // capitalIn: the account total INCLUDES savings pockets, so a transfer into a pocket does
+  // not leave it and must not be subtracted, while an external pocket deposit/withdrawal
+  // (HYS_DEPOSIT / HYS_WITHDRAWAL) DOES enter/leave it. Using capitalIn.current for that card
+  // would have been a subtle wrong number that looked plausible — a client who moved $1,100
+  // into a pocket would read $1,100 less "deposited" than they actually sent.
+  //   deposited = ΣDEPOSIT + ΣHYS_DEPOSIT − ΣWITHDRAWAL − ΣHYS_WITHDRAWAL  (external flows only)
+  accountDeposited: number;
   live: { date: string; value: number; capitalIn: number; return: number };
   periodStats: Record<'3' | '6' | '12' | 'all', PeriodStats | null>;
   clientSince: string | null;
@@ -89,6 +97,22 @@ export interface ValueHistory {
 // ---------------------------------------------------------------------------------------
 const CAPITAL_IN_SIGN: Record<string, number> = { DEPOSIT: 1, WITHDRAWAL: -1, HYS_TRANSFER_IN: -1 };
 const EVENT_KIND: Record<string, CapitalEvent['kind']> = { DEPOSIT: 'deposit', WITHDRAWAL: 'withdrawal', HYS_TRANSFER_IN: 'transfer_out' };
+
+// External money in and out of the ACCOUNT as a whole (portfolio + savings pockets). See the
+// `accountDeposited` note on ValueHistory. Internal transfers (HYS_TRANSFER_IN) and trades
+// (BUY/SELL) are neither.
+const ACCOUNT_FLOW_SIGN: Record<string, number> = { DEPOSIT: 1, HYS_DEPOSIT: 1, WITHDRAWAL: -1, HYS_WITHDRAWAL: -1 };
+export async function accountDepositedTotal(admin: any, clientId: string): Promise<number> {
+  const { data, error } = await admin
+    .from('transactions')
+    .select('type, total_value')
+    .eq('client_id', clientId)
+    .in('type', Object.keys(ACCOUNT_FLOW_SIGN));
+  if (error) throw new Error('Could not read the ledger for account deposits: ' + error.message);
+  let sum = 0;
+  for (const r of data || []) sum = round2(sum + ACCOUNT_FLOW_SIGN[r.type] * Number(r.total_value || 0));
+  return sum;
+}
 
 async function capitalInEvents(admin: any, clientId: string): Promise<CapitalEvent[]> {
   const { data, error } = await admin
@@ -197,6 +221,7 @@ export async function valueHistory(admin: any, clientId: string, opts?: { now?: 
     : null;
 
   const capitalInNow = events.length ? events[events.length - 1].cumulativeAfter : 0;
+  const accountDeposited = await accountDepositedTotal(admin, clientId);
   const live = { date: now.toISOString().slice(0, 10), value: currentValue, capitalIn: capitalInNow, return: round2(currentValue - capitalInNow) };
 
   // Period stats per range, computed only once the chart itself is shown — below the threshold
@@ -221,6 +246,7 @@ export async function valueHistory(admin: any, clientId: string, opts?: { now?: 
     changeSinceFirst: change,
     thisMonth,
     capitalIn: { current: capitalInNow, events },
+    accountDeposited,
     live,
     periodStats,
     clientSince: client && client.created_at ? String(client.created_at) : null

@@ -404,8 +404,10 @@ async function main() {
 
     const returnTable = AD.getElementById('return-table-body').closest('table');
     const heads = [...returnTable.querySelectorAll('thead th')].map((t) => t.textContent.trim());
-    check('table carries Unrealised and Trend',
-      heads.includes('Unrealised') && heads.includes('Trend'), heads.join('|'));
+    check('table carries Unrealised, and the Trend column is GONE (row 250 — the payload `trend` field stays, proven in PART 2)',
+      heads.includes('Unrealised') && !heads.includes('Trend'), heads.join('|'));
+    check('the table reads Holding · Units · Capital Allocated · Current value · Unrealised · Action',
+      heads.join('|') === 'Holding|Units|Capital Allocated|Current value|Unrealised|Action', heads.join('|'));
     check('the Realised column is GONE from the Return Table — realised lives in the panel now',
       !heads.includes('Realised'), heads.join('|'));
     check('the Sell action column survived the redesign', heads.includes('Action'));
@@ -439,9 +441,7 @@ async function main() {
     check('the marker is a micro-label in the meta line, not a badge or a figure',
       etfRow.querySelector('.rt-partial').classList.contains('rt-meta'));
 
-    check('every row carries a real sparkline', AD.querySelectorAll('#return-table-body svg.rt-spark').length === 3);
-    const cryPts = cryRow.querySelector('svg.rt-spark polyline').getAttribute('points').split(' ');
-    check('the sparkline plots the full 30-point series', cryPts.length === 30, cryPts.length);
+    check('no sparkline is rendered anywhere in the table (the column was removed, not hidden)', AD.querySelectorAll('#return-table-body svg.rt-spark').length === 0);
 
     const foot = AD.querySelector('#return-table-foot tr');
     check('a totals row exists', !!foot);
@@ -518,16 +518,16 @@ async function main() {
       AD.getElementById('perf-realised-amount').textContent === '+$' + usd(ledgerRealised),
       AD.getElementById('perf-realised-amount').textContent);
     check('the Realised gains card counts the closed positions it introduces',
-      /Locked in across/.test(AD.getElementById('perf-realised-sub').textContent) &&
+      /Banked from/.test(AD.getElementById('perf-realised-sub').textContent) &&
       AD.getElementById('perf-realised-sub').textContent.indexOf('1') !== -1,
       AD.getElementById('perf-realised-sub').textContent);
     check('the Unrealised card is a separate figure, never blended with realised',
       AD.getElementById('perf-unrealised-amount').textContent ===
         (R.unrealized < 0 ? '−' : '+') + '$' + usd(R.unrealized),
       AD.getElementById('perf-unrealised-amount').textContent);
-    check('the three summary labels are the settled heading style, in the approved order',
+    check('the overview labels are the settled heading style, in the approved order (row 250)',
       [...AD.querySelectorAll('.ret-k')].map((e) => e.textContent.trim()).join('|') ===
-        'Total portfolio value|Unrealised|Realised gains',
+        'Total account value|Deployed in assets|Unallocated capital|In savings pockets|Unrealised|Realised gains',
       [...AD.querySelectorAll('.ret-k')].map((e) => e.textContent.trim()).join('|'));
 
     // Page order: the way IN to allocating capital should not sit below two data tables.

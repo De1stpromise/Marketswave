@@ -216,7 +216,11 @@ async function main() {
     console.log('\n=== MOBILE — the table gained three columns ===\n');
     cdp = await connect();
     for (const width of [1440, 390, 375, 320]) {
-      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 1024 });
+      // A REAL phone profile below lg (row 228): DPR 3 + touch, proven by matchMedia below,
+      // not inferred from the width.
+      const phone = width < 1024;
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: phone ? 3 : 1, mobile: phone });
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: phone, maxTouchPoints: phone ? 5 : 0 });
       if (width === 1440) {
         await cdp.send('Page.navigate', { url: BASE + '/' });
         await sleep(600);
@@ -249,6 +253,46 @@ async function main() {
       // browser was silently clamped to a different width.
       check('viewport is genuinely ' + width + 'px', real === width, 'got ' + real);
       if (real !== width) continue;
+      if (phone) {
+        const prof = await cdp.evaluate("({ coarse: matchMedia('(pointer: coarse)').matches, noHover: matchMedia('(hover: none)').matches, dpr: devicePixelRatio, touch: navigator.maxTouchPoints })");
+        check(width + 'px: a REAL phone profile (coarse pointer, no hover, DPR 3, touch points)', prof.coarse && prof.noHover && prof.dpr === 3 && prof.touch > 0, JSON.stringify(prof));
+      }
+
+      // ---- The Asset & performance overview (row 250): total card, capital, returns, class table
+      const ap = await cdp.evaluate(`(() => {
+        const cols = (el) => el ? getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length : 0;
+        const parts = document.querySelector('#ap-total-parts');
+        const clsRows = document.querySelectorAll('#ap-by-class-region tbody tr');
+        const unheld = document.querySelector('#ap-by-class-region tbody tr.is-unheld');
+        const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right <= window.innerWidth + 1; };
+        const order = [...document.querySelectorAll('#ap-total, #ap-capital, #ap-returns, a[href="asset-collection.html"], #return-table-body, #closed-positions, #ap-by-class, #my-requests-list')].map(e => e.id || 'browse');
+        return {
+          nav: !!document.querySelector('#sidebar-aside'),
+          amount: (document.querySelector('#ap-total-amount') || {}).textContent || '',
+          amountFits: vis(document.querySelector('#ap-total-amount')),
+          barSegs: document.querySelectorAll('#ap-total-bar i').length,
+          nonZeroParts: [...document.querySelectorAll('#ap-total-parts .ap-tpv')].filter(e => e.textContent.trim() !== '$0.00').length,
+          partCols: cols(parts), partCount: document.querySelectorAll('#ap-total-parts .ap-tp').length,
+          capCols: cols(document.querySelector('#ap-capital')), retCols: cols(document.querySelector('#ap-returns')),
+          clsRows: clsRows.length, clsRowDisplay: clsRows.length ? getComputedStyle(clsRows[0]).display : 'none',
+          clsLabelled: clsRows.length ? [...clsRows[0].children].every(td => td.hasAttribute('data-label')) : false,
+          unheldOpacity: unheld ? getComputedStyle(unheld).opacity : '', unheldText: unheld ? unheld.textContent.replace(/\s+/g, ' ').trim() : '',
+          pocketsLinkFits: vis(document.querySelector('#ap-cap-pockets-link')), closedLinkFits: vis(document.querySelector('#ap-ret-closed-link')),
+          sellBtns: document.querySelectorAll('#return-table-body .sell-request-btn').length, sellDisabled: document.querySelectorAll('#return-table-body .sell-request-btn:disabled').length,
+          order: order.join('|')
+        };
+      })()`);
+      check(width + 'px: the sidebar nav mounted', ap.nav);
+      check(width + 'px: the Total account value renders and fits the viewport', /^\$[\d,]+\.\d\d$/.test(ap.amount) && ap.amountFits, ap.amount);
+      // A zero part draws no segment (this client has no pockets) — one segment per NON-zero part.
+      check(width + 'px: the proportional bar draws one segment per non-zero part', ap.barSegs === ap.nonZeroParts && ap.barSegs >= 1, ap.barSegs + ' vs ' + ap.nonZeroParts);
+      check(width + 'px: the four parts ' + (width <= 880 ? 'STACK to one column' : 'sit four across'), ap.partCount === 4 && ap.partCols === (width <= 880 ? 1 : 4), ap.partCols);
+      check(width + 'px: capital and returns cards ' + (width < 768 ? 'stack' : 'sit in their grids'), width < 768 ? (ap.capCols === 1 && ap.retCols === 1) : (ap.capCols === 3 && ap.retCols === 2), ap.capCols + '/' + ap.retCols);
+      check(width + 'px: the class table has all four rows, ' + (width < 1024 ? 'as labelled cards' : 'as real table rows'), ap.clsRows === 4 && (width < 1024 ? (ap.clsRowDisplay !== 'table-row' && ap.clsLabelled) : ap.clsRowDisplay === 'table-row'), ap.clsRowDisplay + ' labelled=' + ap.clsLabelled);
+      check(width + 'px: the unheld class row dims by colour, never by opacity, and says "not held"', ap.unheldOpacity === '1' && /not held/.test(ap.unheldText), ap.unheldOpacity + ' ' + ap.unheldText);
+      check(width + 'px: both card actions (View pockets, See closed positions) fit inside the viewport', ap.pocketsLinkFits && ap.closedLinkFits);
+      check(width + 'px: Sell on every row, none disabled', ap.sellBtns > 0 && ap.sellDisabled === 0, ap.sellBtns + '/' + ap.sellDisabled);
+      check(width + 'px: page order total · capital · returns · browse · holdings · closed · by-class · requests', ap.order === 'ap-total|ap-capital|ap-returns|browse|return-table-body|closed-positions|ap-by-class|my-requests-list', ap.order);
 
       const r = await cdp.evaluate(`(() => {
         const rows = document.querySelectorAll('#return-table-body tr');
@@ -384,11 +428,11 @@ async function main() {
       check(width + 'px: legend stays visible', r.legendVisible);
       check(width + 'px: Browse Asset Collection sits above the tables', r.browseBeforeTable);
       if (width >= 1024) {
-        check(width + 'px: Trend column is shown on desktop', r.trendDisplay !== 'none', r.trendDisplay);
+        check(width + 'px: there is no Trend column at all (removed, row 250)', r.trendDisplay === 'missing', r.trendDisplay);
         check(width + 'px: rows stay real table rows on desktop', r.rowDisplay === 'table-row', r.rowDisplay);
         check(width + 'px: the panel stays a real table on desktop too', r.closedRowDisplay === 'table-row', r.closedRowDisplay);
       } else {
-        check(width + 'px: Trend column is hidden rather than squeezing the figures', r.trendDisplay === 'none', r.trendDisplay);
+        check(width + 'px: there is no Trend column at all (removed, row 250)', r.trendDisplay === 'missing', r.trendDisplay);
         check(width + 'px: rows switch to the card layout from the mobile batches', r.rowDisplay === 'block', r.rowDisplay);
         check(width + 'px: cells still name their column in card mode', /Units/.test(r.firstCellLabel), r.firstCellLabel);
         check(width + 'px: the totals row keeps its labels too', r.footLabelled);

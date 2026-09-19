@@ -258,7 +258,10 @@ async function main() {
   // 2026-09-09 (row 187); 'Total Allocated Capital' no longer exists on this page. The
   // check below moved to the Total portfolio value card, which is the figure on this row
   // that is still independently computable from the seeded holdings.
-  const tpvEl = performanceDom.window.document.getElementById('perf-tpv-amount');
+  // Row 250 (2026-09-19): the Total portfolio value card became the Total ACCOUNT value card,
+  // which adds savings pockets and realised gains to the same figure; this client has neither,
+  // so the same independently-computed number is what must render (now to the cent).
+  const tpvEl = performanceDom.window.document.getElementById('ap-total-amount');
   const myRequestsListEl = performanceDom.window.document.getElementById('my-requests-list');
 
   performanceDom.window.eval(readFileSync(new URL('../asset-mark.js', import.meta.url), 'utf8')); // asset-mark.js (row 207)
@@ -275,7 +278,8 @@ async function main() {
   // thing the allocated-capital assertion did: a real money figure computed here from
   // the seeded holdings and the live unit prices, not read back from the page's own call.
   const expectedTpv = Math.round(ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price + UNALLOCATED);
-  check('summary cards show the real, independently-computed portfolio value (both real holdings + unallocated)', tpvEl.textContent === '$' + expectedTpv.toLocaleString('en-US'), tpvEl.textContent + ' vs expected $' + expectedTpv.toLocaleString('en-US'));
+  const expectedAccountValue = ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price + UNALLOCATED;
+  check('the Total account value card shows the real, independently-computed figure (both real holdings + unallocated; no pockets, no realised for this client)', tpvEl.textContent === '$' + expectedAccountValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), tpvEl.textContent + ' vs expected $' + expectedAccountValue.toFixed(2));
   check('Return Table shows a real row for the seeded ETF holding, with a real Sell button', tableBody.textContent.indexOf('Global Equity ETF') !== -1 && !!tableBody.querySelector('.sell-request-btn'), tableBody.innerHTML.slice(0, 400));
 
   const perfToastEl = performanceDom.window.document.getElementById('allocation-toast');

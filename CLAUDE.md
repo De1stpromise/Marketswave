@@ -10703,6 +10703,62 @@ row 74.
   hys-documents-ui-wiring 77/77, documents-page-ui-wiring 46/46, cross-role-sync 38/38,
   documents-storage-integration 46/46, both email suites' fixtures.
 
+- **★★ Asset & performance page redesign — Total account value, Capital, Returns, By asset
+  class, and the holdings table without Trend (2026-09-19, register row 250).** Built to the
+  approved mockup with Gary's real figures. Three sections replace the old three-card row;
+  `asset-performance.html` + `returns-display.css` (`.ap-*`); one server addition,
+  `accountDeposited` on `get-portfolio-overview`.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE THREE TOTALS ARE THREE DIFFERENT NUMBERS, AND ONE IDENTITY RELATES THEM.**
+    Total account value = deployed + unallocated + savings pockets (principal + accrued) +
+    realised gains = **Portfolio value + Savings pockets**; Portfolio value (the dashboard's) =
+    unallocated + allocated + `asset_returns`, NO pockets; Total deployed = holdings only (the
+    class table's tfoot). The brief first EXCLUDED realised from the account total, which would
+    have read lower than the dashboard's portfolio value and understated "since you joined" by
+    the realised amount — corrected before building, and the operator took it. Realised gains
+    are real money the account holds, just not redeployable (row 187), and the card says so:
+    "Held separately, not redeployable". Do not "simplify" to three parts.
+  - **★ "DEPOSITED" IS `accountDeposited`, NOT `capitalIn.current`.** `capitalIn` deliberately
+    subtracts HYS_TRANSFER_IN because it is a reference line for the PORTFOLIO measure (row
+    208); an account-scoped card wants external flows only (ΣDEPOSIT + ΣHYS_DEPOSIT −
+    ΣWITHDRAWAL − ΣHYS_WITHDRAWAL). Gary: $14,370 vs $13,270 — a plausible wrong number, which
+    is why the suite asserts the two differ.
+  - **★ `recomputeAllocatedCapital()` NOW SUMS PER-POSITION ROUNDED VALUES — a deliberate
+    divergence from `engine-core.js`.** It rounded the raw sum; `get-returns-summary` rounds
+    each position first (row 185, the engine's order for what is DISPLAYED), and the two
+    disagreed by a cent for any client with sub-cent fractions (Gary: 29,600.71 vs 29,600.72).
+    The identity above cannot hold between two pages if they sum differently, and a client
+    adding up their own holdings table should land on `allocated_capital`. Now they do. The
+    suite's control is DETERMINISTIC (two fixed-price simulated products at exactly 100.004
+    each: Σ round2 = 200.00, round2 Σ = 200.01) — Gary's live prices differ by a cent one
+    hour and coincide the next, so they are reported, never asserted.
+    `computeTotalPortfolioValue()` also `round2()`s its return (it handed back
+    33424.299999999996). 20 Edge Functions bundle `_shared/portfolio-engine.ts` (14 directly,
+    6 through other shared modules) — every one redeployed, the stale-bundle lesson of row 143.
+  - **The `trend` payload field and `unitPriceSeries()` are KEPT** with the Trend column gone —
+    the brief's own decision; this page was the only reader. `sparklineSVG()` and the dead
+    `get-total-portfolio-value` fetch are removed from the page.
+  - **Sell is on every row and always enabled.** No minimum-remainder rule exists server-side;
+    an unused disabled style was not shipped (the brief's decision).
+  - **Unheld classes render, dimmed BY COLOUR, never omitted and never by opacity** (row 233).
+    The class table is the arithmetic behind the dashboard donut and uses its exact palette.
+  - **★ A ONE-PIXEL EM DASH ANTIALIASES BELOW ANY COLOUR YOU DECLARE IT IN.** The dimmed rows'
+    dashes measured 3.32:1 at 13px/500 whether `#5C6367` or `#3E4A52`; they are 15px/700 now.
+    And a lone glyph (one digit, one dash, the word "Total") in a 130×75 or 362×75 padded cell
+    moves too few pixels for `verify-contrast`'s non-vacuity guard — the class table's counts
+    and dashes carry `rt-num` on an inline SPAN, and all three totals labels wrap their text in
+    `.rt-total-txt` (the profile targets it). That closes row 249's open `.rt-total-lab #2`.
+    Put a probe-targeted class on the glyph's own box, not on a padded cell.
+  - The proportional bar draws one segment per NON-zero part — a client with no pockets has
+    three. A zero-deployed class table shows "—" for unrealised, never "+$0 +0.0%".
+  **Verified**: `verify-asset-performance-overview` (new) 66/66 — every figure against ITS
+  source (get-returns-summary / get-account-state / get-portfolio-overview / an independent
+  ledger sum), the three totals asserted distinct and the identity to the cent, Gary + an empty
+  client + a one-class client; `verify-returns-display` 105/105; `verify-returns-display-visual`
+  191/191 (contrast profiles extended with every new surface incl. the dimmed rows and the total
+  under the sheen — 137 + 32 measurements, 0 below 4.5:1; 320/375/390 on a REAL phone profile
+  proven by matchMedia, plus 1440); `verify-asset-pages-ui-wiring` 43/43.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

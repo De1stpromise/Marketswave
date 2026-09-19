@@ -197,3 +197,57 @@
      verification, and responsive-tables.css is shared. */
   .rt td::before { font-size: 13px; }
 }
+
+/* ---------- Asset & Performance overview (2026-09-19, register row 250) --------------------
+ * Total account value, the Capital and Returns cards, and the By-asset-class table. Plain CSS
+ * (row 165: the Tailwind CDN emits nothing for a utility it does not know). Every grey used as
+ * TEXT here is one that has already been measured on these grounds: --ret-muted (#5C6367) on
+ * the glass cards, #475569 on the plain table. The "not held" rows are dimmed by COLOUR, never
+ * by opacity — row 233 measured an opacity-dimmed row at 2.59:1, because dimming makes the
+ * words explaining an absence harder to read than the words that are fine. */
+.ap-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ret-muted); margin: 0 0 10px; }
+.ap-total { padding: 22px 24px 20px; }
+.ap-big { font-size: 42px; font-weight: 600; letter-spacing: -.034em; line-height: 1; margin-top: 10px; color: var(--ret-strong); font-variant-numeric: tabular-nums; }
+.ap-since { font-size: 12.5px; color: var(--ret-muted); margin-top: 10px; font-weight: 500; line-height: 1.6; }
+.ap-since .is-gain { color: var(--ret-gain); font-weight: 600; }
+.ap-since .is-loss { color: var(--ret-loss); font-weight: 600; }
+.ap-since b { color: var(--ret-strong); font-weight: 600; }
+.ap-muted { color: var(--ret-muted); font-weight: 400; }
+.ap-tbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 18px; background: rgba(27, 58, 75, .07); gap: 2px; }
+.ap-tbar i { display: block; height: 100%; border-radius: 2px; }
+.ap-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 15px; }
+.ap-tp { display: flex; align-items: flex-start; gap: 9px; padding-right: 14px; margin-right: 14px; border-right: 1px solid rgba(27, 58, 75, .09); min-width: 0; }
+.ap-tp:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+.ap-sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; margin-top: 3px; }
+.ap-tpb { flex: 1; min-width: 0; }
+.ap-tpb b { display: block; font-size: 11.5px; font-weight: 600; color: var(--ret-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-tpb span { display: block; font-size: 10.5px; color: var(--ret-muted); margin-top: 2px; line-height: 1.4; }
+.ap-tpv { font-size: 13px; font-weight: 700; color: var(--ret-strong); font-variant-numeric: tabular-nums; flex-shrink: 0; margin-left: auto; padding-left: 8px; }
+.ap-card { display: flex; flex-direction: column; }
+.ap-card .ret-sub b { font-weight: 600; color: var(--ret-strong); }
+.ap-sp { flex: 1; }
+.ap-split { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 12px; background: rgba(27, 58, 75, .07); }
+.ap-split i { display: block; height: 100%; }
+.ap-legend { display: flex; gap: 13px; margin-top: 9px; flex-wrap: wrap; }
+.ap-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ret-muted); }
+.ap-legend i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.ap-action { margin-top: 13px; align-self: flex-start; }
+.ap-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 10px; vertical-align: -1px; }
+.ap-cls-name { font-weight: 600; color: var(--ret-strong); }
+.ap-cls .rt-meta { display: block; margin-left: 21px; }
+.ap-cls-row.is-unheld .ap-cls-name { color: var(--ret-muted); font-weight: 500; }
+.ap-cls-row.is-unheld .ap-dot { opacity: .45; }
+.ap-cls-row.is-unheld td { color: var(--ret-muted); }
+/* The em dash is a ONE-pixel stroke at 13px/500 and antialiases to 3.32:1 whatever colour it is
+   declared in (measured, 2026-09-19). Heavier and larger so the stroke reaches its own colour. */
+.ap-cls-row.is-unheld .rt-num { color: var(--ret-muted); font-weight: 700; font-size: 15px; line-height: 1; }
+.ap-share { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; min-width: 74px; }
+.ap-track { width: 100%; height: 4px; border-radius: 2px; background: rgba(27, 58, 75, .08); overflow: hidden; }
+.ap-track i { display: block; height: 100%; border-radius: 2px; }
+@media (max-width: 880px) {
+  .ap-parts { grid-template-columns: 1fr; }
+  .ap-tp { border-right: none; margin-right: 0; padding: 10px 0; border-bottom: 1px solid rgba(27, 58, 75, .09); }
+  .ap-tp:last-child { border-bottom: none; }
+  .ap-big { font-size: 34px; }
+  .ap-share { align-items: flex-start; }
+}

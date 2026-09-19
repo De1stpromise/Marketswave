@@ -72,39 +72,74 @@
           <p class="text-slate-500 mt-1">Allocation and performance across your portfolio.</p>
         </div>
 
-        <!-- Summary cards — .glass-subtle: a dense 3-card row.
-             Three cards, per the approved mockup: what the portfolio is worth, what is still
-             moving with the market, and what is locked in. The pair reads as a whole — a
-             client's return is genuinely two numbers, and showing either one alone is what
-             made the dashboard's own realised-only card misleading in the first place.
-             Unallocated Capital lost its card here; it is not a RETURNS figure, and it is
-             still shown on dashboard.html and on deploy-capital.html, which is where a client
-             acts on it.
-             Typography follows the settled ladder: label Inter 600 (.ret-k), display figure
-             Inter 600 30px (.ret-v — the same class dashboard.html's own return card uses, so
-             the hero figure is identical on both screens), and every INLINE figure in the
-             sub-line Inter 700 with tabular figures. (This used to read "monospace 700, which
-             is where the mono-for-figures rule applies" -- that rule is WITHDRAWN, 2026-09-10:
-             the scheme is Inter, and alignment comes from font-variant-numeric, not a second
-             family.) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          <div class="glass-subtle rounded-2xl p-5">
-            <p class="ret-k">Total portfolio value</p>
-            <p class="ret-v" id="perf-tpv-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="ret-sub" id="perf-tpv-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+        <!-- ★ Asset & Performance overview (2026-09-19, register row 250). Three NEW sections
+             replace the old three-card summary row: Total account value, Capital, Returns.
+
+             THREE TOTALS, EACH CORRECT FOR WHAT IT MEASURES — and they relate by ONE identity:
+               Total account value  = deployed + unallocated + savings pockets + realised gains
+                                    = Portfolio value (dashboard) + Savings pockets
+               Portfolio value      = unallocated + allocated + asset_returns   (NO pockets)
+               Total deployed       = holdings only                              (the class table)
+             Realised gains ARE included in the account total: they are real money the account
+             holds (banked by the engine on a sale), merely not redeployable — the card says so
+             on its own line. The specification first excluded them, which made "total account
+             value" LOWER than the dashboard's portfolio value and understated "since you joined"
+             by the realised amount; corrected before building (row 250).
+             "Deposited" is the ACCOUNT-scoped figure (external flows only: DEPOSIT + HYS_DEPOSIT
+             − WITHDRAWAL − HYS_WITHDRAWAL), from get-portfolio-overview's accountDeposited —
+             NOT capitalIn.current, which deliberately subtracts pocket transfers for the
+             portfolio line and would be a plausible wrong number here.
+             Every figure is a server figure: get-returns-summary (deployed, unrealised, realised,
+             byClass), get-account-state (unallocated), get-portfolio-overview (pockets with
+             accrued interest, deposited, client since). Nothing here computes money. -->
+        <section class="glass glass-lift rounded-2xl mb-6 ap-total" id="ap-total" aria-labelledby="ap-total-h">
+          <p class="ret-k" id="ap-total-h">Total account value</p>
+          <p class="ap-big" id="ap-total-amount"><span class="inline-block h-9 w-40 bg-slate-200 rounded animate-pulse"></span></p>
+          <p class="ap-since" id="ap-total-since"><span class="inline-block h-3 w-64 bg-slate-200 rounded animate-pulse"></span></p>
+          <div class="ap-tbar" id="ap-total-bar" aria-hidden="true"></div>
+          <div class="ap-parts" id="ap-total-parts"></div>
+        </section>
+
+        <p class="ap-lbl">Capital</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6" id="ap-capital">
+          <div class="glass-subtle rounded-2xl p-5 ap-card" id="ap-cap-deployed">
+            <p class="ret-k">Deployed in assets</p>
+            <p class="ret-v" id="ap-cap-deployed-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="ap-cap-deployed-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <div class="ap-split" id="ap-cap-deployed-split" aria-hidden="true"></div>
+            <div class="ap-legend" id="ap-cap-deployed-legend"></div>
           </div>
-          <div class="glass-subtle rounded-2xl p-5">
-            <p class="ret-k">Unrealised</p>
-            <p class="ret-v" id="perf-unrealised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="ret-sub" id="perf-unrealised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+          <div class="glass-subtle rounded-2xl p-5 ap-card" id="ap-cap-unallocated">
+            <p class="ret-k">Unallocated capital</p>
+            <p class="ret-v" id="ap-cap-unallocated-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="ap-cap-unallocated-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
           </div>
-          <div class="glass-subtle rounded-2xl p-5">
-            <p class="ret-k">Realised gains</p>
-            <p class="ret-v" id="perf-realised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
-            <p class="ret-sub" id="perf-realised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+          <div class="glass-subtle rounded-2xl p-5 ap-card" id="ap-cap-pockets">
+            <p class="ret-k">In savings pockets</p>
+            <p class="ret-v" id="ap-cap-pockets-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="ap-cap-pockets-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <div class="ap-sp"></div>
+            <a href="high-yield-savings.html" class="mw-btn mw-btn-secondary mw-btn-sm ap-action" id="ap-cap-pockets-link">View pockets</a>
           </div>
         </div>
 
+        <p class="ap-lbl">Returns</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8" id="ap-returns">
+          <div class="glass-subtle rounded-2xl p-5 ap-card" id="ap-ret-unrealised">
+            <p class="ret-k">Unrealised</p>
+            <p class="ret-v" id="perf-unrealised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="perf-unrealised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <div class="ap-split" id="ap-ret-updown" aria-hidden="true"></div>
+            <div class="ap-legend" id="ap-ret-updown-legend"></div>
+          </div>
+          <div class="glass-subtle rounded-2xl p-5 ap-card" id="ap-ret-realised">
+            <p class="ret-k">Realised gains</p>
+            <p class="ret-v" id="perf-realised-amount"><span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse"></span></p>
+            <p class="ret-sub" id="perf-realised-sub"><span class="inline-block h-3 w-28 bg-slate-200 rounded animate-pulse"></span></p>
+            <div class="ap-sp"></div>
+            <a href="#closed-positions" class="mw-btn mw-btn-secondary mw-btn-sm ap-action" id="ap-ret-closed-link">See closed positions</a>
+          </div>
+        </div>
         <!-- Browse Asset Collection (Aug 21, 2026): the product-browsing grid that used to
              live here moved to its own page, asset-collection.html, so it can scale to
              hundreds of products with real search/filter/pagination instead of an unbounded
@@ -149,7 +184,6 @@
                   <th class="text-right px-6 py-3">Capital Allocated</th>
                   <th class="text-right px-6 py-3">Current value</th>
                   <th class="text-right px-6 py-3">Unrealised</th>
-                  <th class="text-right px-6 py-3 rt-hide-sm">Trend</th>
                   <th class="text-right px-6 py-3">Action</th>
                 </tr>
               </thead>
@@ -171,7 +205,7 @@
              two read as siblings rather than as two different components.
              Deliberately left plain (not glass), same reasoning as the Return Table: a real,
              dense table of financial data. -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8">
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8" id="closed-positions">
           <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
             <h3 class="font-semibold text-navy">Closed positions</h3>
             <span class="text-xs text-slate-400">Positions you have sold &mdash; locked in, and no longer moving with the market</span>
@@ -180,6 +214,20 @@
                it holds no static child that a skeleton pass could destroy (the lesson from
                transactions.html's own ledger empty-row). -->
           <div class="overflow-x-auto" id="closed-positions-region"></div>
+        </div>
+        <!-- ★ By asset class (2026-09-19, row 250): the arithmetic behind the dashboard donut —
+             what each class cost, what it is worth, its unrealised gain and its share of what is
+             deployed. Fed by get-returns-summary.byClass (server-side per-class sums) plus a
+             count of positions per class; the same palette as the donut so the two read as one
+             system. Unheld classes render DIMMED with "not held" rather than being omitted — a
+             client sees the whole five-class model, and which parts of it they are in.
+             Plain (not glass): a real table of financial data. -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8" id="ap-by-class">
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            <h3 class="font-semibold text-navy">By asset class</h3>
+            <span class="text-xs text-slate-500" id="ap-by-class-meta"></span>
+          </div>
+          <div class="overflow-x-auto" id="ap-by-class-region"></div>
         </div>
         <!-- Elbstream's attribution: required, at least 12pt, on every page that shows one of
              its logos (asset-mark.css / asset-mark.js). -->
@@ -322,13 +370,13 @@
 
       // Real data, populated once the async loads below resolve.
       var account = { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
-      var tpv = 0;
       var holdings = [];
       var returns = null;
       var products = [];
       var ledger = [];
       var sellRequests = [];
       var allocationRequests = [];
+      var overview = null; // get-portfolio-overview: pockets (with accrued interest), accountDeposited, clientSince
 
       function productById(id) { return products.find(function (p) { return p.id === id; }); }
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
@@ -341,19 +389,172 @@
       // The port is deleted rather than left dormant so nothing can quietly start using it
       // again and reintroduce a second, client-side source of truth for money.
 
-      // ---- Summary cards ----
-      var tpvEl = document.getElementById('perf-tpv-amount');
-      var tpvSubEl = document.getElementById('perf-tpv-sub');
+      // ---- Overview: Total account value / Capital / Returns (2026-09-19, row 250) ----
+      var apTotalEl = document.getElementById('ap-total-amount');
+      var apSinceEl = document.getElementById('ap-total-since');
+      var apBarEl = document.getElementById('ap-total-bar');
+      var apPartsEl = document.getElementById('ap-total-parts');
+      var apDeployedEl = document.getElementById('ap-cap-deployed-amount');
+      var apDeployedSubEl = document.getElementById('ap-cap-deployed-sub');
+      var apDeployedSplitEl = document.getElementById('ap-cap-deployed-split');
+      var apDeployedLegendEl = document.getElementById('ap-cap-deployed-legend');
+      var apUnallocEl = document.getElementById('ap-cap-unallocated-amount');
+      var apUnallocSubEl = document.getElementById('ap-cap-unallocated-sub');
+      var apPocketsEl = document.getElementById('ap-cap-pockets-amount');
+      var apPocketsSubEl = document.getElementById('ap-cap-pockets-sub');
+      var apUpDownEl = document.getElementById('ap-ret-updown');
+      var apUpDownLegendEl = document.getElementById('ap-ret-updown-legend');
+      var apByClassRegion = document.getElementById('ap-by-class-region');
+      var apByClassMeta = document.getElementById('ap-by-class-meta');
       var unrealisedEl = document.getElementById('perf-unrealised-amount');
       var unrealisedSubEl = document.getElementById('perf-unrealised-sub');
       var realisedEl = document.getElementById('perf-realised-amount');
       var realisedSubEl = document.getElementById('perf-realised-sub');
 
+      // The donut's own palette (dashboard.html CLASSES) — the same five fills so the two pages
+      // read as one system. Order = display order in the class table.
+      var AP_CLASSES = [
+        { key: 'Stocks & ETFs',  sub: 'Market-priced',       fill: '#4B2E83' },
+        { key: 'Crypto',         sub: 'Market-priced',       fill: '#8B7CB5' },
+        { key: 'Private Equity', sub: 'Valued by appraisal', fill: '#E08B14' },
+        { key: 'Real Assets',    sub: 'Valued by appraisal', fill: '#F5C377' }
+      ];
+      var AP_FILL_UNALLOCATED = '#C4BEDA', AP_FILL_POCKETS = '#B07908', AP_FILL_REALISED = '#137254';
+
+      function pct(part, whole) { return whole > 0 ? (part / whole) * 100 : 0; }
+      function pctText(n) { return (Math.round(n * 10) / 10).toFixed(1) + '%'; }
+      function livePockets() {
+        return ((overview && overview.maturities) || []).filter(function (p) { return p.status !== 'withdrawn'; });
+      }
+      function pocketsValue() {
+        // principal + interest ACCRUED TO DATE (never interest not yet earned) — the same
+        // accrual get-portfolio-overview computes for the dashboard's upcoming maturities.
+        return livePockets().reduce(function (sum, p) { return sum + p.amount + (p.interestAccrued || 0); }, 0);
+      }
+
+      // ---- Total account value + Capital cards -------------------------------------------
+      function renderOverviewCards() {
+        var r = returns || {};
+        var deployed = r.currentValue || 0;
+        var unalloc = account.unallocatedCapital || 0;
+        var realised = account.assetReturns || 0;
+        var pockets = pocketsValue();
+        var pk = livePockets();
+        var total = deployed + unalloc + pockets + realised;
+        var held = (r.positions || []).length;
+
+        if (apTotalEl) apTotalEl.textContent = formatUSD(total, 2);
+        if (apSinceEl) {
+          var deposited = overview ? (overview.accountDeposited || 0) : 0;
+          var growth = total - deposited;
+          var sinceYear = overview && overview.clientSince ? new Date(overview.clientSince).getUTCFullYear() : null;
+          var yrs = sinceYear ? Math.max(0, new Date().getUTCFullYear() - sinceYear) : null;
+          apSinceEl.innerHTML = (deposited > 0
+            ? '<span class="' + (growth < 0 ? 'is-loss' : 'is-gain') + '">' + signedUSD(growth) + ' since you joined</span> · <b>' + formatUSD(deposited, 2) + '</b> deposited' + (yrs !== null ? ' over ' + (yrs < 1 ? 'less than a year' : yrs + (yrs === 1 ? ' year' : ' years')) : '')
+            : 'Nothing deposited yet') +
+            '<br><span class="ap-muted">Includes realised gains, which are held separately and not redeployable — see Returns below. Equals the dashboard\'s portfolio value plus your savings pockets.</span>';
+        }
+        var parts = [
+          { label: 'Deployed in assets', sub: held + (held === 1 ? ' holding' : ' holdings') + ' at current value', value: deployed, fill: '#4B2E83' },
+          { label: 'Unallocated', sub: 'Available to invest', value: unalloc, fill: AP_FILL_UNALLOCATED },
+          { label: 'Savings pockets', sub: pk.length + (pk.length === 1 ? ' pocket' : ' pockets') + (pk.length ? ', including interest accrued' : ''), value: pockets, fill: AP_FILL_POCKETS },
+          { label: 'Realised gains', sub: 'Held separately, not redeployable', value: realised, fill: AP_FILL_REALISED }
+        ];
+        if (apBarEl) apBarEl.innerHTML = total > 0 ? parts.filter(function (x) { return x.value > 0; }).map(function (x) {
+          return '<i style="width:' + pct(x.value, total).toFixed(2) + '%;background:' + x.fill + '" title="' + x.label + '"></i>';
+        }).join('') : '';
+        if (apPartsEl) apPartsEl.innerHTML = parts.map(function (x) {
+          return '<div class="ap-tp" data-part="' + x.label.toLowerCase().replace(/[^a-z]+/g, '-') + '"><span class="ap-sw" style="background:' + x.fill + '"></span>' +
+            '<div class="ap-tpb"><b>' + x.label + '</b><span>' + x.sub + '</span></div>' +
+            '<div class="ap-tpv">' + formatUSD(x.value, 2) + '</div></div>';
+        }).join('');
+
+        // Capital: deployed with a class split, unallocated with the lowest minimum, pockets
+        var byClass = (r.byClass || []).filter(function (c) { return c.currentValue > 0; });
+        if (apDeployedEl) apDeployedEl.textContent = formatUSD(Math.round(deployed));
+        if (apDeployedSubEl) apDeployedSubEl.innerHTML = '<b>' + held + (held === 1 ? ' holding' : ' holdings') + '</b> across ' + byClass.length + (byClass.length === 1 ? ' asset class' : ' asset classes');
+        if (apDeployedSplitEl) apDeployedSplitEl.innerHTML = AP_CLASSES.filter(function (c) { return byClass.some(function (b) { return b.assetClass === c.key && b.currentValue > 0; }); }).map(function (c) {
+          var b = byClass.find(function (x) { return x.assetClass === c.key; });
+          return '<i style="width:' + pct(b.currentValue, deployed).toFixed(2) + '%;background:' + c.fill + '"></i>';
+        }).join('');
+        if (apDeployedLegendEl) apDeployedLegendEl.innerHTML = byClass.length ? AP_CLASSES.filter(function (c) { return byClass.some(function (b) { return b.assetClass === c.key; }); }).map(function (c) {
+          return '<span><i style="background:' + c.fill + '"></i>' + c.key + '</span>';
+        }).join('') : '<span class="ap-muted">Nothing deployed yet</span>';
+
+        var minimums = products.filter(function (p) { return p.assetClass !== 'Unallocated / Cash' && p.minimumInvestment > 0; }).map(function (p) { return p.minimumInvestment; });
+        var lowest = minimums.length ? Math.min.apply(null, minimums) : null;
+        if (apUnallocEl) apUnallocEl.textContent = formatUSD(Math.round(unalloc));
+        if (apUnallocSubEl) apUnallocSubEl.innerHTML = 'Not invested and earning nothing.' + (lowest !== null ? ' The lowest minimum in the collection is <b>' + formatUSD(lowest) + '</b>.' : '');
+
+        if (apPocketsEl) apPocketsEl.textContent = formatUSD(Math.round(pockets));
+        if (apPocketsSubEl) {
+          if (!pk.length) apPocketsSubEl.textContent = 'No savings pockets open';
+          else {
+            var fixed = pk.filter(function (p) { return p.kind === 'fixed'; });
+            var flexible = pk.length - fixed.length;
+            var next = fixed.filter(function (p) { return p.maturityDate && p.status !== 'matured'; }).sort(function (a, b) { return a.maturityDate < b.maturityDate ? -1 : 1; })[0];
+            var matured = fixed.filter(function (p) { return p.status === 'matured'; }).length;
+            var line = '<b>' + fixed.length + ' fixed pocket' + (fixed.length === 1 ? '' : 's') + '</b>' + (flexible ? ' and ' + flexible + ' flexible' : '');
+            if (next) line += ' · ' + (next.rate != null ? (Math.round(next.rate * 1000) / 10) + '% · ' : '') + 'next matures ' + formatDisplayDate(String(next.maturityDate).slice(0, 10));
+            if (matured) line += ' · ' + matured + ' matured';
+            apPocketsSubEl.innerHTML = line;
+          }
+        }
+      }
+
+      // ---- By asset class ----------------------------------------------------------------
+      function renderByClass() {
+        if (!apByClassRegion) return;
+        var r = returns || {};
+        var byClass = r.byClass || [];
+        var positions = r.positions || [];
+        var deployed = r.currentValue || 0;
+        var heldCount = byClass.filter(function (c) { return c.currentValue > 0; }).length;
+        if (apByClassMeta) apByClassMeta.textContent = heldCount + ' of ' + AP_CLASSES.length + ' classes held';
+        var rows = AP_CLASSES.map(function (c) {
+          var b = byClass.find(function (x) { return x.assetClass === c.key; });
+          var n = positions.filter(function (p) { return p.assetClass === c.key; }).length;
+          if (!b || b.currentValue <= 0) {
+            return '<tr class="ap-cls-row is-unheld" data-class="' + c.key + '">' +
+              '<td class="px-6 py-4"><span class="ap-dot" style="background:' + c.fill + '"></span><b class="ap-cls-name">' + c.key + '</b><span class="rt-meta">' + c.sub + ' · not held</span></td>' +
+              // rt-num sits on an inline span, not the cell: the contrast probe measures the matched
+              // element's whole box, and one dash in a 130×75 cell moves too few pixels for its own
+              // non-vacuity guard — the span's box is the glyph's own.
+              '<td class="px-6 py-4 text-right"><span class="rt-num">—</span></td><td class="px-6 py-4 text-right"><span class="rt-num">—</span></td><td class="px-6 py-4 text-right"><span class="rt-num">—</span></td>' +
+              '<td class="px-6 py-4 text-right"><span class="rt-num">—</span></td><td class="px-6 py-4 text-right"><span class="rt-num">—</span></td></tr>';
+          }
+          return '<tr class="ap-cls-row" data-class="' + c.key + '">' +
+            '<td class="px-6 py-4"><span class="ap-dot" style="background:' + c.fill + '"></span><b class="ap-cls-name">' + c.key + '</b><span class="rt-meta">' + c.sub + '</span></td>' +
+            '<td class="px-6 py-4 text-right"><span class="rt-num">' + n + '</span></td>' +
+            '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(b.costBasis)) + '</td>' +
+            '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(b.currentValue)) + '</td>' +
+            '<td class="px-6 py-4 text-right">' + gainCell(b.unrealized, b.unrealizedPercent) + '</td>' +
+            '<td class="px-6 py-4 text-right"><div class="ap-share"><span class="rt-num">' + pctText(pct(b.currentValue, deployed)) + '</span><span class="ap-track"><i style="width:' + pct(b.currentValue, deployed).toFixed(2) + '%;background:' + c.fill + '"></i></span></div></td></tr>';
+        }).join('');
+        var totalPct = r.costBasis > 0 ? (r.unrealized / r.costBasis) * 100 : 0;
+        apByClassRegion.innerHTML =
+          '<table class="w-full text-sm mw-card-table rt ap-cls">' +
+            '<thead class="bg-slate-50 text-slate-500"><tr>' +
+              '<th class="text-left px-6 py-3">Asset class</th><th class="text-right px-6 py-3">Holdings</th><th class="text-right px-6 py-3">Capital allocated</th>' +
+              '<th class="text-right px-6 py-3">Current value</th><th class="text-right px-6 py-3">Unrealised</th><th class="text-right px-6 py-3">Share</th>' +
+            '</tr></thead>' +
+            '<tbody class="divide-y divide-slate-100">' + rows + '</tbody>' +
+            '<tfoot><tr>' +
+              '<td class="px-6 py-4 rt-total-lab" data-label=""><span class="rt-total-txt">Total deployed</span></td>' +
+              '<td class="px-6 py-4 text-right" data-label="Holdings"><span class="rt-num">' + positions.length + '</span></td>' +
+              '<td class="px-6 py-4 text-right rt-num" data-label="Capital allocated">' + formatUSD(Math.round(r.costBasis || 0)) + '</td>' +
+              '<td class="px-6 py-4 text-right rt-val" data-label="Current value">' + formatUSD(Math.round(deployed)) + '</td>' +
+              // Nothing deployed means no gain on nothing: a dash, never "+$0 +0.0%" (a fabricated
+              // sign on an absent position), matching the share cell beside it.
+              '<td class="px-6 py-4 text-right' + (deployed > 0 ? '' : ' rt-num') + '" data-label="Unrealised">' + (deployed > 0 ? gainCell(r.unrealized || 0, totalPct) : '—') + '</td>' +
+              '<td class="px-6 py-4 text-right rt-num" data-label="Share">' + (deployed > 0 ? '100%' : '—') + '</td>' +
+            '</tr></tfoot>' +
+          '</table>';
+      }
+
       function renderSummaryCards() {
         var r = returns || {};
         var held = (r.positions || []).length;
-        if (tpvEl) tpvEl.textContent = formatUSD(Math.round(tpv));
-        if (tpvSubEl) tpvSubEl.textContent = 'Across ' + held + (held === 1 ? ' holding' : ' holdings');
 
         var u = r.unrealized || 0;
         if (unrealisedEl) {
@@ -368,9 +569,17 @@
           // Only the DASHBOARD's portfolio-level total return spans both; see
           // get-returns-summary's own header for that distinction.
           var uPct = r.costBasis > 0 ? (u / r.costBasis) * 100 : 0;
-          unrealisedSubEl.innerHTML = '<span class="ret-fig ret-u' + (u < 0 ? ' is-loss' : '') +
-            '" style="font-weight:700">' + signedPct(uPct) + '</span> on positions held';
+          unrealisedSubEl.innerHTML = 'On <b>' + held + (held === 1 ? ' open holding' : ' open holdings') + '</b> · <span class="ret-fig ret-u' + (u < 0 ? ' is-loss' : '') +
+            '" style="font-weight:700">' + signedPct(uPct) + '</span> on ' + formatUSD(Math.round(r.costBasis || 0)) + ' of capital allocated. Moves with the market until you sell.';
         }
+        // Up / down split across the open positions — a count, not a money figure.
+        var up = (r.positions || []).filter(function (p) { return p.unrealized > 0; }).length;
+        var down = (r.positions || []).filter(function (p) { return p.unrealized < 0; }).length;
+        var flat = held - up - down;
+        if (apUpDownEl) apUpDownEl.innerHTML = held ? '<i style="width:' + pct(up, held).toFixed(2) + '%;background:var(--ret-gain)"></i><i style="width:' + pct(down, held).toFixed(2) + '%;background:var(--ret-loss)"></i>' : '';
+        if (apUpDownLegendEl) apUpDownLegendEl.innerHTML = held
+          ? '<span><i style="background:var(--ret-gain)"></i>' + up + ' up</span><span><i style="background:var(--ret-loss)"></i>' + down + ' down</span>' + (flat ? '<span><i style="background:#C4BEDA"></i>' + flat + ' unchanged</span>' : '')
+          : '<span class="ap-muted">No open holdings</span>';
 
         // The realised figure is the closed-positions total, deliberately — this card
         // introduces the panel directly below it and states its own row count, so the two
@@ -391,8 +600,8 @@
           // panel below carries the full explanation, so this line stays short and factual.
           realisedSubEl.innerHTML = closed.count === 0
             ? 'No positions sold yet'
-            : 'Locked in across <b style="color:var(--ret-strong);font-weight:600">' + closed.count +
-              '</b> closed position' + (closed.count === 1 ? '' : 's');
+            : 'Banked from <b style="color:var(--ret-strong);font-weight:600">' + closed.count +
+              '</b> closed position' + (closed.count === 1 ? '' : 's') + ' · already in your account and no longer exposed to the market.';
         }
       }
 
@@ -485,24 +694,9 @@
       // position's unrealised sign: those two genuinely disagree when a position is underwater
       // against its cost basis but has risen over the last month, and painting a rising line
       // red would misdescribe the thing being drawn.
-      function sparklineSVG(trend) {
-        if (!trend || trend.length < 2) return '';
-        var min = Math.min.apply(null, trend);
-        var max = Math.max.apply(null, trend);
-        var range = max - min;
-        var W = 70, H = 20, PAD = 2;
-        var pts = trend.map(function (v, i) {
-          var x = (i / (trend.length - 1)) * W;
-          // A genuinely flat series — Private Equity / Real Assets hold their price between
-          // appraisals — has zero range. Draw the centre line rather than dividing by zero.
-          var y = range === 0 ? H / 2 : PAD + (1 - (v - min) / range) * (H - PAD * 2);
-          return x.toFixed(1) + ',' + y.toFixed(1);
-        }).join(' ');
-        var rising = trend[trend.length - 1] >= trend[0];
-        return '<svg class="rt-spark" viewBox="0 0 70 20" aria-hidden="true" focusable="false">' +
-          '<polyline points="' + pts + '" fill="none" stroke="' + (rising ? '#137254' : '#A8452F') +
-          '" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      }
+      // The Trend sparkline was removed from this table (2026-09-19, row 250). The `trend` field
+      // on get-returns-summary's positions and unitPriceSeries() itself stay: verify-returns-display
+      // proves the invertible-series property through them, which is a proof, not a caller.
 
       function renderReturnTable() {
         if (!tableBody) return;
@@ -538,7 +732,6 @@
             '<td class="px-6 py-4 text-right rt-num">' + formatUSD(Math.round(p.costBasis)) + '</td>' +
             '<td class="px-6 py-4 text-right rt-val">' + formatUSD(Math.round(p.currentValue)) + '</td>' +
             '<td class="px-6 py-4 text-right">' + gainCell(p.unrealized, p.unrealizedPercent) + '</td>' +
-            '<td class="px-6 py-4 text-right rt-hide-sm">' + sparklineSVG(p.trend) + '</td>' +
             actionCell +
             '</tr>';
         }).join('');
@@ -547,12 +740,11 @@
         // Totals row. The percentage uses the HELD cost basis, matching the column above it.
         var totalPct = returns.costBasis > 0 ? (returns.unrealized / returns.costBasis) * 100 : 0;
         tableFoot.innerHTML = '<tr>' +
-          '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
+          '<td class="px-6 py-4 rt-total-lab" data-label=""><span class="rt-total-txt">Total</span></td>' +
           '<td class="px-6 py-4" data-label=""></td>' +
           '<td class="px-6 py-4 text-right rt-num" data-label="Capital Allocated">' + formatUSD(Math.round(returns.costBasis)) + '</td>' +
           '<td class="px-6 py-4 text-right rt-val" data-label="Current value">' + formatUSD(Math.round(returns.currentValue)) + '</td>' +
           '<td class="px-6 py-4 text-right" data-label="Unrealised">' + gainCell(returns.unrealized, totalPct) + '</td>' +
-          '<td class="px-6 py-4 rt-hide-sm" data-label=""></td>' +
           '<td class="px-6 py-4" data-label=""></td>' +
           '</tr>';
       }
@@ -604,7 +796,7 @@
         // tbody cells — a tfoot cell needs its label stated, exactly as the Return Table's
         // own totals row does.
         var foot = '<tr>' +
-          '<td class="px-6 py-4 rt-total-lab" data-label="">Total</td>' +
+          '<td class="px-6 py-4 rt-total-lab" data-label=""><span class="rt-total-txt">Total</span></td>' +
           '<td class="px-6 py-4 text-right rt-num" data-label="Units sold">' + formatUnits(t.unitsSold, t.assetClass) + '</td>' +
           '<td class="px-6 py-4 text-right rt-num" data-label="Capital Allocated">' + formatUSD(Math.round(t.capitalAllocated)) + '</td>' +
           '<td class="px-6 py-4 text-right rt-val" data-label="Proceeds">' + formatUSD(Math.round(t.proceeds)) + '</td>' +
@@ -712,26 +904,28 @@
           MarketswaveData.callFunction('get-holdings'),
           MarketswaveData.callFunction('get-returns-summary'),
           MarketswaveData.callFunction('get-transaction-ledger'),
-          MarketswaveData.callFunction('get-total-portfolio-value'),
           MarketswaveData.selectTable('products'),
           MarketswaveData.selectTable('allocation_requests'),
-          MarketswaveData.selectTable('sell_requests')
+          MarketswaveData.selectTable('sell_requests'),
+          // Pockets (with interest accrued to date), the ACCOUNT-scoped deposited figure and
+          // client-since — the client's own read, the same one dashboard.html makes.
+          MarketswaveData.callFunction('get-portfolio-overview')
         ]).then(function (results) {
           return {
             account: results[0],
             holdings: results[1],
             returns: results[2],
             ledger: results[3],
-            tpv: results[4].totalPortfolioValue,
-            products: results[5].map(function (p) {
+            products: results[4].map(function (p) {
               return { id: p.id, name: p.name, assetClass: p.asset_class, investmentType: p.investment_type, minimumInvestment: p.minimum_investment, unitPrice: p.unit_price, lastTickDate: p.last_tick_date, ticker: p.ticker, logoUrl: p.logo_url };
             }),
-            allocationRequests: results[6].map(function (r) {
+            allocationRequests: results[5].map(function (r) {
               return { id: r.id, productId: r.product_id, requestedAmount: r.requested_amount, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
             }),
-            sellRequests: results[7].map(function (r) {
+            sellRequests: results[6].map(function (r) {
               return { id: r.id, productId: r.product_id, unitsToSell: r.units_to_sell, status: r.status, requestedAt: r.requested_at, resolvedAt: r.resolved_at, reason: r.reason };
-            })
+            }),
+            overview: { maturities: results[7].maturities || [], accountDeposited: results[7].history ? results[7].history.accountDeposited : 0, clientSince: results[7].history ? results[7].history.clientSince : null }
           };
         }).catch(function (err) {
           dataPromise = null;
@@ -742,20 +936,21 @@
 
       function applyPageData(data) {
         account = data.account;
-        tpv = data.tpv;
         holdings = data.holdings;
         returns = data.returns;
         products = data.products;
         ledger = data.ledger;
         allocationRequests = data.allocationRequests;
         sellRequests = data.sellRequests;
+        overview = data.overview;
       }
 
-      MarketswaveData.renderAsyncBundle([tpvEl, tpvSubEl, unrealisedEl, unrealisedSubEl, realisedEl, realisedSubEl], {
+      MarketswaveData.renderAsyncBundle([apTotalEl, apSinceEl, apDeployedEl, apDeployedSubEl, apUnallocEl, apUnallocSubEl, apPocketsEl, apPocketsSubEl, unrealisedEl, unrealisedSubEl, realisedEl, realisedSubEl], {
         skeletonHTML: MarketswaveData.skeleton.text('w-24', { height: 'h-6' }),
         load: loadPageData,
         render: function (data) {
           applyPageData(data);
+          renderOverviewCards();
           renderSummaryCards();
         }
       });
@@ -775,7 +970,7 @@
       function reloadTableAndRequests(forceReload) {
         if (forceReload) dataPromise = null;
         MarketswaveData.renderAsyncBundle(tableBody, {
-          skeletonHTML: MarketswaveData.skeleton.tableRows(3, 7),
+          skeletonHTML: MarketswaveData.skeleton.tableRows(3, 6),
           load: loadPageData,
           render: function (data) {
             applyPageData(data);
@@ -788,6 +983,14 @@
         // Portfolio Manager's later approval does — so this panel is expected to look
         // unchanged after a Sell, and re-rendering it keeps that visible rather than leaving
         // a stale render that only happens to look right.
+        MarketswaveData.renderAsyncBundle(apByClassRegion, {
+          skeletonHTML: '<div class="p-6">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }) + '</div>',
+          load: loadPageData,
+          render: function (data) {
+            applyPageData(data);
+            renderByClass();
+          }
+        });
         MarketswaveData.renderAsyncBundle(closedRegion, {
           skeletonHTML: '<div class="p-6">' + MarketswaveData.skeleton.lines(['w-full', 'w-5/6', 'w-2/3'], { gap: 'space-y-3' }) + '</div>',
           load: loadPageData,

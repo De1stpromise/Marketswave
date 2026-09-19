@@ -225,6 +225,17 @@ export async function settleOneProduct(supabaseAdmin: any, productId: string): P
 // allocated_capital must always equal sum(holding.units * product.unitPrice). Takes the
 // client's current holdings + the now-settled product list (avoids a redundant re-read),
 // writes the result to account_state via service_role, and returns it.
+//
+// ★ ROUNDING ORDER (2026-09-19, register row 250): the sum is of PER-POSITION values each
+// rounded to the cent — `Σ round2(units × price)` — not `round2(Σ units × price)`, which is
+// what the local engine does and what this port did until now. The two differ by a cent
+// whenever positions carry sub-cent fractions (Gary: 29,600.71 vs 29,600.72), and the
+// per-position figure is what get-returns-summary reports for each holding, what the
+// holdings table's totals row sums, and what a client can add up themselves. allocated_capital
+// feeds the dashboard's portfolio value; the Asset & Performance page states the identity
+// "Total account value = Portfolio value + Savings pockets", and that identity has to hold to
+// the cent between two pages — which it only does if both sum the same rounded positions.
+// A deliberate, documented divergence from engine-core.js's own order of operations.
 export async function recomputeAllocatedCapital(
   supabaseAdmin: any,
   clientId: string,
@@ -234,7 +245,7 @@ export async function recomputeAllocatedCapital(
   const total = round2(
     holdings.reduce((sum, h) => {
       const product = products.find((p) => p.id === h.product_id);
-      return sum + h.units * (product ? product.unit_price : 0);
+      return sum + round2(h.units * (product ? product.unit_price : 0));
     }, 0)
   );
   const { error } = await supabaseAdmin
@@ -273,7 +284,10 @@ export async function computeTotalPortfolioValue(supabaseAdmin: any, clientId: s
   const { data: state, error } = await supabaseAdmin.from('account_state').select('*').eq('client_id', clientId).maybeSingle();
   if (error) throw new Error('computeTotalPortfolioValue: failed to read account_state: ' + error.message);
   if (!state) return 0;
-  return state.unallocated_capital + state.allocated_capital + state.asset_returns;
+  // round2: three stored 2dp figures summed in floating point came back as e.g.
+  // 33424.299999999996 (2026-09-19, row 250) — harmless on a formatted card, wrong in a
+  // snapshot row or an equality check against another server figure.
+  return round2(state.unallocated_capital + state.allocated_capital + state.asset_returns);
 }
 
 // ---- Historical unit-price series --------------------------------------------------------

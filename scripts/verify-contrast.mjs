@@ -129,10 +129,29 @@ PROFILES['returns-dashboard'] = [
 PROFILES['returns-holdings'] = [
   // Summary cards. The two returns cards colour the DISPLAY figure by sign, which the
   // dashboard's own card does not, so these are new surfaces rather than known ones.
-  { label: 'card label', sel: '.ret-k', limit: 3 },
-  { label: 'card figure', sel: '.ret-v', limit: 3 },
-  { label: 'card sub-line', sel: '.ret-sub', limit: 3 },
+  { label: 'card label', sel: '.ret-k', limit: 6 },
+  { label: 'card figure', sel: '.ret-v', limit: 6 },
+  { label: 'card sub-line', sel: '.ret-sub', limit: 6 },
   { label: 'card sub figure', sel: '.ret-sub .ret-u', limit: 2 },
+  // Asset & Performance overview (row 250): the total card sits under the .glass sheen (it
+  // carries .glass-lift), the section labels, the four parts, the legends, and — the real
+  // risk row 233 recorded — the DIMMED "not held" rows of the class table.
+  { label: 'section label', sel: '.ap-lbl', limit: 2 },
+  { label: 'total figure', sel: '.ap-big', limit: 1 },
+  { label: 'since line', sel: '.ap-since', limit: 1 },
+  { label: 'since gain', sel: '.ap-since .is-gain, .ap-since .is-loss', limit: 1 },
+  { label: 'since muted', sel: '.ap-since .ap-muted', limit: 1 },
+  { label: 'part label', sel: '.ap-tpb b', limit: 4 },
+  { label: 'part sub', sel: '.ap-tpb span', limit: 4 },
+  { label: 'part value', sel: '.ap-tpv', limit: 4 },
+  { label: 'card legend', sel: '.ap-legend span', limit: 6 },
+  { label: 'card action', sel: '.ap-action', limit: 2 },
+  { label: 'class name (held)', sel: '.ap-cls-row:not(.is-unheld) .ap-cls-name', limit: 4 },
+  { label: 'class name (not held, dimmed)', sel: '.ap-cls-row.is-unheld .ap-cls-name', limit: 4 },
+  { label: 'class meta (not held, dimmed)', sel: '.ap-cls-row.is-unheld .rt-meta', limit: 4 },
+  { label: 'class dash (not held, dimmed)', sel: '.ap-cls-row.is-unheld .rt-num', limit: 4 },
+  { label: 'class share', sel: '.ap-share .rt-num', limit: 4 },
+  { label: 'class meta line', sel: '#ap-by-class-meta', limit: 1 },
   // Both tables
   { label: 'column head', sel: '.rt th', limit: 14 },
   { label: 'holding name', sel: '.rt tbody b', limit: 8 },
@@ -144,7 +163,7 @@ PROFILES['returns-holdings'] = [
   { label: 'current value', sel: '.rt .rt-val', limit: 10 },
   { label: 'gain amount', sel: '.rt .rt-gain .a', limit: 10 },
   { label: 'gain percent', sel: '.rt .rt-gain .p', limit: 10 },
-  { label: 'totals label', sel: '.rt-total-lab', limit: 2 },
+  { label: 'totals label', sel: '.rt-total-lab .rt-total-txt', limit: 3 },
   { label: 'legend text', sel: '.rt-legend div', limit: 2 },
   { label: 'legend term', sel: '.rt-legend b', limit: 2 },
 ];
@@ -152,9 +171,16 @@ PROFILES['returns-holdings'] = [
 // The same page for a client who has never sold — the state MOST clients are in, so its
 // copy is measured for real rather than assumed to inherit a tone measured elsewhere.
 PROFILES['returns-holdings-empty'] = [
-  { label: 'card label', sel: '.ret-k', limit: 3 },
-  { label: 'card figure', sel: '.ret-v', limit: 3 },
-  { label: 'card sub-line', sel: '.ret-sub', limit: 3 },
+  { label: 'card label', sel: '.ret-k', limit: 6 },
+  { label: 'card figure', sel: '.ret-v', limit: 6 },
+  { label: 'card sub-line', sel: '.ret-sub', limit: 6 },
+  { label: 'total figure', sel: '.ap-big', limit: 1 },
+  { label: 'since line', sel: '.ap-since', limit: 1 },
+  { label: 'part label', sel: '.ap-tpb b', limit: 4 },
+  { label: 'part sub', sel: '.ap-tpb span', limit: 4 },
+  { label: 'card legend', sel: '.ap-legend span', limit: 4 },
+  { label: 'class name (not held, dimmed)', sel: '.ap-cls-row.is-unheld .ap-cls-name', limit: 4 },
+  { label: 'class meta (not held, dimmed)', sel: '.ap-cls-row.is-unheld .rt-meta', limit: 4 },
   { label: 'empty-state copy', sel: '.rt-empty-copy', limit: 1 },
 ];
 

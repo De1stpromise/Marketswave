@@ -2354,6 +2354,45 @@ moment the one real send is behind it, and sweeps a prior run's residue on entry
 project's libuv abort (row 198) can skip a `finally`, and the first run of this suite did
 exactly that, leaving Gary unreachable until repaired by hand.
 
+### Asset & performance overview (2026-09-19, register row 250)
+
+`asset-performance.html` opens with three sections instead of the old three-card row: a
+**Total account value** card, a **Capital** row (Deployed in assets · Unallocated capital · In
+savings pockets) and a **Returns** row (Unrealised · Realised gains); a **By asset class**
+table sits after the closed positions; the holdings table lost its Trend column and carries
+Sell on every row.
+
+The three totals a client can see across the app are three different numbers, related by one
+identity — and the suite asserts them as distinct values, then the identity to the cent:
+
+```
+Total account value = deployed + unallocated + savings pockets (+ accrued) + realised gains
+                    = Portfolio value (dashboard.html) + Savings pockets
+Portfolio value     = unallocated + allocated + asset_returns        (no pockets)
+Total deployed      = holdings only                                  (the class table's tfoot)
+```
+
+Realised gains are IN the account total ("Held separately, not redeployable") — excluding them
+would make the account read lower than the dashboard's portfolio value. "Deposited" on the
+since-you-joined line is `get-portfolio-overview`'s new `accountDeposited` (external flows
+only), not `capitalIn.current`, which subtracts pocket transfers for the portfolio line.
+
+Two figures that had disagreed by a cent now agree: `recomputeAllocatedCapital()` sums
+per-position rounded values (what every displayed row is), the same order `get-returns-summary`
+uses, and `computeTotalPortfolioValue()` rounds its return. Both live in
+`supabase/functions/_shared/portfolio-engine.ts`; redeploy every importer when it changes.
+
+Run from `scripts/`:
+
+```
+npm run verify-asset-performance-overview     # every figure against its source; three totals distinct; Gary + empty + one-class (66)
+npm run verify-returns-display                # the holdings/closed tables and the six card labels (105)
+npm run verify-returns-display-visual         # contrast with the sheen composited incl. the dimmed rows; 1440/390/375/320 on a real phone profile (191)
+```
+
+The first needs Gary seeded (`node seed-client-gary.mjs`) and `GARY_SEED_PASSWORD` in
+`supabase/functions/.env`; it creates and deletes its own empty and one-class clients.
+
 ---
 
 ## Emulator Bootstrap Runbook
