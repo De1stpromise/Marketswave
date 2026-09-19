@@ -319,7 +319,14 @@ async function main() {
   // This client has no savings pockets, so it equals the portfolio value exactly.
   check('the headline renders the REAL, distinctive account total (not $1,284,500 or any old hardcoded figure) — with no pockets, the portfolio value to the cent', tpvEl.textContent === usd2(expectedTpv) && doc.getElementById('po-portfolio-value').textContent === usd2(expectedTpv), 'got="' + tpvEl.textContent + '" expected=' + usd2(expectedTpv));
   check('the four-part bar carries deployed, unallocated and realised segments (no pockets)', [...doc.querySelectorAll('#po-tbar i')].map(function (i) { return i.dataset.part; }).join(',') === 'deployed,unallocated,realised');
-  check('the priced pill is real and green: this client holds a Private Equity fund (appraisal) and a market-priced ETF, so it reads "Priced N ago" from the ETF\'s own price_as_of', /^Priced .* ago$/.test(doc.getElementById('po-asof').textContent.trim()) && !doc.getElementById('po-asof').classList.contains('is-stale') && !/Updated just now/.test(doc.getElementById('po-value-card').textContent), doc.getElementById('po-asof').textContent);
+  // The pill against the payload, in whichever state this machine is in: this client holds a
+  // Private Equity fund (appraisal, never stale) and ONE market-priced ETF — green "Priced N
+  // ago" from that ETF's own price_as_of, or amber "1 of 1 holding stale" when row 213's
+  // shared-key starvation has left it past the threshold. Either way, never "Updated just now".
+  const pricing = (await client.functions.invoke('get-portfolio-overview')).data.pricing;
+  const pillText = doc.getElementById('po-asof').textContent.trim();
+  const pillStale = doc.getElementById('po-asof').classList.contains('is-stale');
+  check('the priced pill is REAL and agrees with the payload (' + (pricing.affected ? 'amber, ' + pricing.affected + ' of ' + pricing.marketPriced + ' stale' : 'green, priced from the ETF\'s own price_as_of') + '); "Updated just now" appears nowhere', pricing.marketPriced === 1 && (pricing.affected ? (pillStale && /^1 of 1 holding stale/.test(pillText)) : (!pillStale && /^Priced .* ago$/.test(pillText))) && !/Updated just now/.test(doc.getElementById('po-value-card').textContent), pillText + ' | ' + JSON.stringify(pricing));
   // Detail added 2026-09-15: this failed once with no way to tell WHICH half was false. The
   // legend markup changed shape with the donut (row 226), so report what was actually there.
   check('the allocation legend genuinely reflects real holdings (Private Equity % present and non-zero)',

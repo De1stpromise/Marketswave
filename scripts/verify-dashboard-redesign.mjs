@@ -51,9 +51,18 @@ function localStack() {
   return j;
 }
 async function callFunction(url, token, name, body) {
-  const r = await fetch(url + '/functions/v1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {}) });
-  let json = null; try { json = await r.json(); } catch (_e) {}
-  return { status: r.status, body: json };
+  // The first call after a gate (or an edge-runtime restart) can answer a cold 5xx; the
+  // read functions are idempotent, so a non-2xx is retried twice with a pause and reported.
+  let last = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await fetch(url + '/functions/v1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(body || {}) });
+    let json = null; try { json = await r.json(); } catch (_e) {}
+    last = { status: r.status, body: json };
+    if (r.status < 500) return last;
+    console.log('      (' + name + ' answered ' + r.status + ' — ' + JSON.stringify(json).slice(0, 160) + ' — retrying)');
+    await sleep(2500);
+  }
+  return last;
 }
 const usd2 = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const usd0 = (n) => '$' + Math.round(n).toLocaleString('en-US');
@@ -411,9 +420,18 @@ async function main() {
     // lands, a symbol crosses the threshold) — what is asserted is that the FORCED failure is
     // gone, and that the pill agrees with whatever the payload now says.
     check('★ CLEARED: the payload no longer reports the forced failure (failed 0; ' + (victim.ticker || victim.id) + ' is not listed as failed — it may legitimately be STALE again on this machine, a different condition)', ovClear.pricing.failed === 0 && !ovClear.pricing.affectedProducts.some((p) => p.productId === victim.id && p.status === 'failed'), JSON.stringify(ovClear.pricing));
-    await loadDash(cdp, gary.bootstrap);
-    const cleared = await cdp.evaluate('(()=>{const p=document.getElementById("po-asof");return {t:p.textContent.trim(),stale:p.classList.contains("is-stale")}})()');
-    check('...and the pill no longer says "failed" — it reads whatever the payload now reports (' + (ovClear.pricing.affected > 0 ? ovClear.pricing.affected + ' stale' : 'green') + ')', cleared.t.indexOf('failed') === -1 && cleared.stale === (ovClear.pricing.affected > 0), JSON.stringify(cleared));
+    // The pill against a payload read AFTER the render (the refresh cron can re-price the
+    // restored products between two reads a minute apart — seen: "3 stale" then a green
+    // "Priced 55 min ago"); a straddle is rendered again rather than argued with.
+    let cleared = null, ovAfter = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await loadDash(cdp, gary.bootstrap);
+      cleared = await cdp.evaluate('(()=>{const p=document.getElementById("po-asof");return {t:p.textContent.trim(),stale:p.classList.contains("is-stale")}})()');
+      ovAfter = (await callFunction(url, gary.token, 'get-portfolio-overview', {})).body;
+      if (cleared.stale === (ovAfter.pricing.affected > 0)) break;
+      console.log('      (a price refresh landed between the render and the read — rendering again)');
+    }
+    check('...and the pill no longer says "failed" — it reads whatever the payload now reports (' + (ovAfter.pricing.affected > 0 ? ovAfter.pricing.affected + ' stale' : 'green') + ')', cleared.t.indexOf('failed') === -1 && cleared.stale === (ovAfter.pricing.affected > 0), JSON.stringify({ cleared, pricing: ovAfter.pricing }));
 
     // =====================================================================================
     console.log('\n4. Edge states — no holdings; one class with no pockets');
@@ -446,8 +464,15 @@ async function main() {
     // =====================================================================================
     for (const [width, phone] of [[1440, false], [900, false], [390, true], [375, true]]) {
       await setViewport(cdp, width, phone);
-      const ok = await loadDash(cdp, gary.bootstrap);
+      let ok = await loadDash(cdp, gary.bootstrap);
       await sleep(1200); // the count-up settles
+      // A region that answered with its error card (a cold 5xx under load) is not a layout
+      // result: reload once and say so, rather than measure a Try Again button as the row.
+      if (await cdp.evaluate('document.querySelectorAll("[data-retry]").length') > 0) {
+        console.log('      (' + width + 'px: a region showed its error card — ' + JSON.stringify(await cdp.evaluate('[...document.querySelectorAll("[data-retry]")].map(b=>b.closest("[id]")&&b.closest("[id]").id)')) + ' — reloading once)');
+        ok = await loadDash(cdp, gary.bootstrap);
+        await sleep(1200);
+      }
       const probe = await cdp.evaluate(PHONE_PROBE);
       check(width + 'px: the browser genuinely reports that width' + (phone ? ', on a REAL phone profile (coarse pointer, no hover, DPR 3, touch)' : ''), probe.w === width && (!phone || (probe.coarse && probe.nohover && probe.dpr === 3 && probe.touch > 0)), JSON.stringify(probe));
       const g = await cdp.evaluate(GEOM);
