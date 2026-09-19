@@ -186,6 +186,15 @@ async function main() {
   const { data: gary } = await admin.from('clients').select('id, name').ilike('name', '%Gary%').maybeSingle();
   if (!gary) { console.log('Gary is not seeded — run `node seed-client-gary.mjs` first.'); process.exit(1); }
   const URL_ = BASE + '/admin-client-profile.html?client=' + gary.id;
+  // Gary's seed carries no documents any more (the fake byteless catalogue was scrapped, row
+  // 247/D), so the Restricted / access-log-warning / no-file branches this suite measures get
+  // their own throwaway rows here rather than leaning on ambient seed state (row 230's class).
+  const plantSuffix = Math.random().toString(16).slice(2, 8);
+  const { data: planted } = await admin.from('documents').insert([
+    { client_id: gary.id, direction: 'upload', filename: 'passport-cpv-' + plantSuffix + '.pdf', category: 'General', status: 'Received', is_new: false, storage_path: null },
+    { client_id: gary.id, direction: 'from', filename: 'Statement-cpv-' + plantSuffix + '.pdf', category: 'Statements & Reports', status: null, is_new: false, storage_path: null }
+  ]).select('id');
+  const plantedDocs = (planted || []).map((d) => d.id);
 
   const anon = createClient(st.API_URL, st.ANON_KEY);
   const signed = await anon.auth.signInWithPassword({ email: 'pm@marketswave.local', password: 'MarketswavePM-Local-2026!' });
@@ -311,6 +320,7 @@ async function main() {
       iframe.holdings > 0 && iframe.absences >= 2, iframe.holdings + ' holdings / ' + iframe.absences + ' absences');
 
   } finally {
+    if (plantedDocs.length) await admin.from('documents').delete().in('id', plantedDocs);
     if (cdp) { try { cdp.ws.close(); } catch (e) {} try { cdp.chrome.kill(); } catch (e) {} }
     if (profile) await releaseTempDir(profile);
     if (server) { try { server.kill(); } catch (e) {} }

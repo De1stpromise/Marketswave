@@ -10687,6 +10687,13 @@ row 74.
     `filename.ilike.Second Agreement (%).pdf` silently matches nothing; use separate queries
     (or quote the value). Caught by the sweep removing one leftover of two.
   - **Not built, stated**: countersignature, non-PDF signing, a client-visible re-check.
+  - **The full suite ran, per the brief, and the triage is in register row 249**: 67/102 green
+    in-run, every non-green traced to an environmental cause or a pre-existing suite coupling
+    (the killed root server above; a two-hour network degradation; an edge-runtime restart
+    window; three client-profile suites and the client list leaning on Gary's removed fake
+    passport / a demo `clients` row the seed never wrote — all fixed), all green on isolated
+    re-run except ONE deterministic UNMEASURED in `verify-returns-display-visual` on pages this
+    task never touched (a 362×75 label box at the row-210 guard's threshold edge; open).
   **Verified**: `supabase-verify-document-signing` 66/66; `verify-document-signing-visual`
   68/68 (a real Chrome-printed agreement published to Gary THROUGH the real
   `publish-document`, rendered by real pdf.js, signed by a real click, every field read back
@@ -11171,6 +11178,16 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   need a clean pair, that is three passes, not two, and each is ~25 minutes — budget for it.
   A `supabase stop`/`start` in the middle of a session resets this; the next run is a cold
   run again.
+- **★ DO NOT KILL A `python -m http.server 8765` THAT IS SERVING THE PROJECT ROOT (2026-09-18,
+  row 249).** Most visual/CDP suites do not spawn their own static server — they expect one
+  already listening on 8765 from the project root — and only a minority (the newer ones) spawn
+  and kill their own. The bullet below once called a stray `http.server 8765` "a genuine
+  leftover"; read literally, that sent a session to kill the operator's root server, after which
+  an entire block of visual suites loaded `chrome-error://` pages (the tell: `SecurityError:
+  Failed to read the 'localStorage' property … Access is denied`) and reported "page never
+  rendered". Before killing one, `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/
+  index.html` — a 200 means it is the root server the suites need; a 404 on every page means it
+  was started from `scripts/` and IS a leftover. If none is running, start one from the root.
 - **★ `supabase stop` does NOT stop `supabase functions serve`.** Added 2026-09-11 after a
   cleanup pass found it still alive after the stack was down. `functions serve` runs as a
   separate CLI process tree — `sh → node → supabase.exe`, three PIDs, confirmed by their own
