@@ -10759,6 +10759,73 @@ row 74.
   under the sheen — 137 + 32 measurements, 0 below 4.5:1; 320/375/390 on a REAL phone profile
   proven by matchMedia, plus 1440); `verify-asset-pages-ui-wiring` 43/43.
 
+- **★★ Client dashboard redesign — Total account value leads, price status carried by the
+  money functions and shown, pockets promoted, Largest position, pending ages (2026-09-19,
+  register row 251).** Built to the approved mockup, reconciled first with what shipped on
+  Asset & performance (row 250): FOUR parts, realised included, the same bar. `dashboard.html`
+  + `dashboard-cards.css` (`.dc-*` cards, `.rm-*` risk rows, `.ac-*` activity) +
+  `portfolio-overview.js/.css`; three server modules touched.
+  **Things a future session needs to know before touching any of this:**
+  - **★ `_shared/price-status.ts` IS THE ONE DERIVATION OF PRICE STATUS FOR CLIENT-FACING
+    READS. Do not compute "stale" anywhere else.** `failed` = `products.price_status ===
+    'quote_failed'` (unit_price is the LAST GOOD price, kept — market-refresh.ts); `stale` = a
+    market product with no `price_as_of` or older than `worstCaseStalenessMinutes(finnhub rows
+    in market_data_cache) + 2 × REFRESH_INTERVAL_MINUTES` — DERIVED from the live union, never
+    a constant (the catalog grew 29 → 330 in a day, row 211). Appraisal/fixed/simulated
+    products are never stale or failed; their `priceAsOf` is `last_tick_date`, an honest
+    valuation date. `summarisePricing()` counts a product ONCE (failed takes precedence).
+    get-returns-summary, get-holdings and get-portfolio-overview all carry it; a new
+    client-facing read should import it, not re-derive it.
+  - **★ ON THIS MACHINE GARY'S PILL IS OFTEN AMBER, AND THAT IS CORRECT.** Row 213's shared
+    Finnhub key starves the local rotation, so his stocks cross the 60-minute threshold
+    between cycles ("N of 8 holdings stale"). The suite asserts the pill against the payload
+    in whichever state the machine is in, forces every held product FRESH to prove the green
+    path, forces one STOCK to `quote_failed` for the amber proof (a coin would be cleared by
+    the next crypto batch; `price_as_of` stays fresh so no cache row is newer to clear it
+    either), and restores every column it touched — in `finally` too.
+  - **★ THE CATALOG IS LIVE-PRICED: a payload read and a page render can straddle the
+    five-minute refresh.** Seen in one run: $34,560.68 against $34,563.25, every figure "off"
+    by a few dollars. A suite that compares a rendered figure to a server read must read,
+    render, read again and compare only when the two reads agree — `verify-dashboard-redesign`
+    does; the same applies to the dashboard-vs-Asset-&-performance parity check.
+  - **`account` on get-portfolio-overview is computed with get-returns-summary's per-position
+    rounding order (row 250)**, so the two pages agree to the cent by construction. Growth is
+    against `account.deposited` (external flows: DEPOSIT + HYS_DEPOSIT − WITHDRAWAL −
+    HYS_WITHDRAWAL), never `capitalIn.current`.
+  - **`_shared/concentration.ts` owns the ≥40%-of-TPV / ≥$10k rule** for BOTH the PM briefing
+    and the client's Largest position row; pm-briefing.ts re-exports the constants. Share is
+    of TOTAL portfolio value (what the briefing measures), `shareOfHeld` rides alongside.
+  - **★ THE COUNT-UP MUST LAND ON THE FORMATTED TARGET.** `motion-helpers.js`'s `countUp` now
+    sets `format(to)` in `onComplete`; the headline is a 2dp figure and the first browser run
+    ended on the last interpolated sample ("$34,563" against "$34,562.89"). A suite reading a
+    counted figure waits for the exact text, not for the skeleton to leave.
+  - **A lone em dash in a 10px badge cannot pass contrast** (row 250's one-pixel-stroke
+    finding, again): the empty-state badges carry words (Empty / None).
+  - **`hys_pockets.rate` IS A PERCENT** (4.8, not 0.048 — `getHysRate` returns 5/7/8.5/12 and
+    high-yield-savings.html renders `${rate}% APR`). `seed-client-gary.mjs` stored the
+    fraction until this task (row 228's exact trap on a different fixture); the seed is fixed
+    and Gary's rows repaired on local AND staging (row 223: fix the source, then clean what the
+    old seed wrote everywhere it ran).
+  - **The Risk profile still lives in localStorage.** The row compares the chosen level's
+    crypto weight (risk-management.html's own 5/12/25, a three-number duplication) + 10 points
+    against the real crypto share and says "No risk profile is set on this device" when none
+    is. A server home is costed in the register (one `client_profiles.risk_profile` column, a
+    self-only `set-risk-profile` function, the two wirings) — not built.
+  - **Deviation from the mockup, deliberate**: the market snapshot stays one-up at 390/375
+    (row 206's measured decision). The legend sits under the plot and the ranges beside the
+    title (the mockup's own arrangement) — that row was what put the matured pocket back above
+    the fold at 1440×900; the period stats stay.
+  - **`verify-dashboard-ui-wiring` moved onto jsdom**: its hand-rolled fake DOM could not host
+    `portfolio-overview.js`. Tests 1–2 (the renderAsyncBundle mechanics) keep the stub.
+  **Verified**: `verify-dashboard-redesign` (new) 97/97 — every figure against its source,
+  the forced quote_failed round trip on the real payloads and the real pill, dashboard =
+  Asset & performance to the cent in one browser session, empty / one-class / no-pockets
+  clients, pending ages vs the real `requested_at`, contrast with the sheen composited on five
+  profiles (the amber pill, the donut labels, every badge tone), the sheen audit, Inter only,
+  1440/900/390/375 (a real phone profile) + a real 320px iframe. Repointed, not dropped:
+  `verify-portfolio-overview-ui-wiring` 57/57, `verify-dashboard-ui-wiring` 33/33,
+  `verify-dashboard-market-currency-ui` 10/10, `verify-portfolio-overview-visual`.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

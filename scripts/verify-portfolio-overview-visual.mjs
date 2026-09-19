@@ -144,13 +144,15 @@ const GEOM = `(() => {
   const cv = document.getElementById('po-chart').getBoundingClientRect();
   const pend = document.getElementById('po-pending-card').getBoundingClientRect();
   const mat = document.getElementById('po-maturities-card').getBoundingClientRect();
+  const allocR = document.getElementById('allocation-card').getBoundingClientRect();
+  const actR = document.getElementById('activity-card').getBoundingClientRect();
   const rows = [...document.querySelectorAll('#po-pending .po-row, #po-maturities .po-mat')].map(r => r.getBoundingClientRect().right);
   const rg = [...document.querySelectorAll('.po-rg')].map(b => Math.round(b.getBoundingClientRect().height));
   const cells = [...document.querySelectorAll('.po-cell')].map(c => { const r = c.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; });
   const stats = [...document.querySelectorAll('#po-stats > div')].map(c => { const r = c.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right }; });
   const figs = [...document.querySelectorAll('#tpv-amount, #total-return-amount, .ret-class, #tpv-monthly-change, #total-return-split, #best-performing-return')].map(e => e.getBoundingClientRect().right);
   return { inner: window.innerWidth, bodyScroll: document.body.scrollWidth, canvasW: Math.round(cv.width), canvasRight: cv.right, cardRight: card.right, cardLeft: card.left, cardW: card.width,
-    pend: { l: pend.left, t: pend.top, b: pend.bottom, r: pend.right }, mat: { l: mat.left, t: mat.top, r: mat.right }, maxRowRight: Math.max(...rows), rangeHeights: rg,
+    pend: { l: pend.left, t: pend.top, b: pend.bottom, r: pend.right }, mat: { l: mat.left, t: mat.top, r: mat.right, b: mat.bottom }, alloc: { l: allocR.left, t: allocR.top, r: allocR.right, b: allocR.bottom }, act: { l: actR.left, t: actR.top, r: actR.right }, maxRowRight: Math.max(...rows), rangeHeights: rg,
     cells, stats, maxFigRight: Math.max(...figs), noExport: !document.getElementById('po-export') && !document.querySelector('.po-hd button'),
     sparkShown: !document.getElementById('po-spark').hidden && getComputedStyle(document.getElementById('po-spark')).display !== 'none',
     chartPts: (Chart.getChart('po-chart') || { data: { datasets: [{ data: [] }] } }).data.datasets[0].data.length };
@@ -326,17 +328,17 @@ async function main() {
       const live = ds[0].data.map((p) => p.y);
       // The live value is read from the band's lead cell — the ONLY place the page states it.
       // That cell counts up (Motion), so wait for it to settle on the real figure.
-      await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){const t=document.getElementById("tpv-amount").textContent.trim();if(t==="$128,000"||t==="$128,000.00")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
-      const value = await cdp.evaluate('document.getElementById("tpv-amount").textContent.trim()');
+      await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){const t=document.getElementById("po-portfolio-value").textContent.trim();if(t==="$128,000.00")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
+      const value = await cdp.evaluate('document.getElementById("po-portfolio-value").textContent.trim()');
       const liveValue = Number(value.replace(/[^0-9.]/g, ''));
       check('★ the real portfolio dataset equals the table rows + today\'s live value', JSON.stringify(live) === JSON.stringify(tableValues.concat([liveValue])), JSON.stringify({ live, tableValues, liveValue }));
-      check('the live value is stated once, in the band\'s lead cell, at the account\'s real $128,000', liveValue === 128000 && (await cdp.evaluate('document.querySelectorAll("#tpv-amount").length')) === 1, value);
+      check('the portfolio value ($128,000.00) is stated once, in the band\'s Portfolio cell; the headline above it is the ACCOUNT total (portfolio + pockets, row 251)', liveValue === 128000 && (await cdp.evaluate('document.querySelectorAll("#po-portfolio-value").length')) === 1 && (await cdp.evaluate('Number(document.getElementById("tpv-amount").textContent.replace(/[^0-9.]/g,""))')) > 128000, value);
       // The return figure counts up (Motion) like the value: settle on the real figure first.
       await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){if(document.getElementById("total-return-amount").textContent.trim()==="+$18,000")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
       const band = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);return {title:document.querySelector(".po-title").textContent,asof:g("po-asof").textContent,change:g("po-change").textContent,tm:g("tpv-monthly-change").textContent,ret:g("total-return-amount").textContent.trim(),retCls:g("total-return-amount").className,pct:g("total-return-pct").textContent,split:[...g("po-split").children].map(i=>i.style.width),splitHidden:g("po-split").hidden,cls:g("best-performing-class").textContent.trim(),clsSub:g("best-performing-return").textContent,chartTitle:document.querySelector(".po-ch-title").textContent,legend:[...document.querySelectorAll(".po-leg > span")].filter(e=>!e.hidden).map(e=>e.textContent),dollarsInChartHead:(document.querySelector(".po-ch-h").textContent.match(/\\$/g)||[]).length,glassLift:g("po-value-card").classList.contains("glass-lift")};})()');
-      check('★ ONE card, .glass-lift, titled "Portfolio", "Updated just now", chart section titled "Value over time" with no dollar figure in its head', band.title === 'Portfolio' && /Updated just now/.test(band.asof) && band.chartTitle === 'Value over time' && band.dollarsInChartHead === 0 && band.glassLift === true, JSON.stringify(band));
-      check('the band: since pill +$28,000 · +28.0%, this month +$10,000 (+8.5%), return +$18,000 gain-toned, split 0%/100%, class "—"', /\+\$28,000 · \+28\.0%/.test(band.change) && /\+\$10,000/.test(band.tm) && /\+8\.5%/.test(band.tm) && band.ret === '+$18,000' && /is-gain/.test(band.retCls) && !band.splitHidden && parseFloat(band.split[0]) === 0 && parseFloat(band.split[1]) === 100 && band.cls === '\u2014', JSON.stringify(band));
-      check('the legend lists Portfolio, Capital in, Deposit and the outflow entry (a withdrawal and a transfer are in range)', band.legend.length === 4 && /Capital in/.test(band.legend[1]) && /Deposit/.test(band.legend[2]) && /Withdrawal/.test(band.legend[3]), JSON.stringify(band.legend));
+      check('★ ONE card, .glass-lift, titled "Total account value", the priced pill (never "Updated just now"), chart section titled "Portfolio value over time" with no dollar figure in its head', band.title === 'Total account value' && !/Updated just now/.test(band.asof) && /No holdings to price/.test(band.asof) && band.chartTitle === 'Portfolio value over time' && band.dollarsInChartHead === 0 && band.glassLift === true, JSON.stringify(band));
+      check('the band: growth since joined against $118,000 deposited, this month +$10,000 (+8.5%), return +$18,000 gain-toned, split 0%/100%, class "—"', / since you joined/.test(band.change) && /\$118,000\.00 deposited/.test(band.change) && /\+\$10,000/.test(band.tm) && /\+8\.5%/.test(band.tm) && band.ret === '+$18,000' && /is-gain/.test(band.retCls) && !band.splitHidden && parseFloat(band.split[0]) === 0 && parseFloat(band.split[1]) === 100 && band.cls === '\u2014', JSON.stringify(band));
+      check('the legend lists Portfolio value, Capital you put in, Deposit and the outflow entry (a withdrawal and a transfer are in range)', band.legend.length === 4 && /Capital you put in/.test(band.legend[1]) && /Deposit/.test(band.legend[2]) && /Withdrawal/.test(band.legend[3]), JSON.stringify(band.legend));
       check('three datasets: the portfolio line (tension 0), the dashed capital-in line, the event dots', ds.length === 3 && ds[0].tension === 0 && ds[1].dash && ds[1].dash.length === 2 && ds[2].type === 'scatter', JSON.stringify(ds.map((d) => [d.label, d.type, d.dash])));
       check('★ the capital-in dataset steps at the ledger dates: 100,000 → 98,000 → 95,000 → 110,000', JSON.stringify(ds[1].data.map((p) => p.y)) === JSON.stringify([100000, 100000, 98000, 98000, 95000, 95000, 110000, 110000]), JSON.stringify(ds[1].data));
       check('three event dots (white-filled for the two outflows, gold for this month\'s deposit), each drawn ON the portfolio line', ds[2].data.length === 3 && ds[2].bg.join(',') === '#ffffff,#ffffff,#C8860A', JSON.stringify(ds[2]));
@@ -416,7 +418,7 @@ async function main() {
       // Tabular figures, by real rendered advance width (a declaration alone proves nothing).
       const tab = await cdp.evaluate('(()=>{const out={};for(const sel of ["#tpv-amount","#total-return-amount",".po-pv",".po-mv"]){const f=document.querySelector(sel);const cs=getComputedStyle(f);const s=document.createElement("span");s.style.cssText="position:absolute;visibility:hidden;font:"+cs.font+";font-variant-numeric:"+cs.fontVariantNumeric;document.body.appendChild(s);s.textContent="1111111";const a=s.getBoundingClientRect().width;s.textContent="0000000";const b=s.getBoundingClientRect().width;s.remove();out[sel]={a,b,fvn:cs.fontVariantNumeric,size:cs.fontSize,family:cs.fontFamily};}return out;})()');
       check('every figure renders tabular (1111111 and 0000000 the same width): the 38px value, the return, the period stats, the pocket values', Object.values(tab).every((t) => Math.abs(t.a - t.b) < 0.5 && /tabular/.test(t.fvn)), JSON.stringify(tab));
-      check('the value figure is 38px and the return figure 24px, both Inter', tab['#tpv-amount'].size === '38px' && tab['#total-return-amount'].size === '24px' && /Inter/.test(tab['#tpv-amount'].family), JSON.stringify(tab));
+      check('the value figure is 39px and the return figure 20px, both Inter', tab['#tpv-amount'].size === '39px' && tab['#total-return-amount'].size === '20px' && /Inter/.test(tab['#tpv-amount'].family), JSON.stringify(tab));
 
       // The losing client on screen: every negative figure carries an explicit minus sign.
       await cdp.send('Page.navigate', { url: BASE + '/' });
@@ -428,7 +430,7 @@ async function main() {
       await shot(cdp, '04-losing-client');
       await cdp.evaluate('(async()=>{for(let i=0;i<40;i++){if(document.getElementById("total-return-amount").textContent.trim()==="\u2212$27,000")return true;await new Promise(r=>setTimeout(r,100));}return false;})()');
       const lb = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);return {ret:g("total-return-amount").textContent.trim(),retCls:g("total-return-amount").className,label:g("best-performing-label").textContent,clsSub:g("best-performing-return").textContent,pill:g("po-change").textContent,tm:g("tpv-monthly-change").textContent,stats:[...document.querySelectorAll("#po-stats > div")].map(d=>d.textContent.replace(/\\s+/g," ").trim()),spark:document.getElementById("po-spark").querySelector("path").getAttribute("stroke")};})()');
-      check('★ the losing client: return −$27,000 loss-toned, "Most resilient class · every class is down" with a loss pill, since pill and this-month negative, worst month negative, sparkline loss-toned', lb.ret === '\u2212$27,000' && /is-loss/.test(lb.retCls) && lb.label === 'Most resilient class' && /every class is down/.test(lb.clsSub) && /\u2212/.test(lb.pill) && /\u2212/.test(lb.tm) && /Worst month\u2212/.test(lb.stats[3]) && lb.spark === '#A8452F', JSON.stringify(lb));
+      check('★ the losing client: return −$27,000 loss-toned, "Most resilient class · every class is down" with a loss pill, growth since joined and this-month negative, worst month negative, sparkline loss-toned', lb.ret === '\u2212$27,000' && /is-loss/.test(lb.retCls) && lb.label === 'Most resilient class' && /every class is down/.test(lb.clsSub) && /\u2212\$27,000 since you joined/.test(lb.pill) && /\u2212/.test(lb.tm) && /Worst month\u2212/.test(lb.stats[3]) && lb.spark === '#A8452F', JSON.stringify(lb));
 
       // The new client on screen: the band renders, the chart area explains, nothing else.
       await cdp.send('Page.navigate', { url: BASE + '/' });
@@ -438,8 +440,8 @@ async function main() {
       await cdp.evaluate(WAIT_OVERVIEW(false));
       await sleep(800);
       await shot(cdp, '05-new-client');
-      const nb = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);const vis=(el)=>el&&getComputedStyle(el).display!=="none"&&!el.hidden;return {value:g("tpv-amount").textContent.trim(),tm:g("tpv-monthly-change").textContent.trim(),change:vis(g("po-change")),chart:vis(g("po-chart-wrap")),newc:vis(g("po-newc")),stats:vis(g("po-stats")),spark:vis(g("po-spark")),legend:vis(g("po-legend")),ranges:vis(g("po-ranges")),newcText:g("po-newc").textContent};})()');
-      check('★ the new client: $52,000 in the band, "New this month", no since pill, chart/legend/ranges/stats/sparkline hidden, the explanation shown', nb.value === '$52,000' && nb.tm === 'New this month' && !nb.change && !nb.chart && nb.newc && !nb.stats && !nb.spark && !nb.legend && !nb.ranges && /1 so far/.test(nb.newcText), JSON.stringify(nb));
+      const nb = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);const vis=(el)=>el&&getComputedStyle(el).display!=="none"&&!el.hidden;return {value:g("tpv-amount").textContent.trim(),tm:g("tpv-monthly-change").textContent.trim(),change:vis(g("po-change")),changeText:g("po-change").textContent,chart:vis(g("po-chart-wrap")),newc:vis(g("po-newc")),stats:vis(g("po-stats")),spark:vis(g("po-spark")),legend:vis(g("po-legend")),ranges:vis(g("po-ranges")),newcText:g("po-newc").textContent};})()');
+      check('★ the new client: $52,000.00 in the headline, "New this month", growth "$0 since you joined" (never +$52,000), chart/legend/ranges/stats/sparkline hidden, the explanation shown', nb.value === '$52,000.00' && nb.tm === 'New this month' && nb.change && /^\$0 since you joined/.test(nb.changeText.trim()) && !nb.chart && nb.newc && !nb.stats && !nb.spark && !nb.legend && !nb.ranges && /1 so far/.test(nb.newcText), JSON.stringify(nb));
 
       await cdp.send('Page.navigate', { url: BASE + '/' });
       await sleep(400);
@@ -459,13 +461,13 @@ async function main() {
         check(width + 'px: the chart canvas stays inside its card', g.canvasRight <= g.cardRight + 1 && g.canvasW > 100, JSON.stringify(g));
         check(width + 'px: no request or pocket row escapes the viewport', g.maxRowRight <= g.inner + 1, JSON.stringify(g));
         if (width >= 1024) {
-          check(width + 'px: pending and maturities sit side by side (two-up)', Math.abs(g.pend.t - g.mat.t) < 2 && g.mat.l > g.pend.r - 1, JSON.stringify(g));
-          check(width + 'px: ★ the band is three cells across, the value cell the widest, the sparkline shown', g.cells.length === 3 && Math.abs(g.cells[0].t - g.cells[1].t) < 2 && Math.abs(g.cells[1].t - g.cells[2].t) < 2 && g.cells[1].l > g.cells[0].r - 1 && (g.cells[0].r - g.cells[0].l) > (g.cells[1].r - g.cells[1].l) && g.sparkShown, JSON.stringify(g.cells));
+          check(width + 'px: the savings pockets sit beside the allocation donut, the pending panel beside Activity (two-up rows — row 251)', Math.abs(g.mat.t - g.alloc.t) < 2 && g.mat.l > g.alloc.r - 1 && Math.abs(g.pend.t - g.act.t) < 2 && g.act.l > g.pend.r - 1, JSON.stringify(g));
+          check(width + 'px: ★ the band is FOUR cells across in one row, the sparkline shown', g.cells.length === 4 && g.cells.every((c) => Math.abs(c.t - g.cells[0].t) < 2) && g.cells[1].l > g.cells[0].r - 1 && g.sparkShown, JSON.stringify(g.cells));
           check(width + 'px: the four period stats sit in one row', g.stats.length === 4 && g.stats.every((c) => Math.abs(c.t - g.stats[0].t) < 2), JSON.stringify(g.stats));
           check(width + 'px: the header carries no export control', g.noExport === true);
         } else {
-          check(width + 'px: pending and maturities stack in one column', g.mat.t >= g.pend.b - 1 && Math.abs(g.mat.l - g.pend.l) < 2, JSON.stringify(g));
-          check(width + 'px: ★ the band collapses to ONE column — each cell below the last, the sparkline hidden', g.cells.length === 3 && g.cells[1].t >= g.cells[0].b - 1 && g.cells[2].t >= g.cells[1].b - 1 && Math.abs(g.cells[1].l - g.cells[0].l) < 2 && !g.sparkShown, JSON.stringify(g.cells));
+          check(width + 'px: the cards stack in one column — pockets below the donut, pending below the pockets', g.mat.t >= g.alloc.b - 1 && g.pend.t >= g.mat.b - 1 && Math.abs(g.mat.l - g.pend.l) < 2, JSON.stringify(g));
+          check(width + 'px: ★ the band collapses to ONE column — each cell below the last, the sparkline hidden', g.cells.length === 4 && g.cells[1].t >= g.cells[0].b - 1 && g.cells[2].t >= g.cells[1].b - 1 && g.cells[3].t >= g.cells[2].b - 1 && Math.abs(g.cells[1].l - g.cells[0].l) < 2 && !g.sparkShown, JSON.stringify(g.cells));
           check(width + 'px: the period stats wrap to two rows of two', g.stats.length === 4 && Math.abs(g.stats[0].t - g.stats[1].t) < 2 && g.stats[2].t > g.stats[0].t + 10, JSON.stringify(g.stats));
           check(width + 'px: no figure in the band escapes the card', g.maxFigRight <= g.cardRight + 1, JSON.stringify({ maxFigRight: g.maxFigRight, cardRight: g.cardRight }));
           check(width + 'px: range controls meet the 44px floor', g.rangeHeights.every((h) => h >= 44), JSON.stringify(g.rangeHeights));
@@ -487,7 +489,7 @@ async function main() {
         await new Promise(r => f.addEventListener('load', r));
         const d = f.contentDocument, w = f.contentWindow;
         for (let i = 0; i < 200; i++) { const v = d.getElementById('tpv-monthly-change'); const p = d.getElementById('po-pending'); const a = d.getElementById('tpv-amount'); if (v && p && a && !/animate-pulse/.test(v.innerHTML) && !/animate-pulse/.test(p.innerHTML) && !/animate-pulse/.test(a.innerHTML) && w.Chart && w.Chart.getChart('po-chart')) break; await nap(250); }
-        for (let i = 0; i < 40; i++) { if (d.getElementById('tpv-amount').textContent.trim() === '$128,000') break; await nap(100); } // the count-up settles
+        for (let i = 0; i < 40; i++) { if (d.getElementById('po-portfolio-value').textContent.trim() === '$128,000.00') break; await nap(100); } // the count-up settles
         const c = w.Chart && w.Chart.getChart('po-chart');
         const card = d.getElementById('po-value-card').getBoundingClientRect();
         const cv = d.getElementById('po-chart').getBoundingClientRect();
@@ -496,15 +498,15 @@ async function main() {
         const rows = [...d.querySelectorAll('#po-pending .po-row, #po-maturities .po-mat')].map(r => r.getBoundingClientRect().right);
         const cells = [...d.querySelectorAll('.po-cell')].map(x => { const r = x.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; });
         const figs = [...d.querySelectorAll('#tpv-amount, #total-return-amount, .ret-class, #tpv-monthly-change, #total-return-split')].map(e => e.getBoundingClientRect().right);
-        return { reported: d.documentElement.clientWidth, inner: w.innerWidth, bodyScroll: d.body.scrollWidth, pts: c ? c.data.datasets[0].data.length : 0, canvasRight: cv.right, cardRight: card.right, stacked: mat.top >= pend.bottom - 1, maxRowRight: Math.max(...rows),
-          bandStacked: cells.length === 3 && cells[1].t >= cells[0].b - 1 && cells[2].t >= cells[1].b - 1, maxFigRight: Math.max(...figs), value: d.getElementById('tpv-amount').textContent.trim() };
+        return { reported: d.documentElement.clientWidth, inner: w.innerWidth, bodyScroll: d.body.scrollWidth, pts: c ? c.data.datasets[0].data.length : 0, canvasRight: cv.right, cardRight: card.right, stacked: pend.top >= mat.bottom - 1, maxRowRight: Math.max(...rows),
+          bandStacked: cells.length === 4 && cells[1].t >= cells[0].b - 1 && cells[2].t >= cells[1].b - 1 && cells[3].t >= cells[2].b - 1, maxFigRight: Math.max(...figs), value: d.getElementById('po-portfolio-value').textContent.trim() };
       })()`);
       check('320px: the iframe genuinely reports 320px', narrow.reported === 320, JSON.stringify(narrow));
       check('320px: the chart rendered with the full series', narrow.pts === live.length, JSON.stringify(narrow));
       check('320px: no horizontal overflow', narrow.bodyScroll <= narrow.inner + 1, JSON.stringify(narrow));
       check('320px: the chart canvas stays inside its card', narrow.canvasRight <= narrow.cardRight + 1, JSON.stringify(narrow));
       check('320px: the two panels stack and no row escapes the viewport', narrow.stacked && narrow.maxRowRight <= narrow.inner + 1, JSON.stringify(narrow));
-      check('320px: ★ the band is one column and the 38px figure ($128,000) stays inside the card', narrow.bandStacked && narrow.maxFigRight <= narrow.cardRight + 1 && narrow.value === '$128,000', JSON.stringify(narrow));
+      check('320px: ★ the band is one column and the headline figure stays inside the card (Portfolio cell $128,000.00)', narrow.bandStacked && narrow.maxFigRight <= narrow.cardRight + 1 && narrow.value === '$128,000.00', JSON.stringify(narrow));
     } finally {
       await cdp.close();
     }

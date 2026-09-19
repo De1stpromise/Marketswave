@@ -27,7 +27,7 @@
    never on the band itself — row 206: an element cannot query its own size), so the cells
    stack whether the width is lost to a phone or to the sidebar. */
 #po-value-card { container-type: inline-size; padding: 0; }
-.po-hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px 28px 0; }
+.po-hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 28px 0; }
 .po-hd .po-title { font-size: 11px; font-weight: 600; color: #5C6367; letter-spacing: 0.01em; }
 .po-hr { display: flex; align-items: center; gap: 8px; }
 /* ★ The PRICED pill (row 251). Green dot + "Priced N min ago" — the real age of the oldest
@@ -42,10 +42,10 @@
 
 /* The headline: the account total, the four-part bar (returns-display.css's .ap-tbar, the
    same one asset-performance.html draws), growth since joining, this month. */
-.po-head { padding: 8px 28px 0; }
+.po-head { padding: 6px 28px 0; }
 .po-head .ret-v.po-big { font-size: 39px; letter-spacing: -0.033em; line-height: 1; }
-.po-head .po-tbar { margin-top: 14px; height: 7px; max-width: 520px; }
-.po-x { font-size: 12.5px; color: #5C6367; margin-top: 10px; line-height: 1.55; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.po-head .po-tbar { margin-top: 12px; height: 7px; max-width: 520px; }
+.po-x { font-size: 12.5px; color: #5C6367; margin-top: 8px; line-height: 1.55; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
 .po-x b { font-weight: 600; color: #12283A; }
 .po-x b.is-up { color: #137254; }
 .po-x b.is-dn { color: #A8452F; }
@@ -58,8 +58,8 @@
 .po-tm > b { margin-right: 4px; }
 
 /* The four-cell band: Portfolio / Savings pockets / Total return / Best performing class. */
-.po-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 18px; border-top: 1px solid rgba(27, 58, 75, 0.09); padding: 0 28px; }
-.po-cell { padding: 15px 18px 16px 0; margin-right: 18px; border-right: 1px solid rgba(27, 58, 75, 0.1); position: relative; min-width: 0; }
+.po-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; border-top: 1px solid rgba(27, 58, 75, 0.09); padding: 0 28px; }
+.po-cell { padding: 12px 18px 12px 0; margin-right: 18px; border-right: 1px solid rgba(27, 58, 75, 0.1); position: relative; min-width: 0; }
 .po-cell:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .po-band .ret-k { font-size: 10.5px; color: #5C6367; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .po-kd { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
@@ -87,12 +87,12 @@
 .po-split[hidden] { display: none; }
 
 /* Chart section — titled "Portfolio value over time" and stating its own scope. */
-.po-chart-sec { padding: 0 28px 22px; }
-.po-ch-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding-top: 18px; border-top: 1px solid rgba(27, 58, 75, 0.09); flex-wrap: wrap; }
-.po-ch-l { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.po-chart-sec { padding: 0 28px 14px; }
+.po-ch-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 10px; padding-top: 14px; border-top: 1px solid rgba(27, 58, 75, 0.09); flex-wrap: wrap; }
+.po-ch-l { display: flex; flex-direction: column; min-width: 0; flex: 1 1 320px; }
 .po-ch-l .ret-k { margin: 0; font-size: 13px; color: #3E4A52; font-weight: 600; display: block; }
-.po-ch-scope { display: block; font-size: 11.5px; color: #5C6367; margin-top: 4px; line-height: 1.5; max-width: 48ch; }
-.po-leg { display: flex; gap: 14px; font-size: 11px; color: #5C6367; flex-wrap: wrap; }
+.po-ch-scope { display: block; font-size: 11.5px; color: #5C6367; margin-top: 4px; line-height: 1.5; max-width: 72ch; }
+.po-leg { display: flex; gap: 14px; font-size: 11px; color: #5C6367; flex-wrap: wrap; margin-top: 6px; }
 .po-leg span { display: flex; align-items: center; gap: 6px; }
 .po-leg i { width: 14px; height: 2.5px; border-radius: 2px; display: block; background: #137254; }
 .po-leg i.is-dash { background: repeating-linear-gradient(90deg, #5C6367 0 3px, transparent 3px 6px); }
@@ -105,10 +105,10 @@
 .po-rg.mw-btn.is-on { background: #1B3A4B; border-color: #1B3A4B; color: #F7F6F3; }
 .po-rg.mw-btn:focus-visible { box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.25); }
 
-.po-chart { position: relative; height: 220px; }
+.po-chart { position: relative; height: 140px; }
 .po-chart canvas { width: 100% !important; height: 100% !important; }
 .po-xl { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
-.po-hint { font-size: 11.5px; color: #5C6367; margin-top: 10px; }
+.po-hint { font-size: 11.5px; color: #5C6367; margin-top: 8px; }
 
 /* Three-row tooltip (date / portfolio / capital in / return), positioned by the chart. */
 .po-tip { position: absolute; z-index: 3; background: #12283A; color: #F7F6F3; border-radius: 10px; padding: 9px 12px; font-size: 11px; pointer-events: none; box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.5); min-width: 150px; opacity: 0; transition: opacity 0.12s; }
@@ -121,7 +121,7 @@
 .po-tip .po-tr b.is-dn { color: #F2A48E; }
 
 /* Period stats footer — computed server-side for the selected range. */
-.po-pf { display: flex; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(27, 58, 75, 0.08); }
+.po-pf { display: flex; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(27, 58, 75, 0.08); }
 .po-pf > div { flex: 1; padding-right: 16px; margin-right: 16px; border-right: 1px solid rgba(27, 58, 75, 0.08); min-width: 0; }
 .po-pf > div:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .po-pf .ret-k { font-size: 10px; margin-bottom: 5px; color: #5C6367; }
@@ -156,6 +156,9 @@
 @container (max-width: 620px) {
   .po-hd, .po-head, .po-band, .po-chart-sec { padding-left: 18px; padding-right: 18px; }
   .po-hd { flex-direction: column; align-items: flex-start; gap: 10px; }
+  /* The growth line and "this month" wrap onto separate lines here; a trailing separator
+     would dangle at the end of the first (seen on a real 390px screenshot). */
+  .po-sub:not([hidden]):has(+ .po-tm:not([hidden]))::after { content: none; }
   .po-hd .po-hr { order: 1; }
   .po-head .ret-v.po-big { font-size: 31px; }
   .po-band { grid-template-columns: 1fr; margin-top: 16px; }
@@ -166,7 +169,7 @@
   .po-ch-scope { max-width: none; }
   .po-ranges { width: 100%; }
   .po-rg.mw-btn { flex: 1; }
-  .po-chart { height: 150px; }
+  .po-chart { height: 130px; }
 }
 @container (max-width: 380px) {
   .po-head .ret-v.po-big { font-size: 27px; }
@@ -215,7 +218,10 @@
 .po-empty b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; margin-bottom: 5px; }
 .po-empty p { font-size: 12.5px; color: #5C6367; line-height: 1.7; max-width: 40ch; margin: 0 auto; }
 
-@media (max-width: 640px) {
-  .po-chart { height: 190px; }
-  .po-ra { text-align: right; }
+/* Below the app's own lg breakpoint every control holds 44px (row 171). .po-rg's own
+   `min-width: 0` (0,2,0) would out-specify tap-targets.css's `button { min-width: 44px }`
+   (0,0,1) — the row-188 trap — so the floor is re-declared here. */
+@media (max-width: 1023.98px) {
+  .po-rg.mw-btn { min-width: 44px; }
+  .po-mact { min-height: 44px; }
 }

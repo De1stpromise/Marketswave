@@ -82,7 +82,7 @@
         <div class="blob blob--sm blob--gold -z-10" style="bottom:40px; left:-60px;" aria-hidden="true"></div>
 
         <!-- Welcome -->
-        <div class="mb-8">
+        <div class="mb-5">
           <h2 class="text-2xl font-semibold text-navy" id="welcome-heading">Welcome Back, <span class="inline-block h-6 w-24 bg-slate-200 rounded animate-pulse align-middle"></span></h2>
           <p class="text-slate-500 mt-1">Here’s a summary of your portfolio and recent activity.</p>
         </div>
@@ -180,20 +180,18 @@
           <div class="po-chart-sec">
             <div class="po-ch-h">
               <div class="po-ch-l">
-                <div>
-                  <span class="ret-k po-ch-title">Portfolio value over time</span>
-                  <span class="po-ch-scope">Charts the portfolio only. Savings pockets sit outside it and are shown in the band above.</span>
-                </div>
-                <div class="po-leg" id="po-legend" hidden>
-                  <span><i></i>Portfolio value</span>
-                  <span><i class="is-dash"></i>Capital you put in</span>
-                  <span><i class="is-dot"></i>Deposit</span>
-                  <span id="po-legend-out" hidden><i class="is-dot-out"></i>Withdrawal / transfer out</span>
-                </div>
+                <span class="ret-k po-ch-title">Portfolio value over time</span>
+                <span class="po-ch-scope">Charts the portfolio only — savings pockets sit outside it and are shown in the band above. Each point is the value at the start of that month; the last is today’s live value.</span>
               </div>
               <div class="po-ranges hidden" id="po-ranges" role="group" aria-label="Chart range"></div>
             </div>
             <div class="po-chart hidden" id="po-chart-wrap"></div>
+            <div class="po-leg" id="po-legend" hidden>
+              <span><i></i>Portfolio value</span>
+              <span><i class="is-dash"></i>Capital you put in</span>
+              <span><i class="is-dot"></i>Deposit</span>
+              <span id="po-legend-out" hidden><i class="is-dot-out"></i>Withdrawal / transfer out</span>
+            </div>
             <div class="po-newc hidden" id="po-newc"></div>
             <div class="po-pf" id="po-stats" hidden></div>
           </div>
@@ -542,7 +540,7 @@
           // real number", never a live-ticker impression. The rendered text is already the
           // final figure; the count-up only animates toward it.
           if (window.MotionHelpers && overview.account) {
-            window.MotionHelpers.countUp(tpvEl, { to: Math.round(overview.account.total), format: formatUSD });
+            window.MotionHelpers.countUp(tpvEl, { to: overview.account.total, format: function (v) { return formatUSD(v, 2); } });
           }
         }
       });
@@ -807,7 +805,9 @@
           document.getElementById('risk-cash-desc').textContent = portfolio > 0
             ? formatUSD(account.unallocated, 2) + ' uninvested of ' + formatUSD(portfolio) + '. A 20% reserve is the target for flexibility.'
             : 'Nothing in the portfolio yet. A 20% reserve is the target for flexibility.';
-          setSig('risk-cash-reserve', portfolio > 0 ? (cashLow ? 'act' : 'ok') : 'flat', portfolio > 0 ? (cashLow ? 'Low' : 'Adequate') : '—');
+          // A lone em dash at 10px is a one-pixel stroke and antialiases below any colour
+          // (row 250) — the empty badges carry a WORD.
+          setSig('risk-cash-reserve', portfolio > 0 ? (cashLow ? 'act' : 'ok') : 'flat', portfolio > 0 ? (cashLow ? 'Low' : 'Adequate') : 'Empty');
           setBar('risk-cash-bar', cashPct, cashLow ? 'act' : 'ok');
 
           var utilPct = portfolio > 0 ? (account.deployed / portfolio) * 100 : 0;
@@ -816,7 +816,7 @@
           document.getElementById('risk-util-desc').textContent = portfolio > 0
             ? formatUSD(account.deployed) + ' of ' + formatUSD(portfolio) + ' is deployed into assets.'
             : 'Nothing deployed yet.';
-          setSig('risk-util-sig', portfolio > 0 ? utilTone : 'flat', portfolio > 0 ? (utilPct >= 80 ? 'Strong' : utilPct >= 50 ? 'Moderate' : 'Low') : '—');
+          setSig('risk-util-sig', portfolio > 0 ? utilTone : 'flat', portfolio > 0 ? (utilPct >= 80 ? 'Strong' : utilPct >= 50 ? 'Moderate' : 'Low') : 'Empty');
           setBar('risk-util-bar', utilPct, utilTone);
 
           // Largest position — the PM briefing's own concentration rule, computed server-side
@@ -829,7 +829,7 @@
             largestEl.textContent = '—';
             nameEl.textContent = '';
             descEl.textContent = 'No positions held yet.';
-            setSig('risk-largest-sig', 'flat', '—');
+            setSig('risk-largest-sig', 'flat', 'None');
             setBar('risk-largest-bar', 0, 'ok');
           } else {
             var share = lp.shareOfPortfolio * 100;

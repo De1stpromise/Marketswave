@@ -977,13 +977,21 @@ PROFILES['visitor-presence-modal'] = [
   { label: 'cancel button', sel: '#mm-cancel', limit: 1 }
 ];
 
+// ★ Redesign (2026-09-19, row 251): the headline is the account total with the priced pill,
+// the band has four cells, the pending rows carry an age, the pockets panel marks a matured
+// pocket, and the Risk metrics / Activity rows are new surfaces (dashboard-cards.css).
 PROFILES['portfolio-overview'] = [
   { label: 'card title', sel: '.po-title', limit: 1 },
-  { label: 'as-of indicator', sel: '#po-asof', limit: 1 },
-  { label: 'band label', sel: '.po-band .ret-k', limit: 3 },
-  { label: 'value figure (38px, under the sheen corner)', sel: '#tpv-amount', limit: 1 },
-  { label: 'since pill (gain)', sel: '.po-pill.is-up', limit: 1 },
-  { label: 'since text', sel: '.po-since', limit: 1 },
+  { label: 'priced pill (green)', sel: '#po-asof:not(.is-stale) .po-asof-t', limit: 1 },
+  { label: 'band label', sel: '.po-band .ret-k', limit: 4 },
+  { label: 'value figure (39px, under the sheen corner)', sel: '#tpv-amount', limit: 1 },
+  { label: 'growth since joined (gain)', sel: '#po-change b.is-up', limit: 1 },
+  { label: 'deposited text', sel: '.po-dep', limit: 1 },
+  { label: 'portfolio cell figure', sel: '#po-portfolio-value', limit: 1 },
+  { label: 'portfolio cell sub', sel: '#po-portfolio-sub', limit: 1 },
+  { label: 'pockets cell figure', sel: '#po-pockets-value', limit: 1 },
+  { label: 'pockets cell sub', sel: '#po-pockets-sub', limit: 1 },
+  { label: 'chart scope line', sel: '.po-ch-scope', limit: 1 },
   { label: 'this-month figure', sel: '#tpv-monthly-change b', limit: 1 },
   { label: 'this-month text', sel: '#tpv-monthly-change span', limit: 2 },
   { label: 'return figure (gain)', sel: '#total-return-amount', limit: 1 },
@@ -999,27 +1007,50 @@ PROFILES['portfolio-overview'] = [
   { label: 'range control (selected)', sel: '.po-rg.is-on', limit: 1 },
   { label: 'range control (unselected)', sel: '.po-rg:not(.is-on):not(:disabled)', limit: 2 },
   { label: 'x-axis label', sel: '.po-xl span', limit: 3 },
-  { label: 'chart hint', sel: '#po-chart-hint', limit: 1 },
   { label: 'period stat label', sel: '.po-pf .ret-k', limit: 4 },
   { label: 'period stat value', sel: '.po-pv:not(.is-up):not(.is-dn)', limit: 2 },
   { label: 'period stat value (gain)', sel: '.po-pv.is-up', limit: 1 },
   { label: 'period stat value (loss)', sel: '.po-pv.is-dn', limit: 1 },
   { label: 'period stat sub', sel: '.po-ps', limit: 4 },
-  { label: 'panel title', sel: '.po-hd .po-t', limit: 2 },
-  { label: 'panel subtitle', sel: '.po-hd .po-s', limit: 2 },
+  { label: 'card title (panels)', sel: '.dc-t', limit: 5 },
+  { label: 'card meta', sel: '.dc-meta', limit: 4 },
+  { label: 'card link', sel: '.dc-link', limit: 2 },
   { label: 'request title', sel: '.po-rt', limit: 3 },
   { label: 'request detail', sel: '.po-rs', limit: 3 },
   { label: 'request amount', sel: '.po-v', limit: 3 },
-  { label: 'pending chip', sel: '.po-chip:not(.is-internal)', limit: 2 },
-  { label: 'internal transfer chip', sel: '.po-chip.is-internal', limit: 1 },
+  { label: 'request age', sel: '.po-age', limit: 3 },
   { label: 'pocket name', sel: '.po-mn', limit: 2 },
   { label: 'pocket value', sel: '.po-mv', limit: 2 },
-  { label: 'maturity date', sel: '.po-md', limit: 2 },
-  { label: 'interest accrued', sel: '.po-mi:not(.is-none)', limit: 1 },
-  { label: 'no-interest note', sel: '.po-mi.is-none', limit: 1 }
+  { label: 'maturity date', sel: '.po-md:not(.is-matured)', limit: 2 },
+  { label: 'matured note ("earning nothing")', sel: '.po-md.is-matured', limit: 1 },
+  { label: 'matured action link', sel: '.po-mact', limit: 1 },
+  { label: 'interest accrued', sel: '.po-mi:not(.is-none)', limit: 2 },
+  { label: 'no-interest note', sel: '.po-mi.is-none', limit: 1 },
+  { label: 'risk row title', sel: '.rm-t b', limit: 4 },
+  { label: 'risk row description', sel: '.rm-d', limit: 4 },
+  { label: 'risk signal (ok)', sel: '.rm-sig.rm-ok', limit: 2 },
+  { label: 'risk signal (watch)', sel: '.rm-sig.rm-watch', limit: 2 },
+  { label: 'risk signal (act)', sel: '.rm-sig.rm-act', limit: 2 },
+  { label: 'risk signal (flat)', sel: '.rm-sig.rm-flat', limit: 2 },
+  { label: 'risk figure', sel: '.rm-v b', limit: 3 },
+  { label: 'risk figure sub', sel: '.rm-v span', limit: 3 },
+  { label: 'risk profile link', sel: '.rm-link', limit: 1 },
+  { label: 'activity title', sel: '.ac-b b', limit: 4 },
+  { label: 'activity sub', sel: '.ac-s', limit: 4 },
+  { label: 'activity amount', sel: '.ac-amt', limit: 4 },
+  { label: 'activity date', sel: '.ac-when', limit: 4 },
+  { label: 'activity status', sel: '.ac-st', limit: 2 },
+  { label: 'watchlist card age', sel: '.wl-age', limit: 3 },
+  { label: 'converter note', sel: '#convert-rate-note', limit: 1 }
+];
+// The amber pill: any held position stale or failed. Measured with a product FORCED to
+// quote_failed by the visual suite — the one surface the redesign most needed to prove.
+PROFILES['portfolio-overview-stale'] = [
+  { label: 'priced pill (AMBER — stale/failed statement)', sel: '#po-asof.is-stale .po-asof-t', limit: 1 },
+  { label: 'value figure beside it', sel: '#tpv-amount', limit: 1 }
 ];
 PROFILES['portfolio-overview-loss'] = [
-  { label: 'since pill (loss)', sel: '.po-pill.is-dn', limit: 1 },
+  { label: 'growth since joined (loss)', sel: '#po-change b.is-dn', limit: 1 },
   { label: 'this-month figure (loss)', sel: '#tpv-monthly-change b.is-dn', limit: 1 },
   { label: 'return figure (loss)', sel: '#total-return-amount.is-loss', limit: 1 },
   { label: 'return pill (loss)', sel: '#total-return-pct.is-loss', limit: 1 },
@@ -1037,8 +1068,12 @@ PROFILES['portfolio-overview-tip'] = [
 ];
 // The new-client state and both empty states, on the same glass: the band still renders.
 PROFILES['portfolio-overview-new'] = [
-  { label: 'band label', sel: '.po-band .ret-k', limit: 3 },
+  { label: 'band label', sel: '.po-band .ret-k', limit: 4 },
   { label: 'value figure', sel: '#tpv-amount', limit: 1 },
+  { label: 'priced pill (no holdings)', sel: '#po-asof .po-asof-t', limit: 1 },
+  { label: 'risk signal (flat)', sel: '.rm-sig.rm-flat', limit: 3 },
+  { label: 'risk description (empty states)', sel: '.rm-d', limit: 4 },
+  { label: 'activity empty state', sel: '.dc-empty b, .dc-empty p', limit: 2 },
   { label: 'this-month ("New this month")', sel: '#tpv-monthly-change span', limit: 1 },
   { label: 'return figure (flat $0)', sel: '#total-return-amount', limit: 1 },
   { label: 'best class dash', sel: '.ret-class', limit: 1 },

@@ -60,7 +60,11 @@
     window.Motion.animate(from, to, {
       duration: durationMs / 1000,
       ease: [0.16, 1, 0.3, 1], // matches home-motion.js's own cubic ease-out shape
-      onUpdate: function (latest) { el.textContent = format(latest); }
+      onUpdate: function (latest) { el.textContent = format(latest); },
+      // The final frame is the exact target, formatted once more from `to` itself — a
+      // fractional target (a 2dp money figure, row 251) must land on its own cents, never on
+      // the last interpolated sample.
+      onComplete: function () { el.textContent = format(to); }
     });
   }
 

@@ -299,9 +299,8 @@
     var table = el('table', 'po-visually-hidden');
     table.id = 'po-chart-table';
     chartWrap.parentNode.insertBefore(table, xl.nextSibling);
-    var hint = el('p', 'po-hint');
-    hint.id = 'po-chart-hint';
-    chartWrap.parentNode.insertBefore(hint, table.nextSibling);
+    // The legend sits UNDER the plot (the mockup's keys row): after the x-axis labels.
+    if (els.legendEl && els.legendEl.parentNode === chartWrap.parentNode) chartWrap.parentNode.insertBefore(els.legendEl, table.nextSibling);
 
     function draw(rangeKey) {
       var r = RANGES.filter(function (x) { return x.key === rangeKey; })[0];
@@ -343,7 +342,6 @@
       });
       table.appendChild(tb);
       canvas.setAttribute('aria-label', 'Portfolio value from ' + fmtDay(parseDate(first.date)) + ' (' + formatUSD(Math.round(first.value)) + ') to today (' + formatUSD(Math.round(last.value)) + '), ' + pts.length + ' points, against capital in');
-      hint.textContent = 'Each point is the value recorded at the start of that month; the last point is today\u2019s live value. The dashed line is capital in \u2014 deposits less withdrawals and transfers to savings \u2014 so the gap between the lines is your return.';
 
       renderStats(h.periodStats ? h.periodStats[rangeKey] : null, els.statsEl);
 
@@ -527,7 +525,7 @@
       return;
     }
     if (pricing.marketPriced === 0) {
-      t.textContent = account && account.holdings > 0 ? 'Valued at last appraisal' : 'No holdings to price';
+      t.textContent = account && account.holdings > 0 ? 'No market-priced holdings' : 'No holdings to price';
       return;
     }
     function paint() { t.textContent = 'Priced ' + ageText(pricing.oldestPriceAsOf); }

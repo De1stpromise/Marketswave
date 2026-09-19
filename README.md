@@ -2354,6 +2354,60 @@ moment the one real send is behind it, and sweeps a prior run's residue on entry
 project's libuv abort (row 198) can skip a `finally`, and the first run of this suite did
 exactly that, leaving Gary unreachable until repaired by hand.
 
+### Client dashboard redesign (2026-09-19, register row 251)
+
+`dashboard.html` opens with **Total account value** — the same four-part figure
+asset-performance.html leads with (deployed / unallocated / savings pockets / realised, the
+same bar), so a client never meets two totals — followed by a four-cell band (Portfolio ·
+Savings pockets · Total return · Best performing class) and the chart, retitled **Portfolio
+value over time** with its scope stated. Savings pockets sit beside the allocation donut
+(a matured pocket is marked "earning nothing"); Risk metrics has four rows (Cash reserve
+with the 20% mark, Allocation utilisation, **Largest position** — the PM briefing's own
+concentration rule — and Risk profile as a comparison); Pending requests carry their age;
+Activity is transactions only; each market-snapshot card renders its own price age; the
+converter fetches only when used. Round trips per load: 17 → 11.
+
+**"Updated just now" is gone.** The pill reads the real age of the oldest market price
+behind the figure and turns amber with a plain statement when any held position is stale
+or failed. The status comes from the server:
+
+```
+supabase/functions/_shared/price-status.ts   one derivation for all three functions
+  per product: pricingModel, priceStatus ('ok'|'quote_failed'), priceAsOf, priceStale, priceAgeMinutes
+  stale = a market product with no price_as_of, or older than
+          worstCaseStalenessMinutes(finnhub rows in market_data_cache) + 2 × REFRESH_INTERVAL_MINUTES
+          (derived from the live union, never a constant; appraisal products are never stale)
+  totals: pricing { positions, marketPriced, failed, stale, affected, affectedValue,
+                    oldestPriceAsOf, newestPriceAsOf, staleAfterMinutes, affectedProducts[] }
+get-returns-summary   positions[] carry the per-product fields; payload carries `pricing` and `largestPosition`
+get-holdings          each row carries the per-product fields (still a bare array)
+get-portfolio-overview `account` (the four parts + deposited + growth), `pricing`, pending[].ageSeconds
+```
+
+On a machine where row 213's shared Finnhub key starves the local rotation, Gary's pill is
+genuinely amber ("N of 8 holdings stale") — that is the correct reading, not a defect.
+
+The Risk profile still lives in this browser's `localStorage` (`marketswave_risk_profile`,
+set on risk-management.html); the row says so when none is set here. A server home would be
+one `client_profiles.risk_profile` column plus a self-only `set-risk-profile` function — not
+built in this pass.
+
+Run from `scripts/`:
+
+```
+npm run verify-dashboard-redesign             # real browser: every figure vs its source, the forced quote_failed round trip,
+                                              # dashboard = Asset & performance to the cent in one run, empty / one-class /
+                                              # no-pockets clients, pending ages vs requested_at, contrast incl. the amber pill,
+                                              # the sheen audit, 900 tablet, 390/375 on a real phone profile, 320 via iframe
+npm run verify-portfolio-overview-ui-wiring   # the real page script in jsdom (57)
+npm run verify-dashboard-ui-wiring            # Stage 1's suite, now on jsdom (33)
+npm run verify-dashboard-market-currency-ui   # proves zero convert-currency calls on load (10)
+```
+
+The first needs Gary seeded and a static server on :8765 serving the project root; it forces
+one of Gary's held STOCK products to `quote_failed` for the amber proof and restores every
+pricing column it touched, in `finally` too.
+
 ### Asset & performance overview (2026-09-19, register row 250)
 
 `asset-performance.html` opens with three sections instead of the old three-card row: a

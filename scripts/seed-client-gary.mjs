@@ -455,7 +455,10 @@ async function writeEverything(db, uid, R, snaps, bySym) {
     if (error) throw new Error('hys_pockets: ' + error.message);
     must('hys_deposit_requests')(await db.from('hys_deposit_requests').insert({
       client_id: uid, pocket_type: 'fixed', term_mode: 'short', term_months: p.months,
-      term_label: `${p.months} months`, rate: p.rate, term_in_years: p.months / 12,
+      // ★ hys_pockets.rate is a PERCENT (getHysRate: 5, 7, 8.5, 12; high-yield-savings.html
+      // renders `${rate}% APR`), never the fraction the interest arithmetic above uses. This seed
+      // stored 0.048 until 2026-09-19 (row 251) and both pages read "0.048%".
+      term_label: `${p.months} months`, rate: p.rate * 100, term_in_years: p.months / 12,
       requested_amount: p.amount, method: 'internal', currency: 'USD', status: 'credited',
       requested_at: at(p.open, '09:30'), resolved_at: at(p.open, '10:00'),
       credited_amount: p.amount, pocket_id: pk.id, resolved_by_email: 'pm@marketswave.local',

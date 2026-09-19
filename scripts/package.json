@@ -95,6 +95,7 @@
     "verify-visitor-presence-visual": "node verify-visitor-presence-visual.mjs",
     "verify-portfolio-overview-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-portfolio-overview-ui-wiring.mjs",
     "verify-portfolio-overview-visual": "node verify-portfolio-overview-visual.mjs",
+    "verify-dashboard-redesign": "node verify-dashboard-redesign.mjs",
     "audit-glass-sheen": "node audit-glass-sheen.mjs",
     "audit-catalog-frame-cost": "node audit-catalog-frame-cost.mjs",
     "verify-catalog-expansion": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-catalog-expansion.mjs",
