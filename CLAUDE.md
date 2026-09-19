@@ -11375,6 +11375,30 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   script holding one token for more than an hour must re-sign-in on a 401 and retry, AND read
   success bodies through a helper that fails loudly on a non-2xx rather than letting `undefined`
   travel to somewhere unrecognisable.
+- **★★ TWO KNOWN CAUSES PUT PREDICTABLE FAILURES IN EVERY FULL PASS — FIX THEM, DO NOT
+  RE-DIAGNOSE THEM (2026-09-19).** Each has now cost triage time across at least three full
+  passes; both fixes are small and recorded in full on their register rows. (1) **Row 230 —
+  the asset-logo pollution**: `supabase-verify-market-data` deletes and recreates the base
+  symbols' `market_data_cache` rows and drops their stored `logo_url`, so three later suites
+  (`supabase-verify-asset-logos`, `verify-asset-logos-ui-wiring`, `verify-asset-logos-visual`)
+  fail on DIA/QQQ/SPY/BTC rendering a monogram. The fix: that suite snapshots `logo_url` for
+  the base symbols before its delete and writes it back in its `finally` — same shape as the
+  gate suite's "put Gary back". (2) **Row 213 — the shared Finnhub key**: staging's 5-minute
+  cron spends half the minute's budget at :00/:05/…, starving `verify-watchlist-ui-wiring`
+  ("Stock search is temporarily unavailable"), `supabase-verify-watchlist-alerts` and the
+  round-robin suite. The fix, assessed practical and never done: a second free Finnhub key in
+  the local `supabase/functions/.env`, `functions serve` restarted — zero code change.
+  (3) **Row 222 — a network flap reported as assertion failures**: whichever two or three
+  suites are in flight when the route drops fail on a provider call or a readiness poll
+  (2026-09-19: the round-robin suite on CoinGecko, visitor-presence on a null geo lookup),
+  and each is read back to the log to be recognised — four passes now. The fix, already
+  investigated: an in-flight request map with an AGE threshold beside the CDP connect helper
+  (a hang emits no `loadingFailed`, so an error listener cannot see it) and the same shape on
+  Node-side `fetch`, consulted when a poll or a non-vacuity control fails, reporting
+  UNREACHABLE <host> on its own exit code. Until each is done, a full pass should expect the
+  five suites of (1)+(2), plus whatever (3) happens to hit, to be non-green in-run, and should
+  re-run them in isolation rather than investigate them again. Three known causes now account
+  for most of what a full pass loses.
 - **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
   "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
   and the email tests genuinely send. Every other table returns to its exact starting count
