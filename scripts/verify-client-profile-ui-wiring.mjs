@@ -22,6 +22,7 @@ const ROOT = path.resolve(HERE, '..');
 const PAGE_HTML = path.join(ROOT, 'admin-client-profile.html');
 const PAGE_JS = path.join(ROOT, 'admin-client-profile.js');
 const SUF = crypto.randomBytes(3).toString('hex');
+const plantedDocs = [];
 const PASSWORD = 'CliProfUI-2026!';
 
 let passed = 0;
@@ -118,6 +119,17 @@ async function main() {
     if (!gary) {
       console.log('  SKIP  Gary is not seeded — run `node seed-client-gary.mjs` first.');
     } else {
+      // The identity-document panel keys `restricted` on a documents row's FILENAME. Gary's seed
+      // carries no documents any more (the fake byteless catalogue was scrapped, row 247/D), so
+      // this suite plants its own throwaway upload row for PART 4 rather than depending on
+      // ambient seed state (the row-230 coupling class) — removed in the finally.
+      // Two rows: a passport upload (the Restricted / request-and-log branch) and a plain
+      // firm-published statement with no bytes (the honest "no file" branch, PART 4's other half).
+      const { data: planted } = await admin.from('documents').insert([
+        { client_id: gary.id, direction: 'upload', filename: 'passport-cpui-' + SUF + '.pdf', category: 'General', status: 'Received', is_new: false, storage_path: null },
+        { client_id: gary.id, direction: 'from', filename: 'Statement-cpui-' + SUF + '.pdf', category: 'Statements & Reports', status: null, is_new: false, storage_path: null }
+      ]).select('id');
+      planted.forEach((d) => plantedDocs.push(d.id));
       const dom = buildDom(MarketswaveData, gary.id);
       const ok = await ready(dom);
       check('GUARD: the page actually rendered — otherwise every assertion below is vacuous', ok,
@@ -291,6 +303,7 @@ async function main() {
 
   } finally {
     await admin.from('pm_client_notes').delete().ilike('body', '%' + SUF + '%');
+    if (plantedDocs.length) await admin.from('documents').delete().in('id', plantedDocs);
     for (const id of created.reverse()) {
       await admin.from('clients').delete().eq('id', id);
       await admin.auth.admin.deleteUser(id).catch(() => {});

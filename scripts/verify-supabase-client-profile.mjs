@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import { runVerifyMain } from './lib/run-verify.mjs';
 
 const SUF = crypto.randomBytes(3).toString('hex');
+const plantedDocs = [];
 const PASSWORD = 'CliProf-2026!';
 let passed = 0;
 const fails = [];
@@ -196,6 +197,12 @@ async function main() {
     if (!gary) {
       console.log('  SKIP  Gary is not seeded on this stack — run `node seed-client-gary.mjs` first.');
     } else {
+      // The `restricted` flag keys on a documents row's FILENAME. Gary's seed no longer carries
+      // any documents (the fake byteless catalogue was scrapped, register row 247/D), so this
+      // suite plants its own throwaway upload row for that one assertion rather than depending
+      // on ambient seed state (the row-230 coupling class) — removed in the finally below.
+      const { data: plantedDoc } = await admin.from('documents').insert({ client_id: gary.id, direction: 'upload', filename: 'passport-cp-' + SUF + '.pdf', category: 'General', status: 'Received', is_new: false, storage_path: null }).select('id').single();
+      plantedDocs.push(plantedDoc.id);
       const g = (await callFn(st.url, tokenA, 'get-client-profile', { clientId: gary.id })).body;
       // Cross-checked against the database directly, not against the page's own arithmetic.
       const counts = {};
@@ -228,6 +235,7 @@ async function main() {
     // teardown: the notes cascade with the client, but delete explicitly so a failed cascade
     // is visible rather than silent.
     await admin.from('pm_client_notes').delete().ilike('body', '%' + SUF + '%');
+    if (plantedDocs.length) await admin.from('documents').delete().in('id', plantedDocs);
     for (const id of created.reverse()) {
       await admin.from('clients').delete().eq('id', id);
       await admin.auth.admin.deleteUser(id).catch(() => {});

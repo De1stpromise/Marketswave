@@ -131,6 +131,19 @@ async function main() {
     console.log('Created new demo client: ' + demoUser.id + ' (' + DEMO_EMAIL + ')');
   }
 
+  // ---- The demo client's own `clients` row (2026-09-18, Task C session) ----------------------
+  // Until now this seed created the Auth user, the account state and the holdings but never a
+  // `clients` row, so every surface that lists clients (the client list, the PM briefing,
+  // get-client-list) saw only whichever other clients happened to exist — and
+  // verify-client-list-ui-wiring's "at least two funded clients" guard leaned on residue.
+  // Idempotent upsert keyed on the uid; the lowercase-email trigger normalises the address.
+  const { error: clientRowErr } = await admin.from('clients').upsert({
+    id: demoUser.id, name: 'Demo Portfolio', email: DEMO_EMAIL, phone: '+46 70 000 0000',
+    account_type: 'Individual Account', status: 'active'
+  }, { onConflict: 'id' });
+  if (clientRowErr) throw new Error('Failed to upsert the demo clients row: ' + clientRowErr.message);
+  console.log('Demo clients row present (' + demoUser.id + ').');
+
   // ---- Account state + holdings for the demo client, exact math from buildSeedData() ------
   const allocatedCapital = round2(holdingsToSeed.reduce((sum, h) => {
     const product = catalog.find((p) => p.id === h.productId);
