@@ -10876,6 +10876,60 @@ row 74.
   `verify-client-profile-visual` 56/56, `verify-sort-headers-visual` (new)
   99/99; the gate, products, documents and client-list suites through the shared
   markup; stylesheet coverage and Tailwind scoping PASS. No migration, no Edge Function.
+- **★★★ PM client creation by invitation — "+ Add Client" is gone, and nothing proxy-creates a
+  client anywhere (2026-09-20, register row 254).** A PM enters a name and an email; the person
+  completes signup themselves through `signup.html?invite=<token>`, which pre-fills exactly those
+  two fields and SKIPS NOTHING ELSE. New `client_invitations` table + five Edge Functions
+  (`create-` / `resend-` / `revoke-client-invitation`, `get-client-invitations`, and
+  `get-invitation` — unauthenticated, token-gated), `_shared/invitations.ts`, a "Pending
+  invitations" panel and an invite modal on `admin-clients.html`, and an invited-signup path in
+  `signup.html`. `PM_TOOL_VOCABULARY.md` §18 carries the patterns. **Things a future session
+  needs to know before touching any of this:**
+  - **★ THE TOKEN IS STORED HASHED — `token_hash`, sha256 — AND THERE IS NO RAW-TOKEN COLUMN.**
+    The raw token exists only in the link in the email. So Resend cannot re-mail the old link:
+    it MINTS A NEW TOKEN and the old link dies (a 404 on `get-invitation`), which is the right
+    behaviour for a resend anyway. Do not add a column to "keep the token for resend".
+  - **★ ACCEPTANCE IS A TRIGGER ON `clients` AFTER INSERT, NEVER A PAGE STEP.**
+    `link_invitations_to_new_client()` resolves any sent/opened/expired invitation at the new
+    client's address to `accepted` + `accepted_client_id`. This is what makes a NORMAL signup at a
+    live-invited address succeed AND resolve the invitation (the operator's chosen edge case) with
+    no token ever presented — and what makes the invited path and the plain path land
+    identically. A page can skip a step; a trigger cannot.
+  - **"One live invitation per address" is a partial unique index** (`lower(email) where status
+    in ('sent','opened')`). The function's own duplicate check exists to give the PM a sentence;
+    the index is the rule (two concurrent creates → 23505 → 409).
+  - **`get-invitation` is the project's SECOND genuinely open endpoint** (after
+    `get-public-market-snapshot`): `verify_jwt = false`, gated by the token itself, hashed before
+    lookup, returns ONLY `fullName`/`email`/`expiresAt`, marks the row Opened on first read, and
+    refuses expired 410 / revoked 410 / used 409 / unknown 404 with a full sentence + a `reason`
+    code. It never returns the note, the PM, or anything else on the row.
+  - **The invited signup's email field is READ-ONLY** — it is the address the invitation resolves
+    against, and the trigger keys on it. The name stays editable.
+  - **Attribution is captured, not displayed** (`invited_by`/`invited_by_email` written on every
+    row, stripped by `toClientShape()`), the gate's rule.
+  - **The strip is Clients | Invitations out | Assets under management | Awaiting your approval**
+    — "Unallocated across clients" gave up its slot to the mockup's four; the Clients figure never
+    counts an invitation. `verify-client-list-ui-wiring` is repointed (AUM index 2, approval 3).
+  - **★ A SUITE THAT DRIVES `signup.html` MUST USE THE FORM'S OWN OPTION VALUES, AND MUST HANDLE
+    `Page.javascriptDialogOpening`.** `showError()` is a native `alert()` (row 166); a guessed
+    `risk_liquidity: 'some'` (the form has `somewhat`) failed step 7's validation, the alert
+    opened, and the CDP session hung with no output — every later `Runtime.evaluate` blocks
+    behind the dialog. `verify-client-invitations-visual` now dismisses any dialog at once,
+    records it, and FAILS on it by name. Read the values from the markup, never from memory.
+  - **The suites' real sends go to Resend's delivery sink** `delivered+<tag>@resend.dev`
+    (simulates delivery to no mailbox, `status: sent` with a real id): the function's own
+    validation refuses a malformed address before the mailer, so row 153's no-`@` technique cannot
+    apply, and a nonexistent domain is queued rather than refused synchronously now.
+  - **`split_client_legal_name()` takes the LAST word as the last name** ("Katarina Invited f60ca8"
+    → firstName "Katarina Invited"). A test asserting the first word is the first name is wrong,
+    not the server.
+  **Verified**: `supabase-verify-client-invitations` 53/53, `verify-client-invitations-ui-wiring`
+  35/35, `verify-client-invitations-visual` 59/59 (a REAL invited signup end to end with
+  two real files, read back from Postgres and Storage; used/expired/revoked/unknown refused in
+  the real page; contrast with the sheen composited on six profiles; the sheen audit; fonts;
+  390/375 on a real phone profile and a real 320px iframe; the empty state). REAL-INBOX-LINE
+  Blast radius grepped and re-run (row 254 lists the suites). Migration + 5 functions on real
+  cloud staging, parity `--fresh` clean; deployed-bytes identical.
 
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not

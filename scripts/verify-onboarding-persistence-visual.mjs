@@ -114,7 +114,11 @@ async function goto(cdp, url) {
   // test, so the readiness poll tolerates it and simply polls again on the new document.
   for (let i = 0; i < 80; i++) {
     await sleep(200);
-    try { if (await cdp.evaluate('document.readyState === "complete" && !!document.body')) break; } catch (_e) { /* navigated mid-poll */ }
+    // Row 231's shape, seen here 2026-09-20: the about:blank interstitial is itself "complete"
+    // with a body, so a poll that does not ALSO check where it is can accept the blank page,
+    // hand a long WAIT evaluate to it, and have the real navigation tear that evaluate down
+    // ("Inspected target navigated or closed") after every assertion had already passed.
+    try { if (await cdp.evaluate('document.readyState === "complete" && !!document.body && location.href !== "about:blank"')) break; } catch (_e) { /* navigated mid-poll */ }
   }
   await sleep(600);
 }

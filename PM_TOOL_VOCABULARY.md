@@ -447,3 +447,67 @@ soft**: the table deliberately has no UPDATE policy (a `deleted_at` needs one), 
 the PM these notes may be disclosable on a data access request — keeping a copy of something a PM
 deliberately removed would make that line untrue. The suites prove PM B cannot delete PM A's note
 (zero rows, row still there), the client cannot, PM A can, and the row is genuinely gone.
+
+## 18. Inviting a client — the PM never enters someone else's declaration (register row 254)
+
+**There is no "Add Client". A PM enters a name and an email; the person completes signup
+themselves.** A PM typing in a risk profile is entering a declaration that is not theirs, and a
+passport arriving by email so a PM can upload it is worse than no account at all. So the whole
+feature is an invitation: a link the person opens, which pre-fills exactly the two things the PM
+knew — their name (editable) and the address the invitation was sent to (read-only, because it is
+the address the invitation resolves against) — and **skips nothing else**. Phone, password, date
+of birth, country, the financial profile, the goals, all six risk answers and both identity
+documents are the person's own to make, through the paths Task A built. The patterns, so the next
+invitation-shaped feature (a PM invite, a referral) copies rather than reinvents:
+
+- **Its own table, not a client with a status.** `clients.id` IS `auth.users.id`, so a client
+  cannot exist before the person has an auth account, and an invited person has none until they
+  finish. An invitation has states a client never has, and the same address may be invited more
+  than once. `client_invitations` carries `full_name`, `email`, `note`, the PM's attribution,
+  `expires_at` (14 days), `status` (sent / opened / accepted / expired / revoked), `opened_at`,
+  `accepted_at`, `accepted_client_id`, `last_sent_at`.
+- **The token is stored HASHED (sha256), never raw.** The raw token exists in exactly one place —
+  the link in the email — so a read of the table (an export, a log line, a backup) can never
+  yield a usable signup link for someone else's identity. The consequence: **Resend ROTATES the
+  token** (a new one minted and mailed, the old link dies) rather than needing the raw value
+  back, which is the right behaviour for a resend anyway.
+- **"One live invitation per address" is a partial unique index**
+  (`lower(email) where status in ('sent','opened')`), not a read-then-insert in the function.
+  Two concurrent creates collide at the database (23505 → 409); the function's own check exists
+  to give the PM a sentence, not to enforce the rule.
+- **Admin-only READ via RLS; no client-side write for any role, admin included.** Create, resend,
+  revoke are Edge Functions (attribution and the email live there); the list is one function that
+  settles time-expired rows to `expired` on read (settle-on-touch, row 124's shape); and the
+  signup page reads ONE invitation by its token through `get-invitation` — the project's second
+  genuinely open endpoint after `get-public-market-snapshot`, gated by the token itself, returning
+  only the name and address the link was issued to, marking the row Opened on first read, and
+  refusing expired 410 / revoked 410 / used 409 / unknown 404 with a full sentence each.
+- **Acceptance is a TRIGGER on `clients` AFTER INSERT, not a page step.** A page step can be
+  skipped; a trigger cannot. `link_invitations_to_new_client()` (the exact shape of
+  `link_conversations_to_new_client()`) resolves any sent/opened/expired invitation at the new
+  client's address as `accepted` with `accepted_client_id`. That is what decided the edge case of
+  a NORMAL signup at an invited address while the invitation is live: **the signup succeeds and the
+  invitation resolves against that client** — the invited path and the plain path land
+  identically, and a courtesy link never blocks a real signup. A time-expired invitation whose
+  person then signs up normally also reads "accepted": that is the truer word beside a real
+  account.
+- **Refusals are the server's, shown in place.** An address that already belongs to a client →
+  409 naming them; a duplicate live invitation → 409 ("already out — resend or revoke that one");
+  the modal shows the sentence beside the field and stays open. On signup, a refused token replaces
+  the steps with the server's sentence and a plain-signup link — never a broken form.
+- **The pending panel is its own section above the client list, and the strip separates the two
+  counts**: Clients | Invitations out | Assets under management | Awaiting your approval. The
+  Clients figure counts rows in the list and never an invitation. A row reads Sent / Opened /
+  Expired, "N days ago" or "expires ‹date›" inside 48h, Resend + Revoke — or, on an expired row,
+  Invite again (opens the modal PRE-FILLED and creates a NEW row beside the expired one) + Remove.
+  Revoke and Remove go through a confirm step naming the person and the consequence.
+- **Attribution is captured, not displayed.** `invited_by`/`invited_by_email` are written on every
+  row; `toClientShape()` never returns them, so nothing can render them by accident until
+  multi-PM — the same rule the approval gate follows.
+- **One email composition, shared by create and resend** (`invitationEmailInput()` in
+  `_shared/invitations.ts`), through the existing `_shared/send-email.ts` path: the PM's optional
+  note as a callout, the CTA carrying the raw token, the `general` footer.
+- **Verification uses Resend's documented delivery sink** (`delivered+tag@resend.dev`) for the
+  suites' real sends: the function's own validation refuses a malformed address before the
+  mailer, so row 153's no-`@` technique cannot apply here, and Resend no longer refuses a
+  nonexistent domain synchronously. A real send to a real inbox is done once, by hand, on request.
