@@ -11426,6 +11426,34 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   -match 'functions serve' }`, never a name-based kill — `node.exe` matches far more than
   this). The same goes for a `python -m http.server 8765` started for the visual/CDP
   harnesses: it is not part of the stack and is a genuine leftover once those runs finish.
+- **★★ START `functions serve` THROUGH `scripts/start-functions-serve.ps1`, NEVER BARE IN A
+  SHELL — and when a pass loses the edge runtime, READ ITS LOG BEFORE TRIAGING A SINGLE SUITE
+  (2026-09-20, register row 255).** The CLI's `functions serve` destroys and RECREATES the
+  edge-runtime container whenever the runtime dies (a new container id each time; Docker's own
+  restart policy on it is `no`), and row 254's full pass saw it happen at least five times, one
+  of them a fifteen-minute outage that took eight consecutive suites (92–99) at their first
+  backend call — including calls that carry no token at all, so it is never the PM token. From a
+  suite it looks like Kong 503 `{"message":"name resolution failed"}` (the container does not
+  exist) followed by 502 `An invalid response was received from the upstream server` (it exists
+  and is not yet serving), or a `supabase status` header listing
+  `supabase_edge_runtime_Marketswave` under Stopped services. It is load-driven — recreations
+  happen only while suites run, none in nineteen idle minutes — and it is not the file watcher.
+  **The trigger of every occurrence so far is UNRECOVERABLE**: a recreated container is a new
+  `docker logs` stream, Docker Desktop's event buffer keeps nothing useful, and the serve
+  process's own stdout — the one place the CLI prints the runtime's last words and its restart
+  reason — was orphaned with the shell that launched it. The launcher relaunches serve detached
+  with stdout/stderr to `scripts/.pass-logs/functions-serve/<UTC stamp>.log`, stopping any
+  existing serve tree by PID first; run it after every `supabase start`. When the next
+  recreation happens, `docker inspect supabase_edge_runtime_Marketswave --format
+  '{{.Created}}'` dates it and that log names the cause. **The fix is recorded, not built (row
+  255)**: `verify-pass.mjs` checks the edge runtime at every suite boundary and reports a suite
+  that would start into a stopped runtime as UNREACHABLE — row 222's third verdict — instead of
+  letting it fail assertions. Until then, a suite that fails on a 5xx at its first call is this
+  before it is anything else: check the container's `Created` time against the suite's log
+  mtime, and re-run it in isolation. Retroactively: row 251's cold-5xx retry was built to absorb
+  exactly this shape, and several "network flap / silent Node death / flakiness" triages in rows
+  211, 214, 217, 221, 222 and 249 have its signature — not re-opened, but the cause existed the
+  whole time and was invisible.
 - **★ Every harness temp directory goes through `scripts/lib/harness-teardown.mjs` — never a
   bare `mkdtempSync`, never a `try { rmSync } catch {}`.** Added 2026-09-12 after 1,333
   leaked directories were found in `%TEMP%`: `chrome.kill()` returns before Windows releases
