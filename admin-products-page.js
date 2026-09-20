@@ -216,10 +216,12 @@
     '</button>';
   }
 
+  // The shared sortable header (format-helpers.js + .mw-sort, register row 252).
   function sortBtn(key, label, right) {
     var on = state.sort === key;
-    return '<span' + (right ? ' class="r"' : '') + '><button type="button" data-sort="' + key + '"' + (on ? ' class="is-sorted"' : '') + '>' +
-      esc(label) + (on ? (state.dir === 1 ? ' ▴' : ' ▾') : '') + '</button></span>';
+    return '<span' + (right ? ' class="r"' : '') + '>' +
+      sortHeaderHTML({ attr: 'data-sort', key: key, label: label, dir: on ? (state.dir === 1 ? 'asc' : 'desc') : null, end: !!right }) +
+      '</span>';
   }
 
   function renderTable() {
@@ -228,9 +230,15 @@
     var rows = visible();
     var shown = rows.slice(0, state.page * PAGE);
 
+    // ★ THE HEAD FOLLOWS THE ROW'S OWN CELL ORDER — class, 24h, holders, source, then PRICE.
+    // rowHTML() groups class/change/holders/source in .pr-sub (display: contents on desktop, a
+    // second line on a phone) and puts the price cell LAST so it sits top-right when restacked.
+    // The head shipped in a different order (class, price, 24h, holders, source), so "Price"
+    // stood over the 24h figure and "Source" over the price from part 6 until 2026-09-19
+    // (register row 252). Change the row's order and this line together, never one alone.
     var head = '<div class="pr-th"><span></span>' + sortBtn('name', 'Product') +
-      '<span>Class</span>' + sortBtn('price', 'Price', true) + sortBtn('change', '24h', true) +
-      sortBtn('holders', 'Holders', true) + '<span>Source</span><span></span></div>';
+      '<span>Class</span>' + sortBtn('change', '24h', true) + sortBtn('holders', 'Holders', true) +
+      '<span>Source</span>' + sortBtn('price', 'Price', true) + '<span></span></div>';
 
     if (!rows.length) {
       el.innerHTML = head + '<p class="pr-empty">No product matches this search and filter.</p>';

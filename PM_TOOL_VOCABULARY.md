@@ -404,3 +404,46 @@ honest answer to "can we build this panel?" was **partly no**. What it establish
   works.
 
 ---
+
+## 17. Sortable column headers, and deleting a private note (register row 252)
+
+**Sortable headers are ONE component — `sortHeaderHTML()` in `format-helpers.js` and `.mw-sort`
+in `control-patterns.css` — on every table that sorts** (the client list, the gate's history, the
+products page, the documents page). The page keeps its own dispatch attribute (`data-sort`,
+`data-cl-sort`); only the markup inside the cell is shared. Investigated before the change, the
+four tables had three hand-rolled headers with three different defects, and the record of them is
+in the stylesheet section itself. The short version, so the next sortable table does not repeat
+any of it:
+
+- **The hit area was the glyph box.** `all: unset` / `padding: 0` and an explicit `min-height: 0`
+  (0,1,1) out-specified tap-targets.css's element-selector floor; measured 14.3px tall at every
+  width, including the client list at 390px, where its head is the one that stays visible on a
+  phone. The row-171 sweep never saw them: they are rendered by the page's async data load, and
+  that sweep reads the DOM ~900ms after readyState. **A control rendered by data is invisible to a
+  sweep that does not wait for the data** — the new suite waits for rows before measuring.
+- **The direction mark was a text glyph appended INTO the label, only when active.** So no
+  inactive header looked sortable, and activating one changed its width ("Portfolio" 55px →
+  "Portfolio ▾" 73px), shifting a right-aligned label 18px. The pattern kept is the gate history's:
+  an always-present indicator that FLIPS rather than appears — now a CSS mask on `::after`, so the
+  label never changes width.
+- **The active state was a colour change alone**, and one page put `aria-sort` on the `<button>`,
+  where it is invalid. The accessible name now carries the state ("Price, sorted descending" /
+  "Price, not sorted"), built from the same `dir` the CSS keys on.
+- The hit area grows OUTWARD (negative margin into the head's own padding) so the label's edge
+  stays on its column's edge; **a figures column uses `.mw-sort-end`** and the mark LEADS, so the
+  label stays flush with the numbers beneath it. 28px on desktop, 44px below `lg`.
+- **A head must be built in the ROW's own cell order.** The products page shipped with "Price" over
+  the 24h figure and "Source" over the price for three days — its row groups class/24h/holders/
+  source in `.pr-sub` (display: contents on desktop) and puts price last for the phone restack, and
+  the head was written in a different order. Change one, change the other.
+
+**Deleting a private note is a two-step, and author-only is proven by the refusal.** A quiet
+Delete control in the note's own header swaps to a confirm row (question + "Delete note" danger +
+"Keep"; Escape and Keep fold it); nothing is deleted on the first click. The delete is a direct
+DELETE under the table's existing author-only policy, through `deleteRow()`, which treats "zero
+rows affected" as a refusal — an RLS-filtered DELETE is a silent no-op, not an error, and without
+that check a colleague's note would show "Note deleted." while still existing. **Hard delete, not
+soft**: the table deliberately has no UPDATE policy (a `deleted_at` needs one), and the panel tells
+the PM these notes may be disclosable on a data access request — keeping a copy of something a PM
+deliberately removed would make that line untrue. The suites prove PM B cannot delete PM A's note
+(zero rows, row still there), the client cannot, PM A can, and the row is genuinely gone.

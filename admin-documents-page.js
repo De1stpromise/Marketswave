@@ -225,10 +225,12 @@
       '<span class="doc-chev" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></span>' +
     '</button>';
   }
+  // The shared sortable header (format-helpers.js + .mw-sort, register row 252).
   function sortBtn(key, label, right) {
     var on = state.sort === key;
-    return '<span' + (right ? ' class="r"' : '') + '><button type="button" data-sort="' + key + '"' + (on ? ' class="is-sorted"' : '') + '>' +
-      esc(label) + (on ? (state.dir === 1 ? ' ▴' : ' ▾') : '') + '</button></span>';
+    return '<span' + (right ? ' class="r"' : '') + '>' +
+      sortHeaderHTML({ attr: 'data-sort', key: key, label: label, dir: on ? (state.dir === 1 ? 'asc' : 'desc') : null, end: !!right }) +
+      '</span>';
   }
   function renderTable() {
     var el = document.getElementById('doc-table');

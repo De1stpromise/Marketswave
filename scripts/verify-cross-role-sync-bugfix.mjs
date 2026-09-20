@@ -206,7 +206,9 @@ async function main() {
     // page logic moved into the external admin-documents-page.js. Publish stays a static form
     // (#publish-* ids and .mw-upload unchanged); Download and Mark Reviewed moved into the row's
     // detail overlay. Repointed here, not dropped.
-    const script = readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
+    // The real page loads format-helpers.js before its own script (sortHeaderHTML(), row 252).
+    const script = readFileSync(fileURLToPath(new URL('../format-helpers.js', import.meta.url)), 'utf8') + ';' +
+      readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
     return { dom: dom, script: script };
   }
   function buildClientDocumentsDom() {

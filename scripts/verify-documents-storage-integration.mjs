@@ -213,7 +213,9 @@ async function main() {
     dom.window.MarketswaveData = ADMIN_CTX.MarketswaveData;
     // Part 9 (2026-09-18): page logic moved to the external admin-documents-page.js; the three
     // sections became one table and Download moved into the row's detail overlay. Repointed.
-    const script = readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
+    // The real page loads format-helpers.js before its own script (sortHeaderHTML(), row 252).
+    const script = readFileSync(fileURLToPath(new URL('../format-helpers.js', import.meta.url)), 'utf8') + ';' +
+      readFileSync(fileURLToPath(new URL('../admin-documents-page.js', import.meta.url)), 'utf8');
     return { dom: dom, script: script };
   }
   function buildClientDocumentsDom(ctx, clientId) {

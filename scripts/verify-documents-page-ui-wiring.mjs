@@ -72,6 +72,8 @@ function buildDom(MarketswaveData) {
     virtualConsole: vc, pretendToBeVisual: true
   });
   dom.window.MarketswaveData = MarketswaveData;
+  // The real page loads format-helpers.js before its own script (sortHeaderHTML(), row 252).
+  dom.window.eval(readFileSync(path.join(ROOT, 'format-helpers.js'), 'utf8'));
   dom.window.eval(readFileSync(PAGE_JS, 'utf8'));
   return dom;
 }

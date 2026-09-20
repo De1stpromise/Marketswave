@@ -443,8 +443,20 @@
     var n = d.p.notes;
     var body = n.length
       ? n.map(function (x) {
+          // Delete is a two-step: the quiet control here swaps the note's own header for a
+          // confirm row (register row 252). Author-only is RLS on pm_client_notes, not this UI —
+          // a note the PM cannot delete is a note they were never shown.
           return '<div class="cp-pn" data-cp-note="' + esc(x.id) + '">' +
-            '<div class="cp-pnh"><b>' + esc(dateShort(x.createdAt)) + '</b></div>' +
+            '<div class="cp-pnh"><b>' + esc(dateShort(x.createdAt)) + '</b>' +
+              '<button type="button" class="cp-pndel" data-cp-note-del="' + esc(x.id) + '" aria-label="Delete this note">Delete</button>' +
+            '</div>' +
+            '<div class="cp-pnq" hidden>' +
+              '<span>Delete this note? It can’t be recovered.</span>' +
+              '<span class="cp-pnqb">' +
+                '<button type="button" class="mw-btn mw-btn-sm mw-btn-danger" data-cp-note-confirm="' + esc(x.id) + '">Delete note</button>' +
+                '<button type="button" class="mw-btn mw-btn-sm" data-cp-note-keep="' + esc(x.id) + '">Keep</button>' +
+              '</span>' +
+            '</div>' +
             '<p>' + esc(x.body) + '</p></div>';
         }).join('')
       : '<div class="cp-empty">No notes yet.</div>';
@@ -543,6 +555,20 @@
     load().then(function (d) { D.getElementById('cp-tabs').innerHTML = renderTabs(d); }).catch(function () { /* panels report it */ });
   }
 
+  function foldNote(note, refocus) {
+    if (!note) return;
+    note.classList.remove('is-confirming');
+    var q = note.querySelector('.cp-pnq'); if (q) q.hidden = true;
+    var d = note.querySelector('[data-cp-note-del]');
+    if (d) { d.hidden = false; if (refocus) d.focus(); }
+  }
+  // Escape folds an open confirm row, the same way it closes this page's other transient UI.
+  D.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    var open = D.querySelector('.cp-pn.is-confirming');
+    if (open) { foldNote(open, true); ev.preventDefault(); }
+  });
+
   // delegated actions
   D.addEventListener('click', function (ev) {
     var t = ev.target;
@@ -572,6 +598,39 @@
         ta.value = '';
         D.getElementById('cp-noteform').classList.remove('is-open');
         toast('Note saved.');
+        reload().then(function (d) {
+          D.getElementById('cp-notes').innerHTML = renderNotes(d);
+          D.getElementById('cp-tabs').innerHTML = renderTabs(d);
+        });
+      }).catch(function (e) { toast(MarketswaveData.writeErrorMessage(e)); });
+      return;
+    }
+    // ---- note deletion: reveal the confirm row, keep, or delete for real --------------------
+    var del = t.closest && t.closest('[data-cp-note-del]');
+    if (del) {
+      var note = del.closest('.cp-pn');
+      // One confirm row open at a time — a second Delete click elsewhere folds the first.
+      D.querySelectorAll('.cp-pn.is-confirming').forEach(function (o) { if (o !== note) foldNote(o); });
+      note.classList.add('is-confirming');
+      note.querySelector('.cp-pnq').hidden = false;
+      del.hidden = true;
+      var keepBtn = note.querySelector('[data-cp-note-keep]');
+      if (keepBtn) keepBtn.focus();
+      return;
+    }
+    var keep = t.closest && t.closest('[data-cp-note-keep]');
+    if (keep) { foldNote(keep.closest('.cp-pn'), true); return; }
+    var confirmDel = t.closest && t.closest('[data-cp-note-confirm]');
+    if (confirmDel) {
+      var id = confirmDel.getAttribute('data-cp-note-confirm');
+      MarketswaveData.withButtonBusy(confirmDel, 'Deleting…', async function () {
+        // A DIRECT delete under RLS: the row goes only if the caller is its author (the same
+        // policy shape the read uses). deleteRow() treats "zero rows affected" as a refusal —
+        // an RLS-filtered DELETE is a silent no-op, not an error, so without that check a
+        // colleague's note would show "Note deleted." while still existing (row 123).
+        await MarketswaveData.deleteRow('pm_client_notes', { id: id });
+      }).then(function () {
+        toast('Note deleted.');
         reload().then(function (d) {
           D.getElementById('cp-notes').innerHTML = renderNotes(d);
           D.getElementById('cp-tabs').innerHTML = renderTabs(d);

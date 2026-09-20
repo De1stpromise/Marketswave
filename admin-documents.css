@@ -60,11 +60,7 @@
 .doc-table { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; }
 .doc-th, .doc-tr { display: grid; grid-template-columns: 38px minmax(0, 1.35fr) minmax(0, .85fr) 116px 116px 92px 30px; gap: 12px; align-items: center; }
 .doc-th { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; background: #FAFBFC; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
-.doc-th button {
-  background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px; min-height: 0; min-width: 0; text-transform: inherit; letter-spacing: inherit;
-}
-.doc-th button.is-sorted { color: #0F172A; }
+/* Sortable headers are the shared .mw-sort (control-patterns.css, register row 252). */
 .doc-th .r, .doc-tr .r { justify-self: end; text-align: right; }
 .doc-tr { padding: 11px 15px; border-bottom: 1px solid #F1F5F9; cursor: pointer; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font: inherit; }
 .doc-tr:hover { background: #FAFBFC; }

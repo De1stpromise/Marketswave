@@ -605,7 +605,7 @@ PROFILES['products'] = [
   { label: 'pill', sel: '.pr-pill', limit: 8 },
   { label: 'pill count', sel: '.pr-pill .n', limit: 8 },
   { label: 'column head', sel: '.pr-th button', limit: 4 },
-  { label: 'column head (sorted)', sel: '.pr-th button.is-sorted', limit: 1 },
+  { label: 'column head (sorted)', sel: '.pr-th .mw-sort[data-dir]', limit: 1 },
   { label: 'product name', sel: '.pr-tr:not(.is-retired) .pr-nm b', limit: 8 },
   { label: 'product ticker', sel: '.pr-tr:not(.is-retired) .pr-tk', limit: 8 },
   { label: 'product meta', sel: '.pr-tr:not(.is-retired) .pr-meta > span:last-child', limit: 8 },
@@ -698,6 +698,48 @@ PROFILES['client-profile'] = [
   { label: 'absence note', sel: '.cp-absent p', limit: 3 },
   { label: 'access-log warning', sel: '.cp-locked p', limit: 1 },
   { label: 'empty state', sel: '.cp-empty', limit: 3 }
+];
+
+// ★ Sortable column headers (2026-09-19, register row 252) — the shared .mw-sort on every
+// sortable table in the PM tool: the client list, the approval gate's history, the products page
+// and the documents page. Page-agnostic on purpose (one vocabulary, four pages): the suite runs
+// it once per page with that page's own PREP. Both states are measured, and so is hover, because
+// the resting inactive label, the active label and the hovered label are three different colours.
+PROFILES['sort-headers'] = [
+  { label: 'sort head (inactive)', sel: '.mw-sort:not([data-dir])', limit: 6 },
+  { label: 'sort head (active)', sel: '.mw-sort[data-dir]', limit: 2 },
+  { label: 'HOVER sort head (inactive)', sel: '.mw-sort:not([data-dir])', limit: 2, hover: true }
+];
+
+// The client list had no contrast profile at all until the sort-header fix (row 252) — it is the
+// one table whose head stays visible on a phone, so its head is measured here on top of the
+// generic sort-headers profile above.
+PROFILES['client-list'] = [
+  { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
+  { label: 'strip label', sel: '.cl-hc .cl-k', limit: 4 },
+  { label: 'strip figure', sel: '.cl-hc .cl-v', limit: 4 },
+  { label: 'filter pill', sel: '.cl-fp[aria-pressed="false"]', limit: 4 },
+  { label: 'filter pill (on)', sel: '.cl-fp[aria-pressed="true"]', limit: 1 },
+  { label: 'client name', sel: '.cl-cn b', limit: 4 },
+  { label: 'client sub', sel: '.cl-cn .cl-sub', limit: 4 },
+  { label: 'type pill', sel: '.cl-typ', limit: 3 },
+  { label: 'money', sel: '.cl-mny', limit: 4 },
+  { label: 'unallocated', sel: '.cl-una:not(.cl-dash)', limit: 4 },
+  { label: 'unallocated (none dash)', sel: '.cl-una.cl-dash', limit: 2 },
+  { label: 'pending count', sel: '.cl-pend:not(.is-none)', limit: 2 },
+  { label: 'pending (none dash)', sel: '.cl-pend.is-none .cl-dash', limit: 2 },
+  { label: 'status pill', sel: '.cl-stp', limit: 4 }
+];
+
+// The client profile's note-deletion confirm row (row 252), measured with a real note on screen
+// and its confirm row OPEN — the suite's PREP clicks Delete first.
+PROFILES['client-profile-note-delete'] = [
+  { label: 'note Delete control', sel: '.cp-pn:not(.is-confirming) .cp-pndel', limit: 2 },
+  { label: 'HOVER note Delete control', sel: '.cp-pn:not(.is-confirming) .cp-pndel', limit: 1, hover: true },
+  { label: 'confirm question', sel: '.cp-pn.is-confirming .cp-pnq > span:first-child', limit: 1 },
+  { label: 'confirm Delete note', sel: '.cp-pn.is-confirming .cp-pnq .mw-btn-danger', limit: 1 },
+  { label: 'confirm Keep', sel: '.cp-pn.is-confirming .cp-pnq .mw-btn:not(.mw-btn-danger)', limit: 1 },
+  { label: 'note body beside an open confirm', sel: '.cp-pn.is-confirming p', limit: 1 }
 ];
 
 PROFILES['approval-gate'] = [

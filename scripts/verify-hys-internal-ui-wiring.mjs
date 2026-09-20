@@ -194,6 +194,8 @@ async function main() {
     const adminDom = buildPageDom(adminPath);
     adminDom.window.MarketswaveData = MarketswaveData;
     const A = adminDom.window.document;
+    // The real page loads format-helpers.js before its own script (sortHeaderHTML(), row 252).
+    adminDom.window.eval(readFileSync(fileURLToPath(new URL('../format-helpers.js', import.meta.url)), 'utf8'));
     adminDom.window.eval(readFileSync(fileURLToPath(new URL('../admin-approvals-page.js', import.meta.url)), 'utf8'));
 
     const queueEl = A.getElementById('ag-queue');

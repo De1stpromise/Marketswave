@@ -679,7 +679,9 @@
 
   var COLS = [
     { k: 'kind', l: '' }, { k: 'title', l: 'Request' }, { k: 'client', l: 'Client' },
-    { k: 'amount', l: 'Amount' }, { k: 'outcome', l: 'Outcome' }, { k: 'when', l: 'Decided' }
+    // `end`: the amount cell (.ag-amt) is right-aligned, so its head is too — the label's right
+    // edge sits over the figures, the indicator leads (register row 252).
+    { k: 'amount', l: 'Amount', end: true }, { k: 'outcome', l: 'Outcome' }, { k: 'when', l: 'Decided' }
   ];
   function renderHistory() {
     var rows = state.history.filter(function (r) {
@@ -707,13 +709,12 @@
       '<span class="ag-srch"><span class="ag-ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>' +
       '<input id="ag-hq" type="search" placeholder="Search client, reference or amount" aria-label="Search history" value="' + esc(state.hq) + '" /></span>';
 
+    // The shared sortable header (format-helpers.js + .mw-sort, register row 252). This page's
+    // own always-present, direction-flipping chevron was the pattern the vocabulary kept.
     document.getElementById('ag-hhead').innerHTML = COLS.map(function (c) {
       if (!c.l) return '<span></span>';
-      var on = state.sortKey === c.k;
-      return '<span><button type="button" data-sort="' + c.k + '" class="' + (on ? 'is-srt' : '') + '">' + esc(c.l) +
-        ' <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">' +
-        (on && state.sortDir === 'asc' ? '<polyline points="18 15 12 9 6 15"/>' : '<polyline points="6 9 12 15 18 9"/>') +
-        '</svg></button></span>';
+      return '<span' + (c.end ? ' class="ag-hend"' : '') + '>' +
+        sortHeaderHTML({ attr: 'data-sort', key: c.k, label: c.l, dir: state.sortKey === c.k ? state.sortDir : null, end: !!c.end }) + '</span>';
     }).join('');
 
     document.getElementById('ag-hrows').innerHTML = rows.length ? rows.map(function (r) {

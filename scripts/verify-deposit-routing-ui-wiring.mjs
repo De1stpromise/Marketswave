@@ -269,6 +269,8 @@ async function main() {
     queueDom.window.MarketswaveData = MarketswaveData;
     const Q = queueDom.window.document;
     // The gate's logic is an external file, not an inline block.
+    // The real page loads format-helpers.js before its own script (sortHeaderHTML(), row 252).
+    queueDom.window.eval(readFileSync(fileURLToPath(new URL('../format-helpers.js', import.meta.url)), 'utf8'));
     queueDom.window.eval(readFileSync(fileURLToPath(new URL('../admin-approvals-page.js', import.meta.url)), 'utf8'));
     const pendingEl = Q.getElementById('ag-queue');
     const gateRow = (id) => pendingEl.querySelector('.ag-row[data-kind="dep"][data-id="' + id + '"]');

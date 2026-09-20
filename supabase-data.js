@@ -421,7 +421,7 @@
       // ("new row violates row-level security policy...") is implementation detail, not
       // something a client should ever see verbatim.
       e.kind = 'client';
-      e.message = 'This action isn’t allowed for this document.';
+      e.message = 'This action isn’t allowed.';
     } else if (error.code === '23514' || error.code === '23502' || error.code === '23503') {
       // check_violation / not_null_violation / foreign_key_violation — a genuine, if generic,
       // business-rule rejection (e.g. an invalid category value) — real enough to show verbatim
@@ -481,7 +481,7 @@
     }).then(function (result) {
       if (result.error) throw classifyPostgrestError(result.error);
       if (!result.data || result.data.length === 0) {
-        var e = new Error('This action isn’t allowed for this document.');
+        var e = new Error('This action isn’t allowed.');
         e.status = null;
         e.kind = 'client';
         throw e;

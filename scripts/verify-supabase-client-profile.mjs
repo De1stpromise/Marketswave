@@ -163,6 +163,41 @@ async function main() {
       profA.body.counts.notes === 1 && profB.body.counts.notes === 1,
       profA.body.counts.notes + ' / ' + profB.body.counts.notes);
 
+    // ---- deletion (2026-09-19, register row 252): author-only, enforced by RLS, proven by the
+    // refusal — not by the control being hidden. The page deletes through exactly this path (a
+    // direct DELETE + .select()), so what is proven here is what the page relies on.
+    console.log('\n=== PART 3b: deleting a note is author-only — the refusal is proven, not the hidden control ===\n');
+    const bDelA = await bClient.from('pm_client_notes').delete().eq('id', insA.data.id).select('id');
+    check('★ PM B deleting PM A\'s note: NO error and ZERO rows — an RLS-filtered DELETE is a silent no-op',
+      !bDelA.error && Array.isArray(bDelA.data) && bDelA.data.length === 0,
+      bDelA.error ? bDelA.error.message : JSON.stringify(bDelA.data));
+    const stillA = await admin.from('pm_client_notes').select('id').eq('id', insA.data.id).maybeSingle();
+    check('★ ...and PM A\'s note genuinely still exists afterwards (checked with the service role)',
+      !!(stillA.data && stillA.data.id), JSON.stringify(stillA));
+    const cDelA = await cClient.from('pm_client_notes').delete().eq('id', insA.data.id).select('id');
+    check('the CLIENT the note is about cannot delete it either (zero rows, row still there)',
+      !cDelA.error && cDelA.data.length === 0 &&
+      !!((await admin.from('pm_client_notes').select('id').eq('id', insA.data.id).maybeSingle()).data),
+      cDelA.error ? cDelA.error.message : JSON.stringify(cDelA.data));
+    // The page-side contract: deleteRow() reads that empty array as a refusal and throws. The
+    // real function is exercised in verify-client-profile-ui-wiring; here the raw property.
+    const aDelA = await aClient.from('pm_client_notes').delete().eq('id', insA.data.id).select('id');
+    check('★ PM A deleting their OWN note returns the deleted row (one row, its id)',
+      !aDelA.error && aDelA.data.length === 1 && aDelA.data[0].id === insA.data.id,
+      aDelA.error ? aDelA.error.message : JSON.stringify(aDelA.data));
+    const goneA = await admin.from('pm_client_notes').select('id').eq('id', insA.data.id).maybeSingle();
+    check('★ ...and it is genuinely gone — a HARD delete, no copy retained anywhere (service-role read)',
+      !goneA.data, JSON.stringify(goneA.data));
+    const bStill = await bClient.from('pm_client_notes').select('id, body').eq('client_id', clientId);
+    check('PM B\'s own note on the same client is untouched by PM A\'s delete',
+      !bStill.error && bStill.data.length === 1 && /PM B private note/.test(bStill.data[0].body), JSON.stringify(bStill.data));
+    const profA2 = await callFn(st.url, tokenA, 'get-client-profile', { clientId });
+    check('get-client-profile now returns PM A zero notes and a zero count',
+      profA2.body.notes.length === 0 && profA2.body.counts.notes === 0, JSON.stringify(profA2.body.counts));
+    // Restore PM A's note so PART 4+ read the state they were written against.
+    const insA2 = await aClient.from('pm_client_notes').insert({ client_id: clientId, author_email: pmA.email, body: 'PM A private note ' + SUF }).select('id').single();
+    if (insA2.error) throw new Error('re-insert: ' + insA2.error.message);
+
     console.log('\n=== PART 4: the empty client renders as empty, not as broken ===\n');
     const e = profA.body;
     check('a client with nothing has no holdings-derived money', e.money.portfolioValue === 0, String(e.money.portfolioValue));

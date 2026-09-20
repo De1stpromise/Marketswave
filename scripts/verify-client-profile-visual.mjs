@@ -199,6 +199,17 @@ async function main() {
   const anon = createClient(st.API_URL, st.ANON_KEY);
   const signed = await anon.auth.signInWithPassword({ email: 'pm@marketswave.local', password: 'MarketswavePM-Local-2026!' });
   if (signed.error) throw new Error('admin sign-in: ' + signed.error.message);
+  // ★ A REAL NOTE BY THE SIGNED-IN PM (register row 252). The note date/body probes and the
+  // delete confirm row can only be measured if a note this PM authored is on screen — without
+  // one, those selectors match nothing and the profile passes on an empty set (§V).
+  const { data: plantedNotes, error: noteErr } = await admin.from('pm_client_notes').insert([
+    { client_id: gary.id, author_id: signed.data.user.id, author_email: 'pm@marketswave.local',
+      body: 'Visual-suite note A ' + plantSuffix + ' — its confirm row is opened and measured; deleted through the real UI at the end.' },
+    { client_id: gary.id, author_id: signed.data.user.id, author_email: 'pm@marketswave.local',
+      body: 'Visual-suite note B ' + plantSuffix + ' — stays folded so the resting Delete control is measured.' }
+  ]).select('id');
+  if (noteErr) throw new Error('could not plant the notes: ' + noteErr.message);
+  let plantedNoteIds = plantedNotes.map((n) => n.id);
   const bootstrap = 'localStorage.setItem("sb-marketswave-admin-auth-token", ' +
     JSON.stringify(JSON.stringify(signed.data.session)) + '); true';
 
@@ -212,6 +223,17 @@ async function main() {
       for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-identity .cp-strip') && document.querySelectorAll('.cp-card').length >= 10) break; await nap(200); }
       await nap(900); })()`;
     runContrast('client-profile', 'the profile', bootstrap, PREP, URL_);
+    // ★ THE DELETE CONFIRM ROW, OPEN — its own profile, because it only exists after a click.
+    const PREP_DEL = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-notes [data-cp-note-del]')) break; await nap(200); }
+      document.querySelector('#cp-notes [data-cp-note-del]').click();
+      await nap(900); })()`;
+    const delOut = runContrast('client-profile-note-delete', '★ the note Delete control and its open confirm row', bootstrap, PREP_DEL, URL_);
+    const nDel = Number((delOut.match(/(\d+) measurements/) || [0, 0])[1]);
+    // Two notes are planted: one is opened (question + both buttons + its body), the other stays
+    // folded so the resting Delete control and its hover state are measured too — six surfaces.
+    check('★ the confirm-row profile genuinely measured the open row AND a resting Delete control (six surfaces)',
+      nDel >= 6, nDel + ' measurements: ' + delOut.split('\n').filter((l) => /PASS|FAIL/.test(l)).map((l) => l.trim().slice(0, 40)).join(' | '));
 
     console.log('\n--- Sheen audit ---\n');
     const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-client-profile.html?client=' + gary.id, SHEEN_BOOTSTRAP_JS: bootstrap }, 'audit-glass-sheen');
@@ -253,11 +275,53 @@ async function main() {
       d.absences >= 2, String(d.absences));
     check('★ 1440px: the access-logging warning is on screen', d.locked === true, String(d.locked));
 
+    console.log('\n--- ★ Note deletion: the two-step control, at 1440 and on a real phone ---\n');
+    const DELPROBE = `(async () => {
+      const nap = (ms) => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-notes [data-cp-note-del]')) break; await nap(200); }
+      const del = document.querySelector('#cp-notes [data-cp-note-del]');
+      if (!del) return { missing: true };
+      const note = del.closest('.cp-pn');
+      const box = (el) => { const r = el.getBoundingClientRect(); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, right: r.right }; };
+      const h0 = note.getBoundingClientRect().height;
+      const delBox = box(del);
+      del.click(); await nap(400);
+      const q = note.querySelector('.cp-pnq');
+      const confirmB = note.querySelector('[data-cp-note-confirm]'), keepB = note.querySelector('[data-cp-note-keep]');
+      const noteR = note.getBoundingClientRect();
+      const out = {
+        missing: false, inner: window.innerWidth, delBox, delHidden: del.hidden,
+        confirming: note.classList.contains('is-confirming'), qShown: q && !q.hidden && getComputedStyle(q).display !== 'none',
+        qText: q ? q.textContent.trim().slice(0, 60) : '', confirmBox: confirmB ? box(confirmB) : null, keepBox: keepB ? box(keepB) : null,
+        overflow: [confirmB, keepB, q].filter(Boolean).some((el) => el.getBoundingClientRect().right > noteR.right + 0.5),
+        bodyScroll: document.body.scrollWidth, grew: note.getBoundingClientRect().height > h0
+      };
+      keepB.click(); await nap(200);
+      out.folded = !note.classList.contains('is-confirming') && q.hidden === true && del.hidden === false;
+      return out;
+    })()`;
+    await desktop(cdp, 1440);
+    await cdp.send('Page.navigate', { url: URL_ });
+    await cdp.evaluate(WAIT);
+    const dd = await cdp.evaluate(DELPROBE);
+    check('GUARD 1440px: a note by this PM is on screen with its Delete control', dd.missing !== true, JSON.stringify(dd));
+    check('★ 1440px: Delete is a real 28px hit box (not the glyph), and clicking it opens the confirm row — nothing deleted yet',
+      dd.delBox.h >= 28 && dd.delBox.w >= 28 && dd.confirming && dd.qShown && /Delete this note/.test(dd.qText) && dd.delHidden === true,
+      JSON.stringify(dd));
+    check('★ 1440px: the confirm row offers "Delete note" (Tier C danger) and "Keep", both real Tier C boxes',
+      dd.confirmBox && dd.keepBox && dd.confirmBox.h >= 40 && dd.keepBox.h >= 40, JSON.stringify({ c: dd.confirmBox, k: dd.keepBox }));
+    check('1440px: the confirm row sits inside the note — nothing escapes its right edge', dd.overflow === false, String(dd.overflow));
+    check('1440px: Keep folds the row, restores the Delete control', dd.folded === true, String(dd.folded));
+
     for (const w of [390, 375]) {
       await phone(cdp, w);
       await cdp.send('Page.navigate', { url: URL_ });
       await cdp.evaluate(WAIT);
       const m = await cdp.evaluate(READ);
+      const pd = await cdp.evaluate(DELPROBE);
+      check('★ ' + w + 'px: the note Delete control meets the 44px floor on a real phone', pd.missing !== true && pd.delBox.h >= 44 && pd.delBox.w >= 44, JSON.stringify(pd.delBox));
+      check('★ ' + w + 'px: the open confirm row fits inside the note and both buttons meet the floor',
+        pd.qShown && pd.overflow === false && pd.confirmBox.h >= 44 && pd.keepBox.h >= 44 && pd.bodyScroll <= w, JSON.stringify({ c: pd.confirmBox, k: pd.keepBox, o: pd.overflow, b: pd.bodyScroll }));
       check('★ ' + w + 'px: a REAL PHONE PROFILE, not a narrow desktop window — DPR 3, coarse pointer, no hover, real touch points',
         m.dpr === 3 && m.coarse === true && m.noHover === true && m.touchPoints >= 1,
         JSON.stringify({ dpr: m.dpr, coarse: m.coarse, noHover: m.noHover, tp: m.touchPoints }));
@@ -299,7 +363,20 @@ async function main() {
       const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const s = w.getComputedStyle(el);
         return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
       const rects = [...dd.querySelectorAll('body *')].map(e => e.getBoundingClientRect());
+      // The note delete confirm row, opened inside the iframe.
+      let del320 = null;
+      const delBtn = dd.querySelector('#cp-notes [data-cp-note-del]');
+      if (delBtn) {
+        const d0 = delBtn.getBoundingClientRect();
+        delBtn.click(); await nap(400);
+        const note = delBtn.closest('.cp-pn'); const q = note.querySelector('.cp-pnq');
+        const nr = note.getBoundingClientRect();
+        const bs = [...q.querySelectorAll('.mw-btn')].map(b => b.getBoundingClientRect());
+        del320 = { delH: Math.round(d0.height), delW: Math.round(d0.width), shown: q && !q.hidden, over: bs.some(b => b.right > nr.right + 0.5) || q.getBoundingClientRect().right > nr.right + 0.5,
+          btnH: bs.map(b => Math.round(b.height)), bodyScroll: dd.body.scrollWidth };
+      }
       return {
+        del320,
         inner: w.innerWidth,
         bodyScroll: dd.body.scrollWidth,
         maxRight: Math.max(0, ...rects.map(r => r.right)),
@@ -318,9 +395,35 @@ async function main() {
       JSON.stringify(iframe.strips));
     check('★ 320px: holdings and the absence notes are still rendered',
       iframe.holdings > 0 && iframe.absences >= 2, iframe.holdings + ' holdings / ' + iframe.absences + ' absences');
+    check('★ 320px: the note Delete control meets the floor and its open confirm row fits, both buttons at the floor',
+      !!iframe.del320 && iframe.del320.delH >= 44 && iframe.del320.delW >= 44 && iframe.del320.shown && !iframe.del320.over &&
+      iframe.del320.btnH.length === 2 && iframe.del320.btnH.every((h) => h >= 44) && iframe.del320.bodyScroll <= 321,
+      JSON.stringify(iframe.del320));
+
+    // ★ Finally, delete the planted note THROUGH THE REAL UI in the real browser, and prove it is gone.
+    console.log('\n--- ★ The real delete, through the real UI ---\n');
+    await desktop(cdp, 1440);
+    await cdp.send('Page.navigate', { url: URL_ });
+    await cdp.evaluate(WAIT);
+    const realDel = await cdp.evaluate(`(async () => {
+      const nap = (ms) => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-notes [data-cp-note-del]')) break; await nap(200); }
+      const del = document.querySelector('#cp-notes [data-cp-note-del]'); if (!del) return { missing: true };
+      const id = del.getAttribute('data-cp-note-del');
+      del.click(); await nap(300);
+      document.querySelector('#cp-notes [data-cp-note-confirm="' + id + '"]').click();
+      for (let i = 0; i < 100; i++) { if (!document.querySelector('#cp-notes [data-cp-note="' + id + '"]') && !/animate-pulse/.test(document.getElementById('cp-notes').innerHTML)) break; await nap(200); }
+      return { missing: false, id, stillOnScreen: !!document.querySelector('#cp-notes [data-cp-note="' + id + '"]'), toast: (document.getElementById('cp-toast') || {}).textContent };
+    })()`);
+    check('GUARD: the planted note was on screen to delete', realDel.missing !== true, JSON.stringify(realDel));
+    check('★ confirming in the real browser removes the note from the panel and says so', realDel.stillOnScreen === false && /Note deleted/.test(realDel.toast || ''), JSON.stringify(realDel));
+    const { data: goneRow } = await admin.from('pm_client_notes').select('id').eq('id', realDel.id).maybeSingle();
+    check('★ ...and it is genuinely gone from Postgres (service-role read) — a hard delete', !goneRow, JSON.stringify(goneRow));
+    if (!goneRow) plantedNoteIds = plantedNoteIds.filter((id) => id !== realDel.id);
 
   } finally {
     if (plantedDocs.length) await admin.from('documents').delete().in('id', plantedDocs);
+    if (plantedNoteIds.length) await admin.from('pm_client_notes').delete().in('id', plantedNoteIds);
     if (cdp) { try { cdp.ws.close(); } catch (e) {} try { cdp.chrome.kill(); } catch (e) {} }
     if (profile) await releaseTempDir(profile);
     if (server) { try { server.kill(); } catch (e) {} }

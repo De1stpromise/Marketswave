@@ -608,3 +608,107 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
    the uniformity row 190 asked for rather than a mixed estate. */
 .mw-fld > .mw-field.mw-field-sm { height: 54px; padding: 21px 12px 6px; font-size: 14px; }
 .mw-fld > select.mw-field.mw-field-sm { padding-right: 38px; background-position: right 14px center; }
+
+/* =====================================================================
+   SORTABLE COLUMN HEADERS — .mw-sort (2026-09-19, register row 252)
+   =====================================================================
+
+   One markup shape, built by sortHeaderHTML() in format-helpers.js and used by every
+   sortable table in the PM tool (the client list, the approval gate's history, the
+   products page). Read this before adding a fourth.
+
+   WHAT WAS WRONG, measured on the three tables as they stood (so the same three
+   mistakes are not made again on the next one):
+
+   1. THE HIT AREA WAS THE GLYPH BOX. Two of the three pages styled their header
+      buttons with `all: unset` / `padding: 0` and an explicit `min-height: 0` — a
+      (0,1,1) rule that silently out-specifies tap-targets.css's own `button
+      { min-height: 44px }` (0,0,1). Measured: 14.3px tall at EVERY width, including
+      the client list at 390px, where its head stays visible. The row-171 "0 controls
+      under 44x44" sweep never saw them, because those buttons are rendered by the
+      page's async data load and the sweep reads the DOM ~900ms after readyState —
+      a control that is not on screen yet cannot fail a size check.
+   2. THE DIRECTION MARK WAS A TEXT GLYPH APPENDED INTO THE LABEL, ONLY WHEN ACTIVE.
+      So an inactive header gave no sign it was sortable at all, and activating one
+      CHANGED ITS WIDTH ("Portfolio" 55px -> "Portfolio ▾" 73px): on a right-aligned
+      column the label's left edge jumped 18px, and the ▾ sat on the text baseline
+      of a different face, which is the "chevrons don't sit right" complaint.
+   3. THE ACTIVE STATE WAS A COLOUR CHANGE ALONE, #475569 -> #0F172A, on 9.5px
+      uppercase text — and one page put `aria-sort` on the <button>, where it is not
+      a valid attribute (it belongs on a columnheader role this div-grid does not
+      carry), so assistive tech was told nothing either way.
+
+   The gate's history was the one that got two of the three right — an ALWAYS-present
+   indicator that flips direction rather than appears, and the accent colour on the
+   active mark — and that is the pattern kept here. Its remaining gaps were a 22px
+   min-height and no accessible direction.
+
+   THE PATTERN
+   - The indicator is a CSS mask on ::after, so it is always present, always the same
+     width, and never part of the label text. Inactive: a paired up/down mark in
+     #64748B (4.6:1 on the #FAFBFC head — a real colour, not an opacity, because an
+     affordance is a UI component and 1.4.11 applies to it). Active: a single chevron
+     in the accent #B45309, rotated for ascending. The label never changes width.
+   - The hit area grows OUTWARD via negative margin into the head row's own padding,
+     so the label's edge stays exactly where the column's own cells align it —
+     28px tall on desktop, 44px below `lg` (re-declared here, the Tier C precedent).
+   - A right-aligned (figures) column uses .mw-sort-end: row-reverse, so the mark
+     LEADS and the label stays flush with the numbers beneath it.
+   - The accessible name carries the state: aria-label="Price, sorted descending" /
+     "Price, not sorted" — set by the builder from the same `dir` the CSS keys on.
+   - The page's own click dispatch keys on its own data attribute (`data-sort`,
+     `data-cl-sort`) exactly as before; only the markup inside the cell changed.
+   ===================================================================== */
+.mw-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  min-height: 28px;
+  min-width: 0;
+  margin: -8px -6px;          /* outward: the head's 11px padding absorbs it */
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: 1;
+  color: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.12s, background-color 0.12s;
+}
+.mw-sort::after {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background-color: #64748B;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.5 8 3l3.5 3.5'/%3E%3Cpath d='M4.5 9.5 8 13l3.5-3.5'/%3E%3C/svg%3E") center / 10px 10px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.5 8 3l3.5 3.5'/%3E%3Cpath d='M4.5 9.5 8 13l3.5-3.5'/%3E%3C/svg%3E") center / 10px 10px no-repeat;
+  transition: transform 0.12s;
+}
+.mw-sort:hover { color: #0F172A; background-color: rgba(15, 23, 42, 0.06); }
+.mw-sort:hover::after { background-color: #0F172A; }
+.mw-sort:focus-visible { outline: 2px solid #B45309; outline-offset: 1px; }
+.mw-sort[data-dir="asc"],
+.mw-sort[data-dir="desc"] { color: #0F172A; }
+.mw-sort[data-dir="asc"]::after,
+.mw-sort[data-dir="desc"]::after {
+  background-color: #B45309;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6.5 8 10.5l4-4'/%3E%3C/svg%3E");
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6.5 8 10.5l4-4'/%3E%3C/svg%3E");
+}
+.mw-sort[data-dir="asc"]::after { transform: rotate(180deg); }
+/* A right-aligned column: the mark leads, the label stays flush with its figures. */
+.mw-sort.mw-sort-end { flex-direction: row-reverse; }
+
+/* Row 171's floor, re-declared for the same reason the Tier C block above does it:
+   `.mw-sort`'s own min-height is (0,1,0) and would out-specify tap-targets.css's
+   element selector. The vertical margin grows with it so the head row's own box
+   only grows to the floor (11 + 22 + 11 = 44), not past it. */
+@media (max-width: 1023.98px) {
+  .mw-sort { min-height: 44px; min-width: 44px; margin-block: -11px; }
+}

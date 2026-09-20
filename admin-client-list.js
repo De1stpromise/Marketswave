@@ -167,11 +167,12 @@
   }
 
   function renderHead() {
+    // The shared sortable header (format-helpers.js + .mw-sort, register row 252): the page
+    // keeps its own dispatch attribute, the cell's markup is the vocabulary's.
     var col = function (key, label, right) {
-      var on = state.sort === key;
-      return '<span' + (right ? ' class="cl-r"' : '') + '><button type="button" data-cl-sort="' + key + '"' +
-        ' aria-sort="' + (on ? (state.dir === 'asc' ? 'ascending' : 'descending') : 'none') + '">' +
-        esc(label) + (on ? (state.dir === 'asc' ? ' ▴' : ' ▾') : '') + '</button></span>';
+      return '<span' + (right ? ' class="cl-r"' : '') + '>' +
+        sortHeaderHTML({ attr: 'data-cl-sort', key: key, label: label, dir: state.sort === key ? state.dir : null, end: !!right }) +
+        '</span>';
     };
     return '<span></span>' + col('name', 'Client') + col('type', 'Type') +
       col('value', 'Portfolio', true) + col('unallocated', 'Unallocated', true) +
@@ -215,7 +216,7 @@
         ? '' : '<span>' + r.idlePercent.toFixed(0) + '% idle</span>';
       var una = r.valueAvailable && r.funded
         ? ('<div class="cl-una cl-r">' + usd(r.unallocated) + idle + '</div>')
-        : '<div class="cl-una cl-r" style="color:#475569">—<span>—</span></div>';
+        : '<div class="cl-una cl-r cl-dash">—<span class="cl-dash">—</span></div>';
       return '<a class="cl-tr" data-cl-row="' + esc(r.id) + '"' +
         ' href="admin-client-profile.html?client=' + encodeURIComponent(r.id) + '">' +
         '<span class="cl-av' + (r.status === 'pending_review' ? ' is-pending' : '') + '">' + esc(initials(r.name)) + '</span>' +
@@ -223,7 +224,7 @@
         '<span><span class="cl-typ">' + esc(String(r.accountType || '').replace(' Account', '')) + '</span></span>' +
         valueCell(r) + una +
         '<span class="cl-r"><span class="cl-pend' + (r.pendingCount ? '' : ' is-none') + '">' +
-          (r.pendingCount || '—') + '</span></span>' +
+          (r.pendingCount || '<span class="cl-dash">—</span>') + '</span></span>' +
         '<span>' + statusCell(r) + '</span>' +
         '<span class="cl-chev" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></span>' +
         '</a>';

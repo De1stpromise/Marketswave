@@ -47,13 +47,12 @@
 
 /* ---- table -------------------------------------------------------------------------- */
 .pr-table { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; }
-.pr-th, .pr-tr { display: grid; grid-template-columns: 38px minmax(0, 1.5fr) 104px 108px 84px 92px 104px 30px; gap: 12px; align-items: center; }
+/* Column order is the ROW's DOM order: mark, name, class, 24h, holders, source, price, chevron
+ * (.pr-sub is display: contents on desktop). The head is built in the same order — see the
+ * note on `head` in admin-products-page.js (register row 252). */
+.pr-th, .pr-tr { display: grid; grid-template-columns: 38px minmax(0, 1.5fr) 104px 84px 92px 104px 108px 30px; gap: 12px; align-items: center; }
 .pr-th { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; background: #FAFBFC; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
-.pr-th button {
-  background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px; min-height: 0; min-width: 0; text-transform: inherit; letter-spacing: inherit;
-}
-.pr-th button.is-sorted { color: #0F172A; }
+/* Sortable headers are the shared .mw-sort (control-patterns.css, register row 252). */
 .pr-th .r, .pr-tr .r { justify-self: end; text-align: right; }
 .pr-tr { padding: 11px 15px; border-bottom: 1px solid #F1F5F9; cursor: pointer; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; text-align: left; font: inherit; }
 .pr-tr:hover { background: #FAFBFC; }

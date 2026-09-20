@@ -169,12 +169,8 @@
 .ag-hh, .ag-hrow { display: grid; grid-template-columns: 34px minmax(0, 1.2fr) minmax(0, .9fr) 124px 104px 122px; gap: 13px; align-items: center; }
 .ag-hh { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; font-size: 9.5px; font-weight: 700;
   letter-spacing: .08em; text-transform: uppercase; color: #475569; background: #FAFBFC; }
-.ag-hh button { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px; min-height: 22px; }
-.ag-hh button:hover { color: #0F172A; }
-.ag-hh button.is-srt { color: #0F172A; }
-.ag-hh svg { opacity: .45; }
-.ag-hh button.is-srt svg { opacity: 1; color: #B45309; }
+/* Sortable headers are the shared .mw-sort (control-patterns.css, register row 252). */
+.ag-hh .ag-hend { justify-self: end; text-align: right; }
 .ag-hrow { padding: 11px 15px; border-bottom: 1px solid #F1F5F9; font-size: 12px; }
 .ag-hrow:last-child { border-bottom: none; }
 .ag-hbar { padding: 11px 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid #EEF2F7; }

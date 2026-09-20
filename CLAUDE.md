@@ -10826,6 +10826,52 @@ row 74.
   `verify-portfolio-overview-ui-wiring` 57/57, `verify-dashboard-ui-wiring` 33/33,
   `verify-dashboard-market-currency-ui` 10/10, `verify-portfolio-overview-visual`.
 
+- **★ Sortable column headers — one vocabulary, four tables; and private-note deletion
+  (2026-09-19, register row 252).** `sortHeaderHTML()` in `format-helpers.js` + `.mw-sort` in
+  `control-patterns.css` now build every sortable header in the PM tool: the client list, the
+  gate's history, the products page — and the documents page, a FOURTH table the brief did not
+  name, found by the blast-radius grep with the identical defect. **Things a future session needs
+  to know before touching any sortable table:**
+  - **★ NEVER STYLE A HEADER BUTTON YOURSELF. Use the builder.** Two pages had `all: unset` +
+    `min-height: 0` — a (0,1,1) rule that silently out-specifies tap-targets.css's element-selector
+    floor — and their headers measured **14.3px tall at every width, including the client list at
+    390px**, where its head is the one that stays visible on a phone. The row-171 "0 under 44×44"
+    sweep never caught it: **a control rendered by an async data load is invisible to a sweep that
+    reads the DOM ~900ms after readyState.** `verify-control-patterns` has that hole for every
+    async-rendered control, not just these; the new suite waits for rows before measuring.
+  - **The indicator is a CSS mask on `::after`, always present, never in the label text.** The old
+    ` ▾` was appended INTO the label only when active, so no inactive header looked sortable and
+    activating one changed its width ("Portfolio" 55 → 73px). `data-dir="asc|desc"` keys the
+    accent and the rotation; the accessible name carries the state ("Price, sorted descending" /
+    "Price, not sorted") — `aria-sort` on a `<button>` is invalid, and one page had it.
+  - **A figures column gets `end: true` → `.mw-sort-end`**: the mark LEADS so the label's right
+    edge stays on the figures' right edge. The hit area grows OUTWARD by negative margin into the
+    head's own padding (28px desktop, 44px below `lg` via a re-declared floor + `margin-block:
+    -11px`), so the label's edge never moves. The suite measures the TEXT's edge with a Range,
+    not the button box.
+  - **★ A HEAD IS BUILT IN THE ROW'S OWN CELL ORDER.** `admin-products.html` shipped with "Price"
+    over the 24h figure and "Source" over the price for three days: its row groups class/24h/
+    holders/source in `.pr-sub` (display: contents on desktop) and puts price LAST for the phone
+    restack; the head was written in a different order and no suite compared them. Fixed, with
+    the grid template's widths moved with their columns; a comment on both sides says to change
+    them together. The gate's "Amount" head was likewise start-aligned over right-aligned figures.
+  - **Six suites evaluate a page script into jsdom** — if a page gains a `format-helpers.js`
+    dependency, the harness must load it first, as the real page does (done for the gate,
+    documents, cross-role-sync, documents-storage, deposit-routing and hys-internal).
+  - **Note deletion is a HARD delete, and the reason is on the panel.** `pm_client_notes` had an
+    author-only DELETE policy from day one; the control, the confirm step and the proof were what
+    was missing. A `deleted_at` is an UPDATE, and the table deliberately has no update policy;
+    and the disclosability line tells a PM these notes may be disclosable on a data access
+    request — a retained copy of something deliberately removed would make that line untrue.
+    **`deleteRow()`'s zero-rows-is-a-refusal contract (row 123) is what makes author-only real at
+    the UI**: an RLS-filtered DELETE is a silent no-op, and without it a colleague's note would
+    show "Note deleted." while still existing. Its refusal wording is now the generic "This action
+    isn't allowed." — it used to say "…for this document" for every table.
+  **Verified**: `supabase-verify-client-profile` 44/44, `verify-client-profile-ui-wiring` 69/69,
+  `verify-client-profile-visual` 56/56, `verify-sort-headers-visual` (new)
+  99/99; the gate, products, documents and client-list suites through the shared
+  markup; stylesheet coverage and Tailwind scoping PASS. No migration, no Edge Function.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase

@@ -120,6 +120,7 @@
     "verify-deposit-address-book-visual": "node verify-deposit-address-book-visual.mjs",
     "verify-products-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-products-page-ui-wiring.mjs",
     "verify-products-page-visual": "node verify-products-page-visual.mjs",
+    "verify-sort-headers-visual": "node verify-sort-headers-visual.mjs",
     "verify-documents-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-page-ui-wiring.mjs",
     "supabase-verify-document-signing": "node verify-supabase-document-signing.js",
     "verify-document-signing-visual": "node verify-document-signing-visual.mjs"

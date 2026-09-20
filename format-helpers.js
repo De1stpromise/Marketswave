@@ -53,7 +53,36 @@
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: max });
   }
 
+  // ★ SORTABLE COLUMN HEADER (2026-09-19, register row 252) — the ONE builder for every
+  // sortable table in the PM tool (the client list, the approval gate's history, the products
+  // page), so the markup `.mw-sort` in control-patterns.css expects cannot drift per page.
+  // That stylesheet's own header records what each page had got wrong on its own; the short
+  // version is that three pages had three hand-rolled headers with three different defects.
+  //   attr   the page's OWN dispatch attribute ('data-sort', 'data-cl-sort') — the click handler
+  //          is untouched, only the markup inside the cell is shared
+  //   key    the sort key that attribute carries
+  //   label  the visible label
+  //   dir    'asc' | 'desc' when this is the sorted column, anything else otherwise
+  //   end    true for a right-aligned (figures) column — the indicator LEADS so the label
+  //          stays flush with the numbers beneath it
+  // The accessible name carries the state ("Price, sorted descending" / "Price, not sorted")
+  // from the same `dir` the CSS keys on, rather than an aria-sort on the button, which is not
+  // a valid attribute there (it belongs on a columnheader role a div-grid does not carry).
+  function sortHeaderHTML(opts) {
+    var esc = function (v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    };
+    var dir = opts.dir === 'asc' || opts.dir === 'desc' ? opts.dir : null;
+    var state = dir ? 'sorted ' + (dir === 'asc' ? 'ascending' : 'descending') : 'not sorted';
+    return '<button type="button" class="mw-sort' + (opts.end ? ' mw-sort-end' : '') + '" ' +
+      opts.attr + '="' + esc(opts.key) + '"' + (dir ? ' data-dir="' + dir + '"' : '') +
+      ' aria-label="' + esc(opts.label) + ', ' + state + '">' + esc(opts.label) + '</button>';
+  }
+
   window.formatDateDisplay = formatDateDisplay;
   window.formatFieldDisplay = formatFieldDisplay;
   window.formatUnits = formatUnits;
+  window.sortHeaderHTML = sortHeaderHTML;
 })();

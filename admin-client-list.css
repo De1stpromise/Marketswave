@@ -37,10 +37,9 @@
   gap: 12px; align-items: center; }
 .cl-th { padding: 11px 15px; border-bottom: 1px solid #E2E8F0; font-size: 9.5px; font-weight: 700;
   letter-spacing: .08em; text-transform: uppercase; color: #475569; background: #FAFBFC; }
-.cl-th button { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
-  font: inherit; color: inherit; min-height: 0; }
-.cl-th button:hover { color: #0F172A; }
-.cl-th button[aria-sort]:not([aria-sort="none"]) { color: #0F172A; }
+/* The sortable headers are the shared .mw-sort (control-patterns.css, register row 252) —
+ * nothing here styles them. The `all: unset` + `min-height: 0` rule that used to sit on this
+ * line is what left them 14.3px tall at 390px. */
 .cl-th .cl-r, .cl-tr .cl-r { justify-self: end; text-align: right; }
 
 /* The row IS the link — the expander is gone; detail lives on the profile (part 4). */
@@ -81,7 +80,11 @@ a.cl-tr:last-of-type { border-bottom: none; }
 .cl-pend { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px;
   padding: 0 6px; border-radius: 11px; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700;
   font-variant-numeric: tabular-nums; }
-.cl-pend.is-none { background: transparent; color: #94A3B8; font-weight: 500; }
+.cl-pend.is-none { background: transparent; color: #475569; font-weight: 500; }
+/* ★ A LONE EM DASH ANTIALIASES BELOW ANY COLOUR YOU DECLARE IT IN (row 250's finding, measured
+ * again here by the client list's first contrast profile, row 252: 2.95:1 at 12.5px/400 in
+ * #475569). Every "—" that stands for "none" is 15px/700 in #475569, which passes. */
+.cl-dash, .cl-dash span { font-weight: 700; font-size: 15px; line-height: 1; color: #475569; }
 
 .cl-stp { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px;
   border-radius: 5px; display: inline-block; white-space: nowrap; }

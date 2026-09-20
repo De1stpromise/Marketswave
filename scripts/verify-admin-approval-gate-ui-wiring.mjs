@@ -97,6 +97,9 @@ function buildGateDom(MarketswaveData) {
     url: 'http://localhost/admin-approvals.html', runScripts: 'outside-only', virtualConsole: vc
   });
   dom.window.MarketswaveData = MarketswaveData;
+  // The real page loads format-helpers.js before its own script (the shared sortHeaderHTML()
+  // builder, register row 252), so the harness does too.
+  dom.window.eval(readFileSync(path.join(ROOT, 'format-helpers.js'), 'utf8'));
   dom.window.eval(readFileSync(GATE_JS, 'utf8'));
   return dom;
 }

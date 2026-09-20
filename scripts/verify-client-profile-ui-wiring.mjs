@@ -260,6 +260,51 @@ async function main() {
       const { data: row } = await admin.from('pm_client_notes').select('author_id, author_email, body').eq('body', noteBody).maybeSingle();
       check('★ ...and it exists in Postgres attributed to the REAL signed-in PM',
         !!row && !!row.author_id && /pm@marketswave\.local/.test(row.author_email || ''), JSON.stringify(row));
+
+      // ---- deletion, through the real page (2026-09-19, register row 252) -------------------
+      console.log('\n=== PART 5b: deleting a note — two steps, author-only, proven by the refusal ===\n');
+      const noteEl = () => [...D.querySelectorAll('.cp-pn')].find((n) => n.textContent.includes(noteBody));
+      check('the note carries a quiet Delete control and a HIDDEN confirm row', !!noteEl() &&
+        !!noteEl().querySelector('[data-cp-note-del]') && noteEl().querySelector('.cp-pnq').hidden === true);
+      noteEl().querySelector('[data-cp-note-del]').click();
+      check('★ Delete reveals the confirm row — nothing is deleted on the first click',
+        noteEl().classList.contains('is-confirming') && noteEl().querySelector('.cp-pnq').hidden === false &&
+        /Delete this note\?/.test(noteEl().textContent) && !!noteEl().querySelector('[data-cp-note-confirm]'),
+        noteEl().textContent.slice(0, 120));
+      const stillThere1 = await admin.from('pm_client_notes').select('id').eq('body', noteBody).maybeSingle();
+      check('...and the row is still in Postgres after the first click', !!stillThere1.data);
+      noteEl().querySelector('[data-cp-note-keep]').click();
+      check('Keep folds the confirm row and the note survives', !noteEl().classList.contains('is-confirming') &&
+        noteEl().querySelector('.cp-pnq').hidden === true && !!noteEl());
+      noteEl().querySelector('[data-cp-note-del]').click();
+      D.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      check('Escape folds it too', !noteEl().classList.contains('is-confirming'));
+
+      // ★ THE REFUSAL, through the page's OWN delete path. A note by a DIFFERENT PM cannot be
+      // shown by the page (RLS hides it), so it is exercised the way the page would do it —
+      // MarketswaveData.deleteRow() from the signed-in PM's session against that note's id.
+      const { data: otherPm } = await admin.auth.admin.createUser({ email: 'cp-other-pm-' + SUF + '@marketswave.local', password: PASSWORD, email_confirm: true });
+      created.push(otherPm.user.id);
+      await admin.from('user_roles').upsert({ user_id: otherPm.user.id, is_admin: true });
+      const { data: otherNote, error: onErr } = await admin.from('pm_client_notes').insert({ client_id: gary.id, author_id: otherPm.user.id, author_email: otherPm.user.email, body: 'Other PM note ' + SUF }).select('id').single();
+      if (onErr) throw new Error('other note: ' + onErr.message);
+      let refused = null;
+      try { await MarketswaveData.deleteRow('pm_client_notes', { id: otherNote.id }); } catch (e) { refused = e; }
+      check('★ deleting a COLLEAGUE\'s note through deleteRow() is REFUSED (it throws, kind "client")',
+        !!refused && refused.kind === 'client', refused ? refused.message : 'NO THROW — deleteRow reported success');
+      const otherStill = await admin.from('pm_client_notes').select('id').eq('id', otherNote.id).maybeSingle();
+      check('★ ...and the colleague\'s note genuinely still exists (service-role read)', !!otherStill.data);
+      await admin.from('pm_client_notes').delete().eq('id', otherNote.id);
+
+      // The real delete, for the PM's own note.
+      noteEl().querySelector('[data-cp-note-del]').click();
+      noteEl().querySelector('[data-cp-note-confirm]').click();
+      const gone = await pollUntil(() => !D.getElementById('cp-notes').textContent.includes(noteBody) &&
+        !/animate-pulse/.test(D.getElementById('cp-notes').innerHTML), 25000);
+      check('★ confirming deletes the note and the panel re-renders without it', gone, txt(dom, '#cp-notes').slice(0, 160));
+      const goneRow = await admin.from('pm_client_notes').select('id').eq('body', noteBody).maybeSingle();
+      check('★ ...and it is genuinely gone from Postgres — a hard delete', !goneRow.data, JSON.stringify(goneRow.data));
+      check('the toast says so', /Note deleted/.test(txt(dom, '#cp-toast') || D.body.textContent), '');
       await admin.from('pm_client_notes').delete().eq('body', noteBody);
     }
 
