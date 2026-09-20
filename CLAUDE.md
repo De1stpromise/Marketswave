@@ -9628,11 +9628,16 @@ row 74.
     `finally` runs — exactly as the watchdog kill does — so the retry/restore added to the
     `finally` last time cannot fire on the case that needs it, and four paused jobs had to be
     re-activated by hand once more (`select cron.alter_job(jobid, active := true) from
-    cron.job where not active`). A restore that only runs on a clean exit is not a restore
-    for the abnormal exit. The reliable fix does not depend on this process's own orderly
-    shutdown — re-activate unconditionally at suite START, or leave the restore to a separate
-    guard — but that is a change to the suite, not made here; recorded so the gap is not
-    mistaken for closed. **Two findings recorded as open
+    cron.job where not active`). **★ FOURTH OCCURRENCE 2026-09-20 (row 251's clean full
+    pass): PROVEN, no longer suspected. The in-`finally` retry is NOT a mitigation for this
+    suite and is no longer recorded as one** — it covers a transient `docker exec` failure on
+    a run that reached its `finally`, and nothing else; a cleanup that only runs on a clean
+    exit is not a cleanup for a suite whose characteristic failure is a dirty one. The fix has
+    to be EXTERNAL to the process — a wrapper that restores after the child exits however it
+    exits, or the next run repairing what it finds at startup (paused `marketswave-%` jobs,
+    `rr-*` clients, the `F` product and its cache row). Not built; row 214 holds it. Until
+    then, after any abnormal exit of this suite, check `cron.job.active` and delete its
+    residue by hand — the row-251 pass lost five suites to it in one run. **Two findings recorded as open
     register rows rather than fixed here**: (row 213) the Finnhub key is SHARED with real
     cloud staging, whose 5-minute cron now spends 30 of the minute's 60 calls at :00/:05/… —
     any timing-sensitive local run can be starved by staging, and pausing the local cron no

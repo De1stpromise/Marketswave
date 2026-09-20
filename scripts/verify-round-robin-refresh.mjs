@@ -353,11 +353,18 @@ async function main() {
     const finalReport = await callFunction(url, pmToken, 'refresh-market-data');
     console.log('\n    FINAL: ' + finalReport.body.distinctStockSymbols + ' distinct stock symbols (' + finalReport.body.distinctCryptoSymbols + ' crypto), ' + finalReport.body.cyclesToCoverAllStocks + ' cycle(s), worst case ' + finalReport.body.worstCaseStalenessMinutes + ' min, headroom ' + finalReport.body.headroom + ' before the next cycle (includes this suite\'s ' + added + ' temporary watchlist symbols)');
   } finally {
-    // ★ RESTORING THE SCHEDULER IS NOT OPTIONAL, AND ONE ATTEMPT IS NOT ENOUGH. A transient
-    // `docker exec` failure (seen for real under memory pressure, 2026-09-17) left all four
-    // marketswave-* jobs paused on the local stack — prices stop refreshing and alerts stop
-    // firing, silently, until someone notices. Retry, then say so loudly enough to act on:
-    // this FAILS the run rather than printing one line into a thousand-line log.
+    // ★ THIS RESTORE COVERS A CLEAN EXIT ONLY, AND THIS SUITE'S CHARACTERISTIC EXIT IS NOT
+    // CLEAN. Four times now (rows 211, 214, 251) the process has been terminated BEFORE this
+    // block runs — the watchdog kill, and the exit-0xC0000409 libuv abort that fires after the
+    // last run prints — and every time all four marketswave-* jobs stayed paused until someone
+    // ran `cron.alter_job(jobid, active := true)` by hand. The retry below handles one thing
+    // only: a transient `docker exec` failure on a run that DID reach its finally (seen
+    // 2026-09-17). It is not, and cannot be, the mitigation for the abnormal exit — a cleanup
+    // that runs only on orderly shutdown is no cleanup for a suite that characteristically
+    // does not shut down in order. The real fix is EXTERNAL to this process — a wrapper that
+    // restores after the child exits however it exits, or the next run repairing what it
+    // finds at startup — recorded on register row 214, not built yet. Until then: after any
+    // abnormal exit of this suite, check cron.job.active.
     let restored = false;
     for (let attempt = 1; attempt <= 4 && !restored; attempt++) {
       try { setSchedulerActive(true); restored = true; } catch (e) {
