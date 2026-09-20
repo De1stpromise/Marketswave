@@ -113,3 +113,59 @@ a.cl-tr:last-of-type { border-bottom: none; }
   .cl-th > :nth-child(6), .cl-tr > :nth-child(6) { display: none; }
   .cl-srch { min-width: 100%; max-width: none; margin-left: 0; }
 }
+
+/* ── invitations (register row 254) ─────────────────────────────────────────────────────── */
+/* Its own panel above the client list — a pending invitation is not a client. Secondary text
+ * is #475569 throughout (the mockup's #94A3B8/#64748B measure below 4.5:1 on these grounds,
+ * rows 151/193); the three status pills keep the mockup's tones, each measured. */
+.cl-lbl { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #475569; margin: 18px 0 8px; }
+.cl-sub { font-size: 12.5px; color: #475569; line-height: 1.6; max-width: 80ch; margin-bottom: 12px; }
+#cl-invitations { margin-bottom: 4px; }
+.cl-ih { display: flex; align-items: center; gap: 11px; padding: 14px 16px; flex-wrap: wrap; }
+.cl-ih b { font-size: 13px; font-weight: 600; color: #0F172A; }
+.cl-ih-meta { font-size: 11.5px; color: #475569; margin-left: auto; font-variant-numeric: tabular-nums; }
+.cl-ir { display: grid; grid-template-columns: 34px minmax(0, 1.4fr) 128px 116px auto; gap: 13px; align-items: center;
+  padding: 0 16px; min-height: 62px; border-top: 1px solid #F1F5F9; }
+.cl-ir.is-expired { background: #FFFBFA; }
+.cl-iav { width: 30px; height: 30px; border-radius: 50%; background: #EEF2F7; color: #475569; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px dashed #CBD5E1; }
+.cl-ir.is-expired .cl-iav { border-color: #FCA5A5; color: #B4402C; }
+.cl-inm { min-width: 0; }
+.cl-inm b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-inm span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-isent { font-size: 11.5px; color: #475569; font-variant-numeric: tabular-nums; }
+.cl-isent span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; }
+.cl-isent .cl-isent-x { color: #B4402C; font-weight: 600; }
+.cl-istat { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; display: inline-block; white-space: nowrap; }
+.cl-s-sent { background: #DBEAFE; color: #1D4ED8; }
+.cl-s-open { background: #FEF3C7; color: #92400E; }
+.cl-s-exp { background: #FEE2E2; color: #B4402C; }
+.cl-iacts { display: flex; gap: 6px; justify-self: end; }
+/* Revoke / Remove: Tier C geometry, the warning tone on the label — not the filled danger
+ * button, which is for the confirm step itself. */
+.mw-btn.mw-btn-sm.cl-inv-warn { border-color: #FCA5A5; color: #B4402C; }
+.mw-btn.mw-btn-sm.cl-inv-warn:hover:not(:disabled) { border-color: #B4402C; background: #FEF2F2; color: #991B1B; }
+.cl-inv-empty { padding: 24px 16px; text-align: center; }
+.cl-inv-empty p { font-size: 12.5px; color: #475569; line-height: 1.6; }
+.cl-inv-empty b { color: #0F172A; font-weight: 600; }
+/* the "what happens next" box inside the invite modal */
+.cl-whatnext { display: flex; gap: 11px; padding: 12px 14px; border-radius: 11px; background: #F0F9FF; border: 1px solid #BAE6FD; }
+.cl-whatnext svg { flex-shrink: 0; margin-top: 1px; }
+.cl-whatnext p { font-size: 11.5px; color: #0C4A6E; line-height: 1.65; }
+.cl-whatnext b { font-weight: 700; color: #075985; }
+
+/* ★ NARROW RESTACKS, IT DOES NOT HIDE (row 228). The status pill is the one fact a PM reads
+ * this list for, and the date says how stale it is — both survive on a second line. */
+@media (max-width: 860px) {
+  .cl-ir { grid-template-columns: 30px minmax(0, 1fr) auto; grid-template-areas: "av name acts" "av meta meta"; gap: 6px 11px; padding: 11px 16px; }
+  .cl-ir > .cl-iav { grid-area: av; align-self: start; }
+  .cl-ir > .cl-inm { grid-area: name; }
+  .cl-ir > .cl-isent { grid-area: meta; display: flex; gap: 8px; align-items: baseline; }
+  .cl-ir > .cl-isent span { margin-top: 0; }
+  .cl-ir > .cl-isent + div { grid-area: meta; justify-self: end; }
+  .cl-ir > .cl-iacts { grid-area: acts; }
+  .cl-ih-meta { flex-basis: 100%; margin-left: 0; }
+}
+@media (max-width: 480px) {
+  .cl-iacts { flex-direction: column; gap: 6px; }
+}

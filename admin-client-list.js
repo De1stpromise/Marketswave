@@ -45,7 +45,13 @@
     if (cache) return cache;
     cache = (async function () {
       MarketswaveData.useAdminClient();
-      var payload = await MarketswaveData.callFunction('get-client-list', {});
+      var both = await Promise.all([
+        MarketswaveData.callFunction('get-client-list', {}),
+        // ★ Invitations are their own read (register row 254) — a pending invitation is not a
+        // client and never appears in `rows`; it has its own panel and its own strip card.
+        MarketswaveData.callFunction('get-client-invitations', {})
+      ]);
+      var payload = both[0], inv = both[1];
       var rows = payload.clients.slice();
       var seen = {};
       rows.forEach(function (r) { seen[r.id] = true; });
@@ -73,7 +79,8 @@
           });
         }
       } catch (e) { /* the local engine is a fallback; its absence is not an error */ }
-      return { rows: rows, strip: payload.strip, dormantDays: payload.dormantDays };
+      return { rows: rows, strip: payload.strip, dormantDays: payload.dormantDays,
+        invitations: inv.invitations || [], invitationCounts: inv.counts || { out: 0, expiringSoon: 0, expired: 0 } };
     })();
     return cache;
   }
@@ -135,13 +142,19 @@
     var aumCls = s.aumMonthChange === null ? '' : (s.aumMonthChange < 0 ? 'cl-dn' : 'cl-up');
     var unavailable = s.valueUnavailable > 0
       ? ('<div class="cl-x cl-dn">' + s.valueUnavailable + ' could not be valued</div>') : '';
+    var ic = d.invitationCounts || { out: 0, expiringSoon: 0, expired: 0 };
+    var invSub = ic.out
+      ? (ic.expiringSoon ? (ic.expiringSoon + ' expiring soon') : (ic.expired ? (ic.expired + ' expired') : 'none accepted yet'))
+      : (ic.expired ? (ic.expired + ' expired') : 'none out');
+    // ★ Clients and Invitations are separate facts (row 254): the Clients figure counts rows in
+    // the list below and never an invitation; "Invitations out" counts live invitations only.
     return [
       card('Clients', String(d.rows.length), s.active + ' active · ' + s.pendingApproval + ' pending approval'),
+      card('Invitations out', String(ic.out), esc(invSub), ic.expiringSoon > 0),
       card('Assets under management', usd(s.aum), '<span class="' + aumCls + '">' + esc(aumSub) + '</span>' + unavailable),
       card('Awaiting your approval', String(s.pendingTotal),
         s.pendingTotal ? ('across ' + s.pendingClients + ' client' + (s.pendingClients === 1 ? '' : 's')) : 'nothing pending',
-        s.pendingTotal > 0),
-      card('Unallocated across clients', usd(s.unallocatedTotal), 'not deployed', s.unallocatedTotal > 0)
+        s.pendingTotal > 0)
     ].join('');
   }
   function card(k, v, x, warn) {
@@ -232,8 +245,10 @@
   }
 
   function paint(d) {
+    state.data = d;
     state.rows = d.rows; state.strip = d.strip; state.dormantDays = d.dormantDays;
     D.getElementById('cl-strip').innerHTML = renderStrip(d);
+    D.getElementById('cl-invitations').innerHTML = renderInvitations(d);
     D.getElementById('cl-filters').innerHTML = renderFilters();
     D.getElementById('cl-head').innerHTML = renderHead();
     D.getElementById('clients-list').innerHTML = renderRows();
@@ -243,6 +258,171 @@
     D.getElementById('cl-head').innerHTML = renderHead();
     D.getElementById('clients-list').innerHTML = renderRows();
   }
+
+  // ---- invitations (register row 254) ------------------------------------------------------
+  // Its own panel, its own read, its own strip card. A pending invitation is not a client:
+  // it has no account behind it until the person completes signup themselves.
+  var INV_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>';
+  function dayShort(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  }
+  function ago(iso) {
+    var ms = Date.now() - new Date(iso).getTime();
+    var d = Math.floor(ms / 86400000), h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000);
+    if (d >= 1) return d + (d === 1 ? ' day ago' : ' days ago');
+    if (h >= 1) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    if (m >= 1) return m + ' min ago';
+    return 'just now';
+  }
+  function renderInvitations(d) {
+    var list = d.invitations || [];
+    var live = list.filter(function (i) { return i.status !== 'expired'; });
+    var meta = list.length
+      ? (live.length + ' sent' + (list.length - live.length ? ' \u00b7 ' + (list.length - live.length) + ' expired' : '') + ' \u00b7 none accepted yet')
+      : '';
+    var head = '<div class="cl-ih">' + INV_ICON + '<b>Pending invitations</b>' +
+      (meta ? '<span class="cl-ih-meta">' + esc(meta) + '</span>' : '') + '</div>';
+    if (!list.length) {
+      return head + '<div class="cl-inv-empty" data-cl-inv-empty><p><b>No invitations out.</b><br>Invite someone and they\u2019ll appear here until they complete signup.</p></div>';
+    }
+    return head + list.map(function (i) {
+      var expired = i.status === 'expired';
+      var pill = expired ? '<span class="cl-istat cl-s-exp">Expired</span>'
+        : i.status === 'opened' ? '<span class="cl-istat cl-s-open">Opened</span>'
+        : '<span class="cl-istat cl-s-sent">Sent</span>';
+      var when = expired
+        ? '<span class="cl-isent-x">expired ' + esc(ago(i.expiresAt)) + '</span>'
+        : (i.expiringSoon ? '<span class="cl-isent-x">expires ' + esc(dayShort(i.expiresAt)) + '</span>' : '<span>' + esc(ago(i.lastSentAt)) + '</span>');
+      var acts = expired
+        ? '<button type="button" class="mw-btn mw-btn-sm" data-cl-inv-again="' + esc(i.id) + '">Invite again</button>' +
+          '<button type="button" class="mw-btn mw-btn-sm cl-inv-warn" data-cl-inv-revoke="' + esc(i.id) + '" data-mode="remove">Remove</button>'
+        : '<button type="button" class="mw-btn mw-btn-sm" data-cl-inv-resend="' + esc(i.id) + '">Resend</button>' +
+          '<button type="button" class="mw-btn mw-btn-sm cl-inv-warn" data-cl-inv-revoke="' + esc(i.id) + '" data-mode="revoke">Revoke</button>';
+      return '<div class="cl-ir' + (expired ? ' is-expired' : '') + '" data-cl-inv="' + esc(i.id) + '" data-status="' + esc(i.status) + '">' +
+        '<span class="cl-iav">' + esc(initials(i.fullName)) + '</span>' +
+        '<div class="cl-inm"><b>' + esc(i.fullName) + '</b><span>' + esc(i.email) + '</span></div>' +
+        '<div class="cl-isent">' + esc(dayShort(i.lastSentAt)) + when + '</div>' +
+        '<div>' + pill + '</div>' +
+        '<div class="cl-iacts">' + acts + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function toast(title, body) {
+    var t = D.getElementById('admin-toast'); if (!t) return;
+    D.getElementById('admin-toast-title').textContent = title;
+    D.getElementById('admin-toast-body').textContent = body || '';
+    t.classList.remove('hidden');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.add('hidden'); }, 4500);
+  }
+  function invitationById(id) {
+    var d = state.data; if (!d) return null;
+    for (var k = 0; k < d.invitations.length; k++) if (d.invitations[k].id === id) return d.invitations[k];
+    return null;
+  }
+  function afterInvitationChange() {
+    return reload().then(function (d) {
+      state.data = d;
+      D.getElementById('cl-strip').innerHTML = renderStrip(d);
+      D.getElementById('cl-invitations').innerHTML = renderInvitations(d);
+    });
+  }
+
+  // the invite modal
+  var inviteModal = D.getElementById('invite-modal');
+  var inviteError = D.getElementById('invite-error');
+  function openInvite(prefill) {
+    inviteError.classList.add('hidden'); inviteError.textContent = '';
+    D.getElementById('invite-name').value = prefill && prefill.fullName ? prefill.fullName : '';
+    D.getElementById('invite-email').value = prefill && prefill.email ? prefill.email : '';
+    D.getElementById('invite-note').value = '';
+    inviteModal.classList.remove('hidden');
+    D.getElementById('invite-name').focus();
+  }
+  function closeInvite() { inviteModal.classList.add('hidden'); }
+  function submitInvite() {
+    var fullName = (D.getElementById('invite-name').value || '').trim();
+    var email = (D.getElementById('invite-email').value || '').trim();
+    var note = (D.getElementById('invite-note').value || '').trim();
+    inviteError.classList.add('hidden');
+    if (!fullName) { inviteError.textContent = 'A full name is required.'; inviteError.classList.remove('hidden'); return; }
+    if (!email) { inviteError.textContent = 'An email address is required.'; inviteError.classList.remove('hidden'); return; }
+    var btn = D.getElementById('invite-submit');
+    MarketswaveData.withButtonBusy(btn, 'Sending\u2026', function () {
+      return MarketswaveData.callFunction('create-client-invitation', { fullName: fullName, email: email, note: note || null });
+    }).then(function (res) {
+      closeInvite();
+      toast(res.emailSent ? 'Invitation sent' : 'Invitation created \u2014 email not sent',
+        res.emailSent ? (fullName + ' has been emailed a signup link. It expires in 14 days.') : ('The email could not be sent: ' + (res.emailError || 'unknown error') + '. Use Resend to try again.'));
+      return afterInvitationChange();
+    }).catch(function (e) {
+      // The server's own reason — an address that already belongs to a client, or a live
+      // invitation already out — shown where the PM is looking, verbatim.
+      inviteError.textContent = MarketswaveData.writeErrorMessage(e);
+      inviteError.classList.remove('hidden');
+    });
+  }
+
+  // the revoke / remove confirm
+  var revokeModal = D.getElementById('invite-revoke-modal');
+  var revokeTarget = null;
+  function openRevoke(id, mode) {
+    var inv = invitationById(id); if (!inv) return;
+    revokeTarget = { id: id, mode: mode };
+    var remove = mode === 'remove';
+    D.getElementById('invite-revoke-title').textContent = remove ? 'Remove this expired invitation?' : 'Revoke this invitation?';
+    D.getElementById('invite-revoke-body').textContent = remove
+      ? (inv.fullName + '\u2019s link has already expired. Removing it clears it from this list; you can invite them again at any time.')
+      : ('The link emailed to ' + inv.fullName + ' (' + inv.email + ') stops working immediately. You can invite them again later.');
+    D.getElementById('invite-revoke-submit').textContent = remove ? 'Remove' : 'Revoke';
+    revokeModal.classList.remove('hidden');
+  }
+  function closeRevoke() { revokeModal.classList.add('hidden'); revokeTarget = null; }
+
+  D.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t.closest) return;
+    if (t.closest('#open-invite-modal')) { openInvite(); return; }
+    if (t.closest('#invite-cancel') || t.closest('#invite-modal-close') || t.closest('#invite-modal-backdrop')) { closeInvite(); return; }
+    if (t.closest('#invite-submit')) { submitInvite(); return; }
+    if (t.closest('#invite-revoke-cancel') || t.closest('#invite-revoke-backdrop')) { closeRevoke(); return; }
+    if (t.closest('#invite-revoke-submit')) {
+      if (!revokeTarget) return;
+      var target = revokeTarget;
+      MarketswaveData.withButtonBusy(t.closest('#invite-revoke-submit'), target.mode === 'remove' ? 'Removing\u2026' : 'Revoking\u2026', function () {
+        return MarketswaveData.callFunction('revoke-client-invitation', { id: target.id });
+      }).then(function () {
+        closeRevoke();
+        toast(target.mode === 'remove' ? 'Invitation removed' : 'Invitation revoked', target.mode === 'remove' ? '' : 'The emailed link no longer works.');
+        return afterInvitationChange();
+      }).catch(function (e) { closeRevoke(); toast('Could not do that', MarketswaveData.writeErrorMessage(e)); });
+      return;
+    }
+    var again = t.closest('[data-cl-inv-again]');
+    if (again) { openInvite(invitationById(again.getAttribute('data-cl-inv-again'))); return; }
+    var resend = t.closest('[data-cl-inv-resend]');
+    if (resend) {
+      var rid = resend.getAttribute('data-cl-inv-resend');
+      MarketswaveData.withButtonBusy(resend, 'Sending\u2026', function () {
+        return MarketswaveData.callFunction('resend-client-invitation', { id: rid });
+      }).then(function (res) {
+        var inv = invitationById(rid);
+        toast(res.emailSent ? 'Invitation resent' : 'Resent \u2014 email not sent',
+          res.emailSent ? ('A fresh link went to ' + (inv ? inv.email : 'them') + '; the previous one no longer works.') : ('The email could not be sent: ' + (res.emailError || 'unknown error')));
+        return afterInvitationChange();
+      }).catch(function (e) { toast('Could not resend', MarketswaveData.writeErrorMessage(e)); });
+      return;
+    }
+    var rv = t.closest('[data-cl-inv-revoke]');
+    if (rv) { openRevoke(rv.getAttribute('data-cl-inv-revoke'), rv.getAttribute('data-mode')); return; }
+  });
+  D.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (!revokeModal.classList.contains('hidden')) { closeRevoke(); return; }
+    if (!inviteModal.classList.contains('hidden')) closeInvite();
+  });
 
   function start() {
     MarketswaveData.renderAsyncBundle(D.getElementById('clients-list'), {

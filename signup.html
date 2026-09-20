@@ -475,6 +475,18 @@
       position: relative;
       margin-bottom: 20px;
     }
+    /* Invited signup (row 254): the address the link was issued to is the one the invitation
+       resolves against, so it is read-only; the name is editable. */
+    .fld input.is-invited[readonly] { background: #F3F1EC; color: #4A5560; cursor: not-allowed; }
+    .fld input.is-invited[readonly] + label { color: #5B6670; }
+    .invite-banner { display: flex; gap: 11px; align-items: flex-start; padding: 12px 14px; border-radius: 11px;
+      background: #EEF7F3; border: 1px solid #BFE3D2; color: #0F5132; margin-bottom: 18px; }
+    .invite-banner svg { flex-shrink: 0; margin-top: 2px; }
+    .invite-banner p { font-size: 0.86rem; line-height: 1.6; margin: 0; }
+    .invite-banner b { font-weight: 700; }
+    .invite-refused .invite-refused-alt { font-size: 0.9rem; color: var(--text-muted, #5B6670); line-height: 1.6; margin-top: 8px; }
+    .invite-refused a { color: var(--primary); font-weight: 600; }
+    .signup-shell.is-refused .signup-step, .signup-shell.is-refused #step-label { display: none !important; }
     .fld:has(+ .password-strength) {
       margin-bottom: 0;
     }
@@ -783,6 +795,21 @@
       <div class="blob blob--md blob--teal" style="top:-120px; right:-100px;"></div>
 
       <div class="signup-panel-inner">
+
+      <!-- ★ Invited signup (register row 254). signup.html?invite=<token> asks get-invitation
+           for the name and address the link was issued to, pre-fills exactly those two fields,
+           and SKIPS NOTHING ELSE — every other declaration and both identity documents are the
+           person's own to make. A refused token (expired, revoked, already used, unknown) shows
+           the server's own message here in place of the steps, never a broken form. -->
+      <div class="invite-banner" id="invite-banner" hidden>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+        <p><b>You've been invited to Marketswave.</b> Your name and email are filled in from your invitation; everything else is yours to complete.</p>
+      </div>
+      <div class="invite-refused" id="invite-refused" hidden role="alert">
+        <h1 class="step-title">This invitation can't be used</h1>
+        <p class="step-lead" id="invite-refused-message"></p>
+        <p class="invite-refused-alt">You can still <a href="signup.html" id="invite-refused-plain">start a normal signup</a>, or sign in if you already have an account.</p>
+      </div>
 
       <!-- Kicker: "Step N of Total", shared across all steps, updated by updateProgress() -->
       <p class="step-kicker" id="step-label">Step 1 of 9</p>
@@ -1270,7 +1297,7 @@
   // param needed. See supabase-config.js's own header for the full switch scheme, including
   // the new ?legacyBackend=firebase flag that's now required to reach the Firebase code
   // path below instead.
-  import { supabase, IS_SUPABASE_BACKEND } from './supabase-config.js';
+  import { supabase, IS_SUPABASE_BACKEND, ACTIVE_CONFIG } from './supabase-config.js';
 
   (function () {
     // ---------- State ----------
@@ -1972,6 +1999,48 @@
 
     // ---------- Init ----------
     updateProgress();
+
+    // ★ Invited signup (register row 254). The token is the only thing the page presents —
+    // get-invitation is unauthenticated (the person has no account yet), looks the token up
+    // by its hash, marks the invitation Opened, and returns the name and address it was
+    // issued to. Nothing else about the invitation reaches this page.
+    (async function acceptInviteLink() {
+      var token = new URLSearchParams(location.search).get('invite');
+      if (!token) return;
+      try {
+        var res = await fetch(ACTIVE_CONFIG.url + '/functions/v1/get-invitation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': ACTIVE_CONFIG.anonKey, 'Authorization': 'Bearer ' + ACTIVE_CONFIG.anonKey },
+          body: JSON.stringify({ token: token })
+        });
+        var body = null;
+        try { body = await res.json(); } catch (_e) { body = null; }
+        if (!res.ok || !body || !body.ok) {
+          // Expired, revoked, already used, unknown — the server's own sentence, in place of
+          // the form. A plain signup stays one click away.
+          var msg = (body && body.error) || 'This invitation link could not be checked. Please try again, or ask your Portfolio Manager to send a new one.';
+          document.getElementById('invite-refused-message').textContent = msg;
+          document.getElementById('invite-refused').hidden = false;
+          document.getElementById('invite-refused').dataset.reason = (body && body.reason) || 'unknown';
+          document.querySelector('.signup-shell').classList.add('is-refused');
+          return;
+        }
+        var nameEl = document.getElementById('full_name');
+        var emailEl = document.getElementById('email');
+        nameEl.value = body.fullName || '';
+        emailEl.value = body.email || '';
+        emailEl.readOnly = true;
+        emailEl.classList.add('is-invited');
+        emailEl.title = 'This is the address your invitation was sent to.';
+        document.getElementById('invite-banner').hidden = false;
+        document.querySelector('.signup-shell').classList.add('is-invited');
+      } catch (e) {
+        document.getElementById('invite-refused-message').textContent = 'This invitation link could not be checked right now. Please try again in a moment, or ask your Portfolio Manager to send a new one.';
+        document.getElementById('invite-refused').hidden = false;
+        document.getElementById('invite-refused').dataset.reason = 'unreachable';
+        document.querySelector('.signup-shell').classList.add('is-refused');
+      }
+    })();
   })();
 </script>
 

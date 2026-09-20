@@ -956,3 +956,26 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/verify-document-signature/deno.json"
 entrypoint = "./functions/verify-document-signature/index.ts"
+
+# PM client creation by invitation (2026-09-20, register row 254). get-invitation is the
+# unauthenticated read the signup page makes with only the token (verify_jwt false is what
+# lets a caller with no account reach it); the other four are admin-only in-handler.
+[functions.create-client-invitation]
+enabled = true
+verify_jwt = false
+
+[functions.resend-client-invitation]
+enabled = true
+verify_jwt = false
+
+[functions.revoke-client-invitation]
+enabled = true
+verify_jwt = false
+
+[functions.get-client-invitations]
+enabled = true
+verify_jwt = false
+
+[functions.get-invitation]
+enabled = true
+verify_jwt = false

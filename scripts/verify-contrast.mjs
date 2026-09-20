@@ -742,6 +742,69 @@ PROFILES['client-profile-note-delete'] = [
   { label: 'note body beside an open confirm', sel: '.cp-pn.is-confirming p', limit: 1 }
 ];
 
+// ★ PM client creation by invitation (2026-09-20, register row 254). The pending panel with
+// every state on screen (the visual suite seeds sent / opened / expired), the Invite modal open,
+// the Revoke confirm open, and signup.html's two invited states — the pre-filled banner with the
+// read-only address, and the refusal in place of the steps.
+PROFILES['client-invitations'] = [
+  { label: 'section label', sel: '.cl-lbl', limit: 2 },
+  { label: 'section sub', sel: '.cl-sub', limit: 1 },
+  { label: 'panel heading', sel: '.cl-ih b', limit: 1 },
+  { label: 'panel meta', sel: '.cl-ih-meta', limit: 1 },
+  { label: 'invitee initials', sel: '.cl-ir:not(.is-expired) .cl-iav', limit: 2 },
+  { label: 'invitee initials (expired)', sel: '.cl-ir.is-expired .cl-iav', limit: 1 },
+  { label: 'invitee name', sel: '.cl-inm b', limit: 3 },
+  { label: 'invitee email', sel: '.cl-inm span', limit: 3 },
+  { label: 'sent date', sel: '.cl-isent', limit: 3 },
+  { label: 'sent ago', sel: '.cl-ir:not(.is-expired) .cl-isent span:not(.cl-isent-x)', limit: 2 },
+  { label: 'expired ago', sel: '.cl-isent-x', limit: 1 },
+  { label: 'pill Sent', sel: '.cl-s-sent', limit: 1 },
+  { label: 'pill Opened', sel: '.cl-s-open', limit: 1 },
+  { label: 'pill Expired', sel: '.cl-s-exp', limit: 1 },
+  { label: 'Resend', sel: '[data-cl-inv-resend]', limit: 1 },
+  { label: 'Revoke (warn)', sel: '[data-mode="revoke"]', limit: 1 },
+  { label: 'HOVER Revoke (warn)', sel: '[data-mode="revoke"]', limit: 1, hover: true },
+  { label: 'Invite again', sel: '[data-cl-inv-again]', limit: 1 },
+  { label: 'Remove (warn, expired row)', sel: '[data-mode="remove"]', limit: 1 },
+  { label: 'strip figure (invitations)', sel: '.cl-hc:nth-child(2) .cl-v', limit: 1 },
+  { label: 'strip sub (invitations)', sel: '.cl-hc:nth-child(2) .cl-x', limit: 1 }
+];
+PROFILES['client-invitations-empty'] = [
+  { label: 'empty heading', sel: '.cl-inv-empty b', limit: 1 },
+  { label: 'empty body', sel: '.cl-inv-empty p', limit: 1 }
+];
+PROFILES['client-invitations-modal'] = [
+  { label: 'modal title', sel: '#invite-modal .text-lg', limit: 1 },
+  { label: 'modal sub', sel: '#invite-modal > div > p.text-sm', limit: 1 },
+  { label: 'field label', sel: '#invite-modal .mw-fld > label', limit: 3 },
+  { label: 'field value', sel: '#invite-modal .mw-field', limit: 3 },
+  { label: 'what-next body', sel: '#invite-modal .cl-whatnext p', limit: 1 },
+  { label: 'what-next bold', sel: '#invite-modal .cl-whatnext b', limit: 1 },
+  { label: 'error line', sel: '#invite-error', limit: 1 },
+  { label: 'Send invitation', sel: '#invite-submit', limit: 1 },
+  { label: 'Cancel', sel: '#invite-cancel', limit: 1 }
+];
+PROFILES['client-invitations-revoke'] = [
+  { label: 'confirm title', sel: '#invite-revoke-title', limit: 1 },
+  { label: 'confirm body', sel: '#invite-revoke-body', limit: 1 },
+  { label: 'Revoke (danger)', sel: '#invite-revoke-submit', limit: 1 },
+  { label: 'Keep it', sel: '#invite-revoke-cancel', limit: 1 }
+];
+PROFILES['signup-invited'] = [
+  { label: 'banner text', sel: '#invite-banner p', limit: 1 },
+  { label: 'banner bold', sel: '#invite-banner b', limit: 1 },
+  { label: 'prefilled name', sel: '#full_name', limit: 1 },
+  { label: 'read-only email', sel: '#email.is-invited', limit: 1 },
+  { label: 'read-only email label', sel: '#email.is-invited + label', limit: 1 },
+  { label: 'step title', sel: '.signup-step.is-active .step-title', limit: 1 }
+];
+PROFILES['signup-refused'] = [
+  { label: 'refused title', sel: '#invite-refused .step-title', limit: 1 },
+  { label: 'refused message', sel: '#invite-refused-message', limit: 1 },
+  { label: 'refused alt', sel: '.invite-refused-alt', limit: 1 },
+  { label: 'plain signup link', sel: '#invite-refused-plain', limit: 1 }
+];
+
 PROFILES['approval-gate'] = [
   { label: 'nav label (on)', sel: '.an-item.is-on .an-lb', limit: 1 },
   { label: 'page title', sel: '.ag-top h1', limit: 1 },

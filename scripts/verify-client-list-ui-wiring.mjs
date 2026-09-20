@@ -188,15 +188,17 @@ async function main() {
     const strip = [...dom2.window.document.querySelectorAll('.cl-hc')];
     check('four figures', strip.length === 4, String(strip.length));
     const labels = strip.map((s) => s.querySelector('.cl-k').textContent);
-    check('...clients, AUM, awaiting approval, unallocated',
-      labels.join('|') === 'Clients|Assets under management|Awaiting your approval|Unallocated across clients', labels.join('|'));
+    // Row 254: "Invitations out" is its own card — seven accounts and three maybes are
+    // different facts — and took the fourth slot from "Unallocated across clients".
+    check('...clients, invitations out, AUM, awaiting approval',
+      labels.join('|') === 'Clients|Invitations out|Assets under management|Awaiting your approval', labels.join('|'));
     check('★ the AUM figure equals the endpoint\'s own sum, not a client-side re-add',
-      Math.abs(digits(strip[1].querySelector('.cl-v').textContent) - payload.strip.aum) < 2,
-      strip[1].querySelector('.cl-v').textContent + ' vs ' + payload.strip.aum);
+      Math.abs(digits(strip[2].querySelector('.cl-v').textContent) - payload.strip.aum) < 2,
+      strip[2].querySelector('.cl-v').textContent + ' vs ' + payload.strip.aum);
     check('the clients figure counts every rendered row',
       Number(strip[0].querySelector('.cl-v').textContent) === dom2.window.document.querySelectorAll('.cl-tr').length);
     check('the approval figure equals an independent pending total',
-      Number(strip[2].querySelector('.cl-v').textContent) === payload.strip.pendingTotal);
+      Number(strip[3].querySelector('.cl-v').textContent) === payload.strip.pendingTotal);
 
     console.log('\n=== PART 6: filters, search, sort ===\n');
     const D2 = dom2.window.document;

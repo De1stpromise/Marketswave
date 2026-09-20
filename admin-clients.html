@@ -45,11 +45,25 @@
               <h2 class="text-2xl font-semibold text-slate-900">Clients</h2>
               <p class="text-sm text-slate-600 mt-1">Every account, with what it holds and what it needs.</p>
             </div>
-            <button type="button" id="open-add-modal" class="mw-btn mw-btn-admin mw-btn-sm shrink-0">+ Add client</button>
+            <button type="button" id="open-invite-modal" class="mw-btn mw-btn-admin mw-btn-sm shrink-0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Invite a client
+            </button>
           </div>
 
-          <!-- strip: four figures, none of which existed before -->
+          <!-- strip: four figures. "Invitations out" is its own card (register row 254): seven
+               accounts and three maybes are different facts, so the Clients count never
+               includes an invitation. -->
           <div class="cl-strip" id="cl-strip"></div>
+
+          <!-- ★ PENDING INVITATIONS — its own panel, not rows in the client table (row 254). An
+               invitation has no account behind it until the person completes signup, so it
+               lives here and the client list below never carries one. -->
+          <p class="cl-lbl">Pending invitations</p>
+          <p class="cl-sub">Not clients yet. An invitation has no account behind it until the person completes signup themselves — so it lives in its own list, and the Clients count above doesn't include them.</p>
+          <div class="panel glass glass-lift" id="cl-invitations"></div>
+
+          <p class="cl-lbl">Clients</p>
 
           <!-- filters + search -->
           <div class="panel glass glass-lift cl-bar" id="cl-bar">
@@ -71,57 +85,54 @@
     </div>
   </div>
 
-  <!-- Add Client modal -->
-  <div id="add-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/60" id="add-modal-backdrop"></div>
-    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-      <div class="flex items-start justify-between mb-2">
-        <p class="text-lg font-semibold text-slate-900">Add Client</p>
-        <button type="button" id="add-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none">&times;</button>
+  <!-- ★ Invite a client (register row 254). INVITATION ONLY: this replaces the old Add Client
+       form outright. A PM entering someone's risk profile is entering a declaration that isn't
+       theirs, and a passport arriving by email so a PM can upload it is worse than no account
+       — so the PM enters a name and an address, and the person completes signup themselves. -->
+  <div id="invite-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="invite-modal-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+      <div class="flex items-start justify-between mb-1">
+        <p class="text-lg font-semibold text-slate-900">Invite a client</p>
+        <button type="button" id="invite-modal-close" class="text-slate-400 hover:text-slate-900 transition text-xl leading-none" aria-label="Close">&times;</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Creates a genuinely new, isolated client account — empty holdings, no transactions, only a starting cash balance.</p>
-      <div class="space-y-3">
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="text" id="add-name" class="mw-field mw-field-admin" placeholder="Jane Smith" />
-            <label for="add-name">Name</label>
-          </div>
+      <p class="text-sm text-slate-600 mb-4">They complete signup themselves — nothing is declared on their behalf.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="mw-fld mw-fld--admin">
+          <input type="text" id="invite-name" class="mw-field mw-field-admin" placeholder="Katarina Holm" autocomplete="off" />
+          <label for="invite-name">Full name</label>
         </div>
-        <div>
-          <div class="mw-fld mw-fld--static mw-fld--admin">
-            <select id="add-account-type" class="mw-field mw-field-admin">
-            <option value="Individual Account">Individual</option>
-            <option value="Joint Account">Joint</option>
-            <option value="Business Account">Business</option>
-          </select>
-            <label for="add-account-type">Account Type</label>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <div class="mw-fld mw-fld--admin">
-              <input type="email" id="add-email" class="mw-field mw-field-admin" placeholder="jane@example.com" />
-              <label for="add-email">Email</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld mw-fld--admin">
-              <input type="text" id="add-phone" class="mw-field mw-field-admin" placeholder="+1 (555) 555-0100" />
-              <label for="add-phone">Phone</label>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div class="mw-fld mw-fld--admin">
-            <input type="number" id="add-starting-capital" step="0.01" min="0" class="mw-field mw-field-admin" placeholder="0.00" />
-            <label for="add-starting-capital">Starting Unallocated Capital (USD)</label>
-          </div>
+        <div class="mw-fld mw-fld--admin">
+          <input type="email" id="invite-email" class="mw-field mw-field-admin" placeholder="k.holm@outlook.com" autocomplete="off" />
+          <label for="invite-email">Email address</label>
         </div>
       </div>
-      <p class="text-xs text-red-500 hidden mt-3" id="add-error"></p>
+      <div class="mw-fld mw-fld--admin mt-3">
+        <textarea id="invite-note" class="mw-field mw-field-admin" rows="3" placeholder="Lovely speaking today — here's the link to get started, it takes about ten minutes." maxlength="1000"></textarea>
+        <label for="invite-note">A note in the email — optional</label>
+      </div>
+      <div class="cl-whatnext mt-4">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0369A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <p><b>They complete the rest themselves.</b> The link opens signup with the name and email filled in. Everything else — date of birth, country, financial profile, goals, the risk questionnaire and their identity documents — is theirs to answer and upload. The invitation expires in 14 days and can be resent or revoked until it's used.</p>
+      </div>
+      <p class="text-xs text-red-600 hidden mt-3" id="invite-error" role="alert"></p>
       <div class="flex gap-3 mt-5">
-        <button type="button" id="add-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
-        <button type="button" id="add-submit" class="mw-btn mw-btn-admin mw-btn-grow">Add Client</button>
+        <button type="button" id="invite-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+        <button type="button" id="invite-submit" class="mw-btn mw-btn-admin mw-btn-grow">Send invitation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revoke / Remove confirm (row 254): a mailed link stops working the moment this is
+       confirmed, so it gets the same confirm step every other consequential admin action has. -->
+  <div id="invite-revoke-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/60" id="invite-revoke-backdrop"></div>
+    <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+      <p class="text-lg font-semibold text-slate-900" id="invite-revoke-title">Revoke this invitation?</p>
+      <p class="text-sm text-slate-600 mt-2" id="invite-revoke-body"></p>
+      <div class="flex gap-3 mt-5">
+        <button type="button" id="invite-revoke-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Keep it</button>
+        <button type="button" id="invite-revoke-submit" class="mw-btn mw-btn-danger mw-btn-grow">Revoke</button>
       </div>
     </div>
   </div>
@@ -151,76 +162,10 @@
     initAdminSidebar('clients');
   </script>
 
-  <!-- Admin UI Wiring — Final Stage (2026-09-03): real cleanup, not a straightforward wire,
-       per instruction. This page was stuck on the pre-retirement Firebase merge built Aug 22,
-       2026 — Firebase was retired project-wide Aug 30, 2026 (see CLAUDE.md's "Firebase —
-       RETIRED" Tech Stack entry), and this page was never updated after that: it was still
-       importing the retired admin-firebase-config.js and querying the retired emulator's
-       Firestore `clients` collection, which no real signup path has written to since Supabase
-       became the sole active backend. That merge is REMOVED outright (not merely disabled) —
-       real clients now sign up through Supabase (signup.html's default path since Firebase
-       Retirement), so the real cross-client source here is the real Supabase `clients` table,
-       merged with the still-genuinely-local demo/admin-created clients (getAllClients()) the
-       same way the old code merged local + Firebase. No `type="module"` needed any more —
-       MarketswaveData (a plain classic script) covers everything this page needs. -->
-  <script>
-    // ★ PM tool revamp, part 5 (2026-09-15): the list itself lives in admin-client-list.js.
-    // What remains here is the Add Client modal, which is unchanged — it still calls the local
-    // engine's addClient(), exactly as before. Changing which backend a PM-created client is
-    // written to is a real decision with its own consequences and is NOT part of this task.
-    //
-    // REMOVED with the expander (register row 235), each deliberately:
-    //   - the raw UUID as an identifier — no readable reference exists to replace it with; see
-    //     row 235 for what adding one would take. Name and email identify the row instead.
-    //   - the "Supabase" badge — internal implementation on a PM-facing page; a client is a
-    //     client. It also turned out to be the tell for the $0 bug, which is now fixed at the
-    //     source rather than signposted.
-    //   - "View as this Client" — WRITE-ONLY: setCurrentClientId() was called here and read by
-    //     nothing in the admin tool (the seven queue pages that consumed it are retired, and
-    //     every wired admin page takes an explicit clientId). engine-core.js keeps the
-    //     functions; this page simply no longer calls them.
-    //   - Reset Password / Reset 2FA — these were REAL actions with no other home, so they
-    //     MOVED to the client profile rather than being dropped. The profile is where
-    //     client-level detail and actions live now.
-    (function () {
-      var addModal = document.getElementById('add-modal');
-      var addError = document.getElementById('add-error');
-      function openAddModal() { addModal.classList.remove('hidden'); addError.classList.add('hidden'); }
-      function closeAddModal() {
-        addModal.classList.add('hidden');
-        ['add-name', 'add-email', 'add-phone', 'add-starting-capital'].forEach(function (id) {
-          var el = document.getElementById(id); if (el) el.value = '';
-        });
-      }
-      document.getElementById('open-add-modal').addEventListener('click', openAddModal);
-      document.getElementById('add-cancel').addEventListener('click', closeAddModal);
-      document.getElementById('add-modal-backdrop').addEventListener('click', closeAddModal);
-
-      document.getElementById('add-submit').addEventListener('click', function () {
-        var name = (document.getElementById('add-name').value || '').trim();
-        var email = (document.getElementById('add-email').value || '').trim();
-        var phone = (document.getElementById('add-phone').value || '').trim();
-        var accountType = document.getElementById('add-account-type').value;
-        var startingCapital = parseFloat(document.getElementById('add-starting-capital').value) || 0;
-        if (!name) {
-          addError.textContent = 'Name is required.';
-          addError.classList.remove('hidden');
-          return;
-        }
-        try {
-          var result = addClient({
-            name: name, email: email || null, phone: phone || null,
-            accountType: accountType, startingUnallocatedCapital: startingCapital
-          });
-          closeAddModal();
-          if (window.MarketswaveClientList) window.MarketswaveClientList.reload();
-        } catch (e) {
-          addError.textContent = e.message;
-          addError.classList.remove('hidden');
-        }
-      });
-    })();
-  </script>
+  <!-- The Add Client modal and its inline addClient() script that lived here are GONE
+       (register row 254): client creation is by invitation only, and the invitation UI lives
+       beside the list in admin-client-list.js. engine-core.js stays loaded for the list's own
+       local-only fallback (getAllClients / getTotalPortfolioValue), nothing else. -->
   <script src="admin-client-list.js"></script>
 
 </body>
