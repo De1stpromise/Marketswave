@@ -10927,7 +10927,11 @@ row 74.
   35/35, `verify-client-invitations-visual` 59/59 (a REAL invited signup end to end with
   two real files, read back from Postgres and Storage; used/expired/revoked/unknown refused in
   the real page; contrast with the sheen composited on six profiles; the sheen audit; fonts;
-  390/375 on a real phone profile and a real 320px iframe; the empty state). REAL-INBOX-LINE
+  390/375 on a real phone profile and a real 320px iframe; the empty state). **And for real,
+  on the live site**: one invitation from the real staging PM to the operator's own Gmail, the
+  branded email opened there, the invited signup completed with two real PDFs, every row and
+  both Storage objects read back from real staging, the accepted invitation gone from the
+  PM's Pending panel; the throwaway client deleted by id afterwards, re-read gone (row 254).
   Blast radius grepped and re-run (row 254 lists the suites). Migration + 5 functions on real
   cloud staging, parity `--fresh` clean; deployed-bytes identical.
 
@@ -11436,8 +11440,23 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   suite it looks like Kong 503 `{"message":"name resolution failed"}` (the container does not
   exist) followed by 502 `An invalid response was received from the upstream server` (it exists
   and is not yet serving), or a `supabase status` header listing
-  `supabase_edge_runtime_Marketswave` under Stopped services. It is load-driven — recreations
-  happen only while suites run, none in nineteen idle minutes — and it is not the file watcher.
+  `supabase_edge_runtime_Marketswave` under Stopped services. **ROOT CAUSE PROVEN 2026-09-20
+  (row 255): a host-side READ of any file under `supabase/functions` restarts the runtime.**
+  Last-access updates are enabled on this NTFS volume (`fsutil behavior query DisableLastAccess`
+  = 2); the CLI's watcher reports the last-access write as a WRITE and restarts. One `cat` of
+  `reject-sell/index.ts` (mtime Sep 7) at 21:55:46Z produced `Setting up Edge Functions
+  runtime...` within a second and a new container at 21:55:49Z. NTFS rewrites the on-disk
+  last-access time only when the recorded one is over an hour old, and the restart's own scan
+  touches 166 of 187 files — so the tree re-arms itself an hour after every restart and the
+  next reader of anything (a suite's static `readFileSync` assertion, an indexer, `git`) fires
+  it; a control read of a freshly-scanned file raised nothing. "Load-driven" was right for the
+  wrong reason: load is what reads the tree. **Fixes**: `fsutil behavior set disablelastaccess 1`
+  (admin, system-wide, the operator's call — removes the trigger and the hourly re-arm);
+  suites that assert against function source read it via `git show HEAD:<path>`, never in place
+  (`supabase-verify-product-catalog`, `supabase-verify-pm-attribution`); the runner boundary
+  check below for anything else. Until one of those lands, EVERY full pass will lose suites to
+  this roughly hourly, and a `readFileSync` under `supabase/functions` in a suite is a
+  self-inflicted 502 on its own next call.
   **The trigger of every occurrence so far is UNRECOVERABLE**: a recreated container is a new
   `docker logs` stream, Docker Desktop's event buffer keeps nothing useful, and the serve
   process's own stdout — the one place the CLI prints the runtime's last words and its restart
