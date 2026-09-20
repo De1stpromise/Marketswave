@@ -39,3 +39,12 @@ scripts/.pass-logs/
 scripts/.tmp-*
 scripts/.probe*.mjs
 scripts/*-pass.log
+
+# Temp module copies the "genuinely separate contexts" harnesses write to the REPO ROOT
+# (2026-09-19, register row 252): six suites (cross-role-sync, documents-storage, products-
+# catalog-fix, pm-overview, pm-compose, inbox-tickets) copy supabase-data.js to a
+# `.tmp-<name>-<pid>.mjs` beside it so the copy's own relative config imports resolve, and
+# delete it in a finally. A run that dies before the finally leaves it behind, and once one
+# was committed by accident it was served publicly by GitHub Pages. The scripts/ rule above
+# never covered the root; this does.
+/.tmp-*

@@ -10837,8 +10837,8 @@ row 74.
     floor — and their headers measured **14.3px tall at every width, including the client list at
     390px**, where its head is the one that stays visible on a phone. The row-171 "0 under 44×44"
     sweep never caught it: **a control rendered by an async data load is invisible to a sweep that
-    reads the DOM ~900ms after readyState.** `verify-control-patterns` has that hole for every
-    async-rendered control, not just these; the new suite waits for rows before measuring.
+    reads the DOM ~900ms after readyState.** That hole is its own register row, 253, and its own
+    Working convention below; the new suite waits for rows before measuring.
   - **The indicator is a CSS mask on `::after`, always present, never in the label text.** The old
     ` ▾` was appended INTO the label only when active, so no inactive header looked sortable and
     activating one changed its width ("Portfolio" 55 → 73px). `data-dir="asc|desc"` keys the
@@ -11512,6 +11512,18 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   five suites of (1)+(2), plus whatever (3) happens to hit, to be non-green in-run, and should
   re-run them in isolation rather than investigate them again. Three known causes now account
   for most of what a full pass loses.
+- **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
+  `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose
+  controls are painted by an async data load they enumerate the SKELETON and pass.** Four
+  sortable tables carried 14.3px header buttons for weeks — through every full pass reporting
+  "0 controls under 44×44" — because those buttons did not exist yet when the sweep looked. A
+  guard that reads before the content renders reports on an empty page; §V's fourth form. Read
+  those two sweeps as proof for STATIC controls only; the 44px floor on anything data-rendered
+  (row actions, sortable headers, the gate's real rows) is proven only by that page's own visual
+  suite, which waits for its rows. The fix is a content signal (the `animate-pulse` skeleton
+  leaving — the sheen audit already does this), UNRENDERED as a failing verdict, and a per-page
+  count of controls measured — row 253 has the shape; not built yet. Also: the sort-header
+  entry above and the `format-helpers.js`/`.mw-sort` vocabulary it introduced.
 - **`email_log` grows by roughly 58 rows per full-suite run, and that is BY DESIGN — do not
   "clean it up" or read it as a leak.** It is an append-only audit of genuinely-sent emails,
   and the email tests genuinely send. Every other table returns to its exact starting count
