@@ -11445,7 +11445,12 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   with stdout/stderr to `scripts/.pass-logs/functions-serve/<UTC stamp>.log`, stopping any
   existing serve tree by PID first; run it after every `supabase start`. When the next
   recreation happens, `docker inspect supabase_edge_runtime_Marketswave --format
-  '{{.Created}}'` dates it and that log names the cause. **The fix is recorded, not built (row
+  '{{.Created}}'` dates it and that log names the cause. **The first capture came three minutes
+  after the launcher started (18:40:52Z, no suite running): the runtime had NOT died — the CLI's
+  file watcher restarted it on a spurious 86-directory WRITE storm under `supabase/functions`
+  (no mtime moved, nothing wrote there); the CPU-limit isolate terminations before and after it
+  produced no restart. Row 255 has the log lines; what raises the storm is still open.** **The
+  fix is recorded, not built (row
   255)**: `verify-pass.mjs` checks the edge runtime at every suite boundary and reports a suite
   that would start into a stopped runtime as UNREACHABLE — row 222's third verdict — instead of
   letting it fail assertions. Until then, a suite that fails on a 5xx at its first call is this

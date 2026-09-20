@@ -48,7 +48,17 @@ async function main() {
   // Clear any pre-existing cache rows so the first call below is guaranteed to be a real
   // fresh fetch, not an accidental cache hit from an earlier manual test.
   const ALL_SYMBOLS = ['SPY', 'QQQ', 'DIA', 'BTC', 'ETH', 'SOL'];
-  // fixture-symbols-allow: SPY, QQQ, DIA, BTC, ETH, SOL — deliberate, recorded as row 209's cross-suite pollution and left in row 212: the base symbols' rows are deleted and recreated by the real fetch under test; the products keep their own unit_price, but the rows' stored logos are dropped until a backfill
+  const { data: logoRows } = await admin.from('market_data_cache').select('symbol, logo_url').in('symbol', ALL_SYMBOLS);
+  const logoSnapshot = (logoRows || []).filter((r) => r.logo_url);
+  restoreLogos = async function () {
+    let restored = 0;
+    for (const r of logoSnapshot) {
+      const { error } = await admin.from('market_data_cache').update({ logo_url: r.logo_url }).eq('symbol', r.symbol);
+      if (error) console.log('  TEARDOWN WARNING: could not restore logo_url on ' + r.symbol + ': ' + error.message); else restored++;
+    }
+    console.log('(row 230) stored logos restored on the recreated cache rows: ' + restored + ' of ' + logoSnapshot.length);
+  };
+  // fixture-symbols-allow: SPY, QQQ, DIA, BTC, ETH, SOL — deliberate, recorded as row 209's cross-suite pollution and left in row 212: the base symbols' rows are deleted and recreated by the real fetch under test; the products keep their own unit_price. The rows' stored logos (`logo_url`, row 207) would be dropped with them — register row 230, the pollution that failed the three asset-logos suites in every full pass — so they are snapshotted here and written back onto the recreated rows in `restoreLogos()`, on success AND on error, the same "put it back" shape the gate suite uses for Gary.
   await admin.from('market_data_cache').delete().in('symbol', ALL_SYMBOLS);
 
   console.log('1. get-market-snapshot — a real, live, uncached fetch\n');
@@ -112,16 +122,22 @@ async function main() {
   check('an unauthenticated caller cannot call convert-currency (401)', convUnauthErr && convUnauthErr.context && convUnauthErr.context.status === 401);
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.\n');
+  return failed;
+}
+
+// Restored after main() returns or throws — never inside main, where a process.exit would skip it (row 230).
+let restoreLogos = async function () {};
+main().then(async function (failed) {
+  await restoreLogos();
   if (failed > 0) {
     console.log('VERIFY: FAIL');
     process.exit(1);
   }
   console.log('VERIFY: PASS');
   process.exit(0);
-}
-
-main().catch(function (err) {
+}).catch(async function (err) {
   console.error('\nVERIFY FAILED WITH AN ERROR: ' + (err && err.message ? err.message : err));
   console.error(err);
+  try { await restoreLogos(); } catch (e) { console.error('TEARDOWN WARNING: logo restore failed: ' + (e && e.message)); }
   process.exit(1);
 });
