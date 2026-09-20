@@ -804,31 +804,6 @@
     "axFrom": "placeholder:placeholder",
     "ok": false
   },
-  "admin-clients.html::add-name": {
-    "axName": "Jane Smith",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "admin-clients.html::add-account-type": {
-    "axName": "",
-    "axFrom": "",
-    "ok": false
-  },
-  "admin-clients.html::add-email": {
-    "axName": "jane@example.com",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "admin-clients.html::add-phone": {
-    "axName": "+1 (555) 555-0100",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "admin-clients.html::add-starting-capital": {
-    "axName": "0.00",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
   "admin-clients.html::security-reason-input": {
     "axName": "Why is this reset being performed?",
     "axFrom": "placeholder:placeholder",

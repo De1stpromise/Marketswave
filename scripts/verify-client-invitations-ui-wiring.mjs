@@ -115,7 +115,7 @@ async function main() {
     check('★ ...and a real email_log row (the real email path)', !!log1 && log1.status === 'sent' && /invitation/i.test(log1.subject), JSON.stringify(log1));
     check('the toast confirms it was sent', /Invitation sent/.test(txt(q(dom, '#admin-toast'))), txt(q(dom, '#admin-toast')));
     const r1 = invRow(dom, row1.id);
-    check('the row: dashed initials, name, email, "Sent" pill, Resend + Revoke', !!r1 && /^[A-Z]{2}$/.test(txt(r1.querySelector('.cl-iav'))) && /Sent/.test(txt(r1.querySelector('.cl-istat'))) && !!r1.querySelector('[data-cl-inv-resend]') && !!r1.querySelector('[data-cl-inv-revoke][data-mode="revoke"]'), r1 && txt(r1));
+    check('the row: dashed initials, name, email, "Sent" pill, Resend + Revoke', !!r1 && /^[A-Z0-9]{2}$/.test(txt(r1.querySelector('.cl-iav'))) /* getClientInitials takes the last word's first char — the run suffix is hex and may start with a digit */ && /Sent/.test(txt(r1.querySelector('.cl-istat'))) && !!r1.querySelector('[data-cl-inv-resend]') && !!r1.querySelector('[data-cl-inv-revoke][data-mode="revoke"]'), r1 && txt(r1));
     const strip2 = qa(dom, '.cl-hc');
     check('★ "Invitations out" went up by one; "Clients" did NOT — separate facts', Number(txt(strip2[1].querySelector('.cl-v'))) === outBefore + 1 && Number(txt(strip2[0].querySelector('.cl-v'))) === clientsBefore, txt(strip2[1]) + ' / ' + txt(strip2[0]));
 

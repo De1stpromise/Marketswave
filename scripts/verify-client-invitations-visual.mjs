@@ -366,12 +366,12 @@ async function main() {
       const modal = await cdp.evaluate(`(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
         document.getElementById('open-invite-modal').click(); await nap(300);
         const md = document.querySelector('#invite-modal > div:last-child').getBoundingClientRect();
-        const over = [...document.querySelectorAll('#invite-modal *')].filter(el => el.getBoundingClientRect().right > md.right + 0.5).length;
+        const over = [...document.querySelectorAll('#invite-modal > div:last-child *')].filter(el => el.getBoundingClientRect().right > md.right + 0.5).map(el => el.tagName + '.' + el.className + '@' + Math.round(el.getBoundingClientRect().right)); // the PANEL's own subtree — the full-viewport backdrop is its sibling, not its content
         const btns = [...document.querySelectorAll('#invite-modal .mw-btn')].map(b => Math.round(b.getBoundingClientRect().height));
         const fields = [...document.querySelectorAll('#invite-modal .mw-field')].map(f => Math.round(f.getBoundingClientRect().height));
         const r = { fits: md.right <= window.innerWidth + 0.5 && md.left >= -0.5, over, btns, fields, bodyScroll: document.body.scrollWidth };
         document.getElementById('invite-cancel').click(); return r; })()`);
-      check('★ ' + w + 'px: the Invite modal fits the viewport, nothing escapes it, both buttons and every field at the floor', modal.fits && modal.over === 0 && modal.btns.length === 2 && modal.btns.every((h) => h >= 44) && modal.fields.every((h) => h >= 44) && modal.bodyScroll <= w, JSON.stringify(modal));
+      check('★ ' + w + 'px: the Invite modal fits the viewport, nothing escapes it, both buttons and every field at the floor', modal.fits && modal.over.length === 0 && modal.btns.length === 2 && modal.btns.every((h) => h >= 44) && modal.fields.every((h) => h >= 44) && modal.bodyScroll <= w, JSON.stringify(modal));
     }
 
     console.log('\n--- 320px through a real same-origin iframe ---\n');
