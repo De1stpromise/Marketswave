@@ -10985,6 +10985,23 @@ row 74.
   client data-ready 5.0 → 3.1 s, PM shell 3.1 → 1.6 s, 17 → 1 SDK requests. Use
   `npm run audit-performance-diff <baseline.json> <after.json>` for any later comparison.
 
+- **★★ App-feel stage 1.5, fix 2 — the Tailwind play CDN is gone; `tailwind-3.4.17.css` is compiled
+  once and guarded (2026-09-21, register rows 260–263).** `scripts/tailwind/tailwind.config.js`
+  (ONE config, `theme.extend` navy/cream, content = every root `.html`/`.js`) → `npm run
+  build-tailwind` → `tailwind-3.4.17.css`, linked as the **LAST** stylesheet in every Tailwind
+  page's `<head>` (measured: the CDN's async `<style>` sat last, so utilities win equal-specificity
+  contests — a link placed earlier silently flips them). **A class added to a page does NOTHING
+  until the sheet is rebuilt** — `verify-tailwind-color-scoping` rebuilds to a temp file and
+  byte-compares on every pass, so the gate fails by name; run `npm run build-tailwind` and commit
+  the sheet with the markup that needs it. Every class must be a whole string literal (a tone map,
+  a template), never assembled from fragments — the compiler cannot see `'bg-' + tone`. The PM
+  palette rule is unchanged: `bg-navy` on an admin page now renders NAVY (visible, wrong) instead
+  of transparent, and check 1 still catches it. Combined with fix 1: client data-ready 5.0 → 2.4 s,
+  PM shell 3.1 → 1.0 s, −118 KB per page from this fix alone. **A speed-up can turn a vacuous
+  guard live** (row 261): the products page's 32 px filter pills were only ever invisible to the
+  control sweep because that page rendered them after the sweep looked. `scripts/audit-render-diff.mjs`
+  is the rendered before/after tool for stages 2–3.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -11316,6 +11333,15 @@ is for. Four stages, in order, each building on the last:
   data touched, no `DROP` — which is exactly why it is worth writing down now rather than after
   the one that is not. A migration that alters or drops anything, applied to real staging before
   it has been run once locally, has no undo.
+- **★ `verify-` IS A GATE; `audit-` IS AN INVESTIGATION (2026-09-21, register row 262).** A
+  `verify-*` / `supabase-verify-*` script runs in a pass, exits non-zero on failure, and MUST be
+  registered as an npm script (the runner refuses to start otherwise — row 259). An `audit-*`
+  script prints numbers, may need the live site, a credential file or a second origin, exits 0
+  regardless, and never joins a pass — `npm run pass -- --full` keys on the prefix and nothing
+  else, so a new audit cannot accidentally join and a new verification cannot accidentally be
+  left out. **A file that can fail a pass is a verify- by definition, whatever it was called**:
+  `audit-glass-sheen` and `audit-fonts` were both gates wearing audit names and are
+  `verify-glass-sheen` / `verify-fonts` now. Name a new file by what it does to a pass.
 - **Cloud Staging Parity — run `npm run verify-cloud-staging-parity` (from `scripts/`)
   before any push that touches `supabase/migrations/`, `supabase/functions/`, or any page
   that calls Supabase.** Added 2026-09-05 after a real incident (row 137): every Phase B/UI-
@@ -11545,7 +11571,8 @@ is for. Four stages, in order, each building on the last:
   wrong reason: load is what reads the tree. **Fixes**: `fsutil behavior set disablelastaccess 1`
   (admin, system-wide, the operator's call — removes the trigger and the hourly re-arm);
   suites that assert against function source read it via `git show HEAD:<path>`, never in place
-  (`supabase-verify-product-catalog`, `supabase-verify-pm-attribution`); the runner boundary
+  (`supabase-verify-product-catalog` — fixed 2026-09-21 after it 502'd itself twice more, row 262;
+  `supabase-verify-pm-attribution`); the runner boundary
   check below for anything else. Until one of those lands, EVERY full pass will lose suites to
   this roughly hourly, and a `readFileSync` under `supabase/functions` in a suite is a
   self-inflicted 502 on its own next call. **A WRITE to `supabase/functions/.env` restarts it
@@ -11718,8 +11745,11 @@ is for. Four stages, in order, each building on the last:
   Node-side `fetch`, consulted when a poll or a non-vacuity control fails, reporting
   UNREACHABLE <host> on its own exit code. Until each is done, a full pass should expect the
   five suites of (1)+(2), plus whatever (3) happens to hit, to be non-green in-run, and should
-  re-run them in isolation rather than investigate them again. Three known causes now account
-  for most of what a full pass loses.
+  re-run them in isolation rather than investigate them again. **(4) Row 263 — a suite that forces a price
+  state races the :00/:05 refresh**: the cron re-prices the forced symbol between the force and
+  the read and the assertion sees `ok` (`verify-dashboard-redesign`, twice on 2026-09-21, both on
+  the tick). Re-assert the forced state right before each read, or wait for a clear window. Four
+  known causes now account for most of what a full pass loses.
 - **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
   `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose
   controls are painted by an async data load they enumerate the SKELETON and pass.** Four

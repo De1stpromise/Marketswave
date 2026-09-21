@@ -222,6 +222,9 @@ async function collect(cdp, label, m0) {
   const dataReady = P.skelZeroAt != null ? { ms: +P.skelZeroAt.toFixed(0), how: 'skeleton→0' } : (dataCalls.length ? { ms: +lastBackendEnd.toFixed(0), how: 'initial backend burst' } : { ms: +(nav.dcl || 0).toFixed(0), how: 'DOMContentLoaded (no backend)' });
   return {
     label, href: nav.href, title: nav.title, timeOrigin: nav.timeOrigin,
+    // A load that never reached the site (a DNS drop, an unreachable origin) is not a slow page and must not be
+    // reported as one — row 222's third verdict. The diff tool skips these; the median picks around them.
+    unreachable: /^chrome-error:/.test(nav.href) || (cdp.errors || []).some((e) => /ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_CONNECTION/.test(e)),
     bytesTotal: rows.reduce((s, r) => s + (r.cached ? 0 : r.bytes), 0), requests: rows.length, cachedRequests: rows.filter((r) => r.cached).length, groups,
     responseStart: +(nav.responseStart || 0).toFixed(0), fcp: nav.paints['first-contentful-paint'] != null ? +nav.paints['first-contentful-paint'].toFixed(0) : null, lcp: P.lcp != null ? +P.lcp.toFixed(0) : null,
     shellAt: P.shellAt != null ? +P.shellAt.toFixed(0) : null, skelFirst: P.skelFirst != null ? +P.skelFirst.toFixed(0) : null, skelMax: P.skelMax || 0, dataReady,
@@ -320,10 +323,16 @@ async function glassOn(cdp, label, counts) {
 
 // The sample whose data-ready time is the median; the spread of every timing across samples is kept.
 function medianSample(samples) {
-  if (samples.length === 1) return samples[0];
+  // Unreachable loads (a DNS drop mid-run) are not measurements: drop them before taking the median, and
+  // note how many were dropped. If every sample was unreachable the page stays marked unreachable.
+  const reachable = samples.filter((x) => !x.unreachable);
+  const dropped = samples.length - reachable.length;
+  if (reachable.length) samples = reachable;
+  if (samples.length === 1) { if (dropped) samples[0].droppedUnreachable = dropped; return samples[0]; }
   const sorted = [...samples].sort((a, b) => a.dataReady.ms - b.dataReady.ms);
   const mid = sorted[Math.floor(sorted.length / 2)];
   const spread = (f) => { const v = samples.map(f).filter((x) => x != null); return v.length ? [Math.min(...v), Math.max(...v)] : null; };
+  if (dropped) mid.droppedUnreachable = dropped;
   mid.spread = { fcp: spread((x) => x.fcp), shellAt: spread((x) => x.shellAt), dataReady: spread((x) => x.dataReady.ms), bytesTotal: spread((x) => x.bytesTotal), longestFn: spread((x) => x.longestFn && x.longestFn.dur), samples: samples.length, unsettled: samples.filter((x) => !x.settled).length };
   mid.allSamples = samples.map((x) => ({ fcp: x.fcp, shellAt: x.shellAt, dataReady: x.dataReady.ms, bytesTotal: x.bytesTotal, longestFn: x.longestFn && x.longestFn.dur, settled: x.settled, slowest: x.rows.filter((r) => r.dur).sort((a, b) => b.dur - a.dur).slice(0, 3).map((r) => r.dur + 'ms ' + r.url.replace(BASE + '/', '').slice(0, 60)) }));
   return mid;
@@ -336,7 +345,7 @@ function printPage(r) {
   console.log('  ' + r.label.padEnd(44) + kb(r.bytesTotal).padStart(6) + 'KB ' + String(r.requests).padStart(3) + ' req  ' +
     'fcp ' + String(r.fcp == null ? '-' : r.fcp).padStart(5) + '  shell ' + String(r.shellAt == null ? '-' : r.shellAt).padStart(5) + '  data ' + String(r.dataReady.ms).padStart(6) + ' (' + r.dataReady.how + ')' +
     '  fn ' + String(r.fnCount).padStart(2) + ' longest ' + (r.longestFn ? r.longestFn.path.replace('fn:', '') + ' ' + r.longestFn.dur + 'ms' : '-') +
-    (r.spread ? '  [data ' + r.spread.dataReady[0] + '–' + r.spread.dataReady[1] + ']' : '') + (r.settled ? '' : '  UNSETTLED pending=' + JSON.stringify(r.pendingAtTimeout)) + (r.stalled && r.stalled.length ? '  stalled ' + r.stalled.length : '') + (r.errorCards ? '  ERROR-CARDS ' + r.errorCards : '') + (r.errors.length ? '  console-errors ' + r.errors.length : ''));
+    (r.spread ? '  [data ' + r.spread.dataReady[0] + '–' + r.spread.dataReady[1] + ']' : '') + (r.unreachable ? '  UNREACHABLE (the site was never reached — a DNS/network drop, not a measurement)' : '') + (r.settled ? '' : '  UNSETTLED pending=' + JSON.stringify(r.pendingAtTimeout)) + (r.stalled && r.stalled.length ? '  stalled ' + r.stalled.length : '') + (r.errorCards ? '  ERROR-CARDS ' + r.errorCards : '') + (r.errors.length ? '  console-errors ' + r.errors.length : ''));
   console.log('      static ' + gs('static') + ' vendor ' + gs('vendor') + ' preflight ' + gs('preflight') + ' tailwind ' + gs('tailwind') + ' esm.sh ' + gs('esm.sh') + ' libs ' + gs('cdn-lib') + ' fonts ' + gs('fonts') + ' auth ' + gs('auth') + ' rest ' + gs('rest') + ' functions ' + gs('functions') + ' storage ' + gs('storage') + ' realtime ' + gs('realtime') + ' other ' + gs('other') + ' | nodes ' + r.nodes + ' glass ' + r.glass + ' | main-thread script ' + r.mainThread.script + 'ms layout ' + r.mainThread.layout + 'ms style ' + r.mainThread.style + 'ms');
 }
 

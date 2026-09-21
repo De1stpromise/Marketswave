@@ -94,6 +94,61 @@ untouched by design — it is stage 2's.
 
 `scripts/audit-performance-diff.mjs` is the tool for this comparison from here on.
 
+### Fix 2 — the Tailwind play CDN is a compiled static sheet (2026-09-21, row 260)
+
+`tailwind-3.4.17.css` (32 KB, 6.5 KB gzip) compiled once by `scripts/build-tailwind.mjs` from
+`scripts/tailwind/` with `tailwindcss@3.4.17` pinned as a devDependency, linked as the **last**
+stylesheet in every one of the 24 pages' `<head>` — the position the play CDN's asynchronously
+appended `<style>` occupied (measured live), so utilities keep winning every equal-specificity
+contest. The eleven inline `tailwind.config` blocks are gone. Completeness was proved two ways
+before any page was switched: every selector the live CDN generated on all 24 signed-in pages
+(382 of 382) exists in the compiled sheet, and a rendered before/after on identical local data
+(`scripts/audit-render-diff.mjs`, 48 comparisons at 1440 and 390) was pixel-identical outside
+chart canvases and clocks. The staleness guard lives in `verify-tailwind-color-scoping` and was
+proven with three forced-failure controls (an uncompiled class, a dropped link, a mis-ordered link).
+
+### Both fixes together — the combined measurement
+
+Same harness, same baseline run, about nine hours later; the public control moved only
++0.1–0.3 s this time, so the environment was comparable.
+
+| | Data-ready (median of pages) | Shell | FCP | Weight | Requests |
+|---|---:|---:|---:|---:|---:|
+| Client (11 pages) | **5.0 → 2.4 s** | **1.8 → 1.0 s** | **1.8 → 1.1 s** | 540 → 380 KB | 65 → 49 |
+| PM tool (12 pages) | **3.9 → 2.7 s** | **3.1 → 1.0 s** | 1.3 → 1.2 s | 407 → 222 KB | 59 → 42 |
+| Public (control) | 1.0 → 1.1 s | — | 1.0 → 1.2 s | 177 → 174 KB | 15 → 14 |
+
+Per page, every client page reaches real data 1.4–3.6 s sooner than the baseline (`transactions`
+5.6 → 2.5, `settings` 5.4 → 2.0, `asset-performance` 6.6 → 3.0, `dashboard` 6.5 → 3.9) and every
+PM page 1.2–2.9 s sooner; the PM shell is 1.7–2.8 s sooner on every page. Fix 2's own share, read
+against the fix-1 run: client data-ready 3.1 → 2.4 s, shell 1.6 → 1.0 s, FCP 1.6 → 1.1 s, and
+**−118 KB per page** (the 124 KB script replaced by a 6.5 KB sheet, and no per-load JIT); PM FCP
+1.6 → 1.2 s. **The PM-FCP question from the fix-1 report is answered**: with the CDN gone, first
+paint is below the stage-1 baseline on 9 of 12 PM pages (−0.1 to −0.4 s) and level on `admin.html`
+— the fix-1 run's +0.3 s was the environment, not the preload links competing with paint.
+
+**Three PM pages are not in that table**: `admin-client-profile`, `admin-presence` and
+`admin-products` hit a DNS drop during the warm pass (`net::ERR_NAME_NOT_RESOLVED`, each load
+landing on `chrome-error://` after 24.1 s — row 222's flap). The harness now reports such a load as
+**UNREACHABLE** rather than as a time, and the diff tool skips it. Their cold-pass loads minutes
+earlier were clean: 13.0 → 5.1 s, 8.1 → 2.5 s, 9.4 → 2.5 s. A later re-measurement fell in a
+visibly degraded window (a page that did FCP 1.4 s at baseline read 4.0 s) and is not cited.
+
+**Navigation**: client hops median usable 2.84 → 1.67 s. On the PM tool the last six hops show
+what the compiled sheet does to a warm-cache navigation — **shell repaint 83–138 ms** against
+373–498 ms at baseline (no Tailwind JIT to re-run per page) — while the first three hops ran in the
+same network-recovery window and read slower; read the six, not the median.
+
+**What the full suite found that the pixel diff could not** (rows 261–263): a real pre-existing
+defect on `admin-products.html` — its filter pills carried `min-height: 0`, sat at 32 px on every
+phone since row 236, and were invisible to the control sweep because that page used to render them
+*after* the sweep looked; the faster page exposed it (row 253's async blind spot, exactly). A
+1.35 px chart-dot deviation in `verify-portfolio-overview-visual` was chased as a possible
+container-rounding change and passed in isolation — it had run inside an edge-runtime restart
+window. Every other non-green suite in the 117-suite pass traced to the runtime restart (row 255,
+now with one more self-inflicted trigger fixed), provider availability, leftover test data or the
+price-state race class (row 263) — none to the stylesheet.
+
 ---
 
 ## 2. Method

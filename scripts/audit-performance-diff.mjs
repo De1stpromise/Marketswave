@@ -26,6 +26,7 @@ const by = (run) => Object.fromEntries((run.passes.warm || []).map((r) => [r.lab
 const A = by(a), B = by(b);
 for (const label of Object.keys(A)) {
   const x = A[label], y = B[label]; if (!y) continue;
+  if (x.unreachable || y.unreachable) { console.log('| ' + label + ' | UNREACHABLE in ' + (x.unreachable ? 'baseline' : 'after') + ' run (the site was never reached — not compared) |'); continue; }
   const lf = (r) => r.longestFn && !/track-visit/.test(r.longestFn.path) ? s(r.longestFn.dur) : '—';
   console.log('| ' + label.replace(/\?client=.*/, '?client=…').replace('?product=PROD-0002', '?product=…') + ' | ' + kb(x.bytesTotal) + ' | ' + (kb(y.bytesTotal) - kb(x.bytesTotal)) + ' | ' + x.requests + ' | ' + (y.requests - x.requests) +
     ' | ' + sdk(x) + '→' + sdk(y) + ' | ' + s(x.fcp) + ' | ' + d(x.fcp, y.fcp) + ' | ' + s(x.shellAt) + ' | ' + d(x.shellAt, y.shellAt) +
