@@ -9,11 +9,18 @@
 # Jekyll already hides dotfiles and any path beginning with "_" (which is why _shared/
 # never leaked); the entries below cover the rest. A 404 on any of these paths is the
 # intended result — the deployed-bytes check only ever covered real web assets.
+#
+# ★ DIRECTORIES CARRY A TRAILING SLASH, AND THAT IS LOAD-BEARING. Jekyll's exclude matches by
+# PREFIX as well as by glob (EntryFilter#glob_include? uses start_with?), so a bare "supabase"
+# also excluded supabase-data.js, supabase-config.js and supabase-endpoint.js — the browser
+# modules every dashboard page loads — and the live dashboard was down for the minutes the
+# first version of this file was deployed (2026-09-21, 08:12–08:2xZ). "supabase/" matches only
+# the directory's contents.
 
 exclude:
-  - scripts
-  - supabase
-  - functions
+  - scripts/
+  - supabase/
+  - functions/
   - "*.md"
   - firebase.json
   - firebase.staging.json
