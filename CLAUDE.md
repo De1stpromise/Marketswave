@@ -10935,6 +10935,22 @@ row 74.
   Blast radius grepped and re-run (row 254 lists the suites). Migration + 5 functions on real
   cloud staging, parity `--fresh` clean; deployed-bytes identical.
 
+- **★★ THE WHOLE REPOSITORY IS SERVED BY GITHUB PAGES, AND THE REPOSITORY IS PUBLIC
+  (2026-09-20, register row 256).** Measured: 343 of 395 committed non-web files return 200
+  on marketswave.net — all of `scripts/`, every migration, every Edge Function's
+  `index.ts`, `config.toml`, this file and the handover. Only Jekyll's own defaults hide
+  anything (`_shared/`, dotfiles). No secret was ever committed (253 commits scanned: two
+  `anon` JWTs only, no `.env`), and the committed local passwords match no account on real
+  staging — but two real client email addresses, one real client's account figures and
+  every real client's name are in the served docs and suites. **Fix**: a `_config.yml`
+  `exclude:` list (fifteen minutes; deployed-bytes keeps working for real assets, and a 404
+  on `CLAUDE.md` afterwards is correct), PII scrubbed from HEAD, repo visibility the
+  operator's call. **Clean URLs are CLOSED, nothing to build**: `/dashboard` already returns a
+  real 200 with `/dashboard.html`'s own bytes and ETag — GitHub Pages resolves
+  extensionless paths natively (trailing slash and case 404; query strings survive; the
+  retired pages 404 either way). Do not investigate it again. The local `python -m
+  http.server` does NOT resolve `/dashboard` — remember that if a page ever emits bare paths.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
