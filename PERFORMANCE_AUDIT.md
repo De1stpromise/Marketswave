@@ -58,6 +58,44 @@ a PM page; 30–57 KB of inline script per client page (`dashboard.html` 57 KB, 
 
 ---
 
+## 1.5 Stage 1.5 — the two foundational fixes, measured one at a time
+
+### Fix 1 — the SDK is one self-hosted, preloaded bundle (2026-09-21, row 258)
+
+`vendor/supabase-js-2.112.4.min.js` (216 KB raw, 57 KB gzip, one request, zero external imports),
+built once by `scripts/vendor-supabase-js.mjs` from the exact SDK version in `scripts/node_modules`,
+`modulepreload`ed from every SDK-reaching page's `<head>` beside the stylesheets. The three import
+sites repointed; nothing else about how a page uses the client changed. Measured with the same
+harness two and a half hours after the baseline (`npm run audit-performance-diff` between the two
+runs; warm-pass medians, three samples):
+
+| | Data-ready (median of pages) | Shell | FCP | Weight | Requests | SDK requests |
+|---|---:|---:|---:|---:|---:|---:|
+| Client (11 pages) | **5.0 → 3.1 s** | 1.8 → 1.6 s | 1.8 → 1.6 s | 540 → 498 KB | 65 → 49 | 17 → 1 |
+| PM tool (12 pages) | **3.9 → 3.0 s** | **3.1 → 1.6 s** | 1.3 → 1.6 s | 407 → 367 KB | 59 → 43 | 17 → 1 |
+| Public (11 pages, control) | 1.0 → 1.4 s | — | 1.0 → 1.3 s | 177 → 176 KB | 15 → 14 | 0 → 0 |
+
+Every one of the 23 logged-in pages got faster to real data, by 0.3–2.8 s (`asset-performance`
+6.6 → 3.8, `high-yield-savings` 6.9 → 4.1, `settings` 5.4 → 2.8, `admin-clients` 6.4 → 4.1). The PM
+shell — gated on the session check, which waits for the SDK — halved (3.1 → 1.6 s), which is
+finding #9 closing as a side effect. The `dashboard.html` anatomy in §4 now reads: shell 2.0 s,
+first backend call **~2.3 s** (was 4.16), usable 4.7 s (was 6.5).
+
+**The control matters.** The public pages, which never load the SDK, came out 0.3–1.0 s *slower*
+in the after-run — the live site was simply slower at 15:00Z than at 12:20Z. So the client and PM
+gains above are measured against a headwind of roughly half a second and are, if anything,
+understated. This is why the audit keeps a surface that a fix cannot touch.
+
+**Navigation** barely moves, as expected — the SDK was already in the HTTP cache on every hop:
+client median usable 2.84 → 2.34 s and shell repaint 561 → 392 ms (17 fewer cached modules to
+re-evaluate per hop); the PM hops read 0.3–2 s slower, entirely inside the run-to-run variance the
+public control shows and dominated by backend calls the fix does not touch. Finding #2 is
+untouched by design — it is stage 2's.
+
+`scripts/audit-performance-diff.mjs` is the tool for this comparison from here on.
+
+---
+
 ## 2. Method
 
 **Harness**: `scripts/audit-performance.mjs` — a real headless Chrome (1440×900) driven over the

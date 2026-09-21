@@ -129,7 +129,8 @@
     "supabase-verify-document-signing": "node verify-supabase-document-signing.js",
     "verify-document-signing-visual": "node verify-document-signing-visual.mjs",
     "vendor-supabase-js": "node vendor-supabase-js.mjs",
-    "verify-login-redesign": "node verify-login-redesign.mjs"
+    "verify-login-redesign": "node verify-login-redesign.mjs",
+    "audit-performance-diff": "node audit-performance-diff.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

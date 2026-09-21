@@ -10973,6 +10973,18 @@ row 74.
   downloading, so "loaded" must hold on in-flight requests; and a frame-cost measurement must run
   with no other browser alive — three live browsers inverted the glass reading on every page.
 
+- **★★ App-feel stage 1.5, fix 1 — the SDK is ONE self-hosted bundle, preloaded (2026-09-21,
+  register row 258).** `vendor/supabase-js-2.112.4.min.js` is built ONCE by
+  `scripts/vendor-supabase-js.mjs` (`npm run vendor-supabase-js`) from the exact version in
+  `scripts/node_modules`; the three import sites (`supabase-config.js`,
+  `admin-supabase-config.js`, `reset-password.html`) point at it, and every SDK-reaching page
+  `modulepreload`s it beside the stylesheets. **Upgrading the SDK is deliberate**: `npm install
+  @supabase/supabase-js@<new>` in `scripts/`, re-run the recipe, repoint the three sites and the 27
+  preload links (the version is in the filename so the diff shows it), commit. **Never name the
+  bundle `supabase-*` at the root** — `_config.yml` excludes by prefix (row 256). Measured gain:
+  client data-ready 5.0 → 3.1 s, PM shell 3.1 → 1.6 s, 17 → 1 SDK requests. Use
+  `npm run audit-performance-diff <baseline.json> <after.json>` for any later comparison.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
