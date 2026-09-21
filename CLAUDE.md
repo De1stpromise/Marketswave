@@ -10956,6 +10956,23 @@ row 74.
   retired pages 404 either way). Do not investigate it again. The local `python -m
   http.server` does NOT resolve `/dashboard` — remember that if a page ever emits bare paths.
 
+- **★★ App-feel programme, stage 1 — the performance audit (2026-09-21, register row 257).**
+  `PERFORMANCE_AUDIT.md` + `scripts/audit-performance.mjs` (re-run it the same way and diff the
+  JSON in `scripts/.pass-logs/perf/`). Live site against real staging, report-only. **Glass is NOT
+  the cost**: every shipped page scrolls at the rAF floor with `backdrop-filter` on, and removing the
+  blur alone makes `dashboard.html` worse (20 → 38 ms/frame) — the blur is what promotes each card to a
+  compositor layer; the blur itself costs only at ~247 simultaneous layers. The constraint is a COUNT
+  of simultaneously rendered glass elements (keep it well under ~100), not the vocabulary. **What the
+  logged-in platform pays for**: the SDK is a 17-request esm.sh module graph loaded by a dynamic
+  `import()` AFTER the shell paints — ~2 s with nothing on screen changing on every empty-cache load
+  (`dashboard.html`: shell 2.0 s, first backend call 4.16 s, usable 6.5 s); every navigation re-fetches
+  the shell's own data (8–16 repeated calls per client hop, 9 per PM hop) and re-parses 33–47 cached
+  resources incl. the Tailwind play-CDN's JIT; logged-in pages usable at 3.3–7.0 s warm vs 0.8–1.1 s
+  for the public site; Edge Functions 0.9–1.9 s warm, 2–8 s cold. **Two harness lessons for any
+  future timing work**: `readyState === 'complete'` fires with a dynamic import's modules still
+  downloading, so "loaded" must hold on in-flight requests; and a frame-cost measurement must run
+  with no other browser alive — three live browsers inverted the glass reading on every page.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
