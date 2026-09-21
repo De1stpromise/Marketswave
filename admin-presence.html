@@ -14,7 +14,6 @@
        Supabase Realtime on visitor_sessions for live changes; the etiquette (30 seconds
        before a first message, one invitation per session) is shown here with the same
        reasons the server refuses with, and enforced there, not here. -->
-  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
@@ -39,6 +38,11 @@
     .trail svg { width: 9px; height: 9px; flex-shrink: 0; }
     .snip { height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid #E2E8F0; background: #fff; color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer; }
   </style>
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 

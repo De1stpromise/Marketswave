@@ -9,7 +9,6 @@
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="admin-supabase-config.js" />
-  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
@@ -22,6 +21,11 @@
     .filter-pill.is-active { background: #0F172A; color: #fff; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   </style>
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 

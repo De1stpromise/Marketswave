@@ -10,26 +10,6 @@
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: {
-              DEFAULT: '#1B3A4B',
-              dark: '#122A38',
-              light: '#2A4F63'
-            },
-            cream: {
-              DEFAULT: '#F7F6F3',
-              dark: '#EDE8E1'
-            }
-          }
-        }
-      }
-    }
-  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />
   <link rel="stylesheet" href="tap-targets.css">
@@ -41,6 +21,11 @@
     body { font-family: 'Inter', sans-serif; }
   </style>
   <link rel="stylesheet" href="chat-widget.css" />
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
 </head>
 <body class="bg-cream text-slate-800 antialiased">
 

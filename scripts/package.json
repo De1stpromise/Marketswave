@@ -135,7 +135,9 @@
     "verify-hero-headline": "node verify-hero-headline.mjs",
     "verify-hiw-artifact": "node verify-hiw-artifact.mjs",
     "verify-public-market-snapshot": "node verify-public-market-snapshot.js",
-    "supabase-verify-nav-publications": "node verify-supabase-nav-publications.js"
+    "supabase-verify-nav-publications": "node verify-supabase-nav-publications.js",
+    "build-tailwind": "node build-tailwind.mjs",
+    "audit-render-diff": "node audit-render-diff.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -146,6 +148,9 @@
   },
   "devDependencies": {
     "esbuild": "0.25.10",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "pixelmatch": "5.3.0",
+    "pngjs": "7.0.0",
+    "tailwindcss": "3.4.17"
   }
 }
