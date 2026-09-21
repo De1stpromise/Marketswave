@@ -11490,7 +11490,12 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   (`supabase-verify-product-catalog`, `supabase-verify-pm-attribution`); the runner boundary
   check below for anything else. Until one of those lands, EVERY full pass will lose suites to
   this roughly hourly, and a `readFileSync` under `supabase/functions` in a suite is a
-  self-inflicted 502 on its own next call.
+  self-inflicted 502 on its own next call. **A WRITE to `supabase/functions/.env` restarts it
+  the same way** (2026-09-21): the CLI logs `.env (WRITE)` → `Setting up Edge Functions
+  runtime...` and recreates the container, so a secret updated mid-pass loses the runtime for
+  the suite in flight (row 256's pass: two `.env` writes, two restarts, one suite at 45/48 on
+  cold-start terminations). Write `.env` between passes, and check its tail first — it had no
+  trailing newline, and a `printf >>` appended onto the password line.
   **The trigger of every occurrence so far is UNRECOVERABLE**: a recreated container is a new
   `docker logs` stream, Docker Desktop's event buffer keeps nothing useful, and the serve
   process's own stdout — the one place the CLI prints the runtime's last words and its restart
