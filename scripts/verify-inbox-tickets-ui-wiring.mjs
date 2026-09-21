@@ -94,7 +94,7 @@ async function main() {
     const { data: cu } = await admin.auth.admin.createUser({ email: 'inbox-ui-' + suffix + '@test.marketswave.local', password, email_confirm: true });
     const clientId = cu.user.id; users.push(clientId);
     const clientEmail = 'inbox-ui-malformed-' + suffix; // malformed: no real mail ever leaves
-    await admin.from('clients').insert({ id: clientId, name: 'Manuel Stormare ' + suffix, email: clientEmail, phone: '+46 70 000 0000', account_type: 'Individual Account', status: 'active' });
+    await admin.from('clients').insert({ id: clientId, name: 'Ticket Fixture Client ' + suffix, email: clientEmail, phone: '+46 70 000 0000', account_type: 'Individual Account', status: 'active' });
     await admin.from('account_state').insert({ client_id: clientId, unallocated_capital: 50000, allocated_capital: 0, asset_returns: 0 });
     await admin.from('transactions').insert({ client_id: clientId, type: 'DEPOSIT', total_value: 50000, status: 'completed' });
     await admin.from('deposit_requests').insert({ client_id: clientId, method: 'bank', requested_amount: 5000, currency: 'USD', details: {}, status: 'pending' });
@@ -110,16 +110,16 @@ async function main() {
     async function msg(row) { const { data, error } = await admin.from('messages').insert(row).select('id').single(); if (error) throw new Error(error.message); return data.id; }
 
     // Ticket 1: in progress, with a system line and a PM reply, evidence attached.
-    const t1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Manuel Stormare ' + suffix, kind: 'ticket', category: 'Transaction Issue', display_id: 'DISP-0001', subject: 'DISP-0001 · Transaction Issue', status: 'in_progress', created_at: ago(30) });
-    await msg({ conversation_id: t1, channel: 'chat', direction: 'inbound', body: 'My BTC allocation from 9 September is still showing as pending.', sender_name: 'Manuel', sender_email: clientEmail, sent_at: ago(30), attachment_path: evidencePath, attachment_name: 'allocation-screenshot.png', attachment_size: evidenceBytes.length });
+    const t1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Ticket Fixture Client ' + suffix, kind: 'ticket', category: 'Transaction Issue', display_id: 'DISP-0001', subject: 'DISP-0001 · Transaction Issue', status: 'in_progress', created_at: ago(30) });
+    await msg({ conversation_id: t1, channel: 'chat', direction: 'inbound', body: 'My BTC allocation from 9 September is still showing as pending.', sender_name: 'Gary', sender_email: clientEmail, sent_at: ago(30), attachment_path: evidencePath, attachment_name: 'allocation-screenshot.png', attachment_size: evidenceBytes.length });
     await msg({ conversation_id: t1, channel: 'system', direction: 'outbound', body: 'Status changed to In progress by pm@marketswave.local', sender_email: 'pm@marketswave.local', sent_at: ago(29) });
-    await msg({ conversation_id: t1, channel: 'chat', direction: 'outbound', body: 'Thanks Manuel — I can see it. The allocation is queued behind settlement.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(28) });
+    await msg({ conversation_id: t1, channel: 'chat', direction: 'outbound', body: 'Thanks Gary — I can see it. The allocation is queued behind settlement.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(28) });
     await admin.from('conversations').update({ unread_by_pm: false }).eq('id', t1);
     // Ticket 2: open, unread, a callback request.
-    const t2 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Manuel Stormare ' + suffix, kind: 'ticket', category: 'Callback Request', display_id: 'DISP-0002', subject: 'DISP-0002 · Callback Request', status: 'open', created_at: ago(2) });
-    await msg({ conversation_id: t2, channel: 'chat', direction: 'inbound', body: 'Name: Manuel\nPhone: +46 70 000 0000\nPreferred window: Morning', sender_email: clientEmail, sent_at: ago(2) });
+    const t2 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Ticket Fixture Client ' + suffix, kind: 'ticket', category: 'Callback Request', display_id: 'DISP-0002', subject: 'DISP-0002 · Callback Request', status: 'open', created_at: ago(2) });
+    await msg({ conversation_id: t2, channel: 'chat', direction: 'inbound', body: 'Name: Gary\nPhone: +46 70 000 0000\nPreferred window: Morning', sender_email: clientEmail, sent_at: ago(2) });
     // The client's general thread: starts as chat, unread.
-    const g1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Manuel Stormare ' + suffix, kind: 'chat', status: 'open', created_at: ago(5) });
+    const g1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Ticket Fixture Client ' + suffix, kind: 'chat', status: 'open', created_at: ago(5) });
     await msg({ conversation_id: g1, channel: 'chat', direction: 'inbound', body: 'Is the BTC allocation still pending on your side?', sender_email: clientEmail, sent_at: ago(1) });
     // An anonymous visitor thread (read).
     const anonClient = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -134,7 +134,7 @@ async function main() {
     await admin.from('conversations').update({ unread_by_pm: false }).eq('id', e1);
     // A live presence session for the client.
     await admin.from('visitors').insert({ id: visitorRowId, visit_count: 3, first_seen_at: ago(48), last_seen_at: new Date().toISOString() });
-    const { data: sess } = await admin.from('visitor_sessions').insert({ id: crypto.randomUUID(), visitor_id: visitorRowId, visit_number: 3, client_id: clientId, client_name: 'Manuel Stormare ' + suffix, started_at: ago(0.1), last_seen_at: new Date().toISOString(), current_path: '/dashboard', page_count: 2, journey: [], city: 'Stockholm', country: 'Sweden' }).select('id').single();
+    const { data: sess } = await admin.from('visitor_sessions').insert({ id: crypto.randomUUID(), visitor_id: visitorRowId, visit_number: 3, client_id: clientId, client_name: 'Ticket Fixture Client ' + suffix, started_at: ago(0.1), last_seen_at: new Date().toISOString(), current_path: '/dashboard', page_count: 2, journey: [], city: 'Stockholm', country: 'Sweden' }).select('id').single();
     sessionRowId = sess.id;
 
     // ------------------------------------------------------------------ the PM context

@@ -52,6 +52,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { findFixtureClient } from './lib/fixture-client.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -588,7 +589,7 @@ async function main() {
       // bad one: the lookup returns nothing, the branch below SKIPS, and a real approval
       // assertion silently stops running while the suite still reports a clean pass. Match
       // an address case-insensitively, always.
-      const { data: gary } = await admin.from('clients').select('id, name').ilike('email', 'gary.r.sizemore@gmail.com').maybeSingle();
+      const gary = await findFixtureClient(admin, 'id, name'); // never an address literal in a suite (row 256)
       if (!gary) {
         console.log('  SKIP  Gary is not seeded on this stack — run `node seed-client-gary.mjs` first.');
       } else {

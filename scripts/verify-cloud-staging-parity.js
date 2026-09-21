@@ -2,7 +2,7 @@
 // caused a real live-site outage: "local stack only" was the correct, deliberate scope for
 // every individual Phase B/UI-Wiring stage (10+ stages across Aug 30 - Sep 4, 2026), but
 // nothing ever tracked WHEN real cloud staging needed to catch up with what had already been
-// proven locally — the gap grew silently for ~10 days until a real user (robert greene) hit
+// proven locally — the gap grew silently for ~10 days until a real user hit
 // "Could not reach the server" on the real live hosted site, because every Phase B migration
 // and 34 of 36 Edge Functions had only ever been applied to the local Docker stack.
 //

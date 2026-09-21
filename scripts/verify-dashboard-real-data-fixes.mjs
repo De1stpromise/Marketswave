@@ -9,8 +9,9 @@
 //   3. The pie chart rendered blank for a genuinely $0 client — now a real empty state
 //      (message + "Deploy Capital" link), while real unallocated-cash-only clients still
 //      render normally (a real 100% Unallocated slice).
-//   4. settings.html's Legal Name/Address/ID Document fields, investigated for a real
-//      reported client (stormarem@gmail.com) — confirmed genuinely empty (no client_profiles
+//   4. settings.html's Legal Name/Address/ID Document fields, investigated for the real
+//      client who reported them (identity kept out of the repository — row 256) — confirmed
+//      genuinely empty (no client_profiles
 //      row, zero profile_change_requests ever submitted), not a bug; a small helper hint was
 //      added so the honest empty state doesn't read as broken.
 //
@@ -462,22 +463,14 @@ async function main() {
   })();
 
   // ===========================================================================================
-  // PART 4 — settings.html: real investigation result (stormarem@gmail.com), real hint
-  // behavior for both the genuinely-empty and genuinely-populated cases
+  // PART 4 — settings.html: real hint behavior for both the genuinely-empty and
+  // genuinely-populated cases. The original investigation was run ONCE, directly against the
+  // real client who reported the fields (no client_profiles row, zero profile_change_requests
+  // ever — the "—" display was honest, not a bug; register row 130). That client's identity
+  // is not in the repository (row 256), so this suite no longer looks them up — the two
+  // seeded clients below cover both states.
   // ===========================================================================================
   console.log('\n=== PART 4: settings.html — real Legal Name/Address/ID Document investigation + hint ===\n');
-
-  const { data: realClientRow } = await admin.from('clients').select('*').ilike('email', 'stormarem@gmail.com').maybeSingle();
-  if (realClientRow) {
-    const { data: realProfileRow } = await admin.from('client_profiles').select('*').eq('client_id', realClientRow.id).maybeSingle();
-    const { data: realRequests } = await admin.from('profile_change_requests').select('id').eq('client_id', realClientRow.id);
-    console.log('  REAL INVESTIGATION RESULT for stormarem@gmail.com (client ' + realClientRow.id + '):');
-    console.log('    client_profiles row exists: ' + (!!realProfileRow));
-    console.log('    real profile_change_requests ever submitted: ' + (realRequests ? realRequests.length : 0));
-    check('CONFIRMED: this real client genuinely has no client_profiles row and zero profile_change_requests ever — the "—" display is honest, not a bug', !realProfileRow && realRequests && realRequests.length === 0, JSON.stringify({ realProfileRow, requestCount: realRequests && realRequests.length }));
-  } else {
-    console.log('  stormarem@gmail.com not found on this local stack instance — reporting, not asserting (see the write-up for what was found when this was directly investigated).');
-  }
 
   const clientS = await createTestClient(admin, 'SettingsHint', suffix);
   createdClientIds.push(clientS.id);

@@ -2775,7 +2775,7 @@ row 74.
   correctly, a wrong password showed a persistently-visible error (re-confirming the
   Node-caught race fix holds in the real browser), the correct password signed in for real and
   the page's own real fetch flow loaded 2 real pending Firestore applications — including one,
-  "Manuel Stormare," not created by this task (confirmed via its own pre-existing local
+  a real client's, not created by this task (confirmed via its own pre-existing local
   per-client keys, proving a real prior signup+login) — left completely untouched, only
   reported to the user, never acted upon. A full refresh genuinely re-prompted, confirmed
   twice. Direct inspection of every `localStorage`/`sessionStorage` key confirmed the real
@@ -2783,8 +2783,8 @@ row 74.
   traced directly to CLIENT-0001's own unrelated `passwordHash` field from a completely
   separate, already-shipped local credential system. Re-verified independently on
   `admin-clients.html` too — real clients loaded, zero console errors. The one local test
-  application record created for this verification was deleted afterward; the real "Manuel
-  Stormare" application and the pre-existing "Staging Test Client" record were both left
+  application record created for this verification was deleted afterward; the real client's
+  application and the pre-existing "Staging Test Client" record were both left
   exactly as found. See `Marketswave_Project_Handover.md` §4.79 for the full writeup. Backend
   Requirements Register row 81.
 
@@ -2831,8 +2831,8 @@ row 74.
   report a stale, mid-transition URL immediately after a click, before real navigation
   finishes — several apparent contradictions during testing traced directly to this lag,
   confirmed by re-checking a moment later, ruled out rigorously rather than assumed away. Zero
-  console errors throughout, both sides. All real test artifacts deleted afterward; "Manuel
-  Stormare" and "Staging Test Client" left completely untouched. See
+  console errors throughout, both sides. All real test artifacts deleted afterward; the real
+  client's application and "Staging Test Client" left completely untouched. See
   `Marketswave_Project_Handover.md` §4.80 for the full writeup. Backend Requirements Register
   row 82.
 - **Four small, independent cosmetic fixes from the frontend audit** (Aug 27, 2026, rows
@@ -4908,8 +4908,8 @@ row 74.
   message plus a real "Deploy Capital" link, matching this project's own established
   empty-state visual language; real unallocated-cash-only clients still render normally, a
   real 100% Unallocated slice, confirmed as the genuinely distinct case. **4. Settings
-  Legal Name/Address/ID Investigation**: investigated directly for the real reported client
-  (`stormarem@gmail.com`) — confirmed via a direct query that NEITHER a `client_profiles`
+  Legal Name/Address/ID Investigation**: investigated directly for the real client who reported it
+  (identity kept out of the repository — row 256) — confirmed via a direct query that NEITHER a `client_profiles`
   row NOR a single `profile_change_requests` row has ever existed for them; **the "—"
   display is genuinely correct and honest, not a bug**. A small per-field helper hint was
   added, shown only when that specific field is genuinely empty, so the honest empty state
@@ -5468,7 +5468,7 @@ row 74.
   Register row 136.
 - **★★★ INCIDENT + FIX: real cloud staging deployed real Phase B schema/functions for the
   first time since Supabase Migration Stage 3 (2026-09-05, row 137) — the live public site
-  was broken for real users until this closed.** A real user (robert greene) hit "Could not
+  was broken for real users until this closed.** A real client hit "Could not
   reach the server" on the real, live, hosted `dashboard.html`. **Diagnosis (separate task,
   same day, fully reported before any fix per instruction)** confirmed the root cause
   directly against the real remote project, not assumed: every one of Phase B's 9 migrations
@@ -5492,7 +5492,7 @@ row 74.
   every prior real-cloud-staging task in this project has used) and confirming via
   `--dry-run`/direct grep that none of the 9 pending migrations contain a `DROP`/`TRUNCATE`/
   `DELETE`/`ALTER TABLE clients` that could touch the real, genuine existing signups already
-  in the real `clients` table (robert greene, elliot john — both confirmed present, both
+  in the real `clients` table (two real clients — both confirmed present, both
   `status: active`, queried directly via `service_role` before touching anything): ran
   `supabase db push` for real (all 9 migrations applied cleanly) and `supabase functions
   deploy` for real (all 35 missing functions deployed, 37 total now `ACTIVE`). **Verified,
@@ -5521,7 +5521,7 @@ row 74.
   expected and disclosed, not a bug: the fresh migration created empty schema with no seed
   product data, a separate, known consequence of this fix, not part of the diagnosed issue.
   All real test artifacts (the throwaway client row, both throwaway Auth users) deleted
-  afterward; the real pre-existing `clients` rows for robert greene and elliot john
+  afterward; the real pre-existing `clients` rows for both real clients
   reconfirmed byte-identical, untouched throughout. **Safeguard against recurrence, built,
   not just proposed**: new `scripts/verify-cloud-staging-parity.js`
   (`npm run verify-cloud-staging-parity` from `scripts/`) — checks, directly against the real
@@ -5635,7 +5635,7 @@ row 74.
   **Deployed to real cloud staging after local verification passed clean**: the migration
   pushed for real (confirmed via dry-run first, confirmed no `DROP`/`TRUNCATE`/`DELETE`/
   `ALTER TABLE clients` in the migration, confirmed the real pre-existing `clients` rows for
-  robert greene/elliot john were byte-identical before and after) and all 22 modified
+  both real clients were byte-identical before and after) and all 22 modified
   functions redeployed; `verify-cloud-staging-parity.js` confirmed clean afterward (11/11
   migrations, 37/37 functions). **Real end-to-end proof against real cloud staging itself**,
   not just the local stack: bootstrapped a genuine second real staging PM account
@@ -5644,8 +5644,8 @@ row 74.
   deployed functions — a real applicant approved by real PM #1 and a separate real applicant
   rejected by real PM #2, each row confirmed to carry that PM's own real id+email, genuinely
   distinguishable from the other. All real test artifacts (both throwaway applicants, the
-  temporary verification script) deleted afterward; the real `clients` rows for robert
-  greene and elliot john reconfirmed present and untouched. **A real, disclosed limitation
+  temporary verification script) deleted afterward; the real `clients` rows for both
+  real clients reconfirmed present and untouched. **A real, disclosed limitation
   found in the Cloud Staging Parity script itself while using it for the first time on a
   MODIFIED-not-just-NEW change**: it only checks that a function slug exists and is
   `ACTIVE` on the real remote, never diffing deployed code against local source — editing an
@@ -8619,7 +8619,7 @@ row 74.
     before/after is one recorded moment (row 199 has the staging figures). Locally
     `PROD-0003 Global Equity ETF` was mapped to VT (Vanguard Total World; confirmed pricing on
     Finnhub free) and `PROD-0004 Ethereum` to CoinGecko `ethereum`; on real staging
-    `PROD-0001 Bitcoin` (one real holder, Manuel Stormare: $79,436.98 → $77,340.00 at 21:45Z; the holding $5,664.16 → $5,514.64, −2.64%, units and cost basis untouched — the full record is row 199). A symbol not yet in the cache (VT
+    `PROD-0001 Bitcoin` (one real holder: $79,436.98 → $77,340.00 at 21:45Z; the holding −2.64%, its units, cost basis and dollar figures untouched and kept out of this record — the full record is row 199). A symbol not yet in the cache (VT
     locally) keeps its old price with `price_as_of` null — "awaiting refresh" — until the
     first refresh reaches it.
   - **`lookup-product-symbol`** (admin-only) is the PM search: both providers, live prices
@@ -10942,10 +10942,15 @@ row 74.
   anything (`_shared/`, dotfiles). No secret was ever committed (253 commits scanned: two
   `anon` JWTs only, no `.env`), and the committed local passwords match no account on real
   staging — but two real client email addresses, one real client's account figures and
-  every real client's name are in the served docs and suites. **Fix**: a `_config.yml`
-  `exclude:` list (fifteen minutes; deployed-bytes keeps working for real assets, and a 404
-  on `CLAUDE.md` afterwards is correct), PII scrubbed from HEAD, repo visibility the
-  operator's call. **Clean URLs are CLOSED, nothing to build**: `/dashboard` already returns a
+  every real client's name were in the served docs and suites. **Fixed 2026-09-21**: `_config.yml`
+  `exclude:` is live (394 of 395 non-web paths 404, all 113 web assets 200; deployed-bytes
+  keeps working for real assets, and a 404 on `CLAUDE.md` is correct) and HEAD is scrubbed —
+  see the Working convention on real client identities below. **★ Jekyll matches `exclude`
+  entries by PREFIX**: a bare `supabase` also excluded `supabase-data.js`/`-config.js`/
+  `-endpoint.js` and took the live dashboard's data layer down for ~17 minutes before the
+  trailing-slash fix landed — directory entries are `supabase/`, and any new browser module
+  whose name shares a prefix with an excluded directory needs the same care. Repo visibility
+  stays the operator's call. **Clean URLs are CLOSED, nothing to build**: `/dashboard` already returns a
   real 200 with `/dashboard.html`'s own bytes and ETag — GitHub Pages resolves
   extensionless paths natively (trailing slash and case 404; query strings survive; the
   retired pages 404 either way). Do not investigate it again. The local `python -m
@@ -11160,6 +11165,19 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   the pie chart / allocation input / transaction analytics were missing from
   `dashboard.html` / `asset-performance.html` / `transactions.html`; a direct file read
   before acting caught the error same-day — see the handover doc §2.1 correction note.
+- **ââ REAL CLIENT NAMES, EMAIL ADDRESSES AND FIGURES NEVER GO INTO DOCS, COMMENTS, SUITES OR
+  COMMIT MESSAGES (2026-09-21, register row 256).** Register rows describe what happened to
+  "a real client" or "the seeded fixture client", never by name. This leaked because every
+  incident report was written about the specific account it involved â and the repository is
+  public and was served in full by GitHub Pages, so two real, deliverable addresses, one real
+  client's account figures and four real clients' names and application states sat on a public
+  URL. The fixture client's own address is read from `GARY_SEED_EMAIL` through
+  `scripts/lib/fixture-client.mjs` (`findFixtureClient(admin)`) â a suite that needs him calls
+  that, never an address literal; the seed refuses to create a second fixture client under a
+  different address. A throwaway client in a suite is named as a fixture (`'Ticket Fixture
+  Client ' + suffix`), never after a real person. Git history is not rewritten, so every string
+  scrubbed from HEAD is still in the 255 commits before it â that door is repository
+  visibility, the operator's decision.
 - **Always edit `CLAUDE.md` and `Marketswave_Project_Handover.md` in place — never create a
   copy, versioned variant, or alternate filename for either (no `CLAUDE_updated.md`, no
   timestamped copies, nothing).** Copies of `CLAUDE.md` were accidentally created in a past
@@ -11202,8 +11220,8 @@ specifically), but a real, much larger candidate for a future dedicated dedup pa
   this was reversed in `admin-clients.html` and cost two real clients their portfolio value: the
   list merged `localClients.concat(supabaseClients)` with LOCAL winning the dedup, so a client
   mirrored into that browser by a past sign-in shadowed their real Supabase record and the row
-  read money from `localStorage`, where a PM's browser holds none. Gary and Manuel rendered **$0**
-  while holding $32k and $94k.
+  read money from `localStorage`, where a PM's browser holds none. the seeded fixture client and a real client rendered **$0**
+  while holding real value.
   **Why this needs writing down rather than left in the code**: the mechanism that creates the
   shadow is still live and still correct — `mirrorAuthenticatedClientLocally()` is the hybrid
   bridge, and `getClient()` on five client-facing surfaces still depends on it — so the shadow

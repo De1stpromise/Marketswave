@@ -34,6 +34,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { FIXTURE_CLIENT, findFixtureClient } from './lib/fixture-client.mjs';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
@@ -44,7 +45,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const BASE = 'http://127.0.0.1:8765';
 const CHROME = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find((p) => fs.existsSync(p)) || 'chrome';
-const GARY_EMAIL = 'gary.r.sizemore@gmail.com';
+const GARY_EMAIL = FIXTURE_CLIENT.email; // GARY_SEED_EMAIL via scripts/lib/fixture-client.mjs — never a literal here (row 256)
 const CONSENT = 'I have read this document in full, I agree to be bound by it, and I accept that typing my name constitutes my signature.';
 
 let passed = 0; const fails = [];
@@ -172,9 +173,9 @@ async function main() {
 
   try {
     // ---- SETUP: Gary, a real Chrome-printed agreement, published through the real function ----
-    const { data: gary } = await admin.from('clients').select('*').ilike('email', GARY_EMAIL).maybeSingle();
+    const gary = await findFixtureClient(admin, '*');
     if (!gary) throw new Error('Gary is not seeded on this stack — run: node seed-client-gary.mjs');
-    if (gary.email !== GARY_EMAIL) throw new Error('Gary\'s email is not the real one even after the sweep: ' + gary.email);
+    if (/^gary-signing-malformed-/.test(gary.email)) throw new Error('Gary\'s email is still malformed after the sweep: ' + gary.email);
     garyBefore = gary; const uid = gary.id;
     const runEmail = 'gary-signing-malformed-' + suffix; // no @ — refused synchronously by Resend, mails nobody
     await admin.from('clients').update({ email: runEmail }).eq('id', uid);
@@ -193,7 +194,7 @@ async function main() {
     const expectedHash = sha256(pdf);
 
     // The AUTH email is untouched (clients.email is the decoupled column) — Gary signs in as himself.
-    const cs2 = await anon().auth.signInWithPassword({ email: GARY_EMAIL, password: garyPassword() });
+    const cs2 = await anon().auth.signInWithPassword({ email: gary.email, password: garyPassword() });
     if (cs2.error) throw new Error('Gary sign-in: ' + cs2.error.message);
     const clientBootstrap = 'localStorage.setItem(' + JSON.stringify(storageKey) + ', ' + JSON.stringify(JSON.stringify(cs2.data.session)) + ');' +
       'sessionStorage.setItem("marketswave_authenticated_client_id", ' + JSON.stringify(uid) + ');sessionStorage.setItem("marketswave_current_client_id", ' + JSON.stringify(uid) + ');true';

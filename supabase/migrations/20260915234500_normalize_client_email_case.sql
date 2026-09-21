@@ -1,6 +1,6 @@
 -- ★★ EMAIL IS STORED AND COMPARED LOWERCASE (2026-09-15).
 --
--- Found while correcting one capitalised address (Gary Sizemore's, the only mixed-case email
+-- Found while correcting one capitalised address (the seeded fixture client's, the only mixed-case email
 -- in either environment). The capitalisation itself was cosmetic; the MECHANISM underneath it
 -- was not, and is what this migration closes.
 --
@@ -8,7 +8,7 @@
 -- email with a plain, case-SENSITIVE `=`. GoTrue normalises every address it stores to
 -- lowercase — confirmed directly for BOTH creation paths (admin createUser and signUp) — so
 -- the JWT side of that comparison is always lowercase while the row side is whatever the
--- caller sent. A caller inserting the address a client actually TYPED ("Gary.R.Sizemore@…")
+-- caller sent. A caller inserting the address a client actually TYPED (a capitalised form of their own)
 -- was therefore refused by RLS.
 --
 -- Proven before changing anything, with a control on both sides: a throwaway user created with

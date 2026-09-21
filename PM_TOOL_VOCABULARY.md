@@ -55,7 +55,7 @@ last 45 seconds and not ended — never from a second mechanism. Where the perso
 current page) is a small amber chip (`.ibx-wait`) on the row, only for an anonymous visitor.
 
 Presence changes what a control DOES, not only how it looks: the composer defaults to chat
-when the person is online and says so ("Manuel is online — chat will reach him now"); when
+when the person is online and says so ("Gary is online — chat will reach him now"); when
 they are not, it says which channel will reach them.
 
 ## 4. The context strip

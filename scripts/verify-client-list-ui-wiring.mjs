@@ -2,8 +2,8 @@
 //
 // ★★ THE ASSERTION THIS SUITE EXISTS FOR IS PART 2's: A CLIENT WHO EXISTS IN BOTH PLACES —
 // mirrored into this browser's local registry AND real in Supabase — MUST RENDER THEIR SUPABASE
-// VALUE. That is the exact condition that made Gary and Manuel render $0 while holding $32k and
-// $94k, and mirrorAuthenticatedClientLocally() re-creates it every time anyone signs in as a
+// VALUE. That is the exact condition that made the fixture client and a real client render $0
+// while holding real value, and mirrorAuthenticatedClientLocally() re-creates it every time anyone signs in as a
 // client in a PM's browser. Without this test the next mirror silently restores the bug.
 //
 // Every money assertion is cross-checked against get-returns-summary or get-total-portfolio-value

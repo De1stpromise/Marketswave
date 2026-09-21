@@ -8,9 +8,12 @@
  * This is a SCRIPT FOR ONE CLIENT, not a migration tool. A tool for migrating many clients is
  * queued separately; this seeds Gary Sizemore and nothing else.
  *
- * ── THE PASSWORD ────────────────────────────────────────────────────────────────────────────
- * Read from GARY_SEED_PASSWORD. Put it in supabase/functions/.env (already gitignored, already
- * where FINNHUB_API_KEY / RESEND_API_KEY live). NEVER hardcoded, never committed. The account is
+ * ── THE PASSWORD, AND THE ADDRESS ───────────────────────────────────────────────────────────
+ * Read from GARY_SEED_PASSWORD and GARY_SEED_EMAIL. Put both in supabase/functions/.env (already
+ * gitignored, already where FINNHUB_API_KEY / RESEND_API_KEY live). NEVER hardcoded, never
+ * committed — the address is a real, deliverable one and the repository is public (row 256);
+ * scripts/lib/fixture-client.mjs is the one place it is read, with a non-deliverable fixture
+ * default for a stack that has never been seeded. The account is
  * created email_confirm:true — he is a migrated client who was verified on the previous
  * platform, so there is no confirmation mail and no extra step before he can sign in.
  *
@@ -64,6 +67,7 @@
  * live for this account from here on — only genuinely new activity sends.
  */
 import { createClient } from '@supabase/supabase-js';
+import { FIXTURE_CLIENT } from './lib/fixture-client.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
@@ -86,8 +90,8 @@ const GARY = {
   // case-insensitive now and a trigger normalises on write — but the convention is to store
   // lowercase at the source too, so a re-run of this seed never puts a capitalised address
   // back. See CLAUDE.md's Working conventions.
-  email: 'gary.r.sizemore@gmail.com',
-  name: 'Gary Sizemore',
+  email: FIXTURE_CLIENT.email, // GARY_SEED_EMAIL, never a literal here — scripts/lib/fixture-client.mjs
+  name: FIXTURE_CLIENT.name,
   phone: '(502) 558 5280',
   accountType: 'Individual Account',
   since: '2021-10-07',
@@ -348,6 +352,12 @@ async function upsertAuthUser(db, password) {
     if (error) throw new Error('updateUserById failed: ' + error.message);
     console.log(`   auth user REUSED   ${found.id}   (password refreshed from GARY_SEED_PASSWORD)`);
     return found.id;
+  }
+  // A stack seeded under a different address (the pre-row-256 literal, or another operator's
+  // GARY_SEED_EMAIL) must not quietly get a SECOND fixture client. Refuse and say what to set.
+  const { data: named } = await db.from('clients').select('id, email').ilike('name', GARY.name);
+  if (named && named.length) {
+    throw new Error(`a client named "${GARY.name}" already exists under ${named.map((r) => r.email).join(', ')}, not ${GARY.email}. Set GARY_SEED_EMAIL to that address (supabase/functions/.env) so this seed reuses the account instead of creating a second one.`);
   }
   const { data, error } = await db.auth.admin.createUser({ email: GARY.email, password, email_confirm: true });
   if (error) throw new Error('createUser failed: ' + error.message);

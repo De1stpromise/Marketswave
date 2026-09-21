@@ -175,7 +175,7 @@ async function main() {
     const { data: cu } = await admin.auth.admin.createUser({ email: 'inboxvis-' + suffix + '@test.marketswave.local', password: PASSWORD, email_confirm: true });
     const clientId = cu.user.id; users.push(clientId);
     const clientEmail = 'inboxvis-malformed-' + suffix;
-    await admin.from('clients').insert({ id: clientId, name: 'Manuel Stormare', email: clientEmail, phone: '+46 70 000 0000', account_type: 'Individual Account', status: 'active' });
+    await admin.from('clients').insert({ id: clientId, name: 'Ticket Fixture Client', email: clientEmail, phone: '+46 70 000 0000', account_type: 'Individual Account', status: 'active' });
     await admin.from('account_state').insert({ client_id: clientId, unallocated_capital: 25000, allocated_capital: 0, asset_returns: 0 });
     await admin.from('deposit_requests').insert({ client_id: clientId, method: 'bank', requested_amount: 5000, currency: 'USD', details: {}, status: 'pending' });
     const evidenceBytes = Buffer.from('evidence ' + suffix);
@@ -186,12 +186,12 @@ async function main() {
     const ago = (h) => new Date(Date.now() - h * 3600e3).toISOString();
     async function convo(row) { const { data, error } = await admin.from('conversations').insert(row).select('id').single(); if (error) throw new Error(error.message); convoIds.push(data.id); return data.id; }
     async function msg(row) { const { error } = await admin.from('messages').insert(row); if (error) throw new Error(error.message); }
-    const t1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Manuel Stormare', kind: 'ticket', category: 'Transaction Issue', display_id: 'DISP-0003', subject: 'DISP-0003 · Transaction Issue', status: 'in_progress', created_at: ago(30) });
+    const t1 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Ticket Fixture Client', kind: 'ticket', category: 'Transaction Issue', display_id: 'DISP-0003', subject: 'DISP-0003 · Transaction Issue', status: 'in_progress', created_at: ago(30) });
     await msg({ conversation_id: t1, channel: 'chat', direction: 'inbound', body: 'My BTC allocation from 9 September is still showing as pending. The deposit that funded it was credited two days ago, so I expected it to have gone through by now. Reference DEP-0147 if that helps.', sender_email: clientEmail, sent_at: ago(30), attachment_path: evidencePath, attachment_name: 'allocation-screenshot.png', attachment_size: 412 * 1024 });
     await msg({ conversation_id: t1, channel: 'system', direction: 'outbound', body: 'Status changed to In progress by pm@marketswave.local', sender_email: 'pm@marketswave.local', sent_at: ago(29) });
-    await msg({ conversation_id: t1, channel: 'chat', direction: 'outbound', body: 'Thanks Manuel — I can see it. The allocation is queued behind the deposit\'s settlement window rather than stuck.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(28) });
+    await msg({ conversation_id: t1, channel: 'chat', direction: 'outbound', body: 'Thanks Gary — I can see it. The allocation is queued behind the deposit\'s settlement window rather than stuck.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(28) });
     await msg({ conversation_id: t1, channel: 'chat', direction: 'inbound', body: 'Still showing pending this morning — has it cleared on your side?', sender_email: clientEmail, sent_at: ago(0.2) });
-    const t2 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Manuel Stormare', kind: 'ticket', category: 'Billing/Fees', display_id: 'DISP-0004', subject: 'DISP-0004 · Billing/Fees', status: 'resolved', created_at: ago(72), resolved_by_email: 'pm@marketswave.local', resolved_at: ago(70) });
+    const t2 = await convo({ client_id: clientId, contact_email: clientEmail, contact_name: 'Ticket Fixture Client', kind: 'ticket', category: 'Billing/Fees', display_id: 'DISP-0004', subject: 'DISP-0004 · Billing/Fees', status: 'resolved', created_at: ago(72), resolved_by_email: 'pm@marketswave.local', resolved_at: ago(70) });
     await msg({ conversation_id: t2, channel: 'chat', direction: 'inbound', body: 'Thanks, all sorted.', sender_email: clientEmail, sent_at: ago(72) });
     await admin.from('conversations').update({ unread_by_pm: false }).eq('id', t2);
     const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });

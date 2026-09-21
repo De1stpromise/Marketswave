@@ -7,7 +7,7 @@
 // The old page had this exactly backwards — it merged localClients.concat(supabaseClients) with
 // LOCAL winning the dedup, so a client mirrored into this browser by a past sign-in shadowed
 // their real Supabase record and their money was read from localStorage, where a PM's browser
-// holds none. Gary and Manuel rendered $0 while genuinely holding $32k and $94k. Reproduced by
+// holds none. The seeded fixture client and a real client rendered $0 while genuinely holding real value. Reproduced by
 // mirroring Gary locally: his row flipped from $32,013 to $0. John Doe was never affected
 // because he is genuinely local-only, which is why "no badge" did not universally mean zero.
 //

@@ -199,7 +199,7 @@ async function main() {
 
     // =======================================================================================
     console.log('\n--- 4. The impossible-before round trip: PM reply → CLIENT reply → PM notified ---\n');
-    const pmReply = await callFunction(url, pm.token, 'send-conversation-reply', { conversationId: newConvo.id, body: 'Thanks Manuel — I can see it, it is queued behind settlement.' });
+    const pmReply = await callFunction(url, pm.token, 'send-conversation-reply', { conversationId: newConvo.id, body: 'Thanks Gary — I can see it, it is queued behind settlement.' });
     check('the PM replies on the ticket (chat channel inferred from the opening message)', pmReply.status === 200 && pmReply.body.channel === 'chat', JSON.stringify(pmReply.body));
     const clientReply = await A.client.from('messages').insert({ conversation_id: newConvo.id, channel: 'chat', direction: 'inbound', body: 'Still showing pending this morning — has it cleared?' }).select('id').single();
     check('★ the CLIENT replies on their own ticket through their own RLS insert', !clientReply.error && clientReply.data.id, clientReply.error && clientReply.error.message);
