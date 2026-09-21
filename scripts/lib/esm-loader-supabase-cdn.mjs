@@ -13,7 +13,7 @@
 const LOCAL_SUPABASE_JS = new URL('../node_modules/@supabase/supabase-js/dist/index.mjs', import.meta.url).href;
 
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier === 'https://esm.sh/@supabase/supabase-js@2.112.4') {
+  if (specifier === 'https://esm.sh/@supabase/supabase-js@2.112.4' || specifier === './vendor/supabase-js-2.112.4.min.js') {
     return { url: LOCAL_SUPABASE_JS, shortCircuit: true };
   }
   return nextResolve(specifier, context);

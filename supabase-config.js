@@ -30,7 +30,9 @@ import {
   STAGING_CONFIG,
   ACTIVE_CONFIG
 } from './supabase-endpoint.js';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
+// The SDK is self-hosted: one bundled ES module, modulepreloaded from every page's <head> (row 258,
+// PERFORMANCE_AUDIT.md finding #1). Regenerate with `npm run vendor-supabase-js` in scripts/.
+import { createClient } from './vendor/supabase-js-2.112.4.min.js';
 
 // ---- Session persistence, deliberately decided and configured, not left at the library
 // default — per instruction, given the exact real bug this project already hit once on the

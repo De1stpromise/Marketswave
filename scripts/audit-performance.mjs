@@ -149,7 +149,7 @@ const PROBE_JS = `(() => {
 function classify(url) {
   if (/^(data|blob):/.test(url)) return 'inline';
   let h; try { h = new URL(url).host; } catch (_e) { return 'other'; }
-  if (h === new URL(BASE).host) return 'static';
+  if (h === new URL(BASE).host) return /\/vendor\//.test(url) ? 'vendor' : 'static';
   if (h === 'cdn.tailwindcss.com') return 'tailwind';
   if (h === 'esm.sh') return 'esm.sh';
   if (/jsdelivr|cdnjs/.test(h)) return 'cdn-lib';
@@ -337,7 +337,7 @@ function printPage(r) {
     'fcp ' + String(r.fcp == null ? '-' : r.fcp).padStart(5) + '  shell ' + String(r.shellAt == null ? '-' : r.shellAt).padStart(5) + '  data ' + String(r.dataReady.ms).padStart(6) + ' (' + r.dataReady.how + ')' +
     '  fn ' + String(r.fnCount).padStart(2) + ' longest ' + (r.longestFn ? r.longestFn.path.replace('fn:', '') + ' ' + r.longestFn.dur + 'ms' : '-') +
     (r.spread ? '  [data ' + r.spread.dataReady[0] + '–' + r.spread.dataReady[1] + ']' : '') + (r.settled ? '' : '  UNSETTLED pending=' + JSON.stringify(r.pendingAtTimeout)) + (r.stalled && r.stalled.length ? '  stalled ' + r.stalled.length : '') + (r.errorCards ? '  ERROR-CARDS ' + r.errorCards : '') + (r.errors.length ? '  console-errors ' + r.errors.length : ''));
-  console.log('      static ' + gs('static') + ' preflight ' + gs('preflight') + ' tailwind ' + gs('tailwind') + ' esm.sh ' + gs('esm.sh') + ' libs ' + gs('cdn-lib') + ' fonts ' + gs('fonts') + ' auth ' + gs('auth') + ' rest ' + gs('rest') + ' functions ' + gs('functions') + ' storage ' + gs('storage') + ' realtime ' + gs('realtime') + ' other ' + gs('other') + ' | nodes ' + r.nodes + ' glass ' + r.glass + ' | main-thread script ' + r.mainThread.script + 'ms layout ' + r.mainThread.layout + 'ms style ' + r.mainThread.style + 'ms');
+  console.log('      static ' + gs('static') + ' vendor ' + gs('vendor') + ' preflight ' + gs('preflight') + ' tailwind ' + gs('tailwind') + ' esm.sh ' + gs('esm.sh') + ' libs ' + gs('cdn-lib') + ' fonts ' + gs('fonts') + ' auth ' + gs('auth') + ' rest ' + gs('rest') + ' functions ' + gs('functions') + ' storage ' + gs('storage') + ' realtime ' + gs('realtime') + ' other ' + gs('other') + ' | nodes ' + r.nodes + ' glass ' + r.glass + ' | main-thread script ' + r.mainThread.script + 'ms layout ' + r.mainThread.layout + 'ms style ' + r.mainThread.style + 'ms');
 }
 
 async function main() {
@@ -422,8 +422,8 @@ async function main() {
           r.clickToNavStart = +(r.timeOrigin - clickEpoch).toFixed(0);
           const prevPaths = new Set(prev.backend.map((b) => b.path));
           r.repeatedBackend = r.backend.filter((b) => prevPaths.has(b.path) && !/track-visit/.test(b.path)).map((b) => b.path);
-          r.reFetched = r.rows.filter((x) => !x.cached && (x.cls === 'static' || x.cls === 'tailwind' || x.cls === 'esm.sh' || x.cls === 'cdn-lib' || x.cls === 'fonts')).map((x) => x.url.replace(BASE + '/', ''));
-          r.reParsed = r.rows.filter((x) => x.cached && (x.cls === 'static' || x.cls === 'tailwind' || x.cls === 'esm.sh' || x.cls === 'cdn-lib')).length;
+          r.reFetched = r.rows.filter((x) => !x.cached && (x.cls === 'static' || x.cls === 'vendor' || x.cls === 'tailwind' || x.cls === 'esm.sh' || x.cls === 'cdn-lib' || x.cls === 'fonts')).map((x) => x.url.replace(BASE + '/', ''));
+          r.reParsed = r.rows.filter((x) => x.cached && (x.cls === 'static' || x.cls === 'vendor' || x.cls === 'tailwind' || x.cls === 'esm.sh' || x.cls === 'cdn-lib')).length;
           r.authCalls = r.backend.filter((b) => b.cls === 'auth').map((b) => b.path + ' ' + b.dur + 'ms');
           seq.push(r);
           console.log('  ' + r.label.padEnd(56) + 'click→nav ' + String(r.clickToNavStart).padStart(4) + '  html ' + String(r.responseStart).padStart(4) + '  shell ' + String(r.shellAt == null ? '-' : r.shellAt).padStart(5) + '  fcp ' + String(r.fcp == null ? '-' : r.fcp).padStart(5) + '  usable ' + String(r.dataReady.ms).padStart(6) + '  net ' + kb(r.bytesTotal) + 'KB/' + (r.requests - r.cachedRequests) + ' req  cached ' + r.cachedRequests + '  re-fetched ' + r.reFetched.length + '  backend ' + r.backend.length + ' (repeated ' + r.repeatedBackend.length + ': ' + r.repeatedBackend.map((p) => p.replace(/^(fn|rest):/, '')).join(', ') + ')  auth ' + r.authCalls.length + (r.settled ? '' : '  UNSETTLED'));

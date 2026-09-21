@@ -73,7 +73,9 @@
 // establish. ensureSupabaseAdminSignedIn() below is now a pure "confirm a real session exists,
 // redirect to the real login page if not" defense-in-depth check, never an attempt to sign in
 // on its own.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
+// The SDK is self-hosted: one bundled ES module, modulepreloaded from every page's <head> (row 258,
+// PERFORMANCE_AUDIT.md finding #1). Regenerate with `npm run vendor-supabase-js` in scripts/.
+import { createClient } from './vendor/supabase-js-2.112.4.min.js';
 
 // ★ Pre-hosting fix (2026-09-04) — mirrors supabase-config.js's own fix exactly (read that
 // file's header for the full "why"), checked independently for THIS file rather than assumed

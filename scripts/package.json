@@ -127,7 +127,9 @@
     "verify-sort-headers-visual": "node verify-sort-headers-visual.mjs",
     "verify-documents-page-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-documents-page-ui-wiring.mjs",
     "supabase-verify-document-signing": "node verify-supabase-document-signing.js",
-    "verify-document-signing-visual": "node verify-document-signing-visual.mjs"
+    "verify-document-signing-visual": "node verify-document-signing-visual.mjs",
+    "vendor-supabase-js": "node vendor-supabase-js.mjs",
+    "verify-login-redesign": "node verify-login-redesign.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -137,6 +139,7 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
+    "esbuild": "0.25.10",
     "pdf-lib": "^1.17.1"
   }
 }

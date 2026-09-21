@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Settings — Marketswave PM Tool</title>
 
+  <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
+       after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
+  <link rel="modulepreload" href="admin-supabase-config.js" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="glass-primitives.css" />

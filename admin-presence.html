@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Who's on the site — Marketswave PM Tool</title>
+  <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
+       after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
+  <link rel="modulepreload" href="admin-supabase-config.js" />
   <!-- ★ Visitor presence (2026-09-13, register row 209). Live visitors and a rolling 30-day
        history — region and journey, never identity — with a PM able to open a real inbox
        conversation with someone browsing. One read (get-visitor-presence) per tab plus

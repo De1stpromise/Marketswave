@@ -66,7 +66,7 @@ let scenarioCounter = 0;
 // fetch swapped) via a simpler mechanism appropriate for a script that doesn't need the
 // loader for anything else.
 function localizeCdnImport(source) {
-  const needle = "import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';";
+  const needle = "import { createClient } from './vendor/supabase-js-2.112.4.min.js';";
   if (source.indexOf(needle) === -1) {
     throw new Error('Expected CDN import line not found — the real source may have changed shape; update this script.');
   }

@@ -20,7 +20,7 @@ const FIREBASE_FIRESTORE_STUB = 'data:text/javascript,' + encodeURIComponent(
 );
 
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier === 'https://esm.sh/@supabase/supabase-js@2.112.4') {
+  if (specifier === 'https://esm.sh/@supabase/supabase-js@2.112.4' || specifier === './vendor/supabase-js-2.112.4.min.js') {
     return { url: LOCAL_SUPABASE_JS, shortCircuit: true };
   }
   if (specifier.endsWith('firebase-config.js')) {
