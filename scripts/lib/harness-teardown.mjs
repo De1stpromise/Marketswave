@@ -239,7 +239,7 @@ export function leakedCount() { return leaked; }
 export function trackedDirs() { return Array.from(registry.keys()); }
 
 // For a parent harness that spawnSync()s a child harness (the visual suites run
-// verify-contrast.mjs and audit-fonts.mjs as children): re-emit the child's own teardown
+// verify-contrast.mjs and verify-fonts.mjs as children): re-emit the child's own teardown
 // lines on the parent's stderr. A parent that prints only the child's last stdout line
 // would otherwise discard a child's TEARDOWN WARNING — silence again, one level up.
 export function forwardChildTeardown(res, label) {

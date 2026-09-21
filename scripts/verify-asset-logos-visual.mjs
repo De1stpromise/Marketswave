@@ -373,12 +373,12 @@ async function main() {
     // ===================================================================================
     console.log('\n=== FONTS — the touched pages, by real advance width ===\n');
     // ===================================================================================
-    const fontRes = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+    const fontRes = spawnSync(process.execPath, ['verify-fonts.mjs'], {
       cwd: fileURLToPath(new URL('.', import.meta.url)),
       encoding: 'utf8',
       env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/asset-collection.html', AUDIT_BOOTSTRAP_JS: bootstrap, AUDIT_PORT: String(PORT + 20) })
     });
-    forwardChildTeardown(fontRes, 'audit-fonts');
+    forwardChildTeardown(fontRes, 'verify-fonts');
     const fontOut = fontRes.stdout || '';
     console.log(fontOut.trim().split('\n').slice(-5).join('\n'));
     check('no family on asset-collection.html falls back (the monogram declares Inter 700 explicitly)', !/FALLBACK/.test(fontOut), fontOut.slice(-400));

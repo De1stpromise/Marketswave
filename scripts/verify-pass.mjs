@@ -50,7 +50,10 @@ const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'ut
 const scripts = pkg.scripts || {};
 const GATE = 'verify-fixture-symbols';
 const NOT_A_SUITE = new Set([GATE, GATE + '-self-test', 'pass']);
-const isSuite = (name) => /^(verify|supabase-verify|audit)-/.test(name) && !NOT_A_SUITE.has(name);
+// verify-* / supabase-verify-* run in a pass and exit non-zero on failure; audit-* are investigations
+// (they print numbers, need the live site or a second origin, exit 0 regardless) and never join one.
+// A file that can fail a pass is a verify- by definition, whatever it was called (row 262).
+const isSuite = (name) => /^(verify|supabase-verify)-/.test(name) && !NOT_A_SUITE.has(name);
 const allSuites = Object.keys(scripts).filter(isSuite);
 
 if (args.includes('--list')) {

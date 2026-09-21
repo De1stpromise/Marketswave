@@ -1,5 +1,5 @@
 /**
- * audit-fonts.mjs - is every font-family this page ASKS for actually LOADED?
+ * verify-fonts.mjs - is every font-family this page ASKS for actually LOADED?
  *
  * Referencing a family in CSS is not the same as loading it. When a family is missing, the
  * browser silently substitutes a fallback: no console error, no warning, and the text still
@@ -35,7 +35,10 @@
  * Proportional families are unaffected: their widths do vary with weight, which is why the
  * Inter weights below are genuinely distinguished.
  *
- * Usage: AUDIT_URL=http://127.0.0.1:8765/resources.html node scripts/audit-fonts.mjs
+ * Usage: AUDIT_URL=http://127.0.0.1:8765/resources.html node scripts/verify-fonts.mjs   (no AUDIT_URL: every public page)
+ *
+ * Renamed from audit-fonts.mjs on 2026-09-21 (row 262): it exits non-zero on any fallback, so it is a
+ * verification, and verify- is the prefix that runs in a pass.
  *
  * AUTHENTICATED PAGES. A client-facing dashboard page redirects to login.html unless a
  * real session is already on the origin, and this script would then audit the LOGIN page
@@ -51,7 +54,10 @@ import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = Number(process.env.AUDIT_PORT || 9336);
-const URLS = (process.env.AUDIT_URL || 'http://127.0.0.1:8765/resources.html').split(',');
+// Standalone (a pass, no AUDIT_URL): every public page. The visual suites spawn this with an
+// AUDIT_URL + bootstrap for the authenticated pages, so between the two every page is covered.
+const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'login.html', 'signup.html'];
+const URLS = (process.env.AUDIT_URL || PUBLIC_PAGES.map((p) => 'http://127.0.0.1:8765/' + p).join(',')).split(',');
 
 class CDP {
   constructor(ws) {

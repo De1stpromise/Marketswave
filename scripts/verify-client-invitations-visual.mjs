@@ -319,9 +319,9 @@ async function main() {
     runContrast('client-invitations-revoke', 'the Revoke confirm', adminBootstrap, REVOKE_PREP, URL_);
 
     console.log('\n--- Sheen audit + fonts ---\n');
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-clients.html', SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'admin-clients.html', SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'verify-glass-sheen');
     check('the sheen audit passed on the page with the panel present', /SHEEN SWEEP: PASS/.test(sheen), sheen.slice(-300));
-    const fonts = runChild('audit-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: adminBootstrap }, 'audit-fonts');
+    const fonts = runChild('verify-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: adminBootstrap }, 'verify-fonts');
     check('no font falls back, no monospace (row 192)', !/FALLBACK/.test(fonts) && !/JetBrains|monospace/i.test(fonts), fonts.split('\n').filter((l) => /FALLBACK|mono/i.test(l)).join(' | '));
 
     console.log('\n--- Desktop 1440 ---\n');

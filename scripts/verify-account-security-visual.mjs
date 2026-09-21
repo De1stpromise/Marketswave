@@ -69,18 +69,18 @@ function runContrast(profile, label, bootstrap, prepare) {
 }
 
 function runFonts(bootstrap) {
-  const out = runChild('audit-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: bootstrap }, 'audit-fonts');
+  const out = runChild('verify-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: bootstrap }, 'verify-fonts');
   check('no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check('no monospace family anywhere — the scheme is Inter (row 192)',
     !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
 }
 
-// audit-glass-sheen.mjs already lists admin-security.html among its ADMIN_PAGES and signs
+// verify-glass-sheen.mjs already lists admin-security.html among its ADMIN_PAGES and signs
 // itself in as the local bootstrap PM, so it needs the page name and nothing else.
 function runSheen() {
-  const out = runChild('audit-glass-sheen.mjs', {
+  const out = runChild('verify-glass-sheen.mjs', {
     SHEEN_PAGES: 'admin-security.html', SHEEN_BASE: BASE
-  }, 'audit-glass-sheen');
+  }, 'verify-glass-sheen');
   const m = out.match(/(\d+) measured/);
   check('sheen audit measured real text under a .glass sheen', !!m && Number(m[1]) > 0,
     out.split('\n').slice(-6).join(' | '));

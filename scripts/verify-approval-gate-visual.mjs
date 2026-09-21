@@ -10,7 +10,7 @@
 //   1. CONTRAST WITH THE SHEEN COMPOSITED. Text in a .glass card's top-left corner sits under
 //      .glass::before, a positioned radial white highlight that composites OVER in-flow
 //      content — navy measured 4.02:1 with it and 11.48:1 without, same glyphs, same card
-//      (row 203). verify-contrast.mjs measures real composited pixels, and audit-glass-sheen.mjs
+//      (row 203). verify-contrast.mjs measures real composited pixels, and verify-glass-sheen.mjs
 //      measures every text element under a sheen with it ON and OFF and reports the delta.
 //
 //   2. A REAL PHONE, NOT A NARROW DESKTOP WINDOW. mobile: true + deviceScaleFactor: 3 +
@@ -69,7 +69,7 @@ function runContrast(profile, label, bootstrap, prepare) {
   out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(bootstrap) {
-  const out = runChild('audit-fonts.mjs', 'audit-fonts', { AUDIT_URL: BASE + '/admin-approvals.html', AUDIT_BOOTSTRAP_JS: bootstrap });
+  const out = runChild('verify-fonts.mjs', 'verify-fonts', { AUDIT_URL: BASE + '/admin-approvals.html', AUDIT_BOOTSTRAP_JS: bootstrap });
   console.log('  fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check('no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check('no monospace family anywhere — the scheme is Inter (row 192)', !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
@@ -81,7 +81,7 @@ function runFonts(bootstrap) {
 // count, read independently from the real DOM, is also zero. If the gate ever gains a glass
 // surface, glassCount stops being 0 and the audit has to carry it.
 function runSheen(glassCount) {
-  const out = runChild('audit-glass-sheen.mjs', 'audit-glass-sheen', { SHEEN_PAGES: 'admin-approvals.html', SHEEN_PORT: '9462' });
+  const out = runChild('verify-glass-sheen.mjs', 'verify-glass-sheen', { SHEEN_PAGES: 'admin-approvals.html', SHEEN_PORT: '9462' });
   const lines = out.trim().split('\n');
   const tail = lines.filter((l) => /measurements under the sheen|SHEEN SWEEP|glass element/.test(l)).join(' | ') || lines.slice(-1)[0];
   console.log('  sheen -> ' + tail);

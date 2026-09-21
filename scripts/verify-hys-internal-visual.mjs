@@ -4,7 +4,7 @@
 // Contrast on every genuinely new text surface, a font audit (Inter only — the type scheme
 // has one family, see row 192), and the narrow viewports this project has standardised on.
 // Seeds a real client with real unallocated capital and a real pending internal transfer,
-// then drives verify-contrast.mjs / audit-fonts.mjs against the real pages via their own
+// then drives verify-contrast.mjs / verify-fonts.mjs against the real pages via their own
 // CONTRAST_PROFILE / CONTRAST_BOOTSTRAP_JS / CONTRAST_PREPARE_JS hooks rather than
 // reimplementing the sampling — the same delegation verify-returns-display-visual.mjs uses.
 //
@@ -137,7 +137,7 @@ function runContrast(profile, page, label, bootstrap, prepare) {
 }
 
 function runFonts(page, label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     encoding: 'utf8',
     env: Object.assign({}, process.env, {
@@ -145,7 +145,7 @@ function runFonts(page, label, bootstrap) {
       AUDIT_BOOTSTRAP_JS: bootstrap
     })
   });
-  forwardChildTeardown(res, 'audit-fonts');
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back (every requested family genuinely loads)',

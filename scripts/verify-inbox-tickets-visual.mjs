@@ -5,7 +5,7 @@
 //   npm run verify-inbox-tickets-visual      (from scripts/)
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 //
-// Delegates contrast and fonts to verify-contrast.mjs / audit-fonts.mjs through their own
+// Delegates contrast and fonts to verify-contrast.mjs / verify-fonts.mjs through their own
 // CONTRAST_PROFILE / CONTRAST_BOOTSTRAP_JS / CONTRAST_PREPARE_JS hooks — the same delegation
 // every visual suite since row 188 uses — with a real admin session seeded into
 // localStorage under the admin client's own storageKey. Widths are exact top-level viewports
@@ -51,11 +51,11 @@ function runContrast(profile, page, label, bootstrap, prepare) {
   out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(page, label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8',
     env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap })
   });
-  forwardChildTeardown(res, 'audit-fonts');
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

@@ -13,7 +13,7 @@
 //   names and largest and smallest prices; the grid stepping 4 -> 3 -> 2 -> 1 columns by
 //   CONTAINER width (1440 / 1280 / 1100 / 390 / 375, and a real 320px iframe); contrast on
 //   the card face and on the panel in all three states, with the sheen composited
-//   (audit-glass-sheen on this page); fonts Inter only.
+//   (verify-glass-sheen on this page); fonts Inter only.
 //
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 // Usage (from scripts/): npm run verify-catalog-expansion
@@ -328,16 +328,16 @@ async function main() {
     runContrast('catalog-modal', 'asset-collection.html', 'panel, adding to a held position', clientBootstrap, openPanelJs(etf.name, 1000));
     runContrast('catalog-modal', 'asset-collection.html', 'panel, below the minimum (real PE product)', clientBootstrap, openPanelJs(nordic.name, 500));
     {
-      const res = spawnSync(process.execPath, ['audit-glass-sheen.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { SHEEN_PAGES: 'asset-collection.html', SHEEN_PORT: '9453' }) });
-      forwardChildTeardown(res, 'audit-glass-sheen');
+      const res = spawnSync(process.execPath, ['verify-glass-sheen.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { SHEEN_PAGES: 'asset-collection.html', SHEEN_PORT: '9453' }) });
+      forwardChildTeardown(res, 'verify-glass-sheen');
       const out = (res.stdout || '') + (res.stderr || '');
       const m = out.match(/(\d+) measured, (\d+) below/);
       console.log('  sheen audit -> ' + (out.split('\n').find((l) => /measured, \d+ below/.test(l)) || out.trim().split('\n').slice(-1)[0]));
       check('sheen audit on asset-collection.html: measured elements, none below 4.5:1 with the sheen composited, none UNMEASURED', !!m && Number(m[1]) > 0 && Number(m[2]) === 0 && !/UNMEASURED/.test(out) && res.status === 0, out.trim().split('\n').slice(-3).join(' | '));
     }
     {
-      const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/asset-collection.html', AUDIT_BOOTSTRAP_JS: clientBootstrap }) });
-      forwardChildTeardown(res, 'audit-fonts');
+      const res = spawnSync(process.execPath, ['verify-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/asset-collection.html', AUDIT_BOOTSTRAP_JS: clientBootstrap }) });
+      forwardChildTeardown(res, 'verify-fonts');
       const out = (res.stdout || '') + (res.stderr || '');
       check('fonts: no fallback, no monospace family', !/FALLBACK/.test(out) && !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /FALLBACK|monospace/i.test(l)).join(' | '));
     }

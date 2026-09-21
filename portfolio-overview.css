@@ -13,7 +13,7 @@
 /* ★ The three overview cards carry .glass-lift (glass-primitives.css): .glass's own sheen is
    positioned over the card's top-left corner, and measured composited the value figure read
    4.02:1 under it against 11.48:1 without — the finding that led to the project-wide sweep
-   (scripts/audit-glass-sheen.mjs). No rule here; the lift is the shared opt-in class. */
+   (scripts/verify-glass-sheen.mjs). No rule here; the lift is the shared opt-in class. */
 
 /* ============================================================================
    ★ THE BUNDLED CARD (2026-09-13). The three summary cards and the separate chart card

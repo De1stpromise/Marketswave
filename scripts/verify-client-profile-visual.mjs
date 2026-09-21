@@ -60,7 +60,7 @@ function runContrast(profile, label, bootstrap, prepare, url) {
 }
 
 function runFonts(bootstrap, url) {
-  const out = runChild('audit-fonts.mjs', { AUDIT_URL: url, AUDIT_BOOTSTRAP_JS: bootstrap }, 'audit-fonts');
+  const out = runChild('verify-fonts.mjs', { AUDIT_URL: url, AUDIT_BOOTSTRAP_JS: bootstrap }, 'verify-fonts');
   check('no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check('no monospace family anywhere — the scheme is Inter (row 192)',
     !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
@@ -236,7 +236,7 @@ async function main() {
       nDel >= 6, nDel + ' measurements: ' + delOut.split('\n').filter((l) => /PASS|FAIL/.test(l)).map((l) => l.trim().slice(0, 40)).join(' | '));
 
     console.log('\n--- Sheen audit ---\n');
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-client-profile.html?client=' + gary.id, SHEEN_BOOTSTRAP_JS: bootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'admin-client-profile.html?client=' + gary.id, SHEEN_BOOTSTRAP_JS: bootstrap }, 'verify-glass-sheen');
     check('the sheen audit ran against this page and passed with the sheen composited',
       /SHEEN SWEEP: PASS/.test(sheen), sheen.slice(-400));
 

@@ -85,8 +85,8 @@ function runContrast(profile, label, bootstrap, prepare, port) {
   out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/admin-presence.html', AUDIT_BOOTSTRAP_JS: bootstrap }) });
-  forwardChildTeardown(res, 'audit-fonts');
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/admin-presence.html', AUDIT_BOOTSTRAP_JS: bootstrap }) });
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

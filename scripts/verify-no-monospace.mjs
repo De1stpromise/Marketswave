@@ -52,7 +52,14 @@ const PAGES = ['index.html', 'resources.html', 'login.html', 'about.html', 'serv
 /* Known, deliberate: Tailwind's generic font-mono on a ticket identifier. Not JetBrains, not
  * part of the type scheme, and not a webfont — so it is allowed BY NAME rather than by a
  * blanket exemption that would also hide a genuine regression. */
-const ALLOWED_GENERIC_MONO = [{ file: 'support.html', what: 'ticket id (.font-mono, generic ui-monospace)' }];
+const ALLOWED_GENERIC_MONO = [
+  { file: 'support.html', what: 'ticket id (.font-mono, generic ui-monospace)' },
+  // The compiled Tailwind sheet (row 260) DECLARES the .font-mono utility because support.html
+  // uses it — the same single exception, now visible to a source scan where the play CDN used
+  // to generate it invisibly at runtime. Not a second use: the declaration exists for that one
+  // element and would vanish from the next build if support.html stopped using it.
+  { file: /^tailwind-\d+\.\d+\.\d+\.css$/, what: 'the compiled .font-mono declaration for that same ticket id' }
+];
 
 let passed = 0;
 const failures = [];
@@ -107,9 +114,9 @@ async function main() {
       .replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
     if (/\bfont-mono\b/.test(code) || /font-family:[^;]*monospace/i.test(code)) genericMono.push(f);
   }
-  const unexpected = genericMono.filter((f) => !ALLOWED_GENERIC_MONO.some((a) => a.file === f));
+  const unexpected = genericMono.filter((f) => !ALLOWED_GENERIC_MONO.some((a) => (a.file instanceof RegExp ? a.file.test(f) : a.file === f)));
   check('the only generic-monospace use left is the one disclosed exception (' +
-    ALLOWED_GENERIC_MONO.map((a) => a.file + ': ' + a.what).join('; ') + ')',
+    ALLOWED_GENERIC_MONO.map((a) => String(a.file) + ': ' + a.what).join('; ') + ')',
     unexpected.length === 0, unexpected.join(', '));
 
   // ---------------------------------------------------------------- rendered

@@ -213,9 +213,9 @@ async function main() {
     runContrast('identity-access-modal', 'the access modal (with a live error)', adminBootstrap, PROF_PREP, BASE + '/admin-client-profile.html?client=' + uid);
     const SEC_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { const l = document.getElementById('idac-list'); if (l && l.querySelector('[data-idac-table]')) break; await nap(200); } await nap(800); })()`;
     runContrast('identity-access-log', 'the access log', adminBootstrap, SEC_PREP, BASE + '/admin-security.html');
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-security.html', SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'admin-security.html', SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'verify-glass-sheen');
     check('sheen audit (security page) passed with the sheen composited', /SHEEN SWEEP: PASS/.test(sheen), sheen.slice(-300));
-    const fonts = runChild('audit-fonts.mjs', { AUDIT_URL: BASE + '/admin-security.html', AUDIT_BOOTSTRAP_JS: adminBootstrap }, 'audit-fonts');
+    const fonts = runChild('verify-fonts.mjs', { AUDIT_URL: BASE + '/admin-security.html', AUDIT_BOOTSTRAP_JS: adminBootstrap }, 'verify-fonts');
     // (case-sensitive FALLBACK: the audit's own measurement lines say "vs fallback 244.4")
     check('no font falls back', !/FALLBACK/.test(fonts), fonts.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
     check('no monospace family anywhere', !/JetBrains|monospace/i.test(fonts));

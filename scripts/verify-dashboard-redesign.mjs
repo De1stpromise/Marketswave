@@ -100,13 +100,13 @@ function runContrast(profile, label, bootstrap, prepare) {
   return m ? Number(m[1]) : 0;
 }
 function runFonts(label, bootstrap) {
-  const out = runChild('audit-fonts.mjs', label, { AUDIT_URL: BASE + '/dashboard.html', AUDIT_BOOTSTRAP_JS: bootstrap });
+  const out = runChild('verify-fonts.mjs', label, { AUDIT_URL: BASE + '/dashboard.html', AUDIT_BOOTSTRAP_JS: bootstrap });
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back (every requested family genuinely loads)', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check(label + ': no monospace family anywhere — the scheme is Inter (row 192)', !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
 }
 function runSheen() {
-  const out = runChild('audit-glass-sheen.mjs', 'sheen audit', { SHEEN_PAGES: 'dashboard.html', SHEEN_PORT: '9448' });
+  const out = runChild('verify-glass-sheen.mjs', 'sheen audit', { SHEEN_PAGES: 'dashboard.html', SHEEN_PORT: '9448' });
   const tail = out.split('\n').filter((l) => /dashboard\.html\s+\d+ measured|SHEEN SWEEP/.test(l)).join(' | ').trim();
   console.log('  sheen -> ' + tail);
   const m = out.match(/dashboard\.html\s+(\d+) measured, (\d+) below 4\.5:1/);

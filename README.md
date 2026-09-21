@@ -2223,7 +2223,7 @@ the value stated exactly once on the page), `npm run verify-portfolio-overview-v
 contrast in both change tones and the new-client state, fonts, 1440/390/375 and a real 320px
 iframe; needs `supabase functions serve` and a static server on :8765).
 
-### ★ The `.glass` sheen — `npm run audit-glass-sheen` (2026-09-12)
+### ★ The `.glass` sheen — `npm run verify-glass-sheen` (2026-09-12)
 
 `.glass::before` paints a radial white highlight over every full glass card's top-left
 corner, and it composites OVER the card's content. Measured across the whole project, 53

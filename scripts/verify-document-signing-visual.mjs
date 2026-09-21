@@ -351,9 +351,9 @@ async function main() {
     const HEALTH_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 400; i++) { if (document.querySelectorAll('.doc-tr').length > 0) break; await nap(150); } await nap(400); return true; })()`;
     runContrast('admin-documents-health', 'health strip (evidence count, oldest age)', adminBootstrap, HEALTH_PREP, BASE + '/admin-documents.html');
 
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'documents.html', SHEEN_BOOTSTRAP_JS: clientBootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'documents.html', SHEEN_BOOTSTRAP_JS: clientBootstrap }, 'verify-glass-sheen');
     check('sheen audit on documents.html: nothing under a sheen falls below 4.5:1', /(\d+) measured/.test(sheen) && /SHEEN SWEEP: PASS/.test(sheen), sheen.split('\n').filter((l) => /measured|FAIL|UNMEASURED|SWEEP/.test(l)).join(' | '));
-    const fonts = runChild('audit-fonts.mjs', { AUDIT_URL: BASE + '/documents.html', AUDIT_BOOTSTRAP_JS: clientBootstrap }, 'audit-fonts');
+    const fonts = runChild('verify-fonts.mjs', { AUDIT_URL: BASE + '/documents.html', AUDIT_BOOTSTRAP_JS: clientBootstrap }, 'verify-fonts');
     check('fonts: every requested family genuinely loaded on documents.html (no fallbacks)', /FONT AUDIT: all requested families genuinely loaded/.test(fonts), fonts.split('\n').slice(-3).join(' | '));
 
     // phones — the modal on a REAL phone profile

@@ -131,7 +131,10 @@ async function main() {
     // ★ The row-233 rule, asserted statically: a read that feeds a display must not swallow
     // its error. A swallowed holders read renders as "nobody holds this", which is the input
     // to a retirement decision.
-    const modSrc = readFileSync('../supabase/functions/_shared/product-catalog.ts', 'utf8');
+    // Read the COMMITTED bytes, never the file in place: a host-side read under supabase/functions
+    // updates its last-access time, the CLI's watcher reports that as a WRITE and restarts the edge
+    // runtime — and the very next call this suite makes gets a 502 (row 255; seen twice on 2026-09-21).
+    const modSrc = execSync('git show HEAD:supabase/functions/_shared/product-catalog.ts', { cwd: '..', encoding: 'utf8' });
     const swallows = /\.data\s*\|\|\s*\[\]/.test(modSrc);
     check('no read in _shared/product-catalog.ts swallows its error with `.data || []`', !swallows);
     check('every batched read goes through must()', (modSrc.match(/must\(\s*await/g) || []).length >= 3);
@@ -283,7 +286,7 @@ async function main() {
 
     // ---- 6. the watchlist Offered badge follows retirement -------------------------------
     console.log('\n-- 6. the Offered badge follows retirement --');
-    const symSrc = readFileSync('../supabase/functions/_shared/symbol-catalog.ts', 'utf8');
+    const symSrc = execSync('git show HEAD:supabase/functions/_shared/symbol-catalog.ts', { cwd: '..', encoding: 'utf8' });   // committed bytes, not the file (row 255)
     const resolveBlock = symSrc.slice(symSrc.indexOf('export async function resolveSymbols'), symSrc.indexOf('export async function productsWithTickers'));
     const withTickersBlock = symSrc.slice(symSrc.indexOf('export async function productsWithTickers'));
     check('★ resolveSymbols() excludes retired products — a retired product is not "Offered"',

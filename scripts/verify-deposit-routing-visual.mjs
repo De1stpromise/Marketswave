@@ -4,7 +4,7 @@
 // Contrast on every new text surface (the client address card + pending card + empty
 // state, the PM address book, the queue's amount-less row), a font audit (Inter only, row
 // 192), and the narrow viewports this project standardises on. Delegates the sampling to
-// verify-contrast.mjs / audit-fonts.mjs via their own CONTRAST_PROFILE /
+// verify-contrast.mjs / verify-fonts.mjs via their own CONTRAST_PROFILE /
 // CONTRAST_BOOTSTRAP_JS / CONTRAST_PREPARE_JS hooks — the same delegation
 // verify-hys-internal-visual.mjs uses.
 //
@@ -156,11 +156,11 @@ function runContrast(profile, page, label, bootstrap, prepare) {
 }
 
 function runFonts(page, label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8',
     env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap })
   });
-  forwardChildTeardown(res, 'audit-fonts');
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

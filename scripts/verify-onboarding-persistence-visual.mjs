@@ -65,7 +65,7 @@ function runContrast(profile, label, bootstrap, prepare, url) {
   check(label + ': every measured surface clears 4.5:1', /CONTRAST: PASS/.test(out), tail);
 }
 function runFonts(bootstrap, url) {
-  const out = runChild('audit-fonts.mjs', { AUDIT_URL: url, AUDIT_BOOTSTRAP_JS: bootstrap }, 'audit-fonts');
+  const out = runChild('verify-fonts.mjs', { AUDIT_URL: url, AUDIT_BOOTSTRAP_JS: bootstrap }, 'verify-fonts');
   check('no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check('no monospace family anywhere', !/JetBrains|monospace/i.test(out));
 }
@@ -421,9 +421,9 @@ async function main() {
     const GATE_PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && q.querySelector('.ag-row[data-id="${uid}"]')) break; await nap(200); } document.querySelector('.ag-row[data-id="${uid}"]').click(); for (let i = 0; i < 60; i++) { if (!document.getElementById('ag-scrim').hidden && document.getElementById('ag-pane').innerHTML.length > 0) break; await nap(100); } await nap(800); })()`;
     runContrast('approval-gate-application', 'the approval gate application panel', adminBootstrap, GATE_PREP, BASE + '/admin-approvals.html');
 
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-client-profile.html?client=' + uid, SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'admin-client-profile.html?client=' + uid, SHEEN_BOOTSTRAP_JS: adminBootstrap }, 'verify-glass-sheen');
     check('sheen audit (profile) passed with the sheen composited', /SHEEN SWEEP: PASS/.test(sheen), sheen.slice(-300));
-    const sheen2 = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'settings.html', SHEEN_BOOTSTRAP_JS: clientBootstrap }, 'audit-glass-sheen');
+    const sheen2 = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'settings.html', SHEEN_BOOTSTRAP_JS: clientBootstrap }, 'verify-glass-sheen');
     check('sheen audit (settings) passed with the sheen composited', /SHEEN SWEEP: PASS/.test(sheen2), sheen2.slice(-300));
     runFonts(clientBootstrap, BASE + '/settings.html');
 

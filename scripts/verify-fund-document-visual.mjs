@@ -7,7 +7,7 @@
 //   - contrast on every text surface of the client document (a gaining AND a losing product,
 //     so both chart tones are measured) and of the PM authoring page, sampled on real
 //     composited pixels via verify-contrast.mjs's profiles
-//   - fonts: Inter only, tabular-nums on every figure (audit-fonts.mjs + a real advance-width
+//   - fonts: Inter only, tabular-nums on every figure (verify-fonts.mjs + a real advance-width
 //     check)
 //   - 1440/390/375 real viewports + a real 320px iframe on both pages, with the two named
 //     risks seeded on purpose: a 60-character unbroken token inside long prose, and the
@@ -74,8 +74,8 @@ function runContrast(profile, page, label, bootstrap, prepare) {
   return m ? Number(m[1]) : 0;
 }
 function runFonts(page, label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
-  forwardChildTeardown(res, 'audit-fonts');
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

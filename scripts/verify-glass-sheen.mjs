@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Renamed from audit-glass-sheen.mjs on 2026-09-21 (row 262): it exits non-zero on a failing surface, so it
+// is a verification, and verify- is the prefix that runs in a pass; audit- is for investigations that do not.
 // ★ .glass sheen contrast sweep (2026-09-12).
 //
 // `.glass::before` paints a radial white highlight (up to 0.8 alpha) over the top-left of

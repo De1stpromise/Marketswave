@@ -7674,10 +7674,10 @@ row 74.
     reports true whenever the font list resolves at all — fallback included — so it answers
     "will this render?" (always yes), not "is this family being used?". Use METRIC COMPARISON
     instead: render a specimen in the requested family and in a deliberately nonexistent one;
-    identical widths mean both hit the same fallback. `scripts/audit-fonts.mjs` does this
+    identical widths mean both hit the same fallback. `scripts/verify-fonts.mjs` does this
     across every family actually used on a page — run it after touching fonts anywhere.
   - **★ ...but METRIC COMPARISON CANNOT VERIFY A *WEIGHT* WITHIN A MONOSPACE FAMILY, and
-    `audit-fonts.mjs` will report LOADED for a mono weight that does not exist (2026-09-09).**
+    `verify-fonts.mjs` will report LOADED for a mono weight that does not exist (2026-09-09).**
     The probe compares text WIDTH, and every weight of a monospace family has the same advance
     width. Measured on asset-performance.html: JetBrains Mono reported `w=297.6` at 400, 500
     AND 700 while the document had `@font-face` entries for 500 and 700 only. The real effect
@@ -7992,7 +7992,7 @@ row 74.
     cost. That never mattered while nothing read it; the moment capital is recovered as
     `total_value - realized_return` it produces a nonsense denominator, and it would not have
     failed loudly. Both seeds were corrected to real trades.
-  - **`audit-fonts.mjs` could not audit an authenticated page at all**, and would have
+  - **`verify-fonts.mjs` could not audit an authenticated page at all**, and would have
     reported on `login.html` after the redirect while appearing to succeed. It now takes
     `AUDIT_BOOTSTRAP_JS`, the same hook and the same reasoning as `verify-contrast.mjs`'s
     `CONTRAST_BOOTSTRAP_JS`.
@@ -8020,7 +8020,7 @@ row 74.
   across three profiles including a dedicated never-sold run, and 1440/390/375/320 with
   explicit guards against the two regressions this page has already had once: card labels
   rendered in the figures' monospace, and a totals card laid out narrower than the holding
-  cards above it. `audit-fonts.mjs` re-run on both pages: no fallbacks, mono weights used
+  cards above it. `verify-fonts.mjs` re-run on both pages: no fallbacks, mono weights used
   (500, 700) exactly matching the faces available.
 
 - **★★ Button and control modernisation sweep — every button, filter control,
@@ -8276,7 +8276,7 @@ row 74.
   320/375/390** on index/resources/login (checked because `tabular-nums` changes digit advance
   width, which is a real narrow-layout risk, each measurement behind Batch 1's viewport-
   integrity guard and 320px through a real same-origin iframe since the top-level override
-  floors at 348px on this build). `audit-fonts.mjs` on all three touched pages: every Inter
+  floors at 348px on this build). `verify-fonts.mjs` on all three touched pages: every Inter
   weight genuinely loaded, **zero fallbacks, zero mono**. `verify-contrast.mjs` 120
   measurements, 0 below 4.5:1 — unchanged, as expected, since only weights moved and no colour
   did. Real before/after screenshots on the affected surfaces (Core Services field, Resources
@@ -8792,7 +8792,7 @@ row 74.
     handle inside it, which is exactly a live Chrome profile. A same-prefix dir younger than
     10 minutes is left alone even if it is stale; the run after that gets it.
   - **★ A parent that `spawnSync`s a child harness must forward the child's stderr.** The
-    six visual suites run `verify-contrast.mjs`/`audit-fonts.mjs` as children and printed
+    six visual suites run `verify-contrast.mjs`/`verify-fonts.mjs` as children and printed
     only the child's last stdout line — so a child's `TEARDOWN WARNING` vanished, silence one
     level up. `forwardChildTeardown(res, label)` after every child spawn re-emits them.
   - **A leaked dir does not change the exit code** (the warning is the contract);
@@ -8969,7 +8969,7 @@ row 74.
 - **★★ `.glass::before` sheen contrast sweep — one shared surface, 30 pages, 53 real
   failures fixed with a scoped opt-in (2026-09-12, row 204).** Triggered by the overview's
   own 4.02:1 finding; the same shape as row 151's 83 slate-500 failures. **Measured, not
-  inferred**: `scripts/audit-glass-sheen.mjs` (`npm run audit-glass-sheen`) enumerates every
+  inferred**: `scripts/verify-glass-sheen.mjs` (`npm run verify-glass-sheen`) enumerates every
   `.glass` element on every page at runtime, reads each sheen's own box from
   `getComputedStyle(el, '::before')`, and measures every text element whose glyph rect
   intersects it on real composited pixels — first as rendered, then with
@@ -9036,7 +9036,7 @@ row 74.
   with every class under water (−12% / −2.2% / −30%) and asserts the relabel, the suffix, the
   named class still Crypto, the minus sign and the loss tone, while the positive-mix section
   asserts the original label survives with no suffix; `verify-returns-display` 105/105,
-  `verify-returns-display-visual` 148/148, `audit-glass-sheen` on `dashboard.html` 17 measured
+  `verify-returns-display-visual` 148/148, `verify-glass-sheen` on `dashboard.html` 17 measured
   0 below, stylesheet coverage and Tailwind scoping PASS.
 
 - **★★ Market snapshot — block grid with a per-row drawer, Variant B (2026-09-12, row 206).**
@@ -9094,7 +9094,7 @@ row 74.
   `verify-watchlist-visual` **84/84** (contrast as above; Inter only; 3/2/1 columns with
   the drawer beneath the tapped row and above the next at 1440/560/390/375 via real pointer
   taps, and a real 320px iframe); `supabase-verify-watchlist-alerts` 111/111 (an alert fires
-  once by email and clears); `audit-glass-sheen` on `dashboard.html` 16 measured, 0 below;
+  once by email and clears); `verify-glass-sheen` on `dashboard.html` 16 measured, 0 below;
   stylesheet coverage, Tailwind scoping PASS.
 
 - **★★ Asset logos — one circular well wherever an asset is named, a real logo where a
@@ -9299,7 +9299,7 @@ row 74.
   the 38px figure under the sheen 14.6:1; 1440/390/375 + a real 320px iframe with the band
   asserted at 3 then 1 columns); `verify-dashboard-real-data-fixes` 44/44, `verify-returns-
   display` 105/105, `verify-returns-display-visual` 148/148, `verify-dashboard-ui-wiring`
-  27/27, `audit-glass-sheen` dashboard 19 measured 0 below, control patterns 41/41,
+  27/27, `verify-glass-sheen` dashboard 19 measured 0 below, control patterns 41/41,
   stylesheet coverage, Tailwind scoping PASS.
 
 - **★★★ Visitor presence — live presence, a rolling 30-day history, and proactive chat with
@@ -9430,7 +9430,7 @@ row 74.
   edge case for a real client too) AND in both probes, which now refuse to produce a number
   they cannot stand behind.
   **Things a future session needs to know before touching `verify-contrast.mjs` or
-  `audit-glass-sheen.mjs`:**
+  `verify-glass-sheen.mjs`:**
   - **★ A BEFORE/AFTER RECT PAIR AROUND BOTH SCREENSHOTS IS NOT A GUARD.** With a 150ms
     layout toggle (`SHEEN_CHAOS_SHIFT_MS=150`) the element sat at the same position for both
     reads and elsewhere during a screenshot in between — the probe reported **1.09:1 for an
@@ -9970,7 +9970,7 @@ row 74.
   question is the valuable one: a shared classifier reporting a third verdict
   (PASS / FAIL / **UNREACHABLE**, with the host named) would have saved a session's time three
   times over, and this project already does the same thing one layer down — `verify-contrast.mjs`
-  and `audit-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
+  and `verify-glass-sheen.mjs` emit UNMEASURED rather than a confident wrong ratio (row 210).
   `verify-no-monospace` already half-does it: its font non-vacuity control is what CAUGHT this
   outage; it just calls the result FAIL.
 - **★★ Allocation donut on the client dashboard — hand-drawn SVG, and three things measurement
@@ -10064,7 +10064,7 @@ row 74.
     render it bare. Guarded by name in the suite, and the committed fixture was seeding 0.048 —
     a 0.048% pocket the real request path could never produce — which is now 12.
   - **★ THE GATE CARRIES ZERO `.glass` SURFACES, and the sheen assertion is gated on that rather
-    than passing vacuously.** `audit-glass-sheen` measuring "0 elements, 0 below" is only accepted
+    than passing vacuously.** `verify-glass-sheen` measuring "0 elements, 0 below" is only accepted
     when a real DOM `.glass` count agrees it is genuinely 0 — otherwise "nothing measured" would
     read as a pass. 10px secondary text is `#475569`; three greys at `#64748B` measured
     4.34–4.40:1 and were darkened.
@@ -10080,7 +10080,7 @@ row 74.
     `verify-admin-approval-gate-ui-wiring` is rewritten against the gate (108/108) and
     `verify-admin-final-wiring`'s section 1 is retired with a pointer naming where each behaviour
     now lives (37/37). Also repointed: deposit-routing (×2), hys-internal (×2), pm-overview (×2),
-    pm-briefing, control-patterns, label-association, audit-glass-sheen, verify-contrast, and
+    pm-briefing, control-patterns, label-association, verify-glass-sheen, verify-contrast, and
     `label-association-baseline.json` (11 keys pruned). **Two fixture collisions of row 212's class
     fixed, extended from symbols to a CLIENT fixture on a shared reference table**:
     `verify-deposit-routing-ui-wiring` now scopes every address-book read to its own `data-id`,
@@ -10573,7 +10573,7 @@ row 74.
     filled. Two overlays, deliberately — the one-overlay §14 precedent doesn't fit an accessible
     file input that must be enhanced at load.
   - **★ NO `.glass` ANYWHERE, matching admin-products / the approval gate (§13/§14).** Plain white
-    `.doc-*` cards on the page ground; the atmospheric blob is decorative/aria-hidden. audit-glass-sheen
+    `.doc-*` cards on the page ground; the atmospheric blob is decorative/aria-hidden. verify-glass-sheen
     finds genuinely 0 glass and passes. Secondary text is `#475569`.
   - **★ A FILTER PILL MUST NOT CARRY `min-height: 0`.** `.doc-pill { min-height: 0 }` would be
     (0,1,0) and out-specify tap-targets.css's own `button { min-height: 44px }` (0,0,1) below
@@ -10605,13 +10605,13 @@ row 74.
     Mark Reviewed through the row's detail overlay where they now live, `#pending-list` →
     `#doc-table`); verify-upload-accessibility, verify-control-patterns, verify-label-association
     (the static publish form's ids/`.mw-upload`/labels are unchanged, revealed from their hidden
-    modal exactly as those suites already reveal modals); audit-glass-sheen (0 glass now). Plus a
+    modal exactly as those suites already reveal modals); verify-glass-sheen (0 glass now). Plus a
     new `verify-documents-page-ui-wiring` for the behaviours those six don't cover.
   **Verified**: `verify-documents-page-ui-wiring` 33/33 (nav mounts; the unified table merges
   documents + identity docs; health/pill filtering with counts-follow-search; search; sort; the
   honest no-signature-evidence note with no fabricated value; the identity access record's honest
   empty/base state + the one logged Open control; the static publish modal). The six blast-radius
-  suites re-run green through the rebuilt page: verify-cross-role-sync-bugfix 38/38 and verify-documents-storage-integration 46/46 (both now loading the external page script and reaching Download / Mark Reviewed through the row's detail overlay), verify-upload-accessibility 43/43, verify-label-association PASS (the static publish form's controls revealed from their hidden modal and correctly named), verify-control-patterns 41/41 (every control at its tier, the filter pill floored to 44px on mobile), audit-glass-sheen genuinely 0 glass on admin-documents.html (matching the sibling admin pages, 127 measurements across 20 pages, 0 below 4.5:1). The fixture gate passed first; no
+  suites re-run green through the rebuilt page: verify-cross-role-sync-bugfix 38/38 and verify-documents-storage-integration 46/46 (both now loading the external page script and reaching Download / Mark Reviewed through the row's detail overlay), verify-upload-accessibility 43/43, verify-label-association PASS (the static publish form's controls revealed from their hidden modal and correctly named), verify-control-patterns 41/41 (every control at its tier, the filter pill floored to 44px on mobile), verify-glass-sheen genuinely 0 glass on admin-documents.html (matching the sibling admin pages, 127 measurements across 20 pages, 0 below 4.5:1). The fixture gate passed first; no
   Edge Function or migration changed, so no cloud-staging parity/deploy was needed.
 
 - **★★★ Task C — real signing (2026-09-18, register rows 248–249).** "Signed" was a status
@@ -11673,7 +11673,7 @@ is for. Four stages, in order, each building on the last:
   Then, for each hit, decide REPOINT or RETIRE-WITH-A-POINTER, and never silently delete an
   assertion — name where each one now lives, the way `verify-admin-final-wiring`'s section 1 and
   `verify-live-pricing-ui-wiring`'s PART A both do. Also grep `verify-contrast.mjs` and
-  `audit-glass-sheen.mjs`: a contrast PROFILE whose selectors match nothing measures nothing,
+  `verify-glass-sheen.mjs`: a contrast PROFILE whose selectors match nothing measures nothing,
   which those tools correctly report as a FAIL rather than a confident pass (§V, the vacuity
   pattern) — and delete the dead probe constants with the runs that used them, because selectors
   for markup that no longer exists are worse than no selectors at all.

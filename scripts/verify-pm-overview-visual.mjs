@@ -56,13 +56,13 @@ function runContrast(profile, page, label, bootstrap, prepare) {
   out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(page, label, bootstrap) {
-  const out = runChild('audit-fonts.mjs', 'audit-fonts', { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap });
+  const out = runChild('verify-fonts.mjs', 'verify-fonts', { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap });
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check(label + ': no monospace family anywhere — the scheme is Inter (row 192)', !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
 }
 function runSheen(pages, label) {
-  const out = runChild('audit-glass-sheen.mjs', 'audit-glass-sheen', { SHEEN_PAGES: pages, SHEEN_PORT: '9457' });
+  const out = runChild('verify-glass-sheen.mjs', 'verify-glass-sheen', { SHEEN_PAGES: pages, SHEEN_PORT: '9457' });
   const tail = out.trim().split('\n').slice(-1)[0];
   console.log('  ' + label + ' sheen -> ' + tail);
   const m = out.match(/(\d+) measured, (\d+) below/);

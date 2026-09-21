@@ -96,7 +96,7 @@
     "verify-portfolio-overview-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-portfolio-overview-ui-wiring.mjs",
     "verify-portfolio-overview-visual": "node verify-portfolio-overview-visual.mjs",
     "verify-dashboard-redesign": "node verify-dashboard-redesign.mjs",
-    "audit-glass-sheen": "node audit-glass-sheen.mjs",
+    "verify-glass-sheen": "node verify-glass-sheen.mjs",
     "audit-performance": "node audit-performance.mjs",
     "audit-catalog-frame-cost": "node audit-catalog-frame-cost.mjs",
     "verify-catalog-expansion": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-catalog-expansion.mjs",
@@ -137,7 +137,8 @@
     "verify-public-market-snapshot": "node verify-public-market-snapshot.js",
     "supabase-verify-nav-publications": "node verify-supabase-nav-publications.js",
     "build-tailwind": "node build-tailwind.mjs",
-    "audit-render-diff": "node audit-render-diff.mjs"
+    "audit-render-diff": "node audit-render-diff.mjs",
+    "verify-fonts": "node verify-fonts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

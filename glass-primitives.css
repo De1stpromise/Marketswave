@@ -65,7 +65,7 @@
    The ::before sheen is positioned, so it composites OVER a card's in-flow content, and
    its box covers the card's top-left (x to 40% of the width, y to 30% of the height) at up
    to 0.8 alpha. Text placed there is washed out — MEASURED across every .glass on every
-   page (scripts/audit-glass-sheen.mjs): 165 text elements under a sheen, 53 below 4.5:1
+   page (scripts/verify-glass-sheen.mjs): 165 text elements under a sheen, 53 below 4.5:1
    with it composited that clear comfortably without it — a queue page's "Pending" heading
    2.21:1 vs 17.05:1, the dashboard's "Market snapshot" 2.97:1 vs 11.57:1, the portfolio
    value figure 4.02:1 vs 11.48:1. This is an OPT-IN containment fix, applied per card, the

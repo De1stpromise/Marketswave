@@ -89,12 +89,12 @@ function runContrast(profile, label, bootstrap, prepare) {
 }
 
 function runFonts(label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     encoding: 'utf8',
     env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/dashboard.html', AUDIT_BOOTSTRAP_JS: bootstrap })
   });
-  forwardChildTeardown(res, 'audit-fonts');
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back (every requested family genuinely loads)', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

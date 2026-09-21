@@ -241,7 +241,7 @@ async function main() {
     // ===================================================================================
     console.log('\n=== FONTS — the touched page, by real advance width ===\n');
     // ===================================================================================
-    const fontRes = spawnSync(process.execPath, ['audit-fonts.mjs'], {
+    const fontRes = spawnSync(process.execPath, ['verify-fonts.mjs'], {
       cwd: fileURLToPath(new URL('.', import.meta.url)),
       encoding: 'utf8',
       env: Object.assign({}, process.env, {
@@ -250,7 +250,7 @@ async function main() {
         AUDIT_PORT: String(PORT + 20)
       })
     });
-    forwardChildTeardown(fontRes, 'audit-fonts');
+    forwardChildTeardown(fontRes, 'verify-fonts');
     const fontOut = fontRes.stdout || '';
     console.log(fontOut.trim().split('\n').slice(-6).join('\n'));
     check('no family on the touched page falls back', !/FALLBACK/.test(fontOut), fontOut.slice(-400));

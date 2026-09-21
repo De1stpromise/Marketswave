@@ -6,7 +6,7 @@
 // real search; the Publish valuation modal with a populated impact table in both delta
 // tones), a font audit (Inter only, tabular-nums for figures — no second family, row 192),
 // and 1440/390/375 + a real 320px iframe. Delegates the sampling to verify-contrast.mjs /
-// audit-fonts.mjs via their CONTRAST_PROFILE / _BOOTSTRAP_JS / _PREPARE_JS hooks.
+// verify-fonts.mjs via their CONTRAST_PROFILE / _BOOTSTRAP_JS / _PREPARE_JS hooks.
 //
 // Requires: the local stack, `supabase functions serve`, and a static server on :8765.
 import { execSync, spawnSync, spawn } from 'node:child_process';
@@ -53,8 +53,8 @@ function runContrast(profile, page, label, bootstrap, prepare) {
   out.split('\n').filter((l) => /FAIL\s+\d|UNMEASURED\s/.test(l)).forEach((l) => console.log('      ' + l.trim()));
 }
 function runFonts(page, label, bootstrap) {
-  const res = spawnSync(process.execPath, ['audit-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
-  forwardChildTeardown(res, 'audit-fonts');
+  const res = spawnSync(process.execPath, ['verify-fonts.mjs'], { cwd: fileURLToPath(new URL('.', import.meta.url)), encoding: 'utf8', env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/' + page, AUDIT_BOOTSTRAP_JS: bootstrap }) });
+  forwardChildTeardown(res, 'verify-fonts');
   const out = (res.stdout || '') + (res.stderr || '');
   console.log('  ' + label + ' fonts -> ' + out.trim().split('\n').slice(-1)[0]);
   check(label + ': no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));

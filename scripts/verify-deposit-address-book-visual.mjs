@@ -70,7 +70,7 @@ function runContrast(profile, label, bootstrap, prepare) {
 }
 
 function runFonts(bootstrap) {
-  const out = runChild('audit-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: bootstrap }, 'audit-fonts');
+  const out = runChild('verify-fonts.mjs', { AUDIT_URL: URL_, AUDIT_BOOTSTRAP_JS: bootstrap }, 'verify-fonts');
   check('no font falls back', !/FALLBACK/.test(out), out.split('\n').filter((l) => /FALLBACK/.test(l)).join(' | '));
   check('no monospace family anywhere — the scheme is Inter (row 192)',
     !/JetBrains|monospace/i.test(out), out.split('\n').filter((l) => /JetBrains|monospace/i.test(l)).join(' | '));
@@ -303,7 +303,7 @@ async function main() {
       nBook >= 30, nBook + ' measurements');
 
     console.log('\n--- Sheen audit ---\n');
-    const sheen = runChild('audit-glass-sheen.mjs', { SHEEN_PAGES: 'admin-deposit-addresses.html', SHEEN_BOOTSTRAP_JS: bootstrap }, 'audit-glass-sheen');
+    const sheen = runChild('verify-glass-sheen.mjs', { SHEEN_PAGES: 'admin-deposit-addresses.html', SHEEN_BOOTSTRAP_JS: bootstrap }, 'verify-glass-sheen');
     check('the sheen audit ran against this page and passed',
       /SHEEN SWEEP: PASS/.test(sheen), sheen.slice(-400));
 

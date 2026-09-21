@@ -35,7 +35,11 @@
 .pr-pill {
   height: 32px; padding: 0 11px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff;
   color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; min-height: 0; min-width: 0;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  /* NO `min-height: 0` / `min-width: 0` here (row 261): a (0,1,0) class rule out-specifies tap-targets.css's
+     `button { min-height: 44px }` (0,0,1) below lg and the pill sat at 32px on every phone — invisible to the
+     control sweep until fix 1/2 made this page render the pills before the sweep looked (row 253's async blind
+     spot). Desktop keeps `height: 32px`; the floor lifts it to 44px only below 1024px, like every other pill. */
 }
 .pr-pill[aria-pressed="true"] { background: #1E293B; border-color: #1E293B; color: #fff; }
 .pr-pill .n { font-size: 9.5px; padding: 1px 5px; border-radius: 4px; background: rgba(15,23,42,.08); font-variant-numeric: tabular-nums; }
