@@ -1,0 +1,26 @@
+# Jekyll configuration for GitHub Pages — register row 256 (2026-09-21).
+#
+# The whole repository is the Pages source, and without this file Jekyll copies every
+# committed file to the live site: the verification suites, every migration, every Edge
+# Function's source, config.toml and the project docs all answered 200 on marketswave.net.
+# Nothing in this list is a web asset. Everything the site actually serves — the .html
+# pages, the stylesheets, the browser .js and assets/ — is untouched by it.
+#
+# Jekyll already hides dotfiles and any path beginning with "_" (which is why _shared/
+# never leaked); the entries below cover the rest. A 404 on any of these paths is the
+# intended result — the deployed-bytes check only ever covered real web assets.
+
+exclude:
+  - scripts
+  - supabase
+  - functions
+  - "*.md"
+  - firebase.json
+  - firebase.staging.json
+  - firestore.rules
+  - firestore.staging.rules
+  - firestore.indexes.json
+  - .firebaserc
+  - .script-bounds.txt
+  - package.json
+  - package-lock.json
