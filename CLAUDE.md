@@ -11150,6 +11150,35 @@ this: `formatUSD()` is duplicated near-identically across ~12 files project-wide
 out of scope for this task (which named `formatDateDisplay()`/`formatFieldDisplay()`
 specifically), but a real, much larger candidate for a future dedicated dedup pass.
 
+## App-feel programme (brief recorded 2026-09-21)
+
+The goal is for the LOGGED-IN platform — the client dashboard family and the PM tool — to
+feel like an application rather than a website: no full-page reload between pages, a sidebar
+that does not repaint, transitions that orient rather than flash, and the responsiveness of
+something installed. The public site is measured as a baseline but is not what the programme
+is for. Four stages, in order, each building on the last:
+
+1. **Performance audit** — measure first, so every later stage has a baseline to diff
+   against. Report-only, live site against real cloud staging, `PERFORMANCE_AUDIT.md`
+   beside the mobile and button audits, findings ranked, nothing fixed. Seven metrics per
+   page: transfer weight, request count, time to first meaningful render, time to real
+   data, the longest single Edge Function call on load, **the cost of a navigation today**
+   (click a sidebar link → next page usable: what is discarded and redone — the sidebar
+   repaint, shared stylesheets and scripts, the session check, data the previous page
+   already had; this is the number stage 2 is judged against), and **the glass cost**
+   (frame cost with `backdrop-filter` on and off on the same page — whether the catalog's
+   measured 2× frame budget at 247 cards is glass specifically or card count generally; if
+   glass is the cost, that changes the design vocabulary, not just the code). Baseline, not
+   budget — no targets until the numbers exist. Real staging carries real cold-start and
+   CDN latency: confirm the edge runtime is warm before measuring, or say which figures
+   include a cold start.
+2. **Soft navigation** — a persistent shell; the sidebar and shared data survive page
+   changes. Clean URLs were investigated and closed (`/dashboard` already resolves on this
+   host, row 256); what is left of them — the site emitting extensionless links, canonical
+   tags, a `replaceState` strip — belongs here, because the router owns URL presentation.
+3. **Orienting motion** — transitions that show where you have gone, not decoration.
+4. **Keyboard, toasts, offline, installable.**
+
 ## Working conventions
 
 - Minimal diffs. Change only what the current task requires — no drive-by refactors.
