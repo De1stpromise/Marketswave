@@ -130,7 +130,12 @@
     "verify-document-signing-visual": "node verify-document-signing-visual.mjs",
     "vendor-supabase-js": "node vendor-supabase-js.mjs",
     "verify-login-redesign": "node verify-login-redesign.mjs",
-    "audit-performance-diff": "node audit-performance-diff.mjs"
+    "audit-performance-diff": "node audit-performance-diff.mjs",
+    "verify-footer-disclosures": "node verify-footer-disclosures.mjs",
+    "verify-hero-headline": "node verify-hero-headline.mjs",
+    "verify-hiw-artifact": "node verify-hiw-artifact.mjs",
+    "verify-public-market-snapshot": "node verify-public-market-snapshot.js",
+    "supabase-verify-nav-publications": "node verify-supabase-nav-publications.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

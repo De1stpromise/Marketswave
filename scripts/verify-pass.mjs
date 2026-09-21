@@ -89,6 +89,15 @@ const verdict = (r) => r.code === 0 ? 'PASS' : (r.code === 127 ? 'exit 127 — r
 
 (async () => {
   console.log('VERIFICATION PASS — ' + (args.includes('--full') ? 'full, ' : 'targeted, ') + wanted.length + ' suite' + (wanted.length === 1 ? '' : 's') + '; logs in ' + path.relative(process.cwd(), logDir) + '\n');
+  // Registration gate (2026-09-21, row 259): a suite that exists on disk but has no npm script
+  // never runs in a pass, and a suite that never runs looks identical to one that passes — the
+  // vacuity pattern (register row V) in its fifth shape. verify-login-redesign sat unregistered
+  // for twelve days; four more were found the moment this line was written.
+  const unregistered = fs.readdirSync(__dirname).filter((f) => /^verify-.*\.(m?js)$/.test(f) && !Object.values(pkg.scripts).join(' ').includes(f));
+  if (unregistered.length) {
+    console.log('VERIFICATION PASS: FAIL - these verify-* files have no npm script in scripts/package.json, so no pass could ever run them: ' + unregistered.join(', ') + '. Register each one, then start the pass again.');
+    process.exit(1);
+  }
   console.log('==== gate: ' + GATE + ' (always first, cannot be skipped) ====');
   const gate = await runScript(GATE);
   if (gate.code !== 0) {
