@@ -5,7 +5,8 @@
 //
 //   PART 1  THE THREE TOTALS ARE THREE DISTINCT, CORRECT VALUES — asserted as such, never
 //           reconciled — and related by the one identity that makes them defensible:
-//             Total account value = deployed + unallocated + pockets(+accrued) + realised
+//             Total account value = deployed + unallocated + pockets(+accrued)   [row 264: a sale's
+//             proceeds are inside `unallocated`, so the realised tally is reported, never summed]
 //                                 = Portfolio value (get-total-portfolio-value) + pockets
 //             Total deployed      = holdings only (get-returns-summary.currentValue)
 //           Each is recomputed here from the tables/functions, not read off the page.
@@ -122,14 +123,15 @@ async function main() {
     const pockets = (ov.maturities || []).filter((p) => p.status !== 'withdrawn');
     const pocketsValue = r2(pockets.reduce((s, p) => s + p.amount + (p.interestAccrued || 0), 0));
     const deployed = ret.currentValue, unalloc = acct.unallocatedCapital, realised = acct.assetReturns;
-    const accountValue = r2(deployed + unalloc + pocketsValue + realised);
+    const accountValue = r2(deployed + unalloc + pocketsValue);   // row 264: the tally is not a part
     const portfolioValue = tpvFn.totalPortfolioValue;
     const deposited = await depositedFromLedger(gary.id);
 
     check('GUARD: Gary genuinely has holdings, pockets and realised gains (the case that exercises everything)', ret.positions.length >= 2 && pockets.length >= 1 && realised !== 0, JSON.stringify({ p: ret.positions.length, pk: pockets.length, realised }));
     check('★ THREE DISTINCT TOTALS: account value, portfolio value and total deployed are three different numbers', new Set([accountValue, portfolioValue, deployed]).size === 3, [accountValue, portfolioValue, deployed].join(' / '));
     check('★ the identity holds to the cent: Total account value = Portfolio value + savings pockets', r2(portfolioValue + pocketsValue) === accountValue, r2(portfolioValue + pocketsValue) + ' vs ' + accountValue);
-    check('★ Portfolio value = unallocated + allocated + realised (get-total-portfolio-value agrees)', r2(unalloc + acct.allocatedCapital + realised) === portfolioValue, portfolioValue);
+    check('★ Portfolio value = unallocated + allocated, the tally excluded (row 264; get-total-portfolio-value agrees)', r2(unalloc + acct.allocatedCapital) === portfolioValue, portfolioValue);
+    check('★ ...and the realised tally is genuinely NOT in it — adding it would overstate the portfolio by ' + realised, realised === 0 || r2(unalloc + acct.allocatedCapital + realised) !== portfolioValue, { portfolioValue, realised });
     check('★ Total deployed = holdings only = Σ positions current value', r2(ret.positions.reduce((s, p) => s + p.currentValue, 0)) === deployed, deployed);
     check('★ allocated_capital sums the SAME per-position rounded values (the rounding-order finding, row 250: it used to round the raw sum and disagreed by a cent)', deployed === acct.allocatedCapital, deployed + ' vs ' + acct.allocatedCapital);
     {
@@ -149,14 +151,15 @@ async function main() {
     check('  ...and it differs from capitalIn.current by the pocket transfers (the plausible wrong number this card must not use)', deposited !== ov.history.capitalIn.current, deposited + ' vs ' + ov.history.capitalIn.current);
     const growth = r2(accountValue - deposited);
     check('growth since joining = account value − deposited, signed', since.indexOf((growth < 0 ? '−' : '+') + usd0(Math.abs(growth)).replace('$', '$')) !== -1 || since.indexOf(usd2(Math.abs(growth))) !== -1, since);
-    check('the card says realised gains are included, held separately and not redeployable, and names the identity', /Includes realised gains/.test(since) && /not redeployable/.test(since) && /portfolio value plus your savings pockets/.test(since));
+    check('★ the card describes what the account holds — including what sales have made, inside unallocated — and names the identity (row 264)',
+      /available to invest/i.test(since) && /made from sales/i.test(since) && /portfolio value plus your savings pockets/.test(since) && !/not redeployable/i.test(since), since);
     const parts = [...D.querySelectorAll('#ap-total-parts .ap-tp')].map((p) => ({ label: txt(p.querySelector('b')), sub: txt(p.querySelector('.ap-tpb span')), value: txt(p.querySelector('.ap-tpv')) }));
-    check('four parts in order: deployed, unallocated, pockets, realised', parts.map((p) => p.label).join('|') === 'Deployed in assets|Unallocated|Savings pockets|Realised gains', parts.map((p) => p.label).join('|'));
-    check('part values are the source figures', parts[0].value === usd2(deployed) && parts[1].value === usd2(unalloc) && parts[2].value === usd2(pocketsValue) && parts[3].value === usd2(realised), parts.map((p) => p.value).join(' '));
-    check('the parts sum to the total (the bar is a partition)', r2(deployed + unalloc + pocketsValue + realised) === accountValue);
+    check('★ THREE parts in order: deployed, unallocated, pockets — realised is no longer a part of the total (row 264)', parts.map((p) => p.label).join('|') === 'Deployed in assets|Unallocated|Savings pockets', parts.map((p) => p.label).join('|'));
+    check('part values are the source figures', parts[0].value === usd2(deployed) && parts[1].value === usd2(unalloc) && parts[2].value === usd2(pocketsValue), parts.map((p) => p.value).join('|'));
+    check('the parts sum to the total (the bar is a partition)', r2(deployed + unalloc + pocketsValue) === accountValue);
     check('the deployed part names the real holding count', parts[0].sub.indexOf(ret.positions.length + ' holdings') === 0, parts[0].sub);
     check('the pockets part names the real pocket count and says interest accrued is included', parts[2].sub.indexOf(pockets.length + ' pockets') === 0 && /including interest accrued/.test(parts[2].sub), parts[2].sub);
-    check('the realised part is labelled "Held separately, not redeployable"', parts[3].sub === 'Held separately, not redeployable', parts[3].sub);
+    // The realised part is GONE from the total's parts (row 264) — asserted above by the three-part check.
     const barW = [...D.querySelectorAll('#ap-total-bar i')].map((i) => parseFloat(i.style.width));
     check('the proportional bar sums to 100%', Math.abs(barW.reduce((a, b) => a + b, 0) - 100) < 0.1, barW.join('+'));
 
@@ -187,7 +190,9 @@ async function main() {
     const udW = [...D.querySelectorAll('#ap-ret-updown i')].map((i) => parseFloat(i.style.width));
     check('the up/down bar is proportional to the counts', udW.length === 2 && Math.abs(udW[0] - (up / ret.positions.length) * 100) < 0.1 && Math.abs(udW[1] - (down / ret.positions.length) * 100) < 0.1, udW.join('/'));
     check('Realised card: the closed total, "Banked from N closed positions", with a See closed positions action', txt(D.getElementById('perf-realised-amount')) === '+' + usd0(ret.closedTotals.realised) && txt(D.getElementById('perf-realised-sub')).indexOf('Banked from ' + ret.closedTotals.count + ' closed positions') === 0 && D.getElementById('ap-ret-closed-link').getAttribute('href') === '#closed-positions' && !!D.getElementById('closed-positions'), txt(D.getElementById('perf-realised-sub')));
-    check('the realised card equals account_state.asset_returns (the same money the total card includes)', ret.closedTotals.realised === realised);
+    // Row 264: the tally is REPORTED here, not included in the account total — a sale's proceeds
+    // are already inside `unallocated`, so adding it would double-count.
+    check('the realised card equals account_state.asset_returns (the lifetime tally of what sales have made)', ret.closedTotals.realised === realised);
 
     // By asset class
     const rows = [...D.querySelectorAll('#ap-by-class-region tbody tr')];
@@ -235,7 +240,7 @@ async function main() {
     check('total account value is $0.00', txt(ED.getElementById('ap-total-amount')) === '$0.00', txt(ED.getElementById('ap-total-amount')));
     check('"Nothing deposited yet" replaces the growth line', /Nothing deposited yet/.test(txt(ED.getElementById('ap-total-since'))));
     check('the bar is empty (no fabricated partition of zero)', ED.querySelectorAll('#ap-total-bar i').length === 0);
-    check('four parts still listed, all $0.00', [...ED.querySelectorAll('#ap-total-parts .ap-tpv')].map(txt).join('|') === '$0.00|$0.00|$0.00|$0.00');
+    check('three parts still listed, all $0.00 (row 264: realised is no longer a part)', [...ED.querySelectorAll('#ap-total-parts .ap-tpv')].map(txt).join('|') === '$0.00|$0.00|$0.00');
     check('Deployed card: $0, "0 holdings across 0 asset classes", legend says "Nothing deployed yet"', txt(ED.getElementById('ap-cap-deployed-amount')) === '$0' && /0 holdings across 0 asset classes/.test(txt(ED.getElementById('ap-cap-deployed-sub'))) && /Nothing deployed yet/.test(txt(ED.getElementById('ap-cap-deployed-legend'))));
     check('Pockets card: "No savings pockets open"', /No savings pockets open/.test(txt(ED.getElementById('ap-cap-pockets-sub'))));
     check('Unrealised card: "On 0 open holdings", legend "No open holdings"', /On 0 open holdings/.test(txt(ED.getElementById('perf-unrealised-sub'))) && /No open holdings/.test(txt(ED.getElementById('ap-ret-updown-legend'))));

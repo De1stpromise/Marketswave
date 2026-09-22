@@ -84,6 +84,26 @@ Deno.serve(async (req) => {
     const unitPrice = settled.unit_price;
     const units = dollarAmount / unitPrice;
 
+    // ★ THIS FUNCTION'S OWN BALANCE CHECK (added 2026-09-22, row 264), read BEFORE any write.
+    // request-allocation and approve-allocation both validate against current unallocated_capital,
+    // and this used to trust them — one layer where there should be two. A direct admin call that
+    // bypassed both gates would create the holding AND drive the balance negative, with no error.
+    // Defence in depth, the same reasoning as the documents trigger behind the RLS policy (Task C):
+    // the caller's check is not the boundary. Placed here so a refusal writes nothing at all.
+    const { data: balanceState, error: balanceErr } = await admin
+      .from('account_state')
+      .select('unallocated_capital')
+      .eq('client_id', clientId)
+      .maybeSingle();
+    if (balanceErr) return jsonResponse({ error: balanceErr.message }, 500);
+    const availableCapital = balanceState ? Number(balanceState.unallocated_capital) : 0;
+    if (dollarAmount > availableCapital + 1e-9) {
+      return jsonResponse({
+        error: 'Allocation amount exceeds current unallocated capital: ' + availableCapital +
+          ' available, ' + dollarAmount + ' requested.'
+      }, 409);
+    }
+
     const { data: existingHolding } = await admin
       .from('holdings')
       .select('*')

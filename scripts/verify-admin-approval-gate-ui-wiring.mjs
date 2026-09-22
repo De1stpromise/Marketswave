@@ -459,10 +459,10 @@ async function main() {
       const { data: tx } = await admin.from('transactions').select('type, total_value, realized_return').eq('id', row.transaction_id).single();
       check('★ sell: the ledger row is a real SELL carrying a realised return', tx.type === 'SELL' && tx.realized_return !== null, JSON.stringify(tx));
       const { data: st } = await admin.from('account_state').select('unallocated_capital, asset_returns').eq('client_id', c.id).single();
-      // The engine's own locked split: the COST-BASIS portion returns to spendable capital,
-      // the gain goes to asset_returns and is deliberately not spendable.
-      check('★ sell: the split is the engine\'s own — cost basis to unallocated, gain to asset_returns',
-        Math.abs(Number(st.unallocated_capital) - (Number(tx.total_value) - Number(tx.realized_return))) < 0.02
+      // INVERTED 2026-09-22 (row 264): a sale credits its FULL proceeds to spendable capital, and
+      // asset_returns is the lifetime tally of what sales have made — reported, never spent.
+      check('★ sell: the FULL proceeds reach spendable capital, and asset_returns tallies the gain (row 264)',
+        Math.abs(Number(st.unallocated_capital) - Number(tx.total_value)) < 0.02
         && Math.abs(Number(st.asset_returns) - Number(tx.realized_return)) < 0.02,
         'unalloc $' + st.unallocated_capital + ', returns $' + st.asset_returns + ', sale $' + tx.total_value + ', gain $' + tx.realized_return);
       const { data: hs } = await admin.from('holdings').select('id').eq('client_id', c.id).eq('product_id', bySym.SPY.id);

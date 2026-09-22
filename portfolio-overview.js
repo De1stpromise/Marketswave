@@ -138,7 +138,9 @@
     }
     // The band's Portfolio cell — the chart's own measure — and the Savings cell.
     if (els.portfolioEl) els.portfolioEl.textContent = formatUSD(h ? h.currentValue : a.total - a.pockets, 2);
-    if (els.portfolioSubEl) els.portfolioSubEl.textContent = 'Invested, uninvested and realised';
+    // Row 264: a sale's proceeds land in unallocated capital, so uninvested already includes
+    // anything made from sales -- there is no separate realised part of this total any more.
+    if (els.portfolioSubEl) els.portfolioSubEl.textContent = 'Invested and uninvested';
     if (els.pocketsEl) els.pocketsEl.textContent = formatUSD(a.pockets, 2);
   }
   function renderPocketsSub(list, subEl) {

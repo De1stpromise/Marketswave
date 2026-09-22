@@ -2,7 +2,8 @@
 //
 // Real Edge Function port of engine-core.js's getTotalPortfolioValue(clientId?) — "the ONLY
 // place Total Portfolio Value should ever be computed," per that function's own comment. This
-// port honors that rule server-side too: unallocatedCapital + allocatedCapital + assetReturns,
+// port honors that rule server-side too: unallocatedCapital + allocatedCapital (asset_returns is a
+// reported tally since row 264, not a balance, and is not summed),
 // nothing else, computed here and nowhere else in this Edge Function surface. Settles
 // products first — see get-account-state/index.ts's own header for why.
 //

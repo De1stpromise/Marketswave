@@ -67,8 +67,9 @@ export interface ValueHistory {
 // ---------------------------------------------------------------------------------------
 // ★ CAPITAL IN (2026-09-13) — the chart's dashed reference line, derived from the ledger.
 //
-// The portfolio line is computeTotalPortfolioValue(): unallocated + allocated + asset_returns.
-// It does NOT include savings pockets. "Capital in" is therefore the NET EXTERNAL CAPITAL
+// The portfolio line is computeTotalPortfolioValue(): unallocated + allocated (asset_returns is
+// a reported tally since row 264, not a balance, and is not summed). It does NOT include savings
+// pockets. "Capital in" is therefore the NET EXTERNAL CAPITAL
 // THAT HAS ENTERED THE PORTFOLIO THAT LINE MEASURES, and only three ledger types move it:
 //
 //   DEPOSIT          +total_value   external money credited to unallocated capital
@@ -84,11 +85,17 @@ export interface ValueHistory {
 //                                   moves TPV by exactly nothing)
 //   BUY / SELL                       EXCLUDED: internal reallocations, TPV-conserving
 //
-// With that definition the gap is EXACTLY the return, by the engine's own accounting:
-//   unallocated = ΣDEPOSIT - ΣWITHDRAWAL - ΣHYS_TRANSFER_IN - Σbuy cost + Σsold cost portion
-//   allocated   = held cost basis + unrealised = (Σbuy cost - Σsold cost portion) + unrealised
-//   TPV - capitalIn = unrealised + asset_returns = get-returns-summary's `total`
-// The verification asserts that identity against the real functions, not just this comment.
+// With that definition the gap is EXACTLY the return, by the engine's own accounting. RE-DERIVED
+// 2026-09-22 (row 264), because a sale now credits its FULL proceeds to unallocated_capital — the
+// term that used to read "+ Σsold cost portion" is "+ Σsale value", and asset_returns is no longer
+// part of TPV:
+//   unallocated = ΣDEPOSIT - ΣWITHDRAWAL - ΣHYS_TRANSFER_IN - Σbuy cost + Σsale value
+//   allocated   = held cost basis + unrealised = (Σbuy cost - Σsold cost basis) + unrealised
+//   TPV - capitalIn = unrealised + (Σsale value - Σsold cost basis)
+//                   = unrealised + Σrealized_return = get-returns-summary's `total`
+// The identity is unchanged in VALUE — Σsale value - Σsold cost basis IS the realised total, which
+// asset_returns tallies — but it now reaches it through unallocated_capital rather than through a
+// separate column. The verification asserts it against the real functions, not just this comment.
 //
 // AS-OF TIME. An anchor's capitalIn is the sum of rows created BEFORE the anchor was RECORDED
 // (portfolio_value_snapshots.created_at), not before its label date: the lazy writer records
@@ -362,7 +369,9 @@ export async function pendingRequests(admin: any, clientId: string): Promise<Pen
 // ★ Account summary (2026-09-19, row 251) — the dashboard's headline, in the SAME four parts
 // asset-performance.html ships (row 250), so the two pages read the same figure to the cent:
 //     total = deployed + unallocated + pockets (principal + accrued) + realised
-//           = portfolio value (unallocated + allocated + asset_returns) + savings pockets.
+//           = portfolio value (unallocated + allocated) + savings pockets. Realised gains are
+//           inside `unallocated` from the moment a sale settles (row 264); asset_returns is the
+//           lifetime tally of what sales have made and is reported, never summed.
 // `growth` is against accountDeposited — external flows only (row 250's finding: capitalIn
 // subtracts HYS_TRANSFER_IN because it is a PORTFOLIO reference line; an account-scoped
 // figure wants deposits and withdrawals across both pools).
@@ -400,10 +409,16 @@ export async function accountSummary(admin: any, clientId: string, maturities: P
   });
   const deployed = engineRound2(rows.reduce((s: number, r: any) => s + r.currentValue, 0));
   const unallocated = engineRound2(state ? Number(state.unallocated_capital || 0) : 0);
+  // `realised` is the lifetime TALLY of what has been made from sales (row 264) — reported, never
+  // added to a total: a sale's proceeds are already inside `unallocated` from the moment it
+  // settles, so adding the tally here would double-count every gain. The row-250 identity is now
+  //   Total account value = deployed + unallocated + savings pockets
+  //                       = Portfolio value (dashboard) + Savings pockets
+  // and it stays numerically identical to what it reported before the change.
   const realised = engineRound2(state ? Number(state.asset_returns || 0) : 0);
   const live = maturities.filter((m) => m.status !== 'withdrawn');
   const pockets = engineRound2(live.reduce((s, m) => s + m.amount + (m.interestAccrued || 0), 0));
-  const total = engineRound2(deployed + unallocated + pockets + realised);
+  const total = engineRound2(deployed + unallocated + pockets);
   const staleAfter = await staleAfterMinutes(admin);
   return {
     total, deployed, unallocated, pockets, pocketsCount: live.length, realised,

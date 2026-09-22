@@ -138,7 +138,9 @@
     "supabase-verify-nav-publications": "node verify-supabase-nav-publications.js",
     "build-tailwind": "node build-tailwind.mjs",
     "audit-render-diff": "node audit-render-diff.mjs",
-    "verify-fonts": "node verify-fonts.mjs"
+    "verify-fonts": "node verify-fonts.mjs",
+    "verify-realised-gains-spendable": "node verify-realised-gains-spendable.mjs",
+    "check-realised-migration-safety": "node check-realised-migration-safety.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

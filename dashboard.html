@@ -80,8 +80,12 @@
              before it). Leads the page. The headline is TOTAL ACCOUNT VALUE — the same figure
              asset-performance.html leads with (row 250), in the same FOUR parts, so a client
              never meets two totals:
-                 total = deployed + unallocated + savings pockets (principal + accrued) + realised
+                 total = deployed + unallocated + savings pockets (principal + accrued)
                        = Portfolio value (the chart's measure) + Savings pockets
+                 Realised gains are INSIDE unallocated from the moment a sale settles (row 264):
+                 a sale credits its full proceeds, and account_state.asset_returns is the lifetime
+                 tally of what sales have made — reported on the return card, never added to a
+                 total, or every realised gain would be counted twice.
              Every figure on this card is a server figure from get-portfolio-overview's `account`
              (row 251) and get-returns-summary; the page only formats.
 
@@ -125,7 +129,7 @@
             <div class="po-cell" id="po-portfolio-cell">
               <p class="ret-k"><i class="po-kd" style="background:#1B3A4B" aria-hidden="true"></i>Portfolio</p>
               <p class="ret-v" id="po-portfolio-value"><span class="inline-block h-7 w-28 bg-slate-200 rounded animate-pulse"></span></p>
-              <p class="ret-sub" id="po-portfolio-sub">Invested, uninvested and realised</p>
+              <p class="ret-sub" id="po-portfolio-sub">Invested and uninvested</p>
             </div>
 
             <div class="po-cell" id="po-pockets-cell">

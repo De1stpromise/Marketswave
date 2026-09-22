@@ -181,7 +181,9 @@ export async function firmToday(admin: Admin, clients: any[], products: ProductR
   const tpvByClient: Record<string, number> = {}; const unallocatedByClient: Record<string, number> = {};
   let aum = 0, unallocated = 0, allocated = 0;
   for (const s of states) {
-    const tpv = Number(s.unallocated_capital) + Number(s.allocated_capital) + Number(s.asset_returns);
+    // asset_returns excluded (row 264): a sale's full proceeds are in unallocated_capital, so the
+    // tally would double-count. Same formula as computeTotalPortfolioValue().
+    const tpv = Number(s.unallocated_capital) + Number(s.allocated_capital);
     tpvByClient[s.client_id] = round2(tpv); unallocatedByClient[s.client_id] = Number(s.unallocated_capital);
     aum += tpv; unallocated += Number(s.unallocated_capital); allocated += Number(s.allocated_capital);
   }

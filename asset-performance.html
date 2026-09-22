@@ -66,15 +66,16 @@
              replace the old three-card summary row: Total account value, Capital, Returns.
 
              THREE TOTALS, EACH CORRECT FOR WHAT IT MEASURES — and they relate by ONE identity:
-               Total account value  = deployed + unallocated + savings pockets + realised gains
+               Total account value  = deployed + unallocated + savings pockets
                                     = Portfolio value (dashboard) + Savings pockets
-               Portfolio value      = unallocated + allocated + asset_returns   (NO pockets)
+               Portfolio value      = unallocated + allocated                   (NO pockets)
                Total deployed       = holdings only                              (the class table)
-             Realised gains ARE included in the account total: they are real money the account
-             holds (banked by the engine on a sale), merely not redeployable — the card says so
-             on its own line. The specification first excluded them, which made "total account
-             value" LOWER than the dashboard's portfolio value and understated "since you joined"
-             by the realised amount; corrected before building (row 250).
+             REALISED GAINS ARE SPENDABLE CAPITAL (row 264, 2026-09-22). A sale credits its FULL
+             proceeds to unallocated capital, so a realised gain is already inside "Unallocated"
+             and is not a separate part of the total. `realised` is the lifetime TALLY of what
+             sales have made — reported in Returns below, never added to a total, or it would
+             double-count. Before row 264 the proceeds were split and the gain went to a pot
+             nothing could spend or withdraw; the total is numerically unchanged by the fix.
              "Deposited" is the ACCOUNT-scoped figure (external flows only: DEPOSIT + HYS_DEPOSIT
              − WITHDRAWAL − HYS_WITHDRAWAL), from get-portfolio-overview's accountDeposited —
              NOT capitalIn.current, which deliberately subtracts pocket transfers for the
@@ -430,7 +431,9 @@
         var realised = account.assetReturns || 0;
         var pockets = pocketsValue();
         var pk = livePockets();
-        var total = deployed + unalloc + pockets + realised;
+        // Row 264: a sale credits its FULL proceeds to unallocated capital, so realised gains are
+        // already inside `unalloc` — adding the tally here would count every gain twice.
+        var total = deployed + unalloc + pockets;
         var held = (r.positions || []).length;
 
         if (apTotalEl) apTotalEl.textContent = formatUSD(total, 2);
@@ -442,14 +445,16 @@
           apSinceEl.innerHTML = (deposited > 0
             ? '<span class="' + (growth < 0 ? 'is-loss' : 'is-gain') + '">' + signedUSD(growth) + ' since you joined</span> · <b>' + formatUSD(deposited, 2) + '</b> deposited' + (yrs !== null ? ' over ' + (yrs < 1 ? 'less than a year' : yrs + (yrs === 1 ? ' year' : ' years')) : '')
             : 'Nothing deposited yet') +
-            '<br><span class="ap-muted">Includes realised gains, which are held separately and not redeployable — see Returns below. Equals the dashboard\'s portfolio value plus your savings pockets.</span>';
+            '<br><span class="ap-muted">Everything your account holds: what is deployed, what is available to invest — including anything you have made from sales — and your savings pockets. Equals the dashboard\'s portfolio value plus your savings pockets.</span>';
         }
         var parts = [
           { label: 'Deployed in assets', sub: held + (held === 1 ? ' holding' : ' holdings') + ' at current value', value: deployed, fill: '#4B2E83' },
           { label: 'Unallocated', sub: 'Available to invest', value: unalloc, fill: AP_FILL_UNALLOCATED },
-          { label: 'Savings pockets', sub: pk.length + (pk.length === 1 ? ' pocket' : ' pockets') + (pk.length ? ', including interest accrued' : ''), value: pockets, fill: AP_FILL_POCKETS },
-          { label: 'Realised gains', sub: 'Held separately, not redeployable', value: realised, fill: AP_FILL_REALISED }
+          { label: 'Savings pockets', sub: pk.length + (pk.length === 1 ? ' pocket' : ' pockets') + (pk.length ? ', including interest accrued' : ''), value: pockets, fill: AP_FILL_POCKETS }
         ];
+        // Realised gains are NOT a part here any more (row 264): a sale's proceeds land in
+        // Unallocated, so the money is already counted in that part. Adding it would double it.
+        // The lifetime tally is reported on the Returns card below.
         if (apBarEl) apBarEl.innerHTML = total > 0 ? parts.filter(function (x) { return x.value > 0; }).map(function (x) {
           return '<i style="width:' + pct(x.value, total).toFixed(2) + '%;background:' + x.fill + '" title="' + x.label + '"></i>';
         }).join('') : '';
@@ -591,7 +596,7 @@
           realisedSubEl.innerHTML = closed.count === 0
             ? 'No positions sold yet'
             : 'Banked from <b style="color:var(--ret-strong);font-weight:600">' + closed.count +
-              '</b> closed position' + (closed.count === 1 ? '' : 's') + ' · already in your account and no longer exposed to the market.';
+              '</b> closed position' + (closed.count === 1 ? '' : 's') + ' · already in your unallocated capital, ready to reinvest or withdraw.';
         }
       }
 

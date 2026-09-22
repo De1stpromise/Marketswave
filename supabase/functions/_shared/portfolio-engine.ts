@@ -265,7 +265,7 @@ export async function recomputeAllocatedCapital(
 // Dashboard Real-Data Fixes (2026-09-03). Extracted from get-total-portfolio-value/index.ts's
 // own original inline logic — a genuine refactor, not a new computation: settle every
 // product, recompute allocated_capital for the target client if they hold anything, then sum
-// unallocated + allocated + assetReturns. Now shared by get-total-portfolio-value itself AND
+// unallocated + allocated (asset_returns excluded since row 264). Shared by get-total-portfolio-value AND
 // the new get-portfolio-monthly-change function (which needs the exact same "what is this
 // client's real total portfolio value right now" figure to compare against a monthly anchor)
 // — a single source of truth rather than two independently-maintained copies that could drift
@@ -290,10 +290,17 @@ export async function computeTotalPortfolioValue(supabaseAdmin: any, clientId: s
   const { data: state, error } = await supabaseAdmin.from('account_state').select('*').eq('client_id', clientId).maybeSingle();
   if (error) throw new Error('computeTotalPortfolioValue: failed to read account_state: ' + error.message);
   if (!state) return 0;
-  // round2: three stored 2dp figures summed in floating point came back as e.g.
-  // 33424.299999999996 (2026-09-19, row 250) — harmless on a formatted card, wrong in a
-  // snapshot row or an equality check against another server figure.
-  return round2(state.unallocated_capital + state.allocated_capital + state.asset_returns);
+  // ★ asset_returns is NOT summed here (changed 2026-09-22, row 264). A sale credits its FULL
+  // proceeds to unallocated_capital, so the realised amount is already inside this total;
+  // asset_returns is a lifetime TALLY of what has been made from sales, and adding it would
+  // double-count every realised gain in the dashboard headline, AUM and every monthly anchor.
+  // Historical snapshot rows keep their meaning exactly: the money moved between columns inside
+  // this same sum, so the total is numerically unchanged by the migration.
+  //
+  // round2: stored 2dp figures summed in floating point came back as e.g. 33424.299999999996
+  // (2026-09-19, row 250) — harmless on a formatted card, wrong in a snapshot row or an
+  // equality check against another server figure.
+  return round2(state.unallocated_capital + state.allocated_capital);
 }
 
 // ---- Historical unit-price series --------------------------------------------------------

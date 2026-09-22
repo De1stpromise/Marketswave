@@ -203,8 +203,10 @@ async function main() {
     const { data: states } = await admin.from('account_state').select('client_id, unallocated_capital, allocated_capital, asset_returns');
     const { data: allClients } = await admin.from('clients').select('id');
     const known = new Set(allClients.map((c) => c.id));
-    const expectedAum = states.filter((s) => known.has(s.client_id)).reduce((s, r) => s + Number(r.unallocated_capital) + Number(r.allocated_capital) + Number(r.asset_returns), 0);
-    check('AUM = Σ (unallocated + allocated + realised) over real clients\' account_state (' + expectedAum.toFixed(2) + ')', Math.abs(b.attention.aum.value - expectedAum) < 0.05, String(b.attention.aum.value));
+    // Row 264: asset_returns is a reported tally, not a balance — a sale's proceeds are already
+    // inside unallocated_capital, so summing it here would double-count every realised gain.
+    const expectedAum = states.filter((s) => known.has(s.client_id)).reduce((s, r) => s + Number(r.unallocated_capital) + Number(r.allocated_capital), 0);
+    check('AUM = Σ (unallocated + allocated) over real clients\' account_state, the tally excluded (' + expectedAum.toFixed(2) + ')', Math.abs(b.attention.aum.value - expectedAum) < 0.05, String(b.attention.aum.value));
     check('the month change is ABSENT with a reason while a client has no anchor this month (never a partial sum)', b.attention.aum.monthChange.change === null && /anchors exist for/i.test(b.attention.aum.monthChange.reason), JSON.stringify(b.attention.aum.monthChange));
 
     // ---------------------------------------------------------------- 2. needs you first

@@ -3,15 +3,25 @@
 // Real Edge Function port of engine-core.js's executeSell(clientId, productId, unitsToSell)
 // — read that function's real source in full before writing this, not reinvented.
 //
-// THE ONE DETAIL MOST LIKELY TO GET SUBTLY WRONG IN A CARELESS PORT, called out explicitly:
-// unallocated_capital is credited with the COST-BASIS PORTION of the sale, NOT the full sale
-// value. The gain/loss (realized_return = saleValue - costBasisPortion) is credited
-// SEPARATELY to asset_returns. This is not a simplification — it's the real rule: a sale's
-// proceeds split into "principal returned" (unallocated_capital) and "profit/loss realized"
-// (asset_returns), and together — plus allocated_capital dropping by the sold holding's own
-// value — Total Portfolio Value stays exactly conserved through the transaction (confirmed by
-// this stage's own round-trip verification test, mirroring the exact conservation property
-// already verified once for the local engine).
+// ★ THE FULL SALE PROCEEDS ARE CREDITED TO unallocated_capital (changed 2026-09-22, row 264).
+// asset_returns still accumulates realized_return on every sale, but as a REPORTED TALLY — a
+// lifetime record of what has been made from sales — never as a balance anyone can spend.
+//
+// It used to credit only the COST-BASIS PORTION here and route the gain to asset_returns as a
+// second pot. Nothing could ever spend or withdraw that pot: execute-buy debits
+// unallocated_capital, request-allocation/approve-allocation validate against it, and
+// request-withdrawal/approve-withdrawal validate against it — so a client who sold at a profit
+// could see the gain in every total and reach none of it, permanently. The loss case was worse
+// in the other direction: crediting the full cost basis back after a loss left the spendable
+// balance OVERSTATING what the sale actually returned. Now spendable capital is exactly what
+// the sale returned, gain or loss.
+//
+// ★ PAIRED CHANGE, SAME COMMIT: computeTotalPortfolioValue() no longer sums asset_returns.
+// The realised amount is inside unallocated_capital from the moment of the sale; summing the
+// tally as well would double-count it in every total (the dashboard headline, AUM, the monthly
+// anchors). Total Portfolio Value stays exactly conserved through a buy/sell round trip — the
+// property this stage's own round-trip test asserts, and it still holds: what the holding loses
+// in allocated_capital, unallocated_capital gains in full.
 //
 // Cost basis for the sold portion is PROPORTIONAL to the fraction of the holding being sold —
 // NOT FIFO/LIFO lot tracking, since holdings aren't tracked as discrete lots here (same as the
@@ -106,12 +116,13 @@ Deno.serve(async (req) => {
       if (updateErr) return jsonResponse({ error: updateErr.message }, 500);
     }
 
-    // Credits the COST-BASIS PORTION (not the full sale value) to unallocated_capital, and
-    // the realized gain/loss separately to asset_returns — see this file's own header.
+    // Credits the FULL SALE VALUE to unallocated_capital (row 264). asset_returns accumulates
+    // the same realized_return it always did, as the lifetime tally — never spent, never
+    // withdrawn, and deliberately NOT summed into Total Portfolio Value any more.
     const { error: creditErr } = await admin
       .from('account_state')
       .update({
-        unallocated_capital: round2(accountState.unallocated_capital + costBasisPortion),
+        unallocated_capital: round2(accountState.unallocated_capital + saleValue),
         asset_returns: round2(accountState.asset_returns + realizedReturn),
         updated_at: new Date().toISOString()
       })

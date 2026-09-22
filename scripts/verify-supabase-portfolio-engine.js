@@ -208,10 +208,14 @@ async function main() {
     check('remaining holding cost_basis is exactly costBasis - proportional portion sold', Math.abs(holdingAfter.cost_basis - expectedRemainingCostBasis) < 1e-9, 'got=' + holdingAfter.cost_basis);
 
     const { data: accountAfter } = await admin.from('account_state').select('*').eq('client_id', user.id).single();
+    // ★ INVERTED 2026-09-22 (row 264), not deleted: this asserted the OLD split by name — only the
+    // cost-basis portion to unallocated_capital, the gain to a pot nothing could spend or withdraw.
+    // A sale now credits its FULL proceeds; asset_returns is the lifetime tally, still asserted
+    // below, and no longer part of Total Portfolio Value.
     check(
-      'unallocated_capital was credited with the COST-BASIS PORTION, NOT the full sale value',
-      Math.abs(accountAfter.unallocated_capital - expectedCostBasisPortion) < 1e-9,
-      'expected=' + expectedCostBasisPortion + ' got=' + accountAfter.unallocated_capital
+      'unallocated_capital was credited with the FULL SALE VALUE, not just the cost-basis portion (row 264)',
+      Math.abs(accountAfter.unallocated_capital - expectedSaleValue) < 1e-9,
+      'expected=' + expectedSaleValue + ' got=' + accountAfter.unallocated_capital + ' (cost-basis portion was ' + expectedCostBasisPortion + ')'
     );
     check(
       'asset_returns was credited with exactly the realized gain/loss, separately from unallocated_capital',
