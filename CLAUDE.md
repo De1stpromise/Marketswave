@@ -11609,7 +11609,64 @@ is for. Four stages, in order, each building on the last:
   `supabase-verify-pm-attribution`); the runner boundary
   check below for anything else. Until one of those lands, EVERY full pass will lose suites to
   this roughly hourly, and a `readFileSync` under `supabase/functions` in a suite is a
-  self-inflicted 502 on its own next call. **A WRITE to `supabase/functions/.env` restarts it
+  self-inflicted 502 on its own next call. **★ GIT READS FUNCTION SOURCE, AND A READ IS THE
+  WHOLE MECHANISM — `git add supabase/functions/<file>` recreated the container within seconds,
+  mid-pass, on 2026-09-22.** State this precisely, because the loose version ('git add counts as
+  an edit') generalises to the wrong set of commands. `git add` does not modify the file at all:
+  it OPENS AND HASHES it to write the blob, and that read stamps last-access — which is row 255's
+  own mechanism, unchanged. So the rule is not about authoring; it is that **any git operation
+  that reads function source can restart the runtime**: `git add`, `git diff`, `git commit`,
+  `git stash`, and probably `git status`, which reads contents whenever the cached stat info no
+  longer matches. The resolution recorded after the previous occurrence — 'do not EDIT under
+  `supabase/functions` during a pass' — is therefore too narrow to rely on.
+  **INTERIM RULE: during a pass, run NO git operation that touches `supabase/functions` at all.
+  Stage and commit those paths after the pass has finished** (not merely between suites, which
+  was the first and weaker version of this line). That occurrence landed in a gap between two
+  round-robin runs and cost nothing, which is luck rather than margin.
+  **★ `git status` is UNTESTED and is the one to test first**, because it is the command most
+  likely to be run absent-mindedly mid-pass: check it on an IDLE stack against a function file
+  (`docker inspect supabase_edge_runtime_Marketswave --format '{{.Created}}'` before and after)
+  and record the answer here. If it triggers, the interim rule above is the permanent one.
+  **★★ THE TEST HAS A FALSE-NEGATIVE TRAP — read this before running it.** NTFS rewrites a file's
+  on-disk last-access time only when the recorded one is already over an hour old, and the
+  runtime's own restart scan touches 166 of 187 files under `supabase/functions`. So for roughly
+  an hour after any restart the tree is DISARMED, and a read of a freshly-scanned file raises
+  nothing — row 255 records exactly that control. Running the `git status` test inside that
+  window yields a clean 'no restart' that means nothing at all, and would be written down as a
+  finding. **Run it at least an hour after the last container `Created` time** (or against one of
+  the ~21 files the scan did not reach), and state the gap you waited when recording the result.
+  The 2026-09-22 `git add` occurrence is only informative because the tree happened to be armed
+  at that moment.
+  **★★ THE SERVE LOG WAS READ, AND IT NAMES CAUSES — 43 restarts characterised (2026-09-22).**
+  Row 255 said every prior trigger was unrecoverable and told a future session to read
+  `scripts/.pass-logs/functions-serve/<stamp>.stderr.log` at the next recreation. Done. The
+  watcher lines carry no timestamp but sit between timestamped `serving the request` lines, so
+  each restart can be dated to the second. Six shapes, by frequency:
+  • **tree-wide scan storms, 14** — blocks of 84–109 files/dirs, every function at once. Row 255's
+    'spurious 86-directory WRITE storm'. These are the restart's OWN scan re-arming the tree, which
+    is why restarts cluster rather than arriving independently.
+  • **one function plus exactly its own import graph, ≈15** — e.g. `refresh-market-data/index.ts`
+    with `_shared/{cors,scheduler-auth,market-refresh,market-providers,symbol-catalog}.ts`, or the
+    five `*-client-invitation` functions with `_shared/invitations.ts`. **In the sampled cases this
+    block follows, within seconds, a `serving the request with supabase/functions/<that same
+    function>` line, and nothing wrote those files.** The reading that fits: the runtime's own
+    module load stamps last-access, the watcher reports it as a WRITE, and the runtime restarts
+    itself. That makes 'load-driven' concrete — under a pass that hammers one function, serving it
+    is itself a trigger — but it is an inference from ordering, not yet a controlled proof.
+  • **`.npmrc` sweeps across ~20–26 function dirs, 3** — Deno/npm resolution reading the tree.
+  • **`.env`, 3** — the already-recorded 2026-09-21 trigger, confirmed.
+  • **no file-change block at all, 5** — preceded by `CPU time soft limit reached` /
+    `early termination has been triggered: isolate: …`. The runtime died on its own; the watcher
+    was not involved. **Do not attribute these to a reader.**
+  • **a single bare `_shared` directory event, 1** — the 2026-09-22 `git add` of one file in
+    `_shared`. **On confidence**: that signature is UNIQUE in all 43 restarts and the timing matches
+    to within seconds, which supports the attribution more strongly than the timing alone did — but
+    single-FILE events do occur elsewhere (`_shared/webhook-verify.ts`, `_shared/product-catalog.ts`),
+    so why a one-file read surfaced as a directory-level event is unexplained, and the same class of
+    event is demonstrably produced by the runtime itself. Treat it as well-supported, not proven.
+  **The practical consequence for testing anything here**: during a pass the tree is being armed and
+  fired continuously by the runtime's own activity, so a `git status` probe run then cannot be
+  attributed to `git status`. It needs an idle stack AND the one-hour gap above. **A WRITE to `supabase/functions/.env` restarts it
   the same way** (2026-09-21): the CLI logs `.env (WRITE)` → `Setting up Edge Functions
   runtime...` and recreates the container, so a secret updated mid-pass loses the runtime for
   the suite in flight (row 256's pass: two `.env` writes, two restarts, one suite at 45/48 on
