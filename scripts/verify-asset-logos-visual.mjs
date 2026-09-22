@@ -27,7 +27,7 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown, reportSilentChild } from './lib/harness-teardown.mjs';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -336,6 +336,7 @@ async function main() {
         })
       });
       forwardChildTeardown(r, 'verify-contrast');
+      reportSilentChild(r, 'verify-contrast', /CONTRAST: (PASS|FAIL)/);
       const o = r.stdout || '';
       const m = o.match(/(\d+) measurements, (\d+) below/);
       console.log('  ' + label + ' -> ' + o.trim().split('\n').slice(-2).join(' | '));
@@ -379,6 +380,7 @@ async function main() {
       env: Object.assign({}, process.env, { AUDIT_URL: BASE + '/asset-collection.html', AUDIT_BOOTSTRAP_JS: bootstrap, AUDIT_PORT: String(PORT + 20) })
     });
     forwardChildTeardown(fontRes, 'verify-fonts');
+    reportSilentChild(fontRes, 'verify-fonts', /FONT AUDIT: /);
     const fontOut = fontRes.stdout || '';
     console.log(fontOut.trim().split('\n').slice(-5).join('\n'));
     check('no family on asset-collection.html falls back (the monogram declares Inter 700 explicitly)', !/FALLBACK/.test(fontOut), fontOut.slice(-400));

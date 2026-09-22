@@ -248,3 +248,52 @@ export function forwardChildTeardown(res, label) {
     if (/TEARDOWN|teardown:/.test(line)) console.error('[' + label + '] ' + line);
   }
 }
+
+/**
+ * Report a child that produced no usable summary on stdout.
+ *
+ * forwardChildTeardown() above re-emits a child's TEARDOWN warnings (row 201). This is the
+ * same concern one step further out. A child that DIES before writing its own verdict leaves
+ * the parent holding an empty stdout, and every reason it might have given — an exception on
+ * stderr, a non-zero exit, a signal, a spawn error — is discarded by a parent that prints only
+ * the tail of stdout. The run then reads as SILENT rather than failed: an empty arrow, no
+ * cause, nothing to act on.
+ *
+ * ★ Read the scope of this correctly. Rows 210/211's rule (forward a child's UNMEASURED
+ * lines; report a silent child with its spawn status) was NOT missed here — a survey of every
+ * contrast/fonts spawner in scripts/ (23 of them, excluding the two harnesses themselves)
+ * found 0 missing the spawn-status check, 0 missing the UNMEASURED forward and 0 missing the
+ * teardown forward. The gap this closes is narrower and was genuinely uncovered anywhere:
+ * STDERR. Three parents — verify-asset-logos-visual, verify-returns-display-visual,
+ * verify-watchlist-visual — read res.stdout only, so a child that explained itself on stderr
+ * explained itself to nobody.
+ *
+ * Call it directly after forwardChildTeardown(). `expect` is the child's own final-verdict
+ * marker (/CONTRAST: (PASS|FAIL)/ for verify-contrast.mjs, /FONT AUDIT: / for
+ * verify-fonts.mjs); when that marker is present the child spoke for itself and this prints
+ * nothing at all. Returns true when it reported, so a caller can branch on it.
+ */
+export function reportSilentChild(res, label, expect) {
+  const out = String((res && res.stdout) || '');
+  if (expect && expect.test(out)) return false;
+
+  const tag = '[' + label + '] ';
+  const status = res ? res.status : undefined;
+  const signal = res ? res.signal : undefined;
+  console.error(tag + 'no summary on stdout — exit status ' +
+    (status === null || status === undefined ? '(none)' : status) +
+    (signal ? ', killed by ' + signal : ''));
+  if (res && res.error) console.error(tag + 'spawn error: ' + res.error.message);
+
+  const tail = (s, n) => String(s || '').split(/\r?\n/).filter((l) => l.trim()).slice(-n);
+
+  const o = tail(out, 5);
+  if (o.length) o.forEach((l) => console.error(tag + 'stdout: ' + l));
+  else console.error(tag + 'stdout: (empty)');
+
+  const e = tail(res && res.stderr, 20);
+  if (e.length) e.forEach((l) => console.error(tag + 'stderr: ' + l));
+  else console.error(tag + 'stderr: (empty)');
+
+  return true;
+}

@@ -245,10 +245,13 @@ async function main() {
     const pendRows = [];
     const ov0 = (await callFunction(url, gary.token, 'get-portfolio-overview', {})).body;
     const rs0 = (await callFunction(url, gary.token, 'get-returns-summary', {})).body;
-    check('the overview carries the account in four parts and the totals-level pricing summary', ov0.account && typeof ov0.account.total === 'number' && ov0.pricing && typeof ov0.pricing.affected === 'number', JSON.stringify(ov0.account));
+    check('the overview carries the account in three parts (row 264) and the totals-level pricing summary', ov0.account && typeof ov0.account.total === 'number' && ov0.pricing && typeof ov0.pricing.affected === 'number', JSON.stringify(ov0.account));
     {
     const ov = ov0, rs = rs0, acct = ov.account;
-    check('★ the identity holds server-side: total = deployed + unallocated + pockets + realised = portfolio value + pockets, to the cent', Math.abs(acct.total - r2(acct.deployed + acct.unallocated + acct.pockets + acct.realised)) < 0.005 && Math.abs(acct.total - r2(ov.history.currentValue + acct.pockets)) < 0.005, JSON.stringify({ acct, portfolio: ov.history.currentValue }));
+    // Row 264: realised is NOT a fourth part. A sale credits its full proceeds to unallocated, so
+    // the tally is already inside `unallocated` — a fourth segment would sum past the total.
+    check('★ the identity holds server-side: total = deployed + unallocated + pockets = portfolio value + pockets, to the cent', Math.abs(acct.total - r2(acct.deployed + acct.unallocated + acct.pockets)) < 0.005 && Math.abs(acct.total - r2(ov.history.currentValue + acct.pockets)) < 0.005, JSON.stringify({ acct, portfolio: ov.history.currentValue }));
+    check('★ ...and adding the realised tally on top would genuinely overstate it — proof the double-count is gone', acct.realised === 0 || Math.abs(acct.total - r2(acct.deployed + acct.unallocated + acct.pockets + acct.realised)) > 0.005, JSON.stringify({ total: acct.total, realised: acct.realised }));
     check('...and deployed equals get-returns-summary\'s currentValue (the same per-position rounding), realised equals its realized', Math.abs(acct.deployed - rs.currentValue) < 0.005 && Math.abs(acct.realised - rs.realized) < 0.005, JSON.stringify({ deployed: acct.deployed, rsCv: rs.currentValue, realised: acct.realised, rsR: rs.realized }));
     // Deposited: an independent ledger sum, external flows only.
     const { data: led } = LED;
@@ -263,7 +266,8 @@ async function main() {
     // Largest position: independently from holdings × prices.
     const posVals = GH.map((h) => ({ name: h.products.name, v: r2(Number(h.units) * Number(h.products.unit_price)), cls: h.products.asset_class }));
     const top = posVals.slice().sort((a, b) => b.v - a.v)[0];
-    const tpvIndep = r2(acct.unallocated + r2(posVals.reduce((s, p) => s + p.v, 0)) + acct.realised);
+    // Row 264: the tally is inside `unallocated` already, so it is not added here either.
+    const tpvIndep = r2(acct.unallocated + r2(posVals.reduce((s, p) => s + p.v, 0)));
     check('largestPosition is the biggest holding as a share of TOTAL portfolio value (the PM briefing\'s own rule, 40% / $10k), not of deployed', rs.largestPosition && rs.largestPosition.name === top.name && Math.abs(rs.largestPosition.shareOfPortfolio - top.v / tpvIndep) < 0.0005 && rs.largestPosition.threshold === 0.4 && rs.largestPosition.minTpv === 10000, JSON.stringify(rs.largestPosition));
     }
 
@@ -310,7 +314,7 @@ async function main() {
       updatedJustNow:/Updated just now/.test(document.body.textContent)
     };})()`);
     check('★ the headline is the account total to the cent, titled "Total account value"; "Updated just now" appears nowhere on the page', page.total === usd2(acct.total) && page.title === 'Total account value' && !page.updatedJustNow, page.total);
-    check('the four-part bar carries deployed / unallocated / pockets / realised at their real shares of the total', page.tbar.length === 4 && page.tbar.every(([part, w]) => Math.abs(w - (acct[part === 'realised' ? 'realised' : part] / acct.total) * 100) < 0.02), JSON.stringify(page.tbar));
+    check('the THREE-part bar carries deployed / unallocated / pockets at their real shares of the total (row 264: no realised segment)', page.tbar.length === 3 && !page.tbar.some(([part]) => part === 'realised') && page.tbar.every(([part, w]) => Math.abs(w - (acct[part] / acct.total) * 100) < 0.02), JSON.stringify(page.tbar));
     check('growth since joining: +$' + Math.round(acct.growth).toLocaleString('en-US') + ' against ' + usd2(acct.deposited) + ' deposited', page.change.indexOf(usd0(acct.growth).replace('$', '+$') + ' since you joined') !== -1 && page.change.indexOf(usd2(acct.deposited) + ' deposited') !== -1, page.change);
     check('the band: Portfolio = the chart\'s measure, Savings pockets = the pockets total, with "one matured · one at 4.8%"', page.portfolio === usd2(ov.history.currentValue) && page.pockets === usd2(acct.pockets) && /2 pockets · one matured · one at 4\.8%/.test(page.pocketsSub), page.portfolio + ' | ' + page.pockets + ' | ' + page.pocketsSub);
     check('the band: Total return equals get-returns-summary\'s total with its percentage, unrealised and realised stated separately', page.ret === '+' + usd0(rs.total) && page.retPct === '+' + rs.totalPercent.toFixed(1) + '%' && page.split.indexOf('+' + usd0(rs.unrealized) + ' unrealised') !== -1 && page.split.indexOf(usd0(rs.realized) + ' realised') !== -1, JSON.stringify([page.ret, page.retPct, page.split]));
@@ -370,7 +374,7 @@ async function main() {
     }
     check('asset-performance.html rendered its Total account value', apReady === true);
     check('★ ' + page.total + ' on the dashboard = ' + apTotal + ' on Asset & performance, to the cent, in the same browser session, against the same server read', apTotal === page.total && apTotal === usd2(acct.total) && apAcct.total === acct.total, page.total + ' vs ' + apTotal + ' vs ' + usd2(acct.total));
-    check('...and its four parts are the same four figures the dashboard\'s bar and band are drawn from', apParts.length === 4 && apParts[0] === usd2(acct.deployed) && apParts[1] === usd2(acct.unallocated) && apParts[2] === usd2(acct.pockets) && apParts[3] === usd2(acct.realised), JSON.stringify(apParts) + ' vs ' + JSON.stringify(acct));
+    check('...and its three parts are the same three figures the dashboard\'s bar and band are drawn from', apParts.length === 3 && apParts[0] === usd2(acct.deployed) && apParts[1] === usd2(acct.unallocated) && apParts[2] === usd2(acct.pockets), JSON.stringify(apParts) + ' vs ' + JSON.stringify(acct));
 
     // =====================================================================================
     console.log('\n3. The stale-price path — forced fresh, forced failed, cleared');

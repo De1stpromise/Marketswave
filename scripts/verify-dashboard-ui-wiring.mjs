@@ -312,13 +312,15 @@ async function main() {
   const r2 = function (n) { return Math.round(n * 100) / 100; };
   // Per-position rounded, then summed — the engine's order (rows 185/250).
   const expectedAllocated = r2(r2(nordicUnits * liveNordic.unit_price) + r2(equityUnits * liveEquity.unit_price));
-  const expectedTpv = r2(DISTINCTIVE_UNALLOCATED + expectedAllocated + DISTINCTIVE_ASSET_RETURNS);
+  // Row 264: asset_returns is a reported tally, not a balance — a sale's proceeds land in
+  // unallocated_capital, so the total is unallocated + allocated and the seeded tally is NOT added.
+  const expectedTpv = r2(DISTINCTIVE_UNALLOCATED + expectedAllocated);
   const usd2 = function (n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 
-  // ★ Row 251: the headline is the ACCOUNT total (deployed + unallocated + pockets + realised).
+  // ★ Row 251: the headline is the ACCOUNT total (deployed + unallocated + pockets; row 264).
   // This client has no savings pockets, so it equals the portfolio value exactly.
   check('the headline renders the REAL, distinctive account total (not $1,284,500 or any old hardcoded figure) — with no pockets, the portfolio value to the cent', tpvEl.textContent === usd2(expectedTpv) && doc.getElementById('po-portfolio-value').textContent === usd2(expectedTpv), 'got="' + tpvEl.textContent + '" expected=' + usd2(expectedTpv));
-  check('the four-part bar carries deployed, unallocated and realised segments (no pockets)', [...doc.querySelectorAll('#po-tbar i')].map(function (i) { return i.dataset.part; }).join(',') === 'deployed,unallocated,realised');
+  check('★ the bar partitions the REAL total: deployed and unallocated, no pockets and no separate realised segment (row 264)', [...doc.querySelectorAll('#po-tbar i')].map(function (i) { return i.dataset.part; }).join(',') === 'deployed,unallocated', [...doc.querySelectorAll('#po-tbar i')].map(function (i) { return i.dataset.part; }).join(','));
   // The pill against the payload, in whichever state this machine is in: this client holds a
   // Private Equity fund (appraisal, never stale) and ONE market-priced ETF — green "Priced N
   // ago" from that ETF's own price_as_of, or amber "1 of 1 holding stale" when row 213's

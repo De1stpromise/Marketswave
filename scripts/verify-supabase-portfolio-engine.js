@@ -254,11 +254,21 @@ async function main() {
     check('round-trip: execute-sell (100% of the just-bought units) succeeded', !sellErr, sellErr && sellErr.message);
 
     const { data: finalState } = await admin.from('account_state').select('*').eq('client_id', user.id).single();
-    const finalTotal = finalState.unallocated_capital + finalState.allocated_capital + finalState.asset_returns;
+    // ★ Row 264 (2026-09-22): the total is unallocated + allocated. asset_returns is NOT summed
+    // in — a sale credits its FULL proceeds to unallocated_capital, so adding the tally on top
+    // would count the gain twice. This round trip realises exactly 0 (same price, no prior
+    // position), so the old three-term sum also happened to pass; the assertion below now uses
+    // the real measure, and the one after it pins the tally so the pass is not an accident.
+    const finalTotal = finalState.unallocated_capital + finalState.allocated_capital;
     check(
       'Total Portfolio Value is exactly conserved through a same-price buy-then-sell round trip',
       Math.abs(finalTotal - startingTotal) < 0.01,
       'started=' + startingTotal + ', ended=' + finalTotal
+    );
+    check(
+      '...and the realised tally is exactly 0 for this round trip — so the conservation above is the real measure, not a coincidence of a zero gain',
+      Math.abs(Number(finalState.asset_returns)) < 0.01,
+      'asset_returns=' + finalState.asset_returns
     );
     check('No holding remains after selling 100% of the just-bought units', (await admin.from('holdings').select('*').eq('client_id', user.id)).data.length === 0);
 

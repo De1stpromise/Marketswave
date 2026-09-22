@@ -278,7 +278,10 @@ async function main() {
   // thing the allocated-capital assertion did: a real money figure computed here from
   // the seeded holdings and the live unit prices, not read back from the page's own call.
   const expectedTpv = Math.round(ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price + UNALLOCATED);
-  const expectedAccountValue = ETF_UNITS * liveEtf.unit_price + ETHEREUM_UNITS * liveEthereum.unit_price + UNALLOCATED;
+  // Per-position rounded, THEN summed — the engine's own order (rows 185/250). A raw sum differs
+  // by a cent at some prices, which is a latent flake, not a page bug.
+  const r2c = (n) => Math.round(n * 100) / 100;
+  const expectedAccountValue = r2c(r2c(ETF_UNITS * liveEtf.unit_price) + r2c(ETHEREUM_UNITS * liveEthereum.unit_price) + UNALLOCATED);
   check('the Total account value card shows the real, independently-computed figure (both real holdings + unallocated; no pockets, no realised for this client)', tpvEl.textContent === '$' + expectedAccountValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), tpvEl.textContent + ' vs expected $' + expectedAccountValue.toFixed(2));
   check('Return Table shows a real row for the seeded ETF holding, with a real Sell button', tableBody.textContent.indexOf('Global Equity ETF') !== -1 && !!tableBody.querySelector('.sell-request-btn'), tableBody.innerHTML.slice(0, 400));
 

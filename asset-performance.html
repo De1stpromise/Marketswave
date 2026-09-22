@@ -410,7 +410,9 @@
         { key: 'Private Equity', sub: 'Valued by appraisal', fill: '#E08B14' },
         { key: 'Real Assets',    sub: 'Valued by appraisal', fill: '#F5C377' }
       ];
-      var AP_FILL_UNALLOCATED = '#C4BEDA', AP_FILL_POCKETS = '#B07908', AP_FILL_REALISED = '#137254';
+      // Row 264: no realised fill — realised gains are inside `unallocated` from the moment a
+      // sale settles, so this bar partitions three parts, not four.
+      var AP_FILL_UNALLOCATED = '#C4BEDA', AP_FILL_POCKETS = '#B07908';
 
       function pct(part, whole) { return whole > 0 ? (part / whole) * 100 : 0; }
       function pctText(n) { return (Math.round(n * 10) / 10).toFixed(1) + '%'; }
@@ -428,7 +430,6 @@
         var r = returns || {};
         var deployed = r.currentValue || 0;
         var unalloc = account.unallocatedCapital || 0;
-        var realised = account.assetReturns || 0;
         var pockets = pocketsValue();
         var pk = livePockets();
         // Row 264: a sale credits its FULL proceeds to unallocated capital, so realised gains are

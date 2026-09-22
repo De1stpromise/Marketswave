@@ -18,7 +18,7 @@
 import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown, reportSilentChild } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -205,6 +205,7 @@ async function main() {
         })
       });
       forwardChildTeardown(r, 'verify-contrast');
+      reportSilentChild(r, 'verify-contrast', /CONTRAST: (PASS|FAIL)/);
       const o = r.stdout || '';
       const m = o.match(/(\d+) measurements, (\d+) below/);
       console.log('  ' + label + ' -> ' + o.trim().split('\n').slice(-2).join(' | '));
@@ -251,6 +252,7 @@ async function main() {
       })
     });
     forwardChildTeardown(fontRes, 'verify-fonts');
+    reportSilentChild(fontRes, 'verify-fonts', /FONT AUDIT: /);
     const fontOut = fontRes.stdout || '';
     console.log(fontOut.trim().split('\n').slice(-6).join('\n'));
     check('no family on the touched page falls back', !/FALLBACK/.test(fontOut), fontOut.slice(-400));

@@ -232,11 +232,16 @@ async function main() {
     // A: gaining. Four anchors, each backdated to its own month start, with the same real
     // ledger shape the ui-wiring suite uses — a deposit before the first anchor, a withdrawal,
     // a transfer to savings, an EXCLUDED external pocket deposit, a deposit this month — and a
-    // consistent end state (110,000 net capital in as unallocated + 18,000 realised).
+    // consistent end state: 110,000 net capital in plus 18,000 made from sales, all of it
+    // spendable unallocated capital (row 264) — TPV 128,000.
     const A = await makeClient('a', 'Overview Visual A', 100000);
     await anchors(A, [[3, 100000], [2, 112000], [1, 109500], [0, 118000]]);
     await backdateAnchors(A, [3, 2, 1, 0]);
-    await admin.from('account_state').update({ unallocated_capital: 110000, asset_returns: 18000 }).eq('client_id', A.id);
+    // Row 264 (2026-09-22): a sale credits its FULL proceeds to unallocated_capital, so a client
+    // whose sales have made 18,000 holds that 18,000 INSIDE unallocated — asset_returns is the
+    // lifetime tally of what sales have made, reported and never summed into a total. Seeding
+    // 110,000 + an 18,000 tally would be a state the real engine can no longer produce.
+    await admin.from('account_state').update({ unallocated_capital: 128000, asset_returns: 18000 }).eq('client_id', A.id);
     await admin.from('transactions').insert([
       { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(4, 20) },
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
@@ -279,7 +284,9 @@ async function main() {
       { client_id: L.id, product_id: simEtf.id, units: lUnits, cost_basis: 32000 },
       { client_id: L.id, product_id: simCoin.id, units: lEthUnits, cost_basis: 5000 }
     ]);
-    await admin.from('account_state').update({ unallocated_capital: 83000, allocated_capital: 20000, asset_returns: -10000 }).eq('client_id', L.id); // TPV 93,000 = 120,000 in − 27,000 total return (−17,000 unrealised, −10,000 realised): a possible account
+    // Row 264: a realised LOSS is already reflected in unallocated too — the sale credited its
+    // (smaller) full proceeds. 73,000 + 20,000 = the same TPV 93,000 the rest of this run asserts.
+    await admin.from('account_state').update({ unallocated_capital: 73000, allocated_capital: 20000, asset_returns: -10000 }).eq('client_id', L.id); // TPV 93,000 = 120,000 in − 27,000 total return (−17,000 unrealised, −10,000 realised): a possible account
 
     // N: new — one $0 anchor written before the account was funded, funded this month.
     const N = await makeClient('n', 'Overview Visual N', 0);

@@ -11002,6 +11002,40 @@ row 74.
   control sweep because that page rendered them after the sweep looked. `scripts/audit-render-diff.mjs`
   is the rendered before/after tool for stages 2–3.
 
+- **★★★ Realised gains are spendable capital, and `asset_returns` is a reported tally (2026-09-22,
+  register rows 264–265).** `execute-sell` credits the FULL sale proceeds to `unallocated_capital`;
+  `asset_returns` still accumulates every `realized_return` but is a LIFETIME TALLY that is reported
+  and never summed into any value. Before this, a sale returned only its cost-basis portion and the
+  gain went to a pot **no code path could spend or withdraw** — every withdrawal, allocation and buy
+  validates against `unallocated_capital`, and nothing ever moved `asset_returns` back.
+  **Things a future session needs to know before touching any total:**
+  - **★ THE TOTAL WAS COMPUTED INDEPENDENTLY IN FOUR PLACES AND THE SPEC NAMED THREE. Grep before you
+    trust a list of call sites.** The paired change (stop summing the tally) had to land in the same
+    commit or every figure double-counts, and it covered the three that were named:
+    `computeTotalPortfolioValue()` in `_shared/portfolio-engine.ts`, `_shared/pm-briefing.ts`'s AUM,
+    `_shared/portfolio-overview.ts`'s account total. **The fourth — `_shared/client-list.ts` — was
+    found only by a blast-radius grep AFTER the commit**, and it would have inflated EVERY row of the
+    PM's Client List by that client's own tally while disagreeing with the same client's dashboard and
+    with the Overview's AUM. Of the four, exactly one (`_shared/client-profile.ts`) was correct by
+    construction, because it simply CALLS the canonical function. `pm-briefing.ts` never imported it and
+    carried a comment reading "Same formula as computeTotalPortfolioValue()" — a parity claim in prose,
+    enforced by nothing. `portfolio-overview.ts` both calls the canonical function for the chart's
+    `currentValue` AND hand-rolls a second account total twelve lines later.
+  - **★ `totalReturn` KEEPS the tally; only a VALUE must not count it twice.** `client-list.ts`'s
+    `totalReturn = unrealised + realised` is correct and was deliberately left alone — a lifetime RETURN
+    genuinely includes what sales have made. The fix is narrow: the VALUE column stopped adding it.
+  - **The identity that holds either way**: `TPV − capitalIn = unrealised + Σrealized_return`, asserted
+    through the real credit/approve functions rather than re-derived on paper.
+  - **`execute-buy` has its own balance check now**, before any write, refusing 409 with the real
+    figures — it had trusted its callers since it was written.
+  - **Row 265 is queued and deliberately not done**: consolidate all four onto one function, by
+    exporting the total FORMULA from `portfolio-engine.ts` as a pure function over an `account_state`
+    row so the three BATCH readers can call it per row without turning one list read into hundreds of
+    per-client round trips. Until that lands, **any change to what "total" means must grep
+    `_shared/*.ts` for `unallocated_capital` beside `allocated_capital`, not work from a list.**
+  - **Deployment**: 20 Edge Functions bundle the changed shared modules; `get-client-list` is the
+    importer of `client-list.ts`. Deno bundles at deploy time — redeploy all of them together (row 143).
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
@@ -11613,6 +11647,22 @@ is for. Four stages, in order, each building on the last:
   discarded with its stderr. `npm run verify-harness-teardown` (from `scripts/`) is the
   standing proof and fails if any `verify-*`/`audit-*` script calls `mkdtempSync` directly.
   When checking a run for leaks, grep its log for `TEARDOWN` — that line is the contract.
+- **★ ...AND IT ALSO CALLS `reportSilentChild(res, label, expect)` — stdout is not the only
+  thing a child hands back (2026-09-22, register row 268).** Read the scope correctly, because the
+  obvious reading is wrong and was written down wrong once already. Rows 210/211's rule (forward a
+  child's UNMEASURED lines; report a silent child with its spawn status) was **not** missed: a survey
+  of every contrast/fonts spawner in `scripts/` — 23 real spawners, excluding the two harnesses
+  themselves — found **0** lacking the status check, **0** lacking the UNMEASURED forward and **0**
+  lacking `forwardChildTeardown`. The one genuinely uncovered half was **stderr**, and exactly three
+  suites had it: `verify-asset-logos-visual`, `verify-returns-display-visual`,
+  `verify-watchlist-visual` read `res.stdout` only and print `slice(-2)` of it, so a child that died
+  BEFORE writing its verdict left an empty arrow and took its exception, exit status and signal with
+  it. That is what row 264's pass hit. `reportSilentChild()` emits status, signal, spawn error, the
+  stdout tail and up to 20 lines of stderr — but only when the child's own verdict marker
+  (`/CONTRAST: (PASS|FAIL)/`, `/FONT AUDIT: /`) is absent, so a healthy run prints nothing extra and
+  the guard cannot pass by being noisy. **Any new parent that `spawnSync`s a child harness calls both
+  functions**: `forwardChildTeardown` for the teardown warnings, `reportSilentChild` for the reason a
+  child never got to a verdict at all.
 - **★ `verify-fixture-symbols` runs BEFORE every verification pass — `npm run pass` runs it
   for you, unconditionally, and stops if it fails; run it by hand only when you are not about
   to run a pass.** Added 2026-09-14 (register row 215; the runner is row 216) because the
@@ -11677,6 +11727,21 @@ is for. Four stages, in order, each building on the last:
   also checks both ends of every Tier A gradient against its own white label — a gradient can
   pass contrast at one end and fail at the other, which is exactly how white-on-emerald-600
   shipped at 3.77:1 for months. See `BUTTON_AUDIT.md` for the full reasoning.
+- **★★ NEVER PUT `min-height: 0` ON A SELECTOR THAT STYLES AN INTERACTIVE CONTROL — third
+  occurrence, 2026-09-22 (register rows 266–267).** A class rule is (0,1,0) and silently
+  out-specifies `tap-targets.css`'s `button { min-height: 44px }` (0,0,1) below `lg`, so the control
+  ships at 21–32px on every phone with nothing erroring. `.pr-pill` (row 261), the `.doc-pill`
+  near-miss (row 247), and now `.cat-slot-btn` at 21px on `asset-collection.html` (row 266). **The
+  runtime sweep will not reliably catch it**: `verify-control-patterns` reads the DOM on a fixed
+  delay, so on a page whose controls are painted by an async load it enumerates the skeleton and
+  passes (row 253) — `.cat-slot-btn` shipped for eight days and surfaced only when an unrelated
+  speed-up changed that page's render timing. Row 267 queues the real answer, a SOURCE check rather
+  than a rendered one, keyed on `cursor: pointer` (or a button-reset tell) in the same block, which
+  cleanly separates the four interactive offenders from the nine legitimate flexbox
+  `min-height: 0` containers. **Until it lands, the rule is manual: if you are about to write
+  `min-height: 0` next to `cursor: pointer`, you are writing this bug.** If a control genuinely must
+  stay short on desktop, leave `min-height` UNSET — the floor is already scoped to `≤ lg`, so it
+  keeps its natural height on desktop and floors on mobile without any declaration from you.
 - **The scheduler needs configuring once per environment, and a fresh `supabase db reset`
   wipes it.** `npm run supabase-configure-scheduler` (from `scripts/`, `--staging` for the
   real cloud project) puts the Edge Functions base URL and the service_role key into

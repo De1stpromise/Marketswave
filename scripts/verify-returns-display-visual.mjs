@@ -15,7 +15,7 @@ import { execSync, spawn, spawnSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
+import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown, reportSilentChild } from './lib/harness-teardown.mjs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
@@ -185,6 +185,7 @@ async function main() {
         })
       });
       forwardChildTeardown(res, 'verify-contrast');
+      reportSilentChild(res, 'verify-contrast', /CONTRAST: (PASS|FAIL)/);
       const out = res.stdout || '';
       const tail = out.trim().split('\n').slice(-2).join(' | ');
       const m = out.match(/(\d+) measurements, (\d+) below/);
@@ -286,7 +287,8 @@ async function main() {
       check(width + 'px: the Total account value renders and fits the viewport', /^\$[\d,]+\.\d\d$/.test(ap.amount) && ap.amountFits, ap.amount);
       // A zero part draws no segment (this client has no pockets) — one segment per NON-zero part.
       check(width + 'px: the proportional bar draws one segment per non-zero part', ap.barSegs === ap.nonZeroParts && ap.barSegs >= 1, ap.barSegs + ' vs ' + ap.nonZeroParts);
-      check(width + 'px: the four parts ' + (width <= 880 ? 'STACK to one column' : 'sit four across'), ap.partCount === 4 && ap.partCols === (width <= 880 ? 1 : 4), ap.partCols);
+      // Row 264: THREE parts — realised gains are inside `unallocated`, not a separate part.
+      check(width + 'px: the three parts ' + (width <= 880 ? 'STACK to one column' : 'sit three across'), ap.partCount === 3 && ap.partCols === (width <= 880 ? 1 : 3), { cols: ap.partCols, count: ap.partCount });
       check(width + 'px: capital and returns cards ' + (width < 768 ? 'stack' : 'sit in their grids'), width < 768 ? (ap.capCols === 1 && ap.retCols === 1) : (ap.capCols === 3 && ap.retCols === 2), ap.capCols + '/' + ap.retCols);
       check(width + 'px: the class table has all four rows, ' + (width < 1024 ? 'as labelled cards' : 'as real table rows'), ap.clsRows === 4 && (width < 1024 ? (ap.clsRowDisplay !== 'table-row' && ap.clsLabelled) : ap.clsRowDisplay === 'table-row'), ap.clsRowDisplay + ' labelled=' + ap.clsLabelled);
       check(width + 'px: the unheld class row dims by colour, never by opacity, and says "not held"', ap.unheldOpacity === '1' && /not held/.test(ap.unheldText), ap.unheldOpacity + ' ' + ap.unheldText);

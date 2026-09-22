@@ -15,7 +15,8 @@
 //
 // ★ REDESIGN (2026-09-19, register row 251). The headline is the ACCOUNT total in the four
 // parts asset-performance.html ships (`payload.account`: deployed / unallocated / savings
-// pockets / realised), growth is against `account.deposited` (external flows only), and
+// pockets; realised gains are inside unallocated since row 264), growth is against
+// `account.deposited` (external flows only), and
 // the as-of pill is the REAL age of the oldest market price behind the figure — amber, with
 // a plain statement, when `payload.pricing` reports any held position stale or failed.
 // "Updated just now" (this function's own response time) is gone: during the 19 Sep 2026
@@ -110,13 +111,15 @@
   // what was DEPOSITED — external flows only, never capitalIn.current (which subtracts
   // transfers into savings for the portfolio line). With nothing deposited there is no
   // denominator and the line is hidden rather than filled with a caveat.
-  var PART_FILLS = { deployed: '#4B2E83', unallocated: '#C4BEDA', pockets: '#B07908', realised: '#137254' };
+  // Row 264: no `realised` fill — realised gains are inside `unallocated` from the moment a sale
+  // settles, so the bar partitions three parts, not four.
+  var PART_FILLS = { deployed: '#4B2E83', unallocated: '#C4BEDA', pockets: '#B07908' };
   function renderAccount(a, h, els) {
     if (!a) return;
     if (els.totalEl) els.totalEl.textContent = formatUSD(a.total, 2);
     if (els.tbarEl) {
       els.tbarEl.textContent = '';
-      var parts = [['deployed', a.deployed, 'Deployed in assets'], ['unallocated', a.unallocated, 'Unallocated'], ['pockets', a.pockets, 'Savings pockets'], ['realised', a.realised, 'Realised gains']];
+      var parts = [['deployed', a.deployed, 'Deployed in assets'], ['unallocated', a.unallocated, 'Unallocated'], ['pockets', a.pockets, 'Savings pockets']];
       if (a.total > 0) parts.forEach(function (p) {
         if (p[1] <= 0) return;
         var i = el('i'); i.style.width = ((p[1] / a.total) * 100).toFixed(2) + '%'; i.style.background = PART_FILLS[p[0]]; i.title = p[2]; i.dataset.part = p[0];

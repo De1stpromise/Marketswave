@@ -117,8 +117,14 @@ export async function buildClientList(admin: Admin) {
     const unallocated = st ? Number(st.unallocated_capital) : 0;
     const realised = st ? Number(st.asset_returns) : 0;
     const allocated = unpriced ? null : round2(h.value);
-    const portfolioValue = unpriced ? null : round2(unallocated + (allocated || 0) + realised);
+    // ★ Row 264 (2026-09-22): asset_returns is NOT summed here. A sale credits its FULL proceeds
+    // to unallocated_capital, so a realised gain is already inside `unallocated` — adding the
+    // tally would count every realised gain twice and make this list disagree with the same
+    // client's own dashboard and with the Overview's AUM, which both compute it this way.
+    const portfolioValue = unpriced ? null : round2(unallocated + (allocated || 0));
     const unrealised = unpriced ? null : round2(h.value - h.cost);
+    // `realised` stays in the RETURN figure: a lifetime return genuinely includes what sales
+    // have made. It is only the VALUE above that must not count it twice.
     const totalReturn = unpriced ? null : round2((unrealised || 0) + realised);
     // Percentage against capital deployed, not against the current value — the same denominator
     // the returns work settled on (rows 185-187).

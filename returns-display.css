@@ -215,7 +215,9 @@
 .ap-muted { color: var(--ret-muted); font-weight: 400; }
 .ap-tbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 18px; background: rgba(27, 58, 75, .07); gap: 2px; }
 .ap-tbar i { display: block; height: 100%; border-radius: 2px; }
-.ap-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 15px; }
+/* Row 264: THREE parts — deployed, unallocated, savings pockets. Realised gains are inside
+   `unallocated` from the moment a sale settles, so they are no longer a part of this partition. */
+.ap-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 15px; }
 .ap-tp { display: flex; align-items: flex-start; gap: 9px; padding-right: 14px; margin-right: 14px; border-right: 1px solid rgba(27, 58, 75, .09); min-width: 0; }
 .ap-tp:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .ap-sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; margin-top: 3px; }

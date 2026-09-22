@@ -119,11 +119,14 @@ async function main() {
       await callFunction(url, pmToken, 'snapshot-portfolio-values', { monthStartDate: monthStart(offset), clientId: A.id });
       await admin.from('portfolio_value_snapshots').update({ created_at: msAt(offset, 1) }).eq('client_id', A.id).eq('month_start_date', monthStart(offset));
     }
-    // The END state is a possible real account: 110,000 of net capital in sitting as
-    // unallocated capital plus 18,000 of realised gains (account_state.asset_returns) —
-    // TPV 128,000. A seed that simply set unallocated to 128,000 would carry 18,000 no ledger
-    // row explains, and the identity assertion below correctly refuses it.
-    await admin.from('account_state').update({ unallocated_capital: 110000, asset_returns: 18000 }).eq('client_id', A.id);
+    // The END state is a possible real account: 110,000 of net capital in plus 18,000 made from
+    // sales, ALL of it spendable unallocated capital — TPV 128,000. The 18,000 is explained by
+    // the ledger (the identity assertion below refuses a figure that is not).
+    // Row 264 (2026-09-22): a sale credits its FULL proceeds to unallocated_capital, so a client
+    // whose sales have made 18,000 holds that 18,000 INSIDE unallocated — asset_returns is the
+    // lifetime tally of what sales have made, reported and never summed into a total. Seeding
+    // 110,000 + an 18,000 tally would be a state the real engine can no longer produce.
+    await admin.from('account_state').update({ unallocated_capital: 128000, asset_returns: 18000 }).eq('client_id', A.id);
     const { error: ledgerErr } = await admin.from('transactions').insert([
       { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(4, 20) },
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
@@ -183,10 +186,11 @@ async function main() {
     const usd2 = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     check('★ ONE card: the headline, a FOUR-cell band (Portfolio / Savings pockets / Total return / Best performing class) and the chart section live inside #po-value-card', card.querySelector('.po-head') && card.querySelector('.po-band') && card.querySelector('.po-chart-sec') && card.querySelectorAll('.po-cell').length === 4 && !D.querySelector('.glass-subtle') && D.querySelectorAll('#tpv-amount').length === 1 && card.contains(D.getElementById('tpv-amount')), card.className);
     check('header: "Total account value", the priced pill, and NO export control (Documents & Reporting owns export)', card.querySelector('.po-title').textContent === 'Total account value' && !!D.getElementById('po-asof') && !D.getElementById('po-export') && !card.querySelector('.po-hd button'));
-    // (a) ★ Row 251: the headline is the ACCOUNT total in four parts — asset-performance.html's
-    // identity (row 250) — never the portfolio value alone. "Updated just now" is gone.
+    // (a) ★ Row 251: the headline is the ACCOUNT total in three parts (row 264) —
+    // asset-performance.html's identity (row 250) — never the portfolio value alone.
+    // "Updated just now" is gone.
     check('★ the headline is the server\'s account total (' + usd2(acct.total) + '), once, in the lead cell — and it equals portfolio value + savings pockets to the cent', D.getElementById('tpv-amount').textContent.trim() === usd2(acct.total) && card.querySelector('.po-lead').contains(D.getElementById('tpv-amount')) && Math.abs(acct.total - (h.currentValue + acct.pockets)) < 0.005 && acct.pockets > 0, D.getElementById('tpv-amount').textContent + ' | ' + JSON.stringify({ total: acct.total, portfolio: h.currentValue, pockets: acct.pockets }));
-    check('the four-part bar carries one segment per non-zero part — here unallocated, pockets and realised (no holdings, so no deployed segment)', [...D.querySelectorAll('#po-tbar i')].map((i) => i.dataset.part).join(',') === 'unallocated,pockets,realised', [...D.querySelectorAll('#po-tbar i')].map((i) => i.dataset.part).join(','));
+    check('the bar carries one segment per non-zero part — here unallocated and pockets (no holdings, so no deployed segment; row 264 retired the realised segment, since a sale\'s proceeds are inside unallocated)', [...D.querySelectorAll('#po-tbar i')].map((i) => i.dataset.part).join(',') === 'unallocated,pockets', [...D.querySelectorAll('#po-tbar i')].map((i) => i.dataset.part).join(','));
     check('★ "Updated just now" appears NOWHERE on the card; the pill states there is nothing market-priced to date (this seed holds no products)', !/Updated just now/.test(card.textContent) && /No holdings to price/.test(D.getElementById('po-asof').textContent) && !D.getElementById('po-asof').classList.contains('is-stale') && acct.pricing.marketPriced === 0, D.getElementById('po-asof').textContent);
     check('the band\'s Portfolio cell is the chart\'s own measure, $128,000.00, and the Savings cell the pockets total with accrued interest', D.getElementById('po-portfolio-value').textContent.trim() === '$128,000.00' && D.getElementById('po-pockets-value').textContent.trim() === usd2(acct.pockets) && /2 pockets · one at 8\.5% · one flexible/.test(D.getElementById('po-pockets-sub').textContent), D.getElementById('po-pockets-sub').textContent);
     const change = D.getElementById('po-change');
