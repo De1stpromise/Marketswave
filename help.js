@@ -26,40 +26,15 @@
   var slug = (qs.get('a') || '').trim();
   var state = { articles: [], topics: [], cfg: null };
 
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text !== undefined && text !== null) n.textContent = String(text);
-    return n;
-  }
-  function svg(paths, stroke, size, extra) {
-    var NS = 'http://www.w3.org/2000/svg';
-    var s = document.createElementNS(NS, 'svg');
-    s.setAttribute('width', String(size)); s.setAttribute('height', String(size));
-    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none');
-    s.setAttribute('stroke', stroke); s.setAttribute('stroke-width', (extra && extra.w) || '2');
-    s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
-    s.setAttribute('aria-hidden', 'true');
-    paths.forEach(function (d) {
-      var e;
-      if (typeof d === 'object') { e = document.createElementNS(NS, 'circle'); e.setAttribute('cx', d.c[0]); e.setAttribute('cy', d.c[1]); e.setAttribute('r', d.c[2]); }
-      else { e = document.createElementNS(NS, 'path'); e.setAttribute('d', d); }
-      s.appendChild(e);
-    });
-    return s;
-  }
-  var ARROW = ['M5 12h14M13 6l6 6-6 6'];
-  var CHEV = ['M9 18l6-6-6-6'];
-
-  var TOPIC_ICONS = {
-    'getting-to-know': [{ c: [12, 12, 9] }, 'M12 16v-4M12 8h.01'],
-    'opening-account': ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', { c: [9, 7, 4] }, 'M19 8v6M22 11h-6'],
-    'adding-money': ['M12 5v14M5 12l7 7 7-7'],
-    'investing': ['M3 3v18h18', 'M18.7 8 12 14.7l-3.5-3.5L3 16.4'],
-    'savings': ['M3 11h18v11H3zM7 11V7a5 5 0 0 1 10 0v4'],
-    'portfolio': ['M3 3h18v18H3zM3 9h18M9 21V9'],
-    'documents': ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6'],
-  };
+  // ★ The DOM helpers, the icon set and the topic card itself live in help-topic-cards.js so
+  // resources.html's Help Center preview renders the SAME card from the SAME source. Aliased
+  // here so the rest of this file reads exactly as it did before the extraction.
+  var HTC = window.HelpTopicCards;
+  var el = HTC.el;
+  var svg = HTC.svg;
+  var ARROW = HTC.ARROW;
+  var CHEV = HTC.CHEV;
+  var TOPIC_ICONS = HTC.TOPIC_ICONS;
 
   function topicName(id) {
     var t = state.topics.filter(function (x) { return x.id === id; })[0];
@@ -198,33 +173,15 @@
     main.appendChild(sech);
 
     var cats = el('div', 'hc-cats');
-    state.topics.filter(function (t) { return t.id !== 'getting-to-know'; }).forEach(function (t) {
-      var inTopic = state.articles.filter(function (a) { return a.topic_id === t.id; });
-      var card = el('div', 'glass glass-lift hc-cat');
-      var ci = el('span', 'hc-ci');
-      ci.appendChild(svg(TOPIC_ICONS[t.id] || ARROW, '#1B3A4B', 19, { w: '1.9' }));
-      card.appendChild(ci);
-      card.appendChild(el('h3', null, t.name));
-      card.appendChild(el('div', 'hc-d', t.blurb || ''));
-      // each topic card features AT MOST 3
-      var featured = inTopic.filter(function (a) { return a.featured_on_topic; });
-      var show = (featured.length ? featured : inTopic).slice(0, 3);
-      if (show.length) {
-        var ul = el('ul');
-        show.forEach(function (a) {
-          var li = el('li'); var link = el('a', null, a.title); link.href = href(a.slug);
-          li.appendChild(link); ul.appendChild(li);
-        });
-        card.appendChild(ul);
-      }
-      if (inTopic.length) {
-        var all = el('a', 'hc-all', 'All ' + inTopic.length + (inTopic.length === 1 ? ' article' : ' articles') + ' →');
-        all.href = 'help.html?topic=' + encodeURIComponent(t.id);
-        card.appendChild(all);
-      } else {
-        card.appendChild(el('div', 'hc-soon', 'Articles coming soon.'));
-      }
-      cats.appendChild(card);
+    // The card is rendered by the shared module (help-topic-cards.js) so resources.html's
+    // preview cannot drift from it. getting-to-know is excluded here ONLY because it has its
+    // own hero block above; the preview, which has no hero, shows all seven.
+    HTC.renderTopicCards(cats, {
+      topics: state.topics,
+      articles: state.articles,
+      exclude: ['getting-to-know'],
+      showList: true,
+      articleHref: href,
     });
     main.appendChild(cats);
 

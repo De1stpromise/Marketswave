@@ -1526,6 +1526,37 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   - Phase 2 holds view counting, tickets recording their article, “Needs attention”, image
     upload and the in-product placements. The Views/Tickets columns show an em dash meaning
     “not counted yet”, never a fabricated 0.
+
+- **★★ resources.html's Help Center preview reads the real topics — and the fourth card it
+  replaced was a FABRICATED PRODUCT CLAIM (2026-09-23, register row 271).** The section held
+  four hardcoded `.service-card`s containing **zero `<a>` tags** — inert text, not stale links —
+  whose names matched no real topic: “Get started”, “Investing with Us”, “Security and
+  Privacy”, and **“Promotion and referrals — Get a friend to sign up and receive a bonus and
+  repeat.”** No referral programme, bonus or promotion mechanism exists anywhere in this
+  product; the only other “referral” in the project is a *How did you hear about us?* dropdown
+  option on `contact.html`, a different sense of the word. **This is rows 76–77's class** (the
+  fabricated support tickets and the fake Active Sessions) reaching a PUBLIC page for the first
+  time: a financial site promising a signup bonus it has never had.
+  - **The cards are now rendered from `help_topics` + `help_articles_public`**, the same read
+    `help.html` makes, so the preview cannot name a topic that does not exist or state a count
+    that is not true. A topic with something published links to `help.html?topic=<id>` and says
+    “All N articles →”; a topic with nothing published renders the same card UNLINKED with
+    “Articles coming soon.” — help.html's own words — rather than linking to an empty page.
+  - **★ THE CARD IS DEFINED ONCE, in `help-topic-cards.js`** (`window.HelpTopicCards`, the
+    `format-helpers.js` convention), and BOTH pages call it. Two copies of a card is how this
+    project got `formatUSD()` in twelve files. The count phrase is one function for the same
+    reason — “All 1 article” on one page and “All 1 articles” on the other is exactly the drift
+    a shared card exists to prevent. `help.css` is fully namespaced (`.hc-*`/`.ha-*`), so
+    linking it on resources.html adds nothing that can collide with that page's own styles.
+  - **★ A DISCREPANCY WORTH KNOWING BEFORE YOU ASSUME THE TWO PAGES ARE IDENTICAL**: help.html's
+    landing grid renders SIX topic cards, not seven — it promotes `getting-to-know` to its own
+    “New here?” hero block above the grid (`exclude: ['getting-to-know']`). The preview has no
+    hero, so it passes no `exclude` and shows all seven. The BEHAVIOUR matches exactly (same
+    card, same counts, same link target, same coming-soon wording); the layout deliberately
+    does not.
+  - **If the read fails, the grid removes itself** and the section keeps its heading,
+    description and working “Visit Help Center” button. Never a fabricated placeholder card,
+    never an error box on a marketing page — and the same outcome with JS off.
 - **★ THE PM RAIL'S ITEM COUNT IS DERIVED, NOT RETYPED — `scripts/lib/admin-nav-count.mjs`
   (2026-09-23).** Ten suites hardcoded `=== 10`, and THREE used it as a readiness condition, so
   adding one rail item broke four assertions and would have left the other three polling until
@@ -11042,6 +11073,17 @@ row 74.
   control sweep because that page rendered them after the sweep looked. `scripts/audit-render-diff.mjs`
   is the rendered before/after tool for stages 2–3.
 
+  **★ AND THE SCANNER READS RAW TEXT, INCLUDING COMMENTS AND JS OPERATORS (2026-09-23).**
+  A leading bang on a variable whose name is also a utility reads as that utility's
+  important-modifier form, so a negation of a variable called `grid` in a root .js file emitted
+  a real display-grid-important rule into the shipped sheet — surfacing as a stale-sheet
+  failure naming a class no page ever asks for. **Fix it at the source: rename the variable.**
+  Rebuilding would have committed a rule that exists only because of a JS negation. The same
+  run then failed a SECOND time on the comment written to explain the first fix, which spelled
+  the token out literally — comments are not skipped. Avoid negating a variable named after a
+  utility (grid, block, flex, table, hidden, fixed), and describe the token in prose rather
+  than typing it. The committed sheet carried no important-modifier rules before this, so any
+  that appear are this trap rather than a real need.
 - **★★★ Realised gains are spendable capital, and `asset_returns` is a reported tally (2026-09-22,
   register rows 264–265).** `execute-sell` credits the FULL sale proceeds to `unallocated_capital`;
   `asset_returns` still accumulates every `realized_return` but is a LIFETIME TALLY that is reported

@@ -14,6 +14,10 @@
        second family. Do not re-add it. -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="chat-widget.css" />
+  <!-- Help Center topic cards (.hc-cats/.hc-cat/...) for the preview in the Help Center
+       section. help.css is fully namespaced (.hc-* / .ha-*), so it adds no rules that could
+       collide with this page's own styles. -->
+  <link rel="stylesheet" href="help.css" />
 </head>
 <body>
 
@@ -361,24 +365,15 @@
         <p>Guidance, documents, and account support designed around a single secure client portal.</p>
       </div>
 
-      <div class="service-grid" style="max-width:960px; margin:0 auto;">
-        <article class="service-card glass">
-          <h3>Get started</h3>
-          <p>Everything you need to get going. Learn about Marketswave and set up your profile.</p>
-        </article>
-        <article class="service-card glass">
-          <h3>Investing with Us</h3>
-          <p>Learn what you need to know about investing on our platform to leverage the best service that we provide.</p>
-        </article>
-        <article class="service-card glass">
-          <h3>Security and Privacy</h3>
-          <p>Explore how to keep your account safe and the policies we use for your credentials.</p>
-        </article>
-        <article class="service-card glass">
-          <h3>Promotion and referrals</h3>
-          <p>Get a friend to sign up and receive a bonus and repeat.</p>
-        </article>
-      </div>
+      <!-- Help Center topic preview (2026-09-23). Rendered by help-preview.js from the same
+           help_topics / help_articles_public read the Help Center itself uses, with the card
+           built by the shared help-topic-cards.js — so this preview cannot name a topic that
+           does not exist or state a count that is not true, and it grows on its own as
+           articles are published. It replaced four hardcoded cards, one of which advertised a
+           referral bonus programme this product has never had. Empty by design until the
+           fetch resolves; if it cannot, the grid removes itself and the button below stands
+           on its own. -->
+      <div class="hc-cats" id="hc-preview" style="max-width:960px; margin:0 auto;"></div>
 
       <div class="text-center" style="margin-top:36px;">
         <a href="help.html" class="btn btn-outline">Visit Help Center</a>
@@ -571,6 +566,8 @@
   <script src="chat-widget.js"></script>
   <script src="site-presence.js"></script>
   <script>initChatWidget();</script>
+  <script src="help-topic-cards.js"></script>
+  <script src="help-preview.js"></script>
   <script src="resources-artifact.js"></script>
 </body>
 </html>
