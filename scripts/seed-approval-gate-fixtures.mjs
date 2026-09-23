@@ -170,7 +170,7 @@ async function main() {
   }));
   must('hys_withdrawal_requests')(await admin.from('hys_withdrawal_requests').insert({ // 7
     client_id: id, pocket_id: pocket.id, pocket_type: 'fixed', term_label: '12 months',
-    forfeit: false, receive_amount: 5240, method: 'bank', destination_details: { bankName: 'SEB' },
+    forfeit: false, receive_amount: 5240, method: 'internal',
     status: 'pending', requested_at: new Date().toISOString()
   }));
   must('profile_change_requests')(await admin.from('profile_change_requests').insert({ // 8

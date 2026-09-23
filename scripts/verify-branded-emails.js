@@ -240,9 +240,16 @@ async function main() {
     const { data: pocket } = await admin.from('hys_pockets').insert({
       client_id: user.id, pocket_type: 'ayw', amount: 3000, status: 'active', rate: 4.5, projected_interest: 100, funding_method: 'bank account'
     }).select().single();
-    const { data: req1 } = await admin.from('hys_withdrawal_requests').insert({
-      client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', method: 'bank', destination_details: {}, forfeit: false, receive_amount: 3100, status: 'pending'
+    // ★ 2026-09-23: method is 'internal' and there is no destination. A pocket returns its money
+    // to the client's own available balance, and the CHECK constraint now REFUSES 'bank'/'crypto'
+    // for every role, service_role included — so a stale 'bank' here is rejected outright. The
+    // error is read rather than discarded (row W): without it the insert returns null and the
+    // failure surfaces as "Cannot read properties of null" three lines later, accusing the
+    // function under test instead of the row that was never written.
+    const { data: req1, error: req1Err } = await admin.from('hys_withdrawal_requests').insert({
+      client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', method: 'internal', forfeit: false, receive_amount: 3100, status: 'pending'
     }).select().single();
+    if (req1Err) throw new Error('seeding the approve-hys-withdrawal request failed: ' + req1Err.message);
     let before = new Date().toISOString();
     const r1 = await pm.functions.invoke('approve-hys-withdrawal', { body: { requestId: req1.id } });
     check('approve-hys-withdrawal succeeds', !r1.error && r1.data.status === 'approved', r1.error && r1.error.message);
@@ -251,9 +258,10 @@ async function main() {
     const { data: pocket2 } = await admin.from('hys_pockets').insert({
       client_id: user.id, pocket_type: 'ayw', amount: 500, status: 'active', rate: 4.5, projected_interest: 10, funding_method: 'bank account'
     }).select().single();
-    const { data: req2 } = await admin.from('hys_withdrawal_requests').insert({
-      client_id: user.id, pocket_id: pocket2.id, pocket_type: 'ayw', method: 'bank', destination_details: {}, forfeit: false, receive_amount: 510, status: 'pending'
+    const { data: req2, error: req2Err } = await admin.from('hys_withdrawal_requests').insert({
+      client_id: user.id, pocket_id: pocket2.id, pocket_type: 'ayw', method: 'internal', forfeit: false, receive_amount: 510, status: 'pending'
     }).select().single();
+    if (req2Err) throw new Error('seeding the reject-hys-withdrawal request failed: ' + req2Err.message);
     before = new Date().toISOString();
     const r2 = await pm.functions.invoke('reject-hys-withdrawal', { body: { requestId: req2.id, reason: 'Pending internal review.' } });
     check('reject-hys-withdrawal succeeds', !r2.error && r2.data.status === 'rejected', r2.error && r2.error.message);

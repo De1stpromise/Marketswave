@@ -211,7 +211,7 @@ async function main() {
       { client_id: clientId, pocket_type: 'ayw', amount: 4000, status: 'active', funding_method: 'bank account', projected_interest: 0, created_at: new Date(now - 10 * day).toISOString() }
     ]).select('id');
     ids.pockets = pk.map((p) => p.id);
-    await admin.from('hys_withdrawal_requests').insert({ client_id: clientId, pocket_id: ids.pockets[1], method: 'bank', destination_details: { bank: 'Test Bank' }, receive_amount: 4000, forfeit: false, status: 'pending' });
+    await admin.from('hys_withdrawal_requests').insert({ client_id: clientId, pocket_id: ids.pockets[1], method: 'internal', receive_amount: 4000, forfeit: false, status: 'pending' });
     await admin.from('profile_change_requests').insert({ client_id: clientId, field: 'address', current_value: null, requested_value: { street: '1 Test St', city: 'Testville', state: 'TS', postalCode: '00000', country: 'US' }, reason: 'Moved', status: 'pending' });
     await admin.from('documents').insert([
       { client_id: clientId, filename: 'Q3 Statement.pdf', category: 'Statements & Reports', direction: 'from', date: new Date().toISOString().slice(0, 10), status: 'Signature Required', is_new: true, deadline_label: 'Due in 7 days' },

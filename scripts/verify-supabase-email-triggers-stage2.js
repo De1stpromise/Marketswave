@@ -249,7 +249,8 @@ async function main() {
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: pocket } = await admin.from('hys_pockets').insert({ client_id: user.id, pocket_type: 'ayw', amount: 1000, status: 'active', funding_method: 'bank account' }).select().single();
-    const { data: req } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'bank', destination_details: {}, status: 'pending' }).select().single();
+    const { data: req, error: reqErr } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'internal', status: 'pending' }).select().single();
+    if (reqErr) throw new Error('seeding the hys_withdrawal_requests row failed: ' + reqErr.message);
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('approve-hys-withdrawal', { body: { requestId: req.id } });
     check('approve-hys-withdrawal succeeds', !error && data.status === 'approved', error && error.message);
@@ -265,7 +266,8 @@ async function main() {
   await (async function () {
     const user = await createTestClient(admin, unreachableDomain, password, { email: malformedRecipient });
     const { data: pocket } = await admin.from('hys_pockets').insert({ client_id: user.id, pocket_type: 'ayw', amount: 1000, status: 'active', funding_method: 'bank account' }).select().single();
-    const { data: req } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'bank', destination_details: {}, status: 'pending' }).select().single();
+    const { data: req, error: reqErr } = await admin.from('hys_withdrawal_requests').insert({ client_id: user.id, pocket_id: pocket.id, pocket_type: 'ayw', term_label: null, forfeit: false, receive_amount: 1000, method: 'internal', status: 'pending' }).select().single();
+    if (reqErr) throw new Error('seeding the hys_withdrawal_requests row failed: ' + reqErr.message);
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('reject-hys-withdrawal', { body: { requestId: req.id, reason: 'Please contact support to confirm your identity first.' } });
     check('reject-hys-withdrawal succeeds', !error && data.status === 'rejected', error && error.message);

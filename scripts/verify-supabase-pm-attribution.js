@@ -128,8 +128,22 @@ async function main() {
   // PART 0 — static proof: the admin-check block itself was never touched in any function
   // ===========================================================================================
   console.log('\n0. Static proof — the 403 admin-check block is byte-identical in every touched function\n');
+  // * READ THE COMMITTED BYTES, NEVER THE FILE IN PLACE (2026-09-23). Two reasons, and both
+  // have now cost a real pass.
+  //   1. A host-side read under supabase/functions updates its last-access time, the CLI's
+  //      watcher reports that as a WRITE, and the edge runtime restarts - so this loop was
+  //      restarting the runtime on every pass, and the next call any suite made could 502
+  //      (row 255; the same fix verify-supabase-product-catalog.mjs already carries).
+  //   2. core.autocrlf=true leaves an EDITED file CRLF in the working copy while the index
+  //      stays LF, so an untouched admin check failed this byte match purely because the
+  //      function around it had been edited - which reads as an authorization regression and
+  //      is not one. The committed bytes are what actually deploys, so they are what to assert.
   for (const fn of TOUCHED_FUNCTIONS) {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', fn, 'index.ts'), 'utf8');
+    const rel = 'supabase/functions/' + fn + '/index.ts';
+    const src = execSync('git show HEAD:' + rel, { cwd: path.join(__dirname, '..'), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    // Non-vacuity: an empty read would make includes() false for all 22 and look like a wall
+    // of authorization regressions, so a failed read must say so rather than be measured.
+    if (!src || src.length < 200) throw new Error('could not read committed bytes for ' + rel + ' (got ' + (src ? src.length : 0) + ' chars)');
     check(fn + ': admin-check block present, unmodified', src.includes(ADMIN_CHECK_BLOCK));
   }
 
