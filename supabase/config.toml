@@ -979,3 +979,21 @@ verify_jwt = false
 [functions.get-invitation]
 enabled = true
 verify_jwt = false
+
+[functions.save-help-article]
+enabled = true
+verify_jwt = false
+import_map = "./functions/save-help-article/deno.json"
+entrypoint = "./functions/save-help-article/index.ts"
+
+[functions.publish-help-article]
+enabled = true
+verify_jwt = false
+import_map = "./functions/publish-help-article/deno.json"
+entrypoint = "./functions/publish-help-article/index.ts"
+
+[functions.unpublish-help-article]
+enabled = true
+verify_jwt = false
+import_map = "./functions/unpublish-help-article/deno.json"
+entrypoint = "./functions/unpublish-help-article/index.ts"

@@ -11328,18 +11328,35 @@ is for. Four stages, in order, each building on the last:
   consecutive clean pass (only ever required for a specific proof, never routinely).
   **COMMIT EARLY, ALWAYS.** A commit is a local save point, not a publication. Finished work
   never sits in the working tree waiting on verification — this project has had a machine
-  freeze and a network drop, and work has sat uncommitted for hours more than once. Judgment
-  applies: a change that touches money movement, auth, RLS or the settlement engine gets the
-  full suite BEFORE pushing; presentation, copy and additive UI do not.
-  **WHEN the full regression suite runs**: after a BATCH of related work, not after each task
-  (three small changes in a session get one suite run at the end, not three); before or after
-  anything touching the money path — settlement, allocation, deposits, withdrawals, NAV
-  publication, approval gates — regardless of batch size; after any change to a shared module
-  (`_shared/*`, `glass-primitives.css`, `control-patterns.css`), since a targeted suite cannot
-  see the blast radius of something with importers everywhere; before a real deployment
-  milestone. NOT after presentation work, copy changes, additive UI or documentation-only
-  changes — those get their targeted suites and nothing more. Running 72 scripts to verify a
-  retitled card costs 80 minutes and real tokens for no information.
+  freeze and a network drop, and work has sat uncommitted for hours more than once.
+  **★★ WHEN THE FULL SUITE RUNS — REVISED 2026-09-23, AND THE REASON MATTERS MORE THAN THE RULE.**
+  Every task gates its push on a TARGETED pass: `npm run pass -- <suites>`, gate first, covering
+  the task's own suites PLUS every suite the blast-radius grep turns up. The full suite runs
+  BATCHED — every three or four tasks, as its own scheduled session rather than bolted onto the
+  end of one — and ALWAYS before a change a client will notice.
+  **★ THE LINE THAT IS NOT NEGOTIABLE: the full suite is still REQUIRED before deploying any
+  change to money, to logins, or to who-can-see-what ON AN EXISTING FEATURE.** The realised-gains
+  fix (row 264) is the model case — it altered what 'total' meant across five call sites and two
+  of them were found late. A NEW feature that can only break itself does not qualify, however
+  large it is.
+  **Stated plainly so a later reader does not mistake this for a shortcut**: the live site now has
+  real clients, so a regression in an area this task never touched is no longer hypothetical.
+  Batching buys back roughly four hours per task and pays for it with a regression that lives
+  longer before anyone sees it, and with harder attribution when it surfaces. That trade is only
+  safe because of the line held above for existing money and access paths — remove the line and
+  the batching stops being a trade and becomes a gamble.
+  **When a batched pass DOES find a failure**: name which task since the last batch most likely
+  caused it before investigating anything else, and bisect across that batch's commits if it is
+  not obvious. Attribution is the cost batching incurs; paying it deliberately is what keeps the
+  cadence honest. NOT worth a full suite on their own: presentation, copy, additive UI and
+  documentation-only changes — those take their targeted suites and nothing more.
+- **★★ TARGETED PER TASK, FULL SUITE BATCHED EVERY THREE OR FOUR TASKS (2026-09-23).** The
+  short form of the cadence set out in the gates bullet above, which holds the detail and the
+  reasoning: a targeted `npm run pass` gates every push; the full suite is a scheduled session of
+  its own, not a tail on one task — and it is still REQUIRED before deploying a change to money,
+  logins, or who-can-see-what on an EXISTING feature. A new feature that can only break itself
+  does not qualify. When a batched pass fails, name the likeliest task since the last batch first,
+  then bisect.
 - **★★ SUPABASE IS AUTHORITATIVE FOR ANY CLIENT WHO EXISTS THERE. The local engine is a
   fallback ONLY for clients who exist nowhere else.** Added 2026-09-15 (register row 235) after
   this was reversed in `admin-clients.html` and cost two real clients their portfolio value: the
