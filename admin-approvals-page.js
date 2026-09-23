@@ -266,7 +266,7 @@
         // amount * (rate/100) * years. Multiplying by 100 here rendered a real 12%
         // pocket as 1200.0%. high-yield-savings.html and the retired admin-hys.html
         // both render it bare, and this now matches them.
-        amountSub: (r.rate ? Number(r.rate).toFixed(1) + '%' : 'no fixed rate'),
+        amountSub: (r.rate ? Number(r.rate).toFixed(1) + '%' : 'no interest'),
         internal: internal, available: avail, raw: r
       });
     });
@@ -504,7 +504,7 @@
     } else if (it.kind === 'hys' && it.sub_kind === 'deposit') {
       var hd = it.raw;
       b += kv('Pocket', esc(hd.term_label || hd.pocket_type));
-      b += kv('Rate', hd.rate ? Number(hd.rate).toFixed(1) + '%' : 'No fixed rate');   // a percent already — see the queue row's own note
+      b += kv('Rate', hd.rate ? Number(hd.rate).toFixed(1) + '%' : 'No interest');   // a percent already — see the queue row's own note
       b += kv('Funding', esc(it.internal ? 'Internal transfer from unallocated' : 'External · ' + (hd.method || '')));
       if (it.internal) {
         b += kv('Unallocated now', usd(it.available));
@@ -516,15 +516,14 @@
            (it.internal ? ' readonly' : '') + ' /></div>';
       b += revalNote(it.internal
         ? 'An internal transfer must match the requested amount exactly and is re-validated against unallocated capital at approval.'
-        : 'Externally funded, so the confirmed amount may differ from what was requested. High Yield Savings is its own pool and does not touch unallocated capital.');
+        : 'Externally funded, so the confirmed amount may differ from what was requested. The money arrives from outside the account, so this does not draw on unallocated capital.');
     } else if (it.kind === 'hys') {
       var hw = it.raw;
       b += kv('Pocket', esc(hw.term_label || hw.pocket_type));
       b += kv('Receives', usd(hw.receive_amount));
       b += kv('Interest forfeited', hw.forfeit ? '<span class="ag-dn">Yes — withdrawn early</span>' : 'No');
-      b += kv('Method', esc(hw.method === 'crypto' ? 'Crypto wallet' : 'Bank account'));
-      b += detailRows(hw.destination_details);
-      b += revalNote('The pocket is re-read at approval and refused if it has already been withdrawn. This does not affect unallocated capital — savings is paid out externally.');
+      b += kv('Returns to', 'Client’s available balance');
+      b += revalNote('Approving closes the pocket and credits the client’s unallocated capital with the amount above — pockets return money to the available balance, not to a bank. Reaching a bank from there is a separate withdrawal request. The pocket is re-read at approval and refused if it has already been withdrawn.');
     } else if (it.kind === 'prof') {
       var pc = it.raw;
       b += kv('Field', esc(fieldLabel(pc.field)));

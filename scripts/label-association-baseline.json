@@ -564,46 +564,6 @@
     "axFrom": "placeholder:placeholder",
     "ok": false
   },
-  "high-yield-savings.html::wd-crypto-address": {
-    "axName": "Your wallet address",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-crypto-asset": {
-    "axName": "",
-    "axFrom": "",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-crypto-network": {
-    "axName": "",
-    "axFrom": "",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-bank-name": {
-    "axName": "As it appears on your bank account",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-bank-institution": {
-    "axName": "Name of your bank",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-bank-account": {
-    "axName": "Recipient account number",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-bank-routing": {
-    "axName": "Optional",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
-  "high-yield-savings.html::wd-bank-swift": {
-    "axName": "Optional",
-    "axFrom": "placeholder:placeholder",
-    "ok": false
-  },
   "high-yield-savings.html::chat-widget-name": {
     "axName": "Your name",
     "axFrom": "placeholder:placeholder",

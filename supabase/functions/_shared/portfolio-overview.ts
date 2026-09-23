@@ -29,7 +29,7 @@ export interface ValuePoint {
 }
 export interface CapitalEvent {
   date: string;                                        // the ledger row's created_at
-  kind: 'deposit' | 'withdrawal' | 'transfer_out';
+  kind: 'deposit' | 'withdrawal' | 'transfer_out' | 'transfer_in';
   amount: number;                                      // always positive; kind carries direction
   cumulativeAfter: number;                             // net capital in once this row landed
 }
@@ -53,11 +53,16 @@ export interface ValueHistory {
   capitalIn: { current: number; events: CapitalEvent[] };
   // ★ Asset & Performance's Total ACCOUNT value card (2026-09-19). A DIFFERENT scope from
   // capitalIn: the account total INCLUDES savings pockets, so a transfer into a pocket does
-  // not leave it and must not be subtracted, while an external pocket deposit/withdrawal
-  // (HYS_DEPOSIT / HYS_WITHDRAWAL) DOES enter/leave it. Using capitalIn.current for that card
+  // not leave it and must not be subtracted, while an external pocket deposit (HYS_DEPOSIT)
+  // DOES enter it. Using capitalIn.current for that card
   // would have been a subtle wrong number that looked plausible — a client who moved $1,100
   // into a pocket would read $1,100 less "deposited" than they actually sent.
-  //   deposited = ΣDEPOSIT + ΣHYS_DEPOSIT − ΣWITHDRAWAL − ΣHYS_WITHDRAWAL  (external flows only)
+  //   deposited = ΣDEPOSIT + ΣHYS_DEPOSIT − ΣWITHDRAWAL  (external flows only)
+  // ★ HYS_WITHDRAWAL LEFT THIS SUM ON 2026-09-23. A pocket withdrawal used to pay out
+  // externally, so it genuinely left the account; it now credits the available balance, so it
+  // moves money between two parts of the same account and is no more an external flow than
+  // HYS_TRANSFER_IN is. Measured before changing it: zero HYS_WITHDRAWAL rows existed on local
+  // or real staging, so no client's displayed figure moved.
   accountDeposited: number;
   live: { date: string; value: number; capitalIn: number; return: number };
   periodStats: Record<'3' | '6' | '12' | 'all', PeriodStats | null>;
@@ -70,7 +75,7 @@ export interface ValueHistory {
 // The portfolio line is computeTotalPortfolioValue(): unallocated + allocated (asset_returns is
 // a reported tally since row 264, not a balance, and is not summed). It does NOT include savings
 // pockets. "Capital in" is therefore the NET EXTERNAL CAPITAL
-// THAT HAS ENTERED THE PORTFOLIO THAT LINE MEASURES, and only three ledger types move it:
+// THAT HAS ENTERED THE PORTFOLIO THAT LINE MEASURES, and only four ledger types move it:
 //
 //   DEPOSIT          +total_value   external money credited to unallocated capital
 //   WITHDRAWAL       -total_value   external money paid out of unallocated capital
@@ -80,19 +85,39 @@ export interface ValueHistory {
 //                                   amount that never happened (a real staging client has
 //                                   DEPOSIT 100,000 then HYS_TRANSFER_IN 5,000: capital in
 //                                   must read 95,000)
-//   HYS_DEPOSIT / HYS_WITHDRAWAL     EXCLUDED: external money into / out of a pool the
-//                                   portfolio line never included (an external pocket deposit
-//                                   moves TPV by exactly nothing)
+//   HYS_WITHDRAWAL   +total_value   ★ ADDED 2026-09-23 — a pocket now returns its money to the
+//                                   available balance, so capital ENTERS the measured portfolio
+//                                   and must enter this line too. Without the +1 the gap would
+//                                   jump by the whole withdrawal and render as a return the
+//                                   client never earned. The symmetry is exact: what
+//                                   HYS_TRANSFER_IN subtracts on the way in, this adds back.
+//   HYS_DEPOSIT                      EXCLUDED: external money into a pool the portfolio line
+//                                   never included (an external pocket deposit moves TPV by
+//                                   exactly nothing)
 //   BUY / SELL                       EXCLUDED: internal reallocations, TPV-conserving
+//
+// ★ THE MATURED-POCKET INTEREST, and why the full amount is added rather than the principal.
+// A matured pocket returns principal + interest, so +1 on the full amount lifts this line by
+// interest the client did not contribute. The alternative — record the interest on the ledger
+// row and add only the principal — was considered and REJECTED (2026-09-23): it breaks the
+// property this chart is built on, that the gap between the lines IS the return exactly, since
+// get-returns-summary computes realised from SELL rows only and its total would no longer
+// equal the gap. Pockets are outside the portfolio measure, so from the portfolio's own point
+// of view money arriving from one is capital arriving, exactly like a deposit. The interest
+// stays visible where it always has been: a live pocket counts as amount + interestAccrued in
+// Total account value, so account growth has reflected it since the day it accrued.
 //
 // With that definition the gap is EXACTLY the return, by the engine's own accounting. RE-DERIVED
 // 2026-09-22 (row 264), because a sale now credits its FULL proceeds to unallocated_capital — the
 // term that used to read "+ Σsold cost portion" is "+ Σsale value", and asset_returns is no longer
 // part of TPV:
-//   unallocated = ΣDEPOSIT - ΣWITHDRAWAL - ΣHYS_TRANSFER_IN - Σbuy cost + Σsale value
+//   unallocated = ΣDEPOSIT - ΣWITHDRAWAL - ΣHYS_TRANSFER_IN + ΣHYS_WITHDRAWAL
+//                 - Σbuy cost + Σsale value        (+ΣHYS_WITHDRAWAL added 2026-09-23)
 //   allocated   = held cost basis + unrealised = (Σbuy cost - Σsold cost basis) + unrealised
 //   TPV - capitalIn = unrealised + (Σsale value - Σsold cost basis)
 //                   = unrealised + Σrealized_return = get-returns-summary's `total`
+// and capitalIn carries the matching +ΣHYS_WITHDRAWAL term, so the identity survives the pocket
+// change untouched — which is the whole reason the sign is +1 rather than anything cleverer.
 // The identity is unchanged in VALUE — Σsale value - Σsold cost basis IS the realised total, which
 // asset_returns tallies — but it now reaches it through unallocated_capital rather than through a
 // separate column. The verification asserts it against the real functions, not just this comment.
@@ -103,13 +128,13 @@ export interface ValueHistory {
 // credited on the 3rd is already inside a value labelled the 1st. Pairing that value with the
 // capital in as of the 1st would overstate the return at that point by the deposit.
 // ---------------------------------------------------------------------------------------
-const CAPITAL_IN_SIGN: Record<string, number> = { DEPOSIT: 1, WITHDRAWAL: -1, HYS_TRANSFER_IN: -1 };
-const EVENT_KIND: Record<string, CapitalEvent['kind']> = { DEPOSIT: 'deposit', WITHDRAWAL: 'withdrawal', HYS_TRANSFER_IN: 'transfer_out' };
+const CAPITAL_IN_SIGN: Record<string, number> = { DEPOSIT: 1, WITHDRAWAL: -1, HYS_TRANSFER_IN: -1, HYS_WITHDRAWAL: 1 };
+const EVENT_KIND: Record<string, CapitalEvent['kind']> = { DEPOSIT: 'deposit', WITHDRAWAL: 'withdrawal', HYS_TRANSFER_IN: 'transfer_out', HYS_WITHDRAWAL: 'transfer_in' };
 
 // External money in and out of the ACCOUNT as a whole (portfolio + savings pockets). See the
 // `accountDeposited` note on ValueHistory. Internal transfers (HYS_TRANSFER_IN) and trades
 // (BUY/SELL) are neither.
-const ACCOUNT_FLOW_SIGN: Record<string, number> = { DEPOSIT: 1, HYS_DEPOSIT: 1, WITHDRAWAL: -1, HYS_WITHDRAWAL: -1 };
+const ACCOUNT_FLOW_SIGN: Record<string, number> = { DEPOSIT: 1, HYS_DEPOSIT: 1, WITHDRAWAL: -1 };
 export async function accountDepositedTotal(admin: any, clientId: string): Promise<number> {
   const { data, error } = await admin
     .from('transactions')

@@ -48,3 +48,6 @@ scripts/*-pass.log
 # was committed by accident it was served publicly by GitHub Pages. The scripts/ rule above
 # never covered the root; this does.
 /.tmp-*
+
+# The operator's own scratch progress file — not part of the project (swept into a commit once).
+TUTOR-PROGRESS.md

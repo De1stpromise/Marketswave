@@ -239,7 +239,7 @@
     BUY: ['Allocation approved', 'cp-i-alo', ICONS.allocation],
     SELL: ['Sell executed', 'cp-i-alo', ICONS.allocation],
     HYS_DEPOSIT: ['Pocket funded', 'cp-i-hys', ICONS.hys],
-    HYS_WITHDRAWAL: ['Pocket paid out', 'cp-i-hys', ICONS.hys],
+    HYS_WITHDRAWAL: ['Pocket closed to balance', 'cp-i-hys', ICONS.hys],
     HYS_TRANSFER_IN: ['Transfer to savings', 'cp-i-hys', ICONS.hys]
   };
 

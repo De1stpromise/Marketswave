@@ -191,7 +191,7 @@
             </div>
             <p class="text-xs text-red-500 hidden mt-1" id="np-ayw-amount-error">Please enter an amount.</p>
           </div>
-          <p class="text-xs text-slate-400">As You Want pockets have no minimum, no fixed term, and no fixed rate — withdraw anytime.</p>
+          <p class="text-xs text-slate-400">As You Want pockets have no minimum, no fixed term, and no interest — withdraw anytime.</p>
         </div>
         <div class="flex gap-3 pt-5">
           <button type="button" class="np-back mw-btn mw-btn-secondary" data-target="type">Back</button>
@@ -365,106 +365,23 @@
         </div>
       </div>
 
-      <div class="wd-step hidden" data-step="destination">
-        <p class="text-sm text-slate-600 mb-4">You will receive <span class="font-semibold text-navy" id="wd-receive-amount">$0.00</span>.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button type="button" class="wd-method-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="crypto">
-            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
-              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <h4 class="font-semibold text-navy mb-1">Crypto</h4>
-            <p class="text-xs text-slate-500">Send to a digital wallet.</p>
-          </button>
-          <button type="button" class="wd-method-card text-left bg-white rounded-xl border-2 border-slate-200 p-5 hover:border-navy/40 transition" data-method="bank">
-            <div class="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center mb-3">
-              <svg class="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-            </div>
-            <h4 class="font-semibold text-navy mb-1">Bank</h4>
-            <p class="text-xs text-slate-500">Send to a bank account.</p>
-          </button>
+      <!-- ★ 2026-09-23: there is no destination step any more. A pocket returns its money to
+           the client's own available balance, so there is nowhere to send it and nothing to
+           ask for — the crypto/bank method cards and both destination forms were removed
+           rather than hidden. Reaching a bank is a normal withdrawal from Deploy Capital. -->
+      <div class="wd-step hidden" data-step="confirm">
+        <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 mb-5">
+          <div class="flex items-baseline justify-between mb-1">
+            <span class="text-sm text-slate-600">Returns to your available balance</span>
+            <span class="text-lg font-semibold text-navy ret-fig" id="wd-receive-amount">$0.00</span>
+          </div>
+          <p class="text-xs text-slate-600">Closing this pocket moves the money to your available balance, where you can invest it, open another pocket, or request a withdrawal to your bank or wallet from Deploy&nbsp;Capital.</p>
         </div>
-      </div>
-
-      <div class="wd-step hidden" data-step="crypto">
-        <div class="space-y-4">
-          <div>
-            <div class="mw-fld">
-              <input type="text" id="wd-crypto-address" placeholder="Your wallet address" class="mw-field">
-              <label for="wd-crypto-address">Destination Wallet Address</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld mw-fld--static">
-              <select id="wd-crypto-asset" class="mw-field">
-              <option value="">Select asset</option>
-              <option value="BTC">Bitcoin (BTC)</option>
-              <option value="ETH">Ethereum (ETH)</option>
-              <option value="USDT">Tether (USDT)</option>
-              <option value="USDC">USD Coin (USDC)</option>
-            </select>
-              <label for="wd-crypto-asset">Asset</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld mw-fld--static">
-              <select id="wd-crypto-network" class="mw-field">
-              <option value="">Select network</option>
-              <option value="ERC20">ERC-20</option>
-              <option value="TRC20">TRC-20</option>
-              <option value="BEP20">BEP-20</option>
-              <option value="Native">Native</option>
-            </select>
-              <label for="wd-crypto-network">Network</label>
-            </div>
-          </div>
-          <p class="text-xs text-red-500 hidden" id="wd-crypto-error">Please complete all fields.</p>
-        </div>
-        <div class="flex gap-3 pt-5">
-          <button type="button" class="wd-back mw-btn mw-btn-secondary" data-target="destination">Back</button>
-          <button type="button" id="wd-crypto-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm Withdrawal</button>
-        </div>
-      </div>
-
-      <div class="wd-step hidden" data-step="bank">
-        <div class="space-y-4">
-          <div>
-            <div class="mw-fld">
-              <input type="text" id="wd-bank-name" placeholder="As it appears on your bank account" class="mw-field">
-              <label for="wd-bank-name">Recipient Full Name</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld">
-              <input type="text" id="wd-bank-institution" placeholder="Name of your bank" class="mw-field">
-              <label for="wd-bank-institution">Bank Name</label>
-            </div>
-          </div>
-          <div>
-            <div class="mw-fld">
-              <input type="text" id="wd-bank-account" placeholder="Recipient account number" class="mw-field">
-              <label for="wd-bank-account">Account Number</label>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <div class="mw-fld">
-                <input type="text" id="wd-bank-routing" placeholder="Optional" class="mw-field">
-                <label for="wd-bank-routing">Routing Number</label>
-              </div>
-            </div>
-            <div>
-              <div class="mw-fld">
-                <input type="text" id="wd-bank-swift" placeholder="Optional" class="mw-field">
-                <label for="wd-bank-swift">SWIFT / BIC</label>
-              </div>
-            </div>
-          </div>
-          <p class="text-xs text-slate-400">Provide either a routing number or a SWIFT / BIC code.</p>
-          <p class="text-xs text-red-500 hidden" id="wd-bank-error">Please complete the required fields, including a routing number or SWIFT / BIC code.</p>
-        </div>
-        <div class="flex gap-3 pt-5">
-          <button type="button" class="wd-back mw-btn mw-btn-secondary" data-target="destination">Back</button>
-          <button type="button" id="wd-bank-confirm" class="mw-btn mw-btn-primary mw-btn-grow">Confirm Withdrawal</button>
+        <p class="text-xs text-slate-600 mb-5">Your portfolio manager reviews this before it executes.</p>
+        <p class="text-xs text-red-500 hidden" id="wd-confirm-error">Something went wrong.</p>
+        <div class="flex gap-3">
+          <button type="button" id="wd-confirm-cancel" class="mw-btn mw-btn-secondary mw-btn-grow">Cancel</button>
+          <button type="button" id="wd-confirm-submit" class="mw-btn mw-btn-primary mw-btn-grow">Close Pocket</button>
         </div>
       </div>
     </div>
@@ -744,7 +661,7 @@
           <div class="flex justify-between text-sm"><span class="text-slate-500">${interestLabel}</span><span class="font-medium ${interestValue > 0 ? 'text-emerald-600' : 'text-slate-400'}">${fmt(interestValue)}</span></div>
         `;
       } else {
-        termBlock = `<div class="flex justify-between text-sm"><span class="text-slate-500">Projected Interest</span><span class="font-medium text-slate-400">N/A — no fixed rate</span></div>`;
+        termBlock = `<div class="flex justify-between text-sm"><span class="text-slate-500">Projected Interest</span><span class="font-medium text-slate-400">None — this pocket earns no interest</span></div>`;
       }
 
       let actionBlock;
@@ -1117,17 +1034,13 @@
       });
     }
 
+    // ★ 2026-09-23: the crypto and bank destination forms this used to clear are gone with the
+    // destination step itself — a pocket returns its money to the available balance, so there
+    // is no destination to enter and nothing to reset but the error line. Left as a function
+    // rather than inlined at its one call site: openWithdrawModal() should keep having one
+    // obvious place to clear per-open state as this modal grows again.
     function resetWdForms() {
-      document.getElementById('wd-crypto-address').value = '';
-      document.getElementById('wd-crypto-asset').value = '';
-      document.getElementById('wd-crypto-network').value = '';
-      document.getElementById('wd-crypto-error').classList.add('hidden');
-      document.getElementById('wd-bank-name').value = '';
-      document.getElementById('wd-bank-institution').value = '';
-      document.getElementById('wd-bank-account').value = '';
-      document.getElementById('wd-bank-routing').value = '';
-      document.getElementById('wd-bank-swift').value = '';
-      document.getElementById('wd-bank-error').classList.add('hidden');
+      document.getElementById('wd-confirm-error').classList.add('hidden');
     }
 
     // computeReceiveAmount() (formerly a local duplicate of this exact forfeiture rule) was
@@ -1155,7 +1068,7 @@
         showWdStep('warning');
       } else {
         document.getElementById('wd-receive-amount').textContent = fmt(computeHYSWithdrawalAmount(pocket));
-        showWdStep('destination');
+        showWdStep('confirm');
       }
       withdrawModal.classList.remove('hidden');
     }
@@ -1166,21 +1079,22 @@
     // UI Wiring — Stage 4 (2026-09-03): submits via the real request-hys-withdrawal Edge
     // Function instead of the local requestHYSWithdrawal() — same "request now, execute later"
     // discipline as before (the pocket is only ever marked 'withdrawn' by the admin-only
-    // approve-hys-withdrawal, out of this stage's scope). No explicit clientId is passed —
-    // request-hys-withdrawal derives it from the caller's own verified JWT server-side, the
-    // same simplification already found for deploy-capital.html's own Withdraw handler in UI
-    // Wiring Stage 3 (getAuthenticatedClientId() is no longer needed on this page at all).
-    // forfeit/receiveAmount are computed authoritatively server-side, from the real stored
-    // pocket, and returned in the response — this function doesn't need to compute or pass
-    // them itself.
-    function finalizeWithdrawal(methodLabel, method, destinationDetails, errorEl, btn) {
+    // approve-hys-withdrawal). No explicit clientId is passed — request-hys-withdrawal derives
+    // it from the caller's own verified JWT server-side. forfeit/receiveAmount are computed
+    // authoritatively server-side, from the real stored pocket, and returned in the response —
+    // this function doesn't need to compute or pass them itself.
+    //
+    // ★ 2026-09-23: no method and no destination. The pocket returns its money to this client's
+    // own available balance, so the call carries the pocketId and nothing else; the server
+    // records the movement as 'internal' and the table's CHECK permits nothing else.
+    function finalizeWithdrawal(errorEl, btn) {
       return MarketswaveData.withButtonBusy(btn, 'Submitting...', () => MarketswaveData.callFunction('request-hys-withdrawal', {
-        pocketId: currentWithdrawId, method, destinationDetails
+        pocketId: currentWithdrawId
       })).then(() => {
         if (errorEl) errorEl.classList.add('hidden');
         reloadHysData(true);
         closeWithdrawModal();
-        showToast('Withdrawal Request Sent', `Your request to withdraw to your ${methodLabel} has been submitted. Pending Portfolio Manager approval.`);
+        showToast('Request Sent', 'Your request to close this pocket has been submitted. Once your portfolio manager approves it, the money moves to your available balance.');
       }).catch((err) => {
         if (errorEl) { errorEl.textContent = MarketswaveData.writeErrorMessage(err); errorEl.classList.remove('hidden'); }
       });
@@ -1189,6 +1103,7 @@
     document.getElementById('wd-close').addEventListener('click', closeWithdrawModal);
     document.getElementById('wd-backdrop').addEventListener('click', closeWithdrawModal);
     document.getElementById('wd-cancel').addEventListener('click', closeWithdrawModal);
+    document.getElementById('wd-confirm-cancel').addEventListener('click', closeWithdrawModal);
 
     document.getElementById('wd-warning-continue').addEventListener('click', () => {
       const pocket = pockets.find(p => p.id === currentWithdrawId);
@@ -1196,40 +1111,13 @@
       // all) so computeHYSWithdrawalAmount() independently derives the same forfeit=true
       // result the old explicit `true` argument forced — no behavior change.
       document.getElementById('wd-receive-amount').textContent = fmt(computeHYSWithdrawalAmount(pocket));
-      showWdStep('destination');
+      showWdStep('confirm');
     });
 
-    document.querySelectorAll('.wd-back').forEach(btn => {
-      btn.addEventListener('click', () => showWdStep(btn.dataset.target));
-    });
-
-    document.querySelectorAll('.wd-method-card').forEach(card => {
-      card.addEventListener('click', () => {
-        showWdStep(card.dataset.method === 'crypto' ? 'crypto' : 'bank');
-      });
-    });
-
-    document.getElementById('wd-crypto-confirm').addEventListener('click', () => {
-      const address = document.getElementById('wd-crypto-address').value.trim();
-      const asset = document.getElementById('wd-crypto-asset').value;
-      const network = document.getElementById('wd-crypto-network').value;
-      const errorEl = document.getElementById('wd-crypto-error');
-      if (!address || !asset || !network) { errorEl.classList.remove('hidden'); return; }
+    document.getElementById('wd-confirm-submit').addEventListener('click', () => {
+      const errorEl = document.getElementById('wd-confirm-error');
       errorEl.classList.add('hidden');
-      finalizeWithdrawal('crypto wallet', 'crypto', { address, asset, network }, errorEl, document.getElementById('wd-crypto-confirm'));
-    });
-
-    document.getElementById('wd-bank-confirm').addEventListener('click', () => {
-      const name = document.getElementById('wd-bank-name').value.trim();
-      const institution = document.getElementById('wd-bank-institution').value.trim();
-      const account = document.getElementById('wd-bank-account').value.trim();
-      const routing = document.getElementById('wd-bank-routing').value.trim();
-      const swift = document.getElementById('wd-bank-swift').value.trim();
-      const errorEl = document.getElementById('wd-bank-error');
-      if (!name || !institution || !account || (!routing && !swift)) { errorEl.classList.remove('hidden'); return; }
-      errorEl.classList.add('hidden');
-      const details = { accountHolderName: name, bankName: institution, accountNumber: account, routingNumber: routing || null, swift: swift || null };
-      finalizeWithdrawal('bank account', 'bank', details, errorEl, document.getElementById('wd-bank-confirm'));
+      finalizeWithdrawal(errorEl, document.getElementById('wd-confirm-submit'));
     });
 
     document.getElementById('pockets-grid').addEventListener('click', (e) => {

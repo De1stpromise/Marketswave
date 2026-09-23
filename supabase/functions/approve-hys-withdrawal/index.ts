@@ -7,11 +7,30 @@
 // reason: state can genuinely change between a request being submitted and a PM getting to it
 // (e.g. the pocket was already withdrawn through some other resolved request).
 //
-// DELIBERATE DESIGN, decided with the user before the local engine's own equivalent was built
-// (see engine-core.js's own HYS_WITHDRAWAL_REQUESTS_KEY comment) and preserved exactly here:
-// an approved HYS withdrawal does NOT credit unallocated_capital — HYS is its own pool, funded
-// and paid out externally. This function never touches account_state at all. Still lands in
-// transactions (type HYS_WITHDRAWAL) so the activity is visible in one place.
+// ★ REVERSED 2026-09-23: AN APPROVED POCKET WITHDRAWAL NOW CREDITS unallocated_capital.
+// This function used to end with the words "HYS is its own pool, funded and paid out
+// externally" and never touched account_state at all — the money simply left the system and
+// a payout was assumed to happen off-platform. It no longer does. A pocket returns its money
+// to the available balance, and reaching a bank from there is a normal WITHDRAWAL, which is
+// already a real, gated, audited flow. This is the exact mirror of HYS_TRANSFER_IN (row 197),
+// which moves unallocated capital INTO a pocket.
+//
+// WHAT IS CREDITED is whatever the pocket genuinely returns, computed ONCE at request time by
+// the shared computeHysWithdrawalAmount() and carried on the request as receive_amount:
+//   As You Want                    principal
+//   Short-Term fixed, early        principal only — accrued interest forfeited
+//   Matured fixed                  principal + earned interest
+//   Locked, before maturity        refused outright at request time
+//
+// ORDERING, and why it is this way round. There is no cross-statement transaction through
+// supabase-js. Crediting first would mean a failed pocket update leaves the request PENDING
+// with the money already paid — and a retry would credit it a SECOND time. So the pocket is
+// claimed first (its own `status === 'withdrawn'` guard above is what makes a second pass
+// refuse), then the balance is credited, and a failed credit COMPENSATES by restoring the
+// pocket's prior status so the retry is clean. Same discipline, and same reasoning, as
+// credit-hys-deposit's own compensating restore on the way in.
+//
+// Still lands in transactions (type HYS_WITHDRAWAL) so the activity is visible in one place.
 //
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as every other admin-only
 // function in this project.
@@ -81,23 +100,65 @@ Deno.serve(async (req) => {
     }
 
     const clientId = request.client_id;
+    const priorPocketStatus = pocket.status;
 
+    // ★ STEP 1 — CLAIM THE POCKET. Doing this before the credit is what makes a retry safe;
+    // see the ordering note in this file's own header.
     const { error: pocketUpdateErr } = await admin
       .from('hys_pockets')
       .update({
         status: 'withdrawn',
         withdrawn_at: new Date().toISOString(),
         withdrawn_amount: request.receive_amount,
-        withdrawal_method: request.method === 'crypto' ? 'crypto wallet' : 'bank account'
+        withdrawal_method: 'unallocated capital'
       })
       .eq('id', request.pocket_id);
     if (pocketUpdateErr) return jsonResponse({ error: pocketUpdateErr.message }, 500);
 
+    // ★ STEP 2 — CREDIT THE AVAILABLE BALANCE. The mirror of credit-hys-deposit's own debit:
+    // read the current balance, add, upsert. upsert rather than update because a client whose
+    // pocket was funded externally (HYS_DEPOSIT) may genuinely have no account_state row yet —
+    // readAccountStateForClient()'s own "not found is not an error, it is zero" behaviour,
+    // ported the same way Phase B Stage 2 ported it for deposits.
+    const { data: accountState, error: accountErr } = await admin
+      .from('account_state')
+      .select('unallocated_capital')
+      .eq('client_id', clientId)
+      .maybeSingle();
+    if (accountErr) {
+      await restorePocket(admin, request.pocket_id, priorPocketStatus);
+      return jsonResponse({ error: accountErr.message }, 500);
+    }
+    const currentUnallocated = accountState ? Number(accountState.unallocated_capital || 0) : 0;
+    const { error: creditErr } = await admin
+      .from('account_state')
+      .upsert(
+        {
+          client_id: clientId,
+          unallocated_capital: round2(currentUnallocated + Number(request.receive_amount)),
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'client_id' }
+      );
+    if (creditErr) {
+      await restorePocket(admin, request.pocket_id, priorPocketStatus);
+      return jsonResponse({ error: creditErr.message }, 500);
+    }
+
     // A HYS_WITHDRAWAL transaction has no product_id/units/price, just total_value — same
-    // shape as HYS_DEPOSIT. realized_return stays null, matching HYS_DEPOSIT's own choice —
-    // HYS interest earned/forfeited is fully visible via the pocket's own projected_interest
-    // and this request's own forfeit/receive_amount fields, never wired into the portfolio-
-    // side realized-return math, which HYS has never participated in.
+    // shape as HYS_DEPOSIT. total_value is the amount credited to the available balance, which
+    // is what capitalIn now reads (see _shared/portfolio-overview.ts).
+    //
+    // ★ realized_return STAYS NULL, and that is a decision rather than an omission. A matured
+    // pocket returns principal + interest, so it is tempting to record the interest here and
+    // have capitalIn add only the principal. That was considered and rejected: it would break
+    // the property the value chart is built on (row 208 — the gap between the two lines IS the
+    // return, exactly), because get-returns-summary computes realised from SELL rows only
+    // (.eq('type','SELL')) and its total would no longer equal the gap. Pockets sit outside the
+    // portfolio measure, so money arriving from one is capital arriving, the same as a deposit;
+    // the interest a pocket earned stays visible where it already is — Total account value
+    // counts a live pocket as amount + interestAccrued, so growth against accountDeposited has
+    // reflected it since the day it accrued.
     const { data: txn, error: txnErr } = await admin
       .from('transactions')
       .insert({
@@ -134,15 +195,19 @@ Deno.serve(async (req) => {
     if (clientRow) {
       const forfeitNote = request.forfeit ? ' Since this pocket was withdrawn before maturity, projected interest was forfeited.' : '';
       const { html, text } = renderEmail({
-        heading: 'Your High Yield Savings withdrawal has been approved',
-        introParagraphs: ['Hi ' + clientRow.name + ', your withdrawal from your ' + (request.term_label || 'High Yield Savings') + ' pocket has been approved and is being sent to you.' + forfeitNote],
-        detailRows: [{ label: 'Amount', value: '$' + request.receive_amount.toLocaleString() }],
+        heading: 'Your savings pocket has been closed',
+        introParagraphs: [
+          'Hi ' + clientRow.name + ', your ' + (request.term_label || 'High Yield Savings') +
+            ' pocket has been closed and the money is now in your available balance.' + forfeitNote,
+          'You can invest it straight away, move it into another pocket, or request a withdrawal to your bank or wallet from Deploy Capital.'
+        ],
+        detailRows: [{ label: 'Returned to your available balance', value: '$' + request.receive_amount.toLocaleString() }],
         cta: { text: 'View your account', href: siteLink('high-yield-savings.html') },
         footerType: 'investment'
       });
       await sendEmail(admin, {
         to: clientRow.email,
-        subject: 'Your Marketswave High Yield Savings withdrawal has been approved',
+        subject: 'Your Marketswave savings pocket has been closed',
         html,
         text,
         relatedEntityType: 'hys_withdrawal_request',
@@ -175,6 +240,20 @@ function toClientShape(row: Record<string, unknown>) {
     transactionId: row.transaction_id,
     reason: row.reason
   };
+}
+
+// Compensating restore for the one realistic failure between claiming the pocket and
+// crediting the balance — puts the pocket back exactly as it was so the PM's retry is clean,
+// rather than stranding a withdrawn pocket whose money was never paid.
+async function restorePocket(admin: any, pocketId: string, priorStatus: string): Promise<void> {
+  await admin
+    .from('hys_pockets')
+    .update({ status: priorStatus, withdrawn_at: null, withdrawn_amount: null, withdrawal_method: null })
+    .eq('id', pocketId);
+}
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 function jsonResponse(body: unknown, status: number): Response {

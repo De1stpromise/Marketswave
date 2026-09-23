@@ -106,6 +106,14 @@
   function signedPct1(p) { return signed(p, function (a) { return a.toFixed(1) + '%'; }); }
   function tone(n) { return n > 0 ? 'is-up' : n < 0 ? 'is-dn' : 'is-flat'; }
 
+  // A capital event's DIRECTION, decided in one place. Four kinds reach this page from
+  // _shared/portfolio-overview.ts: 'deposit' and 'transfer_in' add to the capital-in line,
+  // 'withdrawal' and 'transfer_out' take away from it. 'transfer_in' is a savings pocket
+  // returning its money to the available balance (2026-09-23) -- money coming back INTO the
+  // portfolio measure, so it reads as an inflow everywhere: the legend, the tooltip's sign and
+  // tone, and the dot's fill. Testing kind === 'deposit' in three places is what this replaces.
+  function isCapitalInflow(kind) { return kind === 'deposit' || kind === 'transfer_in'; }
+
   // ---------------------------------------------------------------- headline
   // The account total in four parts (row 250's identity) and growth since joining against
   // what was DEPOSITED — external flows only, never capitalIn.current (which subtracts
@@ -320,7 +328,10 @@
       var first = pts[0], last = pts[pts.length - 1];
       var capital = capitalSeriesFor(h, pts);
       var events = eventPointsFor(h, pts);
-      var hasOut = events.some(function (e) { return e.event.kind !== 'deposit'; });
+      // 2026-09-23: 'transfer_in' -- a savings pocket returning its money to the available
+      // balance -- is an INFLOW, so direction is no longer "deposit or not". isCapitalInflow()
+      // decides it in ONE place; the legend, the tooltip and the dot colours all read it.
+      var hasOut = events.some(function (e) { return !isCapitalInflow(e.event.kind); });
       if (els.legendOutEl) els.legendOutEl.hidden = !hasOut;
 
       xl.textContent = '';
@@ -379,10 +390,13 @@
         tip.textContent = '';
         if (dp.datasetIndex === 2) {
           var ev = events[dp.dataIndex].event;
-          var label = ev.kind === 'deposit' ? 'Deposit' : ev.kind === 'withdrawal' ? 'Withdrawal' : 'Transfer to savings';
+          var label = ev.kind === 'deposit' ? 'Deposit'
+            : ev.kind === 'withdrawal' ? 'Withdrawal'
+            : ev.kind === 'transfer_in' ? 'Returned from savings'
+            : 'Transfer to savings';
           tip.appendChild(el('div', 'po-td', fmtDay(new Date(ev.date))));
           var row = el('div', 'po-tr'); row.appendChild(el('span', null, label));
-          row.appendChild(el('b', ev.kind === 'deposit' ? 'is-up' : null, (ev.kind === 'deposit' ? '+' : '\u2212') + formatUSD(ev.amount, ev.amount % 1 ? 2 : 0)));
+          row.appendChild(el('b', isCapitalInflow(ev.kind) ? 'is-up' : null, (isCapitalInflow(ev.kind) ? '+' : '\u2212') + formatUSD(ev.amount, ev.amount % 1 ? 2 : 0)));
           tip.appendChild(row);
           var row2 = el('div', 'po-tr'); row2.appendChild(el('span', null, 'Capital in after'));
           row2.appendChild(el('b', null, formatUSD(Math.round(ev.cumulativeAfter)))); tip.appendChild(row2);
@@ -442,8 +456,8 @@
             data: events.map(function (e) { return { x: e.x, y: e.y }; }),
             pointRadius: 4.5,
             pointHoverRadius: 6,
-            pointBackgroundColor: events.map(function (e) { return e.event.kind === 'deposit' ? GOLD : '#ffffff'; }),
-            pointBorderColor: events.map(function (e) { return e.event.kind === 'deposit' ? '#ffffff' : GOLD; }),
+            pointBackgroundColor: events.map(function (e) { return isCapitalInflow(e.event.kind) ? GOLD : '#ffffff'; }),
+            pointBorderColor: events.map(function (e) { return isCapitalInflow(e.event.kind) ? '#ffffff' : GOLD; }),
             pointBorderWidth: 1.5,
             order: 1
           }]

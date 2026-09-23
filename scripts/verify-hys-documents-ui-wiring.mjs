@@ -173,49 +173,48 @@ async function main() {
   const hysToastTitle = H.getElementById('hys-toast-title');
   const hysToastBody = H.getElementById('hys-toast-body');
 
-  console.log('\n3. Withdraw — the forfeiture-warning path (real still-active short-term Fixed pocket)');
+  console.log('\n3. Withdraw - the forfeiture-warning path (real still-active short-term Fixed pocket)');
   await (async function () {
     gridEl.querySelector('.withdraw-btn[data-id="' + activeShortId + '"]').click();
     check('the modal genuinely opens on the WARNING step (real status is still active)', !withdrawModal.classList.contains('hidden') && !H.querySelector('.wd-step[data-step="warning"]').classList.contains('hidden'));
     check('the warning shows the real principal ($6,000.00) and real interest ($255.00) about to be forfeited', H.getElementById('wd-warning-principal').textContent === '$6,000.00' && H.getElementById('wd-warning-interest').textContent === '$255.00', H.getElementById('wd-warning-principal').textContent + ' / ' + H.getElementById('wd-warning-interest').textContent);
 
+    // 2026-09-23: there is no destination step any more - a pocket returns its money to the
+    // client's own available balance, so there is nowhere to send it and nothing to ask for.
+    // The crypto/bank method cards and both destination forms were REMOVED, not hidden; this
+    // section used to drive them, and now drives the single confirm step that replaced them.
     H.getElementById('wd-warning-continue').click();
-    check('Continue Anyway advances to the destination step, showing the real forfeited receive amount ($6,000.00, principal only)', H.getElementById('wd-receive-amount').textContent === '$6,000.00');
+    check('Continue Anyway advances to the CONFIRM step, showing the real forfeited amount ($6,000.00, principal only)', !H.querySelector('.wd-step[data-step="confirm"]').classList.contains('hidden') && H.getElementById('wd-receive-amount').textContent === '$6,000.00', H.getElementById('wd-receive-amount').textContent);
+    check('the confirm step genuinely offers no destination controls at all - no method cards, no crypto form, no bank form', !H.querySelector('.wd-method-card') && !H.getElementById('wd-crypto-address') && !H.getElementById('wd-bank-account'));
+    check('the confirm step says in plain words where the money goes', H.querySelector('.wd-step[data-step="confirm"]').textContent.indexOf('available balance') !== -1);
 
-    H.querySelector('.wd-method-card[data-method="crypto"]').click();
-    H.getElementById('wd-crypto-address').value = '0xForfeitTest';
-    H.getElementById('wd-crypto-asset').value = 'ETH';
-    H.getElementById('wd-crypto-network').value = 'ERC20';
-    const btn = H.getElementById('wd-crypto-confirm');
+    const btn = H.getElementById('wd-confirm-submit');
     btn.click();
     check('the confirm button shows a genuine busy state immediately', btn.disabled === true);
 
     await pollUntil(function () { return withdrawModal.classList.contains('hidden'); }, 15000);
     check('the modal genuinely closes on a real successful submission', withdrawModal.classList.contains('hidden'));
-    check('the toast confirms the real withdrawal request', hysToastTitle.textContent === 'Withdrawal Request Sent');
+    check('the toast confirms the real request', hysToastTitle.textContent === 'Request Sent', hysToastTitle.textContent);
+    check('the toast body says the money moves to the available balance on approval, not to a bank or wallet', hysToastBody.textContent.indexOf('available balance') !== -1, hysToastBody.textContent);
 
     const { data: rows } = await admin.from('hys_withdrawal_requests').select('*').eq('pocket_id', activeShortId);
     check('a real, single pending hys_withdrawal_requests row was genuinely created, with forfeit=true and receive_amount=6000 (server-computed, not client-supplied)', rows && rows.length === 1 && rows[0].status === 'pending' && rows[0].forfeit === true && Number(rows[0].receive_amount) === 6000, JSON.stringify(rows));
+    check('the request carries method="internal" and NO destination - the external payout path is structurally gone', rows && rows.length === 1 && rows[0].method === 'internal' && !rows[0].destination_details, JSON.stringify(rows && rows[0]));
   })();
 
-  console.log('\n4. Withdraw — the matured/no-warning path (real status genuinely "matured" in Postgres)');
+  console.log('\n4. Withdraw - the matured/no-warning path (real status genuinely "matured" in Postgres)');
   await (async function () {
     // Section 3's own successful submission triggers reloadHysData(true), a real background
     // re-fetch (now also calling the real sync-hys-pocket-status function first, added
     // 2026-09-07 for HYS pocket-maturity email notifications) that briefly empties/skeletons
-    // #pockets-grid before repopulating it — wait for the real re-render to land before
+    // #pockets-grid before repopulating it - wait for the real re-render to land before
     // querying it again, rather than racing it.
     await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + maturedShortId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + maturedShortId + '"]').click();
-    check('the modal genuinely SKIPS the warning step (real stored status is matured, not active)', H.querySelector('.wd-step[data-step="warning"]').classList.contains('hidden') && !H.querySelector('.wd-step[data-step="destination"]').classList.contains('hidden'));
-    check('the destination step shows the real, non-forfeited receive amount ($7,350.00 = principal $7,000 + interest $350)', H.getElementById('wd-receive-amount').textContent === '$7,350.00', H.getElementById('wd-receive-amount').textContent);
+    check('the modal genuinely SKIPS the warning step (real stored status is matured, not active)', H.querySelector('.wd-step[data-step="warning"]').classList.contains('hidden') && !H.querySelector('.wd-step[data-step="confirm"]').classList.contains('hidden'));
+    check('the confirm step shows the real, non-forfeited amount ($7,350.00 = principal $7,000 + interest $350)', H.getElementById('wd-receive-amount').textContent === '$7,350.00', H.getElementById('wd-receive-amount').textContent);
 
-    H.querySelector('.wd-method-card[data-method="bank"]').click();
-    H.getElementById('wd-bank-name').value = 'Jane Client';
-    H.getElementById('wd-bank-institution').value = 'Test Bank';
-    H.getElementById('wd-bank-account').value = '12345678';
-    H.getElementById('wd-bank-routing').value = '021000021';
-    H.getElementById('wd-bank-confirm').click();
+    H.getElementById('wd-confirm-submit').click();
 
     await pollUntil(function () { return withdrawModal.classList.contains('hidden'); }, 15000);
     check('the modal genuinely closes on this real successful submission too', withdrawModal.classList.contains('hidden'));
@@ -224,42 +223,34 @@ async function main() {
     check('a real, single pending hys_withdrawal_requests row was created, with forfeit=false and the real non-forfeited receive_amount=7350', rows && rows.length === 1 && rows[0].forfeit === false && Number(rows[0].receive_amount) === 7350, JSON.stringify(rows));
   })();
 
-  console.log('\n5. Withdraw — a real server-side rejection via the actual UI: a second pending request on the same pocket');
+  console.log('\n5. Withdraw - a real server-side rejection via the actual UI: a second pending request on the same pocket');
   await (async function () {
-    // Same real reload-race as Section 4 — Section 4's own submission triggers another
+    // Same real reload-race as Section 4 - Section 4's own submission triggers another
     // background reloadHysData(true)/sync-hys-pocket-status re-fetch; wait for it to land.
     await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]').click();
-    check('AYW pocket also skips the warning step (no fixed term, never forfeits)', !H.querySelector('.wd-step[data-step="destination"]').classList.contains('hidden'));
-    check('the AYW destination step shows the real full balance ($2,000.00)', H.getElementById('wd-receive-amount').textContent === '$2,000.00');
+    check('AYW pocket also skips the warning step (no fixed term, never forfeits)', !H.querySelector('.wd-step[data-step="confirm"]').classList.contains('hidden'));
+    check('the AYW confirm step shows the real full balance ($2,000.00)', H.getElementById('wd-receive-amount').textContent === '$2,000.00');
 
-    H.querySelector('.wd-method-card[data-method="crypto"]').click();
-    H.getElementById('wd-crypto-address').value = '0xAywFirst';
-    H.getElementById('wd-crypto-asset').value = 'USDC';
-    H.getElementById('wd-crypto-network').value = 'ERC20';
-    H.getElementById('wd-crypto-confirm').click();
+    H.getElementById('wd-confirm-submit').click();
     await pollUntil(function () { return withdrawModal.classList.contains('hidden'); }, 15000);
     check('the first real AYW withdrawal request succeeds', withdrawModal.classList.contains('hidden'));
 
-    // Immediately reopen Withdraw on the SAME still-active (not yet resolved) pocket — nothing
+    // Immediately reopen Withdraw on the SAME still-active (not yet resolved) pocket - nothing
     // in this page's own UI is aware a request is already pending, so this genuinely reaches
-    // the server, which must reject it — a real rejection this stage's client-side code does
+    // the server, which must reject it - a real rejection this stage's client-side code does
     // NOT already independently guard against, unlike the locked-before-maturity case above.
     await pollUntil(function () { return !!gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]'); }, 20000);
     gridEl.querySelector('.withdraw-btn[data-id="' + aywId + '"]').click();
-    H.querySelector('.wd-method-card[data-method="crypto"]').click();
-    H.getElementById('wd-crypto-address').value = '0xAywSecond';
-    H.getElementById('wd-crypto-asset').value = 'USDC';
-    H.getElementById('wd-crypto-network').value = 'ERC20';
-    var errEl = H.getElementById('wd-crypto-error');
+    var errEl = H.getElementById('wd-confirm-error');
     var bodyBefore = errEl.textContent;
-    H.getElementById('wd-crypto-confirm').click();
+    H.getElementById('wd-confirm-submit').click();
 
     await pollUntil(function () { return !errEl.classList.contains('hidden') && errEl.textContent !== bodyBefore; }, 15000);
     check('the real server rejection ("already pending") is shown verbatim via writeErrorMessage(), the modal stays open', errEl.textContent.indexOf('already pending') !== -1 && !withdrawModal.classList.contains('hidden'), errEl.textContent);
 
     const { data: rows } = await admin.from('hys_withdrawal_requests').select('*').eq('pocket_id', aywId);
-    check('genuinely only ONE hys_withdrawal_requests row exists for this pocket — the rejected second attempt created nothing', rows && rows.length === 1, JSON.stringify(rows));
+    check('genuinely only ONE hys_withdrawal_requests row exists for this pocket - the rejected second attempt created nothing', rows && rows.length === 1, JSON.stringify(rows));
     H.getElementById('wd-close').click();
   })();
 

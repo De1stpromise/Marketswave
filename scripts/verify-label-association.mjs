@@ -61,6 +61,9 @@ const CLIENT_PAGES = ['dashboard.html', 'asset-performance.html', 'asset-collect
 // one gate that replaced them. Their controls were pruned from the baseline in the same pass,
 // so "a control that HAD a name has disappeared" stays a real regression signal rather than
 // firing on a deliberate page retirement.
+// Same precedent, same reason, 2026-09-23: a pocket withdrawal no longer has an external
+// destination, so high-yield-savings.html's crypto/bank forms were removed outright and their
+// 8 controls were pruned from the baseline alongside the markup.
 const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-advisory-fee.html',
   'admin-clients.html', 'admin-deposit-addresses.html', 'admin-documents.html',
   'admin-inbox.html', 'admin-login.html', 'admin-presence.html',

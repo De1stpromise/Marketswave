@@ -5,6 +5,11 @@
 // reinvented. Preserves exactly: the pocket must exist and belong to the caller, must not
 // already be withdrawn, a locked-term Fixed Deposit still 'active' (not yet matured) cannot be
 // withdrawn early, and only one pending withdrawal request may exist per pocket at a time.
+//
+// ★ CHANGED 2026-09-23: the approved withdrawal credits the client's available balance rather
+// than paying out externally (see approve-hys-withdrawal's own header), so this function no
+// longer takes a payout method or destination details. The approval gate is unchanged — a
+// withdrawal is still a request a Portfolio Manager approves, in both directions.
 // forfeit/receiveAmount are computed here, once, from the REAL stored pocket via the shared
 // computeHysWithdrawalAmount() — never trusted from the caller.
 //
@@ -41,13 +46,19 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const pocketId = body && body.pocketId;
-    const method = body && body.method;
-    const destinationDetails = (body && body.destinationDetails) || null;
 
     if (!pocketId) return jsonResponse({ error: 'pocketId is required.' }, 400);
-    if (method !== 'crypto' && method !== 'bank') {
-      return jsonResponse({ error: 'method must be either "crypto" or "bank".' }, 400);
-    }
+
+    // ★ NO DESTINATION IS COLLECTED, AND NONE IS ACCEPTED (2026-09-23). A pocket withdrawal
+    // returns money to the client's own available balance — there is nowhere else for it to
+    // go, so there is nothing to ask for and nothing a caller could usefully send. `method`
+    // is written as the constant 'internal', the same word hys_deposit_requests uses for the
+    // movement in the other direction (row 197), and the table's own CHECK constraint now
+    // permits nothing else: a caller cannot record an external payout this system no longer
+    // makes, even by going straight at PostgREST. Any `method`/`destinationDetails` on the
+    // body is ignored rather than honoured.
+    const method = 'internal';
+    const destinationDetails = null;
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
