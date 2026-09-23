@@ -11028,11 +11028,27 @@ row 74.
     through the real credit/approve functions rather than re-derived on paper.
   - **`execute-buy` has its own balance check now**, before any write, refusing 409 with the real
     figures — it had trusted its callers since it was written.
-  - **Row 265 is queued and deliberately not done**: consolidate all four onto one function, by
+  - **★★ THERE WERE FIVE SITES, NOT FOUR, AND TWO SEARCHES MISSED ONE EACH.** The spec named
+    three (`computeTotalPortfolioValue()`, pm-briefing's AUM, portfolio-overview's account total).
+    A blast-radius grep found the fourth, `_shared/client-list.ts`. A LATER failure in
+    `verify-dashboard-redesign` found the **fifth**: `get-returns-summary/index.ts`, which built its
+    own `tpv` as `unallocated + currentValue + realized` and passed it to `largestPosition()`. The
+    second grep missed it because it swept `_shared/*.ts` — and this copy lives in a FUNCTION'S OWN
+    `index.ts`, outside that search space. **So the rule below was itself too narrow, and is
+    corrected rather than left as written.**
+  - **★ THE SEARCH, CORRECTED: `supabase/functions/**/index.ts` AS WELL AS `_shared/*.ts`.** Any
+    change to what "total" means must grep BOTH for `unallocated_capital` beside `allocated_capital`
+    (and for `asset_returns` / `realized` added into a sum), never work from a list of known call
+    sites. The fifth site's consequence was not academic: `concentration.ts` exists precisely so the
+    client's "Largest position" row and the PM briefing cannot disagree — its own header says a
+    client would otherwise be "told their portfolio is fine while their PM is told it is
+    concentrated" — and for a week that is exactly what a client holding realised gains would have
+    seen, with the client-side share UNDERSTATED against an inflated total, failing toward "fine".
+  - **Row 265 is queued and deliberately not done**: consolidate all five onto one function, by
     exporting the total FORMULA from `portfolio-engine.ts` as a pure function over an `account_state`
-    row so the three BATCH readers can call it per row without turning one list read into hundreds of
-    per-client round trips. Until that lands, **any change to what "total" means must grep
-    `_shared/*.ts` for `unallocated_capital` beside `allocated_capital`, not work from a list.**
+    row so the BATCH readers can call it per row without turning one list read into hundreds of
+    per-client round trips. **This task is the argument for it**: every copy of the formula is a place
+    the next change can miss, and this one task missed two of five.
   - **Deployment**: 20 Edge Functions bundle the changed shared modules; `get-client-list` is the
     importer of `client-list.ts`. Deno bundles at deploy time — redeploy all of them together (row 143).
 
@@ -11413,6 +11429,21 @@ is for. Four stages, in order, each building on the last:
   against an hour-old deploy fails by name). It skips the migrations half, so it works even
   when the pooler login-role path is down. A fresh timestamp says the function was
   redeployed — it still does not diff source, the older limitation above stands.
+- **★★ COMPUTE THE REDEPLOY SET, AND MAKE THE SCAN PROVE ITSELF AGAINST ROW 143'S RECORDED
+  FIGURES (2026-09-22).** Deno bundles shared imports at deploy time, so every function that reaches
+  a changed `_shared/*.ts` must be redeployed together or it runs stale code (row 143) — and the
+  parity check cannot see this, because it compares timestamps and slugs, never source. Derive the
+  set instead of listing it from memory. **★ THE TRAP, hit on the first attempt: a scan that keys on
+  `'_shared/' in the import path` silently misses a module INSIDE `_shared` importing a sibling as
+  `'./portfolio-engine.ts'`** — no `_shared/` in that specifier — which is precisely how a function
+  reaches a changed module THROUGH another shared module. It reported 18 functions where the true
+  answer was 20, omitting `get-client-profile` and `get-product-catalog`, both of which would have
+  shipped a stale bundle with nothing reporting it. Resolve every specifier relative to the importing
+  file, then close transitively. **The non-vacuity control for the scan itself is already written
+  down**: row 143 recorded `_shared/portfolio-engine.ts` as **14 direct, 20 total**, so a scan that
+  does not reproduce those two numbers is wrong before you read its list. Run it against the object
+  database (`git ls-tree` / `git show HEAD:`), never the working tree — reading function source in
+  place restarts the edge runtime (row 255).
 - **★ Deployed-bytes check — after ANY push that touches a static file, fetch the affected
   files from the live site and diff them against local.** Added 2026-09-11, after a removal
   that was genuinely committed, genuinely pushed and genuinely verified was still visible on
@@ -11761,6 +11792,29 @@ is for. Four stages, in order, each building on the last:
   **And importing `jsdom` or spawning Chrome is not rendering** — the donut suite imported JSDOM,
   defined a render helper and never called it. The question is never “does this suite have a
   browser”, it is “does the headline assertion read a value the page produced”.
+- **★★ WHEN TWO CALLERS MUST AGREE ON AN ARITHMETIC, TEST THE RELATIONSHIP — A TEST PER CALLER IS
+  NOT A TEST OF THE AGREEMENT (2026-09-22, register row 269).** `_shared/concentration.ts` says in
+  its own header that it exists so the client's 'Largest position' and the PM briefing cannot
+  disagree, 'or a client is told their portfolio is fine while their PM is told it is concentrated'.
+  Both callers had coverage. The AGREEMENT had none, so row 264's fifth total site broke exactly the
+  guarantee the shared module was written to provide and no suite objected — a client holding
+  realised gains had their share measured against an inflated total, failing the 40% flag toward
+  'fine'. **The tell to look for: a shared module whose header states a cross-caller invariant.**
+  That sentence is a test specification; if no file asserts it, the invariant is enforced by nothing
+  but everyone remembering. `npm run verify-concentration-agreement` is this one's, and it must pass
+  before the row-264 functions reach real cloud staging.
+- **★ COMPARING TWO READS OF LIVE-PRICED DATA NEEDS A STABLE WINDOW, NOT A WIDER TOLERANCE (row
+  269).** This generalises row 251's rendered-figure rule to any two reads, server-side included, and
+  adds a second cause worth knowing: not only can the catalog reprice between them (the first draft
+  measured $9,382.02 against $9,380.93 for the same position), but **the function under test may
+  itself WRITE the column you are comparing against** — `get-returns-summary` calls
+  `recomputeAllocatedCapital()`, so a raw read before the call legitimately differs from one after
+  even with prices frozen. The fix is a warm-up call, then read → call → read, comparing only when
+  the two raw reads fingerprint identically, retrying, and FAILING rather than comparing if no stable
+  window is obtained. **A tolerance loose enough to swallow a price move is loose enough to swallow
+  the bug**, and the exactness is not cosmetic: with the window, the recovered server total matched
+  the predicted broken total to the cent, which is the difference between suspecting a cause and
+  proving one.
 - **After a fixture-only fix, rerun only the suites whose fixtures changed** (2026-09-14). A
   one-symbol change in one suite does not invalidate the other nine — passes 2 and 3 of the
   catalog-seed verification reran the full ~2h40 targeted set for changes that touched a
@@ -11870,7 +11924,21 @@ is for. Four stages, in order, each building on the last:
   re-run them in isolation rather than investigate them again. **(4) Row 263 — a suite that forces a price
   state races the :00/:05 refresh**: the cron re-prices the forced symbol between the force and
   the read and the assertion sees `ok` (`verify-dashboard-redesign`, twice on 2026-09-21, both on
-  the tick). Re-assert the forced state right before each read, or wait for a clear window. Four
+  the tick). Re-assert the forced state right before each read, or wait for a clear window.
+  **★ BUT DO NOT REACH FOR THIS EXPLANATION FIRST — it was the wrong one four times on 2026-09-22.**
+  Cause (5) produces the IDENTICAL symptom, and row 263's own evidence base is now marked unverified;
+  check `cron.job_run_details` for the window before attributing anything to it.
+  **(5) Row W — a discarded supabase-js write, especially after a `spawnSync` gap**: supabase-js
+  RESOLVES with `{data: null, error}` rather than throwing, so `await admin.from('x').update(…)` with
+  the result thrown away can do nothing and report nothing — and a `spawnSync` child (every
+  `runContrast()` call) blocks the event loop long enough for the server to close the client's idle
+  keep-alive socket, so the first write after one dies with `SocketError: other side closed
+  (UND_ERR_SOCKET)`. The symptom lands on whatever ASSERTION depended on that write, so the suite
+  accuses the feature instead. Counted 2026-09-22: **21 of the 24 contrast-spawning suites** carry at
+  least one discarded post-spawn write — 13 DELETE-only (leaked test data), **8 insert/update, which
+  can fail an assertion for the wrong reason** — and only `verify-dashboard-redesign` is fixed. **The
+  cheapest decisive instrument is an external poller** logging that column's transitions every second
+  while the suite runs: it separates 'written then cleared' from 'never written' in one run. Five
   known causes now account for most of what a full pass loses.
 - **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
   `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose

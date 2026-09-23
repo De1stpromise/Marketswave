@@ -7,9 +7,12 @@
 // their PM is told it is concentrated. The constants therefore live here and pm-briefing.ts
 // re-exports them; `largestPosition()` is the one computation.
 //
-// Share is measured against TOTAL PORTFOLIO VALUE (unallocated + allocated + realised), which
-// is what the briefing measures and what a client sees as their portfolio value. `shareOfHeld`
-// (against deployed capital only) is carried alongside for the class-mix reading.
+// Share is measured against TOTAL PORTFOLIO VALUE = unallocated + allocated. Realised gains are
+// NOT a separate term (row 264): a sale credits its full proceeds to unallocated_capital, and
+// account_state.asset_returns is a reported lifetime tally that is never summed into a value.
+// Adding it here would inflate the denominator and understate every share — which is exactly
+// what get-returns-summary did for a week, breaking the agreement this file exists to keep.
+// `shareOfHeld` (against deployed capital only) is carried alongside for the class-mix reading.
 
 export const CONCENTRATION_SHARE = 0.40;
 export const CONCENTRATION_MIN_TPV = 10000;

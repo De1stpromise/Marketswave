@@ -401,7 +401,22 @@ async function main() {
     // on the next 5-minute cycle; a stock at the FRONT of the rotation's age order is last
     // in line). price_as_of stays fresh so no cache row is newer to clear it either.
     const victim = marketHeld.find((p) => /^[A-Z.]+$/.test(String(p.ticker)) && !/BTC|ETH|SOL/.test(p.ticker)) || marketHeld[0];
-    await admin.from('products').update({ price_status: 'quote_failed', price_last_failed_at: new Date().toISOString(), price_failure_reason: 'forced by verify-dashboard-redesign' }).eq('id', victim.id);
+    // ★ THIS WRITE MUST BE CHECKED AND PROVEN, AND THE REASON IS NOT DEFENSIVENESS. The three
+    // runContrast() children above are spawnSync — they block Node's event loop for minutes, so
+    // the server closes this client's idle keep-alive socket, and the first write after them
+    // fails with `TypeError: fetch failed … SocketError: other side closed (UND_ERR_SOCKET)`.
+    // supabase-js returns {error} rather than throwing, so an UNCHECKED write here vanishes
+    // silently and the four assertions below then fail as though the pricing feature were
+    // broken — measured 2026-09-22: three consecutive runs, victim never left 'ok' in the DB
+    // (an external poller saw no transition at all), and the failures read exactly like row
+    // 263's forced-price-state cron race with the cron provably paused. Retry, then PROVE it.
+    let forcedRow = null;
+    for (let attempt = 1; attempt <= 3 && !forcedRow; attempt++) {
+      const w = await admin.from('products').update({ price_status: 'quote_failed', price_last_failed_at: new Date().toISOString(), price_failure_reason: 'forced by verify-dashboard-redesign' }).eq('id', victim.id).select('id, price_status');
+      if (w.error) { console.log('    (force-failed write attempt ' + attempt + ' failed, retrying: ' + w.error.message + ')'); continue; }
+      forcedRow = (w.data || [])[0] || null;
+    }
+    check('the forced quote_failed write genuinely landed on ' + victim.ticker + ' (a silent socket failure here would fail the four assertions below for the wrong reason)', !!forcedRow && forcedRow.price_status === 'quote_failed', JSON.stringify(forcedRow));
     const ovFail = (await callFunction(url, gary.token, 'get-portfolio-overview', {})).body;
     const rsFail = (await callFunction(url, gary.token, 'get-returns-summary', {})).body;
     const holdFail = (await callFunction(url, gary.token, 'get-holdings', {})).body;

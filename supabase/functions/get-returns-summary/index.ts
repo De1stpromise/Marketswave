@@ -300,7 +300,12 @@ Deno.serve(async (req) => {
       }),
       staleAfter, now
     );
-    const tpv = round2((state ? Number(state.unallocated_capital || 0) : 0) + currentValue + Number(realized || 0));
+    // Row 264, THE FIFTH TOTAL SITE. `realized` is account_state.asset_returns: a reported
+    // LIFETIME TALLY of what sales have made, already inside unallocated_capital since the sale
+    // credited its full proceeds there. Adding it here inflated the denominator, so the client's
+    // share read LOWER than the PM briefing's for the same position and the 40% flag failed
+    // toward "fine" — the one disagreement _shared/concentration.ts exists to prevent.
+    const tpv = round2((state ? Number(state.unallocated_capital || 0) : 0) + currentValue);
     const largest = largestPosition(
       positions.map((p) => ({ productId: p.productId, name: p.name, ticker: p.ticker, assetClass: p.assetClass || undefined, currentValue: p.currentValue })),
       tpv

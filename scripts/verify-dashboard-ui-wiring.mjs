@@ -325,10 +325,15 @@ async function main() {
   // Private Equity fund (appraisal, never stale) and ONE market-priced ETF — green "Priced N
   // ago" from that ETF's own price_as_of, or amber "1 of 1 holding stale" when row 213's
   // shared-key starvation has left it past the threshold. Either way, never "Updated just now".
+  // ★ THE GREEN BRANCH MUST ADMIT "Priced just now" AS WELL AS "Priced N ago": the page renders
+  // "just now" for a price under a minute old, which is what verify-dashboard-redesign asserts
+  // as THE green state. This read only ever lands there when the :00/:05 refresh happens to have
+  // repriced this ETF seconds earlier — rare on this machine (row 213 starves the rotation), which
+  // is why a regex that accepted only "ago" passed for months and then failed a correct render.
   const pricing = (await client.functions.invoke('get-portfolio-overview')).data.pricing;
   const pillText = doc.getElementById('po-asof').textContent.trim();
   const pillStale = doc.getElementById('po-asof').classList.contains('is-stale');
-  check('the priced pill is REAL and agrees with the payload (' + (pricing.affected ? 'amber, ' + pricing.affected + ' of ' + pricing.marketPriced + ' stale' : 'green, priced from the ETF\'s own price_as_of') + '); "Updated just now" appears nowhere', pricing.marketPriced === 1 && (pricing.affected ? (pillStale && /^1 of 1 holding stale/.test(pillText)) : (!pillStale && /^Priced .* ago$/.test(pillText))) && !/Updated just now/.test(doc.getElementById('po-value-card').textContent), pillText + ' | ' + JSON.stringify(pricing));
+  check('the priced pill is REAL and agrees with the payload (' + (pricing.affected ? 'amber, ' + pricing.affected + ' of ' + pricing.marketPriced + ' stale' : 'green, priced from the ETF\'s own price_as_of') + '); "Updated just now" appears nowhere', pricing.marketPriced === 1 && (pricing.affected ? (pillStale && /^1 of 1 holding stale/.test(pillText)) : (!pillStale && /^Priced (just now|.+ ago)$/.test(pillText))) && !/Updated just now/.test(doc.getElementById('po-value-card').textContent), pillText + ' | ' + JSON.stringify(pricing));
   // Detail added 2026-09-15: this failed once with no way to tell WHICH half was false. The
   // legend markup changed shape with the donut (row 226), so report what was actually there.
   check('the allocation legend genuinely reflects real holdings (Private Equity % present and non-zero)',
