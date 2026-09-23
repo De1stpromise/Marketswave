@@ -30,6 +30,12 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped: this literal was '10' in
+// seven suites, and adding one rail item broke four assertions and left three polling until
+// they timed out, which reads as 'the page never rendered' (2026-09-23).
+const NAV_COUNT = adminNavItemCount();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -330,7 +336,7 @@ async function main() {
     await goto(cdp, URL_);
     check('GUARD: the page rendered the panel', await cdp.evaluate(INV_WAIT));
     const nav = await cdp.evaluate(NAV);
-    check('★ 1440px: THE PAGE MOUNTS THE SHARED ADMIN NAV — ten items, "Clients" active, Log out reachable', !nav.missing && nav.count === 10 && nav.on.join() === 'Clients' && nav.logout && nav.asideW > 0, JSON.stringify(nav));
+    check('★ 1440px: THE PAGE MOUNTS THE SHARED ADMIN NAV — every item, "Clients" active, Log out reachable', !nav.missing && nav.count === NAV_COUNT && nav.on.join() === 'Clients' && nav.logout && nav.asideW > 0, JSON.stringify(nav));
     const READ = (w) => `(() => {
       const vis = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
       const rects = [...document.querySelectorAll('body *')].filter(e => !e.closest('[aria-hidden="true"]')).map(e => e.getBoundingClientRect());

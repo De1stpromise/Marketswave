@@ -20,6 +20,12 @@ import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from '.
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped: this literal was '10' in
+// seven suites, and adding one rail item broke four assertions and left three polling until
+// they timed out, which reads as 'the page never rendered' (2026-09-23).
+const NAV_COUNT = adminNavItemCount();
 
 const BASE = 'http://127.0.0.1:8765';
 const PASSWORD = 'OverviewVis-2026!';
@@ -95,7 +101,7 @@ async function connectChrome() {
 const WAIT = `(async () => {
   const nap = (ms) => new Promise(r => setTimeout(r, ms));
   for (let i = 0; i < 300; i++) {
-    const nav = document.querySelectorAll('.an-item').length === 10;
+    const nav = document.querySelectorAll('.an-item').length === ${NAV_COUNT};
     const brief = !document.getElementById('panel-health') || /Price refresh|Try Again|try again/i.test(document.getElementById('panel-health').textContent);
     const appr = !document.getElementById('approvals-total') || document.getElementById('approvals-total').textContent !== '—';
     if (nav && brief && appr && document.readyState === 'complete') break;
@@ -158,7 +164,7 @@ const NARROW = (page) => `(async () => {
   const f = document.createElement('iframe'); f.style.cssText = 'width:320px;height:1200px;border:0'; f.src = '/' + ${JSON.stringify(page)};
   document.body.appendChild(f); await new Promise(r => f.addEventListener('load', r));
   const d = f.contentDocument, w = f.contentWindow;
-  for (let i = 0; i < 300; i++) { if (d.querySelectorAll('.an-item').length === 10 && (!d.getElementById('panel-health') || /Price refresh|Try Again/i.test(d.getElementById('panel-health').textContent)) && (!d.getElementById('approvals-total') || d.getElementById('approvals-total').textContent !== '—')) break; await nap(200); }
+  for (let i = 0; i < 300; i++) { if (d.querySelectorAll('.an-item').length === ${NAV_COUNT} && (!d.getElementById('panel-health') || /Price refresh|Try Again/i.test(d.getElementById('panel-health').textContent)) && (!d.getElementById('approvals-total') || d.getElementById('approvals-total').textContent !== '—')) break; await nap(200); }
   await nap(600);
   const all = [...d.querySelectorAll('main *')].filter(e => e.getBoundingClientRect().width > 0 && !e.classList.contains('blob'));
   const aside = d.getElementById('admin-sidebar-aside');
@@ -244,7 +250,7 @@ async function main() {
     }
 
     console.log('--- Contrast: real composited pixels, sheen ON ---\n');
-    const PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.an-item').length === 10 && /Price refresh/.test(document.getElementById('panel-health').textContent) && !document.getElementById('sidebar-approvals-count').hidden) break; await nap(200); } await nap(800); })()`;
+    const PREP = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.an-item').length === ${NAV_COUNT} && /Price refresh/.test(document.getElementById('panel-health').textContent) && !document.getElementById('sidebar-approvals-count').hidden) break; await nap(200); } await nap(800); })()`;
     runContrast('pm-overview', 'admin.html', 'admin.html (briefing)', adminBootstrap, PREP);
     // admin-approvals.html is the approval gate now, not part 2's landing (row 228) — its
     // contrast, its sheen and its phone layout are verify-approval-gate-visual.mjs's own job.
@@ -262,7 +268,7 @@ async function main() {
       await cdp.send('Page.navigate', { url: BASE + '/admin.html' }); await cdp.evaluate(WAIT);
       const sb = await cdp.evaluate(SIDEBAR);
       const exp = await expectedCounts();
-      check('★ exactly ten items, in the brief\'s order, ungrouped', sb.labels.join(' · ') === 'Overview · Approvals · Inbox · Clients · On the site · Products · Deposit addresses · Documents · Advisory fee · Security' && sb.groupHeaders === 0, sb.labels.join(' · ') + ' / headers=' + sb.groupHeaders);
+      check('★ every rail item, in the brief\'s order, ungrouped', sb.labels.join(' · ') === 'Overview · Approvals · Inbox · Clients · On the site · Products · Deposit addresses · Documents · Help Center · Advisory fee · Security' && sb.groupHeaders === 0, sb.labels.join(' · ') + ' / headers=' + sb.groupHeaders);
       check('no Support entry survives', !sb.labels.some((l) => /support/i.test(l)) && !sb.hrefs.some((h) => /admin-support/.test(h)));
       check('Overview is the active item on admin.html', sb.on.join() === 'Overview', sb.on.join());
       check('★ the Approvals count equals an independent sum of every pending queue + applications (' + exp.approvals + ')', sb.approvals && !sb.approvals.hidden && sb.approvals.text === String(exp.approvals), JSON.stringify(sb.approvals));
@@ -303,14 +309,14 @@ async function main() {
         check(width + 'px: the viewport is genuinely ' + width + ' (integrity guard)', l.inner === width, String(l.inner));
         check(width + 'px: one attention card per row, one panel column, no horizontal overflow', l.att === 1 && l.cols === 1 && l.bodyScroll <= width && l.docScroll <= width && l.maxRight <= width + 1, JSON.stringify(l));
         const s = await cdp.evaluate(SIDEBAR);
-        check(width + 'px: the sidebar is the off-canvas drawer, still ten items', s.labels.length === 10 && !s.asideVisible, JSON.stringify({ n: s.labels.length, visible: s.asideVisible }));
+        check(width + 'px: the sidebar is the off-canvas drawer, still every item', s.labels.length === NAV_COUNT && !s.asideVisible, JSON.stringify({ n: s.labels.length, visible: s.asideVisible }));
       }
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 1000, deviceScaleFactor: 1, mobile: true });
       await cdp.send('Page.navigate', { url: BASE + '/' }); await sleep(800);
       const n = await cdp.evaluate(NARROW('admin.html'));
       check('320px: the iframe genuinely reports 320px', n.before.reported === 320, JSON.stringify(n.before));
       check('320px: one attention card per row, nothing escapes the viewport, the drawer is off-canvas with a visible toggle', n.before.att === 1 && n.before.bodyScroll <= 320 && n.before.maxRight <= 321 && n.before.asideOff && n.before.toggleVisible, JSON.stringify(n.before));
-      check('320px: the toggle opens the drawer with all ten items, a 44px close control, 38px+ rows, a 44px+ Log out, the email visible', n.after.asideOpen && n.after.items === 10 && n.after.closeVisible && n.after.closeH >= 44 && n.after.itemH >= 38 && n.after.logoutW >= 44 && n.after.emailVisible, JSON.stringify(n.after));
+      check('320px: the toggle opens the drawer with every item, a 44px close control, 38px+ rows, a 44px+ Log out, the email visible', n.after.asideOpen && n.after.items === NAV_COUNT && n.after.closeVisible && n.after.closeH >= 44 && n.after.itemH >= 38 && n.after.logoutW >= 44 && n.after.emailVisible, JSON.stringify(n.after));
     } finally {
       await cdp.close();
     }

@@ -16,6 +16,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped: this literal was '10' in
+// seven suites, and adding one rail item broke four assertions and left three polling until
+// they timed out, which reads as 'the page never rendered' (2026-09-23).
+const NAV_COUNT = adminNavItemCount();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -125,7 +131,7 @@ const WAIT = `(async () => {
   const nap = (ms) => new Promise(r => setTimeout(r, ms));
   for (let i = 0; i < 300; i++) {
     const painted = document.querySelector('#cp-identity .cp-strip');
-    const nav = document.querySelectorAll('.an-item').length === 10;
+    const nav = document.querySelectorAll('.an-item').length === ${NAV_COUNT};
     if (painted && nav && document.readyState === 'complete') break;
     await nap(200);
   }
@@ -254,8 +260,8 @@ async function main() {
     await cdp.evaluate(WAIT);
 
     const nav = await cdp.evaluate(NAV);
-    check('★ 1440px: THE PROFILE MOUNTS THE SHARED ADMIN NAV — ten items, a real rail with width',
-      !nav.missing && nav.count === 10 && nav.asideW > 0, JSON.stringify(nav));
+    check('★ 1440px: THE PROFILE MOUNTS THE SHARED ADMIN NAV — every item, a real rail with width',
+      !nav.missing && nav.count === NAV_COUNT && nav.asideW > 0, JSON.stringify(nav));
     check('★ 1440px: "Clients" is the active item — a client profile is a detail view of that list',
       !nav.missing && nav.on.join() === 'Clients', JSON.stringify(nav.on));
     check('★ 1440px: Log out is reachable from this page', nav.logout === true, String(nav.logout));

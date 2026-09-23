@@ -27,6 +27,12 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped: this literal was '10' in
+// seven suites, and adding one rail item broke four assertions and left three polling until
+// they timed out, which reads as 'the page never rendered' (2026-09-23).
+const NAV_COUNT = adminNavItemCount();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -332,7 +338,7 @@ async function main() {
     // =========================================================================================
     console.log('\n=== PART C — the PM profile: onboarding fills; identity documents are metadata with no control ===\n');
     const PROFILE_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-onboarding .cp-kv') && document.querySelector('#cp-identity .cp-strip') && document.querySelectorAll('.an-item').length === 10 && document.readyState === 'complete') break; await nap(200); }
+      for (let i = 0; i < 300; i++) { if (document.querySelector('#cp-onboarding .cp-kv') && document.querySelector('#cp-identity .cp-strip') && document.querySelectorAll('.an-item').length === ${NAV_COUNT} && document.readyState === 'complete') break; await nap(200); }
       await nap(800); return true; })()`;
     const PROFILE_READ = `(() => {
       const t = (s) => (document.querySelector(s) || {}).textContent || '';
@@ -375,7 +381,7 @@ async function main() {
     console.log('\n=== PART D — the approval gate\'s application panel ===\n');
     await admin.from('clients').update({ status: 'pending_review', application_resolved_at: null }).eq('id', uid);
     const GATE_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && document.querySelectorAll('.an-item').length === 10 && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
+      for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && document.querySelectorAll('.an-item').length === ${NAV_COUNT} && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
       await nap(600); return true; })()`;
     await goto(cdp, BASE + '/admin-approvals.html'); await cdp.evaluate(GATE_WAIT);
     const gate = await cdp.evaluate(`(async () => {
@@ -452,7 +458,7 @@ async function main() {
       })`));
       check(w + 'px profile: nothing scrolls horizontally', p2.bodyScroll <= w && p2.maxRight <= w + 1, JSON.stringify({ b: p2.bodyScroll, m: p2.maxRight }));
       check('★ ' + w + 'px profile: every onboarding group, both identity rows and the not-available note survive', p2.groups.length === 4 && p2.groups.every(Boolean) && p2.idd.length === 2 && p2.idd.every(Boolean) && p2.locked, JSON.stringify(p2));
-      check(w + 'px profile: the nav is mounted (ten items)', p2.nav === 10, String(p2.nav));
+      check(w + 'px profile: the nav is mounted (every item)', p2.nav === NAV_COUNT, String(p2.nav));
 
       await goto(cdp, BASE + '/admin-approvals.html'); await cdp.evaluate(GATE_WAIT);
       const g2 = await cdp.evaluate(`(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));

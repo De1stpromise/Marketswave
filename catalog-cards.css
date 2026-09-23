@@ -81,7 +81,12 @@
 .cat-slot { flex-shrink: 0; width: 64px; display: flex; justify-content: flex-end; }
 .product-ticker, .cat-info { font-size: 10px; font-weight: 700; color: #3E4A52; letter-spacing: .04em; background: rgba(27, 58, 75, .07); padding: 3px 7px; border-radius: 5px; white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; line-height: 12px; }
 /* The chip as a BUTTON (there is more to read): same geometry, an info glyph, a real hover. */
-.cat-slot-btn { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em; min-height: 0; min-width: 0; }
+/* ★ NO min-height/min-width HERE — register row 266, the third instance of this defect. A class
+   rule is (0,1,0) and silently out-specifies tap-targets.css's `button { min-height: 44px }`
+   (0,0,1) below lg, which shipped this control at 21px on every phone for eight days. The floor
+   is already scoped to <= lg, so leaving both UNSET keeps the natural desktop height and still
+   floors on mobile. Do not reintroduce them. */
+.cat-slot-btn { display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .cat-slot-btn:hover { background: rgba(27, 58, 75, .13); color: #12283A; }
 .cat-slot-btn:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
 

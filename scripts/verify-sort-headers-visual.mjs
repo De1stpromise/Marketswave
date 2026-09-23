@@ -26,6 +26,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped — see lib/admin-nav-count.mjs.
+const NAV_COUNT = adminNavItemCount();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -212,7 +216,7 @@ async function main() {
 
       const nav = await cdp.evaluate(NAV);
       check('★ ' + p.url + ': mounts the shared admin nav, "' + p.nav + '" active, Log out reachable (row 228)',
-        !nav.missing && nav.count === 10 && nav.on.join() === p.nav && nav.logout && nav.asideW > 0, JSON.stringify(nav));
+        !nav.missing && nav.count === NAV_COUNT && nav.on.join() === p.nav && nav.logout && nav.asideW > 0, JSON.stringify(nav));
 
       const d = await cdp.evaluate(readHeads(p.head));
       check(p.url + ': viewport is genuinely 1440 and nothing overflows', d.inner === 1440 && d.bodyScroll <= 1440 && d.maxRight <= 1441,

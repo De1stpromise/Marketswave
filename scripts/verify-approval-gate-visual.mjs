@@ -29,6 +29,12 @@ import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from '.
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped: this literal was '10' in
+// seven suites, and adding one rail item broke four assertions and left three polling until
+// they timed out, which reads as 'the page never rendered' (2026-09-23).
+const NAV_COUNT = adminNavItemCount();
 
 const BASE = 'http://127.0.0.1:8765';
 const PASSWORD = 'GateVis-2026!';
@@ -135,7 +141,7 @@ const WAIT = `(async () => {
   const nap = (ms) => new Promise(r => setTimeout(r, ms));
   for (let i = 0; i < 300; i++) {
     const q = document.getElementById('ag-queue');
-    if (document.querySelectorAll('.an-item').length === 10 && q && !/animate-pulse/.test(q.innerHTML)
+    if (document.querySelectorAll('.an-item').length === ${NAV_COUNT} && q && !/animate-pulse/.test(q.innerHTML)
         && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break;
     await nap(200);
   }
@@ -220,7 +226,7 @@ const NARROW = `(async () => {
   const f = document.createElement('iframe'); f.style.cssText = 'width:320px;height:1400px;border:0'; f.src = '/admin-approvals.html';
   document.body.appendChild(f); await new Promise(r => f.addEventListener('load', r));
   const d = f.contentDocument, w = f.contentWindow;
-  for (let i = 0; i < 300; i++) { const q = d.getElementById('ag-queue'); if (d.querySelectorAll('.an-item').length === 10 && q && !/animate-pulse/.test(q.innerHTML) && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
+  for (let i = 0; i < 300; i++) { const q = d.getElementById('ag-queue'); if (d.querySelectorAll('.an-item').length === ${NAV_COUNT} && q && !/animate-pulse/.test(q.innerHTML) && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
   await nap(500);
   const seen = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); const cs = w.getComputedStyle(el);
     return { t: (el.textContent || '').replace(/\\s+/g, ' ').trim(), w: Math.round(r.width), h: Math.round(r.height), vis: cs.display !== 'none' && r.width > 0 && r.height > 0, right: Math.round(r.right) }; };
@@ -343,8 +349,8 @@ async function main() {
           asideW: Math.round(aside.getBoundingClientRect().width)
         };
       })()`);
-      check('★ 1440px: THE GATE MOUNTS THE SHARED ADMIN NAV — ten items, a real rail with width',
-        nav.mounted && nav.count === 10 && nav.asideW > 0,
+      check('★ 1440px: THE GATE MOUNTS THE SHARED ADMIN NAV — every item, a real rail with width',
+        nav.mounted && nav.count === NAV_COUNT && nav.asideW > 0,
         JSON.stringify(nav));
       check('★ 1440px: the gate is its own active nav item, and Log out is reachable from it',
         nav.mounted && nav.on.join() === 'Approvals' && nav.logout === true,

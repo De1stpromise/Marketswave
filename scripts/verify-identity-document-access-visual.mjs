@@ -23,6 +23,10 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped — see lib/admin-nav-count.mjs.
+const NAV_COUNT = adminNavItemCount();
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -76,13 +80,13 @@ async function goto(cdp, url) {
 }
 
 const PROFILE_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 300; i++) { if (document.querySelector('[data-cp-idd-view]') && document.querySelectorAll('.an-item').length === 10 && document.readyState === 'complete') break; await nap(200); }
+  for (let i = 0; i < 300; i++) { if (document.querySelector('[data-cp-idd-view]') && document.querySelectorAll('.an-item').length === ${NAV_COUNT} && document.readyState === 'complete') break; await nap(200); }
   await nap(700); return true; })()`;
 const GATE_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && document.querySelectorAll('.an-item').length === 10 && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
+  for (let i = 0; i < 300; i++) { const q = document.getElementById('ag-queue'); if (q && !/animate-pulse/.test(q.innerHTML) && document.querySelectorAll('.an-item').length === ${NAV_COUNT} && (q.querySelectorAll('.ag-row').length > 0 || q.querySelector('.ag-empty'))) break; await nap(200); }
   await nap(600); return true; })()`;
 const SEC_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 300; i++) { const l = document.getElementById('idac-list'); if (l && !/Loading/.test(l.textContent) && (l.querySelector('[data-idac-table]') || l.querySelector('[data-idac-empty]')) && document.querySelectorAll('.an-item').length === 10) break; await nap(200); }
+  for (let i = 0; i < 300; i++) { const l = document.getElementById('idac-list'); if (l && !/Loading/.test(l.textContent) && (l.querySelector('[data-idac-table]') || l.querySelector('[data-idac-empty]')) && document.querySelectorAll('.an-item').length === ${NAV_COUNT}) break; await nap(200); }
   await nap(600); return true; })()`;
 // Captures window.open instead of opening a tab: returns the href the component tried to open.
 const CAPTURE_OPEN = `(() => { window.__opened = []; window.open = function (href) { window.__opened.push(String(href)); return { closed: false }; }; return true; })()`;
@@ -198,7 +202,7 @@ async function main() {
     await goto(cdp, BASE + '/admin-security.html'); await cdp.evaluate(SEC_WAIT);
     const log = await cdp.evaluate(`(() => { const rows = [...document.querySelectorAll('[data-idac-row]')].map(r => ({ id: r.dataset.idacRow, outcome: r.dataset.outcome, text: r.innerText.replace(/\\s+/g, ' ') }));
       return { count: rows.length, heading: (document.getElementById('sec-idac-h')||{}).textContent, sub: (document.getElementById('idac-sub')||{}).textContent, rows: rows.filter(r => /${suffix}/.test(r.text)), first: rows[0], nav: document.querySelectorAll('.an-item').length, empty: !!document.querySelector('[data-idac-empty]') }; })()`);
-    check('the log section renders with a real table and the shared nav', log.count > 0 && log.nav === 10 && !log.empty, JSON.stringify({ c: log.count, nav: log.nav }));
+    check('the log section renders with a real table and the shared nav', log.count > 0 && log.nav === NAV_COUNT && !log.empty, JSON.stringify({ c: log.count, nav: log.nav }));
     check('  its copy states every PM, every refusal, and permanence', /any Portfolio Manager/i.test(log.sub) && /refused attempt/i.test(log.sub) && /be edited or removed/i.test(log.sub), log.sub);
     check('★ all four of this run\'s rows render: two opened, two refused (the non-PM attempt and the short reason)', log.rows.length === 4 && log.rows.filter((r) => r.outcome === 'opened').length === 2 && log.rows.filter((r) => r.outcome === 'refused').length === 2, JSON.stringify(log.rows.map((r) => r.outcome)));
     check('  the refused rows show WHY they were refused', log.rows.filter((r) => r.outcome === 'refused').every((r) => /not a Portfolio Manager|shorter than 10/.test(r.text)), JSON.stringify(log.rows.filter((r) => r.outcome === 'refused').map((r) => r.text.slice(0, 160))));
@@ -236,7 +240,7 @@ async function main() {
         const row = document.querySelector('[data-idac-row]'); return { inner: innerWidth, bodyScroll: document.body.scrollWidth, maxRight: Math.max(0, ...rects.map(r => r.right)), rowDisplay: row ? getComputedStyle(row).display : null, cells: row ? row.querySelectorAll('td').length : 0, nav: document.querySelectorAll('.an-item').length }; })()`);
       check(w + 'px security: nothing scrolls horizontally', ps.bodyScroll <= w && ps.maxRight <= w + 1, JSON.stringify({ b: ps.bodyScroll, m: ps.maxRight }));
       check('★ ' + w + 'px security: the six-column log becomes self-labelling CARDS, not an off-screen scroller', ps.rowDisplay === 'block' && ps.cells === 6, JSON.stringify({ d: ps.rowDisplay, c: ps.cells }));
-      check(w + 'px security: the nav is mounted', ps.nav === 10, String(ps.nav));
+      check(w + 'px security: the nav is mounted', ps.nav === NAV_COUNT, String(ps.nav));
     }
     await desktop(cdp, 1440);
     await goto(cdp, BASE + '/admin-security.html'); await cdp.evaluate(SEC_WAIT);

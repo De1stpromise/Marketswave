@@ -1493,6 +1493,46 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   (confirmed via a direct `localStorage` read) rather than a bug. No code changes made — a
   report-only task. See `Marketswave_Project_Handover.md` row 67 for the full writeup.
 
+- **★★★ HELP CENTER — PHASE 1 (2026-09-23, register row 270).** Articles live in the database
+  (`help_articles`) and are written in the PM tool (`admin-help.html` + `admin-help-article.html`),
+  so publishing never needs a code change. Public pages: `help.html` serves BOTH views — the
+  landing at `/help`, an article at `/help?a=<slug>`.
+  **Things to know before touching any of it:**
+  - **★★ THE ONLY PUBLIC READ IS THE VIEW `help_articles_public`, AND THAT IS THE WHOLE
+    SECURITY STORY.** `help_articles` has NO anon grant and NO anon policy; the view selects
+    published rows and pub_ columns only, and it works because a Postgres view runs with its
+    OWNER's privileges unless `security_invoker` is on (default off, PG 17.6). **Do not add an
+    anon policy and do not flip `security_invoker`** — the first reopens drafts to the public,
+    the second makes the view inherit the closed table's RLS and the Help Center silently goes
+    blank. Part 1 of `supabase-verify-help-center` ENFORCES this: anon must get **42501** on the
+    table and a signed-in non-admin must get an EMPTY SET (two different mechanisms). Proven
+    with a forced-failure control — injecting the forbidden grant makes it fail by name.
+  - **Addressing is a query parameter because it has to be.** Measured: `/help-center?a=x` → 200,
+    `/help/depositing-crypto` → 404; Pages has no rewrites. A file per article makes every
+    Publish a commit; a 404 shim resurrects the seven retired approval pages as soft 200s
+    (row 256).
+  - **Draft and published are SEPARATE COLUMNS.** Only `publish-help-article` copies draft →
+    pub_, so editing a live article cannot move what clients see. `draft_dirty` is what makes
+    “Unpublished edits” exact. Unpublish clears `published_at` and KEEPS the published copy.
+  - **The publish checklist is server-side.** `publishChecklist`/`publishBlocker` in
+    `_shared/article-blocks.ts` are re-derived by the function, so a disabled button and a 400
+    cannot disagree — including the rule that every image carries a screen-reader description.
+  - **`_shared/article-blocks.ts` and `article-render.js` are SHARED with the blog by design.**
+    Nothing in them says “help”. Content is structured JSON, never HTML: a `<script>` is not
+    representable, only storable as literal text. Add a consumer, not a copy.
+  - **A signed-out visitor cannot open a ticket** (`request-support-ticket` is JWT-scoped), so
+    “Still stuck?” offers live chat (genuinely anonymous) and email. **`contact.html` is not
+    offered: its form is `action="#"` with zero `fetch(` — it discards what is typed into it.**
+  - Phase 2 holds view counting, tickets recording their article, “Needs attention”, image
+    upload and the in-product placements. The Views/Tickets columns show an em dash meaning
+    “not counted yet”, never a fabricated 0.
+- **★ THE PM RAIL'S ITEM COUNT IS DERIVED, NOT RETYPED — `scripts/lib/admin-nav-count.mjs`
+  (2026-09-23).** Ten suites hardcoded `=== 10`, and THREE used it as a readiness condition, so
+  adding one rail item broke four assertions and would have left the other three polling until
+  they timed out — which reads as “the page never rendered” rather than “the count moved”. All
+  ten now call `adminNavItemCount()`. If you add a rail item, nothing needs editing; if you add
+  a suite, derive the count, never retype it.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.
@@ -11859,7 +11899,12 @@ is for. Four stages, in order, each building on the last:
   occurrence, 2026-09-22 (register rows 266–267).** A class rule is (0,1,0) and silently
   out-specifies `tap-targets.css`'s `button { min-height: 44px }` (0,0,1) below `lg`, so the control
   ships at 21–32px on every phone with nothing erroring. `.pr-pill` (row 261), the `.doc-pill`
-  near-miss (row 247), and now `.cat-slot-btn` at 21px on `asset-collection.html` (row 266). **The
+  near-miss (row 247), and `.cat-slot-btn` at 21px on `asset-collection.html` (row 266 — **FIXED
+  2026-09-23**: both declarations removed, the rule now carries a comment saying not to
+  reintroduce them. **Two more of the same shape are still in the tree and are NOT proven
+  defects** — `admin-products.css`'s `.pr-res` and one in `admin-documents.css`; both pass the
+  sweep today, which may only mean the sweep cannot see them. Row 267's SOURCE check settles
+  them; do not “fix” either blind). **The
   runtime sweep will not reliably catch it**: `verify-control-patterns` reads the DOM on a fixed
   delay, so on a page whose controls are painted by an async load it enumerates the skeleton and
   passes (row 253) — `.cat-slot-btn` shipped for eight days and surfaced only when an unrelated

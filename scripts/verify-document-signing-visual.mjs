@@ -38,6 +38,10 @@ import { FIXTURE_CLIENT, findFixtureClient } from './lib/fixture-client.mjs';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
+import { adminNavItemCount } from './lib/admin-nav-count.mjs';
+
+// ★ Derived from admin-sidebar.js's own NAV_ITEMS, never retyped — see lib/admin-nav-count.mjs.
+const NAV_COUNT = adminNavItemCount();
 
 const require = createRequire(import.meta.url);
 const { PDFDocument } = require('pdf-lib');
@@ -112,7 +116,7 @@ const DOCS_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeou
   for (let i = 0; i < 300; i++) { const l = document.getElementById('from-list'); if (l && !/animate-pulse/.test(l.innerHTML) && document.querySelector('#sidebar-aside') && document.readyState === 'complete') break; await nap(200); }
   await nap(600); return true; })()`;
 const ADMIN_DOCS_WAIT = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
-  for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.doc-tr').length > 0 && document.querySelectorAll('.an-item').length === 10 && document.readyState === 'complete') break; await nap(200); }
+  for (let i = 0; i < 300; i++) { if (document.querySelectorAll('.doc-tr').length > 0 && document.querySelectorAll('.an-item').length === ${NAV_COUNT} && document.readyState === 'complete') break; await nap(200); }
   await nap(600); return true; })()`;
 const CAPTURE_OPEN = `(() => { window.__opened = []; window.open = function (href) { window.__opened.push(String(href)); return { closed: false }; }; return true; })()`;
 const MODAL_READ = `(() => { const m = document.getElementById('dsg-modal'); const sub = document.getElementById('dsg-submit'); const st = document.getElementById('dsg-status');
@@ -299,7 +303,7 @@ async function main() {
     await goto(cdp, BASE + '/thank-you.html'); await cdp.evaluate(adminBootstrap);
     await goto(cdp, BASE + '/admin-documents.html'); await cdp.evaluate(ADMIN_DOCS_WAIT); await cdp.evaluate(CAPTURE_OPEN);
     const pmNav = await cdp.evaluate(`(() => ({ items: document.querySelectorAll('.an-item').length, active: (document.querySelector('.an-item.is-on')||{}).textContent }))()`);
-    check('the PM nav is present (10 items) with Documents active', pmNav.items === 10 && /Documents/.test(pmNav.active || ''), JSON.stringify(pmNav));
+    check('the PM nav is present (every item) with Documents active', pmNav.items === NAV_COUNT && /Documents/.test(pmNav.active || ''), JSON.stringify(pmNav));
     const OPEN_ROW = (id) => `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms)); const r = [...document.querySelectorAll('.doc-tr')].find(x => x.dataset.id === '${id}'); if (!r) return 'no-row'; r.click(); for (let i = 0; i < 100; i++) { const h = document.getElementById('doc-hash-check'); if (h && !/checking/i.test(h.textContent)) break; await nap(150); } await nap(300); return 'ok'; })()`;
     const PANEL_READ = `(() => { const p = document.getElementById('doc-panel'); const t = (s) => (p.querySelector(s)||{}).textContent || ''; return { evd: t('#doc-evd .eb b') + ' | ' + t('#doc-evd .eb p'), hashTitle: (p.querySelector('.doc-hash')||{}).title, hashText: t('.doc-hash'), check: t('#doc-hash-check'), copy: t('#doc-copy-check'), bad: !!(p.querySelector('#doc-evd.is-bad')), original: t('.download-btn'), signedCopy: !!p.querySelector('.signed-copy-btn'), text: p.textContent.replace(/\\s+/g,' ') }; })()`;
     const rowSel = await cdp.evaluate(`(() => { const r = [...document.querySelectorAll('.doc-tr')].find(x => x.dataset.id === '${docId}'); return r ? r.dataset.id : null; })()`);
