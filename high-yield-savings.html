@@ -666,7 +666,7 @@
 
       let actionBlock;
       if (p.status === 'withdrawn') {
-        actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Withdrawn ${formatDate(p.withdrawnAt)} · ${fmt(p.withdrawnAmount)} to ${p.withdrawalMethod}</p>`;
+        actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Withdrawn ${formatDate(p.withdrawnAt)} · ${fmt(p.withdrawnAmount)} returned to your available balance</p>`;
       } else if (p.type === 'fixed' && p.termMode === 'locked' && p.status === 'active') {
         actionBlock = `<p class="text-xs text-slate-400 mt-4 pt-3 border-t border-slate-100">Locked until maturity — no early withdrawal available.</p>`;
       } else {

@@ -74,6 +74,7 @@
     "verify-asset-logos-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-asset-logos-ui-wiring.mjs",
     "verify-asset-logos-visual": "node verify-asset-logos-visual.mjs",
     "verify-hys-internal-funding": "node verify-hys-internal-funding.js",
+    "verify-pocket-withdrawal-to-balance": "node verify-pocket-withdrawal-to-balance.mjs",
     "verify-hys-internal-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-hys-internal-ui-wiring.mjs",
     "verify-hys-internal-visual": "node verify-hys-internal-visual.mjs",
     "supabase-verify-deposit-addresses": "node verify-supabase-deposit-addresses.js",

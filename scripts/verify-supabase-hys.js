@@ -390,9 +390,15 @@ async function main() {
 
   // ===========================================================================================
   // TEST 5 — approve-hys-withdrawal: re-validation against the pocket's CURRENT state at
-  // approval time, and the symmetric external-payout behavior (account_state never touched).
+  // approval time, and the credit to unallocated_capital.
+  //
+  // ★ REVERSED 2026-09-23. This section used to assert the opposite: that approve-hys-withdrawal
+  // NEVER creates or touches an account_state row, because a pocket paid out externally and HYS
+  // was "its own pool". A pocket now returns its money to the client's own available balance, so
+  // the assertion is inverted rather than deleted — the balance must move, by exactly the
+  // receive amount, and the pocket must record where it went.
   // ===========================================================================================
-  console.log('\n5. approve-hys-withdrawal — re-validation at approval time + symmetric external payout');
+  console.log('\n5. approve-hys-withdrawal — re-validation at approval time + the credit to unallocated_capital');
 
   await (async function () {
     const email = 'hyswd-approve-' + suffix + '@test.marketswave.local';
@@ -404,8 +410,14 @@ async function main() {
       funding_method: 'bank account', projected_interest: 0
     }).select().single();
 
+    // A pocket withdrawal has no destination any more, so a method/destinationDetails on the
+    // body is IGNORED rather than honoured — sent here deliberately, to prove exactly that.
     const { data: request } = await clientSignIn.client.functions.invoke('request-hys-withdrawal', { body: { pocketId: pocket.id, method: 'bank', destinationDetails: { bankName: 'Y', accountNumber: '9' } } });
     check('withdrawal request created for the approve test', !!request, JSON.stringify(request));
+    check('a method/destination sent by the caller is IGNORED — the request records method "internal" and no destination', request && request.method === 'internal' && !request.destinationDetails, JSON.stringify(request));
+
+    const { data: beforeRows } = await admin.from('account_state').select('*').eq('client_id', user.id);
+    check('the client genuinely has no account_state row before approval (the credit must create one)', beforeRows.length === 0, JSON.stringify(beforeRows));
 
     const { data: approved, error: approveErr } = await adminSignIn.client.functions.invoke('approve-hys-withdrawal', { body: { requestId: request.id } });
     check('approve-hys-withdrawal succeeds', !approveErr, approveErr && approveErr.message);
@@ -413,15 +425,16 @@ async function main() {
 
     const { data: pocketAfter } = await admin.from('hys_pockets').select('*').eq('id', pocket.id).single();
     check('the pocket is now marked withdrawn with the correct withdrawn_amount', pocketAfter.status === 'withdrawn' && pocketAfter.withdrawn_amount === 2500, JSON.stringify(pocketAfter));
-    check('withdrawal_method reflects "bank account" for a bank-method withdrawal', pocketAfter.withdrawal_method === 'bank account');
+    check('withdrawal_method records where the money actually went: "unallocated capital"', pocketAfter.withdrawal_method === 'unallocated capital', pocketAfter.withdrawal_method);
 
     const { data: txn } = await admin.from('transactions').select('*').eq('id', approved.transactionId).single();
     check('the linked transaction is a real HYS_WITHDRAWAL row with total_value = receiveAmount, realized_return null', txn.type === 'HYS_WITHDRAWAL' && txn.total_value === 2500 && txn.realized_return === null, JSON.stringify(txn));
 
-    // THE symmetric-external-payout property — account_state is never touched, exactly
-    // mirroring credit-hys-deposit's own never-touches-account_state behavior.
+    // THE credit. upsert rather than update, because a client whose pocket was funded
+    // externally (HYS_DEPOSIT) may genuinely have no account_state row yet — which is exactly
+    // the state asserted above, so this proves the create path, not just the update path.
     const { data: accountRows } = await admin.from('account_state').select('*').eq('client_id', user.id);
-    check('approve-hys-withdrawal never creates/touches an account_state row (symmetric with credit-hys-deposit)', accountRows.length === 0, JSON.stringify(accountRows));
+    check('approve-hys-withdrawal creates the account_state row and credits it by exactly the receive amount ($2,500.00)', accountRows.length === 1 && Number(accountRows[0].unallocated_capital) === 2500, JSON.stringify(accountRows));
 
     // Double-approve refused.
     const { error: doubleApproveErr } = await adminSignIn.client.functions.invoke('approve-hys-withdrawal', { body: { requestId: request.id } });
@@ -437,12 +450,14 @@ async function main() {
     const { data: request2 } = await clientSignIn.client.functions.invoke('request-hys-withdrawal', { body: { pocketId: pocket2.id, method: 'bank', destinationDetails: { bankName: 'Z', accountNumber: '1' } } });
     // Simulate the pocket having been withdrawn out from under this pending request by some
     // other real path, between request time and approval time.
-    await admin.from('hys_pockets').update({ status: 'withdrawn', withdrawn_at: new Date().toISOString(), withdrawn_amount: 800, withdrawal_method: 'bank account' }).eq('id', pocket2.id);
+    await admin.from('hys_pockets').update({ status: 'withdrawn', withdrawn_at: new Date().toISOString(), withdrawn_amount: 800, withdrawal_method: 'unallocated capital' }).eq('id', pocket2.id);
 
     const { error: staleApproveErr } = await adminSignIn.client.functions.invoke('approve-hys-withdrawal', { body: { requestId: request2.id } });
     check('approving a request whose pocket was ALREADY withdrawn in the meantime correctly fails (409), re-validated at approval time', staleApproveErr && staleApproveErr.context && staleApproveErr.context.status === 409, staleApproveErr && staleApproveErr.message);
     const { data: request2StillPending } = await admin.from('hys_withdrawal_requests').select('status').eq('id', request2.id).single();
     check('the second request remains pending, not silently marked approved', request2StillPending.status === 'pending');
+    const { data: afterStale } = await admin.from('account_state').select('unallocated_capital').eq('client_id', user.id).single();
+    check('the refused approval credited nothing — the balance is still exactly the first withdrawal', Number(afterStale.unallocated_capital) === 2500, JSON.stringify(afterStale));
 
     await cleanupClient(admin, user.id);
   })();
@@ -461,11 +476,13 @@ async function main() {
       client_id: user.id, pocket_type: 'ayw', amount: 1200, status: 'active',
       funding_method: 'crypto wallet', projected_interest: 0
     }).select().single();
-    const { data: request } = await clientSignIn.client.functions.invoke('request-hys-withdrawal', { body: { pocketId: pocket.id, method: 'crypto', destinationDetails: { asset: 'BTC', walletAddress: '1TestAddr' } } });
+    const { data: request } = await clientSignIn.client.functions.invoke('request-hys-withdrawal', { body: { pocketId: pocket.id } });
 
-    const { data: rejected, error: rejectErr } = await adminSignIn.client.functions.invoke('reject-hys-withdrawal', { body: { requestId: request.id, reason: 'Destination wallet could not be verified.' } });
+    const { data: rejected, error: rejectErr } = await adminSignIn.client.functions.invoke('reject-hys-withdrawal', { body: { requestId: request.id, reason: 'The pocket was opened in error.' } });
     check('reject-hys-withdrawal succeeds', !rejectErr, rejectErr && rejectErr.message);
-    check('rejected withdrawal status is "rejected" with the reason preserved', rejected && rejected.status === 'rejected' && rejected.reason === 'Destination wallet could not be verified.');
+    check('rejected withdrawal status is "rejected" with the reason preserved', rejected && rejected.status === 'rejected' && rejected.reason === 'The pocket was opened in error.');
+    const { data: noAccount } = await admin.from('account_state').select('*').eq('client_id', user.id);
+    check('a rejected withdrawal credits nothing — no account_state row exists at all', noAccount.length === 0, JSON.stringify(noAccount));
 
     const { data: pocketUnchanged } = await admin.from('hys_pockets').select('status').eq('id', pocket.id).single();
     check('a rejected HYS withdrawal leaves the pocket genuinely still active', pocketUnchanged.status === 'active');
@@ -543,7 +560,7 @@ async function main() {
       funding_method: 'bank account', projected_interest: 0
     }).select().single();
     await admin.from('hys_deposit_requests').insert({ client_id: userA.id, pocket_type: 'ayw', requested_amount: 100, method: 'bank', currency: 'USD', status: 'pending' });
-    await admin.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 100, forfeit: false, method: 'bank', status: 'pending' });
+    await admin.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 100, forfeit: false, method: 'internal', status: 'pending' });
 
     const a = await signIn(url, anonKey, emailA, password);
 
@@ -570,10 +587,25 @@ async function main() {
     check('Client A cannot INSERT a hys_deposit_requests row with a non-pending status', !spoofStatusDepositInsert || spoofStatusDepositInsert.length === 0);
 
     // ---- hys_withdrawal_requests INSERT: same shape ----------------------------------------
-    const { data: legitWithdrawalInsert, error: legitWithdrawalErr } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 25, forfeit: false, method: 'bank', status: 'pending' }).select();
+    const { data: legitWithdrawalInsert, error: legitWithdrawalErr } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 25, forfeit: false, method: 'internal', status: 'pending' }).select();
     check('Client A CAN directly insert their own genuinely-pending hys_withdrawal_requests row via RLS', legitWithdrawalInsert && legitWithdrawalInsert.length === 1, legitWithdrawalErr && legitWithdrawalErr.message);
-    const { data: spoofStatusWithdrawalInsert } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 999, forfeit: false, method: 'bank', status: 'approved' }).select();
+    const { data: spoofStatusWithdrawalInsert } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 999, forfeit: false, method: 'internal', status: 'approved' }).select();
     check('Client A cannot INSERT a hys_withdrawal_requests row with a non-pending status', !spoofStatusWithdrawalInsert || spoofStatusWithdrawalInsert.length === 0);
+
+    // ---- The external payout path is structurally impossible (2026-09-23) -------------------
+    // The method constraints were REPLACED, not widened, so 'crypto'/'bank' are not writable by
+    // ANY role -- including service_role, which is the one that matters: RLS can stop a client,
+    // only a CHECK can stop old code, a stale deployed function or a hand-crafted privileged
+    // insert from recording a payout this system no longer makes. Tested with the privileged
+    // role deliberately, because a client-role refusal would prove nothing about that.
+    for (const badMethod of ['crypto', 'bank']) {
+      const { error: methodErr } = await admin.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 10, forfeit: false, method: badMethod, status: 'pending' });
+      check('even service_role cannot record a withdrawal request with method "' + badMethod + '"', !!methodErr && /method_check/.test(methodErr.message || ''), methodErr && methodErr.message);
+    }
+    for (const badDest of ['crypto wallet', 'bank account']) {
+      const { error: destErr } = await admin.from('hys_pockets').update({ withdrawal_method: badDest }).eq('id', pocketA.id);
+      check('even service_role cannot mark a pocket as withdrawn to "' + badDest + '"', !!destErr && /withdrawal_method_check/.test(destErr.message || ''), destErr && destErr.message);
+    }
 
     // ---- No UPDATE/DELETE path for any role but service_role, on all 3 tables --------------
     const { data: pocketUpdateAttempt } = await a.client.from('hys_pockets').update({ status: 'withdrawn', withdrawn_amount: 999999 }).eq('id', pocketA.id).select();
