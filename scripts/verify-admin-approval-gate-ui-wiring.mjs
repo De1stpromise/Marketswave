@@ -523,11 +523,14 @@ async function main() {
         maturity_date: '2026-01-01', projected_interest: 600, funding_method: 'bank account'
       }).select('id').single();
       if (pkErr) throw new Error('hys_pockets seed failed: ' + pkErr.message);
-      const { data: req } = await admin.from('hys_withdrawal_requests').insert({
+      // method 'internal', no destination: a pocket returns its money to the client's own
+      // available balance, and the CHECK constraint refuses 'bank'/'crypto' for every role.
+      // The error is read rather than discarded, for the same reason pkErr above is.
+      const { data: req, error: reqErr } = await admin.from('hys_withdrawal_requests').insert({
         client_id: c.id, pocket_id: pk.id, pocket_type: 'fixed', term_label: '12 months',
-        forfeit: false, receive_amount: 5240, method: 'bank',
-        destination_details: { bankName: 'SEB' }, status: 'pending'
+        forfeit: false, receive_amount: 5240, method: 'internal', status: 'pending'
       }).select('id').single();
+      if (reqErr) throw new Error('hys_withdrawal_requests seed failed: ' + reqErr.message);
       const dom = buildGateDom(MarketswaveData);
       await gateReady(dom);
       await openRow(dom, 'hys', req.id);
@@ -544,9 +547,14 @@ async function main() {
       const { data: tx } = await admin.from('transactions').select('type, total_value').eq('client_id', c.id).eq('type', 'HYS_WITHDRAWAL').maybeSingle();
       check('★ hys-wd: a real HYS_WITHDRAWAL ledger row exists for the payout',
         !!tx && Math.abs(Number(tx.total_value) - 5240) < 1e-9, JSON.stringify(tx));
+      // * REVERSED 2026-09-23. This asserted the opposite - that approval never touches
+      // account_state, because a pocket paid out externally and HYS was "its own pool".
+      // A pocket now returns its money to the client's own available balance, so the
+      // assertion is inverted rather than deleted: the balance must move, by exactly the
+      // receive amount, onto a row the credit has to CREATE (this client has none before).
       const { data: st } = await admin.from('account_state').select('unallocated_capital').eq('client_id', c.id).single();
-      check('★ hys-wd: symmetric external payout — unallocated capital is untouched',
-        Math.abs(Number(st.unallocated_capital)) < 1e-9, '$' + st.unallocated_capital);
+      check('★ hys-wd: the pocket returns its money - unallocated capital is credited by exactly the receive amount ($5,240)',
+        !!st && Math.abs(Number(st.unallocated_capital) - 5240) < 1e-9, '$' + (st && st.unallocated_capital));
     }
 
     // ---- 2h. PROFILE UPDATE — applied to client_profiles -----------------------------

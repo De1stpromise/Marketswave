@@ -253,7 +253,7 @@ async function main() {
     let before = new Date().toISOString();
     const r1 = await pm.functions.invoke('approve-hys-withdrawal', { body: { requestId: req1.id } });
     check('approve-hys-withdrawal succeeds', !r1.error && r1.data.status === 'approved', r1.error && r1.error.message);
-    await checkLoggedBranded('approve-hys-withdrawal', 'hys_withdrawal_request', req1.id, /High Yield Savings withdrawal has been approved/i, before);
+    await checkLoggedBranded('approve-hys-withdrawal', 'hys_withdrawal_request', req1.id, /savings pocket has been closed/i, before);
 
     const { data: pocket2 } = await admin.from('hys_pockets').insert({
       client_id: user.id, pocket_type: 'ayw', amount: 500, status: 'active', rate: 4.5, projected_interest: 10, funding_method: 'bank account'

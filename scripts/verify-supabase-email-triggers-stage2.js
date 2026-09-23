@@ -254,7 +254,7 @@ async function main() {
     const before = new Date().toISOString();
     const { data, error } = await pm.functions.invoke('approve-hys-withdrawal', { body: { requestId: req.id } });
     check('approve-hys-withdrawal succeeds', !error && data.status === 'approved', error && error.message);
-    await checkLogged('approve-hys-withdrawal', 'hys_withdrawal_request', req.id, /High Yield Savings withdrawal has been approved/i, before);
+    await checkLogged('approve-hys-withdrawal', 'hys_withdrawal_request', req.id, /savings pocket has been closed/i, before);
     await admin.from('transactions').delete().eq('client_id', user.id);
     await admin.from('hys_withdrawal_requests').delete().eq('id', req.id);
     await admin.from('hys_pockets').delete().eq('id', pocket.id);
