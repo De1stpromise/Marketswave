@@ -95,6 +95,7 @@
     "supabase-verify-help-center": "node verify-supabase-help-center.js",
     "seed-help-center": "node seed-help-center.js",
     "verify-help-center-ui-wiring": "node verify-help-center-ui-wiring.mjs",
+    "verify-help-center-visual": "node verify-help-center-visual.mjs",
     "supabase-verify-visitor-presence": "node verify-supabase-visitor-presence.js",
     "verify-visitor-presence-visual": "node verify-visitor-presence-visual.mjs",
     "verify-portfolio-overview-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-portfolio-overview-ui-wiring.mjs",

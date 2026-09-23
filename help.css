@@ -35,6 +35,16 @@
 .hc-empty { padding: 26px 22px; font-size: 13.5px; color: #3E4A52; line-height: 1.65; }
 
 /* ---------------------------------------------------------------- intro band */
+/* ★ THE FIRST CARD SITS OVER THE DARK HERO, so it cannot use .glass's default translucency.
+   .hc-hero's margin-bottom: -38px lifts this band up over the navy on purpose (the mockup's
+   own look), and measured at 1440px the top strip composites text over that navy: the
+   “New here?” kicker read 3.61:1 and the intro list's empty-state 2.85:1. Same finding as the
+   Philosophy panel (row 136), same fix — override the background to a much more opaque white
+   while keeping the blur, border and shadow. .hc-results is given the same treatment because
+   it renders in the same overlap position when a search is active. */
+.hc-intro, .hc-results {
+  background: linear-gradient(150deg, rgba(255,255,255,.97), rgba(255,255,255,.93));
+}
 .hc-intro { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); margin-bottom: 14px; }
 .hc-ib { padding: 26px 28px; }
 .hc-k { display: flex; align-items: center; gap: 9px; font-size: 11px; font-weight: 700;

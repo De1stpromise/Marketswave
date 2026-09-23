@@ -50,6 +50,57 @@ const THRESHOLD = 4.5;
 // Default behaviour is unchanged: no env vars means the resources profile, exactly as before.
 const PROFILES = {};
 
+// Help Center (2026-09-23). The landing's cards are the shared .glass primitive, so these are
+// measured with the sheen COMPOSITED — .glass::before is a positioned radial highlight over a
+// card's top-left corner and it paints over in-flow text (row 204). Every card here carries
+// .glass-lift for that reason; these measurements are what prove it worked.
+PROFILES.helpLanding = [
+  { label: 'hero h1', sel: '.hc-hero h1', limit: 2 },
+  { label: 'hero lead', sel: '.hc-hero > .hc-wrap > p', limit: 2 },
+  { label: 'hero eyebrow', sel: '.hc-eb', limit: 2 },
+  { label: 'quick-question chip', sel: '.hc-chip', limit: 4 },
+  { label: 'intro heading', sel: '.hc-ib h2', limit: 2 },
+  { label: 'intro body', sel: '.hc-ib p', limit: 2 },
+  { label: 'intro kicker', sel: '.hc-k', limit: 2 },
+  { label: 'intro link', sel: '.hc-ilist a', limit: 5 },
+  { label: 'section head', sel: '.hc-sech b', limit: 3 },
+  { label: 'section count', sel: '.hc-sech span', limit: 3 },
+  { label: 'topic card title', sel: '.hc-cat h3', limit: 6 },
+  { label: 'topic card blurb', sel: '.hc-cat .hc-d', limit: 6 },
+  { label: 'topic card link', sel: '.hc-cat li a', limit: 6 },
+  { label: 'topic card all', sel: '.hc-all', limit: 6 },
+  { label: 'topic card soon', sel: '.hc-soon', limit: 6 },
+  { label: 'most-asked question', sel: '.hc-qq b', limit: 6 },
+  { label: 'most-asked trail', sel: '.hc-qq span', limit: 6 },
+  { label: 'contact heading', sel: '.hc-cb0 b', limit: 2 },
+  { label: 'contact body', sel: '.hc-cb0 span', limit: 2 },
+  { label: 'contact tile title', sel: '.hc-ch b', limit: 3 },
+  { label: 'contact tile body', sel: '.hc-ch span:not(.hc-ci)', limit: 3 },
+];
+
+PROFILES.helpArticle = [
+  { label: 'breadcrumb', sel: '.hc-crumb a', limit: 3 },
+  { label: 'breadcrumb current', sel: '.hc-crumb b', limit: 2 },
+  { label: 'sidebar group', sel: '.hc-scat b', limit: 4 },
+  { label: 'sidebar link', sel: '.hc-scat a', limit: 6 },
+  { label: 'article tag', sel: '.hc-tag', limit: 2 },
+  { label: 'reading time', sel: '.hc-rt', limit: 2 },
+  { label: 'article h1', sel: '.hc-art h1', limit: 2 },
+  { label: 'lede', sel: '.hc-lede', limit: 2 },
+  { label: 'body heading', sel: '.ha-h2', limit: 4 },
+  { label: 'body paragraph', sel: '.ha-p', limit: 6 },
+  { label: 'step title', sel: '.ha-stb b', limit: 4 },
+  { label: 'step body', sel: '.ha-stb span', limit: 4 },
+  { label: 'step numeral', sel: '.ha-stn', limit: 4 },
+  { label: 'warning title', sel: '.ha-wb b', limit: 2 },
+  { label: 'warning body', sel: '.ha-wb p', limit: 2 },
+  { label: 'tip body', sel: '.ha-tip p', limit: 2 },
+  { label: 'related heading', sel: '.hc-related > b', limit: 2 },
+  { label: 'related link', sel: '.hc-rel', limit: 3 },
+  { label: 'still-stuck heading', sel: '.hc-ab b', limit: 2 },
+  { label: 'still-stuck body', sel: '.hc-ab span', limit: 2 },
+];
+
 PROFILES.resources = [
   // --- the redesigned components (rest state) ---
   { label: 'res-item h3', sel: '.res-item h3', limit: 6 },
