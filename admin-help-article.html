@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit article — Marketswave PM Tool</title>
+
+  <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
+       after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
+  <link rel="modulepreload" href="admin-supabase-config.js" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="admin-help.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Help Center</h2>
+          <p class="text-xs text-slate-600">Editing an article</p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
+        <div class="mx-auto" style="max-width:1300px">
+
+          <nav class="hl-crumb" aria-label="Breadcrumb">
+            <a href="admin-help.html">Help Center</a><span aria-hidden="true">›</span>
+            <span id="hl-crumb-topic"></span><b id="hl-crumb-title">New article</b>
+          </nav>
+
+          <div class="hl-mh">
+            <div>
+              <h1 id="hl-title-head">New article <span id="hl-badges"></span></h1>
+              <p>Changes you make here don’t reach clients until you press Publish.</p>
+            </div>
+            <div class="hl-acts">
+              <a class="mw-btn mw-btn-sm" id="hl-preview" href="#" target="_blank" rel="noopener">Preview as a client</a>
+              <button type="button" class="mw-btn mw-btn-sm" id="hl-save-top">Save draft</button>
+              <button type="button" class="mw-btn mw-btn-admin mw-btn-sm" id="hl-publish-top">Publish changes</button>
+            </div>
+          </div>
+
+          <div class="hl-edgrid">
+            <div>
+
+              <!-- 1 -->
+              <section class="hl-card hl-sec">
+                <div class="hl-sech"><span class="hl-n">1</span><b>About this article</b><span>What it is and where it lives</span></div>
+                <div class="hl-secb">
+                  <div class="hl-f">
+                    <label for="hl-title">Title <span class="hl-req">Required</span></label>
+                    <div class="hl-help">Short and plain. This is the heading clients see and the text in the topic list.</div>
+                    <input id="hl-title" class="mw-field" maxlength="80" />
+                    <div class="hl-cnt" id="hl-title-cnt">0 / 80</div>
+                  </div>
+                  <div class="hl-f">
+                    <label for="hl-question">The question it answers <span class="hl-req">Required</span></label>
+                    <div class="hl-help">Write it the way a client would actually ask — first person, their words. It appears in “Most asked” and is what search matches against.</div>
+                    <input id="hl-question" class="mw-field" maxlength="120" />
+                    <div class="hl-cnt" id="hl-question-cnt">0 / 120</div>
+                  </div>
+                  <div class="hl-two">
+                    <div class="hl-f">
+                      <label for="hl-topic-sel">Topic <span class="hl-req">Required</span></label>
+                      <div class="hl-help">Which section of the Help Center it sits under on the front page.</div>
+                      <select id="hl-topic-sel" class="mw-field"></select>
+                    </div>
+                    <div class="hl-f">
+                      <label for="hl-slug">Web address <span class="hl-req">Required</span></label>
+                      <div class="hl-help">Filled in from the title. Change it only before publishing.</div>
+                      <div class="hl-slug"><span>marketswave.net/help?a=</span><input id="hl-slug" class="mw-field" /></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 2 -->
+              <section class="hl-card hl-sec">
+                <div class="hl-sech"><span class="hl-n">2</span><b>The article</b><span>What clients read</span></div>
+                <div class="hl-secb">
+                  <div class="hl-f">
+                    <label for="hl-lede">Opening paragraph <span class="hl-req">Required</span></label>
+                    <div class="hl-help">Two or three sentences that say what the article covers and why it matters. Shown in larger text under the title.</div>
+                    <textarea id="hl-lede" class="mw-field" rows="3" maxlength="400"></textarea>
+                    <div class="hl-cnt" id="hl-lede-cnt">0 / 400</div>
+                  </div>
+
+                  <div class="hl-f">
+                    <label id="hl-body-label">Body <span class="hl-req">Required</span></label>
+                    <div class="hl-blkintro">The body is built from blocks so every article looks the same on the site. Use <b>Heading</b> to start a section, <b>Paragraph</b> for text, <b>Steps</b> for a walkthrough, <b>Warning</b> for something that can go wrong, and <b>Tip</b> for something helpful but not critical.</div>
+                    <div id="hl-blocks" role="list" aria-labelledby="hl-body-label"></div>
+
+                    <div class="hl-addrow">
+                      <div class="hl-l">Add a block</div>
+                      <div class="hl-addgrid">
+                        <button type="button" class="hl-ab" data-add="heading"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h10"/></svg><span><b>Heading</b><span>Starts a new section</span></span></button>
+                        <button type="button" class="hl-ab" data-add="p"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h16M4 18h9"/></svg><span><b>Paragraph</b><span>Plain text</span></span></button>
+                        <button type="button" class="hl-ab" data-add="steps"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1.5"/><circle cx="4" cy="12" r="1.5"/><circle cx="4" cy="18" r="1.5"/></svg><span><b>Steps</b><span>A numbered walkthrough</span></span></button>
+                        <button type="button" class="hl-ab" data-add="warning"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B07908" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span><b>Warning</b><span>Something that can go wrong</span></span></button>
+                        <button type="button" class="hl-ab" data-add="tip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#075985" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span><b>Tip</b><span>Helpful, not critical</span></span></button>
+                        <button type="button" class="hl-ab" data-add="image" id="hl-add-image"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span><b>Image</b><span>A screenshot, with a caption</span></span></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 3 -->
+              <section class="hl-card hl-sec">
+                <div class="hl-sech"><span class="hl-n">3</span><b>Images</b><span>Screenshots used in the body</span></div>
+                <div class="hl-secb">
+                  <div class="hl-drop">
+                    <b>Screenshots arrive with image upload</b>
+                    <span>The body already takes an Image block, and every image must carry a screen-reader
+                    description before the article can be published — that rule is enforced on the server, not
+                    just here. Choosing a file is the part still to come.</span>
+                    <span class="hl-rule">Never include a real client’s name, email or balance in a screenshot
+                    or in article text. Use the demo account.</span>
+                  </div>
+                  <div id="hl-images"></div>
+                </div>
+              </section>
+
+            </div>
+
+            <!-- settings column -->
+            <aside class="hl-setcol" aria-label="Article settings">
+              <section class="hl-card hl-setcard">
+                <div class="hl-sech"><b>Ready to publish?</b><span id="hl-check-count"></span></div>
+                <div class="hl-secb">
+                  <div id="hl-checklist"></div>
+                  <div class="hl-pubacts">
+                    <button type="button" class="mw-btn mw-btn-admin" id="hl-publish">Publish changes</button>
+                    <button type="button" class="mw-btn" id="hl-save">Save draft</button>
+                  </div>
+                  <div class="hl-pubnote">Publish is available once every required item is ticked. Saving a draft keeps your work without changing what clients see.</div>
+                </div>
+              </section>
+
+              <section class="hl-card hl-setcard">
+                <div class="hl-sech"><b>Where it appears</b></div>
+                <div class="hl-secb">
+                  <div class="hl-tog">
+                    <label for="hl-most-asked"><b>Show in “Most asked”</b><span>Lists the question on the Help Center front page. Up to 6 articles.</span></label>
+                    <input type="checkbox" id="hl-most-asked" />
+                  </div>
+                  <div class="hl-tog">
+                    <label for="hl-featured"><b>Feature on its topic card</b><span>One of the three articles shown under its topic on the front page.</span></label>
+                    <input type="checkbox" id="hl-featured" />
+                  </div>
+                  <div class="hl-tog">
+                    <label for="hl-slot"><b>Link from a product screen</b><span>Adds a “Need help?” link on that page pointing here. The placements render in Phase 2.</span></label>
+                    <select id="hl-slot" class="mw-field" style="max-width:150px">
+                      <option value="">No placement</option>
+                      <option value="crypto-deposit">Crypto deposit</option>
+                      <option value="allocation">Allocation</option>
+                      <option value="savings">Savings</option>
+                      <option value="signing">Signing</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section class="hl-card hl-setcard">
+                <div class="hl-sech"><b>Related articles</b><span>up to 3</span></div>
+                <div class="hl-secb">
+                  <div id="hl-related"></div>
+                  <label class="sr-only" for="hl-related-add">Add a related article</label>
+                  <select id="hl-related-add" class="mw-field"></select>
+                </div>
+              </section>
+
+              <section class="hl-card hl-setcard">
+                <div class="hl-sech"><b>History</b></div>
+                <div class="hl-secb">
+                  <div id="hl-history"></div>
+                  <div class="hl-pubacts"><button type="button" class="mw-btn mw-btn-danger" id="hl-unpublish">Unpublish</button></div>
+                  <div class="hl-pubnote">Unpublishing takes it off the site immediately but keeps everything here.</div>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  </div>
+
+  <script src="format-helpers.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. The approval gate shipped without this exact line and
+       rendered reachable then inescapable — no rail, no active item, no Log out — and neither a
+       real browser render nor a 69-assertion suite caught it, because everything looked at the
+       feature and nothing at the chrome (register row 228). Only admin-login.html may omit it.
+       This page's own suites assert the nav mounts, for that reason. -->
+  <script>
+    initAdminSidebar('help');
+  </script>
+  <script src="admin-help-article-page.js"></script>
+</body>
+</html>

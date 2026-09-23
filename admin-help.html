@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help Center — Marketswave PM Tool</title>
+
+  <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
+       after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
+  <link rel="modulepreload" href="admin-supabase-config.js" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="admin-help.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool — Portfolio Manager Access Only — Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Help Center</h2>
+          <p class="text-xs text-slate-600">Every article clients can read</p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
+        <div class="mx-auto" style="max-width:1300px">
+
+          <div class="hl-mh">
+            <div>
+              <h1>Help Center</h1>
+              <p>Every article clients can read, and the ones still to write.</p>
+            </div>
+            <div class="hl-acts">
+              <a class="mw-btn mw-btn-sm" href="help.html" target="_blank" rel="noopener">View live Help Center</a>
+              <a class="mw-btn mw-btn-admin mw-btn-sm" href="admin-help-article.html">+ New article</a>
+            </div>
+          </div>
+
+          <!-- Health strip. Each card is also a filter — pressing one narrows the table below,
+               which is why they are buttons with aria-pressed rather than plain figures. -->
+          <div class="hl-hs" id="hl-health"></div>
+
+          <div class="hl-card hl-bar">
+            <div class="hl-brow">
+              <span class="hl-blbl" id="hl-status-label">Status</span>
+              <div class="hl-brow" style="padding:0;gap:7px" role="group" aria-labelledby="hl-status-label" id="hl-status-pills"></div>
+            </div>
+            <div class="hl-brow">
+              <span class="hl-blbl">Show</span>
+              <label class="sr-only" for="hl-topic">Filter by topic</label>
+              <select id="hl-topic" class="mw-field mw-btn-sm" style="width:auto;min-width:160px"></select>
+              <label class="sr-only" for="hl-sort">Sort</label>
+              <select id="hl-sort" class="mw-field mw-btn-sm" style="width:auto;min-width:160px">
+                <option value="topic">Sorted by topic</option>
+                <option value="changed">Sorted by last changed</option>
+                <option value="read">Sorted by most read</option>
+                <option value="tickets">Sorted by most tickets</option>
+                <option value="title">Sorted by title A–Z</option>
+              </select>
+              <div class="hl-srch">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <label class="sr-only" for="hl-q">Search by title or question</label>
+                <input id="hl-q" class="mw-field" type="search" placeholder="Search by title or question" />
+              </div>
+            </div>
+          </div>
+
+          <div class="hl-card" style="overflow:hidden" id="hl-table"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  </div>
+
+  <script src="format-helpers.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV. The approval gate shipped without this exact line and
+       rendered reachable then inescapable — no rail, no active item, no Log out — and neither a
+       real browser render nor a 69-assertion suite caught it, because everything looked at the
+       feature and nothing at the chrome (register row 228). Only admin-login.html may omit it.
+       This page's own suites assert the nav mounts, for that reason. -->
+  <script>
+    initAdminSidebar('help');
+  </script>
+  <script src="admin-help-page.js"></script>
+</body>
+</html>

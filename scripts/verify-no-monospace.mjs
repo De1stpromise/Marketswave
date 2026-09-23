@@ -46,7 +46,7 @@ const BASE = process.env.MONO_BASE_URL || 'http://127.0.0.1:8765';
 /* The pages that ever carried mono, plus the two the earlier retirement already cleaned —
  * included deliberately so a regression there is caught too, not assumed still fixed. */
 const PAGES = ['index.html', 'resources.html', 'login.html', 'about.html', 'services.html',
-  'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'thank-you.html',
+  'contact.html', 'legal.html', 'help.html', 'blog-press.html', 'thank-you.html',
   'signup.html', 'reset-password.html'];
 
 /* Known, deliberate: Tailwind's generic font-mono on a ticket identifier. Not JetBrains, not

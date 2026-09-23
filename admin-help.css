@@ -1,0 +1,213 @@
+/* admin-help.css — Help Center in the PM tool: the articles list and the editor (2026-09-23).
+ *
+ * NO .glass anywhere, matching admin-products and the approval gate (PM_TOOL_VOCABULARY §13/§14):
+ * these are dense working surfaces and the most important thing on them is text. Plain white
+ * cards on the page ground.
+ *
+ * Every button and form control is a real .mw-btn / .mw-field / .mw-fld from control-patterns.css,
+ * so verify-control-patterns keeps covering them and the 44px phone floor applies. Nothing in this
+ * file styles a button — a rule here would put these pages outside that guard.
+ *
+ * ★ NEVER ADD `min-height: 0` TO A CONTROL SELECTOR IN THIS FILE. A class rule is (0,1,0) and
+ * silently out-specifies tap-targets.css's `button { min-height: 44px }` (0,0,1) below lg — the
+ * defect rows 247, 261 and 266 each hit once. Leave min-height unset: controls keep their natural
+ * desktop height and floor on mobile with no declaration from here.
+ *
+ * Secondary text is #475569 or darker: rows 151/217 measured slate-500 failing at these sizes. */
+
+/* ============================================================ shared page furniture */
+.hl-mh { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+  margin-bottom: 16px; flex-wrap: wrap; }
+.hl-mh h1 { font-size: 22px; font-weight: 700; letter-spacing: -.022em; color: #0F172A; }
+.hl-mh p { font-size: 12.5px; color: #475569; margin-top: 4px; }
+.hl-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.hl-crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569;
+  margin-bottom: 12px; flex-wrap: wrap; }
+.hl-crumb a { color: #475569; text-decoration: none; }
+.hl-crumb a:hover { color: #0F172A; }
+.hl-crumb b { color: #0F172A; font-weight: 600; }
+.hl-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 13px;
+  box-shadow: 0 10px 28px -22px rgba(15,23,42,.3); }
+
+.hl-stat { font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 5px; display: inline-block; }
+.hl-s-pub { background: #DCFCE7; color: #14532D; }
+.hl-s-draft { background: #FEF3C7; color: #78350F; }
+.hl-s-none { background: #F1F5F9; color: #475569; }
+.hl-s-edits { background: #DBEAFE; color: #1D4ED8; }
+
+/* ============================================================ the list: health strip */
+.hl-hs { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 11px; margin-bottom: 14px; }
+.hl-hc { padding: 13px 15px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff;
+  text-align: left; font: inherit; cursor: pointer; display: block; width: 100%; }
+.hl-hc:hover { border-color: #CBD5E1; }
+.hl-hc[aria-pressed="true"] { border-color: #B45309; box-shadow: 0 0 0 2px rgba(180,83,9,.16); }
+.hl-hc.is-warn { border-color: #FDE68A; background: #FFFBEB; }
+.hl-hc .hl-k { font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.hl-hc .hl-v { font-size: 21px; font-weight: 700; letter-spacing: -.025em; line-height: 1;
+  color: #0F172A; font-variant-numeric: tabular-nums; }
+.hl-hc.is-warn .hl-v { color: #92400E; }
+.hl-hc .hl-x { font-size: 10px; color: #64748B; margin-top: 5px; }
+
+/* ============================================================ the two-row filter bar */
+.hl-bar { padding: 0; margin-bottom: 12px; overflow: hidden; }
+.hl-brow { display: flex; align-items: center; gap: 7px; padding: 11px 14px; flex-wrap: wrap; }
+.hl-brow + .hl-brow { border-top: 1px solid #F1F5F9; background: #FCFDFE; }
+.hl-blbl { font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: #475569; width: 48px; flex-shrink: 0; }
+.hl-srch { position: relative; margin-left: auto; flex: 0 1 260px; min-width: 180px; }
+.hl-srch svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.hl-srch .mw-field { padding-left: 29px; }
+
+/* ============================================================ the table */
+.hl-th, .hl-tr { display: grid;
+  grid-template-columns: minmax(0,1.5fr) 140px 130px 100px 80px 86px 78px;
+  gap: 12px; align-items: center; padding: 0 16px; }
+.hl-th { height: 38px; font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: #475569; background: #FAFBFC; border-bottom: 1px solid #E2E8F0;
+  border-radius: 13px 13px 0 0; }
+.hl-r { justify-self: end; text-align: right; }
+.hl-tr { min-height: 54px; border-bottom: 1px solid #F1F5F9; }
+.hl-tr:last-child { border-bottom: none; }
+.hl-tr:hover { background: #FAFBFC; }
+.hl-tn b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-tn span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-tn span.is-hot { color: #9A3412; font-weight: 600; }
+.hl-tt { font-size: 11.5px; color: #475569; }
+.hl-stk { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.hl-td { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
+.hl-tk { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0F172A; }
+.hl-tk.is-hot { color: #9A3412; }
+.hl-tk.is-zero { color: #94A3B8; font-weight: 500; }
+.hl-grp { padding: 9px 16px 5px; font-size: 9.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: #475569; border-top: 1px solid #F1F5F9; background: #FCFDFE; }
+.hl-empty { padding: 34px 20px; text-align: center; font-size: 13px; color: #475569; }
+
+/* ============================================================ the editor */
+.hl-edgrid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 14px; align-items: start; }
+.hl-sec { padding: 0; margin-bottom: 14px; overflow: hidden; }
+.hl-sech { display: flex; align-items: center; gap: 11px; padding: 15px 20px;
+  border-bottom: 1px solid #EEF2F7; background: #FAFBFC; }
+.hl-sech .hl-n { width: 24px; height: 24px; border-radius: 50%; background: #1E293B; color: #fff;
+  font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.hl-sech b { font-size: 13.5px; font-weight: 700; color: #0F172A; }
+.hl-sech span { font-size: 11.5px; color: #475569; margin-left: auto; }
+.hl-secb { padding: 18px 20px 20px; }
+
+.hl-f { margin-bottom: 16px; }
+.hl-f:last-child { margin-bottom: 0; }
+.hl-f > label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600;
+  color: #0F172A; margin-bottom: 5px; flex-wrap: wrap; }
+.hl-req { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; background: #FEE2E2; color: #9A1C12; }
+.hl-opt { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; background: #F1F5F9; color: #475569; }
+.hl-help { font-size: 11px; color: #475569; line-height: 1.55; margin-bottom: 8px; }
+.hl-cnt { font-size: 10.5px; color: #64748B; text-align: right; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.hl-cnt.is-over { color: #9A1C12; font-weight: 600; }
+.hl-two { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; align-items: start; }
+.hl-slug { display: flex; align-items: center; border: 1.5px solid #DDE3EA; border-radius: 10px;
+  background: #F8FAFC; overflow: hidden; }
+.hl-slug > span { font-size: 12px; color: #475569; padding-left: 12px; white-space: nowrap; }
+.hl-slug .mw-field { border: none; background: none; box-shadow: none; padding-left: 2px; }
+
+/* blocks */
+.hl-blkintro { font-size: 11.5px; color: #475569; line-height: 1.6; margin-bottom: 14px;
+  padding: 11px 13px; border-radius: 10px; background: #F8FAFC; border: 1px solid #EEF2F7; }
+.hl-blk { border: 1.5px solid #E2E8F0; border-radius: 12px; overflow: hidden; margin-bottom: 10px; }
+.hl-bh { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: #F8FAFC;
+  border-bottom: 1px solid #EEF2F7; flex-wrap: wrap; }
+.hl-btype { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #334155; }
+.hl-bwhat { font-size: 11px; color: #64748B; }
+.hl-bh .hl-sp { flex: 1; }
+.hl-bb { padding: 13px 14px; }
+.hl-bb .hl-f { margin-bottom: 11px; }
+.hl-bb .hl-f > label { font-size: 11px; color: #475569; font-weight: 600; }
+.hl-blk.is-warn { border-color: #FDE68A; }
+.hl-blk.is-warn .hl-bh { background: #FFFBEB; border-bottom-color: #FDE68A; }
+.hl-blk.is-warn .hl-btype { color: #78350F; }
+.hl-blk.is-tip .hl-bh { background: #F0F9FF; border-bottom-color: #BAE6FD; }
+.hl-blk.is-tip .hl-btype { color: #075985; }
+
+.hl-stepr { display: flex; gap: 11px; padding: 11px 0; border-top: 1px solid #F1F5F9; }
+.hl-stepr:first-child { border-top: none; padding-top: 0; }
+.hl-sn { width: 24px; height: 24px; border-radius: 50%; background: #1E293B; color: #fff;
+  font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 22px; font-variant-numeric: tabular-nums; }
+.hl-sb { flex: 1; min-width: 0; }
+.hl-sb .hl-f { margin-bottom: 8px; }
+
+.hl-addrow { border: 1.5px dashed #CBD5E1; border-radius: 12px; padding: 14px; background: #FCFDFE; }
+.hl-addrow .hl-l { font-size: 12px; font-weight: 600; color: #0F172A; margin-bottom: 9px; }
+.hl-addgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.hl-ab { display: flex; gap: 9px; align-items: flex-start; padding: 10px 11px; border: 1px solid #E2E8F0;
+  border-radius: 9px; background: #fff; cursor: pointer; text-align: left; font: inherit; }
+.hl-ab:hover { border-color: #B45309; }
+.hl-ab svg { flex-shrink: 0; margin-top: 1px; }
+.hl-ab b { display: block; font-size: 11.5px; font-weight: 600; color: #0F172A; }
+.hl-ab span { display: block; font-size: 10px; color: #64748B; margin-top: 2px; line-height: 1.4; }
+
+/* images */
+.hl-drop { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 22px; text-align: center; background: #FCFDFE; }
+.hl-drop b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; }
+.hl-drop > span { display: block; font-size: 11px; color: #475569; margin-top: 5px; line-height: 1.55; }
+.hl-rule { display: block; margin-top: 6px; color: #9A3412; font-weight: 600; }
+.hl-imgrow { display: flex; gap: 13px; align-items: flex-start; padding: 12px; border: 1px solid #E2E8F0;
+  border-radius: 11px; margin-top: 12px; flex-wrap: wrap; }
+.hl-thumb { width: 96px; height: 64px; border-radius: 8px; background: #1E293B; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.hl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.hl-im { flex: 1; min-width: 220px; }
+.hl-im > b { display: block; font-size: 12px; font-weight: 600; color: #0F172A; }
+.hl-fn { font-size: 10.5px; color: #64748B; margin-top: 2px; }
+
+/* settings column */
+.hl-setcol { position: sticky; top: 18px; display: flex; flex-direction: column; gap: 14px; }
+.hl-setcard { padding: 0; overflow: hidden; }
+.hl-setcard .hl-sech { padding: 13px 17px; }
+.hl-setcard .hl-secb { padding: 15px 17px; }
+.hl-tog { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 11px 0; border-top: 1px solid #F1F5F9; }
+.hl-tog:first-child { border-top: none; padding-top: 0; }
+.hl-tog b { display: block; font-size: 12px; font-weight: 600; color: #0F172A; }
+.hl-tog span { display: block; font-size: 10.5px; color: #64748B; margin-top: 3px; line-height: 1.5; }
+.hl-chk { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: 12px; }
+.hl-chk i { width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0; display: flex;
+  align-items: center; justify-content: center; }
+.hl-c-ok { background: #DCFCE7; } .hl-c-no { background: #FEE2E2; } .hl-c-opt { background: #F1F5F9; }
+.hl-chk span { color: #334155; }
+.hl-chk.is-dim span { color: #64748B; }
+.hl-rel { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid #E2E8F0;
+  border-radius: 9px; margin-bottom: 6px; font-size: 11.5px; color: #334155; }
+.hl-rel span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-kv { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; padding: 7px 0;
+  border-top: 1px solid #F1F5F9; }
+.hl-kv:first-child { border-top: none; padding-top: 0; }
+.hl-kv .hl-kk { color: #475569; }
+.hl-kv .hl-vv { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; color: #0F172A; }
+.hl-pubacts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.hl-pubacts .mw-btn { width: 100%; justify-content: center; }
+.hl-pubnote { font-size: 10.5px; color: #64748B; line-height: 1.55; margin-top: 10px; }
+
+@media (max-width: 1100px) {
+  .hl-edgrid { grid-template-columns: 1fr; }
+  .hl-setcol { position: static; }
+}
+@media (max-width: 1023.98px) {
+  .hl-hs { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .hl-addgrid { grid-template-columns: 1fr; }
+  .hl-two { grid-template-columns: 1fr; }
+  .hl-blbl { width: 100%; }
+  .hl-srch { flex: 1 1 100%; margin-left: 0; }
+  /* The table restacks into cards rather than hiding columns (row 172): on a phone the Views and
+     Tickets figures are the reason a manager opened this page, and a hidden column is not a
+     smaller table, it is a missing one. */
+  .hl-th { display: none; }
+  .hl-tr { grid-template-columns: 1fr; gap: 6px; padding: 12px 14px; align-items: start; }
+  .hl-r { justify-self: start; text-align: left; }
+  .hl-tr > *[data-label]::before { content: attr(data-label) " "; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; color: #64748B; }
+}

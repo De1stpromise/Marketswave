@@ -171,7 +171,7 @@ async function connectChrome() {
 // still empty of text. Bounded — a page with no async content settles on the first check.
 const WAIT = '(async()=>{const nap=(ms)=>new Promise(r=>setTimeout(r,ms));for(let i=0;i<120;i++){const sk=document.querySelectorAll(".animate-pulse").length;if(sk===0&&document.readyState==="complete"){await nap(600);return true;}await nap(250);}return false;})()';
 
-const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'signup.html', 'login.html', 'thank-you.html', 'reset-password.html'];
+const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help.html', 'blog-press.html', 'signup.html', 'login.html', 'thank-you.html', 'reset-password.html'];
 const CLIENT_PAGES = ['dashboard.html', 'asset-performance.html', 'asset-collection.html', 'high-yield-savings.html', 'transactions.html', 'documents.html', 'risk-management.html', 'deploy-capital.html', 'settings.html', 'support.html'];
 // The seven per-type queue pages were deleted when the approval gate replaced them (row 228).
 const ADMIN_PAGES = ['admin.html', 'admin-approvals.html', 'admin-clients.html', 'admin-documents.html', 'admin-advisory-fee.html', 'admin-security.html', 'admin-products.html', 'admin-deposit-addresses.html', 'admin-inbox.html', 'admin-presence.html'];

@@ -131,6 +131,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     { key: 'products', href: 'admin-products.html', label: 'Products' },
     { key: 'deposit-addresses', href: 'admin-deposit-addresses.html', label: 'Deposit addresses' },
     { key: 'documents', href: 'admin-documents.html', label: 'Documents' },
+    { key: 'help', href: 'admin-help.html', label: 'Help Center' },
     { key: 'settings', href: 'admin-advisory-fee.html', label: 'Advisory fee' },
     { key: 'security', href: 'admin-security.html', label: 'Security' }
   ];

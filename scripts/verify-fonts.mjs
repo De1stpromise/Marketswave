@@ -56,7 +56,7 @@ const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Applic
 const PORT = Number(process.env.AUDIT_PORT || 9336);
 // Standalone (a pass, no AUDIT_URL): every public page. The visual suites spawn this with an
 // AUDIT_URL + bootstrap for the authenticated pages, so between the two every page is covered.
-const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help-center.html', 'blog-press.html', 'login.html', 'signup.html'];
+const PUBLIC_PAGES = ['index.html', 'services.html', 'resources.html', 'about.html', 'contact.html', 'legal.html', 'help.html', 'blog-press.html', 'login.html', 'signup.html'];
 const URLS = (process.env.AUDIT_URL || PUBLIC_PAGES.map((p) => 'http://127.0.0.1:8765/' + p).join(',')).split(',');
 
 class CDP {

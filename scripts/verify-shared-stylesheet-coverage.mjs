@@ -52,6 +52,10 @@ const SHARED = [
   // and the document renderer (fund-document.js builds every .fd-* class). Both scripts
   // create their markup at runtime, so this is exactly the case this check exists for.
   'rich-text.css',
+  // Help Center (2026-09-23): admin-help.css owns every .hl-* class on the two PM pages;
+  // help.css owns .hc-*/.ha-* on the public page, where article-render.js builds the .ha-* blocks.
+  'admin-help.css',
+  'help.css',
   'fund-document.css',
   // Portfolio overview (2026-09-12): portfolio-overview.js builds every .po-* class at runtime.
   'portfolio-overview.css',

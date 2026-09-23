@@ -18,7 +18,9 @@ const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Applic
 const PORT = Number(process.env.FD_PORT || 9339);
 const BASE = process.env.FD_BASE || 'http://127.0.0.1:8765/';
 const SHOTS = process.env.FD_SHOTS || null;
-const PAGES = ['about', 'blog-press', 'contact', 'help-center', 'index', 'legal', 'resources', 'services'];
+// 'help-center' became a redirect stub with no header or footer when the real Help Center
+// shipped at help.html (2026-09-23); 'help' is the page that now carries the shared chrome.
+const PAGES = ['about', 'blog-press', 'contact', 'help', 'index', 'legal', 'resources', 'services'];
 
 let pass = 0, fail = 0;
 const ok = (c, label, detail) => {
