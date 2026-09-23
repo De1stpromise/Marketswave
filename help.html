@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Contact — Marketswave</title>
-  <meta name="description" content="Contact Marketswave. Reach our team for discretionary management, account opening, or general enquiries." />
+  <title>Help Center — Marketswave</title>
+  <meta name="description" content="Answers to the questions clients actually ask, written around what you will see on screen." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="chat-widget.css" />
+  <link rel="stylesheet" href="help.css" />
 </head>
 <body>
 
@@ -21,10 +22,10 @@
       <nav class="main-nav" id="main-nav">
         <a href="index.html">Home</a>
         <a href="services.html">Service</a>
-        <a href="resources.html">Resources</a>
+        <a href="resources.html" class="active">Resources</a>
         <a href="about.html">About</a>
         <a href="legal.html">Legal</a>
-        <a href="contact.html" class="mobile-nav-contact active">Contact</a>
+        <a href="contact.html" class="mobile-nav-contact">Contact</a>
       </nav>
 
       <div class="header-actions">
@@ -38,167 +39,23 @@
     </div>
   </header>
 
-  <!-- ========== PAGE HERO ========== -->
-  <section class="page-hero glass-dark blob-field">
-    <div class="blob blob--md blob--teal" style="top:-100px; left:-80px;"></div>
-    <div class="blob blob--sm blob--gold" style="bottom:-60px; right:-40px;"></div>
-    <div class="container">
-      <h1>Contact Us</h1>
-      <p>Speak with our team about discretionary management, account structures, or general enquiries. We respond to all serious requests.</p>
+  <!-- ========== HELP CENTER ==========
+       One page serves both views; ?a=<slug> chooses an article. Articles are stored in the
+       database and rendered here, so publishing never needs a code change. See help.js's own
+       header for why the address is a query parameter and not /help/<slug>. -->
+  <main id="hc-root" class="hc-root"></main>
+
+  <noscript>
+    <div class="hc-ns">
+      <h2>Help Center</h2>
+      <p>Our articles are loaded by your browser, which needs JavaScript switched on. With it off,
+      here is how to reach us directly, and every part of the site that does not need it.</p>
+      <p><strong>Email</strong> <a href="mailto:support@marketswave.net">support@marketswave.net</a><br />
+      <strong>Call</strong> <a href="tel:+46766922906">+46 766 92 29 06</a> · Mon–Fri, 8am–8pm CET</p>
+      <p><a href="resources.html">Resources</a> · <a href="services.html">Services</a> ·
+      <a href="contact.html">Contact</a> · <a href="legal.html">Legal</a></p>
     </div>
-  </section>
-
-  <!-- ========== CONTACT CONTENT ========== -->
-  <!-- Homepage Visual Redesign, Stage 2 (2026-09-05): investigated per instruction —
-       .contact-card/.contact-form-wrap already had a bespoke, ad-hoc translucent-blur
-       treatment predating Stage 1 (a plain rgba background + blur, not the real .glass
-       recipe). Upgraded to the real, shared .glass primitive for consistency, matching
-       the user's own instinct that Contact could take a light version of this treatment.
-       2 subtle background blobs added — kept modest, since the priority here is the
-       form staying genuinely readable/usable, not visual flourish. -->
-  <section class="section blob-field">
-    <div class="blob blob--md blob--teal" style="top:-60px; left:-90px; opacity:0.16;"></div>
-    <div class="blob blob--sm blob--gold" style="bottom:-40px; right:-40px; opacity:0.16;"></div>
-    <div class="container">
-      <div class="contact-layout">
-
-        <!-- Company Details Cards -->
-        <div class="contact-details">
-          <h2 class="contact-details-title">Company Details</h2>
-
-          <div class="contact-card glass">
-            <div class="contact-card-label">Address</div>
-            <div class="contact-card-value">
-              Marketswave<br>
-              Malmskillnadsgatan 44 B<br>
-              Stockholm, Sweden
-            </div>
-          </div>
-
-          <div class="contact-card glass">
-            <div class="contact-card-label">Phone</div>
-            <div class="contact-card-value">
-              <a href="tel:+46766922906">+46 766 92 29 06</a>
-            </div>
-          </div>
-
-          <div class="contact-card glass">
-            <div class="contact-card-label">Email</div>
-            <div class="contact-card-value">
-              <a href="mailto:contact@marketswave.com">contact@marketswave.com</a>
-            </div>
-          </div>
-
-          <div class="contact-card glass">
-            <div class="contact-card-label">Response Time</div>
-            <div class="contact-card-value">
-              We aim to respond within 1 business day.<br>
-              Mon–Fri · 09:00–17:00 CET
-            </div>
-          </div>
-        </div>
-
-        <!-- Contact Form -->
-        <div class="contact-form-wrap glass">
-          <h2 class="contact-form-title">Send a Message</h2>
-          <p class="contact-form-lead">Complete the form below and our team will get back to you.</p>
-
-          <form class="contact-form" action="#" method="POST" id="contact-form">
-            <!-- Honeypot for basic spam protection (keep hidden) -->
-            <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off">
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="full-name">Full Name <span class="required">*</span></label>
-                <input type="text" id="full-name" name="full_name" required placeholder="Your full name" autocomplete="name">
-              </div>
-              <div class="form-group">
-                <label for="email">Email Address <span class="required">*</span></label>
-                <input type="email" id="email" name="email" required placeholder="you@example.com" autocomplete="email">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="phone">Phone Number</label>
-                <input type="tel" id="phone" name="phone" placeholder="+46 70 000 00 00" autocomplete="tel">
-              </div>
-              <div class="form-group">
-                <label for="company">Company / Organisation</label>
-                <input type="text" id="company" name="company" placeholder="Optional" autocomplete="organization">
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>I am interested in <span class="required">*</span></label>
-              <div class="custom-select" data-required="true">
-                <button type="button" class="custom-select-trigger" aria-expanded="false">
-                  <span class="custom-select-value">Select an option</span>
-                  <span class="custom-select-arrow"></span>
-                </button>
-                <div class="custom-select-options">
-                  <div class="custom-select-option" data-value="individual">Individual Account</div>
-                  <div class="custom-select-option" data-value="joint">Joint Account</div>
-                  <div class="custom-select-option" data-value="entity">Entity / Business Account</div>
-                  <div class="custom-select-option" data-value="discretionary">Discretionary Management</div>
-                  <div class="custom-select-option" data-value="retirement">Retirement Planning</div>
-                  <div class="custom-select-option" data-value="general">General Enquiry</div>
-                </div>
-                <input type="hidden" name="interest" value="" required>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Approximate Capital Range</label>
-              <div class="custom-select">
-                <button type="button" class="custom-select-trigger" aria-expanded="false">
-                  <span class="custom-select-value">Prefer not to say</span>
-                  <span class="custom-select-arrow"></span>
-                </button>
-                <div class="custom-select-options">
-                  <div class="custom-select-option" data-value="">Prefer not to say</div>
-                  <div class="custom-select-option" data-value="under-250k">Under $250,000</div>
-                  <div class="custom-select-option" data-value="250k-1m">$250,000 – $1M</div>
-                  <div class="custom-select-option" data-value="1m-5m">$1M – $5M</div>
-                  <div class="custom-select-option" data-value="5m-plus">$5M+</div>
-                </div>
-                <input type="hidden" name="capital_range" value="">
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="message">Message <span class="required">*</span></label>
-              <textarea id="message" name="message" rows="5" required placeholder="Tell us briefly about your goals or questions..."></textarea>
-            </div>
-
-            <div class="form-group">
-              <label>How did you hear about us?</label>
-              <div class="custom-select">
-                <button type="button" class="custom-select-trigger" aria-expanded="false">
-                  <span class="custom-select-value">Select an option</span>
-                  <span class="custom-select-arrow"></span>
-                </button>
-                <div class="custom-select-options">
-                  <div class="custom-select-option" data-value="">Select an option</div>
-                  <div class="custom-select-option" data-value="referral">Referral</div>
-                  <div class="custom-select-option" data-value="search">Search engine</div>
-                  <div class="custom-select-option" data-value="linkedin">LinkedIn</div>
-                  <div class="custom-select-option" data-value="other">Other</div>
-                </div>
-                <input type="hidden" name="source" value="">
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary btn-full">Send Message</button>
-              <p class="form-note">By submitting this form you agree to our <a href="legal.html#privacy">Privacy Policy</a>.</p>
-            </div>
-          </form>
-        </div>
-
-      </div>
-    </div>
-  </section>
+  </noscript>
 
   <!-- ========== FOOTER ========== -->
   <footer class="site-footer">
@@ -373,53 +230,13 @@
       });
     })();
   </script>
-<script>
-  (function () {
-    const selects = document.querySelectorAll('.custom-select');
 
-    selects.forEach(select => {
-      const trigger = select.querySelector('.custom-select-trigger');
-      const valueEl = select.querySelector('.custom-select-value');
-      const options = select.querySelectorAll('.custom-select-option');
-      const hiddenInput = select.querySelector('input[type="hidden"]');
-
-      trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.querySelectorAll('.custom-select.is-open').forEach(el => {
-          if (el !== select) el.classList.remove('is-open');
-        });
-        select.classList.toggle('is-open');
-        trigger.setAttribute('aria-expanded', select.classList.contains('is-open'));
-      });
-
-      options.forEach(option => {
-        option.addEventListener('click', () => {
-          const value = option.getAttribute('data-value');
-          const text = option.textContent;
-
-          valueEl.textContent = text;
-          hiddenInput.value = value;
-
-          options.forEach(opt => opt.classList.remove('is-selected'));
-          option.classList.add('is-selected');
-
-          select.classList.remove('is-open');
-          trigger.setAttribute('aria-expanded', 'false');
-        });
-      });
-    });
-
-    document.addEventListener('click', () => {
-      document.querySelectorAll('.custom-select.is-open').forEach(el => {
-        el.classList.remove('is-open');
-      });
-    });
-  })();
-</script>
   <div id="chat-widget-mount"></div>
   <script src="site-nav.js"></script>
   <script src="chat-widget.js"></script>
+  <script src="article-render.js"></script>
   <script src="site-presence.js"></script>
   <script>initChatWidget();</script>
+  <script src="help.js"></script>
 </body>
 </html>

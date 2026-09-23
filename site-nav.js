@@ -2,7 +2,7 @@
 // mobile nav (.nav-toggle / #main-nav). Before this, .nav-toggle rendered but had zero JS
 // wired to it anywhere in the project — clicking it did nothing at all (confirmed via a
 // project-wide grep before writing this file). Shared across all 8 marketing pages
-// (about/blog-press/contact/help-center/index/legal/resources/services) that load
+// (about/blog-press/contact/help/index/legal/resources/services) that load
 // styles.css's own .site-header/.header-actions/.nav-toggle markup — self-invoking, no
 // init() call needed, matching home-motion.js's own convention for page-load-time setup.
 (function () {

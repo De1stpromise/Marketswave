@@ -93,6 +93,7 @@
     "supabase-seed-market-catalog": "node supabase-seed-market-catalog.js",
     "supabase-verify-portfolio-overview": "node verify-supabase-portfolio-overview.js",
     "supabase-verify-help-center": "node verify-supabase-help-center.js",
+    "seed-help-center": "node seed-help-center.js",
     "supabase-verify-visitor-presence": "node verify-supabase-visitor-presence.js",
     "verify-visitor-presence-visual": "node verify-visitor-presence-visual.mjs",
     "verify-portfolio-overview-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-portfolio-overview-ui-wiring.mjs",

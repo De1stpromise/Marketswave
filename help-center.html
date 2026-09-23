@@ -4,241 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Help Center — Marketswave</title>
-  <meta name="description" content="The Marketswave Help Center: guidance, documents, and account support." />
+  <meta name="description" content="The Marketswave Help Center has moved to /help." />
+
+  <!-- The Help Center used to be a "coming soon" stub at this address (row 103). The real one now
+       lives at /help, which serves both the landing and every article (?a=<slug>). This page is
+       kept as a REDIRECT rather than deleted: it has been live on marketswave.net, so it may be
+       bookmarked or indexed, and a 404 would strand anyone holding the old link. Leaving the old
+       stub in place was the one option ruled out — it told visitors the Help Center was still
+       "coming soon" while the real one was live. The canonical tag points search engines at the
+       real page; the script moves a real visitor; the link below is what a visitor or a crawler
+       with no JavaScript gets. -->
+  <link rel="canonical" href="https://marketswave.net/help" />
+  <meta name="robots" content="noindex, follow" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="chat-widget.css" />
 </head>
 <body>
-
-  <!-- ========== HEADER ========== -->
-  <header class="site-header">
-    <div class="container">
-      <a href="index.html" class="logo">Marketswave</a>
-
-      <nav class="main-nav" id="main-nav">
-        <a href="index.html">Home</a>
-        <a href="services.html">Service</a>
-        <a href="resources.html" class="active">Resources</a>
-        <a href="about.html">About</a>
-        <a href="legal.html">Legal</a>
-        <a href="contact.html" class="mobile-nav-contact">Contact</a>
-      </nav>
-
-      <div class="header-actions">
-        <button type="button" class="btn btn-outline btn-sm get-access-trigger" id="get-access-btn" aria-haspopup="dialog">Get Access</button>
-        <a href="contact.html" class="btn btn-primary btn-sm site-header-contact">Contact</a>
-      </div>
-
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-haspopup="true" aria-expanded="false" aria-controls="main-nav">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </header>
-
-  <!-- ========== PAGE HERO ========== -->
-  <section class="page-hero glass-dark blob-field">
-    <div class="blob blob--md blob--teal" style="top:-100px; left:-80px;"></div>
-    <div class="blob blob--sm blob--gold" style="bottom:-60px; right:-40px;"></div>
-    <div class="container">
-      <h1>Help Center</h1>
-      <p>Guidance, documents, and account support designed around a single secure client portal.</p>
-    </div>
-  </section>
-
-  <!-- ========== COMING SOON ========== -->
-  <!-- Stub page only, per instruction — the real Help Center content buildout (search,
-       categorized articles, account-task guides) is a separate, future task. -->
   <section class="section">
     <div class="container">
-      <div class="text-center" style="max-width:640px; margin:0 auto;">
-        <h2 style="margin-bottom:18px;">Full Help Center coming soon</h2>
-        <p style="color:var(--text-muted); margin-bottom:28px;">We're building out a complete guidance library — getting started, investing with us, security and privacy, and promotions and referrals — right here. In the meantime, our team is happy to help directly.</p>
-        <a href="contact.html" class="btn btn-outline">Contact Us</a>
+      <div class="text-center" style="max-width:560px; margin:0 auto; padding:60px 0;">
+        <h1 style="margin-bottom:14px;">The Help Center has moved</h1>
+        <p style="color:var(--text-muted); margin-bottom:26px;">It now lives at
+          <strong>marketswave.net/help</strong>, with search and every article.</p>
+        <a href="help.html" class="btn btn-primary">Go to the Help Center</a>
       </div>
     </div>
   </section>
-
-  <!-- ========== FOOTER ========== -->
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <a href="index.html" class="logo">Marketswave</a>
-          <p>Discretionary investment management, trading access, and capital solutions for individuals, families, and entities seeking clarity and professional oversight.</p>
-        </div>
-
-        <div class="footer-col">
-          <h4>Services</h4>
-          <ul>
-            <li><a href="services.html#trading">Trading</a></li>
-            <li><a href="services.html#discretionary">Discretionary Management</a></li>
-            <li><a href="services.html#retirement">Retirement Planning</a></li>
-            <li><a href="services.html#supply-chain">Supply Chain</a></li>
-            <li><a href="services.html#savings">High-Yield Savings</a></li>
-            <li><a href="services.html#business-consulting">Business Consulting</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Resources</h4>
-          <ul>
-            <li><a href="resources.html#strategies">Strategies</a></li>
-            <li><a href="resources.html#how-it-works">How It Works</a></li>
-            <li><a href="resources.html">Blog & Press</a></li>
-            <li><a href="resources.html#help">Help Center</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Company</h4>
-          <ul>
-            <li><a href="about.html">About Us</a></li>
-            <li><a href="about.html#team">Leadership</a></li>
-            <li><a href="legal.html">Legal</a></li>
-            <li><a href="contact.html">Contact</a></li>
-            <li><a href="#" class="get-access-trigger">Get Access</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <div>© 2026 Marketswave. All rights reserved.</div>
-        <div class="footer-legal">
-          <a href="legal.html#privacy">Privacy Policy</a>
-          <a href="legal.html#terms">Terms of Use</a>
-          <a href="legal.html#disclaimer">Disclaimer</a>
-          <a href="legal.html#compliance">Compliance</a>
-        </div>
-      </div>
-
-      <!-- Condensed disclosures. Sits BELOW the functional footer, separated by a hairline
-           rule, in small muted type: deliberately quiet and clearly secondary, but genuinely
-           legible rather than fine print - this text exists to be read. These are verbatim
-           excerpts of the full disclosures (paragraphs 1, 3 and 9), not paraphrases; the
-           complete text lives on legal.html#disclosures. -->
-      <div class="footer-disclosures">
-        <p>No communication by Marketswave Inc. or any of its affiliates (collectively, "Marketswave™"), through this website or any other medium, should be construed or is intended to be a recommendation to purchase, sell or hold any security or otherwise to be investment, tax, financial, accounting, legal, regulatory or compliance advice, except for specific investment advice that may be provided by Marketswave Asset Management LLC pursuant to a written advisory agreement between such entity and the recipient. Nothing on this website is intended as an offer to extend credit, an offer to purchase or sell securities or a solicitation of any securities transaction.</p>
-        <p>Private placement investments are NOT bank deposits (and thus NOT insured by the FDIC or by any other federal governmental agency), are NOT guaranteed by Marketswave or any other party, and MAY lose value. Neither the Securities and Exchange Commission nor any federal or state securities commission or regulatory authority has recommended or approved any investment or the accuracy or completeness of any of the information or materials provided by or through the website. Investors must be able to afford the loss of their entire investment.</p>
-        <p>Marketswave Inc. is the direct owner of Marketswave Asset Management LLC, which is an SEC-registered investment adviser that manages the Marketswave funds and provides investment advice to the Marketswave funds, and in certain cases, to retail investors. Marketswave Markets LLC is an indirect subsidiary of Marketswave Inc. Marketswave Markets LLC is a broker-dealer registered with the Securities and Exchange Commission ("SEC") and a member of the Financial Industry Regulatory Authority ("FINRA") and the Securities Investor Protection Corporation ("SIPC"). Information on all FINRA registered broker-dealers can be found on FINRA's BrokerCheck. Despite its affiliation with Marketswave Asset Management LLC, Marketswave Markets LLC has no role in the investment advisory services received by Marketswave clients.</p>
-        <p class="footer-disclosures-more"><a href="legal.html#disclosures">Full disclosures</a></p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- ========== GET ACCESS MODAL ========== -->
-  <div class="access-modal" id="access-modal" role="dialog" aria-modal="true" aria-labelledby="access-modal-title" hidden>
-    <div class="access-modal-backdrop" data-close-modal></div>
-        <div class="access-modal-panel">
-      <button type="button" class="access-modal-close" data-close-modal aria-label="Close">&times;</button>
-      <div class="access-modal-columns">
-        <div class="access-value-panel">
-          <div class="blob blob--sm blob--teal" style="top:-50px; right:-40px;"></div>
-          <div class="blob blob--sm blob--gold" style="bottom:-50px; left:-30px;"></div>
-          <span class="access-value-eyebrow">Why Marketswave</span>
-          <h3 class="access-value-heading">Discretionary wealth management, built around your goals</h3>
-          <div class="access-value-benefits">
-            <div class="access-value-benefit">
-              <div class="access-value-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-              </div>
-              <div>
-                <h4>Broader diversification</h4>
-                <p>Private Equity, Real Assets, Stocks &amp; ETFs, and Crypto — built into one portfolio.</p>
-              </div>
-            </div>
-            <div class="access-value-benefit">
-              <div class="access-value-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-              </div>
-              <div>
-                <h4>Professionally managed</h4>
-                <p>A dedicated Portfolio Manager reviews and approves every allocation before it moves.</p>
-              </div>
-            </div>
-            <div class="access-value-benefit">
-              <div class="access-value-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-              </div>
-              <div>
-                <h4>Track your performance</h4>
-                <p>Real-time dashboard access to your holdings, returns, and full transaction history.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="access-options">
-          <h2 id="access-modal-title" class="access-modal-title">Get Access</h2>
-          <p class="access-modal-lead">Choose how you would like to continue.</p>
-
-          <a href="login.html" class="access-option-row">
-            <div class="access-option-icon">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-</div>
-            <div class="access-option-text">
-              <h3>Login</h3>
-              <p>Sign in to your client portal to view portfolios, statements, and reports.</p>
-            </div>
-            <span class="access-option-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-          </a>
-
-          <a href="signup.html" class="access-option-row">
-            <div class="access-option-icon">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-</div>
-            <div class="access-option-text">
-              <h3>Sign Up</h3>
-              <p>New to Marketswave? Start the process to open an Individual, Joint, or Entity account.</p>
-            </div>
-            <span class="access-option-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    (function () {
-      const modal = document.getElementById('access-modal');
-      const openBtns = document.querySelectorAll('.get-access-trigger');
-      if (!modal || openBtns.length === 0) return;
-
-      function openModal() {
-        modal.hidden = false;
-        document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => modal.classList.add('is-open'));
-      }
-
-      function closeModal() {
-        modal.classList.remove('is-open');
-        document.body.style.overflow = '';
-        setTimeout(() => { modal.hidden = true; }, 220);
-      }
-
-      openBtns.forEach(el => {
-        el.addEventListener('click', (e) => {
-          e.preventDefault();
-          openModal();
-        });
-      });
-
-      modal.querySelectorAll('[data-close-modal]').forEach(el => {
-        el.addEventListener('click', closeModal);
-      });
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
-      });
-    })();
-  </script>
-
-  <div id="chat-widget-mount"></div>
-  <script src="site-nav.js"></script>
-  <script src="chat-widget.js"></script>
-  <script src="site-presence.js"></script>
-  <script>initChatWidget();</script>
+  <script>location.replace('help.html' + location.search);</script>
 </body>
 </html>
