@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
           { label: 'Applicant', value: clientRow.name },
           { label: 'Account type', value: clientRow.account_type || 'Individual Account' }
         ],
-        cta: { text: 'Review in the admin tool', href: siteLink('admin-client-applications.html') },
+        cta: { text: 'Review in the admin tool', href: siteLink('admin-approvals.html') },
         footerType: 'general'
       });
       await sendEmail(admin, {
