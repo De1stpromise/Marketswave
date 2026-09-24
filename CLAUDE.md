@@ -11587,6 +11587,57 @@ is for. Four stages, in order, each building on the last:
   real-staging proof, where "the panel rendered" must come with "and the source had rows there".
   A thorough investigation of the local stack is not a substitute — the local answer was a truthful
   yes, and that is precisely why the investigation that preceded part 8 did not catch it.
+- **★★★ BACK STAGING UP BEFORE ANY MIGRATION REACHES IT, AND CONFIRM THE BACKUP COMPLETED
+  BEFORE RUNNING `db push`. Staging has NO automatic backups (2026-09-24, register rows
+  276-277).** Measured, not assumed: `supabase backups list --project-ref ujnmlwbpginplfnofhhv`
+  returns `{"walg_enabled":true,"pitr_enabled":false,"backups":[]}` — **zero backups, PITR off**.
+  And staging is not a staging environment in the usual sense: it is the ONLY project in the
+  org and `supabase-endpoint.js` points every non-localhost hostname at it, so **marketswave.net
+  runs on it and it holds real client accounts, portfolios, signed agreements and identity
+  documents**. A migration against it is therefore a one-way operation — nothing platform-side
+  can roll it back, and `supabase db push` has no undo. Until the plan changes, a fresh manual
+  backup is the ONLY thing that makes a migration recoverable.
+
+      SUPABASE_STAGING_CREDENTIALS_FILE=C:/WorkDirectory/marketswave-secrets/supabase-staging-api-keys.json \
+        bash /c/WorkDirectory/marketswave-backups/backup-staging.sh
+
+  It prints `BACKUP COMPLETE: <path>` and a size. **Confirm that line and a plausible size
+  before pushing** — an exit code alone is not evidence, the same reason a batch function
+  deploy's exit code is not (row 219). ~3.6 MB and ~334 files as of 2026-09-24. The backup
+  lives in `C:\WorkDirectory\marketswave-backups\`, a sibling of the repo: `C:\WorkDirectory`
+  is not a git repo and has no parent repo, so git can never track it — which matters because
+  the repo is public (row 256) and this is real client data. **It is written unencrypted;
+  encrypt or move it if it is going to sit around** (`gpg --symmetric --cipher-algo AES256`).
+  - **★ A DATABASE DUMP IS NOT THE WHOLE BACKUP.** `supabase db dump` with no `--schema` covers
+    **`public` ONLY** — no `auth`, no `storage`; a naive dump silently omits every user account.
+    The script takes four passes for this reason: roles, public, `--schema auth,storage`, and
+    `--data-only` (which does span all three schemas). Storage OBJECTS are a separate download
+    entirely — a database restore recreates the `storage.objects` ROWS, never the files.
+  - **★★ RESTORING: THE SCHEMA DUMPS HAVE A CIRCULAR DEPENDENCY, AND THE OBVIOUS ORDER SILENTLY
+    LOSES FOUR STORAGE SECURITY POLICIES.** `public` policies reference `auth.uid()`, so auth
+    must exist first; but four `storage.objects` policies reference `public.is_admin()`, so
+    public must exist first. **Apply the auth/storage dump TWICE** — before and after the public
+    one:
+
+        psql -f db/01-roles.sql
+        psql -f db/03-schema-auth-storage.sql   # pass 1
+        psql -f db/02-schema-public.sql
+        psql -f db/03-schema-auth-storage.sql   # pass 2 — the is_admin() policies
+        psql -f db/04-data.sql
+
+    Skipping pass 2 drops the `documents` and `fund-documents` bucket rules (verified: 6 → 10
+    policies across the second pass) and **NOTHING ERRORS AT THE END** — the restore looks
+    clean while storage authorisation is wrong. Each backup carries this as its own
+    `RESTORE.md`, because the person restoring is under pressure and will not be reading
+    CLAUDE.md. Benign on a bare postgres image: `role "supabase_realtime_admin" does not exist`.
+  - **★ A BACKUP THAT HAS NEVER BEEN RESTORED IS NOT A BACKUP.** The 2026-09-24 one was proven
+    by restoring into a throwaway `supabase/postgres:17.6.1.166` container — **never the working
+    local stack, which the suites run against and must never hold real client data** — then
+    comparing row counts table by table against live staging through an INDEPENDENT path
+    (PostgREST `count=exact`, the Auth Admin API for `auth.users`, a Storage API walk for
+    objects), never the dump itself: **46/46 tables matched, 328/328 storage objects re-hashed
+    against the manifest.** Drop the scratch container afterwards and check for a dangling
+    volume — it holds real client data.
 - **★ VERIFY A MIGRATION LOCALLY BEFORE `--linked`, EVERY TIME.** `supabase db push --linked`
   targets REAL CLOUD STAGING, not the local stack. The order is: write the migration, apply it
   locally (`supabase migration up --local`), verify against the local stack, and only then push

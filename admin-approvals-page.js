@@ -817,6 +817,40 @@
     if (e.key === 'Escape' && !document.getElementById('ag-scrim').hidden) closePanel();
   });
 
+  /* -- deep link: ?item=<kind>:<id> --------------------------------------------------
+     The PM-facing emails link straight to the request rather than to the queue, so a new
+     application does not cost a search through a shared queue.
+
+     The parameter's format is openPanel()'s OWN state.sel shape (kind + ':' + id) -- one
+     format for both, so an email link and a selected row can never drift apart.
+
+     Consumed ONCE and then stripped from the URL: closing the panel and reloading should
+     leave the PM on the queue, not silently reopen what they just closed.
+
+     A request decided between the email going out and the link being clicked is the normal
+     case for a shared PM inbox, not an error. It lands in History, filtered to that exact
+     reference, with a line saying why -- never a click that appears to do nothing. */
+  function consumeDeepLink() {
+    var m = /[?&]item=([^&]+)/.exec(location.search);
+    if (!m) return;
+    var want;
+    try { want = decodeURIComponent(m[1]); } catch (e) { want = m[1]; }
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* non-fatal */ }
+    var kind = want.split(':')[0];
+    var id = want.slice(kind.length + 1);
+    if (!kind || !id) return;
+    var it = state.pending.filter(function (i) { return i.kind === kind && String(i.id) === id; })[0];
+    if (it) { openPanel(it); return; }
+    var past = state.history.filter(function (r) { return r.kind === kind && String(r.id) === id; })[0];
+    if (past) {
+      state.hq = past.sub || '';
+      setView('history');
+      toast('That request has already been decided.');
+      return;
+    }
+    toast('That request is no longer in the queue.');
+  }
+
   D.renderAsyncBundle(document.getElementById('ag-queue'), {
     skeletonHTML: D.skeleton.lines(['w-full', 'w-full', 'w-5/6', 'w-full'], { gap: 'space-y-2' }),
     load: function () { return load(false); },
@@ -827,6 +861,7 @@
       state.ready = true;
       renderFilters();
       renderQueue();
+      consumeDeepLink();
     }
   });
 

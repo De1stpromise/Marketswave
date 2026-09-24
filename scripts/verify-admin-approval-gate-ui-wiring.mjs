@@ -91,11 +91,11 @@ vc.forwardTo(console);
  * the only honest way to observe state after a write — reusing one would read a snapshot
  * taken before the write happened.
  */
-function buildGateDom(MarketswaveData) {
+function buildGateDom(MarketswaveData, search) {
   const html = readFileSync(GATE_HTML, 'utf8');
   const body = (html.match(/<body[^>]*>([\s\S]*)<\/body>/) || [])[1].replace(/<script[\s\S]*?<\/script>/g, '');
   const dom = new JSDOM('<!doctype html><html><body>' + body + '</body></html>', {
-    url: 'http://localhost/admin-approvals.html', runScripts: 'outside-only', virtualConsole: vc
+    url: 'http://localhost/admin-approvals.html' + (search || ''), runScripts: 'outside-only', virtualConsole: vc
   });
   dom.window.MarketswaveData = MarketswaveData;
   // The real page loads format-helpers.js before its own script (the shared sortHeaderHTML()
@@ -857,6 +857,78 @@ async function main() {
       const pmId = (pmUser.users.find((u) => u.email === PM_EMAIL_REAL) || {}).id;
       check('★ nor does the PM\'s user id appear anywhere in the rendered page',
         !!pmId && !body.innerHTML.includes(pmId), String(pmId));
+    }
+
+    /* == DEEP LINK: ?item=<kind>:<id> (register row 275) ==============================
+       The PM emails link straight to the request. The parameter is openPanel()'s own
+       state.sel shape, so an email link and a selected row cannot drift apart.
+       Driven through the REAL page script in a real DOM -- never by calling the
+       function directly, which would prove only that the function exists. */
+    {
+      console.log('\n-- deep link --');
+      // Whatever is genuinely pending right now; prefer an application, since that is what
+      // notify-new-client-application actually links to.
+      const probe = buildGateDom(MarketswaveData);
+      await gateReady(probe);
+      const dlRows = renderedRows(probe);
+      const target = dlRows.find((r) => r.kind === 'app') || dlRows[0];
+      check('a pending row exists to deep-link to (non-vacuity: the rest of this section is meaningless without one)',
+        !!target, dlRows.length + ' rows rendered');
+
+      if (target) {
+        const want = target.kind + ':' + target.id;
+        const dom = buildGateDom(MarketswaveData, '?item=' + encodeURIComponent(want));
+        await gateReady(dom);
+        // The panel opens itself; poll rather than assume it is synchronous with the render.
+        await pollUntil(() => !dom.window.document.getElementById('ag-scrim').hidden, 10000);
+        check('* ?item= opens the panel for that exact request, with no click',
+          !dom.window.document.getElementById('ag-scrim').hidden);
+        check('* and it is the RIGHT one -- state.sel matches the requested kind:id',
+          dom.window.__agInternals.state.sel === want,
+          'sel=' + dom.window.__agInternals.state.sel + ' want=' + want);
+        const dlTitle = (dom.window.document.getElementById('ag-pane-title') || {}).textContent || '';
+        check('the panel renders that request\'s own title (not an empty shell)',
+          dlTitle.length > 0, dlTitle);
+        check('* the parameter is stripped from the URL -- closing and reloading must not reopen it',
+          dom.window.location.search === '',
+          'search=' + JSON.stringify(dom.window.location.search));
+
+        // A decided request is the normal case for a shared PM inbox, not an error.
+        const decided = (dom.window.__agInternals.state.history || [])[0];
+        if (decided) {
+          const d2 = buildGateDom(MarketswaveData, '?item=' + encodeURIComponent(decided.kind + ':' + decided.id));
+          await gateReady(d2);
+          await pollUntil(() => !d2.window.document.getElementById('ag-history-view').hidden, 10000);
+          check('* an already-decided request lands in History rather than doing nothing visible',
+            !d2.window.document.getElementById('ag-history-view').hidden);
+          check('* ...filtered to that exact reference, so the PM does not have to search for it',
+            d2.window.__agInternals.state.hq === (decided.sub || ''),
+            'hq=' + d2.window.__agInternals.state.hq + ' sub=' + decided.sub);
+          check('the panel is NOT opened for a decided request (there is nothing left to approve)',
+            d2.window.document.getElementById('ag-scrim').hidden);
+        } else {
+          check('SKIP: no decided request in history to exercise the already-decided path', true);
+        }
+
+        // An id that matches nothing must not throw, must not open a panel, and must say so.
+        const d3 = buildGateDom(MarketswaveData, '?item=app:00000000-0000-0000-0000-000000000000');
+        await gateReady(d3);
+        await pollUntil(() => !!d3.window.document.getElementById('ag-toast'), 8000);
+        const t3 = d3.window.document.getElementById('ag-toast');
+        check('* an unknown id neither crashes the page nor opens a panel',
+          d3.window.document.getElementById('ag-scrim').hidden
+          && d3.window.document.querySelectorAll('#ag-queue .ag-row').length > 0);
+        check('* ...and says so out loud rather than a click that appears to do nothing',
+          !!t3 && /no longer in the queue/i.test(t3.textContent || ''),
+          t3 ? t3.textContent : '(no toast)');
+
+        // A malformed value must be inert, not throw.
+        const d4 = buildGateDom(MarketswaveData, '?item=garbage-with-no-colon');
+        await gateReady(d4);
+        check('a malformed ?item= value is inert -- the queue still renders normally',
+          d4.window.document.querySelectorAll('#ag-queue .ag-row').length > 0
+          && d4.window.document.getElementById('ag-scrim').hidden);
+      }
     }
 
     console.log('\n' + '='.repeat(70));
