@@ -154,25 +154,49 @@ export function slugFromTitle(title: string): string {
 // Order matches the editor's "Ready to publish?" card, top to bottom.
 export type ChecklistItem = { key: string; label: string; ok: boolean; optional?: true };
 
+// ★ `kind` DEFAULTS TO 'help', AND THAT DEFAULT IS THE COMPATIBILITY GUARANTEE (2026-09-24).
+// The blog is the second consumer and does not share every rule: a POST does not have to answer
+// a question, and it DOES need a cover image, which a Help Center article has no concept of.
+// Rather than fork the checklist, the differences are named here - and because every existing
+// caller passes no `kind` at all, the Help Center's list is byte-identically what it was.
+// verify-blog-press asserts that directly rather than trusting this comment.
+export type ArticleKind = 'help' | 'post';
+
 export type ChecklistInput = {
+  kind?: ArticleKind;
   title?: unknown; question?: unknown; topic_id?: unknown; slug?: unknown;
   lede?: unknown; blocks?: unknown; related_slugs?: unknown;
+  category?: unknown; byline?: unknown; cover_path?: unknown; cover_alt?: unknown;
 };
 
 export function publishChecklist(a: ChecklistInput): ChecklistItem[] {
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
   const blocks = Array.isArray(a.blocks) ? a.blocks : [];
   const images = blocks.filter((b) => isObj(b) && b.type === 'image');
+  const altOk = images.every((b) => isObj(b) && typeof b.alt === 'string' && b.alt.trim().length > 0);
+
+  // ---- the blog's own list, in the order the post editor shows it -------------------------
+  if (a.kind === 'post') {
+    return [
+      { key: 'title',  label: 'Title and category',        ok: !!str(a.title) && !!str(a.category) },
+      { key: 'place',  label: 'Byline and web address',    ok: !!str(a.byline) && !!str(a.slug) },
+      { key: 'lede',   label: 'Summary',                   ok: !!str(a.lede) },
+      { key: 'body',   label: 'At least one body block',   ok: blocks.length > 0 },
+      { key: 'alt',    label: 'Every image described',     ok: altOk },
+      // A cover carries its own screen-reader description for the same reason a body image
+      // does - it is the one image every reader meets, on the card and at the top of the post.
+      { key: 'cover',  label: 'Cover image',               ok: !!str(a.cover_path) && !!str(a.cover_alt) },
+    ];
+  }
+
+  // ---- the Help Center's list, unchanged --------------------------------------------------
   return [
     { key: 'title',    label: 'Title',                   ok: !!str(a.title) },
     { key: 'question', label: 'The question it answers', ok: !!str(a.question) },
     { key: 'place',    label: 'Topic and web address',   ok: !!str(a.topic_id) && !!str(a.slug) },
     { key: 'lede',     label: 'Opening paragraph',       ok: !!str(a.lede) },
     { key: 'body',     label: 'At least one body block', ok: blocks.length > 0 },
-    {
-      key: 'alt', label: 'Every image has a screen-reader description',
-      ok: images.every((b) => isObj(b) && typeof b.alt === 'string' && b.alt.trim().length > 0),
-    },
+    { key: 'alt', label: 'Every image has a screen-reader description', ok: altOk },
     {
       key: 'related', label: 'Related articles', optional: true,
       ok: Array.isArray(a.related_slugs) && a.related_slugs.length > 0,
@@ -185,6 +209,7 @@ export function publishBlocker(a: ChecklistInput): string | null {
   const missing = publishChecklist(a).filter((c) => !c.ok && !c.optional);
   if (missing.length === 0) return null;
   const names = missing.map((m) => m.label.toLowerCase());
-  return 'This article is not ready to publish: ' + names.join(', ') +
+  const noun = a.kind === 'post' ? 'post' : 'article';
+  return 'This ' + noun + ' is not ready to publish: ' + names.join(', ') +
     (missing.length === 1 ? ' is missing.' : ' are missing.');
 }

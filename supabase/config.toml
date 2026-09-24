@@ -997,3 +997,39 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/unpublish-help-article/deno.json"
 entrypoint = "./functions/unpublish-help-article/index.ts"
+
+[functions.post-blog-comment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/post-blog-comment/deno.json"
+entrypoint = "./functions/post-blog-comment/index.ts"
+
+[functions.toggle-blog-like]
+enabled = true
+verify_jwt = false
+import_map = "./functions/toggle-blog-like/deno.json"
+entrypoint = "./functions/toggle-blog-like/index.ts"
+
+[functions.save-blog-post]
+enabled = true
+verify_jwt = false
+import_map = "./functions/save-blog-post/deno.json"
+entrypoint = "./functions/save-blog-post/index.ts"
+
+[functions.publish-blog-post]
+enabled = true
+verify_jwt = false
+import_map = "./functions/publish-blog-post/deno.json"
+entrypoint = "./functions/publish-blog-post/index.ts"
+
+[functions.moderate-blog-comment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/moderate-blog-comment/deno.json"
+entrypoint = "./functions/moderate-blog-comment/index.ts"
+
+[functions.upload-article-image]
+enabled = true
+verify_jwt = false
+import_map = "./functions/upload-article-image/deno.json"
+entrypoint = "./functions/upload-article-image/index.ts"
