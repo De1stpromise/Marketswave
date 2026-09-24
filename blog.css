@@ -216,12 +216,24 @@ a.bp-link:focus-visible { outline: 3px solid #16815F; outline-offset: 3px; }
 .bp-cm.bp-removed .bp-cav { background: #E2DED7; color: #5C6367; }
 .bp-cm.bp-removed p { font-style: italic; color: #5C6367; margin-top: 2px; }
 
-.bp-cact { display: flex; gap: 14px; margin-top: 8px; }
+/* ★ NO `min-height: 0` HERE, AND THE REASON IS NOT THE USUAL ONE. On the Tailwind pages that
+   declaration is the documented trap: a (0,1,0) class rule silently out-specifies
+   tap-targets.css's `button { min-height: 44px }` and ships a 21-32px control. This is a PUBLIC
+   page, which does not load tap-targets.css at all — styles.css's mobile block floors only
+   footer links and the Get Access dismiss, never buttons generally. So the declaration was
+   overriding nothing, and its real effect was to make the absence of any floor look deliberate.
+   Removed, and the floor below supplies what no shared sheet does for this page. */
+.bp-cact { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 8px; }
 .bp-cact button {
   border: none; background: none; padding: 0; font: 600 12px Inter, sans-serif; color: #137254; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 5px; min-height: 0;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .bp-cact button.bp-on { color: #12283A; }
+/* The retraction confirm: the question, then the two answers. The destructive answer carries the
+   loss tone the returns tables already use (#A8452F, measured), never a red that only reads as
+   red - and it is the SECOND click, never the first. */
+.bp-cq { font: 500 12px Inter, sans-serif; color: #3E4A52; }
+.bp-cact button.bp-cdanger { color: #A8452F; }
 
 .bp-compose { margin-top: 18px; padding: 18px; border-radius: 13px; background: rgba(255,255,255,.6); border: 1.5px solid #E4DFD7; }
 .bp-compose label { display: block; font-size: 12.5px; font-weight: 600; color: #12283A; margin-bottom: 8px; }
@@ -286,6 +298,20 @@ a.bp-link:focus-visible { outline: 3px solid #16815F; outline-offset: 3px; }
 .bp-ns p { font-size: 14px; color: #3E4A52; line-height: 1.7; margin-top: 10px; }
 
 /* ---------------------------------------------------------------- responsive */
+/* Mobile tap floor for the comment actions. The public site has no blanket button rule, so this
+   is the only thing giving Reply / Remove / Yes / Cancel a real 44px box on a phone. The label
+   stays 12px; only the tappable box grows, and the negative margin keeps the row's own rhythm
+   so a thread does not gain 20px of dead space per comment. Matches styles.css's own 960px
+   public-site breakpoint, not a new one. */
+@media (max-width: 960px) {
+  .bp-cact { gap: 10px; margin-top: 2px; }
+  .bp-cact button {
+    min-height: 44px;
+    padding-block: 11px;
+    margin-block: -11px;
+  }
+}
+
 @media (max-width: 860px) {
   .bp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bp-feat, .bp-media { grid-template-columns: 1fr; }

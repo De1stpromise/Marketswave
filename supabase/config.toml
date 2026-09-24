@@ -1028,6 +1028,13 @@ verify_jwt = false
 import_map = "./functions/moderate-blog-comment/deno.json"
 entrypoint = "./functions/moderate-blog-comment/index.ts"
 
+[functions.remove-own-blog-comment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/remove-own-blog-comment/deno.json"
+entrypoint = "./functions/remove-own-blog-comment/index.ts"
+
+
 [functions.upload-article-image]
 enabled = true
 verify_jwt = false

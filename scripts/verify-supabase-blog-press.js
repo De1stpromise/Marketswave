@@ -214,12 +214,67 @@ async function main() {
       !replyVisible.error && replyVisible.data.some((r) => r.id === reply.body.id), JSON.stringify(replyVisible.data));
 
     // =========================================================================================
-    section('6. A client cannot remove anyone\'s comment');
+    section('6. A client removes their OWN comment, and only their own');
     // =========================================================================================
-    const clientRemove = await call('moderate-blog-comment', { action: 'remove', commentId: ok1.body.id }, other.token);
-    check('★ one client cannot remove another\'s comment (403)', clientRemove.status === 403, JSON.stringify(clientRemove.body));
+    // The gate is ownership, not account status: writing adds words to a public page and needs
+    // an ACTIVE client, but removing takes the author's own words back off it. These assertions
+    // are what stop that distinction being quietly re-tightened into "active only" later.
+    // ★ THIS SECTION GETS ITS OWN TWO CLIENTS, and that is not tidiness. Every comment costs the
+    // author one of five per ten minutes, so borrowing `active`/`other` here spends budget that
+    // later sections need — the first draft did exactly that and pushed section 10's flag test
+    // into a 429, which reads as "flagging is broken" rather than "the fixture ran out". A
+    // section that creates what it consumes cannot be broken by, or break, its neighbours.
+    const author = await makeClient('author', 'active');
+    const bystander = await makeClient('bystander', 'active');
+
+    const clientRemove = await call('remove-own-blog-comment', { commentId: ok1.body.id }, bystander.token);
+    check("★ one client cannot remove ANOTHER's comment (403)", clientRemove.status === 403, JSON.stringify(clientRemove.body));
+    check('...and is told exactly why, in words that name the rule',
+      /only remove your own/i.test(clientRemove.body.error || ''), clientRemove.body.error);
+    const { data: untouched } = await admin.from('blog_comments').select('removed_at').eq('id', ok1.body.id).single();
+    check('★ ...and the refused attempt left the row genuinely untouched',
+      untouched.removed_at === null, JSON.stringify(untouched));
+
+    const selfNoAuth = await call('remove-own-blog-comment', { commentId: ok1.body.id }, null);
+    check('an unauthenticated caller is refused (401)', selfNoAuth.status === 401, selfNoAuth.status);
+
+    const mine1 = await call('post-blog-comment', { postId, body: 'Something I will think better of.' }, author.token);
+    check('(fixture) the author posts a comment of their own', mine1.status === 200 && !!mine1.body.id, JSON.stringify(mine1.body));
+    const mineReply = await call('post-blog-comment', { postId, parentId: mine1.body.id, body: 'A reply to it from someone else.' }, bystander.token);
+    check('(fixture) another client replies to it', mineReply.status === 200, JSON.stringify(mineReply.body));
+
+    const selfRm1 = await call('remove-own-blog-comment', { commentId: mine1.body.id }, author.token);
+    check('★ the AUTHOR removes their own comment (200)', selfRm1.status === 200 && selfRm1.body.removed === true, JSON.stringify(selfRm1.body));
+    check('★ ...it HAS replies, so it is kept as a placeholder', selfRm1.body.keptAsPlaceholder === true, JSON.stringify(selfRm1.body));
+    const selfView = await anon.from('blog_comments_public').select('id, display_name, body, removed').eq('id', mine1.body.id);
+    check('★ ...and a reader sees removed true, NO name, NO body — same as a PM removal',
+      selfView.data.length === 1 && selfView.data[0].removed === true &&
+      selfView.data[0].display_name === null && selfView.data[0].body === null, JSON.stringify(selfView.data));
+    const selfRepliesKept = await anon.from('blog_comments_public').select('id').eq('parent_id', mine1.body.id);
+    check('★ ...and the reply underneath it is kept',
+      selfRepliesKept.data.some((r) => r.id === mineReply.body.id), JSON.stringify(selfRepliesKept.data));
+    const { data: selfRow } = await admin
+      .from('blog_comments').select('removed_by, removed_by_email').eq('id', mine1.body.id).single();
+    check('★ ...and the record says the AUTHOR removed it, not a PM — what lets the PM tool tell a retraction from a moderation',
+      selfRow.removed_by === author.id, JSON.stringify(selfRow));
+
+    const selfAgain = await call('remove-own-blog-comment', { commentId: mine1.body.id }, author.token);
+    check('removing it twice is refused (409)', selfAgain.status === 409, selfAgain.status + ' ' + JSON.stringify(selfAgain.body));
+
+    const mine2 = await call('post-blog-comment', { postId, body: 'A lone comment of my own, no replies.' }, author.token);
+    const selfRm2 = await call('remove-own-blog-comment', { commentId: mine2.body.id }, author.token);
+    check('the author removes one with NO replies', selfRm2.status === 200 && selfRm2.body.keptAsPlaceholder === false, JSON.stringify(selfRm2.body));
+    const selfGone = await anon.from('blog_comments_public').select('id').eq('id', mine2.body.id);
+    check('★ ...and it disappears from the public view entirely', selfGone.data.length === 0, JSON.stringify(selfGone.data));
+
+    // A reply is the author's to retract too — removal is per comment, not per thread.
+    const myReply = await call('post-blog-comment', { postId, parentId, body: 'A reply of my own.' }, bystander.token);
+    const rmMyReply = await call('remove-own-blog-comment', { commentId: myReply.body.id }, bystander.token);
+    check('★ a client can remove their own REPLY as well as a top-level comment', rmMyReply.status === 200, JSON.stringify(rmMyReply.body));
+
     const ownRemove = await call('moderate-blog-comment', { action: 'remove', commentId: ok1.body.id }, active.token);
-    check('...nor their own through this route — removal is the PM\'s, full stop', ownRemove.status === 403);
+    check('...while moderate-blog-comment stays PM-only — a client cannot reach the moderator route (403)',
+      ownRemove.status === 403, ownRemove.status + ' ' + JSON.stringify(ownRemove.body));
     const upd = await active.client.from('blog_comments').update({ body: 'edited' }).eq('id', parentId).select();
     check('★ a client cannot EDIT a comment directly either — no UPDATE policy exists',
       !upd.error ? (upd.data || []).length === 0 : true, JSON.stringify(upd.error || upd.data));

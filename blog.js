@@ -40,6 +40,11 @@
     cfg: null, posts: [], likes: {}, comments: [],
     cat: 'all', q: '', shown: PAGE,
     session: null, me: null, liked: false, replyTo: null,
+    // Which comments on this post the VIEWER wrote. Read from blog_comments under the
+    // client's own RLS policy (blog_comments_own_read), NEVER from blog_comments_public —
+    // that view deliberately carries no client_id, and adding one to let the page answer
+    // "is this mine" would hand every reader every commenter's account id.
+    mine: {}, confirmRemove: null,
   };
 
   // ---------------------------------------------------------------- DOM helpers
@@ -78,6 +83,7 @@
   var I_INFO = 'C12,12,9|M12 16v-4|M12 8h.01';
   var I_MAIL = 'R2,4,20,16,2.5|m3 7 9 6 9-6';
   var I_FILE = 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M12 18v-6|M9 15l3 3 3-3';
+  var I_TRASH = 'M3 6h18|M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6';
   var I_SEARCH = 'C11,11,7|m20 20-3.5-3.5';
 
   function catOf(id) { return CATS.filter(function (c) { return c.id === id; })[0] || null; }
@@ -533,18 +539,69 @@
     // ★ textContent: a comment is the only content on this site a stranger writes.
     b.appendChild(el('p', null, c.removed ? 'This comment was removed.' : (c.body || '')));
 
-    if (!c.removed && p.allow_comments && state.me && state.me.status === 'active') {
+    // ★ TWO SEPARATE GATES, NOT ONE. Reply needs an ACTIVE client, because it adds words to a
+    // public page. Remove needs only that the comment is YOURS — it takes your own words back
+    // off it, which is why a client whose status later changed can still retract. The server
+    // enforces both independently (post-blog-comment vs remove-own-blog-comment); this is the
+    // UI agreeing with it, not deciding it.
+    var canReply = p.allow_comments && state.me && state.me.status === 'active';
+    var isMine = !!state.mine[c.id];
+    if (!c.removed && (canReply || isMine)) {
       var act = el('div', 'bp-cact');
-      var target = c.parent_id || c.id;                 // replies always attach to the original
-      var replying = state.replyTo === target;
-      var rb = el('button', replying ? 'bp-on' : null); rb.type = 'button';
-      rb.appendChild(svg(I_REPLY, 13, 'currentColor'));
-      rb.appendChild(document.createTextNode(replying ? 'Replying…' : 'Reply'));
-      rb.addEventListener('click', function () {
-        state.replyTo = replying ? null : target;
-        refreshComments(p);
-      });
-      act.appendChild(rb);
+      if (canReply) {
+        var target = c.parent_id || c.id;               // replies always attach to the original
+        var replying = state.replyTo === target;
+        var rb = el('button', replying ? 'bp-on' : null); rb.type = 'button';
+        rb.appendChild(svg(I_REPLY, 13, 'currentColor'));
+        rb.appendChild(document.createTextNode(replying ? 'Replying…' : 'Reply'));
+        rb.addEventListener('click', function () {
+          state.replyTo = replying ? null : target;
+          refreshComments(p);
+        });
+        act.appendChild(rb);
+      }
+      if (isMine) {
+        // ★ A CONFIRM STEP, INLINE — not window.confirm(), which blocks this project's own
+        // browser automation, and not a modal, which is heavier than the decision. The first
+        // click swaps the control for a question naming the consequence; the second acts.
+        if (state.confirmRemove === c.id) {
+          var q = el('span', 'bp-cq');
+          q.appendChild(document.createTextNode(
+            state.comments.filter(function (r) { return r.parent_id === c.id && !r.removed; }).length
+              ? 'Remove this? Replies to it stay.'
+              : 'Remove this? It will be gone from the post.'));
+          act.appendChild(q);
+          var yes = el('button', 'bp-cdanger'); yes.type = 'button';
+          yes.appendChild(document.createTextNode('Yes, remove'));
+          yes.addEventListener('click', function () {
+            yes.disabled = true;
+            callFn('remove-own-blog-comment', { commentId: c.id }).then(function () {
+              state.confirmRemove = null;
+              delete state.mine[c.id];
+              return loadComments(p).then(function () { refreshComments(p); });
+            }).catch(function (e) {
+              yes.disabled = false;
+              var old = act.querySelector('.bp-werr'); if (old) old.remove();
+              act.appendChild(el('div', 'bp-werr', e && e.message ? e.message : 'That did not go through. Try again.'));
+            });
+          });
+          act.appendChild(yes);
+          var no = el('button'); no.type = 'button';
+          no.appendChild(document.createTextNode('Cancel'));
+          no.addEventListener('click', function () { state.confirmRemove = null; refreshComments(p); });
+          act.appendChild(no);
+        } else {
+          var xb = el('button'); xb.type = 'button';
+          xb.appendChild(svg(I_TRASH, 13, 'currentColor'));
+          xb.appendChild(document.createTextNode('Remove'));
+          xb.addEventListener('click', function () {
+            state.confirmRemove = c.id;
+            state.replyTo = null;
+            refreshComments(p);
+          });
+          act.appendChild(xb);
+        }
+      }
       b.appendChild(act);
     }
     n.appendChild(b);
@@ -571,7 +628,8 @@
       var text = ta.value.trim();
       if (!text) return;
       post.disabled = true; post.textContent = 'Posting…';
-      callFn('post-blog-comment', { postId: p.id, parentId: parentId, body: text }).then(function () {
+      callFn('post-blog-comment', { postId: p.id, parentId: parentId, body: text }).then(function (c) {
+        if (c && c.id) state.mine[c.id] = true;    // yours the moment it exists, not on next load
         state.replyTo = null;
         return loadComments(p).then(function () { refreshComments(p); });
       }).catch(function (e) {
@@ -669,7 +727,8 @@
       var text = ta.value.trim();
       if (!text) return;
       btn.disabled = true; btn.textContent = 'Posting…';
-      callFn('post-blog-comment', { postId: p.id, body: text }).then(function () {
+      callFn('post-blog-comment', { postId: p.id, body: text }).then(function (c) {
+        if (c && c.id) state.mine[c.id] = true;    // same reason as the reply path above
         return loadComments(p).then(function () { refreshComments(p); });
       }).catch(function (e) {
         btn.disabled = false; btn.textContent = 'Post comment';
@@ -738,7 +797,21 @@
               .then(function (r) { state.liked = !!r.data; }, function () {});
           })
         : Promise.resolve();
-      return Promise.all([likedCheck, p.allow_comments ? loadComments(p) : Promise.resolve()])
+      // ★ WHICH COMMENTS ARE MINE — the one question blog_comments_public cannot answer, and
+      // must not be taught to. The signed-in client reads blog_comments DIRECTLY instead: RLS
+      // (blog_comments_own_read: client_id = auth.uid()) returns their own rows and nothing
+      // else, so the filter is the database's, not this page's. Any status of client may read
+      // their own, matching the server's ownership-not-status gate on removal.
+      var mineCheck = state.me
+        ? sdk().then(function (c) {
+            return c.from('blog_comments').select('id').eq('post_id', p.id)
+              .then(function (r) {
+                state.mine = {};
+                (r.data || []).forEach(function (row) { state.mine[row.id] = true; });
+              }, function () {});
+          })
+        : Promise.resolve();
+      return Promise.all([likedCheck, mineCheck, p.allow_comments ? loadComments(p) : Promise.resolve()])
         .then(function () { renderPost(p); });
     }).catch(failure);
   }

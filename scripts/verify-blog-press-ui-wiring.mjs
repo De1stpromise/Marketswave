@@ -326,6 +326,50 @@ async function main() {
     check('★ ...and appears without a reload',
       await waitFor(cdp, BODY + '.indexOf(' + JSON.stringify(replyText) + ') !== -1', 15000));
 
+    // ---- the client's own Remove ---------------------------------------------------------
+    // ★ OWNERSHIP IS NOT IN THE PUBLIC VIEW, AND MUST NOT BE. blog_comments_public carries no
+    // client_id, so the page learns which comments are the viewer's by reading blog_comments
+    // under the client's OWN RLS policy. That is what these assertions really test: if someone
+    // later "simplifies" it by adding client_id to the view, the door in section 2 opens.
+    const ownRemoveBtns = '(() => [...document.querySelectorAll(".bp-cm")].map(n => ({' +
+      ' text: n.textContent, remove: [...n.querySelectorAll(".bp-cact button")].some(b => b.textContent.trim() === "Remove") })))()';
+    let rows = await cdp.evaluate(ownRemoveBtns);
+    const mineRow = rows.find((r) => r.text.indexOf(replyText) !== -1);
+    const theirsRow = rows.find((r) => r.text.indexOf('Agreed, this answered my question') !== -1);
+    check("★ Remove is offered on the client's OWN comment", !!mineRow && mineRow.remove === true, JSON.stringify(mineRow));
+    check("★ ...and is NOT offered on another client's comment", !!theirsRow && theirsRow.remove === false, JSON.stringify(theirsRow));
+    check('...so it appears on some comments and not others (non-vacuity)',
+      rows.some((r) => r.remove) && rows.some((r) => !r.remove),
+      rows.map((r) => r.remove).join(','));
+
+    // First click asks; it must NOT remove.
+    await cdp.evaluate('(() => { const n = [...document.querySelectorAll(".bp-cm")].find(x => x.textContent.indexOf(' +
+      JSON.stringify(replyText) + ') !== -1); [...n.querySelectorAll(".bp-cact button")].find(b => b.textContent.trim() === "Remove").click(); return 1; })()');
+    await waitFor(cdp, 'document.querySelector(".bp-cq")');
+    check('★ the first click asks rather than acting — a real confirm step',
+      await cdp.evaluate('/Remove this\?/.test(' + TRIM('.bp-cq') + ')'), await cdp.evaluate(TRIM('.bp-cq')));
+    const { data: notYet } = await admin.from('blog_comments').select('removed_at').eq('body', replyText).maybeSingle();
+    check('★ ...and nothing is removed while the question is on screen', notYet.removed_at === null, JSON.stringify(notYet));
+
+    // Cancel puts it back, so a misclick costs nothing.
+    await cdp.evaluate('(() => { [...document.querySelectorAll(".bp-cact button")].find(b => b.textContent.trim() === "Cancel").click(); return 1; })()');
+    await waitFor(cdp, 'document.querySelectorAll(".bp-cq").length === 0');
+    check('Cancel withdraws the question and leaves the comment alone',
+      (await cdp.evaluate(N('.bp-cq'))) === 0 && (await cdp.evaluate(BODY + '.indexOf(' + JSON.stringify(replyText) + ') !== -1')));
+
+    // Now really remove it.
+    await cdp.evaluate('(() => { const n = [...document.querySelectorAll(".bp-cm")].find(x => x.textContent.indexOf(' +
+      JSON.stringify(replyText) + ') !== -1); [...n.querySelectorAll(".bp-cact button")].find(b => b.textContent.trim() === "Remove").click(); return 1; })()');
+    await waitFor(cdp, 'document.querySelector(".bp-cdanger")');
+    await cdp.evaluate('document.querySelector(".bp-cdanger").click(); 1');
+    const selfGone = await waitDb(async () => {
+      const { data } = await admin.from('blog_comments').select('removed_at, removed_by').eq('body', replyText).maybeSingle();
+      return data && data.removed_at !== null && data.removed_by === clients.a.id;
+    });
+    check('★ the second click really removes it, recorded against the AUTHOR', selfGone);
+    check('★ ...and it leaves the page without a reload — it had no replies, so it is gone entirely',
+      await waitFor(cdp, BODY + '.indexOf(' + JSON.stringify(replyText) + ') === -1', 15000));
+
     // ===========================================================================================
     section('4. The public post, signed in but NOT active');
     // ===========================================================================================
@@ -438,8 +482,18 @@ async function main() {
     check('★ a comment WITH replies carries the thread note', threadCard && threadCard.thread.length > 0, threadCard && threadCard.thread);
     check('★ ...saying its replies are kept if it is removed',
       threadCard && /Removing this comment keeps them/.test(threadCard.thread), threadCard && threadCard.thread);
-    check('every live comment offers Reply and Remove',
-      await cdp.evaluate('[...document.querySelectorAll(".bl-qc")].every(c => { const a = [...c.querySelectorAll(".bl-qacts button")].map(b=>b.textContent.trim()); return a.indexOf("Reply") !== -1 && a.indexOf("Remove") !== -1; })'));
+    // ★ LIVE cards only, and the filter is load-bearing. This once selected EVERY .bl-qc and
+    // passed only because nothing had been removed by the time it ran; the moment a client
+    // retraction landed earlier in the run it failed, correctly reporting that an ALREADY-REMOVED
+    // card offers neither action. The assertion's own name was right and its selector was not.
+    check('every live comment offers Reply and Remove (and a removed one offers neither)',
+      await cdp.evaluate('(() => { const cards = [...document.querySelectorAll(".bl-qc")];' +
+        ' const live = cards.filter(c => !c.querySelector(".bl-pill.bl-gone"));' +
+        ' const gone = cards.filter(c => c.querySelector(".bl-pill.bl-gone"));' +
+        ' const acts = c => [...c.querySelectorAll(".bl-qacts button")].map(b => b.textContent.trim());' +
+        ' return live.length > 0 && live.every(c => acts(c).indexOf("Reply") !== -1 && acts(c).indexOf("Remove") !== -1)' +
+        '   && gone.every(c => acts(c).indexOf("Remove") === -1); })()'),
+      await cdp.evaluate('[...document.querySelectorAll(".bl-qc")].map(c => (c.querySelector(".bl-pill")||{}).textContent).join("|")'));
 
     check('★ the script probe is literal text in the PM tool as well',
       (await cdp.evaluate(BODY + '.indexOf("<script>window.__pwned") !== -1'))
@@ -486,6 +540,25 @@ async function main() {
       const { data } = await admin.from('blog_comments').select('removed_at').eq('id', xss.body.id).maybeSingle();
       return data && !!data.removed_at;
     }));
+
+    // *** A RETRACTION AND A MODERATION ARE BOTH `removed_at`, AND THE REMOVED TAB WOULD READ AS
+    // one moderation record if it showed them identically -- a PM reviewing their own record would
+    // be misled by omission. Both now exist in this run: the client withdrew their own reply back
+    // in section 3, and the PM removed the script probe a moment ago. The pair is the point; either
+    // assertion alone would pass against a page that labelled every removal the same way.
+    await waitFor(cdp, '[...document.querySelectorAll(".bl-pill")].some(p => /Withdrawn/.test(p.textContent))', 20000);
+    const pmGone = await cdp.evaluate(`(() => {
+      const c = [...document.querySelectorAll('.bl-qc')].find(x => (x.querySelector('.bl-qtext')||{}).textContent.indexOf('<script>window.__pwned') !== -1);
+      return c ? { pill: (c.querySelector('.bl-pill')||{}).textContent, pub: (c.querySelector('.bl-qpub')||{}).textContent.replace(/\s+/g,' ') } : null;
+    })()`);
+    const authorGone = await cdp.evaluate(cardOf(replyText));
+    check('★ a PM removal still reads "Removed"', pmGone && pmGone.pill === 'Removed', pmGone && pmGone.pill);
+    check("★ ...while the client’s own retraction reads Withdrawn, not the same word",
+      authorGone && authorGone.pill === 'Withdrawn', authorGone && authorGone.pill);
+    check('★ ...and the note names the author rather than implying a PM acted',
+      authorGone && /Withdrawn by the author/.test(authorGone.pub), authorGone && authorGone.pub);
+    check("...and the PM’s own note does NOT claim the author withdrew it",
+      pmGone && !/by the author/.test(pmGone.pub), pmGone && pmGone.pub);
 
     // ===========================================================================================
     section('7. The post editor');

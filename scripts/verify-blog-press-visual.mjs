@@ -263,6 +263,19 @@ async function main() {
     section('2. Contrast — the post, signed in');
     const n2 = runContrast('blogPost', 'post (signed in)', POST, clientBoot, READY('.bp-compose') + 'return 1; })()');
 
+    // The confirm step only exists after a click, so the prepare hook makes it exist.
+    const CLICK_REMOVE = READY('.bp-cact') +
+      ' const b = [...document.querySelectorAll(".bp-cact button")].find(x => x.textContent.trim() === "Remove");' +
+      ' if (b) { b.click(); } for (let i = 0; i < 100; i++) { if (document.querySelector(".bp-cq")) break; await nap(100); }' +
+      ' await nap(400); return !!document.querySelector(".bp-cq"); })()';
+    const n2b = runContrast('blogRemoveConfirm', 'post (own comment, mid-confirm)', POST, clientBoot, CLICK_REMOVE);
+    // *** runContrast's own guard only asks that SOMETHING was measured, and the comment body
+    // behind the question is always there -- so this profile could report a confident pass with
+    // the confirm step never opening at all. Four of its five selectors only exist mid-confirm,
+    // so the COUNT is what proves the click landed.
+    check('the confirm step genuinely opened (4 of its surfaces exist only mid-confirm)', n2b >= 5,
+      'measured ' + n2b + ', expected at least 5');
+
     section('3. Contrast — the two states that refuse a writer');
     const n3 = runContrast('blogGates', 'post (signed out)', POST, '', READY('.bp-signin') + 'return 1; })()');
     // pending: flip the real status, measure, flip it back
@@ -277,7 +290,7 @@ async function main() {
       READY('.bl-tr') + 'document.querySelector("#bl-tab-comments").click();'
       + ' for (let i = 0; i < 200; i++) { if (document.querySelector(".bl-qc")) break; await nap(150); } await nap(500); return 1; })()');
     const n6 = runContrast('blogEditor', 'PM editor', EDITOR, adminBoot, READY('.bl-chk') + 'return 1; })()');
-    console.log('  (measured ' + (n1 + n2 + n3 + n3b + n4 + n5 + n6) + ' composited-pixel readings in total)');
+    console.log('  (measured ' + (n1 + n2 + n2b + n3 + n3b + n4 + n5 + n6) + ' composited-pixel readings in total)');
 
     section('5. The sheen audit');
     runSheen('blog-press.html');
@@ -319,6 +332,21 @@ async function main() {
       check(w + 'px post: the comment box clears the 44px tap floor',
         (await cdp.evaluate('document.querySelector(".bp-bA").getBoundingClientRect().height')) >= 44,
         await cdp.evaluate('document.querySelector(".bp-bA").getBoundingClientRect().height'));
+
+      // ★ THE COMMENT ACTIONS, WHICH NOTHING HAD EVER MEASURED. Reply / Remove / Yes / Cancel
+      // are the only controls on this page that a shared stylesheet does not floor: blog-press.html
+      // is a PUBLIC page and never loads tap-targets.css, and styles.css's own mobile block floors
+      // footer links and the Get Access dismiss, not buttons generally. The rule carried
+      // `min-height: 0`, which on the Tailwind pages is the documented trap and here was worse
+      // than useless — it overrode nothing while making the absence of a floor look intended.
+      // Measured on the REAL rendered box, and the count guards against passing on an empty set.
+      const acts = await cdp.evaluate(`(() => {
+        const b = [...document.querySelectorAll('.bp-cact button')];
+        return { n: b.length, min: b.length ? Math.min(...b.map(x => Math.round(x.getBoundingClientRect().height))) : 0,
+                 labels: b.map(x => x.textContent.trim()).join('|') };
+      })()`);
+      check(w + 'px post: the comment actions were actually found (non-vacuity)', acts.n > 0, acts);
+      check(w + 'px post: ★ every comment action clears the 44px tap floor', acts.n > 0 && acts.min >= 44, acts);
 
       await go(cdp, ADMIN, '.bl-tr', adminSession);
       const oa = await cdp.evaluate(OVERFLOW);

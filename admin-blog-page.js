@@ -399,7 +399,11 @@
     qn.appendChild(el('span', null, c.is_marketswave ? 'Written by you, in the PM tool' : 'Client · signed in as the account holder'));
     h.appendChild(qn);
 
-    var pillText = c.removed_at ? 'Removed'
+    // A retraction and a moderation are both `removed_at`, and the Removed tab would read as
+    // one moderation record if it showed them the same way. `removed_by` already says which:
+    // the author's own id means they took their words back, anything else means a PM acted.
+    var selfRemoved = !!c.removed_at && !!c.removed_by && c.removed_by === c.client_id;
+    var pillText = c.removed_at ? (selfRemoved ? 'Withdrawn' : 'Removed')
       : (c.flagged ? 'Live · flagged' : (c.parent_id ? 'Live · reply' : 'Live'));
     var pillCls = 'bl-pill' + (c.removed_at ? ' bl-gone' : (c.flagged ? ' bl-flag' : ''));
     h.appendChild(el('span', pillCls, pillText));
@@ -442,9 +446,10 @@
     pub.appendChild(svg(c.flagged && !c.removed_at ? I_WARN : I_INFO, 14, c.flagged && !c.removed_at ? '#991B1B' : '#92400E'));
     var pp = el('p');
     if (c.removed_at) {
+      var who = selfRemoved ? 'Withdrawn by the author' : 'Removed';
       pp.appendChild(document.createTextNode(replies.length
-        ? 'Removed. Readers see "This comment was removed" with its replies still underneath.'
-        : 'Removed. It is gone from the post entirely.'));
+        ? who + '. Readers see "This comment was removed" with its replies still underneath.'
+        : who + '. It is gone from the post entirely.'));
     } else if (c.flagged) {
       pp.appendChild(document.createTextNode((c.flag_reason || 'Worth a look.')
         + ' Public now — on your site, that reads as a performance claim from Marketswave. Consider removing.'));

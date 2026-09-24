@@ -144,6 +144,16 @@ PROFILES.blogGates = [
 
 // The PM tool. No .glass anywhere on it (the sibling admin pages' decision), so the sheen audit
 // correctly measures zero there and this is the whole contrast story for the page.
+// The client's own retraction, mid-confirm. Its own profile rather than extra selectors on
+// blogPost, because revealing the question replaces that comment's Reply control - measuring
+// both from one render would mean one of them was never on screen.
+PROFILES.blogRemoveConfirm = [
+  { label: 'confirm question', sel: '.bp-cq', limit: 1 },
+  { label: 'confirm: yes, remove', sel: '.bp-cact button.bp-cdanger', limit: 1 },
+  { label: 'confirm: cancel', sel: '.bp-cact button:not(.bp-cdanger)', limit: 2 },
+  { label: 'comment body behind it', sel: '.bp-cm p', limit: 3 },
+];
+
 PROFILES.blogAdmin = [
   { label: 'page heading', sel: '.bl-mh h1', limit: 1 },
   { label: 'page lead', sel: '.bl-mh p', limit: 1 },
