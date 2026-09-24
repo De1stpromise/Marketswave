@@ -78,6 +78,130 @@ PROFILES.helpLanding = [
   { label: 'contact tile body', sel: '.hc-ch span:not(.hc-ci)', limit: 3 },
 ];
 
+// Blog & Press (2026-09-24, register row 274). The listing's panels that overlap the dark hero
+// are .bp-glass.bp-solid, and these measurements are what prove that decision was necessary
+// rather than decorative - the translucent variant over navy is the same defect found once on
+// the Help Center landing. The sheen is composited for every one of them (row 204).
+PROFILES.blogListing = [
+  { label: 'hero h1', sel: '.bp-hero h1', limit: 2 },
+  { label: 'hero lead', sel: '.bp-hero p', limit: 2 },
+  { label: 'hero eyebrow', sel: '.bp-eb', limit: 2 },
+  { label: 'filter pill', sel: '.bp-ft', limit: 5 },
+  { label: 'filter count', sel: '.bp-ft .bp-n', limit: 5 },
+  { label: 'featured title', sel: '.bp-feat h2', limit: 1 },
+  { label: 'featured summary', sel: '.bp-feat .bp-ex', limit: 1 },
+  { label: 'category tag', sel: '.bp-cat', limit: 6 },
+  { label: 'card title', sel: '.bp-card h3', limit: 4 },
+  { label: 'card summary', sel: '.bp-card .bp-ex', limit: 4 },
+  { label: 'card byline', sel: '.bp-meta b', limit: 5 },
+  { label: 'engagement figure', sel: '.bp-eng span', limit: 5 },
+  { label: 'continue reading', sel: '.bp-more button', limit: 1 },
+  { label: 'showing N of M', sel: '.bp-more span', limit: 1 },
+  { label: 'media kicker', sel: '.bp-mb1 .bp-k', limit: 1 },
+  { label: 'media heading', sel: '.bp-mb1 h3', limit: 1 },
+  { label: 'media body', sel: '.bp-mb1 p', limit: 1 },
+  { label: 'media tile title', sel: '.bp-mtile b', limit: 2 },
+  { label: 'media tile body', sel: '.bp-mtile .bp-md', limit: 2 },
+  { label: 'media tile button', sel: '.bp-mbtn', limit: 2 },
+  { label: 'media tile note', sel: '.bp-maddr', limit: 2 },
+];
+
+// The post, signed in: the comment thread, the compose notice and the like state.
+PROFILES.blogPost = [
+  { label: 'breadcrumb', sel: '.bp-crumb a', limit: 2 },
+  { label: 'post headline', sel: '.bp-pbody h1', limit: 1 },
+  { label: 'post lede', sel: '.bp-lede', limit: 1 },
+  { label: 'byline name', sel: '.bp-byl .bp-bn b', limit: 1 },
+  { label: 'byline date', sel: '.bp-byl .bp-bn span', limit: 1 },
+  { label: 'body heading', sel: '.bp-art .ha-h2', limit: 3 },
+  { label: 'body paragraph', sel: '.bp-art .ha-p', limit: 4 },
+  { label: 'body tip', sel: '.bp-art .ha-tip p', limit: 2 },
+  { label: 'like button', sel: '.bp-likebtn', limit: 1 },
+  { label: 'like count', sel: '.bp-likebar .bp-ct', limit: 1 },
+  { label: 'copy link', sel: '.bp-share', limit: 1 },
+  { label: 'comments heading', sel: '.bp-comments h3', limit: 1 },
+  { label: 'comments sub', sel: '.bp-comments .bp-sub', limit: 2 },
+  { label: 'comment name', sel: '.bp-cm .bp-ch b', limit: 6 },
+  { label: 'client tag', sel: '.bp-tag', limit: 6 },
+  { label: 'comment time', sel: '.bp-cm .bp-ch span:not(.bp-tag)', limit: 6 },
+  { label: 'comment body', sel: '.bp-cm p', limit: 6 },
+  { label: 'reply action', sel: '.bp-cact button', limit: 6 },
+  { label: 'compose label', sel: '.bp-compose label', limit: 1 },
+  { label: 'compose counter', sel: '.bp-cnt', limit: 1 },
+  { label: 'compose notice', sel: '.bp-cfoot .bp-note span', limit: 1 },
+  { label: 'post comment button', sel: '.bp-bA', limit: 1 },
+];
+
+// Signed out, and signed in while pending: the two states that tell a reader why they cannot write.
+PROFILES.blogGates = [
+  { label: 'sign-in prompt', sel: '.bp-signin p', limit: 1 },
+  { label: 'sign-in link', sel: '.bp-signin a', limit: 1 },
+  { label: 'pending notice', sel: '.bp-pending p', limit: 1 },
+  { label: 'comment name', sel: '.bp-cm .bp-ch b', limit: 4 },
+  { label: 'comment body', sel: '.bp-cm p', limit: 4 },
+  { label: 'like button (disabled)', sel: '.bp-likebtn', limit: 1 },
+];
+
+// The PM tool. No .glass anywhere on it (the sibling admin pages' decision), so the sheen audit
+// correctly measures zero there and this is the whole contrast story for the page.
+PROFILES.blogAdmin = [
+  { label: 'page heading', sel: '.bl-mh h1', limit: 1 },
+  { label: 'page lead', sel: '.bl-mh p', limit: 1 },
+  { label: 'health card key', sel: '.bl-hc .bl-k', limit: 4 },
+  { label: 'health card value', sel: '.bl-hc .bl-v', limit: 4 },
+  { label: 'health card note', sel: '.bl-hc .bl-x', limit: 4 },
+  { label: 'tab', sel: '.bl-tab', limit: 2 },
+  { label: 'tab count', sel: '.bl-tab .bl-n', limit: 2 },
+  { label: 'filter label', sel: '.bl-blbl', limit: 2 },
+  { label: 'filter pill', sel: '.bl-fp', limit: 6 },
+  { label: 'filter pill count', sel: '.bl-fp .bl-n', limit: 6 },
+  { label: 'table head', sel: '.bl-th span', limit: 8 },
+  { label: 'row title', sel: '.bl-tn b', limit: 5 },
+  { label: 'row sub', sel: '.bl-tn span', limit: 5 },
+  { label: 'row category', sel: '.bl-tt', limit: 5 },
+  { label: 'row status', sel: '.bl-stat', limit: 5 },
+  { label: 'row date', sel: '.bl-td', limit: 5 },
+  { label: 'row figure', sel: '.bl-tk', limit: 6 },
+  { label: 'row edit', sel: '.bl-tr .mw-btn', limit: 5 },
+];
+
+// The Comments tab, including the flagged card's own danger tone.
+PROFILES.blogAdminComments = [
+  { label: 'commenter name', sel: '.bl-qn b', limit: 5 },
+  { label: 'commenter sub', sel: '.bl-qn span', limit: 5 },
+  { label: 'status pill', sel: '.bl-pill', limit: 5 },
+  { label: 'when', sel: '.bl-qwhen', limit: 5 },
+  { label: 'comment text', sel: '.bl-qtext', limit: 5 },
+  { label: 'on which post', sel: '.bl-qon', limit: 5 },
+  { label: 'thread note', sel: '.bl-qthread', limit: 3 },
+  { label: 'visibility note', sel: '.bl-qpub p', limit: 5 },
+  { label: 'action button', sel: '.bl-qacts .mw-btn', limit: 6 },
+];
+
+// The editor: required/optional badges, help text, and the checklist.
+PROFILES.blogEditor = [
+  { label: 'crumb', sel: '.bl-crumb', limit: 1 },
+  { label: 'editor heading', sel: '.bl-mh h1', limit: 1 },
+  { label: 'editor lead', sel: '.bl-mh p', limit: 1 },
+  { label: 'section title', sel: '.bl-sech b', limit: 6 },
+  { label: 'section aside', sel: '.bl-sech span', limit: 6 },
+  { label: 'field label', sel: '.bl-f label', limit: 8 },
+  { label: 'required badge', sel: '.bl-req', limit: 6 },
+  { label: 'optional badge', sel: '.bl-opt', limit: 3 },
+  { label: 'help text', sel: '.bl-help', limit: 8 },
+  { label: 'category option', sel: '.bl-ro b', limit: 4 },
+  { label: 'category hint', sel: '.bl-ro span', limit: 4 },
+  { label: 'slug prefix', sel: '.bl-slug span', limit: 1 },
+  { label: 'block intro', sel: '.bl-blkintro', limit: 1 },
+  { label: 'add block button', sel: '.bl-addbtns button', limit: 6 },
+  { label: 'checklist item', sel: '.bl-chk', limit: 6 },
+  { label: 'toggle title', sel: '.bl-tog b', limit: 3 },
+  { label: 'toggle note', sel: '.bl-tog span', limit: 3 },
+  { label: 'history key', sel: '.bl-kv .bl-k', limit: 4 },
+  { label: 'history value', sel: '.bl-kv .bl-v', limit: 4 },
+  { label: 'publish note', sel: '.bl-pubnote', limit: 1 },
+];
+
 PROFILES.helpArticle = [
   { label: 'breadcrumb', sel: '.hc-crumb a', limit: 3 },
   { label: 'breadcrumb current', sel: '.hc-crumb b', limit: 2 },

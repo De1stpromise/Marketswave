@@ -10,6 +10,11 @@
  * The one exception is .bl-mini and .bl-ib, which are declared as Tier C sizes only and
  * deliberately carry NO min-height:0 — that property is (0,1,0) and silently out-specifies
  * tap-targets.css's own element-selector floor, which is how a 21px control shipped once.
+ *
+ * ★ SECONDARY GREYS ARE #475569, NOT #64748B. Measured: the 10px health-card note read
+ * 4.12-4.26:1 as #64748B on white — antialiasing at small sizes eats a grey that passes at body
+ * size, the same finding rows 151, 198 and 250 each hit once. Anything under 12px here is
+ * #475569 or darker, and a lone em dash (.bl-tk.bl-zero) carries weight as well as colour.
  */
 
 /* ---------------------------------------------------------------- header */
@@ -31,7 +36,7 @@
 .bl-hc .bl-k { font-size: 10px; font-weight: 600; color: #475569; margin-bottom: 6px; }
 .bl-hc .bl-v { font-size: 21px; font-weight: 700; letter-spacing: -.025em; line-height: 1; font-variant-numeric: tabular-nums; }
 .bl-hc.bl-warn .bl-v { color: #92400E; }
-.bl-hc .bl-x { font-size: 10px; color: #64748B; margin-top: 5px; }
+.bl-hc .bl-x { font-size: 10px; color: #475569; margin-top: 5px; }
 
 /* ---------------------------------------------------------------- tabs */
 .bl-tabs { display: flex; gap: 5px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -49,7 +54,7 @@
 .bl-bar { margin-bottom: 12px; overflow: hidden; }
 .bl-brow { display: flex; align-items: center; gap: 7px; padding: 11px 14px; flex-wrap: wrap; }
 .bl-brow + .bl-brow { border-top: 1px solid #F1F5F9; background: #FCFDFE; }
-.bl-blbl { font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #64748B; width: 56px; flex-shrink: 0; }
+.bl-blbl { font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #475569; width: 56px; flex-shrink: 0; }
 .bl-fp {
   height: 29px; padding: 0 11px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff;
   color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
@@ -82,9 +87,9 @@
 .bl-tn b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bl-tn span { display: block; font-size: 10.5px; color: #475569; margin-top: 2px; }
 .bl-tt { font-size: 11.5px; color: #475569; }
-.bl-td { font-size: 11px; color: #64748B; font-variant-numeric: tabular-nums; }
+.bl-td { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
 .bl-tk { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0F172A; }
-.bl-tk.bl-zero { color: #94A3B8; font-weight: 500; }
+.bl-tk.bl-zero { color: #475569; font-weight: 700; }
 .bl-tk.bl-hotk { color: #92400E; }
 .bl-stat { font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; display: inline-block; }
 .bl-s-pub { background: #DCFCE7; color: #15803D; }
@@ -112,12 +117,12 @@
 .bl-req { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #FEE2E2; color: #991B1B; }
 .bl-opt { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #F1F5F9; color: #475569; }
 .bl-help { font-size: 11px; color: #475569; line-height: 1.55; margin-bottom: 8px; }
-.bl-cnt { font-size: 10.5px; color: #64748B; text-align: right; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.bl-cnt { font-size: 10.5px; color: #475569; text-align: right; margin-top: 5px; font-variant-numeric: tabular-nums; }
 .bl-cnt.bl-over { color: #991B1B; font-weight: 600; }
 .bl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .bl-two .bl-help { min-height: 34px; }
 .bl-slug { display: flex; align-items: center; border: 1.5px solid #DDE3EA; border-radius: 10px; background: #F8FAFC; overflow: hidden; }
-.bl-slug span { font-size: 12px; color: #64748B; padding-left: 12px; white-space: nowrap; }
+.bl-slug span { font-size: 12px; color: #475569; padding-left: 12px; white-space: nowrap; }
 .bl-slug input { border: none !important; background: none !important; padding-left: 4px !important; }
 
 .bl-radio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -139,13 +144,13 @@
 .bl-covimg.bl-has { border: none; }
 .bl-covimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .bl-covinfo { flex: 1; min-width: 0; }
-.bl-covinfo .bl-fn { font-size: 11px; color: #64748B; margin-bottom: 10px; overflow-wrap: anywhere; }
+.bl-covinfo .bl-fn { font-size: 11px; color: #475569; margin-bottom: 10px; overflow-wrap: anywhere; }
 
 .bl-blkintro { font-size: 11.5px; color: #475569; line-height: 1.6; margin-bottom: 14px; padding: 11px 13px; border-radius: 10px; background: #F8FAFC; border: 1px solid #EEF2F7; }
 .bl-blk { border: 1.5px solid #E2E8F0; border-radius: 12px; overflow: hidden; margin-bottom: 10px; }
 .bl-bh { display: flex; align-items: center; gap: 9px; padding: 9px 12px; background: #F8FAFC; border-bottom: 1px solid #EEF2F7; flex-wrap: wrap; }
 .bl-btype { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #475569; }
-.bl-bwhat { font-size: 11px; color: #64748B; }
+.bl-bwhat { font-size: 11px; color: #475569; }
 .bl-bh .bl-sp { flex: 1; }
 .bl-ib {
   height: 28px; padding: 0 9px; border-radius: 7px; border: 1px solid #E2E8F0; background: #fff;
@@ -181,7 +186,7 @@
 .bl-kv .bl-v { font-weight: 600; color: #0F172A; font-variant-numeric: tabular-nums; }
 .bl-pubacts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .bl-pubacts .mw-btn { width: 100%; justify-content: center; }
-.bl-pubnote { font-size: 10.5px; color: #64748B; line-height: 1.55; margin-top: 10px; }
+.bl-pubnote { font-size: 10.5px; color: #475569; line-height: 1.55; margin-top: 10px; }
 
 /* ---------------------------------------------------------------- comments queue */
 .bl-qc { padding: 16px 18px; margin-bottom: 12px; }
@@ -193,7 +198,7 @@
 .bl-qav.bl-mw { background: linear-gradient(135deg, #B45309, #92400E); }
 .bl-qn b { display: block; font-size: 13px; font-weight: 700; color: #0F172A; }
 .bl-qn span { display: block; font-size: 11px; color: #475569; margin-top: 2px; }
-.bl-qwhen { font-size: 11px; color: #64748B; font-variant-numeric: tabular-nums; }
+.bl-qwhen { font-size: 11px; color: #475569; font-variant-numeric: tabular-nums; }
 .bl-pill {
   font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px;
   background: #DCFCE7; color: #15803D; margin-left: auto;
@@ -215,7 +220,7 @@
 .bl-qpub.bl-danger p { color: #991B1B; }
 .bl-qacts { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
 .bl-qthread { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #475569; margin-top: 8px; }
-.bl-qthread svg { flex-shrink: 0; color: #64748B; }
+.bl-qthread svg { flex-shrink: 0; color: #475569; }
 .bl-replybox { margin-top: 11px; }
 
 .bl-werr {

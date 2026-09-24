@@ -4,7 +4,7 @@
  * marketing page alongside styles.css, and an unprefixed .card or .meta would collide with that
  * file's own. Nothing here can reach a class styles.css owns.
  *
- * ★ .bp-glass.bp-solid IS NOT DECORATION. A translucent panel over the navy hero or over a cover
+ * ★ .glass.bp-solid IS NOT DECORATION. A translucent panel over the navy hero or over a cover
  * measured far below 4.5:1 on the Help Center landing — the same defect, found once already.
  * Every panel that overlaps dark ground is solid. See the contrast profile in
  * verify-blog-press-visual.mjs, which measures them with the sheen composited.
@@ -14,18 +14,16 @@
 .bp-root { display: block; }
 .bp-wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
 
-.bp-glass {
-  background: linear-gradient(150deg, rgba(255,255,255,.72), rgba(255,255,255,.36));
-  backdrop-filter: blur(22px);
-  border: 1px solid rgba(255,255,255,.8);
-  border-bottom-color: rgba(27,58,75,.1);
-  border-radius: 17px;
-  box-shadow: 0 20px 44px -22px rgba(27,58,75,.24), inset 0 1px 0 rgba(255,255,255,.9);
-  position: relative;
-  overflow: hidden;
-}
-.bp-glass > * { position: relative; z-index: 1; }
-.bp-glass.bp-solid { background: #FDFCFA; }
+/* ★ THE GLASS IS THE PROJECT'S SHARED .glass FROM glass-primitives.css, NOT a copy of the
+   mockup's inline one. An earlier draft of this file re-declared the whole recipe under its own name,
+   and verify-glass-sheen reported "0 .glass elements" on this page — the guard catching a card
+   that had quietly stepped outside the sheen audit and the contrast floor with it. Same mistake,
+   same day, as the .ha-* block styles: a shadow copy of a shared component.
+
+   .bp-solid is a MODIFIER on that shared primitive. It is not decoration: a translucent panel
+   over the navy hero or over a cover measured far below 4.5:1 on the Help Center landing, so
+   every panel that overlaps dark ground carries it. */
+.glass.bp-solid { background: #FDFCFA; }
 
 /* ---------------------------------------------------------------- hero */
 .bp-hero { background: linear-gradient(160deg, #1B3A4B, #12283A); padding: 54px 0 62px; margin-bottom: -30px; }
@@ -181,7 +179,12 @@ a.bp-link:focus-visible { outline: 3px solid #16815F; outline-offset: 3px; }
   color: #3E4A52; font: 600 13px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
 }
 .bp-likebtn.bp-on { background: rgba(168,69,47,.08); border-color: rgba(168,69,47,.35); color: #8F3625; }
-.bp-likebtn[disabled] { opacity: .6; cursor: default; }
+/* ★ NEVER `opacity` ON A DISABLED CONTROL. It dims the label too, and the label is the only
+   thing telling a signed-out visitor what the control would do. Measured at 3.15:1 before this;
+   an explicit muted pair passes and still reads as unavailable. */
+.bp-likebtn[disabled] {
+  cursor: default; background: #EFEBE4; border-color: #DED8CF; color: #4A5055;
+}
 .bp-likebar .bp-ct { font-size: 12.5px; color: #5C6367; }
 .bp-share {
   margin-left: auto; height: 42px; padding: 0 15px; border-radius: 12px; border: 1.5px solid #DED8CF;
@@ -236,7 +239,7 @@ a.bp-link:focus-visible { outline: 3px solid #16815F; outline-offset: 3px; }
   background: linear-gradient(135deg, #22485C, #152B3B); color: #F7F6F3;
   font: 600 13px Inter, sans-serif; cursor: pointer; flex-shrink: 0;
 }
-.bp-bA[disabled] { opacity: .55; cursor: default; }
+.bp-bA[disabled] { cursor: default; background: #EFEBE4; color: #4A5055; }
 .bp-cnt { font-size: 11.5px; color: #5C6367; margin-top: 8px; font-variant-numeric: tabular-nums; }
 .bp-cnt.bp-over { color: #8F3625; font-weight: 600; }
 
@@ -269,7 +272,7 @@ a.bp-link:focus-visible { outline: 3px solid #16815F; outline-offset: 3px; }
   height: 38px; padding: 0 15px; border: none; border-radius: 10px; background: linear-gradient(135deg, #22485C, #152B3B);
   color: #F7F6F3; font: 600 12.5px Inter, sans-serif; cursor: pointer;
 }
-.bp-rpost[disabled] { opacity: .55; cursor: default; }
+.bp-rpost[disabled] { cursor: default; background: #EFEBE4; color: #4A5055; }
 
 /* a write that failed says so where the writer is looking */
 .bp-werr {

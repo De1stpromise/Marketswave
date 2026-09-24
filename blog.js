@@ -258,7 +258,7 @@
 
   function featuredNode(p) {
     var a = el('a', 'bp-link'); a.href = href(p.slug);
-    var box = el('div', 'bp-glass bp-feat');
+    var box = el('div', 'glass glass-lift bp-feat');
     box.appendChild(coverNode(p));
     var fb = el('div', 'bp-fb');
     fb.appendChild(el('span', 'bp-cat bp-k-' + p.category, catLabel(p.category)));
@@ -271,7 +271,7 @@
   }
   function cardNode(p) {
     var a = el('a', 'bp-link'); a.href = href(p.slug);
-    var box = el('div', 'bp-glass bp-card');
+    var box = el('div', 'glass glass-lift bp-card');
     box.appendChild(coverNode(p));
     var cb = el('div', 'bp-cb');
     cb.appendChild(el('span', 'bp-cat bp-k-' + p.category, catLabel(p.category)));
@@ -284,7 +284,7 @@
   }
 
   function mediaBand() {
-    var box = el('div', 'bp-glass bp-media');
+    var box = el('div', 'glass glass-lift bp-media');
     var m1 = el('div', 'bp-mb1');
     m1.appendChild(el('div', 'bp-k', 'For journalists'));
     m1.appendChild(el('h3', null, 'Media enquiries'));
@@ -338,7 +338,7 @@
 
     // ---- nothing published yet: an honest empty state, never "coming soon" cards ------------
     if (!state.posts.length) {
-      var empty = el('div', 'bp-glass bp-solid bp-empty');
+      var empty = el('div', 'glass glass-lift bp-solid bp-empty');
       empty.appendChild(el('h2', null, 'Nothing published yet'));
       empty.appendChild(el('p', null, 'We are writing the first posts now. In the meantime, the Help Center answers the questions clients ask most, and the press team is reachable below.'));
       var hl = el('a', 'bp-mbtn', 'Visit the Help Center');
@@ -350,7 +350,7 @@
     }
 
     // ---- filter ------------------------------------------------------------------------------
-    var filt = el('div', 'bp-glass bp-solid bp-filt');
+    var filt = el('div', 'glass glass-lift bp-solid bp-filt');
     filt.setAttribute('role', 'group');
     filt.setAttribute('aria-label', 'Filter posts by category');
     [{ id: 'all', label: 'All' }].concat(CATS).forEach(function (c) {
@@ -380,7 +380,7 @@
     // ---- featured + grid ---------------------------------------------------------------------
     var list = visible();
     if (!list.length) {
-      var none = el('div', 'bp-glass bp-empty');
+      var none = el('div', 'glass glass-lift bp-empty');
       none.appendChild(el('h2', null, 'No posts match'));
       none.appendChild(el('p', null, 'Try a different category, or clear the search.'));
       wrap.appendChild(none);
@@ -428,7 +428,7 @@
 
     post.appendChild(coverNode(p, 'bp-pcover'));
 
-    var body = el('div', 'bp-glass bp-solid bp-pbody');
+    var body = el('div', 'glass glass-lift bp-solid bp-pbody');
     var crumb = el('div', 'bp-crumb');
     var c1 = el('a', null, 'Blog & Press'); c1.href = 'blog-press.html'; crumb.appendChild(c1);
     crumb.appendChild(el('span', null, '›'));
@@ -586,7 +586,7 @@
   }
 
   function commentsPanel(p) {
-    var panel = el('div', 'bp-glass bp-comments');
+    var panel = el('div', 'glass glass-lift bp-comments');
     panel.id = 'bp-comments';
     renderCommentsInto(panel, p);
     return panel;
@@ -687,7 +687,7 @@
     var wrap = el('div', 'bp-wrap'); wrap.style.paddingTop = '40px';
     var g = el('div', 'bp-grid');
     for (var i = 0; i < 3; i++) {
-      var c = el('div', 'bp-glass bp-card');
+      var c = el('div', 'glass glass-lift bp-card');
       var sk = el('div', 'bp-sk'); sk.style.height = '150px'; sk.style.borderRadius = '0';
       c.appendChild(sk);
       var cb = el('div', 'bp-cb');
@@ -702,7 +702,7 @@
   function failure() {
     root.textContent = '';
     var wrap = el('div', 'bp-wrap'); wrap.style.paddingTop = '40px';
-    var box = el('div', 'bp-glass bp-err');
+    var box = el('div', 'glass glass-lift bp-err');
     box.appendChild(el('b', null, 'We could not load this just now'));
     box.appendChild(el('p', null, 'The connection did not come back. Try again in a moment — nothing on your account is affected.'));
     var again = el('button', 'bp-mbtn', 'Try again'); again.style.maxWidth = '160px'; again.style.marginTop = '14px';
@@ -723,7 +723,7 @@
         // it, and the page says so rather than implying it once existed.
         root.textContent = '';
         var wrap = el('div', 'bp-wrap'); wrap.style.paddingTop = '40px';
-        var box = el('div', 'bp-glass bp-empty');
+        var box = el('div', 'glass glass-lift bp-empty');
         box.appendChild(el('h2', null, 'That post is not available'));
         box.appendChild(el('p', null, 'It may have been moved or taken down. Everything we have published is on the main page.'));
         var back = el('a', 'bp-mbtn', 'Back to Blog & Press');
