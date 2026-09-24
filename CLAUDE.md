@@ -1618,6 +1618,66 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   module — row 143), parity 40/40 and 93/93, the 8 real clients byte-identical, all 6 static
   files IDENTICAL on marketswave.net.
 
+- **★★★ BLOG & PRESS (2026-09-24, register row 274).** Posts live in the database
+  (`blog_posts`) and are written in the PM tool (`admin-blog.html` + `admin-blog-post.html`), so
+  publishing never needs a code change. `blog-press.html` serves BOTH views — the listing at
+  `/blog-press`, a post at `/blog-press?p=<slug>`. Clients can like, comment and reply; a PM
+  moderates; **and an author can take their own words back.**
+  **Things to know before touching any of it:**
+  - **★★ THE ONLY PUBLIC READS ARE THE VIEWS `blog_posts_public`, `blog_comments_public` AND
+    `blog_like_counts`, AND THAT IS THE WHOLE SECURITY STORY.** `blog_posts` has NO anon grant
+    and NO anon policy; the view selects published rows and pub_ columns only, and works because
+    a Postgres view runs with its OWNER's privileges unless `security_invoker` is on (default
+    off). **Do not add an anon policy and do not flip `security_invoker`** — the first reopens
+    drafts to the public, the second makes the view inherit the closed table's RLS and the
+    listing silently goes blank. Identical to row 270's Help Center story; the verification
+    enforces it the same way, including a forced-failure control.
+  - **★ `blog_comments_public` CARRIES NO `client_id` AND NO EMAIL, and that is load-bearing in
+    a way that bites.** The page needs to know which comments are the VIEWER'S so it can offer
+    Remove — and it reads that from `blog_comments` under the client's own
+    `blog_comments_own_read` policy, never from the public view. Adding a client id to the view
+    "so the page can answer is-this-mine" would hand every reader every commenter's account id.
+    The staging proof asks PostgREST for the column and requires 42703, rather than listing a
+    row's keys — an empty view would make the key-listing form vacuous.
+  - **★ SELF-REMOVAL IS ITS OWN FUNCTION, NOT A BRANCH OF `moderate-blog-comment`.** That one
+    opens by refusing anyone who is not an admin; `remove-own-blog-comment` refuses anyone who
+    is not the author. Two gates that reject each other's callers do not belong behind one
+    `action` switch — the switch would have to run neither gate first, which is how the wrong
+    one ends up authoritative.
+  - **★ OWNERSHIP IS THE GATE, NOT ACCOUNT STATUS — a deliberate divergence from posting.**
+    Writing adds words to a public page and requires an ACTIVE client. Removing takes the
+    author's own words back off it, which can never harm a reader or the platform, so a client
+    whose account has since gone pending can still retract. Asserted in both directions so it
+    cannot be quietly re-tightened to "active only".
+  - **★ A COMMENT IS YOURS THE MOMENT IT EXISTS.** Both `post-blog-comment` call sites record
+    the new id in `state.mine` immediately. The first cut populated that map only on page load,
+    so a client could not retract something they had just written until they reloaded — found by
+    the UI test, not by reading the code.
+  - **★ THE PM TOOL DISTINGUISHES A RETRACTION FROM A MODERATION.** Both are `removed_at`, so
+    the Removed tab would otherwise read as one moderation record and mislead a PM reviewing
+    their own by omission. `removed_by` already says which: the author's own id reads
+    "Withdrawn by the author", anything else reads "Removed". The suite asserts the PAIR —
+    either assertion alone would pass against a page that labelled every removal identically.
+  - **★ `blog.css`'s `min-height: 0` LOOKED LIKE THE DOCUMENTED TAP TRAP AND WAS NOT ONE.** On
+    the Tailwind pages that declaration out-specifies `tap-targets.css`'s floor (rows 266-267).
+    This is a PUBLIC page, which does not load `tap-targets.css` at all — `styles.css`'s mobile
+    block floors only footer links and the Get Access dismiss, never buttons generally. So the
+    declaration was overriding nothing and the comment actions had never had a 44px floor. They
+    have one now, measured as rendered boxes at 390/375/320.
+  - **Comment text is rendered as text, never HTML** — a `<script>` probe is stored and painted
+    as literal characters, proven on the public page and in the PM tool, with `window.__pwned`
+    asserted undefined in both.
+  - **The press address is "Address to be confirmed"** until the operator supplies a real one.
+    Nothing invents one.
+  - **Limits: 1,500 characters, 5 comments per 10 minutes per client**, both enforced
+    server-side. A section that spends comment budget must create its own clients — borrowing
+    the shared fixtures pushed a later section into a 429, which reads as "flagging is broken"
+    rather than "the fixture ran out".
+  - **`_shared/article-blocks.ts` is SHARED with the Help Center by design.** Changing it means
+    redeploying the three already-deployed Help Center functions alongside the blog ones or they
+    run a stale bundle (row 143) — the deploy set is computed from the object database, with row
+    143's own 14-direct/20-total figures as the control.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.
