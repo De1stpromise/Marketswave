@@ -14,13 +14,23 @@
 // on a volatile symbol would be a spam machine, and this sends real email.
 //
 // ★ ALERTS INHERIT THE ROUND-ROBIN REFRESH (2026-09-12). This sweep compares against the
-// CACHED price, and the refresh now prices the oldest N stock symbols per cycle rather than
-// all of them. An alert on a stock symbol the rotation reaches every 45 minutes can only
-// fire with 45-minute granularity: a target crossed and re-crossed between two refreshes
-// is never seen, and one crossed for good fires on the next cycle that reaches the symbol —
-// later, never wrongly. Crypto is unaffected (every coin refreshes every cycle). Recorded in
-// the Backend Requirements Register alongside the alert feature so a delayed alert is read
-// as this design, not as a bug.
+// CACHED price, and the refresh prices the oldest STOCK_SYMBOLS_PER_REFRESH_RUN stock symbols
+// per cycle rather than all of them. So an alert on a stock symbol can only fire as often as
+// the rotation reaches it: a target crossed and re-crossed between two refreshes is never
+// seen, and one crossed for good fires on the next cycle that reaches the symbol — later,
+// never wrongly. Crypto is unaffected (every coin refreshes every cycle). Recorded in the
+// Backend Requirements Register alongside the alert feature so a delayed alert is read as
+// this design, not as a bug.
+//
+// ★ DO NOT WRITE THE GRANULARITY AS A NUMBER HERE (corrected 2026-09-24). This comment said
+// "every 45 minutes" and "45-minute granularity", which was true of the 15-minute cadence it
+// was written under and stopped being true when the refresh moved to five minutes (row 211).
+// The figure is DERIVED, not a constant — worstCaseStalenessMinutes() in _shared/market-
+// providers.ts computes ceil(stockCount / STOCK_SYMBOLS_PER_REFRESH_RUN) * REFRESH_INTERVAL_
+// MINUTES — so it moves with both the cadence AND the catalog size, and the catalog has grown
+// from 29 products to over 300 in a fortnight. A comment stating something that is no longer
+// true is the pm-briefing parity-comment trap (row 264): prose enforced by nothing, believed
+// anyway. Name the derivation, never the answer.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { authorizeScheduledCall } from '../_shared/scheduler-auth.ts';

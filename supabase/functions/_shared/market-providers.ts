@@ -56,9 +56,13 @@ export const FINNHUB_RATE_LIMIT_PER_MINUTE = 60; // re-measured 2026-09-12: x-ra
 // if the reserve has already been eaten into by interactive traffic that minute; the symbols
 // it did not reach stay the oldest and lead the next cycle. Nothing is lost, only deferred.
 //
-// PRICE ALERTS INHERIT THIS ROTATION. check-price-alerts reads the cache; an alert on a
-// symbol that is refreshed every 45 minutes can only fire with that granularity — later,
-// never wrongly. Recorded in the Backend Requirements Register alongside the alert feature.
+// PRICE ALERTS INHERIT THIS ROTATION. check-price-alerts reads the cache, so an alert can
+// only fire as often as the rotation reaches its symbol — later, never wrongly. That interval
+// is worstCaseStalenessMinutes() below, NOT a fixed number: it moves with the cadence and with
+// the catalog size. (Corrected 2026-09-24 — this said "every 45 minutes", true of the old
+// 15-minute cadence and stale from the moment it became five. Same trap in
+// check-price-alerts/index.ts, fixed with it.) Recorded in the Backend Requirements Register
+// alongside the alert feature.
 export const FINNHUB_REFRESH_SHARE_OF_MINUTE = 0.5;
 export const STOCK_SYMBOLS_PER_REFRESH_RUN = Math.floor(FINNHUB_RATE_LIMIT_PER_MINUTE * FINNHUB_REFRESH_SHARE_OF_MINUTE);
 export const FINNHUB_INTERACTIVE_RESERVE = FINNHUB_RATE_LIMIT_PER_MINUTE - STOCK_SYMBOLS_PER_REFRESH_RUN;
