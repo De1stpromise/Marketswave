@@ -117,6 +117,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     'deposit-addresses': '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h3"/>',
     documents: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
     settings: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    blog: '<path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v5h5M3 15h6M3 11h8M3 19h4"/>',
     security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'
   };
 
@@ -132,6 +133,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     { key: 'deposit-addresses', href: 'admin-deposit-addresses.html', label: 'Deposit addresses' },
     { key: 'documents', href: 'admin-documents.html', label: 'Documents' },
     { key: 'help', href: 'admin-help.html', label: 'Help Center' },
+    { key: 'blog', href: 'admin-blog.html', label: 'Blog & Press', count: 'sidebar-blog-count' },
     { key: 'settings', href: 'admin-advisory-fee.html', label: 'Advisory fee' },
     { key: 'security', href: 'admin-security.html', label: 'Security' }
   ];
@@ -141,7 +143,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     var badge = '';
     if (item.count) {
       // Starts hidden/0 (honest until the first real read), never a fake interim value.
-      badge = '<span id="' + item.count + '" class="an-ct is-hot" hidden aria-label="' + (item.key === 'inbox' ? 'conversations needing a reply' : 'approvals waiting on you') + '">0</span>';
+      badge = '<span id="' + item.count + '" class="an-ct is-hot" hidden aria-label="' + (item.key === 'inbox' ? 'conversations needing a reply' : (item.key === 'blog' ? 'flagged comments worth a look' : 'approvals waiting on you')) + '">0</span>';
     } else if (item.live) {
       // The dot carries the real count for assistive tech (and for the checks that read it)
       // without painting a number that would be stale the moment it rendered.
@@ -291,6 +293,38 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     }).catch(function () { /* the count stays hidden: never a fake number */ });
   }
 
+  // ★ Blog & Press (2026-09-24). The rail count is FLAGGED, LIVE comments — not every comment,
+  // and not removed ones. A flag is a prompt for a PM to look, so the number has to mean "this
+  // many are waiting for your judgement"; counting all comments would make the badge permanent
+  // and therefore ignored. Nothing is hidden automatically — a flagged comment is public the
+  // whole time it is counted here, which is exactly why the count is worth surfacing.
+  function startBlogWatch() {
+    var badge = document.getElementById('sidebar-blog-count');
+    if (!badge) return;
+    var supabase = null;
+    function paint(n) {
+      badge.textContent = String(n);
+      badge.classList.toggle('hidden', !(n > 0));
+      badge.hidden = !(n > 0);
+    }
+    function recount() {
+      if (!supabase) return;
+      supabase.from('blog_comments').select('id', { count: 'exact', head: true })
+        .eq('flagged', true).is('removed_at', null)
+        .then(function (r) { if (!r.error) paint(r.count || 0); })
+        .catch(function () { /* leave the badge as it stands */ });
+    }
+    import('./admin-supabase-config.js').then(function (mod) {
+      supabase = mod.supabase;
+      recount();
+      setInterval(recount, 30000);
+      supabase.channel('admin-sidebar-blog')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'blog_comments' }, recount)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'blog_comments' }, recount)
+        .subscribe();
+    }).catch(function () { /* the count stays hidden: never a fake number */ });
+  }
+
   // ★ PM tool revamp, part 2 (2026-09-14). The Approvals item's live count: every pending
   // request across the seven queues plus applications awaiting review — the same seven
   // reads admin-approvals.html makes, kept live by Realtime on each table plus a 30-second
@@ -406,6 +440,7 @@ var __adminSessionCheck = import('./admin-supabase-config.js').then(function (mo
     startPresenceWatch();
     startInboxWatch();
     startApprovalsWatch();
+    startBlogWatch();
   }
 
   window.initAdminSidebar = initAdminSidebar;

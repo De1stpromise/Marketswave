@@ -126,33 +126,9 @@
 .hc-art h1 { font-size: 27px; font-weight: 600; letter-spacing: -.026em; color: #12283A; line-height: 1.25; }
 .hc-lede { font-size: 15px; color: #3E4A52; line-height: 1.65; margin-top: 13px; }
 
-/* blocks, rendered by article-render.js */
-.ha-h2 { font-size: 16px; font-weight: 600; color: #12283A; margin-top: 30px; letter-spacing: -.012em; }
-.ha-p { font-size: 14px; color: #3E4A52; line-height: 1.72; margin-top: 11px; }
-.ha-p strong { font-weight: 600; color: #12283A; }
-.ha-steps { margin-top: 16px; border: 1px solid rgba(27,58,75,.12); border-radius: 13px;
-  overflow: hidden; background: rgba(255,255,255,.6); }
-.ha-st { display: flex; gap: 14px; padding: 15px 17px; border-top: 1px solid rgba(27,58,75,.09); }
-.ha-st:first-child { border-top: none; }
-.ha-stn { width: 24px; height: 24px; border-radius: 50%; background: #1B3A4B; color: #F7F6F3;
-  font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 1px; font-variant-numeric: tabular-nums; }
-.ha-stb { flex: 1; min-width: 0; }
-.ha-stb b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; }
-.ha-stb span { display: block; font-size: 13px; color: #3E4A52; margin-top: 5px; line-height: 1.65; }
-.ha-stb strong { font-weight: 600; color: #12283A; }
-.ha-warn { display: flex; gap: 12px; padding: 15px 17px; border-radius: 13px;
-  background: rgba(200,134,10,.08); border: 1px solid rgba(200,134,10,.3); margin-top: 18px; }
-.ha-warn > svg { flex-shrink: 0; margin-top: 2px; }
-.ha-wb b { display: block; font-size: 13.5px; font-weight: 700; color: #6B4706; margin-bottom: 5px; }
-.ha-wb p { font-size: 13px; color: #5A4712; margin: 0; line-height: 1.65; }
-.ha-tip { display: flex; gap: 12px; padding: 14px 16px; border-radius: 12px; background: rgba(27,58,75,.05); margin-top: 16px; }
-.ha-tip > svg { flex-shrink: 0; margin-top: 2px; }
-.ha-tip p { font-size: 13px; margin: 0; color: #3E4A52; line-height: 1.7; }
-.ha-tip strong { font-weight: 600; color: #12283A; }
-.ha-fig { margin-top: 18px; }
-.ha-fig img { width: 100%; border-radius: 11px; border: 1px solid rgba(27,58,75,.12); display: block; }
-.ha-fig figcaption { font-size: 12px; color: #5C6367; margin-top: 8px; line-height: 1.55; }
+/* blocks, rendered by article-render.js — MOVED to article-render.css (2026-09-24), so the
+   blog can render the same blocks without a second copy of these rules. This page links it.
+   Do not re-add .ha-* rules here. */
 
 .hc-related { margin-top: 30px; padding-top: 22px; border-top: 1px solid rgba(27,58,75,.1); }
 .hc-related > b { display: block; font-size: 11px; font-weight: 700; letter-spacing: .09em;

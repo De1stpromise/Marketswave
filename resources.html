@@ -336,20 +336,17 @@
         <p>Company updates, market perspectives, and announcements. This section serves as a community center for posts, memos, and official communications.</p>
       </div>
 
-      <div class="service-grid" style="max-width:960px; margin:0 auto 32px;">
-        <article class="service-card glass">
-          <h3>Article Coming Soon</h3>
-          <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
-        </article>
-        <article class="service-card glass">
-          <h3>Article Coming Soon</h3>
-          <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
-        </article>
-      </div>
+      <!-- Blog & Press preview (2026-09-24). Rendered by blog-preview.js from the same
+           blog_posts_public read blog-press.html itself uses, so this cannot name a post that
+           does not exist. It replaced two hardcoded "Article Coming Soon" cards, which were
+           honest while nothing was published and would have been a lie the moment something
+           was. Empty by design until the fetch resolves; if it cannot, the grid removes itself
+           and the button below stands on its own. -->
+      <div class="service-grid" id="bp-preview" style="max-width:960px; margin:0 auto 32px;"></div>
 
       <div class="text-center">
-        <p style="color:var(--text-muted); margin-bottom:28px;">Content will be published here as research notes, firm announcements, and client communications become available.</p>
-        <a href="blog-press.html" class="btn btn-outline">View latest updates</a>
+        <p id="bp-preview-lede" style="color:var(--text-muted); margin-bottom:28px;"></p>
+      <a href="blog-press.html" class="btn btn-outline">View latest updates</a>
       </div>
     </div>
   </section>
@@ -407,7 +404,7 @@
           <ul>
             <li><a href="resources.html#strategies">Strategies</a></li>
             <li><a href="resources.html#how-it-works">How It Works</a></li>
-            <li><a href="resources.html">Blog & Press</a></li>
+            <li><a href="blog-press.html">Blog &amp; Press</a></li>
             <li><a href="help.html">Help Center</a></li>
           </ul>
         </div>
@@ -568,6 +565,7 @@
   <script>initChatWidget();</script>
   <script src="help-topic-cards.js"></script>
   <script src="help-preview.js"></script>
+  <script src="blog-preview.js"></script>
   <script src="resources-artifact.js"></script>
 </body>
 </html>

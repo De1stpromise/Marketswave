@@ -4,12 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Blog & Press — Marketswave</title>
-  <meta name="description" content="Marketswave Blog & Press: company updates, market perspectives, and announcements." />
+  <meta name="description" content="Plain explanations of how investing works, a closer look at private equity, and what’s new at Marketswave." />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="chat-widget.css" />
+  <link rel="stylesheet" href="blog.css" />
+  <link rel="stylesheet" href="article-render.css" />
 </head>
 <body>
 
@@ -38,45 +40,25 @@
     </div>
   </header>
 
-  <!-- ========== PAGE HERO ========== -->
-  <section class="page-hero glass-dark blob-field">
-    <div class="blob blob--md blob--teal" style="top:-100px; left:-80px;"></div>
-    <div class="blob blob--sm blob--gold" style="bottom:-60px; right:-40px;"></div>
-    <div class="container">
-      <h1>Blog & Press</h1>
-      <p>Company updates, market perspectives, and announcements. This section serves as a community center for posts, memos, and official communications.</p>
-    </div>
-  </section>
+  <!-- ========== BLOG & PRESS ==========
+       One page serves both views; ?p=<slug> chooses a post. Posts live in the database and are
+       rendered here, so publishing never needs a code change. See blog.js's own header for why
+       the address is a query parameter and not /blog-press/<slug>, and for why the only public
+       reads are the three published-only views. -->
+  <main id="bp-root" class="bp-root"></main>
 
-  <!-- ========== ARTICLES (honest placeholder — no real posts exist yet) ========== -->
-  <!-- Full page, not just the resources.html teaser. Real article content depends on the
-       admin-manageable blog/article upload system logged as deferred in the Backend
-       Requirements Register (row 104) — that's a separate, not-yet-started future task,
-       not part of this page. -->
-  <section class="section">
-    <div class="container">
-      <div class="service-grid" style="max-width:960px; margin:0 auto 32px;">
-        <article class="service-card">
-          <h3>Article Coming Soon</h3>
-          <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
-        </article>
-        <article class="service-card">
-          <h3>Article Coming Soon</h3>
-          <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
-        </article>
-        <article class="service-card">
-          <h3>Article Coming Soon</h3>
-          <p>Research notes, firm announcements, and client communications will appear here as they're published.</p>
-        </article>
-      </div>
-
-      <div class="text-center" style="max-width:640px; margin:0 auto;">
-        <h2 style="margin-bottom:18px;">Full Blog & Press page coming soon</h2>
-        <p style="color:var(--text-muted); margin-bottom:28px;">We're building out a real article and press-update library here. In the meantime, reach out to our team directly for the latest news.</p>
-        <a href="contact.html" class="btn btn-outline">Contact Us</a>
-      </div>
+  <noscript>
+    <div class="bp-ns">
+      <h2>Blog &amp; Press</h2>
+      <p>Our posts are loaded by your browser, which needs JavaScript switched on. With it off,
+      here is how to reach us directly, and every part of the site that does not need it.</p>
+      <p><strong>Press enquiries</strong> <a href="mailto:support@marketswave.net">support@marketswave.net</a><br />
+      <strong>Call</strong> <a href="tel:+46766922906">+46 766 92 29 06</a> &middot; Mon&ndash;Fri, 8am&ndash;8pm CET</p>
+      <p><a href="help.html">Help Center</a> &middot; <a href="resources.html">Resources</a> &middot;
+      <a href="services.html">Services</a> &middot; <a href="contact.html">Contact</a> &middot;
+      <a href="legal.html">Legal</a></p>
     </div>
-  </section>
+  </noscript>
 
   <!-- ========== FOOTER ========== -->
   <footer class="site-footer">
@@ -104,7 +86,7 @@
           <ul>
             <li><a href="resources.html#strategies">Strategies</a></li>
             <li><a href="resources.html#how-it-works">How It Works</a></li>
-            <li><a href="resources.html">Blog & Press</a></li>
+            <li><a href="blog-press.html">Blog &amp; Press</a></li>
             <li><a href="help.html">Help Center</a></li>
           </ul>
         </div>
@@ -255,7 +237,9 @@
   <div id="chat-widget-mount"></div>
   <script src="site-nav.js"></script>
   <script src="chat-widget.js"></script>
+  <script src="article-render.js"></script>
   <script src="site-presence.js"></script>
   <script>initChatWidget();</script>
+  <script src="blog.js"></script>
 </body>
 </html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog & Press — Marketswave PM Tool</title>
+
+  <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
+       after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
+  <link rel="modulepreload" href="admin-supabase-config.js" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="glass-primitives.css" />
+  <link rel="stylesheet" href="tap-targets.css">
+  <link rel="stylesheet" href="control-patterns.css">
+  <link rel="stylesheet" href="admin-nav.css">
+  <link rel="stylesheet" href="admin-blog.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+
+  <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
+       the play CDN it replaces appended its generated <style> after every other sheet, so utilities win
+       equal-specificity contests; the position preserves that. -->
+  <link rel="stylesheet" href="tailwind-3.4.17.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <div class="flex h-screen overflow-hidden">
+    <div id="admin-sidebar-mount"></div>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="bg-red-600 text-white text-xs font-semibold tracking-wide uppercase text-center py-1.5 px-4">
+        Internal Tool &mdash; Portfolio Manager Access Only &mdash; Not the Client-Facing Site
+      </div>
+
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 pr-8 lg:pl-8">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Blog &amp; Press</h2>
+          <p class="text-xs text-slate-600">Posts clients and visitors read</p>
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto relative overflow-x-hidden p-6">
+        <div class="mx-auto" style="max-width:1300px">
+
+          <!-- ONE header, ONE set of buttons, ONE health strip, above BOTH tabs. Posts and
+               Comments are two views of the same thing, so a PM never loses the counts or the
+               New post button by switching between them. -->
+          <div class="bl-mh">
+            <div>
+              <h1>Blog &amp; Press</h1>
+              <p>Posts clients and visitors read, and the comments on them.</p>
+            </div>
+            <div class="bl-acts">
+              <a class="mw-btn mw-btn-sm" href="blog-press.html" target="_blank" rel="noopener">View live blog</a>
+              <a class="mw-btn mw-btn-admin mw-btn-sm" href="admin-blog-post.html">+ New post</a>
+            </div>
+          </div>
+
+          <div class="bl-hs" id="bl-health"></div>
+
+          <div class="bl-tabs" role="tablist" aria-label="Blog and press views">
+            <button type="button" class="bl-tab bl-on" id="bl-tab-posts" role="tab" aria-selected="true" aria-controls="bl-panel">Posts <span class="bl-n" id="bl-tab-posts-n">0</span></button>
+            <button type="button" class="bl-tab" id="bl-tab-comments" role="tab" aria-selected="false" aria-controls="bl-panel">Comments <span class="bl-n" id="bl-tab-comments-n">0</span></button>
+          </div>
+
+          <div id="bl-panel" role="tabpanel" aria-labelledby="bl-tab-posts"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="format-helpers.js"></script>
+  <script src="supabase-data.js"></script>
+  <script src="admin-sidebar.js"></script>
+  <script src="dashboard-common.js"></script>
+  <!-- ★ MOUNT THE SHARED ADMIN NAV — the approval gate shipped without this exact line and
+       rendered reachable then inescapable (register row 228). This page's suites assert it. -->
+  <script>
+    initAdminSidebar('blog');
+  </script>
+  <script src="admin-blog-page.js"></script>
+</body>
+</html>

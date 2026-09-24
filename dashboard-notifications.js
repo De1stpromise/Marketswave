@@ -49,7 +49,8 @@
     Allocation: 'bg-navy',
     Sell: 'bg-amber-500',
     Savings: 'bg-emerald-500',
-    Support: 'bg-slate-500'
+    Support: 'bg-slate-500',
+    Blog: 'bg-violet-500'
   };
 
   // ---- Read-state store: per-item, not a single global "last seen" watermark, so a fresh
@@ -218,7 +219,39 @@
     return items;
   }
 
-  // Fetches all 5 real sources fresh (plus `products` for the Allocation/Sell display name)
+  // ★ BLOG REPLIES (2026-09-24, register row 274). A client who is replied to is told here, in
+  // their bell — never by email. Two reads, and the split is the privacy boundary doing its job:
+  // blog_comments (RLS: OWN rows only) says which comments are mine, and blog_comments_public
+  // says what was written under them. Neither hands this page another client's account.
+  //
+  // ★ itemHTML() inserts item.text with innerHTML, so the replier's name — which a client typed
+  // at signup — is ESCAPED here. The comment body is never included at all: a notification is a
+  // pointer, and the post is where the words belong.
+  function escText(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function buildBlogReplyItems(mine, replies, postsById) {
+    var items = [];
+    var mineIds = {};
+    (mine || []).forEach(function (c) { if (!c.parent_id) mineIds[c.id] = c; });
+    (replies || []).forEach(function (r) {
+      if (!r.parent_id || !mineIds[r.parent_id] || r.removed) return;
+      var post = postsById[r.post_id];
+      var who = r.is_marketswave ? 'Marketswave' : (r.display_name || 'Someone');
+      items.push({
+        key: 'blog-reply-' + r.id,
+        category: 'Blog',
+        text: escText(who) + ' replied to your comment' + (post ? ' on “' + escText(post.title) + '”' : ''),
+        timestampMs: parseDateMs(r.created_at),
+        href: post ? 'blog-press.html?p=' + encodeURIComponent(post.slug) : 'blog-press.html'
+      });
+    });
+    return items;
+  }
+
+  // Fetches all 6 real sources fresh (plus `products` for the Allocation/Sell display name)
   // and returns a Promise resolving to the combined, sorted item list. A failed fetch fails
   // CLOSED to an empty list rather than throwing and breaking every page's own header — the
   // bell showing zero notifications until the next successful reload is a smaller failure
@@ -232,15 +265,21 @@
       MarketswaveData.selectTable('hys_pockets'),
       MarketswaveData.selectTable('conversations'),
       MarketswaveData.selectTable('products'),
-      MarketswaveData.selectTable('messages')
+      MarketswaveData.selectTable('messages'),
+      MarketswaveData.selectTable('blog_comments'),
+      MarketswaveData.selectTable('blog_posts_public'),
+      MarketswaveData.selectTable('blog_comments_public')
     ]).then(function (results) {
       var productsById = {};
       results[5].forEach(function (p) { productsById[p.id] = p.name; });
+      var postsById = {};
+      (results[8] || []).forEach(function (p) { postsById[p.id] = p; });
       var items = buildDocumentItems(results[0])
         .concat(buildAllocationItems(results[1], productsById))
         .concat(buildSellItems(results[2], productsById))
         .concat(buildSavingsItems(results[3]))
-        .concat(buildSupportItems(results[4], results[6]));
+        .concat(buildSupportItems(results[4], results[6]))
+        .concat(buildBlogReplyItems(results[7], results[9], postsById));
       items.sort(function (a, b) { return b.timestampMs - a.timestampMs; });
       return items;
     }).catch(function () {
