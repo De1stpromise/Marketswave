@@ -1564,6 +1564,60 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   ten now call `adminNavItemCount()`. If you add a rail item, nothing needs editing; if you add
   a suite, derive the count, never retype it.
 
+- **★★★ SAVINGS POCKETS RETURN MONEY TO THE AVAILABLE BALANCE (2026-09-23, register row 273).**
+  A pocket withdrawal no longer leaves the platform. An approved withdrawal credits
+  `unallocated_capital`; reaching a bank from there is a normal WITHDRAWAL, a flow that is
+  already real, gated and audited. The exact mirror of HYS_TRANSFER_IN (row 197). A MATURED
+  pocket still sits in the pocket until the client acts — nothing sweeps it.
+  **Things a future session needs to know before touching any of this:**
+  - **★ THE TWO METHOD CONSTRAINTS WERE REPLACED, NOT WIDENED, AND THAT IS LOAD-BEARING.**
+    `hys_withdrawal_requests.method` is now `= 'internal'` and `hys_pockets.withdrawal_method`
+    is `= 'unallocated capital'` — `'crypto'`/`'bank'` are unwritable by EVERY role,
+    `service_role` included, so old code or a hand-crafted insert cannot record an external
+    payout this system no longer makes. Row 270's discipline: the guarantee lives in what the
+    database accepts, not in what callers send. **Do not widen these back.**
+  - **★ THE AMOUNT IS NOT PM-EDITABLE and the credit is whatever the pocket genuinely
+    returns**, computed once at request time by the shared `computeHysWithdrawalAmount()`:
+    principal for As You Want, principal only for a short-term fixed pocket withdrawn early
+    (interest forfeited in full, not reduced), principal plus earned interest once matured,
+    and a locked pocket refused outright before maturity.
+  - **★ THREE derived figures in `_shared/portfolio-overview.ts` move together** (row 264's
+    class): `unallocated` ADDS `+ΣHYS_WITHDRAWAL`, `capitalIn` adds the full amount, and
+    `accountDeposited` DROPS it — a pocket return is no longer an external flow. Splitting
+    principal from interest was rejected: it breaks row 208's property that the gap between
+    the two chart lines IS the return, because `get-returns-summary` computes realised from
+    SELL rows only.
+  - **★ `approve-hys-withdrawal` CLAIMS THE POCKET FIRST, then credits.** A retry after a
+    failed credit cannot double-credit, and a failed credit restores the pocket's prior
+    status. Keep that order.
+  - **★★ THIS CHANGE IS INHERENTLY COUPLED — THERE IS NO SAFE DEPLOY ORDER.** Old functions +
+    new constraint fails (writes `'bank'`); new functions + old constraint fails too (writes
+    `'internal'`). Only the WINDOW can be minimised. Before deploying, CHECK that the target
+    holds zero pending withdrawal requests, then run the migration and the function deploys
+    back-to-back. Staging was verified at zero first; production must be checked, not assumed.
+  - **★ A SWEEP MUST PRINT WHAT IT EXAMINED.** `grep -P` fails on this machine with `-P
+    supports only unibyte and UTF-8 locales`, so `grep … || echo none` reports a FAILED grep
+    as a clean sweep — it was reported clean twice here and was wrong. And a line-oriented
+    grep cannot match a write whose table name and offending value sit on different lines.
+    Sweep in Python (or `grep -z` with a bounded multi-line pattern, both directions) and
+    print `files scanned: N` beside the hit count.
+  - **The approval email now reads "Your Marketswave savings pocket has been closed."** The
+    REJECTION email is deliberately unchanged — its subject and body make no payout claim and
+    are still accurate.
+  - **`engine-core.js`'s local `approveHYSWithdrawal()` still writes the retired values** and
+    is DEAD (no live caller; the only outside reference is a comment in `transactions.html`).
+    Left as-is — do not read it as current behaviour.
+  - **Two Help Center drafts exist UNPUBLISHED on local AND real cloud staging**
+    (`closing-a-savings-pocket`, `savings-to-your-bank`, topic `savings`). Publishing is the
+    operator's call.
+  **Verified**: `verify-pocket-withdrawal-to-balance.mjs` 47/47 (the four cases to the cent,
+  row 208's identity on both sides of the move, the exact forfeited figure, and the full
+  round trip pocket → balance → allocation → bank withdrawal), plus the full 120-suite pass
+  and 8/8 re-runs. Deployed to real cloud staging: migration + 4 functions (the two changed,
+  plus `get-portfolio-overview`/`snapshot-portfolio-values`, which bundle the changed shared
+  module — row 143), parity 40/40 and 93/93, the 8 real clients byte-identical, all 6 static
+  files IDENTICAL on marketswave.net.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.

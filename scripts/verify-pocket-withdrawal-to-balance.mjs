@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Savings pockets return money to the available balance (2026-09-23, register row 272).
+// Savings pockets return money to the available balance (2026-09-23, register row 273).
 //
 // A pocket withdrawal used to leave the platform entirely: the request carried a crypto
 // address or bank details, account_state was never touched, and the payout was assumed to
