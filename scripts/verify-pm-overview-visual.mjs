@@ -268,7 +268,12 @@ async function main() {
       await cdp.send('Page.navigate', { url: BASE + '/admin.html' }); await cdp.evaluate(WAIT);
       const sb = await cdp.evaluate(SIDEBAR);
       const exp = await expectedCounts();
-      check('★ every rail item, in the brief\'s order, ungrouped', sb.labels.join(' · ') === 'Overview · Approvals · Inbox · Clients · On the site · Products · Deposit addresses · Documents · Help Center · Advisory fee · Security' && sb.groupHeaders === 0, sb.labels.join(' · ') + ' / headers=' + sb.groupHeaders);
+      /* *** THIS LIST IS HARDCODED ON PURPOSE AND MUST BE EDITED WHEN A RAIL ITEM IS ADDED.
+       * `adminNavItemCount()` derives the COUNT so ten suites stopped retyping `=== 10`, but the
+       * ORDER cannot be derived from NAV_ITEMS without comparing the rail to itself — a vacuous
+       * check that would pass whatever order shipped. Blog & Press was added on 2026-09-24 and
+       * this line was the one place that had to move with it. */
+      check('★ every rail item, in the brief\'s order, ungrouped', sb.labels.join(' · ') === 'Overview · Approvals · Inbox · Clients · On the site · Products · Deposit addresses · Documents · Help Center · Blog & Press · Advisory fee · Security' && sb.groupHeaders === 0, sb.labels.join(' · ') + ' / headers=' + sb.groupHeaders);
       check('no Support entry survives', !sb.labels.some((l) => /support/i.test(l)) && !sb.hrefs.some((h) => /admin-support/.test(h)));
       check('Overview is the active item on admin.html', sb.on.join() === 'Overview', sb.on.join());
       check('★ the Approvals count equals an independent sum of every pending queue + applications (' + exp.approvals + ')', sb.approvals && !sb.approvals.hidden && sb.approvals.text === String(exp.approvals), JSON.stringify(sb.approvals));

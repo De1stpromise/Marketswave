@@ -90,6 +90,23 @@ class CDP {
   }
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* *** A FIXED SLEEP AFTER Page.navigate IS NOT A READINESS SIGNAL, and under pass load it is
+ * not even close: 1500ms left document.body null on login.html, so the 320px probe threw
+ * "Cannot read properties of null (reading 'appendChild')" and took the whole suite down --
+ * a harness failure wearing the costume of a page defect. Poll for the body instead, and say
+ * so if it never arrives rather than dereferencing null.
+ * *** IT ADDS TO THE ORIGINAL WAIT, IT DOES NOT REPLACE IT. The blocks after these
+ * navigations measure FONT METRICS, and a poll that returns as soon as the body exists can
+ * measure before Inter has loaded -- which is row 221's exact false-negative signature, a
+ * proportional and a tabular specimen staggering by an identical amount because both hit
+ * the fallback face. Body first so it cannot crash, then the settle it always had. */
+async function awaitBody(cdp, what) {
+  for (let i = 0; i < 60; i++) {
+    if (await cdp.eval('!!(document.body && document.readyState !== "loading")')) return true;
+    await sleep(250);
+  }
+  throw new Error('page never reached a usable body: ' + what);
+}
 
 async function main() {
   // ---------------------------------------------------------------- static: the source tree
@@ -262,6 +279,7 @@ async function main() {
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   for (const page of ['index.html', 'resources.html', 'login.html', 'contact.html', 'signup.html']) {
     await cdp.send('Page.navigate', { url: BASE + '/' + page });
+    await awaitBody(cdp, page);
     await sleep(1500);
     const r = await cdp.eval(`(async () => {
       const f = document.createElement('iframe');
@@ -280,7 +298,8 @@ async function main() {
   }
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send('Page.navigate', { url: BASE + '/index.html' });
-  await sleep(1500);
+  await awaitBody(cdp, 'index.html');
+  await sleep(2200);
 
   /* NON-VACUITY. A tabular check that would pass on a proportional face proves nothing, so
    * confirm the measurement can actually tell the two apart on this very machine. */
