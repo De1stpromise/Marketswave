@@ -24,6 +24,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
 import { makeTempDir, releaseTempDir } from './lib/harness-teardown.mjs';
+import { adminNavIconGaps } from './lib/admin-nav-count.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -394,6 +395,12 @@ async function main() {
       railSrc.indexOf("key: 'help'") < railSrc.indexOf("key: 'blog'") &&
       railSrc.indexOf("key: 'blog'") < railSrc.indexOf("key: 'settings'"));
     check('★ ...and has its own icon', /\n    blog: '<path/.test(railSrc));
+    // * The line above checks ONE key, so it could never cover a different item - which is
+    // exactly how Help Center shipped with no icon at all (2026-09-27). Assert the SET too,
+    // derived from NAV_ITEMS rather than a list retyped here that would drift the same way.
+    const iconGaps = adminNavIconGaps();
+    check('* ...and EVERY rail item has one - the set, derived, not just this one key',
+      iconGaps.length === 0, iconGaps.join(', '));
 
     // the PM pages sign themselves in through admin-supabase-config.js, which auto-signs in
     // against the local stack — nothing to plant.

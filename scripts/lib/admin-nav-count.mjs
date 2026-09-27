@@ -31,3 +31,55 @@ export function adminNavItemCount() {
   if (n < 2) throw new Error('admin-nav-count: parsed ' + n + ' items, which cannot be right');
   return n;
 }
+
+/**
+ * Nav keys that render NO icon — i.e. a key in NAV_ITEMS with no entry in admin-sidebar.js's
+ * ICON map. Returns [] when every item is covered.
+ *
+ * ★ WHY THIS EXISTS (2026-09-27). Help Center shipped with no ICON entry, so navHTML() emitted
+ * `<svg …>undefined</svg>`: an empty 16x16 gap in the rail, and the literal string "undefined"
+ * as a text node inside the svg. Nothing errored. The only assertion that touched rail icons
+ * was `/\n    blog: '<path/.test(railSrc)` — it checked ONE key, by source regex, so it could
+ * never have covered a different item. Assert the SET, derived from NAV_ITEMS, never a list
+ * retyped here that would drift the same way the item count did.
+ */
+export function adminNavIconGaps() {
+  const src = readFileSync(path.join(ROOT, 'admin-sidebar.js'), 'utf8');
+
+  const navStart = src.indexOf('NAV_ITEMS');
+  const navOpen = src.indexOf('[', navStart);
+  const navClose = src.indexOf('];', navOpen);
+  if (navStart === -1 || navOpen === -1 || navClose === -1) throw new Error('admin-nav-count: could not bound NAV_ITEMS');
+  const navKeys = [...src.slice(navOpen, navClose).matchAll(/\{\s*key:\s*'([^']+)'/g)].map((m) => m[1]);
+
+  const icoStart = src.indexOf('var ICON');
+  const icoOpen = src.indexOf('{', icoStart);
+  const icoClose = src.indexOf('\n  };', icoOpen);
+  if (icoStart === -1 || icoOpen === -1 || icoClose === -1) throw new Error('admin-nav-count: could not bound the ICON map');
+  const icoBody = src.slice(icoOpen, icoClose);
+  // Keys may be bare (documents:) or quoted ('deposit-addresses':) — a regex that only matched
+  // the bare form once reported two false gaps, which is how a wrong parse looks like a bug.
+  // Parse line by line rather than with one regex: a key may be bare (documents:) or quoted
+  // ('deposit-addresses':), and a regex that matched only the bare form reported two false
+  // gaps on its first run — a wrong parse looks exactly like a real bug.
+  const iconKeys = [];
+  for (const rawLine of icoBody.split(String.fromCharCode(10))) {
+    const line = rawLine.trim();
+    const colon = line.indexOf(':');
+    if (colon < 1) continue;
+    const key = line.slice(0, colon).trim().replace(/^'|'$/g, '');
+    if (!key || !/^[a-zA-Z-]+$/.test(key)) continue;
+    const rest = line.slice(colon + 1).trim();
+    const q = rest.indexOf("'");
+    if (q !== 0) continue;
+    const end = rest.indexOf("'", 1);
+    const value = end > 0 ? rest.slice(1, end) : '';
+    if (value.trim().length > 0) iconKeys.push(key);   // present but empty is still a gap
+  }
+
+  if (navKeys.length < 2 || iconKeys.length < 2) {
+    throw new Error('admin-nav-count: parsed ' + navKeys.length + ' nav keys and ' +
+      iconKeys.length + ' icon keys, which cannot be right');
+  }
+  return navKeys.filter((k) => !iconKeys.includes(k));
+}
