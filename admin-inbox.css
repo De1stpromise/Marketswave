@@ -79,7 +79,7 @@
 
 /* ---------- thread ---------- */
 .ibx-thread { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; position: relative; }
-.ibx-thead { padding: 12px 20px; border-bottom: 1px solid #EEF2F7; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #fff; flex-wrap: wrap; }
+.ibx-thead { padding: 10px 20px; border-bottom: 1px solid #EEF2F7; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #fff; flex-wrap: wrap; }
 .ibx-who { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .ibx-who .ibx-av { width: 40px; height: 40px; }
 .ibx-nm { font-size: 15px; font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #0F172A; }
@@ -95,10 +95,15 @@
 .ibx-sel { height: 36px; padding: 0 28px 0 11px; border: 1px solid #E2E8F0; border-radius: 9px; background: #fff; color: #0F172A; font: 600 12px Inter, sans-serif; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.4' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; background-size: 11px; }
 .ibx-sel[hidden] { display: none; }
 
+/* C. Client details fold into one tappable row on a phone (2026-09-27). The strip itself
+   is real, useful context, so it is never thrown away - it is one tap behind this row, and
+   the row is a full 44px target. On desktop the toggle does not exist and the strip is
+   always open, exactly as before. */
+.ibx-ctxtoggle { display: none; }
 .ibx-ctx { display: flex; gap: 0; padding: 0 20px; border-bottom: 1px solid #EEF2F7; background: #FAFBFC; overflow-x: auto; scrollbar-width: none; }
 .ibx-ctx::-webkit-scrollbar { display: none; }
 .ibx-ctx[hidden] { display: none; }
-.ibx-ctxi { padding: 10px 16px 10px 0; margin-right: 16px; border-right: 1px solid #EEF2F7; font-size: 11.5px; color: #475569; white-space: nowrap; flex-shrink: 0; }
+.ibx-ctxi { padding: 6px 14px 6px 0; margin-right: 16px; border-right: 1px solid #EEF2F7; font-size: 11.5px; color: #475569; white-space: nowrap; flex-shrink: 0; }
 .ibx-ctxi:last-child { border-right: none; margin-right: 0; }
 .ibx-ctxi.is-link { margin-left: auto; align-self: center; }
 .ibx-ctxi b { display: block; font-size: 12.5px; font-weight: 600; color: #0F172A; margin-top: 1px; font-variant-numeric: tabular-nums; }
@@ -108,9 +113,9 @@
 .ibx-msgs { flex: 1; overflow-y: auto; padding: 20px 20px 10px; background: linear-gradient(180deg, #FAFBFC, #F5F7FA); display: flex; flex-direction: column; min-height: 0; }
 .ibx-daysep { display: flex; align-items: center; justify-content: center; margin: 8px 0 14px; }
 .ibx-daysep span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #475569; background: #fff; border: 1px solid #E8EDF3; padding: 4px 12px; border-radius: 999px; }
-.ibx-m { display: flex; gap: 10px; max-width: 76%; margin-bottom: 14px; }
+.ibx-m { display: flex; gap: 10px; max-width: min(76%, 68ch); margin-bottom: 14px; }
 .ibx-m.is-out { margin-left: auto; flex-direction: row-reverse; }
-.ibx-m.is-opening { max-width: 84%; }
+.ibx-m.is-opening { max-width: min(84%, 72ch); }
 .ibx-mav { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; background: #334155; margin-top: auto; }
 .ibx-m.is-out .ibx-mav { background: #B45309; }
 .ibx-mb { min-width: 0; }
@@ -152,19 +157,18 @@
 @media (prefers-reduced-motion: reduce) { .ibx-tb i { animation: none; opacity: .7; } }
 
 /* ---------- composer ---------- */
-.ibx-composer { border-top: 1px solid #EEF2F7; padding: 13px 20px 15px; background: #fff; }
-.ibx-ctop { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; gap: 10px; flex-wrap: wrap; }
+.ibx-composer { border-top: 1px solid #EEF2F7; padding: 10px 20px; background: #fff; }
 .ibx-ctabs { display: flex; gap: 5px; }
 .ibx-ctab { height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid #E2E8F0; background: #fff; color: #475569; font: 600 11.5px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
 .ibx-ctab.is-on { background: #1E293B; border-color: #1E293B; color: #fff; }
 .ibx-ctab:disabled { opacity: .45; cursor: not-allowed; }
-.ibx-hint { font-size: 11.5px; color: #475569; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ibx-hint { font-size: 11.5px; color: #475569; display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ibx-hint b { color: #1E293B; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
 .ibx-cbox { border: 1.5px solid #E2E8F0; border-radius: 12px; overflow: hidden; transition: border-color .18s, box-shadow .18s; background: #fff; }
 .ibx-cbox:focus-within { border-color: #B45309; box-shadow: 0 0 0 3px rgba(180, 83, 9, .1); }
-.ibx-cbox textarea { width: 100%; height: 72px; border: none; padding: 11px 13px; font: 400 13.5px Inter, sans-serif; color: #0F172A; outline: none; resize: none; line-height: 1.6; background: transparent; display: block; }
-.ibx-cfoot { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px 7px 7px; border-top: 1px solid #F1F5F9; background: #FCFDFE; gap: 8px; }
-.ibx-cfoot .ibx-left { display: flex; gap: 2px; align-items: center; min-width: 0; }
+.ibx-cbox textarea { width: 100%; height: 44px; min-height: 44px; max-height: min(120px, 18vh); overflow-y: auto; border: none; padding: 11px 13px; font: 400 13.5px Inter, sans-serif; color: #0F172A; outline: none; resize: none; line-height: 1.6; background: transparent; display: block; }
+.ibx-cfoot { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px 5px 6px; border-top: 1px solid #F1F5F9; background: #FCFDFE; gap: 8px; flex-wrap: nowrap; }
+.ibx-cfoot .ibx-left { display: flex; gap: 8px; align-items: center; min-width: 0; flex: 1; overflow: hidden; }
 .ibx-subj { font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
 .ibx-subj[hidden] { display: none; }
 .ibx-send { height: 36px; padding: 0 18px; border: none; border-radius: 10px; background: linear-gradient(135deg, #334155, #1E293B); color: #fff; font: 600 12.5px Inter, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 8px 18px -8px rgba(30, 41, 59, .5); transition: transform .15s; flex-shrink: 0; }
@@ -188,6 +192,45 @@
   .ibx-shell:not(.is-thread-open) .ibx-thread { display: none; }
   .ibx-back { display: inline-flex; }
   .ibx-ctx { flex-wrap: nowrap; }
-  .ibx-m { max-width: 92%; }
-  .ibx-m.is-opening { max-width: 96%; }
+  .ibx-m { max-width: min(92%, 68ch); }
+  .ibx-m.is-opening { max-width: min(96%, 72ch); }
+
+  /* B. The header wrapped to 150px on a phone: a 40px avatar over two lines, with the action
+     row below it. The actions keep their full 44px targets; only the identity block tightens. */
+  .ibx-thead { padding: 8px 16px; gap: 8px; }
+  /* * Each takes its OWN full-width row, deterministically. Leaving it to flex-wrap is a
+     knife edge: trimming the header padding by 8px left exactly 12.2px of free space, so
+     .ibx-who (flex: 1) squeezed onto the actions' line instead of wrapping below it and
+     its content stacked vertically - the header grew from 150px to 231px. Measured. */
+  .ibx-who { gap: 10px; flex: 1 1 100%; min-width: 0; }
+  .ibx-who .ibx-av { width: 32px; height: 32px; font-size: 11px; }
+  /* One row, scrolled horizontally if the actions ever outgrow the width - never squeezed
+     into a narrow column, and never wrapped into three stacked rows. */
+  .ibx-tacts { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .ibx-tacts::-webkit-scrollbar { display: none; }
+  /* * Pre-existing tap-target gap, found while measuring (2026-09-27): .ibx-ib is an <a> with
+     height:36px, and tap-targets.css floors anchors by CLASS (a.flex / a.inline-flex), which
+     this one does not carry - so the 44px floor never reached it. Its siblings are <button>
+     and <select>, which the element selectors do cover. Same breakpoint as that file's own. */
+  .ibx-ib { min-height: 44px; }
+
+  /* C. folded by default; the toggle IS that one row. */
+  .ibx-ctxtoggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+    padding: 0 16px; border: 0; border-bottom: 1px solid #EEF2F7; background: #FAFBFC;
+    color: #475569; font: 600 12px Inter, sans-serif; cursor: pointer; text-align: left; }
+  .ibx-ctxtoggle svg { flex-shrink: 0; transition: transform .18s; }
+  .ibx-ctxtoggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .ibx-thread:not(.is-ctx-open) .ibx-ctx { display: none; }
+
+  /* D. Focus mode, MOBILE ONLY (this whole block is inside the max-width query, so it can
+     never fire on desktop). While the reply box has focus the soft keyboard has taken most
+     of the viewport - measured, the reading area collapsed to 30px. Standing the header down
+     to one line and dropping the client-details row gives that height back exactly when
+     it is scarce. Nothing is removed: every control returns the moment focus leaves. */
+  .ibx-thread:focus-within .ibx-thead { padding: 4px 16px; }
+  .ibx-thread:focus-within .ibx-who .ibx-av { width: 26px; height: 26px; font-size: 10px; }
+  .ibx-thread:focus-within .ibx-who .ibx-sub { display: none; }
+  .ibx-thread:focus-within .ibx-tacts { display: none; }
+  .ibx-thread:focus-within .ibx-ctxtoggle { display: none; }
+  .ibx-thread:focus-within .ibx-ctx { display: none; }
 }

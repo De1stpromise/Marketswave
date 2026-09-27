@@ -119,23 +119,28 @@
                 </div>
               </div>
 
+              <button type="button" class="ibx-ctxtoggle" id="thread-context-toggle"
+                      aria-expanded="false" aria-controls="thread-context">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                Client details
+              </button>
               <div class="ibx-ctx" id="thread-context"></div>
 
               <div class="ibx-msgs" id="thread-messages"></div>
 
               <div class="ibx-composer" id="thread-composer">
-                <div class="ibx-ctop">
-                  <div class="ibx-ctabs" role="group" aria-label="Reply channel">
-                    <button type="button" class="ibx-ctab is-on" data-channel="chat" aria-pressed="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat</button>
-                    <button type="button" class="ibx-ctab" data-channel="email" aria-pressed="false"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg> Email</button>
-                  </div>
-                  <div class="ibx-hint" id="composer-hint"></div>
-                </div>
                 <div class="ibx-cbox">
                   <label for="thread-reply-input" class="sr-only">Reply</label>
                   <textarea id="thread-reply-input" placeholder="Reply…"></textarea>
                   <div class="ibx-cfoot">
-                    <div class="ibx-left"><span class="ibx-subj" id="composer-subject" hidden></span></div>
+                    <div class="ibx-left">
+                      <div class="ibx-ctabs" role="group" aria-label="Reply channel">
+                        <button type="button" class="ibx-ctab is-on" data-channel="chat" aria-pressed="true"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat</button>
+                        <button type="button" class="ibx-ctab" data-channel="email" aria-pressed="false"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg> Email</button>
+                      </div>
+                      <div class="ibx-hint" id="composer-hint"></div>
+                      <span class="ibx-subj" id="composer-subject" hidden></span>
+                    </div>
                     <button type="button" class="ibx-send" id="thread-reply-send">Send <kbd>⏎</kbd></button>
                   </div>
                 </div>
@@ -720,16 +725,35 @@
           return MarketswaveData.callFunction('send-conversation-reply', { conversationId: activeId, body: text, channel: channel });
         }).then(function () {
           input.value = '';
+          input.style.height = '';          // back to the resting one-line height
           if (channel === 'email') showToast('Email Sent', 'Your reply was sent — it threads under the conversation\'s subject.');
         }).catch(function (err) {
           showToast('Reply Failed', MarketswaveData.writeErrorMessage(err), true);
         });
       }
+      // C. Client details fold into one row on a phone; this toggle opens them. The strip is
+      // never removed - on desktop the button is display:none and the strip is always open.
+      document.getElementById('thread-context-toggle').addEventListener('click', function () {
+        var thread = this.closest('.ibx-thread');
+        var open = thread.classList.toggle('is-ctx-open');
+        this.setAttribute('aria-expanded', String(open));
+      });
+
       document.getElementById('thread-reply-send').addEventListener('click', sendReply);
       document.getElementById('thread-reply-input').addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
       });
+      // A. Auto-grow (2026-09-27). The reply box rests at one line and grows as the PM types,
+      // up to the CSS cap (min(120px, 18vh)) - after which the textarea scrolls internally, so
+      // a long reply can never keep pushing the reading area down. Height is reset to `auto`
+      // first, or scrollHeight only ever reports the previous, larger box and the field would
+      // grow monotonically and never return to its resting size.
+      function autoGrow(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, parseFloat(getComputedStyle(el).maxHeight) || 120) + 'px';
+      }
       document.getElementById('thread-reply-input').addEventListener('input', function (e) {
+        autoGrow(e.target);
         if (e.target.value.trim()) sendTyping();
       });
 

@@ -248,6 +248,89 @@ async function main() {
           check(width + 'px: the Send button meets the 44px floor', o.sendH >= 44, String(o.sendH));
         }
       }
+
+      const THREAD_READY = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
+        for (let i = 0; i < 150; i++) { const t = document.getElementById('thread-view');
+          if (t && !t.classList.contains('hidden') && document.querySelector('#thread-messages .ibx-m')) { await nap(400); return true; }
+          await nap(200); } return false; })()`;
+      /* == READING AREA (2026-09-27) =================================================
+         The pane where a conversation is actually read. Before this change it was
+         463px at 1440x900 and 204.5px on a 390px phone, and 30px with the keyboard
+         up - 2.9% of the thread. Those four figures are the baselines below; they
+         were measured on this same page with this same seeded thread. Assert the
+         reading area BEATS them, never a fixed height, which would go stale the
+         moment a message is added to the fixture. */
+      const READ = `(() => {
+        const R = (q) => { const e = document.querySelector(q); if (!e) return null;
+          const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+          return { h: +r.height.toFixed(1), w: +r.width.toFixed(1), disp: cs.display }; };
+        const m = document.getElementById('thread-messages');
+        return { msgs: R('#thread-messages'), head: R('.ibx-thead'), ctx: R('#thread-context'),
+                 comp: R('#thread-composer'), ta: R('#thread-reply-input'),
+                 tog: R('#thread-context-toggle'),
+                 tacts: R('.ibx-tacts'),
+                 ctxOpen: document.querySelector('.ibx-thread').classList.contains('is-ctx-open'),
+                 visible: m ? +(m.clientHeight / m.scrollHeight).toFixed(3) : null };
+      })()`;
+
+      // -- desktop: the reading area must beat its own pre-change baseline
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+      await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html?c=' + t1 });
+      await cdp.evaluate(THREAD_READY);
+      const d1440 = await cdp.evaluate(READ);
+      check('1440x900: the reading area beats its pre-change 463px baseline', d1440.msgs.h > 463, d1440.msgs.h + 'px');
+      check('1440x900: the composer no longer spends a whole row on the channel tabs', d1440.comp.h < 160, d1440.comp.h + 'px');
+      check('1440x900: the reply box rests at one line', d1440.ta.h <= 48, d1440.ta.h + 'px');
+      check('1440x900: the client-details strip is still on screen (desktop never folds it)', d1440.ctx.h > 0, d1440.ctx.h + 'px');
+      check('1440x900: the mobile-only client-details row never appears on desktop', !d1440.tog || d1440.tog.disp === 'none', d1440.tog ? d1440.tog.disp : 'absent');
+
+      // -- the constraint: a reply grown to the cap must STILL beat the old baseline
+      await cdp.evaluate(`(() => { const t = document.getElementById('thread-reply-input');
+        t.value = Array.from({length: 40}, (_, i) => 'Line ' + (i + 1) + ' of a long reply that keeps going.').join(String.fromCharCode(10));
+        t.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await sleep(500);
+      const grown1440 = await cdp.evaluate(READ);
+      check('1440x900: * a reply grown to the cap STILL leaves more reading area than before the change',
+        grown1440.msgs.h > 463, grown1440.msgs.h + 'px vs 463px');
+      check('1440x900: the grown reply box stops at the cap and scrolls internally rather than growing forever',
+        grown1440.ta.h <= 122, grown1440.ta.h + 'px');
+
+      // -- mobile: the same, plus the folded client-details row
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+      await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html?c=' + t1 });
+      // Poll for a real row rather than sleeping: OPEN_FIRST_ROW clicks whatever it finds, so
+      // an early call throws on null and reads as a page failure rather than a slow list.
+      await cdp.evaluate(`(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
+        for (let i = 0; i < 150; i++) { if (document.querySelector('#convo-list .convo-row')) return true; await nap(200); } return false; })()`);
+      await cdp.evaluate(OPEN_FIRST_ROW);
+      await cdp.evaluate(THREAD_READY);
+      const m390 = await cdp.evaluate(READ);
+      check('390px: the reading area beats its pre-change 204.5px baseline', m390.msgs.h > 204.5, m390.msgs.h + 'px');
+      check('390px: the thread header no longer wraps into a tall stack', m390.head.h <= 150, m390.head.h + 'px');
+      check('390px: the client-details row is present and meets the 44px floor', m390.tog && m390.tog.h >= 44, m390.tog ? m390.tog.h + 'px' : 'absent');
+      check('390px: client details start folded, so the strip costs one row rather than its full height', !m390.ctxOpen && (!m390.ctx || m390.ctx.disp === 'none'));
+      const opened = await cdp.evaluate(`(() => { document.getElementById('thread-context-toggle').click();
+        const c = document.getElementById('thread-context');
+        return { h: +c.getBoundingClientRect().height.toFixed(1), items: c.querySelectorAll('.ibx-ctxi').length,
+                 expanded: document.getElementById('thread-context-toggle').getAttribute('aria-expanded') }; })()`);
+      check('390px: * one tap reveals the REAL client-details strip - nothing was thrown away',
+        opened.h > 0 && opened.items > 0, JSON.stringify(opened));
+      check('390px: aria-expanded tracks the folded state', opened.expanded === 'true', opened.expanded);
+
+      // -- D is mobile only: focusing the reply box must change nothing on desktop
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+      await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html?c=' + t1 });
+      await cdp.evaluate(THREAD_READY);
+      const deskRest = await cdp.evaluate(READ);
+      await cdp.evaluate(`document.getElementById('thread-reply-input').focus(); 1`);
+      await sleep(400);
+      const deskFocus = await cdp.evaluate(READ);
+      check('desktop: focusing the reply box does NOT fold the header (D is gated to mobile)',
+        Math.abs(deskFocus.head.h - deskRest.head.h) < 1, deskRest.head.h + ' -> ' + deskFocus.head.h);
+      check('desktop: the header actions stay visible while typing',
+        deskFocus.tacts && deskFocus.tacts.disp !== 'none', deskFocus.tacts ? deskFocus.tacts.disp : 'absent');
+      check('desktop: the client-details strip stays visible while typing',
+        deskFocus.ctx.h > 0, deskFocus.ctx.h + 'px');
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 900, deviceScaleFactor: 1, mobile: true });
       await cdp.send('Page.navigate', { url: BASE + '/' });
       await sleep(800);

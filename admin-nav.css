@@ -44,3 +44,13 @@
 .an-out { width: 36px; height: 44px; border: 0; background: transparent; color: #94A3B8; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
 .an-out:hover { background: rgba(255, 255, 255, .06); color: #fff; }
 .an-out:focus-visible { outline: 2px solid #F59E0B; outline-offset: 2px; }
+
+/* * Tap-target floor on a phone (2026-09-27). .an-item declares min-height: 38px, and that
+   (0,1,0) rule out-specifies tap-targets.css's element-selector floor - which never reached
+   it in any case, because that file floors anchors by CLASS (a.flex / a.inline-flex) and this
+   one sets display:flex in CSS without carrying the class. Measured with the drawer OPEN at
+   390px: all 12 rail items rendered 214x38. Same breakpoint as tap-targets.css's own.
+   Found while measuring the inbox; it affects every admin page, not just that one. */
+@media (max-width: 1023.98px) {
+  .an-item { min-height: 44px; }
+}
