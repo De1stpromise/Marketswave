@@ -12102,8 +12102,12 @@ is for. Four stages, in order, each building on the last:
   also checks both ends of every Tier A gradient against its own white label — a gradient can
   pass contrast at one end and fail at the other, which is exactly how white-on-emerald-600
   shipped at 3.77:1 for months. See `BUTTON_AUDIT.md` for the full reasoning.
-- **★★ NEVER PUT `min-height: 0` ON A SELECTOR THAT STYLES AN INTERACTIVE CONTROL — third
-  occurrence, 2026-09-22 (register rows 266–267).** A class rule is (0,1,0) and silently
+- **★★ NEVER PUT AN EXPLICIT `min-height` UNDER 44px ON A SELECTOR THAT STYLES AN INTERACTIVE
+  CONTROL — fourth occurrence 2026-09-27, and the one that WIDENED this rule (register rows
+  266–267, 279).** **★ `0` WAS NEVER THE DEFECT, ONLY A COINCIDENCE OF HOW THE FIRST THREE
+  WERE WRITTEN.** `.an-item` in the PM rail carried **`min-height: 38px`** and failed identically,
+  shipping a 214x38 control on every phone across all 16 admin pages. A rule — or a guard —
+  scoped to `0` reads that declaration and passes it. A class rule is (0,1,0) and silently
   out-specifies `tap-targets.css`'s `button { min-height: 44px }` (0,0,1) below `lg`, so the control
   ships at 21–32px on every phone with nothing erroring. `.pr-pill` (row 261), the `.doc-pill`
   near-miss (row 247), and `.cat-slot-btn` at 21px on `asset-collection.html` (row 266 — **FIXED
@@ -12118,8 +12122,12 @@ is for. Four stages, in order, each building on the last:
   speed-up changed that page's render timing. Row 267 queues the real answer, a SOURCE check rather
   than a rendered one, keyed on `cursor: pointer` (or a button-reset tell) in the same block, which
   cleanly separates the four interactive offenders from the nine legitimate flexbox
-  `min-height: 0` containers. **Until it lands, the rule is manual: if you are about to write
-  `min-height: 0` next to `cursor: pointer`, you are writing this bug.** If a control genuinely must
+  `min-height: 0` containers. **Until it lands, the rule is manual: if you are about to write an
+  explicit `min-height` under 44px — `0` included — next to `cursor: pointer`, you are writing
+  this bug.** **And an ANCHOR styled as a control is doubly exposed**: `tap-targets.css` floors
+  anchors by CLASS (`a.flex` / `a.inline-flex`), so one that sets `display: flex` in CSS without
+  carrying the class — `.an-item`, and `.ibx-ib` in the inbox — never had a floor to out-specify
+  in the first place. Treat `display: flex`/`inline-flex` in the block as a control tell too. If a control genuinely must
   stay short on desktop, leave `min-height` UNSET — the floor is already scoped to `≤ lg`, so it
   keeps its natural height on desktop and floors on mobile without any declaration from you.
 - **The scheduler needs configuring once per environment, and a fresh `supabase db reset`
