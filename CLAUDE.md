@@ -11747,6 +11747,18 @@ is for. Four stages, in order, each building on the last:
   against an hour-old deploy fails by name). It skips the migrations half, so it works even
   when the pooler login-role path is down. A fresh timestamp says the function was
   redeployed — it still does not diff source, the older limitation above stands.
+  ★ **AND THE ERROR CAN LIE IN THE OTHER DIRECTION TOO, which is why the check is run on a
+  FAILED deploy as well as a successful one (2026-09-28).** With staging at the Free plan's
+  100-function cap, `supabase functions deploy a b c d e f` bundled and deployed all six
+  individually and then died on a trailing BULK status call with
+  `FunctionsApiStatusError ... 402 {"message":"Max number of functions reached for project"}` —
+  no function was being created, every one already existed, and all six were genuinely live
+  (timestamps 15 seconds apart, `--fresh` clean, and the redeployed function answering a real
+  401 unauthenticated). Row 219 recorded exit 0 hiding a failure; this is an error message
+  hiding a success, and believing it would have meant a needless second deploy or, worse,
+  concluding the feature had not shipped. **Read the timestamps either way — the CLI's verdict
+  is not evidence in either direction.** At the cap, expect this 402 on every multi-function
+  deploy; it is not a reason to stop.
 - **★★ COMPUTE THE REDEPLOY SET, AND MAKE THE SCAN PROVE ITSELF AGAINST ROW 143'S RECORDED
   FIGURES (2026-09-22).** Deno bundles shared imports at deploy time, so every function that reaches
   a changed `_shared/*.ts` must be redeployed together or it runs stale code (row 143) — and the
