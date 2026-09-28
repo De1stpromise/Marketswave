@@ -1,6 +1,15 @@
 // ★ Visitor presence (2026-09-13) — the ONE endpoint a visitor's browser talks to. Called by
-// site-presence.js on every page load ('page'), every 20 s ('heartbeat'), and once on
+// site-presence.js on every page load ('page'), every 15 s ('heartbeat'), and once on
 // pagehide ('leave', as a keepalive fetch or a text/plain beacon). No authentication is
+//
+// * THE 'leave' BEACON LANDS FOR ROUGHLY ONE SESSION IN SEVEN. Measured on real staging data
+// (2026-09-28): 34 of 245 sessions carry ended_at, and 85 of 144 one-page sessions have NO
+// activity at all after arrival — they left inside the first 15 s heartbeat and the beacon
+// did not arrive. A browser cannot be made to announce a departure reliably: pagehide does
+// not fire on a killed tab, a lost connection or a closed lid, and a beacon can be dropped.
+// So departure is a CLASSIFICATION, not a timestamp — see classifyDeparture() in
+// _shared/visitor-presence.ts, and do not add code that treats last_seen_at as a departure
+// time without saying how well it is known.
 // required — a public visitor has none — but when a real client session's JWT is present the
 // caller's own real name is recorded, since the platform legitimately knows who they are.
 //

@@ -26,6 +26,8 @@
     .tab-pill { cursor: pointer; user-select: none; }
     .tab-pill.is-active { background: #1E293B; color: #fff; border-color: #1E293B; }
     .tab-pill.is-active .tab-n { background: rgba(255,255,255,.2); color: #fff; }
+    .view-pill { cursor: pointer; user-select: none; }
+    .view-pill.is-active { background: #1E293B; color: #fff; border-color: #1E293B; }
     .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 7px rgba(34,197,94,.7); animation: presence-pulse 2s ease-in-out infinite; }
     @keyframes presence-pulse { 50% { opacity: .35; } }
     @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
@@ -37,6 +39,35 @@
     .trail { font-size: 10.5px; color: #64748B; margin-top: 3px; display: flex; align-items: center; gap: 5px; overflow-wrap: anywhere; }
     .trail svg { width: 9px; height: 9px; flex-shrink: 0; }
     .snip { height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid #E2E8F0; background: #fff; color: #475569; font: 600 11px Inter, sans-serif; cursor: pointer; }
+
+    /* Departure confidence. Four states, one visual language, used identically in the table,
+       the key beneath it and the detail panel — so the same visit never looks differently
+       certain in two places. Colours are measured against the row/card grounds they sit on. */
+    .dep-conf { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; }
+    .dep-conf i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dep-now { color: #15803D; } .dep-now i { background: #22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+    .dep-exact { color: #475569; } .dep-exact i { background: #475569; }
+    .dep-about { color: #92400E; } .dep-about i { background: #F59E0B; }
+    .dep-none { color: #5C6367; } .dep-none i { background: #CBD5E1; }
+
+    .mw-card-table tr.is-selected { background: #FFFBEB; box-shadow: inset 3px 0 0 #B45309; }
+    .mw-card-table tr.is-group { background: #FCFDFE; }
+    .mw-card-table tr.is-subrow { background: #FCFDFE; }
+
+    /* The journey, page by page. */
+    .tl { position: relative; padding-left: 18px; }
+    .tl::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 2px; background: #E2E8F0; }
+    .tl-step { position: relative; padding-bottom: 13px; }
+    .tl-step::before { content: ''; position: absolute; left: -17px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid #94A3B8; }
+    .tl-step.is-start::before { border-color: #15803D; background: #DCFCE7; }
+    .tl-step.is-end::before { border-color: #F59E0B; background: #FEF3C7; }
+    .tl-t { font-size: 10.5px; color: #5C6367; font-variant-numeric: tabular-nums; }
+    .tl-p { font-size: 12.5px; font-weight: 600; margin-top: 2px; color: #1E293B; }
+    .tl-step.is-end .tl-p { color: #92400E; }
+
+    /* Below xl the detail panel stacks beneath the table rather than beside it — the grid
+       already does that; this only stops it trying to stick while stacked. */
+    @media (max-width: 1279.98px) { #detail-panel { position: static; } }
   </style>
 
   <!-- Tailwind, compiled once (scripts/build-tailwind.mjs, row 260) — deliberately the LAST stylesheet in <head>:
@@ -93,25 +124,55 @@
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 relative" id="stat-strip">
           <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">On the site now</p><p class="text-2xl font-bold tracking-tight num" id="st-live">—</p><p class="text-[10.5px] text-slate-600 mt-1" id="st-live-x"></p></div>
-          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Sessions today</p><p class="text-2xl font-bold tracking-tight num" id="st-today">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-today-x"></p></div>
-          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Median time on site</p><p class="text-2xl font-bold tracking-tight num" id="st-median">—</p><p class="text-[10.5px] text-slate-600 mt-1">across today</p></div>
-          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Most viewed page</p><p class="text-lg font-bold tracking-tight num truncate" id="st-page">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-page-x"></p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Visits today</p><p class="text-2xl font-bold tracking-tight num" id="st-today">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-today-x"></p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Average time on site</p><p class="text-2xl font-bold tracking-tight num" id="st-avg">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-avg-x">today, where departure is known</p></div>
+          <div class="glass-subtle rounded-xl p-4"><p class="text-[10.5px] font-semibold text-slate-600 mb-1.5">Returning visitors</p><p class="text-2xl font-bold tracking-tight num" id="st-returning">—</p><p class="text-[10.5px] text-slate-600 mt-1 num" id="st-returning-x">last 30 days</p></div>
         </div>
 
         <div class="flex flex-wrap gap-1.5 mb-4 relative" id="tabs" role="tablist">
           <button type="button" class="tab-pill mw-btn mw-btn-sm is-active border border-slate-200 bg-white text-slate-600" data-tab="live" role="tab" aria-selected="true">Live <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="live">0</span></button>
           <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="today" role="tab" aria-selected="false">Today <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="today">0</span></button>
           <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="week" role="tab" aria-selected="false">Last 7 days <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="week">0</span></button>
+          <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="month" role="tab" aria-selected="false">Last 30 days <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="month">0</span></button>
           <button type="button" class="tab-pill mw-btn mw-btn-sm border border-slate-200 bg-white text-slate-600" data-tab="clients" role="tab" aria-selected="false">Clients only <span class="tab-n text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 num" data-count="clients">0</span></button>
         </div>
 
         <!-- .glass-lift: the first column heading sits in the sheen corner (row 204). -->
-        <div class="glass glass-lift rounded-2xl relative overflow-hidden" id="presence-panel">
+        <!-- View: each visit (as before) or grouped by person. Grouping is by CLIENT when we
+             know who they are and by BROWSER when we do not — an anonymous visitor cannot be
+             followed across devices and the page must not imply that it can. -->
+        <div class="glass-subtle rounded-xl px-4 py-3 mb-4 flex items-center gap-2 flex-wrap relative" id="view-bar">
+          <span class="text-[10px] font-bold tracking-[.09em] uppercase text-slate-600 mr-1">Show</span>
+          <button type="button" class="mw-btn mw-btn-sm view-pill is-active border border-slate-200 bg-white text-slate-600" data-view="visits" aria-pressed="true">Each visit</button>
+          <button type="button" class="mw-btn mw-btn-sm view-pill border border-slate-200 bg-white text-slate-600" data-view="people" aria-pressed="false">Grouped by person</button>
+          <span class="text-[10.5px] text-slate-600 ml-auto num" id="view-note"></span>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start relative">
+         <div class="min-w-0">
+          <div class="glass glass-lift rounded-2xl relative overflow-hidden" id="presence-panel">
           <div id="presence-list" class="overflow-x-auto"></div>
           <div class="flex items-center justify-between px-5 py-3 border-t border-slate-100 text-[11.5px] text-slate-600 flex-wrap gap-2" id="presence-foot">
             <span>Sessions are kept for <b class="font-semibold text-slate-700">30 days</b>, then deleted automatically. IP addresses are used to derive location and are never stored.</span>
             <span class="num"><b class="font-semibold text-slate-700" id="foot-live">0</b> live · <b class="font-semibold text-slate-700" id="foot-today">0</b> today</span>
           </div>
+          </div>
+
+          <!-- What each departure state means, in the same words the column uses. -->
+          <div class="glass-subtle rounded-xl grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mt-4 overflow-hidden" id="departure-key">
+            <div class="p-3.5 border-b sm:border-b-0 sm:border-r border-slate-100"><span class="dep-conf dep-now"><i aria-hidden="true"></i>On the site now</span><p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">Active in the last 45 seconds.</p></div>
+            <div class="p-3.5 border-b xl:border-b-0 xl:border-r border-slate-100"><span class="dep-conf dep-exact"><i aria-hidden="true"></i>Exact</span><p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">Their browser told us when they left. Accurate to about a second.</p></div>
+            <div class="p-3.5 border-b sm:border-b-0 sm:border-r border-slate-100"><span class="dep-conf dep-about"><i aria-hidden="true"></i>About · ±15 s</span><p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">Worked out from their last activity. Within 15 seconds either way.</p></div>
+            <div class="p-3.5"><span class="dep-conf dep-none"><i aria-hidden="true"></i>Not recorded</span><p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">They left before anything after arrival was recorded — usually a very short visit.</p></div>
+          </div>
+          <p class="text-[11px] text-slate-600 text-center mt-3" id="retention-note">Visits are kept for 30 days, then deleted automatically. IP addresses are never stored.</p>
+         </div>
+
+         <!-- Detail: loaded only when a visit is selected. The journey is the heaviest column
+              in the table and is fetched for one session at a time, never for a list. -->
+         <aside class="glass glass-lift rounded-2xl overflow-hidden xl:sticky xl:top-4" id="detail-panel" aria-live="polite">
+           <div id="detail-body"><div class="p-6 text-center"><p class="text-sm font-semibold text-slate-900">No visit selected</p><p class="text-xs text-slate-600 mt-1">Choose a visit to see where they went, and their earlier visits.</p></div></div>
+         </aside>
         </div>
       </main>
     </div>
@@ -191,7 +252,9 @@
       var DESKTOP = '<svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
       var PHONE = '<svg class="w-3.5 h-3.5 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>';
 
-      var state = { tab: 'live', data: null, rules: { liveWindowSeconds: 45, minSecondsBeforeMessage: 30 }, asOfLocal: Date.now() };
+      var state = { tab: 'live', view: 'visits', sel: null, data: null,
+        rules: { liveWindowSeconds: 45, heartbeatSeconds: 15, minSecondsBeforeMessage: 30, retentionDays: 30 },
+        asOfLocal: Date.now() };
       var listEl = document.getElementById('presence-list');
 
       function describeVisitor(s) {
@@ -205,6 +268,57 @@
         var elapsed = (Date.now() - state.asOfLocal) / 1000;
         var age = (new Date(state.data.asOf).getTime() - new Date(s.lastSeenAt).getTime()) / 1000 + elapsed;
         return age <= state.rules.liveWindowSeconds;
+      }
+      // Times are shown in the PM's OWN time zone — the payload is ISO/UTC throughout and is
+      // converted here, at the point of display, never on the server (which has no idea where
+      // the PM is).
+      var TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'your local time';
+      var HHMM = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+      var HMS = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      var DAYMON = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+      function hhmm(iso) { return iso ? HHMM.format(new Date(iso)) : '—'; }
+      function hms(iso) { return iso ? HMS.format(new Date(iso)) : '—'; }
+      function sameDay(iso) { var d = new Date(iso), n = new Date(); return d.toDateString() === n.toDateString(); }
+      function dayLabel(iso) { return sameDay(iso) ? 'today' : DAYMON.format(new Date(iso)); }
+
+      // ★ The four departure states, from the server's own classification (classifyDeparture in
+      // _shared/visitor-presence.ts). 'live' is re-derived locally so a row stops being live on
+      // screen without waiting for a round trip; the other three are settled facts about what
+      // was recorded and never change after the fact.
+      function departureOf(s) { return liveNow(s) ? 'live' : (s.departureState === 'live' ? 'approx' : s.departureState); }
+      // ★ The tolerance is the server's OWN heartbeat interval, read at call time, never a
+      // literal. It is stated in three places — the chip, the key below the table and the last step
+      // of a journey — and a hardcoded 15 in any of them is a lie the day the interval moves.
+      function depLabel(st) {
+        var hb = (state.rules && state.rules.heartbeatSeconds) || 15;
+        return { live: 'On the site now', exact: 'Exact', approx: 'About · ±' + hb + '\u00a0s', unknown: 'Not recorded' }[st];
+      }
+      var DEP_CLASS = { live: 'dep-now', exact: 'dep-exact', approx: 'dep-about', unknown: 'dep-none' };
+      // The key below the table restates the tolerance in its own markup; keep it in step with
+      // depLabel() rather than leaving two copies of the number to drift.
+      function syncDepartureKey() {
+        var hb = (state.rules && state.rules.heartbeatSeconds) || 15;
+        var chip = document.querySelector('#departure-key .dep-about');
+        if (chip) chip.innerHTML = '<i aria-hidden=\"true\"></i>' + depLabel('approx');
+        var note = chip && chip.parentElement ? chip.parentElement.querySelector('p') : null;
+        if (note) note.textContent = 'Worked out from their last activity. Within ' + hb + ' seconds either way.';
+      }
+      function depChip(st) { return '<span class="dep-conf ' + DEP_CLASS[st] + '"><i aria-hidden="true"></i>' + depLabel(st) + '</span>'; }
+      function depCell(s) {
+        var st = departureOf(s);
+        if (st === 'live') {
+          // Keeps the one thing the mockup's Left column has no room for and the old "Currently
+          // on" column did carry: what page a live visitor is reading right now, which is what
+          // a PM acts on when deciding to message them.
+          return depChip(st) + '<span class="block text-[10px] text-slate-600 mt-1 num truncate">on ' + esc(s.currentPath) + '</span>';
+        }
+        if (st === 'unknown') return '<span class="block text-[12px] text-slate-500">—</span>' + depChip(st);
+        return '<span class="block text-[12px] font-semibold text-slate-800 num">' + hhmm(s.departureAt) + '</span>' + depChip(st);
+      }
+      // "Under 15 s" — never 0, which would read as a measurement rather than an absence.
+      function durCell(s) {
+        if (departureOf(s) === 'unknown') return '<span class="text-[12px] text-slate-500">Under ' + state.rules.heartbeatSeconds + '\u00a0s</span>';
+        return fmtDur(durationNow(s));
       }
       function ageNow(s) { return s.ageSeconds + (Date.now() - state.asOfLocal) / 1000; }
       function durationNow(s) { return liveNow(s) ? s.durationSeconds + (Date.now() - state.asOfLocal) / 1000 : s.durationSeconds; }
@@ -221,52 +335,125 @@
         document.getElementById('st-today').textContent = String(d.stats.sessionsToday);
         var delta = d.stats.sessionsToday - d.stats.sessionsYesterday;
         document.getElementById('st-today-x').textContent = (delta >= 0 ? '↑ ' : '↓ ') + Math.abs(delta) + ' vs yesterday';
-        document.getElementById('st-median').textContent = d.stats.medianSecondsToday === null ? '—' : fmtDur(d.stats.medianSecondsToday);
-        document.getElementById('st-page').textContent = d.stats.mostViewedToday ? d.stats.mostViewedToday.path : '—';
-        document.getElementById('st-page-x').textContent = d.stats.mostViewedToday ? d.stats.mostViewedToday.sessions + (d.stats.mostViewedToday.sessions === 1 ? ' session today' : ' sessions today') : 'no sessions yet today';
-        ['live', 'today', 'week', 'clients'].forEach(function (k) { document.querySelector('[data-count="' + k + '"]').textContent = String(k === 'live' ? d.stats.liveNow : d.counts[k]); });
+        // ★ The average counts ONLY visits whose departure is known, and says so — including
+        // how many of today's visits that actually is, so the figure is not read as covering
+        // every visit when a third of them have no recorded departure at all.
+        document.getElementById('st-avg').textContent = d.stats.avgSecondsTodayKnown === null ? '—' : fmtDur(d.stats.avgSecondsTodayKnown);
+        document.getElementById('st-avg-x').textContent = d.stats.avgKnownOf
+          ? 'today, where departure is known (' + d.stats.avgKnownOf + ' of ' + d.stats.avgKnownTotal + ')'
+          : 'no departures recorded yet today';
+        document.getElementById('st-returning').textContent = d.stats.returningPercent30 === null ? '—' : d.stats.returningPercent30 + '%';
+        document.getElementById('st-returning-x').textContent = d.stats.returningOf30 ? 'of ' + d.stats.returningOf30 + ' visits, last 30 days' : 'last 30 days';
+        ['live', 'today', 'week', 'month', 'clients'].forEach(function (k) { var el = document.querySelector('[data-count="' + k + '"]'); if (el) el.textContent = String(k === 'live' ? d.stats.liveNow : (d.counts[k] === undefined ? 0 : d.counts[k])); });
         document.getElementById('foot-live').textContent = String(d.stats.liveNow);
         document.getElementById('foot-today').textContent = String(d.stats.sessionsToday);
 
         if (!sessions.length) {
-          listEl.innerHTML = '<div class="py-14 text-center"><p class="text-sm font-semibold text-slate-900">' + (state.tab === 'live' ? 'Nobody on the site right now' : state.tab === 'clients' ? 'No client sessions in the last 7 days' : 'No sessions yet') + '</p><p class="text-xs text-slate-600 mt-1">' + (state.tab === 'live' ? 'Visitors appear here the moment they arrive.' : 'Sessions are kept for 30 days.') + '</p></div>';
+          listEl.innerHTML = '<div class="py-14 text-center"><p class="text-sm font-semibold text-slate-900">' + (state.tab === 'live' ? 'Nobody on the site right now' : state.tab === 'clients' ? 'No client visits in the last 30 days' : state.tab === 'month' ? 'No visits in the last 30 days' : state.tab === 'week' ? 'No visits in the last 7 days' : 'No visits yet today') + '</p><p class="text-xs text-slate-600 mt-1">' + (state.tab === 'live' ? 'Visitors appear here the moment they arrive.' : 'Sessions are kept for 30 days.') + '</p></div>';
           return;
         }
-        var rows = sessions.map(function (s) {
-          var who = describeVisitor(s);
-          var live = liveNow(s);
-          var age = ageNow(s);
-          var trail = s.journey.length > 1 ? s.journey.map(function (j) { return esc(j.p === '/' ? 'index' : j.p.replace(/^\//, '')); }).join(' → ') : 'just arrived';
-          var loc = s.city ? esc(s.city) + ', ' + esc(s.country) : (s.country ? esc(s.country) : 'Unknown location');
-          var mobile = /iPhone|iPad|Android/.test(s.device || '');
+        // ── GROUPED BY PERSON ───────────────────────────────────────────────────────────
+        // One person, one row, with a sub-row per device — but ONLY where 'one person' is a
+        // fact: a signed-in client, whose sessions carry the same client_id across devices.
+        // Anonymous visitors group by BROWSER (the cookie), which is all that is knowable, and
+        // the row says so rather than implying the two are the same kind of grouping.
+        function groupSessions(list) {
+          var byKey = {};
+          list.forEach(function (x) {
+            var k = x.clientId ? 'c:' + x.clientId : 'b:' + (x.visitorId || x.id);
+            (byKey[k] = byKey[k] || []).push(x);
+          });
+          return Object.keys(byKey).map(function (k) {
+            var items = byKey[k].slice().sort(function (a, b) { return new Date(b.startedAt) - new Date(a.startedAt); });
+            var anyLive = items.some(liveNow);
+            // Concurrent only counts for a client: two browsers of one anonymous cookie is one
+            // browser as far as anything here can prove.
+            var concurrent = items[0].clientId ? items.filter(function (a) {
+              return items.some(function (b) {
+                if (a === b) return false;
+                var ae = new Date(a.departureAt || a.lastSeenAt), be = new Date(b.departureAt || b.lastSeenAt);
+                return new Date(a.startedAt) < be && new Date(b.startedAt) < ae;
+              });
+            }).length : 0;
+            return { key: k, items: items, isClient: !!items[0].clientId, live: anyLive, concurrent: concurrent };
+          }).sort(function (a, b) { return (b.live === a.live ? 0 : b.live ? 1 : -1) || new Date(b.items[0].startedAt) - new Date(a.items[0].startedAt); });
+        }
+
+        function visitorCell(s, who, live) {
+          // ★ who.sub ("First visit" / "Returning · 3rd visit" / "Signed in") comes FIRST and is
+          // never dropped. Location and referrer moved onto this line when the mockup's table lost
+          // their columns; an earlier cut showed them INSTEAD of who.sub, which silently removed the
+          // visit number for every visitor who had a city or a referrer — which is most of them, and
+          // it is the single most useful thing on the row.
+          var bits = [esc(who.sub)];
+          if (s.city) bits.push(esc(s.city) + ', ' + esc(s.country));
+          else if (s.country) bits.push(esc(s.country));
+          if (s.referrerLabel) bits.push(s.searchTerm ? 'from ' + esc(s.referrerLabel) + ' · “' + esc(s.searchTerm) + '”' : 'from ' + esc(s.referrerLabel));
+          return '<div class="flex items-center gap-2.5"><span class="av' + (who.anon ? ' is-anon' : '') + '">' + (who.anon ? '?' : esc(initials(who.name))) + (live ? '<span class="on" aria-hidden="true"></span>' : '') + '</span>' +
+            '<div class="min-w-0"><b class="block text-[13px] font-semibold text-slate-900">' + esc(who.name) + who.tag + '</b>' +
+            '<span class="block text-[11px] text-slate-600 mt-0.5 truncate">' + bits.join(' · ') + '</span></div></div>';
+        }
+        function actionFor(s, live, age) {
           var wait = Math.ceil(state.rules.minSecondsBeforeMessage - age);
-          var actionHTML;
-          if (s.invitationSentAt && s.conversationId) {
-            actionHTML = '<a href="admin-inbox.html" class="mw-btn mw-btn-outline mw-btn-sm">Open thread</a>';
-          } else if (!live) {
-            actionHTML = '<span class="text-[10.5px] text-slate-600">Left</span>';
-          } else if (age < state.rules.minSecondsBeforeMessage) {
-            actionHTML = '<span class="text-[10.5px] text-slate-600 num" data-wait="' + s.id + '">Wait ' + wait + 's</span><button type="button" class="mw-btn mw-btn-admin mw-btn-sm" disabled data-message="' + s.id + '">Message</button>';
-          } else {
-            actionHTML = '<button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-message="' + s.id + '">Message</button>';
-          }
-          return '<tr class="hover:bg-slate-50/60" data-session="' + s.id + '" data-live="' + (live ? '1' : '0') + '">' +
-            '<td class="align-middle"><div class="flex items-center gap-2.5"><span class="av' + (who.anon ? ' is-anon' : '') + '">' + (who.anon ? '?' : esc(initials(who.name))) + (live ? '<span class="on" aria-hidden="true"></span>' : '') + '</span><div class="min-w-0"><b class="block text-[13px] font-semibold text-slate-900">' + esc(who.name) + who.tag + '</b><span class="block text-[11px] text-slate-600 mt-0.5">' + esc(who.sub) + (live ? '' : ' · left') + '</span></div></div></td>' +
-            '<td class="align-middle"><span class="inline-flex items-center text-[12.5px] text-slate-700"><code class="font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-[12px]" style="font-family:Inter,sans-serif">' + esc(s.currentPath) + '</code></span><div class="trail">' + ARROW + '<span>' + trail + '</span></div></td>' +
-            '<td class="align-middle"><span class="inline-flex items-center gap-2 text-[12.5px] text-slate-700"><span class="flagbox">' + esc(s.countryCode || '—') + '</span>' + loc + '</span></td>' +
-            '<td class="align-middle"><span class="inline-flex items-center gap-1.5 text-[12px] text-slate-700">' + (mobile ? PHONE : DESKTOP) + esc(s.device) + ' · ' + esc(s.browser) + '</span></td>' +
-            '<td class="align-middle text-[12px] text-slate-700">' + esc(s.referrerLabel || 'Direct') + (s.searchTerm ? ' · <b class="font-semibold text-slate-900">“' + esc(s.searchTerm) + '”</b>' : '') + '</td>' +
-            '<td class="align-middle num text-[12.5px] text-slate-700 font-medium" data-dur="' + s.id + '">' + fmtDur(durationNow(s)) + '<span class="block text-[10.5px] text-slate-600 font-normal mt-0.5">' + s.pageCount + (s.pageCount === 1 ? ' page' : ' pages') + '</span></td>' +
-            '<td class="align-middle text-right"><div class="flex gap-2 justify-end items-center">' + actionHTML + '</div></td>' +
+          if (s.invitationSentAt && s.conversationId) return '<a href="admin-inbox.html" class="mw-btn mw-btn-outline mw-btn-sm">Open thread</a>';
+          if (!live) return '<span class="text-[10.5px] text-slate-600">Left</span>';
+          if (age < state.rules.minSecondsBeforeMessage) return '<span class="text-[10.5px] text-slate-600 num" data-wait="' + s.id + '">Wait ' + wait + 's</span><button type="button" class="mw-btn mw-btn-admin mw-btn-sm" disabled data-message="' + s.id + '">Message</button>';
+          return '<button type="button" class="mw-btn mw-btn-admin mw-btn-sm" data-message="' + s.id + '">Message</button>';
+        }
+        function deviceCell(s) {
+          var mobile = /iPhone|iPad|Android/.test(s.device || '');
+          return '<span class="inline-flex items-center gap-1.5 text-[12px] text-slate-700">' + (mobile ? PHONE : DESKTOP) + esc(s.device) + '<span class="block text-[10px] text-slate-600">' + esc(s.browser) + '</span></span>';
+        }
+        function visitRow(s, opts) {
+          var who = describeVisitor(s), live = liveNow(s), age = ageNow(s);
+          var sub = opts && opts.sub;
+          return '<tr class="hover:bg-slate-50/60 cursor-pointer' + (state.sel === s.id ? ' is-selected' : '') + (sub ? ' is-subrow' : '') + '" data-session="' + s.id + '" data-live="' + (live ? '1' : '0') + '">' +
+            '<td class="align-middle">' + (sub
+              ? '<div class="pl-9 flex items-center gap-2">' + deviceCell(s) + '</div>'
+              : visitorCell(s, who, live)) + '</td>' +
+            '<td class="align-middle"><span class="block text-[12px] font-semibold text-slate-800 num">' + hhmm(s.startedAt) + '</span><span class="block text-[10px] text-slate-600">' + dayLabel(s.startedAt) + '</span></td>' +
+            '<td class="align-middle" data-dep="' + s.id + '">' + depCell(s) + '</td>' +
+            '<td class="align-middle num text-[12.5px] text-slate-700 font-medium" data-dur="' + s.id + '">' + durCell(s) + '</td>' +
+            '<td class="align-middle num text-[12.5px] text-slate-700">' + s.pageCount + '</td>' +
+            '<td class="align-middle">' + deviceCell(s) + '</td>' +
+            '<td class="align-middle text-right"><div class="flex gap-2 justify-end items-center">' + actionFor(s, live, age) + '</div></td>' +
             '</tr>';
-        }).join('');
+        }
+
+        var rows;
+        if (state.view === 'people') {
+          rows = groupSessions(sessions).map(function (g) {
+            var head = g.items[0], who = describeVisitor(head);
+            if (g.items.length === 1) return visitRow(head, null);
+            var totalPages = g.items.reduce(function (n, x) { return n + x.pageCount; }, 0);
+            var earliest = g.items[g.items.length - 1];
+            var note = g.isClient
+              ? (g.concurrent >= 2 ? g.items.length + ' devices, ' + g.concurrent + ' at once' : g.items.length + ' visits across devices')
+              : g.items.length + ' visits from this browser';
+            var headHTML = '<tr class="is-group" data-group="' + esc(g.key) + '">' +
+              '<td class="align-middle"><div class="flex items-center gap-2.5"><span class="av' + (who.anon ? ' is-anon' : '') + '">' + (who.anon ? '?' : esc(initials(who.name))) + (g.live ? '<span class="on" aria-hidden="true"></span>' : '') + '</span>' +
+                '<div class="min-w-0"><b class="block text-[13px] font-semibold text-slate-900">' + esc(who.name) + who.tag + '</b>' +
+                '<span class="block text-[11px] text-slate-600 mt-0.5 truncate">' + esc(note) + (head.city ? ' · ' + esc(head.city) + ', ' + esc(head.country) : '') + '</span></div></div></td>' +
+              '<td class="align-middle"><span class="block text-[12px] font-semibold text-slate-800 num">' + hhmm(earliest.startedAt) + '</span><span class="block text-[10px] text-slate-600">' + dayLabel(earliest.startedAt) + '</span></td>' +
+              '<td class="align-middle">' + (g.live ? depChip('live') : depCell(g.items[0])) + '</td>' +
+              '<td class="align-middle num text-[12.5px] text-slate-700 font-medium">' + (g.items.every(function (x) { return departureOf(x) === 'unknown'; }) ? '<span class="text-slate-500">Under ' + state.rules.heartbeatSeconds + '\u00a0s</span>' : fmtDur(g.items.reduce(function (n, x) { return n + (departureOf(x) === 'unknown' ? 0 : durationNow(x)); }, 0))) + '</td>' +
+              '<td class="align-middle num text-[12.5px] text-slate-700">' + totalPages + '</td>' +
+              '<td class="align-middle text-[12px] text-slate-700">' + esc(g.isClient ? g.items.length + ' devices' : 'One browser') + '</td>' +
+              '<td class="align-middle"></td></tr>';
+            return headHTML + g.items.map(function (x) { return visitRow(x, { sub: true }); }).join('');
+          }).join('');
+          document.getElementById('view-note').textContent = 'Clients group across their devices; anonymous visitors group per browser.';
+        } else {
+          rows = sessions.map(function (s) { return visitRow(s, null); }).join('');
+          document.getElementById('view-note').textContent = '';
+        }
         listEl.innerHTML = '<table class="w-full text-sm mw-card-table"><thead class="bg-white/85"><tr>' +
           '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Visitor</th>' +
-          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Currently on</th>' +
-          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Location</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Arrived</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Left</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Time on site</th>' +
+          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Pages</th>' +
           '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Device</th>' +
-          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Came from</th>' +
-          '<th class="text-left text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Time</th>' +
           '<th class="text-right text-[10.5px] font-bold tracking-[.08em] uppercase px-4 py-3 text-slate-700">Action</th>' +
           '</tr></thead><tbody class="[&>tr>td]:px-4 [&>tr>td]:py-3 [&>tr]:border-t [&>tr]:border-slate-100">' + rows + '</tbody></table>';
       }
@@ -291,18 +478,132 @@
         if (needRender) render();
       }, 1000);
 
+      // ★ LOAD — WHAT A HEARTBEAT MAY AND MAY NOT COST.
+      //
+      // Every visitor heartbeats every 15 s, and each heartbeat is an UPDATE that Realtime
+      // delivers here. Before this, that re-read the whole current tab — so a PM sitting on a
+      // long window re-fetched it every few seconds. With a 30-day window that is not
+      // acceptable, so the two are now separated:
+      //
+      //   refreshLive()  what Realtime calls. Reads ONLY live sessions — bounded by the 45 s
+      //                  window, so it is small however much history exists — and updates the
+      //                  strip, the pill and the counts. On the Live tab it is also the list.
+      //   load()         what a TAB CLICK calls. Reads that tab's window once and keeps it.
+      //
+      // A heavy tab is therefore fetched when it is chosen and not again; new visits arriving
+      // while the PM reads history do not silently re-pull 30 days behind them.
       var loading = null;
+      function applyPayload(d, isLiveOnly) {
+        state.rules = d.rules; state.asOfLocal = Date.now(); syncDepartureKey();
+        if (!state.data || !isLiveOnly) { state.data = d; }
+        else {
+          // Live-only refresh: take the fresh stats and counts, keep the heavy list as it was.
+          state.data.asOf = d.asOf; state.data.stats = d.stats;
+          state.data.counts = Object.assign({}, state.data.counts, { live: d.counts.live });
+          if (state.tab === 'live') state.data.sessions = d.sessions;
+        }
+        render();
+      }
       function load() {
         if (loading) return loading;
-        loading = MarketswaveData.callFunction('get-visitor-presence', { tab: state.tab === 'live' ? 'week' : state.tab }).then(function (d) {
-          // The week read carries every live session too; "live" is re-derived locally.
-          state.data = d; state.rules = d.rules; state.asOfLocal = Date.now();
-          render();
+        loading = MarketswaveData.callFunction('get-visitor-presence', { tab: state.tab }).then(function (d) {
+          applyPayload(d, false);
         }).catch(function (err) {
           listEl.innerHTML = '<div class="p-6 text-sm text-red-700">Could not load presence: ' + esc(MarketswaveData.writeErrorMessage(err)) + '</div>';
         }).finally(function () { loading = null; });
         return loading;
       }
+      var liveLoading = null;
+      function refreshLive() {
+        if (liveLoading) return liveLoading;
+        liveLoading = MarketswaveData.callFunction('get-visitor-presence', { tab: 'live' })
+          .then(function (d) { applyPayload(d, true); })
+          .catch(function () { /* transient: the next heartbeat brings another */ })
+          .finally(function () { liveLoading = null; });
+        return liveLoading;
+      }
+
+      // ---- detail: one visit's journey and that person's earlier visits, fetched on select
+      var detailEl = document.getElementById('detail-body');
+      var detailFor = null;
+      function selectVisit(id) {
+        state.sel = id;
+        render();
+        if (detailFor === id) return;
+        detailFor = id;
+        detailEl.innerHTML = '<div class="p-6">' + MarketswaveData.skeleton.lines(['w-1/2', 'w-full', 'w-5/6', 'w-full'], { gap: 'space-y-2' }) + '</div>';
+        MarketswaveData.callFunction('get-visitor-presence', { detail: id }).then(function (d) {
+          if (detailFor !== id) return;   // a later selection won the race
+          renderDetail(d);
+        }).catch(function (err) {
+          if (detailFor !== id) return;
+          detailEl.innerHTML = '<div class="p-6 text-sm text-red-700">Could not load this visit: ' + esc(MarketswaveData.writeErrorMessage(err)) + '</div>';
+        });
+      }
+      function renderDetail(d) {
+        var s2 = d.session, who = describeVisitor(s2), st = s2.departureState;
+        var meta = [];
+        if (s2.city) meta.push(esc(s2.city) + ', ' + esc(s2.country)); else if (s2.country) meta.push(esc(s2.country));
+        meta.push(esc(s2.device) + ' · ' + esc(s2.browser));
+        if (s2.referrerLabel) meta.push('From ' + esc(s2.referrerLabel) + (s2.searchTerm ? ' · “' + esc(s2.searchTerm) + '”' : ''));
+        // Journey: each step, with how long they spent on it — the gap to the NEXT step, or to
+        // departure for the last one. Where departure was never recorded the last step says so
+        // instead of inventing a duration for it.
+        var steps = d.journey || [];
+        var endIso = s2.departureAt || (st === 'live' ? null : s2.lastSeenAt);
+        var tl = steps.map(function (step, i) {
+          var next = i + 1 < steps.length ? new Date(steps[i + 1].t) : (endIso ? new Date(endIso) : null);
+          var spent = next ? Math.max(0, Math.round((next - new Date(step.t)) / 1000)) : null;
+          return '<div class="tl-step' + (i === 0 ? ' is-start' : '') + '"><div class="tl-t num">' + hms(step.t) + (spent === null ? '' : ' · ' + fmtDur(spent)) + '</div>' +
+            '<div class="tl-p">' + (i === 0 ? 'Arrived on ' : '') + esc(step.p === '/' ? 'Home' : step.p.replace(/^\//, '')) + '</div></div>';
+        }).join('');
+        if (st === 'exact' || st === 'approx') {
+          tl += '<div class="tl-step is-end"><div class="tl-t num">' + hms(s2.departureAt) + '</div><div class="tl-p">Left the site · ' + depLabel(st) + '</div></div>';
+        } else if (st === 'unknown') {
+          tl += '<div class="tl-step is-end"><div class="tl-t num">—</div><div class="tl-p">Departure not recorded</div></div>';
+        }
+        var earlier = (d.earlier || []).map(function (e) {
+          return '<div class="flex items-center gap-3 py-2 border-t border-slate-100 text-[12px]"><span class="w-[70px] shrink-0 font-semibold num">' + DAYMON.format(new Date(e.startedAt)) + '</span>' +
+            '<span class="flex-1 min-w-0 text-slate-600 truncate">' + (e.trail.length ? esc(e.trail.map(function (x) { return x === '/' ? 'Home' : x.replace(/^\//, ''); }).join(' → ')) : '—') + '</span>' +
+            '<span class="text-[11px] text-slate-500 num shrink-0">' + (e.durationSeconds === null ? 'Under ' + state.rules.heartbeatSeconds + '\u00a0s' : fmtDur(e.durationSeconds)) + '</span></div>';
+        }).join('');
+        detailEl.innerHTML =
+          '<div class="px-5 py-4 border-b border-slate-100 bg-white/60">' +
+            '<div class="flex items-center gap-2.5"><span class="av' + (who.anon ? ' is-anon' : '') + '">' + (who.anon ? '?' : esc(initials(who.name))) + '</span>' +
+            '<div class="min-w-0"><b class="block text-sm font-semibold text-slate-900">' + esc(who.name) + (s2.visitNumber >= 2 ? ' · ' + ordinal(s2.visitNumber) + ' visit' : '') + '</b>' +
+            '<span class="block text-[11px] text-slate-600 mt-0.5">' + esc(s2.clientId ? 'Signed in' : 'Returning from the same browser') + '</span></div></div>' +
+            '<div class="flex gap-1.5 flex-wrap mt-3">' + meta.map(function (m) { return '<span class="text-[10.5px] text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">' + m + '</span>'; }).join('') + '</div>' +
+          '</div>' +
+          '<div class="px-5 py-4">' +
+            '<h4 class="text-[10.5px] font-bold tracking-[.07em] uppercase text-slate-600 mb-3">This visit</h4>' +
+            '<div class="grid grid-cols-3 gap-2 mb-5">' +
+              '<div class="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2"><p class="text-[9.5px] font-semibold text-slate-600">Arrived</p><p class="text-[13px] font-bold mt-1 num">' + hms(s2.startedAt) + '</p></div>' +
+              '<div class="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2"><p class="text-[9.5px] font-semibold text-slate-600">Left</p><p class="text-[13px] font-bold mt-1 num">' + (st === 'live' ? 'Still here' : st === 'unknown' ? '—' : hms(s2.departureAt)) + '</p></div>' +
+              '<div class="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2"><p class="text-[9.5px] font-semibold text-slate-600">Time on site</p><p class="text-[13px] font-bold mt-1 num">' + (st === 'unknown' ? 'Under ' + state.rules.heartbeatSeconds + '\u00a0s' : fmtDur(s2.knownDurationSeconds === null ? s2.durationSeconds : s2.knownDurationSeconds)) + '</p></div>' +
+            '</div>' +
+            '<div class="mb-4">' + depChip(st === 'live' ? 'live' : st) + '</div>' +
+            '<h4 class="text-[10.5px] font-bold tracking-[.07em] uppercase text-slate-600 mb-3">Where they went</h4>' +
+            '<div class="tl">' + (tl || '<p class="text-[12px] text-slate-600">No pages recorded.</p>') + '</div>' +
+            '<div class="mt-5 pt-4 border-t border-slate-100">' +
+              '<h4 class="text-[10.5px] font-bold tracking-[.07em] uppercase text-slate-600 mb-2">Earlier visits · last ' + d.retentionDays + ' days</h4>' +
+              '<p class="text-[10.5px] text-slate-600 mb-1">' + (d.groupedBy === 'client' ? 'Across all of this client’s devices.' : 'From this browser only — an anonymous visitor cannot be followed across devices.') + '</p>' +
+              (earlier || '<p class="text-[12px] text-slate-600 py-2">No earlier visits on record.</p>') +
+            '</div>' +
+          '</div>';
+      }
+      document.getElementById('view-bar').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-view]'); if (!b) return;
+        state.view = b.dataset.view;
+        document.querySelectorAll('[data-view]').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+        render();
+      });
+      // Selecting a visit loads its detail. Ignored when the click was on a real control in the
+      // row (Message / Open thread), which must keep doing its own job.
+      listEl.addEventListener('click', function (e) {
+        if (e.target.closest('[data-message]') || e.target.closest('a')) return;
+        var tr = e.target.closest('[data-session]'); if (!tr) return;
+        selectVisit(tr.dataset.session);
+      });
       document.getElementById('tabs').addEventListener('click', function (e) {
         var b = e.target.closest('[data-tab]'); if (!b) return;
         state.tab = b.dataset.tab;
@@ -313,7 +614,9 @@
       // Realtime: a new or changed session re-reads (cheap — one call) and, for an INSERT,
       // notifies. The sidebar badge is kept by admin-sidebar.js on every admin page.
       var reloadTimer = null;
-      function scheduleReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400); }
+      // Realtime fires on every heartbeat. It refreshes the LIVE set only — never the heavy
+      // tab the PM may be reading. See the load() comment above.
+      function scheduleReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(refreshLive, 400); }
       load().then(function () { return MarketswaveData.getSupabaseClient(); }).then(function (client) {
         var statusEl = document.getElementById('realtime-status');
         client.channel('admin-presence-live')

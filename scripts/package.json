@@ -148,6 +148,8 @@
     "verify-upload-accessibility": "node verify-upload-accessibility.mjs",
     "verify-view-as-client-isolation": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-view-as-client-isolation.mjs",
     "verify-visitor-presence-visual": "node verify-visitor-presence-visual.mjs",
+    "verify-presence-visit-history": "node verify-presence-visit-history.mjs",
+    "verify-presence-visit-history-visual": "node verify-presence-visit-history-visual.mjs",
     "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs",
     "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs"
   },

@@ -1236,8 +1236,8 @@ PROFILES['visitor-presence'] = [
   { label: 'notification copy', sel: '#notif-copy', limit: 1 },
   { label: 'mute label', sel: '#mute-label', limit: 1 },
   { label: 'stat label', sel: '#stat-strip p:first-child', limit: 4 },
-  { label: 'stat value', sel: '#st-live, #st-today, #st-median, #st-page', limit: 4 },
-  { label: 'stat sub', sel: '#st-live-x, #st-today-x, #st-page-x', limit: 3 },
+  { label: 'stat value', sel: '#st-live, #st-today, #st-avg, #st-returning', limit: 4 },
+  { label: 'stat sub', sel: '#st-live-x, #st-today-x, #st-avg-x, #st-returning-x', limit: 4 },
   { label: 'tab (selected)', sel: '.tab-pill.is-active', limit: 1 },
   { label: 'tab (unselected)', sel: '.tab-pill:not(.is-active)', limit: 2 },
   { label: 'column heading', sel: '#presence-list th', limit: 3 },
@@ -1248,12 +1248,42 @@ PROFILES['visitor-presence'] = [
   { label: 'current page', sel: '#presence-list code', limit: 2 },
   { label: 'journey trail', sel: '.trail span', limit: 3 },
   { label: 'flag box', sel: '.flagbox', limit: 2 },
-  { label: 'location', sel: '#presence-list td:nth-child(3) > span', limit: 2 },
-  { label: 'device', sel: '#presence-list td:nth-child(4) > span', limit: 2 },
-  { label: 'referrer', sel: '#presence-list td:nth-child(5)', limit: 2 },
+  { label: 'arrival time', sel: '#presence-list td:nth-child(2) > span:first-child', limit: 3 },
+  { label: 'arrival day', sel: '#presence-list td:nth-child(2) > span:last-child', limit: 3 },
+  { label: 'pages count', sel: '#presence-list td:nth-child(5)', limit: 3 },
+  { label: 'device', sel: '#presence-list td:nth-child(6) > span', limit: 2 },
   { label: 'duration', sel: '[data-dur]', limit: 3 },
   { label: 'footer rule', sel: '#presence-foot > span:first-child', limit: 1 },
-  { label: 'footer counts', sel: '#presence-foot > span:last-child', limit: 1 }
+  { label: 'footer counts', sel: '#presence-foot > span:last-child', limit: 1 },
+  // ★ Row 281. Each departure tone is measured separately: a chip can pass in one tone and
+  // fail in another, and 'Not recorded' is the muted one most likely to be set too light.
+  { label: 'departure — on site now', sel: '.dep-now', limit: 2 },
+  { label: 'departure — exact', sel: '.dep-exact', limit: 2 },
+  { label: 'departure — about', sel: '.dep-about', limit: 2 },
+  { label: 'departure — not recorded', sel: '.dep-none', limit: 2 },
+  { label: 'time on site', sel: '[data-dur]', limit: 3 },
+  { label: 'view pill (selected)', sel: '.view-pill.is-active', limit: 1 },
+  { label: 'view pill (unselected)', sel: '.view-pill:not(.is-active)', limit: 1 },
+  { label: 'view note', sel: '#view-note', limit: 1 },
+  { label: 'key heading', sel: '#departure-key .dep-conf', limit: 4 },
+  { label: 'key explanation', sel: '#departure-key p', limit: 4 },
+  { label: 'retention note', sel: '#retention-note', limit: 1 },
+  { label: 'detail empty state', sel: '#detail-body p', limit: 2 }
+];
+// ★ Row 281 — the detail panel. It only exists once a visit is selected, so the prepare hook
+// clicks the first row; measuring it in the main profile would measure the empty state.
+PROFILES['visitor-presence-detail'] = [
+  { label: 'detail name', sel: '#detail-body b.block', limit: 1 },
+  { label: 'detail sub', sel: '#detail-body b.block + span', limit: 1 },
+  { label: 'detail meta chip', sel: '#detail-body .flex-wrap > span', limit: 3 },
+  { label: 'detail section heading', sel: '#detail-body h4', limit: 3 },
+  { label: 'detail tile label', sel: '#detail-body .grid-cols-3 p:first-child', limit: 3 },
+  { label: 'detail tile value', sel: '#detail-body .grid-cols-3 p:last-child', limit: 3 },
+  { label: 'detail departure chip', sel: '#detail-body .dep-conf', limit: 1 },
+  { label: 'timeline time', sel: '#detail-body .tl-t', limit: 4 },
+  { label: 'timeline page', sel: '#detail-body .tl-p', limit: 4 },
+  { label: 'earlier visit date', sel: '#detail-body .border-t span:first-child', limit: 3 },
+  { label: 'earlier visit trail', sel: '#detail-body .border-t span.flex-1', limit: 3 }
 ];
 PROFILES['visitor-presence-modal'] = [
   { label: 'modal title', sel: '#message-modal-title', limit: 1 },

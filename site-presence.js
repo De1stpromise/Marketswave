@@ -2,7 +2,8 @@
 // dashboard page loads. Reports the current page, a heartbeat while the tab is open, and a
 // leave beacon on pagehide, to the track-visit Edge Function. Region and behaviour only:
 //
-//   - the visitor is a random uuid in a first-party cookie (mw_vid, 400 days) — no name, no
+//   - the visitor is a random uuid in a first-party cookie (mw_vid, 30 days rolling, re-set on
+//     every visit to match data retention) — no name, no
 //     email, nothing typed anywhere; the cookie is how "returning · 3rd visit" is counted;
 //   - a VISIT is a session: a new one starts on the first page load with no activity in the
 //     previous 30 minutes (localStorage, so every tab shares it — opening a second tab is not
@@ -28,6 +29,7 @@
   var COOKIE = 'mw_vid';
   var SESSION_KEY = 'mw_session';
   var IDLE_MS = 30 * 60 * 1000;
+  var COOKIE_DAYS = 30;            // matches purge_visitor_data()'s retention exactly
   var HEARTBEAT_MS = 15000;
   var endpoint = null, anonKey = null, token = null, started = false, timer = null, invitationSeen = {}, acked = false;
 
@@ -38,11 +40,22 @@
     var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
     return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
   }
+  // * COOKIE LIFETIME: 30 DAYS, ROLLING, AND REWRITTEN ON EVERY VISIT (2026-09-28).
+  //
+  // It was 400 days, and it was written ONLY when absent — so an existing cookie kept its
+  // original 400-day expiry for as long as the browser held it, and the identifier outlived
+  // the data it identified by more than a year. purge_visitor_data() deletes a visitor 30 days
+  // after they were last seen, so 30 days rolling is the lifetime that MATCHES the data: the
+  // cookie and the row it points at now expire at the same moment.
+  //
+  // Rolling, not fixed from the first visit: the cookie is re-set on every visit, which both
+  // keeps a regular visitor recognised for as long as their data exists AND is what rewrites
+  // an old 400-day cookie down to 30 — re-setting the same name, value and path with a new
+  // Max-Age replaces the expiry rather than adding a second cookie.
   function visitorId() {
     var m = document.cookie.match(new RegExp('(?:^|; )' + COOKIE + '=([0-9a-f-]{36})'));
-    if (m) return m[1];
-    var id = uuid();
-    document.cookie = COOKIE + '=' + id + '; Max-Age=' + (400 * 86400) + '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+    var id = m ? m[1] : uuid();
+    document.cookie = COOKIE + '=' + id + '; Max-Age=' + (COOKIE_DAYS * 86400) + '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
     return id;
   }
   function session() {

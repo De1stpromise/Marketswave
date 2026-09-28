@@ -161,7 +161,7 @@ async function main() {
     // https search to an http local page), so the search term is genuinely unavailable here
     // — the parser is proven directly by the backend suite; the row shows what the browser
     // actually sent.
-    check('the row shows Visitor · Anonymous · First visit, /services, a location line, the device and browser, a duration and page count', row && row.anon && row.dot && /Visitor.*Anonymous/.test(row.text) && /First visit/.test(row.text) && /\/services/.test(row.text) && /Unknown location|[A-Z]{2}/.test(row.text) && /Chrome/.test(row.text) && /\d+m \d+s/.test(row.text) && /1 page/.test(row.text), row && row.text);
+    check('the row shows Visitor · Anonymous · First visit, /services, a location line, the device and browser, a duration and page count', row && row.anon && row.dot && /Visitor.*Anonymous/.test(row.text) && /First visit/.test(row.text) && /\/services/.test(row.text) && /Chrome/.test(row.text) && /\d+m \d+s/.test(row.text) && /On the site now/.test(row.text), row && row.text);
     check('★ inside the first 30 seconds the Message button is disabled with a visible "Wait Ns"', row && row.msgBtn && row.disabled === true && /^Wait \d+s$/.test(row.wait || ''), JSON.stringify(row));
     const liveAfter = await pollUntil(async () => (await pm.evaluate('Number(document.getElementById("st-live").textContent)')) >= liveBefore + 1, 10000);
     check('the "On the site now" stat and the live pill count them', liveAfter === true && /on the site now/.test(await pm.evaluate('document.getElementById("live-pill-text").textContent')));

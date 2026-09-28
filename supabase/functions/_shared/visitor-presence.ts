@@ -6,11 +6,53 @@
 // same "is this session live" definition.
 
 // A session is LIVE when its last heartbeat is within this window and it has not sent a
-// leave beacon. The page heartbeats every 20 s, so a closed laptop lid or a dropped
+// leave beacon. The page heartbeats every 15 s, so a closed laptop lid or a dropped
 // connection — no beacon — drops out of "live" within 45 s of its last heartbeat, and its
 // duration is measured to that last heartbeat, never padded.
+//
+// ★ HEARTBEAT_SECONDS WAS 20 AND THE REAL INTERVAL HAS ALWAYS BEEN 15 (corrected 2026-09-28).
+// site-presence.js sets HEARTBEAT_MS = 15000. The constant was unused — confirmed by a
+// project-wide search before changing it — so nothing behaved differently, but a constant
+// that misstates reality is worse than a stale comment: it reads as authoritative. It is the
+// tolerance on every APPROX departure below, so it has to be the real interval.
 export const LIVE_WINDOW_SECONDS = 45;
-export const HEARTBEAT_SECONDS = 20;
+export const HEARTBEAT_SECONDS = 15;
+
+// ★ DEPARTURE, AND HOW WELL IT CAN POSSIBLY BE KNOWN (2026-09-28).
+//
+// A browser does not reliably announce that someone left. Measured on real staging data:
+// only 14% of sessions carry a leave beacon (ended_at), and 85 of 144 one-page sessions have
+// NO activity at all after arrival — they left before the first 15 s heartbeat and the beacon
+// did not land. So departure falls into four genuinely different states, and the page shows
+// which one it is rather than printing a time that looks equally certain in every case.
+//
+//   live     heartbeat inside LIVE_WINDOW_SECONDS and no beacon — they are still here.
+//   exact    ended_at is set: their browser told us, accurate to about a second.
+//   approx   no beacon, not live, but heartbeats after arrival — departure is last_seen_at,
+//            true value within one heartbeat either way (±HEARTBEAT_SECONDS).
+//   unknown  nothing recorded after arrival. Departure cannot be derived at all; the page
+//            says "Under 15 s" for the duration, never 0, which would read as a measurement.
+//
+// ONE rule, shared, so the server's classification and the page's live re-derivation cannot
+// disagree — the same reason isLive() is here rather than in either caller.
+export type DepartureState = 'live' | 'exact' | 'approx' | 'unknown';
+export interface Departure {
+  state: DepartureState;
+  at: string | null;            // when they left, null while live or unknown
+  accuracySeconds: number | null; // ± on `at`; null when there is nothing to qualify
+}
+export function classifyDeparture(
+  row: { started_at: string; last_seen_at: string; ended_at: string | null },
+  now: Date
+): Departure {
+  if (row.ended_at) return { state: 'exact', at: row.ended_at, accuracySeconds: 1 };
+  if (isLive(row, now)) return { state: 'live', at: null, accuracySeconds: null };
+  // No beacon and not live. Did anything at all happen after arrival? A heartbeat or a second
+  // page both move last_seen_at; if it never moved, arrival is the only thing we know.
+  const moved = new Date(row.last_seen_at).getTime() - new Date(row.started_at).getTime();
+  if (moved <= 0) return { state: 'unknown', at: null, accuracySeconds: null };
+  return { state: 'approx', at: row.last_seen_at, accuracySeconds: HEARTBEAT_SECONDS };
+}
 
 // Proactive chat etiquette, enforced server-side by send-proactive-message.
 export const MIN_SESSION_SECONDS_BEFORE_MESSAGE = 30;

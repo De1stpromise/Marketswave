@@ -28,7 +28,11 @@ create table public.visitors (
 );
 
 create table public.visitor_sessions (
-  id uuid primary key,                                     -- generated in the browser, per tab
+  id uuid primary key,                                     -- generated in the browser; SHARED
+  -- across every tab of the origin (site-presence.js keeps it in localStorage), so a second
+  -- tab JOINS this session rather than starting one. The comment said "per tab" until
+  -- 2026-09-28; it was never true of the implementation. Comment only — this migration is
+  -- already applied and re-running it would change no DDL.
   visitor_id uuid not null references public.visitors(id) on delete cascade,
   visit_number integer not null,                           -- this visitor's Nth session
   client_id uuid references auth.users(id) on delete set null,

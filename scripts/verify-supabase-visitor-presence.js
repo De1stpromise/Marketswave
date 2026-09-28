@@ -116,7 +116,13 @@ async function main() {
     check('a heartbeat updates last_seen_at and the session is live (no ended_at)', hb.status === 200 && row.ended_at === null && Date.now() - new Date(row.last_seen_at).getTime() < 5000);
     const lv = await call(url, 'get-visitor-presence', { tab: 'live' }, { token: pm.token });
     const live1 = lv.body.sessions.find((s) => s.id === s1);
-    check('the PM read lists it as LIVE with its journey, location and device', lv.status === 200 && live1 && live1.live === true && live1.journey.length === 3 && live1.countryCode === 'US' && live1.device === 'Mac', JSON.stringify(live1));
+    check('the PM read lists it as LIVE with its location and device', lv.status === 200 && live1 && live1.live === true && live1.countryCode === 'US' && live1.device === 'Mac', JSON.stringify(live1));
+    // ★ Row 281: the journey is the heaviest column and no list row renders it, so it left every
+    // list read and moved to the detail branch. The property under test is unchanged — the PM can
+    // read the journey — only where it is read from.
+    check('★ ...and the journey is NOT in the list payload (row 281)', live1 && (!live1.journey || live1.journey.length === 0), JSON.stringify(live1 && live1.journey));
+    const dt = await call(url, 'get-visitor-presence', { detail: s1 }, { token: pm.token });
+    check('★ ...it is on the detail branch, in order, behind the same gate', dt.status === 200 && dt.body.journey.map((j) => j.p).join(',') === '/services,/about,/resources', JSON.stringify(dt.body && dt.body.journey));
     // The leave beacon: text/plain, no headers at all — exactly what navigator.sendBeacon sends.
     const leaveRes = await fetch(url + '/functions/v1/track-visit', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ event: 'leave', sessionId: s1, visitorId: v1, path: '/resources.html' }) });
     row = (await admin.from('visitor_sessions').select('ended_at').eq('id', s1).single()).data;

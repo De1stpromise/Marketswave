@@ -1678,6 +1678,60 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     run a stale bundle (row 143) — the deploy set is computed from the object database, with row
     143's own 14-direct/20-total figures as the control.
 
+- **★★ "ON THE SITE" — ARRIVAL, DEPARTURE AND VISIT HISTORY (2026-09-28, register row 281).**
+  `admin-presence.html` gained a 30-day tab, a departure time with its confidence, a per-visit
+  detail panel (journey + earlier visits) and a grouped-by-person view. **No new Edge Function**
+  — staging is at 100 of 100 on the Free plan (row 275), so `get-visitor-presence` was extended
+  and its admin gate left byte-for-byte alone.
+  **Things a future session needs to know before touching any of this:**
+  - **★ DEPARTURE IS FOUR STATES, NOT A TIME, AND THAT IS THE FEATURE. Do not "simplify" it to a
+    single ‹left at› column.** Measured on real staging data: the leave beacon lands for about **one
+    session in seven (34 of 245)**, and **85 of 144 one-page sessions have nothing recorded after
+    arrival at all**. A single departure time would therefore be a confident guess about roughly five
+    visits in six. `classifyDeparture()` in `_shared/visitor-presence.ts` is the ONE derivation —
+    exact (`ended_at`), live (heartbeat inside the 45 s window), about ±15 s (`last_seen_at`, no
+    beacon), not recorded (nothing after arrival). Do not re-derive it on the page.
+  - **★ A SESSION WITH NO RECORDED DEPARTURE REPORTS `knownDurationSeconds: null`, NEVER 0.** Zero is
+    a measurement; this is an absence. The page renders "Under 15 s", and the average-time-on-site
+    stat counts only visits whose departure is genuinely known, with the count it was taken over
+    beside it — averaging the unknowns in would quietly drag the figure down with a number nobody
+    measured.
+  - **★ A RESUMED SESSION MUST READ LIVE, NOT EXACT.** `track-visit` clears `ended_at` on any later
+    page or heartbeat, so the classifier tests `ended_at` first and a cleared one falls through to
+    the live test. A classifier that keyed on "was a beacon ever received" would mark a visitor who
+    came back as departed while they are still reading.
+  - **★ `journey` LEAVES EVERY LIST READ. It is the heaviest column and no list row renders it.**
+    It lives on the `detail` branch, fetched for one session at a time, behind the SAME gate. And
+    Realtime re-reads the **live** set only, never the open tab — a heartbeat arrives every 15 s per
+    visitor, so refetching 30 days on each one is the whole cost. Measured over 40 seeded sessions:
+    list 41,540 → 32,255 bytes (22% smaller), and the read Realtime actually repeats 41,540 → **500**
+    bytes (99% smaller). A detail costs 1,369 bytes, once, on click.
+  - **The visitor cookie is 30 days, matching `purge_visitor_data()` exactly, and is REWRITTEN ON
+    EVERY VISIT.** It was 400 days and written only when absent, so an existing cookie would have
+    kept its old lifetime forever — shortening the constant alone would have changed nothing for any
+    real visitor. No IP and no raw user-agent reach any payload; the suites assert that by pattern
+    over the whole response, not by reading the select list.
+  - **★ `visitorId` WAS NEVER IN `shape()`** (inherited from row 209, harmless until grouping needed
+    it). Without it `'b:' + (x.visitorId || x.id)` falls back to the session id and **no anonymous
+    visitor ever groups** — the page would offer "Grouped by person" and silently group nothing,
+    for most of its traffic. If you add a grouping key, assert it is in the payload.
+  - **Grouping claims "at once" only for a CLIENT.** Two browsers behind one cookie is one browser,
+    and an anonymous visitor cannot be followed across devices — the page says so in words rather
+    than leaving it to be inferred.
+  - **A stale `tailwind-3.4.17.css` is why the detail panel once stacked at 1440px** (row 260's trap:
+    `xl:grid-cols-[...]`, `xl:sticky`, `xl:top-4` emitted nothing until the sheet was rebuilt). Caught
+    by a desktop assertion, not by eye — which is the argument for asserting the desktop case as well
+    as the phone ones.
+  - **Two contrast failures at slate-500 again** (rows 151 and 198): the "not recorded" chip 4.45:1
+    and the timeline time 4.28:1 at 10.5px, both `#5C6367` now. Measure every departure tone
+    separately — a chip can pass in one tone and fail in another.
+  - **★ SEEDING IS THE ONLY WAY TO TEST THREE OF THE FOUR STATES**, because "not recorded" means the
+    beacon did NOT arrive and waiting for one to not arrive is not a test. The seeded rows are in
+    exactly the shape `track-visit` writes, and the classifier reads only the three timestamps.
+  - **A seeded "live" session ages out in 45 seconds**, which is shorter than a contrast child or a
+    Chrome spawn. Re-stamp `last_seen_at` and reload immediately before any read that depends on it,
+    rather than widening the window the product actually uses.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.
@@ -12056,6 +12110,31 @@ is for. Four stages, in order, each building on the last:
   **And importing `jsdom` or spawning Chrome is not rendering** — the donut suite imported JSDOM,
   defined a render helper and never called it. The question is never “does this suite have a
   browser”, it is “does the headline assertion read a value the page produced”.
+- **★★ A HEREDOC CAN WRITE A CONTROL CHARACTER WHERE YOU MEANT A REGEX ESCAPE, AND THE
+  RESULT IS A TEST THAT CANNOT FAIL (2026-09-28, register row 282).** A shell heredoc whose
+  delimiter is unquoted, or a python string written through one, turns the two characters
+  backslash-b into a single 0x08 backspace byte. The file still parses, the regex still
+  compiles, and it now matches a control character no rendered page can contain — so the
+  assertion is permanently false and reads as a product bug. Found twice in one sweep:
+  `verify-visitor-presence-visual.mjs` line 164 (this session, cost an hour chasing an
+  avatar and a live dot that were both correct all along), and **`scripts/lib/
+  harness-teardown.mjs` line 110, unchanged since 2026-09-22** — its orphan-hunt filter
+  `/\bps\b.*-eo/` had been a pair of backspaces for six days, so the clause excluding the
+  enumerating `ps` from the kill list was dead. No live consequence (that branch is POSIX
+  only, and the list is already filtered to lines containing the temp dir, which a bare
+  `ps -eo` command line never does) — but a broken regex in a shared helper is a trap
+  waiting for the next reader, and it was fixed rather than left.
+  ★ **The detection is one command and it is worth running after any heredoc-driven edit**:
+  `grep -n "$(printf '\010')" <file>` finds them, and `cat -A` is the only way to SEE them —
+  a terminal renders each backspace by erasing the character before it, so `sed -n 164p`
+  displayed a perfectly innocent `/ps.*-eo/` for the corrupted line. **Do not trust a
+  plain terminal read of a line you suspect.** A whole-repo sweep is cheap (579 tracked
+  files, sub-second); the only legitimate hits are binary assets.
+  ★ **Avoiding it: build the escape from `chr(92)` rather than typing it**, and assert the
+  replacement count — the heredoc that was supposed to fix line 164 searched for a
+  double-backslash form, matched nothing, and died on its own `assert count == 1`, while the
+  `node` line beneath it ran anyway and re-reported the same stale failure.
+
 - **★★ WHEN TWO CALLERS MUST AGREE ON AN ARITHMETIC, TEST THE RELATIONSHIP — A TEST PER CALLER IS
   NOT A TEST OF THE AGREEMENT (2026-09-22, register row 269).** `_shared/concentration.ts` says in
   its own header that it exists so the client's 'Largest position' and the PM briefing cannot
