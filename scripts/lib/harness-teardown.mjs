@@ -107,7 +107,7 @@ export function processesReferencing(dir) {
     return out.split('\n').filter((l) => l.includes(dir)).map((l) => {
       const m = l.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/);
       return m ? { pid: Number(m[1]), name: m[2], cmd: m[3] } : null;
-    }).filter((p) => p && p.pid !== process.pid && !/ps.*-eo/.test(p.cmd));
+    }).filter((p) => p && p.pid !== process.pid && !/\bps\b.*-eo/.test(p.cmd));
   } catch (e) {
     warn('could not enumerate processes referencing ' + dir + ' (' + (e && e.message) + ')');
     return [];
