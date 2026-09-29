@@ -61,7 +61,13 @@ async function call(url, name, body, opts) {
 const uuid = () => crypto.randomUUID();
 const UA_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
 const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
-const IP_RE = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+// IPv4 AND IPv6, matching verify-presence-visit-history.mjs's payload-side check exactly, so
+// the two sides of the same guarantee cannot drift: the payload is derived from storage, and an
+// address caught in one place but not the other would be a gap nobody could see.
+// The IPv6 form needs 4+ groups, which is why a timestamp ("T20:10:22") cannot false-positive.
+const IP_V4_RE = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+const IP_V6_RE = /\b(?:[0-9a-f]{1,4}:){4,}[0-9a-f]{1,4}\b/i;
+const IP_RE = new RegExp(IP_V4_RE.source + '|' + IP_V6_RE.source, 'i');
 
 async function main() {
   console.log('Visitor presence — backend verification\n');
@@ -98,7 +104,7 @@ async function main() {
     let row = (await admin.from('visitor_sessions').select('*').eq('id', s1).single()).data;
     check('★ location derived server-side from the request IP: country US, a real city', row.country_code === 'US' && !!row.city && !!row.country, JSON.stringify({ cc: row.country_code, city: row.city, country: row.country }));
     const stored = JSON.stringify(row) + JSON.stringify((await admin.from('visitors').select('*').eq('id', v1).single()).data);
-    check('★ the IP is absent from storage: no column of the session or visitor row contains anything shaped like an IP', !IP_RE.test(stored), stored.match(IP_RE) && stored.match(IP_RE)[0]);
+    check('★ the IP is absent from storage: no column of the session or visitor row contains anything shaped like an IPv4 OR IPv6 address', !IP_RE.test(stored), stored.match(IP_RE) && stored.match(IP_RE)[0]);
     check('no column exists for an IP or a user agent at all', !('ip' in row) && !('ip_address' in row) && !('user_agent' in row), Object.keys(row).join(','));
     check('device and browser parsed from the User-Agent: Mac · Chrome', row.device === 'Mac' && row.browser === 'Chrome', row.device + ' · ' + row.browser);
     check('referrer: Google, with the search term the referrer carried', row.referrer_label === 'Google' && row.search_term === 'wealth management stockholm', row.referrer_label + ' / ' + row.search_term);

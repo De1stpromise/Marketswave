@@ -1731,6 +1731,28 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   - **A seeded "live" session ages out in 45 seconds**, which is shorter than a contrast child or a
     Chrome spawn. Re-stamp `last_seen_at` and reload immediately before any read that depends on it,
     rather than widening the window the product actually uses.
+  - **★ THE COOKIE LIFETIME AND THE HEARTBEAT'S READ TARGET ARE NOW GUARDED IN A REAL BROWSER
+    (2026-09-29, section 7 of `verify-presence-visit-history.mjs`).** Both were previously asserted
+    only from SOURCE, and one of them could not be asserted any other way: **jsdom's
+    `document.cookie` getter returns name=value pairs and NEVER exposes Max-Age**, so the old check
+    could prove the id survives a rewrite but not that the lifetime dropped 400 → 30. Section 7
+    plants a real 400-day cookie, loads a real page, and reads the **browser's own cookie store**
+    over CDP (`Network.getCookies`): the persisted expiry, the drop, the id surviving it, exactly
+    one cookie, and the rolling re-set. **There is no `Set-Cookie` header to read and that is
+    asserted too** — `mw_vid` is written by first-party JS, so a change moving the write
+    server-side is caught rather than quietly satisfying a header-shaped test. The heartbeat half
+    fires a REAL `track-visit` heartbeat with the PM on the 30-day tab and asserts every read it
+    provokes carries `tab:"live"` and none carries `tab:"month"`. **Consequence: this suite now
+    needs the static server on 8765 and Chrome** (it was Node/jsdom only), and its watchdog is 20
+    min. Proven with forced-failure controls: commenting out the cookie write fails 4 checks by
+    name (`399.9999 days`, `dropped 0.0 days`) while the id-survival check still passes — which is
+    precisely the regression the old jsdom check could not see; pointing `scheduleReload()` at
+    `load` instead of `refreshLive` fails the two behavioural checks with the real body
+    `[{"tab":"month"}]`. The storage-side IP check in `verify-supabase-visitor-presence.js` now
+    covers **IPv6 as well as IPv4**, matching the payload side so the two halves of one guarantee
+    cannot drift (controlled by injecting a real IPv6 into a real column; the old IPv4-only regex
+    passed it silently). **Still uncovered, stated rather than implied:** compressed IPv6 (`::1`,
+    `::ffff:127.0.0.1`) matches neither side's pattern.
 
 ## Locked — do not restructure without explicit sign-off
 
@@ -11736,6 +11758,22 @@ is for. Four stages, in order, each building on the last:
   — when that path is down (it was, for a whole session, while REST/Auth/Management API all
   worked), the script cannot run at all. The fallback that was used, and the reason it is
   NOT a committed script, is in the row-211 entry above.
+- **★★ A BACKGROUND TASK'S REPORTED EXIT CODE IS NOT THE RUNNER'S VERDICT — READ THE VERDICT LINE
+  (2026-09-29).** A completed full-suite task notification reported "exit code 0"; the runner's own
+  output read `runner exit: 1` / `VERIFICATION PASS: FAIL (120/125 suites exit 0)`. The
+  `[exited with code 0]` at the foot of the output is the WRAPPER's exit, not `verify-pass.mjs`'s.
+  Reading the notification alone would have recorded a failing pass as clean and shipped on it.
+  **Always open the output and read `VERIFICATION PASS:` / `runner exit:`**, then triage from
+  `.pass-logs/<stamp>/` — which also means a full pass is not "done" until its 5 known-cause
+  families (the bullet below) have been re-run in isolation. Third instance of this class, in both
+  directions: row 219 (a batch deploy's exit 0 hiding a failure) and 2026-09-28 (a 402 error
+  hiding a success).
+- **★ REVERT A TEMPORARY CONTROL SURGICALLY — `git checkout -- <file>` ALSO DISCARDS THE REAL FIX
+  IN IT (2026-09-29).** A forced-failure control usually lives in the same file as the change it is
+  proving. Checking the file out threw away an IPv6 regex fix along with the control line and it had
+  to be re-applied; nothing warned, because a clean `git status` is exactly what a successful revert
+  looks like. Remove the control's own lines (Edit), then confirm with `git diff` that the real
+  change is still there — not merely that the tree is clean.
 - **★ After ANY multi-function deploy, run `node verify-cloud-staging-parity.js --fresh
   a,b,c [--within <minutes>]` with the exact list you deployed — the exit code of a batch
   deploy is not evidence.** Added 2026-09-14 (row 219) after a real one: a 35-function
@@ -12306,8 +12344,19 @@ is for. Four stages, in order, each building on the last:
   least one discarded post-spawn write — 13 DELETE-only (leaked test data), **8 insert/update, which
   can fail an assertion for the wrong reason** — and only `verify-dashboard-redesign` is fixed. **The
   cheapest decisive instrument is an external poller** logging that column's transitions every second
-  while the suite runs: it separates 'written then cleared' from 'never written' in one run. Five
-  known causes now account for most of what a full pass loses.
+  while the suite runs: it separates 'written then cleared' from 'never written' in one run.
+  **(6) OPEN, PROVEN, NOT YET FIXED — `verify-portfolio-overview-visual.mjs:342` reads
+  `#tpv-amount` with no settle (2026-09-29).** That element is the one figure driven by
+  `MotionHelpers.countUp`, which animates from **0** to the target over 900 ms, so an early read is
+  low and the clause `#tpv-amount > 128000` fails. **It is NOT a product bug**: `accountSummary()`
+  computes `total = deployed + unallocated + pockets` and the headline genuinely settles at
+  **$200,185.41** against the $128,000 portfolio figure. Proven by sampling
+  (`$136,852.11 → $158,746.07 → $185,180.63 … settled $200,185.41`) and by the suite reaching
+  **71/71** with a settle inserted. It fails DETERMINISTICALLY in isolation, so it is not a flake —
+  the fix is the wait this suite already applies to `po-portfolio-value` (:338) and
+  `total-return-amount` (:344), i.e. row 251's own rule ("a suite reading a counted figure waits for
+  the exact text, not for the skeleton to leave") applied to the one figure with the largest
+  count-up. Six known causes now account for most of what a full pass loses.
 - **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
   `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose
   controls are painted by an async data load they enumerate the SKELETON and pass.** Four

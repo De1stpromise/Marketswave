@@ -10,7 +10,7 @@
 // writes them, and the classification under test reads only started_at / last_seen_at /
 // ended_at, so a seeded row exercises the identical code path a real one does.
 import { createClient } from '@supabase/supabase-js';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +39,50 @@ function localStack() {
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
 const MIN = 60000, DAY = 86400000;
 
+// Section 7 drives a real browser, so it needs the project's own static server on 8765 (the
+// same dependency every visual suite has). Chrome's connect() is duplicated here rather than
+// shared: there is no CDP helper in lib/ and every other suite rolls its own.
+const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const SITE = 'http://127.0.0.1:8765';
+
+async function connect(profile) {
+  const PORT = 9400 + Math.floor(Math.random() * 400);
+  const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + PORT, '--user-data-dir=' + profile,
+    '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--hide-scrollbars', '--disable-gpu', 'about:blank'], { stdio: 'ignore' });
+  let wsUrl = '';
+  for (let i = 0; i < 80 && !wsUrl; i++) {
+    try {
+      const r = await fetch('http://127.0.0.1:' + PORT + '/json/list');
+      const page = (await r.json()).find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
+      if (page) wsUrl = page.webSocketDebuggerUrl; else await sleep(250);
+    } catch (_e) { await sleep(250); }
+  }
+  if (!wsUrl) throw new Error('Could not reach headless Chrome on port ' + PORT);
+  const ws = new WebSocket(wsUrl);
+  await new Promise((r) => ws.addEventListener('open', r, { once: true }));
+  let id = 0; const pending = new Map(); const setCookieHeaders = [];
+  ws.addEventListener('message', (e) => {
+    const m = JSON.parse(e.data);
+    // Collected so the "no server writes this cookie" assertion is a real observation of the
+    // wire, not an inference from the source.
+    if (m.method === 'Network.responseReceivedExtraInfo' && m.params && m.params.headers) {
+      for (const k of Object.keys(m.params.headers)) {
+        if (k.toLowerCase() === 'set-cookie') setCookieHeaders.push(m.params.headers[k]);
+      }
+    }
+    if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result); }
+  });
+  const send = (method, params) => new Promise((res, rej) => { const i = ++id; pending.set(i, { resolve: res, reject: rej }); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
+  const evaluate = async (expr) => {
+    const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.text);
+    return r.result.value;
+  };
+  await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
+  await send('Network.setCacheDisabled', { cacheDisabled: true });
+  return { chrome, ws, send, evaluate, setCookieHeaders };
+}
+
 async function main() {
   const { url, anon, service } = localStack();
   const admin = createClient(url, service, { auth: { persistSession: false } });
@@ -49,6 +93,11 @@ async function main() {
   const madeVisitors = [], madeSessions = [], madeUsers = [];
   // a valid v4-shaped uuid, unique per run and per index, so cleanup can key on it
   const vid = (n) => SUFFIX + String(n).padStart(2, '0') + '-0000-4000-8000-' + SUFFIX + String(n).padStart(6, '0');
+  // Section 7's planted cookie. Declared out here because the opted-in visit it makes is a REAL
+  // one: track-visit writes a visitors row and a session under this id, and the session's own id
+  // is generated in the browser, so cleanup keys on the visitor instead.
+  const COOKIE_VID = vid(8);
+  madeVisitors.push(COOKIE_VID);
 
   try {
     // ---- a real client, so "grouped by person" has a genuine client_id to group on
@@ -238,11 +287,148 @@ async function main() {
     const dAnon = await call({ detail: S.exact });
     check('★ an anonymous visitor\'s earlier visits are from that browser only (groupedBy: browser)', dAnon.groupedBy === 'browser');
 
+    // ══ 7. the cookie's REAL persisted lifetime, and a real heartbeat ════════════════════
+    //
+    // ★ WHY A REAL BROWSER AND NOT jsdom: jsdom's document.cookie getter returns only
+    // name=value pairs and NEVER exposes Max-Age. Section 6 above can therefore prove the id
+    // survives a rewrite but cannot prove the lifetime actually dropped from 400 days to 30 —
+    // which is the whole claim. It is read from the browser's OWN cookie store over CDP.
+    //
+    // ★ AND THERE IS NO Set-Cookie HEADER TO READ. mw_vid is written by first-party JS
+    // (site-presence.js's visitorId(), via document.cookie), never by a server. That is
+    // asserted too, so a change that moved the write server-side is caught rather than
+    // quietly satisfying a header-shaped test.
+    console.log('\n-- the cookie, in a real browser --');
+    const profileDir = makeTempDir('mw-presence-hist-');
+    let cdp = null;
+    try {
+      cdp = await connect(profileDir);
+      const getMw = async () => {
+        const { cookies: jar } = await cdp.send('Network.getCookies', { urls: [SITE + '/'] });
+        return jar.filter((c) => c.name === 'mw_vid');
+      };
+      const days = (c) => (c.expires - Date.now() / 1000) / 86400;
+
+      // Plant exactly what the shipped code used to write, as a real returning visitor carries.
+      await cdp.send('Network.setCookie', { name: 'mw_vid', value: COOKIE_VID, url: SITE + '/', path: '/',
+        expires: Math.floor(Date.now() / 1000) + 400 * 86400, sameSite: 'Lax' });
+      const planted = await getMw();
+      check('NON-VACUITY: the planted cookie really is ~400 days out before the visit',
+        planted.length === 1 && days(planted[0]) > 395 && days(planted[0]) < 401,
+        planted.length ? days(planted[0]).toFixed(2) + ' days' : 'absent');
+
+      // A local origin without the opt-in must not track at all (README): start() returns
+      // before visitorId() is ever reached. This is also the control proving the rewrite below
+      // is genuinely caused by the visit rather than by anything this suite did itself.
+      await cdp.send('Page.navigate', { url: SITE + '/about.html' });
+      await sleep(2500);
+      const optedOut = await getMw();
+      check('CONTROL: with the local opt-out active the tracker never runs and the cookie is untouched',
+        optedOut.length === 1 && days(optedOut[0]) > 395,
+        optedOut.length ? days(optedOut[0]).toFixed(2) + ' days' : 'absent');
+
+      await cdp.evaluate('localStorage.setItem("mw_presence_local","1")');
+      await cdp.send('Page.navigate', { url: SITE + '/about.html' });
+      await sleep(4000);
+      const rewritten = await getMw();
+      const one = rewritten.length === 1;
+      check('★ the REAL persisted cookie lifetime is 30 days, not 400 — read from the browser cookie store',
+        one && days(rewritten[0]) > 29.9 && days(rewritten[0]) < 30.01,
+        one ? days(rewritten[0]).toFixed(4) + ' days' : rewritten.length + ' cookie(s)');
+      check('★ an existing 400-day cookie is genuinely REWRITTEN DOWN by the visit',
+        one && days(planted[0]) - days(rewritten[0]) > 360,
+        one ? 'dropped ' + (days(planted[0]) - days(rewritten[0])).toFixed(1) + ' days' : 'no cookie');
+      check('★ the visitor id SURVIVES the rewrite — a shorter lifetime must never reset the visitor',
+        one && rewritten[0].value === COOKIE_VID, one ? rewritten[0].value : 'no cookie');
+      check('★ exactly ONE mw_vid cookie — the rewrite replaced the expiry, it did not add a second',
+        one, rewritten.length + ' cookie(s)');
+      check('the cookie is first-party to this origin, Path=/ and SameSite=Lax',
+        one && rewritten[0].path === '/' && rewritten[0].sameSite === 'Lax' && rewritten[0].domain === '127.0.0.1',
+        one ? rewritten[0].domain + ' path=' + rewritten[0].path + ' sameSite=' + rewritten[0].sameSite : 'no cookie');
+
+      // Rolling, not fixed from the first visit: 30 days from the LAST visit, which is what
+      // keeps a regular visitor recognised for exactly as long as their data survives.
+      const firstExpiry = one ? rewritten[0].expires : 0;
+      await sleep(3200);
+      await cdp.send('Page.navigate', { url: SITE + '/about.html' });
+      await sleep(3500);
+      const rolled = await getMw();
+      const moved = rolled.length === 1 ? rolled[0].expires - firstExpiry : 0;
+      check('★ ROLLING: a later visit pushes the expiry forward — 30 days from the LAST visit, never fixed from the first',
+        moved >= 3 && moved <= 15, 'expiry moved +' + moved.toFixed(1) + 's across a ~3s gap between visits');
+      check('...and it is still ~30 days out, never accumulating',
+        rolled.length === 1 && days(rolled[0]) > 29.9 && days(rolled[0]) < 30.01,
+        rolled.length === 1 ? days(rolled[0]).toFixed(4) + ' days' : 'no cookie');
+      const mwSetCookie = cdp.setCookieHeaders.filter((h) => /mw_vid/.test(h));
+      check('★ NO response carried a Set-Cookie for mw_vid — no server writes it, it is first-party JS',
+        mwSetCookie.length === 0,
+        cdp.setCookieHeaders.length + ' Set-Cookie header(s) seen, ' + mwSetCookie.length + ' naming mw_vid');
+
+      // ---- a real heartbeat must refetch the LIVE set only, never the 30-day tab ----------
+      //
+      // ★ The heaviest read on this page is the 30-day tab, and a heartbeat arrives every 15 s
+      // per visitor. If Realtime refetched the open tab, the cost would scale with both the
+      // window and the visitor count. Section 3 measures the payloads and section 6 reads
+      // admin-presence.html's source for the Realtime target; this proves the behaviour.
+      console.log('\n-- a real heartbeat, with the PM on the 30-day tab --');
+      const bootstrap = 'localStorage.setItem("sb-marketswave-admin-auth-token", ' +
+        JSON.stringify(JSON.stringify(signedIn.data.session)) + '); true';
+      await cdp.send('Page.navigate', { url: SITE + '/admin-login.html' });
+      await sleep(1800);
+      await cdp.evaluate(bootstrap);
+      await cdp.send('Page.navigate', { url: SITE + '/admin-presence.html' });
+      await sleep(2000);
+      // Installed once the page's own script is present, so the month read below is recorded.
+      const hooked = await cdp.evaluate('(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));' +
+        ' for (let i = 0; i < 200; i++) { if (document.getElementById("presence-list")) break; await nap(200); }' +
+        ' if (!document.getElementById("presence-list")) return false;' +
+        ' window.__mwCalls = []; const f = window.fetch;' +
+        ' window.fetch = function (u, o) { try { const s = typeof u === "string" ? u : (u && u.url) || "";' +
+        '   if (/get-visitor-presence/.test(s)) window.__mwCalls.push((o && o.body) ? String(o.body) : ""); } catch (e) {}' +
+        '   return f.apply(this, arguments); }; return true; })()');
+      check('GUARD: admin-presence.html rendered and its reads can be observed', hooked === true);
+      const rowCount = await cdp.evaluate('(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));' +
+        ' const t = document.querySelector("[data-tab=month]"); if (t) t.click();' +
+        ' for (let i = 0; i < 200; i++) { if (document.querySelectorAll("#presence-list tr[data-session]").length >= 6) break; await nap(200); }' +
+        ' await nap(800); return document.querySelectorAll("#presence-list tr[data-session]").length; })()');
+      check('GUARD: the PM is on a genuinely populated 30-day tab before the heartbeat',
+        rowCount >= 6, rowCount + ' rows');
+      const monthBefore = await cdp.evaluate('window.__mwCalls.filter((b) => /"tab":"month"/.test(b)).length');
+      await cdp.evaluate('window.__mwCalls = []; true');
+
+      // The same call site-presence.js makes every 15 s, against the real function.
+      const hb = await fetch(url + '/functions/v1/track-visit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: anon },
+        body: JSON.stringify({ event: 'heartbeat', sessionId: S.live, visitorId: cookies[0], path: '/services', at: new Date().toISOString() })
+      });
+      check('the heartbeat was accepted by the REAL track-visit function (200)', hb.status === 200, 'HTTP ' + hb.status);
+      await sleep(4500);   // Realtime, plus the page's own 400 ms debounce
+      const calls = await cdp.evaluate('window.__mwCalls');
+      check('★ the heartbeat WOKE the page — it re-read something (otherwise the next check is vacuous)',
+        calls.length >= 1, calls.length + ' call(s): ' + JSON.stringify(calls));
+      check('★ EVERY read the heartbeat provoked asked for the LIVE set',
+        calls.length >= 1 && calls.every((b) => /"tab":"live"/.test(b)), JSON.stringify(calls));
+      check('★ NOT ONE of them refetched the 30-day tab — a heartbeat must never repeat the heavy read',
+        calls.every((b) => !/"tab":"month"/.test(b)), JSON.stringify(calls));
+      check('...and the 30-day tab HAD genuinely been read before the heartbeat (the PM really was on it)',
+        monthBefore >= 1, monthBefore + ' month read(s) before');
+      const stillMonth = await cdp.evaluate('(() => { const t = document.querySelector("[data-tab=month]");' +
+        ' return !!(t && (/is-active/.test(t.className) || t.getAttribute("aria-selected") === "true")); })()');
+      check('the PM is still on the 30-day tab afterwards — the open tab was not disturbed', stillMonth === true);
+    } finally {
+      if (cdp) { try { cdp.ws.close(); } catch (_e) { /* already closed */ } try { cdp.chrome.kill(); } catch (_e) { /* already gone */ } }
+      await releaseTempDir(profileDir);
+    }
+
     console.log('\n' + '='.repeat(70));
     console.log(passed + '/' + (passed + failed) + ' assertions passed.');
     if (failed) { console.log('\nFAILURES:'); fails.forEach((f) => console.log('  - ' + f)); }
     console.log(failed ? '\nPRESENCE HISTORY: FAIL' : '\nPRESENCE HISTORY: PASS');
   } finally {
+    // Section 7's opted-in visit is real: track-visit generated the session id in the browser,
+    // so it is removed by its visitor rather than by an id this suite never saw. Before the
+    // visitors loop, or the row it points at blocks the delete.
+    await admin.from('visitor_sessions').delete().eq('visitor_id', COOKIE_VID);
     for (const id of madeSessions) await admin.from('visitor_sessions').delete().eq('id', id);
     for (const id of madeVisitors) await admin.from('visitors').delete().eq('id', id);
     for (const id of madeUsers) { await admin.from('clients').delete().eq('id', id); await admin.auth.admin.deleteUser(id).catch(() => {}); }
@@ -251,4 +437,7 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-runVerifyMain(main, { watchdogMs: 15 * 60 * 1000 });
+// 20 min, not 15: section 7 launches Chrome and loads four real pages, and under full-suite
+// load a page load is slow. A visual sibling that kept the default 90 s watchdog left a real
+// record unrepaired when it fired mid-run (row 249).
+runVerifyMain(main, { watchdogMs: 20 * 60 * 1000 });
