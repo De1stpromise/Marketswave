@@ -865,6 +865,28 @@
       }
 
       // ---------------------------------------------------------------- load + realtime
+      // Merge a fresh read into the live arrays by id: the server's row wins, and a row the
+      // live feed delivered that this read does not (yet) include is kept, never dropped.
+      function mergeById(current, fresh) {
+        var seen = {};
+        var merged = fresh.map(function (row) { seen[row.id] = true; return row; });
+        current.forEach(function (row) { if (!seen[row.id]) merged.push(row); });
+        return merged;
+      }
+      function catchUp() {
+        return Promise.all([
+          MarketswaveData.selectTable('conversations'),
+          MarketswaveData.selectTable('messages')
+        ]).then(function (results) {
+          var before = messages.length + conversations.length;
+          conversations = mergeById(conversations, results[0] || []);
+          messages = mergeById(messages, results[1] || []);
+          reindex();
+          renderRail(); renderFilters(); renderList();
+          if (activeId && byId[activeId]) { renderMessages(byId[activeId]); renderContext(byId[activeId]); }
+          return (messages.length + conversations.length) - before;
+        }).catch(function () { /* the live feed keeps working; the next reconnect tries again */ });
+      }
       function loadAndSubscribe() {
         Promise.all([
           MarketswaveData.selectTable('conversations'),
@@ -885,6 +907,7 @@
           var statusEl = document.getElementById('realtime-status');
           client.channel('admin-inbox-live')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function (payload) {
+              if (messages.some(function (m) { return m.id === payload.new.id; })) return; // already merged by catchUp()
               messages.push(payload.new); reindex();
               renderRail(); renderFilters(); renderList();
               if (payload.new.conversation_id === activeId) { renderMessages(byId[activeId]); renderContext(byId[activeId]); }
@@ -895,6 +918,7 @@
               if (payload.new.conversation_id === activeId) renderMessages(byId[activeId]);
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, function (payload) {
+              if (conversations.some(function (c) { return c.id === payload.new.id; })) return; // already merged by catchUp()
               conversations.push(payload.new); reindex();
               renderRail(); renderFilters(); renderList();
             })
@@ -906,7 +930,15 @@
               if (payload.new.id === activeId) renderThread();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'visitor_sessions' }, function () { loadPresence(); })
-            .subscribe(function (status) { statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status; });
+            .subscribe(function (status) {
+              statusEl.textContent = status === 'SUBSCRIBED' ? 'Live' : status;
+              // Row 286 / open cause 8: SUBSCRIBED is not proof that nothing was missed. The
+              // first load above ran BEFORE this channel existed, and Realtime can report
+              // SUBSCRIBED while its change capture is still restarting after an idle spell —
+              // so a message can land where no live event will ever describe it. Fetch once
+              // after every SUBSCRIBED (first connect and every reconnect) and merge by id.
+              if (status === 'SUBSCRIBED') catchUp();
+            });
         }).catch(function (err) {
           showToast('Could Not Load Inbox', MarketswaveData.writeErrorMessage(err), true);
         });
