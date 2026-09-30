@@ -11363,6 +11363,39 @@ row 74.
   - **Deployment**: 20 Edge Functions bundle the changed shared modules; `get-client-list` is the
     importer of `client-list.ts`. Deno bundles at deploy time — redeploy all of them together (row 143).
 
+- **★★ Quick-wins batch — fired alerts, the server gain badge, the risk profile with the
+  account, email delivery status (2026-09-30, register rows 291–294).** Four items, each
+  deployed as it passed. **Things a future session needs to know:**
+  - **A fired price alert is shown, not only emailed**: `get-watchlist` returns each symbol's
+    latest fired, undismissed alert from the last 30 days; card face + drawer (Dismiss / Set a
+    new alert — in the DRAWER, because the card face is itself a button) + the bell, which
+    links `dashboard.html#wl-alert-<symbol id>`. **Dismiss keeps the row** (`dismissed_at`,
+    constrained to fired alerts) and is a mode of `clear-price-alert` under its existing
+    self-only gate. Saving a new alert dismisses the fired one it replaces.
+  - **No unrealised figure is computed in the browser any more**: `asset-collection.html`'s
+    badge reads `get-returns-summary` (row 185's last open client-side money computation).
+  - **★ `client_profiles.risk_profile` is the risk profile's home; localStorage is only a
+    one-time reclaim source.** `set-risk-profile` is self-only, refuses any other key, and a
+    `reclaim: true` call can never overwrite a server value (`.is('risk_profile', null)`).
+    `risk-profile.js` is the one read. The dashboard's "Above profile" rule is crypto share >
+    guide + 10 with guides 5/12/25 — duplicated in `risk-management.html`, change both.
+  - **★ Risk Capacity is "Not yet assessed" — it was fabricated demo data (row 294, the class
+    of rows 76–77).** Do not reintroduce a capacity figure until a real, operator-signed rule
+    derives it from the onboarding questionnaire. The same page's **Regulatory Heatmap still
+    shows invented "Compliant" statuses** — flagged, awaiting the operator's decision.
+  - **★ Opens are NOT tracked.** `receive-inbound-email` records `email.delivered`,
+    `email.bounced` (`bounced_at` + `bounce_reason` from Resend's `data.bounce`
+    type / subType / message) and `email.complained` (`complained_at`); `email.opened` is
+    acknowledged 200 and ignored. Rows marked 'opened' before this read as "Delivered". A
+    bounce renders as its own red `.ibx-bounce` block ("Not delivered — this email bounced.
+    The client did not receive it.", reason, time), never a grey word. **Whether delivery
+    events arrive at all is a Resend dashboard subscription on the existing webhook** — the
+    API key is send-only, so the subscription cannot be made from code.
+  - Help Center: article 27 "Your risk metrics" and the updated article 28 "Watchlist and
+    price alerts" are **drafts** locally and on staging — publishing is the operator's call.
+    A stray `blog-probe-hc-*` Help Center draft was found locally and deleted; the blog suite
+    leaks these probes and should clean them up.
+
 **Next**: The Firebase roadmap that used to live in this paragraph (Phase A2 real Cloud
 Functions on staging, the real-production Firebase switch-over) is **RETIRED, not
 pursued** — see the "Firebase — RETIRED" Tech Stack entry above for the full "why." Supabase
