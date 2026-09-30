@@ -11664,15 +11664,19 @@ is for. Four stages, in order, each building on the last:
   A thorough investigation of the local stack is not a substitute — the local answer was a truthful
   yes, and that is precisely why the investigation that preceded part 8 did not catch it.
 - **★★★ BACK STAGING UP BEFORE ANY MIGRATION REACHES IT, AND CONFIRM THE BACKUP COMPLETED
-  BEFORE RUNNING `db push`. Staging has NO automatic backups (2026-09-24, register rows
-  276-277).** Measured, not assumed: `supabase backups list --project-ref ujnmlwbpginplfnofhhv`
-  returns `{"walg_enabled":true,"pitr_enabled":false,"backups":[]}` — **zero backups, PITR off**.
-  And staging is not a staging environment in the usual sense: it is the ONLY project in the
-  org and `supabase-endpoint.js` points every non-localhost hostname at it, so **marketswave.net
+  BEFORE RUNNING `db push`. The org is on Pro as of 2026-09-30 (register row 285), so staging
+  now HAS daily backups — but they do not replace this rule.** Measured 2026-09-30 through
+  `supabase backups list` and the Management API: org plan `pro`; **7 completed daily physical
+  backups (2026-09-23 → 09-29, each ~03:17 UTC), 7-day retention, restore-to-new-project
+  available; PITR OFF** (a separate paid add-on — not selected; `backup.schedule` not available
+  on this plan). On 2026-09-24 the same command returned `"backups":[]` (rows 276-277) — so a
+  daily backup is at most ~24 hours old, and **a migration pushed at 14:00 UTC would, if it went
+  wrong, roll back to 03:17 UTC and lose every real client action in between.** The manual
+  backup below is the guard for exactly those hours, and stays mandatory before every `db push`.
+  Staging is not a staging environment in the usual sense: it is the ONLY project in the org
+  and `supabase-endpoint.js` points every non-localhost hostname at it, so **marketswave.net
   runs on it and it holds real client accounts, portfolios, signed agreements and identity
-  documents**. A migration against it is therefore a one-way operation — nothing platform-side
-  can roll it back, and `supabase db push` has no undo. Until the plan changes, a fresh manual
-  backup is the ONLY thing that makes a migration recoverable.
+  documents**. `supabase db push` has no undo.
 
       SUPABASE_STAGING_CREDENTIALS_FILE=C:/WorkDirectory/marketswave-secrets/supabase-staging-api-keys.json \
         bash /c/WorkDirectory/marketswave-backups/backup-staging.sh
@@ -12357,13 +12361,18 @@ is for. Four stages, in order, each building on the last:
   `lib/simulated-test-product.mjs` seeds `last_tick_date` as today's UTC date; read after 00:00Z,
   the engine applies one daily step, so a seeded figure drifts (−$27,000 read as −$26,953; $52,000
   as $51,998.59). Not a product bug. Avoid starting a long visual suite shortly before 00:00Z.
-  **(8) OPEN, NEW REGRESSION — `supabase-verify-unified-inbox`'s live-Realtime assertion fails
-  when it runs after `supabase-verify-inbox-tickets`.** 40/40 in all 14 recorded runs 2026-09-14 →
-  09-23; 39/40 (`received … via a genuinely live Realtime event — null`) in the 09-28 full pass AND a
-  09-30 targeted pass, both times second after inbox-tickets; 40/40 alone. Order-dependent and new
-  since 09-23 — NOT the "known Realtime flake" row 283 called it. Candidate commits in the window:
-  318dd96/175d712 (Blog & Press), 8db391a (inbox layout), 3f4b9e9 (visit history, migration).
-  Not investigated yet.
+  **(8) OPEN, CHARACTERISED 2026-09-30 (row 285) — `supabase-verify-unified-inbox`'s
+  live-Realtime assertion fails intermittently, and it is NOT order-dependence on inbox-tickets.**
+  Five ordered runs: three red, two green; back-to-back and probe runs green. inbox-tickets leaves
+  no rows and opens no channel; no code the two suites touch changed after 09-23; the Realtime
+  image predates the window. What the red 00:50Z run coincided with: Realtime's change-capture
+  connection (`realtime_rls`, the wal2json slot) **started at 00:50:44, mid-run**, and every run
+  since has been green. Working explanation (not yet proven): after an idle spell Realtime stops
+  capture and restarts it on the next subscription, SUBSCRIBED returns before capture is live, and
+  an insert 300 ms later is missed. In a full pass the suite is often the first Realtime user in a
+  long time. Next step: correlate `pg_stat_activity.backend_start` for `realtime_rls` with the
+  subscribe time on a red run. Product edge, if confirmed: a PM whose inbox is the first
+  subscriber after idle could miss one live message (the list still shows it on reload).
 - **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
   `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose
   controls are painted by an async data load they enumerate the SKELETON and pass.** Four
