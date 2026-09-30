@@ -256,6 +256,30 @@
   // CLOSED to an empty list rather than throwing and breaking every page's own header — the
   // bell showing zero notifications until the next successful reload is a smaller failure
   // than a broken header on every client-facing page.
+  // ★ Fired price alerts (row 291). A fired alert used to reach the client only by email; it
+  // is now also an item here, linking to that symbol's card with its drawer open. Derived, like
+  // every other item, from the client's OWN rows (price_alerts is self-or-admin under RLS) —
+  // nothing is written when an alert fires. Hidden once dismissed, or after 30 days.
+  var FIRED_ALERT_WINDOW_MS = 30 * 86400000;
+  function buildPriceAlertItems(rows) {
+    var items = [];
+    var since = Date.now() - FIRED_ALERT_WINDOW_MS;
+    (rows || []).forEach(function (a) {
+      if (a.status !== 'fired' || a.dismissed_at) return;
+      var ts = parseDateMs(a.fired_at);
+      if (!ts || ts < since) return;
+      var target = Number(a.target_price).toLocaleString('en-US', { maximumFractionDigits: 8 });
+      items.push({
+        key: 'price-alert-fired-' + a.id,
+        category: 'Price alert',
+        text: a.symbol + (a.direction === 'above' ? ' passed $' : ' fell below $') + target,
+        timestampMs: ts,
+        href: 'dashboard.html#wl-alert-' + a.watchlist_symbol_id
+      });
+    });
+    return items;
+  }
+
   function getAllNotifications() {
     if (typeof MarketswaveData === 'undefined') return Promise.resolve([]);
     return Promise.all([
@@ -268,7 +292,8 @@
       MarketswaveData.selectTable('messages'),
       MarketswaveData.selectTable('blog_comments'),
       MarketswaveData.selectTable('blog_posts_public'),
-      MarketswaveData.selectTable('blog_comments_public')
+      MarketswaveData.selectTable('blog_comments_public'),
+      MarketswaveData.selectTable('price_alerts')
     ]).then(function (results) {
       var productsById = {};
       results[5].forEach(function (p) { productsById[p.id] = p.name; });
@@ -279,7 +304,8 @@
         .concat(buildSellItems(results[2], productsById))
         .concat(buildSavingsItems(results[3]))
         .concat(buildSupportItems(results[4], results[6]))
-        .concat(buildBlogReplyItems(results[7], results[9], postsById));
+        .concat(buildBlogReplyItems(results[7], results[9], postsById))
+        .concat(buildPriceAlertItems(results[10]));
       items.sort(function (a, b) { return b.timestampMs - a.timestampMs; });
       return items;
     }).catch(function () {

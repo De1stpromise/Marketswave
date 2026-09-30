@@ -137,6 +137,15 @@ async function main() {
       direction: 'above', target_price: 999999, status: 'active'
     });
 
+    // ★ A fired, undismissed alert on ETH (row 291) so the triggered line and the drawer's
+    // Dismiss / Set a new alert are painted and measured. Firing itself is proven for real in
+    // verify-fired-alerts; this seed only puts the state on screen.
+    const ethRow = (await admin.from('watchlist_symbols').select('id').eq('client_id', clientId).eq('symbol', 'ETH').single()).data;
+    await admin.from('price_alerts').insert({
+      client_id: clientId, watchlist_symbol_id: ethRow.id, symbol: 'ETH', direction: 'above',
+      target_price: 1500, status: 'fired', fired_at: new Date().toISOString(), fired_price: 1532.47
+    });
+
     const anon = createClient(url, anonKey);
     const { data: signed, error: sErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
     if (sErr) throw new Error('signIn: ' + sErr.message);
@@ -222,6 +231,10 @@ async function main() {
     const drawerOffered = runContrast('watchlist-drawer', prepareDrawerFor('BTC'), 'the drawer (Offered, armed alert)');
     const drawerTracking = runContrast('watchlist-drawer', prepareDrawerFor('SHOP'), 'the drawer (Tracking only)');
     runContrast('watchlist-modal', prepareModal, 'the alert modal');
+    const drawerFired = runContrast('watchlist-drawer', prepareDrawerFor('ETH'), 'the drawer (fired alert)');
+    check('★ the triggered line on the card face was measured (sheen composited)', /card fired line/.test(out));
+    check('★ the fired text, Dismiss and Set a new alert were measured inside the drawer',
+      /fired text/.test(drawerFired) && /drawer Dismiss/.test(drawerFired) && /drawer Set a new alert/.test(drawerFired));
 
     // Both badge styles are two genuinely different colour stacks; neither may be skipped —
     // on the face AND inside the drawer.
@@ -348,6 +361,48 @@ async function main() {
         check(width + 'px: every control on the card is at least 44x44', small.length === 0, JSON.stringify(small));
       }
     }
+
+    // ★ The fired-alert state on a REAL phone profile (row 291): touch emulation and DPR 3,
+    // proven by matchMedia rather than inferred from the width.
+    for (const width of [390, 375]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 3, mobile: true });
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+      await cdp.send('Page.navigate', { url: BASE + '/dashboard.html' });
+      for (let i = 0; i < 80; i++) { await sleep(400); if (await cdp.evaluate('!!document.querySelector("#wl-rows .wl-card[data-wl-card]")')) break; }
+      const ph = await cdp.evaluate(`(async () => {
+        const card = [...document.querySelectorAll('#wl-rows .wl-card[data-wl-card]')].find(c => c.querySelector('.wl-tag').textContent === 'ETH');
+        const line = card && card.querySelector('.wl-fired');
+        const lr = line ? line.getBoundingClientRect() : null; const cr = card.getBoundingClientRect();
+        card.click(); await new Promise(r => setTimeout(r, 600));
+        const dis = document.querySelector('[data-wl-dismiss]'); const renew = document.querySelector('.wl-firedblock [data-wl-bell]');
+        const box = el => { if (!el) return null; el.scrollIntoView({block:'center'}); const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; };
+        return { inner: innerWidth, coarse: matchMedia('(pointer: coarse)').matches, noHover: matchMedia('(hover: none)').matches, dpr: devicePixelRatio,
+          lineText: line ? line.textContent : null, lineInside: !!lr && lr.left >= cr.left - 1 && lr.right <= cr.right + 1,
+          dismiss: box(dis), renew: box(renew), bodyScroll: document.body.scrollWidth };
+      })()`);
+      check(width + 'px (phone profile): a real phone profile — the width, pointer:coarse, hover:none, DPR 3', ph.inner === width && ph.coarse && ph.noHover && ph.dpr === 3, JSON.stringify({ inner: ph.inner, coarse: ph.coarse, noHover: ph.noHover, dpr: ph.dpr }));
+      check(width + 'px (phone profile): the triggered line is on the ETH card and stays inside it', !!ph.lineText && ph.lineText.indexOf('Passed $1,500') !== -1 && ph.lineInside, JSON.stringify({ t: ph.lineText, inside: ph.lineInside }));
+      check(width + 'px (phone profile): Dismiss and Set a new alert are at least 44x44', !!ph.dismiss && !!ph.renew && ph.dismiss.h >= 44 && ph.dismiss.w >= 44 && ph.renew.h >= 44 && ph.renew.w >= 44, JSON.stringify({ d: ph.dismiss, r: ph.renew }));
+      check(width + 'px (phone profile): no horizontal overflow with the fired state open', ph.bodyScroll <= ph.inner + 1, JSON.stringify({ body: ph.bodyScroll, inner: ph.inner }));
+    }
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+
+    // 320px, fired state: a real same-origin iframe (the top-level override floors at 348).
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 900, deviceScaleFactor: 1, mobile: true });
+    await cdp.send('Page.navigate', { url: BASE + '/dashboard.html' });
+    for (let i = 0; i < 80; i++) { await sleep(400); if (await cdp.evaluate('!!(document.body && document.getElementById("wl-rows"))')) break; }
+    const f320 = await cdp.evaluate(`(async () => {
+      const f = document.createElement('iframe'); f.style.cssText = 'width:320px;height:800px;border:0;position:fixed;left:0;top:0;z-index:99999'; f.src = '/dashboard.html'; document.body.appendChild(f);
+      for (let i = 0; i < 120; i++) { await new Promise(r => setTimeout(r, 400)); const d = f.contentDocument;
+        const card = d && [...d.querySelectorAll('#wl-rows .wl-card[data-wl-card]')].find(c => c.querySelector('.wl-tag').textContent === 'ETH');
+        if (card) { const line = card.querySelector('.wl-fired'); card.click(); await new Promise(r => setTimeout(r, 600));
+          const lr = line.getBoundingClientRect(), cr = card.getBoundingClientRect(); const fb = d.querySelector('.wl-firedblock'); const fr = fb && fb.getBoundingClientRect();
+          const wc = d.getElementById('watchlist-card').getBoundingClientRect();
+          const out = { inner: f.contentWindow.innerWidth, lineInside: lr.left >= cr.left - 1 && lr.right <= cr.right + 1, blockInside: !!fr && fr.right <= wc.right + 1, bodyScroll: d.body.scrollWidth };
+          f.remove(); return out; } }
+      return { timedOut: true };
+    })()`);
+    check('320px: the triggered line stays inside its card, and the drawer fired block inside the watchlist card', f320.inner === 320 && f320.lineInside && f320.blockInside && f320.bodyScroll <= 321, JSON.stringify(f320));
 
     // 320px through a real same-origin iframe — the top-level override floors at 348 here.
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 900, deviceScaleFactor: 1, mobile: true });

@@ -1048,7 +1048,24 @@
             '<span class="wl-age" data-wl-age="' + wlEscape(row.lastUpdated || '') + '">' + wlEscape(wlAge(row.lastUpdated)) + '</span>' +
             wlBadgeHTML(row) +
           '</div>' +
+          wlFiredLineHTML(row) +
         '</div>';
+      }
+
+      // ★ A fired alert the client has not dismissed (row 291): "Passed $75,000 · at $75,210 ·
+      // 12 Sep". Text only — the card is itself a button, so the Dismiss / Set a new alert
+      // actions live in its drawer rather than nesting buttons inside a button.
+      function wlFiredText(row) {
+        var f = row.firedAlert;
+        var verb = f.direction === 'above' ? 'Passed ' : 'Fell below ';
+        var at = f.firedPrice != null ? ' · at ' + wlPrice(f.firedPrice, row.assetType) : '';
+        var when = f.firedAt ? ' · ' + new Date(f.firedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+        return verb + wlPrice(f.targetPrice, row.assetType) + at + when;
+      }
+      function wlFiredLineHTML(row) {
+        if (!row.firedAlert) return '';
+        return '<div class="wl-fired" data-wl-fired="' + wlEscape(row.firedAlert.id) + '">' +
+          '<span class="sr-only">Price alert triggered: </span>' + wlEscape(wlFiredText(row)) + '</div>';
       }
 
       // "just now" / "N min ago" / "N h ago" / "—" for a symbol never priced. Repainted
@@ -1098,6 +1115,15 @@
             '<button type="button" class="mw-btn mw-btn-sm mw-btn-secondary wl-remove" data-wl-remove="' + wlEscape(row.id) + '" aria-label="Remove ' + wlEscape(row.symbol) + ' from your watchlist">' + X_SVG + ' Remove</button>' +
           '</div>' +
           alertLine +
+          (row.firedAlert
+            ? '<div class="wl-firedblock">' +
+                '<p class="wl-firedtext"><b>Alert triggered.</b> ' + wlEscape(wlFiredText(row)) + '.</p>' +
+                '<div class="wl-drawer-row">' +
+                  '<button type="button" class="mw-btn mw-btn-sm mw-btn-secondary" data-wl-dismiss="' + wlEscape(row.firedAlert.id) + '" aria-label="Dismiss the triggered alert on ' + wlEscape(row.symbol) + '">Dismiss</button>' +
+                  '<button type="button" class="mw-btn mw-btn-sm mw-btn-primary" data-wl-bell="' + wlEscape(row.id) + '" aria-label="Set a new price alert on ' + wlEscape(row.symbol) + '">Set a new alert</button>' +
+                '</div>' +
+              '</div>'
+            : '') +
         '</div>';
       }
 
@@ -1149,11 +1175,30 @@
           return;
         }
 
+        // The bell's fired-alert item links to #wl-alert-<watchlist symbol id>: open that card's
+        // drawer once, so Dismiss / Set a new alert are one tap away.
+        var hashMatch = /^#wl-alert-(.+)$/.exec(location.hash || '');
+        if (hashMatch && !wlState.hashHandled && wlState.symbols.some(function (s) { return s.id === hashMatch[1]; })) {
+          wlState.openId = hashMatch[1];
+          wlState.hashHandled = true;
+        }
         WL_ROWS.innerHTML = wlState.symbols.map(wlCardHTML).join('');
         // A re-render after a write (alert set/cleared) keeps the same drawer open, now
         // showing the updated state; a removed symbol has no card, so its drawer closes.
         placeDrawer();
       }
+
+      // The bell link is same-page when the client is already on the dashboard: no reload, so
+      // open the drawer on the hash change too, and bring the card into view.
+      window.addEventListener('hashchange', function () {
+        var m = /^#wl-alert-(.+)$/.exec(location.hash || '');
+        if (!m || !wlState.symbols.some(function (s) { return s.id === m[1]; })) return;
+        wlState.openId = m[1];
+        WL_ROWS.innerHTML = wlState.symbols.map(wlCardHTML).join('');
+        placeDrawer();
+        var card = WL_ROWS.querySelector('[data-wl-card="' + m[1] + '"]');
+        if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center' });
+      });
 
       // The row a card belongs to changes when the column count does, so the drawer is
       // re-placed whenever the grid's own width changes.
@@ -1253,6 +1298,20 @@
             });
           }).then(function () {
             wlState.openId = null;
+            return loadWatchlist();
+          }).catch(function (err) {
+            wlMessage(MarketswaveData.writeErrorMessage(err));
+          });
+          return;
+        }
+        var dismissBtn = event.target.closest('[data-wl-dismiss]');
+        if (dismissBtn) {
+          wlMessage('');
+          MarketswaveData.withButtonBusy(dismissBtn, 'Dismissing…', function () {
+            return MarketswaveData.callFunction('clear-price-alert', {
+              dismissAlertId: dismissBtn.getAttribute('data-wl-dismiss')
+            });
+          }).then(function () {
             return loadWatchlist();
           }).catch(function (err) {
             wlMessage(MarketswaveData.writeErrorMessage(err));

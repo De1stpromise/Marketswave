@@ -91,6 +91,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: insertErr.message }, 500);
     }
 
+    // ★ "Set a new alert" replaces the fired one the card was showing (row 291): once a new
+    // alert is saved on this symbol, its fired-and-undismissed alerts are dismissed, so the
+    // card does not show a triggered line and a live alert at once. Same client, same symbol.
+    await admin
+      .from('price_alerts')
+      .update({ dismissed_at: new Date().toISOString() })
+      .eq('client_id', clientId)
+      .eq('watchlist_symbol_id', watchlistSymbolId)
+      .eq('status', 'fired')
+      .is('dismissed_at', null);
+
     return jsonResponse({
       id: alert.id,
       symbol: alert.symbol,

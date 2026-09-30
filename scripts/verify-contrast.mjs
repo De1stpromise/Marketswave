@@ -453,6 +453,7 @@ PROFILES.watchlist = [
   { label: 'search result source', sel: '.wl-src', limit: 6 },
   { label: 'HOVER card name', sel: '.wl-card .wl-name', limit: 6, hover: true },
   { label: 'HOVER card price', sel: '.wl-card .wl-px-v', limit: 6, hover: true },
+  { label: 'card fired line', sel: '.wl-card .wl-fired', limit: 2 },
 ];
 
 /* The drawer sits on a faint green tint inside the glass card. Run once with an Offered
@@ -466,6 +467,9 @@ PROFILES['watchlist-drawer'] = [
   { label: 'drawer bell (armed)', sel: '.wl-drawer .wl-bell.is-on', limit: 1 },
   { label: 'drawer Remove', sel: '.wl-drawer .wl-remove', limit: 1 },
   { label: 'armed alert line', sel: '.wl-alertline', limit: 1 },
+  { label: 'fired text', sel: '.wl-firedtext', limit: 1 },
+  { label: 'drawer Dismiss', sel: '.wl-drawer [data-wl-dismiss]', limit: 1 },
+  { label: 'drawer Set a new alert', sel: '.wl-firedblock [data-wl-bell]', limit: 1 },
 ];
 
 /* The alert modal is measured in its OWN run, not alongside the card. It covers the page

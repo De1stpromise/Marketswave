@@ -30,10 +30,30 @@ Deno.serve(async (req) => {
     const clientId = claimsData.claims.sub as string;
 
     const body = await req.json().catch(() => ({}));
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    // ★ DISMISS MODE (row 291): { dismissAlertId } hides a FIRED alert from the card and the
+    // bell. Same self-only gate as clearing — client_id comes from the caller's JWT and is part
+    // of the WHERE clause, so another client's alert id matches nothing and returns 404. The
+    // row is kept (dismissed_at set), never deleted: it is the record of what fired.
+    if (body?.dismissAlertId) {
+      const { data: dismissed, error: disErr } = await admin
+        .from('price_alerts')
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq('id', String(body.dismissAlertId))
+        .eq('client_id', clientId)
+        .eq('status', 'fired')
+        .is('dismissed_at', null)
+        .select();
+      if (disErr) return jsonResponse({ error: disErr.message }, 500);
+      if (!dismissed || dismissed.length === 0) {
+        return jsonResponse({ error: 'There is no fired alert to dismiss.' }, 404);
+      }
+      return jsonResponse({ dismissed: dismissed[0].symbol }, 200);
+    }
+
     const watchlistSymbolId = body?.watchlistSymbolId ? String(body.watchlistSymbolId) : '';
     if (!watchlistSymbolId) return jsonResponse({ error: 'watchlistSymbolId is required.' }, 400);
-
-    const admin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: deleted, error: delErr } = await admin
       .from('price_alerts')

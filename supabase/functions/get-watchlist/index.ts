@@ -27,6 +27,9 @@ import { resolveSymbols, normalizeSymbol } from '../_shared/symbol-catalog.ts';
 import { BASE_SYMBOLS, refreshSymbols, CacheEntry } from '../_shared/market-refresh.ts';
 import { PER_CLIENT_SYMBOL_LIMIT } from '../_shared/market-providers.ts';
 
+// How long a fired, undismissed alert stays on the client's card and in the bell.
+const FIRED_ALERT_WINDOW_DAYS = 30;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -121,6 +124,25 @@ Deno.serve(async (req) => {
     const alertBySymbolId: Record<string, Record<string, unknown>> = {};
     for (const a of alerts || []) alertBySymbolId[a.watchlist_symbol_id as string] = a;
 
+    // ★ Fired alerts the client has not dismissed, from the last 30 days (row 291). A fired
+    // alert used to reach the client only by email; the card now shows it until dismissed.
+    // Newest first, so the first one seen per symbol is the one the card shows.
+    const firedSince = new Date(Date.now() - FIRED_ALERT_WINDOW_DAYS * 86400000).toISOString();
+    const { data: fired, error: firedErr } = await admin
+      .from('price_alerts')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('status', 'fired')
+      .is('dismissed_at', null)
+      .gte('fired_at', firedSince)
+      .order('fired_at', { ascending: false });
+    if (firedErr) return jsonResponse({ error: firedErr.message }, 500);
+    const firedBySymbolId: Record<string, Record<string, unknown>> = {};
+    for (const a of fired || []) {
+      const k = a.watchlist_symbol_id as string;
+      if (!firedBySymbolId[k]) firedBySymbolId[k] = a;
+    }
+
     return jsonResponse({
       limit: PER_CLIENT_SYMBOL_LIMIT,
       count: watched.length,
@@ -130,6 +152,7 @@ Deno.serve(async (req) => {
         const cached = cacheBySymbol[symbol];
         const offered = catalog[symbol] || null;
         const alert = alertBySymbolId[r.id as string] || null;
+        const firedAlert = firedBySymbolId[r.id as string] || null;
         return {
           id: r.id,
           symbol,
@@ -152,6 +175,15 @@ Deno.serve(async (req) => {
                 id: alert.id,
                 direction: alert.direction,
                 targetPrice: Number(alert.target_price)
+              }
+            : null,
+          firedAlert: firedAlert
+            ? {
+                id: firedAlert.id,
+                direction: firedAlert.direction,
+                targetPrice: Number(firedAlert.target_price),
+                firedPrice: firedAlert.fired_price != null ? Number(firedAlert.fired_price) : null,
+                firedAt: firedAlert.fired_at
               }
             : null
         };
