@@ -1754,6 +1754,44 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     passed it silently). **Still uncovered, stated rather than implied:** compressed IPv6 (`::1`,
     `::ffff:127.0.0.1`) matches neither side's pattern.
 
+- **★ The inbox catches up after every SUBSCRIBED, and merges IN PLACE (2026-09-30, row 286).** `admin-inbox.html` re-reads conversations and messages once after each SUBSCRIBED (first connect and every reconnect) and merges by id, because the page used to load before subscribing and Realtime can report SUBSCRIBED while capture is still restarting (cause 8). **★ A catch-up must update existing row objects in place, never replace them**: `updateStatus()` holds `byId[activeId]` across an awaited call, and a merge that builds new objects leaves it writing to a copy the list no longer draws — this shipped in the first cut and was caught by a targeted pass. `verify-inbox-catchup` proves both, with a controllable channel that never delivers a live event. It does NOT recover an event lost in the seconds just after a SUBSCRIBED — that is still cause 8.
+- **★★ Auth hardening on the live project + a 90-day audit-log purge (2026-09-30, register row
+  286).** Three single-field Management API updates, each re-read and diffed against the full
+  auth config: `rate_limit_email_sent` 2 → 30 (and `config.toml` to match); `password_hibp_enabled`
+  on; the audit-log toggle NOT changed (below). **Things to know before touching any of it:**
+  - **★ SEND AUTH SETTINGS AS SINGLE-FIELD `PATCH /v1/projects/{ref}/config/auth`, NOT `config
+    push`.** `config push` sends every auth setting in `config.toml` at once and has no dry run.
+    Diff the full config before and after and print every field that changed. The first PATCH
+    also moved `custom_oauth_max_providers` to 32767 (Pro's "unlimited"; the platform set it on
+    write, we did not send it, no custom OAuth provider exists).
+  - **★ THE CLI DOES NOT INVERT `[auth.sms] enable_confirmations`** (`SmsAutoconfirm =
+    EnableConfirmations`, cli v2.116.0 `apps/cli-go/pkg/config/auth.go:1121`) though it DOES invert
+    the email one (line 700). A diff that assumes both invert reports a false difference.
+    `config.toml` matches live on every mapped auth setting.
+  - **★ "Write audit logs to the database" (`audit_log_disable_postgres`) CANNOT be set through the
+    Management API** — it is in the read response but in none of the 235 fields of
+    `UpdateAuthConfigBody` (the published spec); a PATCH returns 200 and changes nothing. It is a
+    dashboard switch. Until it is on, `auth.audit_log_entries` on the live project holds 0 rows.
+  - **★★ FAILED SIGN-INS ARE NEVER WRITTEN TO `auth.audit_log_entries`.** Measured: a wrong
+    password adds 0 rows; a successful sign-in 1; a sign-out 1; each token refresh 2
+    (`token_refreshed` + `token_revoked`, roughly hourly per open tab). **Any sign-in history built
+    from this table shows successful sign-ins and sign-outs only.** Recording failed attempts needs
+    the Password Verification Attempt auth hook, which is Team/Enterprise only (Supabase docs).
+    Do not describe a page built on this table as a record of attempts.
+  - **Retention is 90 days** (operator's decision), enforced by `public.purge_auth_audit_log()`
+    (SECURITY DEFINER, EXECUTE revoked from public/anon/authenticated) on cron job
+    `marketswave-purge-auth-audit-log` at 03:45 UTC, running as `postgres` — which on the hosted
+    project is not a superuser but holds DELETE on the table (checked there first; the table is
+    owned by `supabase_auth_admin`). The migration runs the purge once as that role, so a missing
+    privilege fails the migration rather than the job failing silently each night.
+  - **Leaked-password protection applies to admin-created accounts too**: `auth.admin.createUser`
+    with a breached password is refused. A test cannot create "an existing account with a weak
+    password" after the switch is on; use an account created before it.
+  - **`backup-storage.js` read its bucket list from `$D/buckets.json`, which `backup-staging.sh`
+    never wrote** — every run after 2026-09-24 died after the database dumps. It now lists the
+    buckets from the API. The database dumps completing is NOT a complete backup; wait for
+    `BACKUP COMPLETE`.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.

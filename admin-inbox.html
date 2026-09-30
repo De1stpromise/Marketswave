@@ -865,13 +865,19 @@
       }
 
       // ---------------------------------------------------------------- load + realtime
-      // Merge a fresh read into the live arrays by id: the server's row wins, and a row the
+      // Merge a fresh read into the live arrays by id: the server's values win, and a row the
       // live feed delivered that this read does not (yet) include is kept, never dropped.
+      // Existing objects are UPDATED IN PLACE, never replaced: code that already holds a row
+      // (updateStatus() keeps byId[activeId] across its awaited call) must go on pointing at the
+      // object the list renders, or its write lands on a copy nobody draws.
       function mergeById(current, fresh) {
-        var seen = {};
-        var merged = fresh.map(function (row) { seen[row.id] = true; return row; });
-        current.forEach(function (row) { if (!seen[row.id]) merged.push(row); });
-        return merged;
+        var byIdNow = {};
+        current.forEach(function (row) { byIdNow[row.id] = row; });
+        fresh.forEach(function (row) {
+          if (byIdNow[row.id]) Object.assign(byIdNow[row.id], row);
+          else { current.push(row); byIdNow[row.id] = row; }
+        });
+        return current;
       }
       function catchUp() {
         return Promise.all([

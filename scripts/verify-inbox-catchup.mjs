@@ -46,6 +46,8 @@ function readLocalStackCredentials() {
 }
 const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CONTROL = process.env.MW_INBOX_CATCHUP_CONTROL === '1';
+// MW_INBOX_CATCHUP_CONTROL=identity swaps in the first cut of mergeById, which REPLACED objects.
+const CONTROL_IDENTITY = process.env.MW_INBOX_CATCHUP_CONTROL === 'identity';
 const tempFiles = [];
 
 async function main() {
@@ -96,6 +98,16 @@ async function main() {
       script = script.replace("if (status === 'SUBSCRIBED') catchUp();", '');
       console.log('  (control: removed ' + n + ' catchUp() call)');
     }
+    if (CONTROL_IDENTITY) {
+      const a = script.indexOf('      function mergeById('), b = script.indexOf('      function catchUp(');
+      script = script.slice(0, a) + "      function mergeById(current, fresh) { var seen = {}; var merged = fresh.map(function (row) { seen[row.id] = true; return row; }); current.forEach(function (row) { if (!seen[row.id]) merged.push(row); }); return merged; }\n" + script.slice(b);
+      console.log('  (control: mergeById replaced with the object-replacing first cut)');
+    }
+    // Hold admin-update-conversation before it reaches the server until the suite releases it,
+    // so a catch-up can be made to run while an action holds a row.
+    let gate = null;
+    const realCall = MD.callFunction;
+    MD.callFunction = function (name) { const args = arguments; if (name === 'admin-update-conversation' && gate) return gate.then(() => realCall.apply(MD, args)); return realCall.apply(MD, args); };
     dom.window.eval(script);
     const D = dom.window.document;
     const threadHas = (text) => (D.getElementById('thread-messages').textContent || '').indexOf(text) !== -1;
@@ -134,6 +146,19 @@ async function main() {
     await waitFor(() => threadHas(missed2), 8000);
     check('★ after a reconnect SUBSCRIBED the message missed during the gap appears', threadHas(missed2));
     check('...and nothing earlier is duplicated by the second catch-up', threadCount(missed1) === 1 && threadCount('seed-' + suffix) === 1);
+
+    // An action in flight across a catch-up: the row it holds must still be the one on screen.
+    let release; gate = new Promise((r) => { release = r; });
+    D.getElementById('thread-resolve-btn').click();
+    await sleep(200);
+    subscribeCb('SUBSCRIBED');                        // catch-up runs while the resolve is held
+    await sleep(1500);
+    release(); gate = null;                           // the resolve now reaches the server
+    const badge = () => D.getElementById('thread-status-badge');
+    await waitFor(() => badge() && /resolved/i.test(badge().textContent), 8000);
+    const { data: row } = await admin.from('conversations').select('status').eq('id', convoId).single();
+    check('the resolve genuinely landed in Postgres', row && row.status === 'resolved', row && row.status);
+    check('★ a catch-up during an in-flight action does not orphan the row it holds: the header shows Resolved with no live event', badge() && /resolved/i.test(badge().textContent), badge() && badge().textContent);
   } finally {
     if (convoId) { await admin.from('messages').delete().eq('conversation_id', convoId); await admin.from('conversations').delete().eq('id', convoId); }
     for (const f of tempFiles) { try { unlinkSync(f); } catch (_e) {} }
