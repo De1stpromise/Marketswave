@@ -57,9 +57,13 @@ import { resolveInboundConversation } from '../_shared/conversations.ts';
 //     under an email card. Any event type this function does not handle is acknowledged
 //     with 200 so Svix does not retry it. Whether those events arrive at all depends on the
 //     event types the real Resend webhook is subscribed to — a dashboard setting, not code.
-const DELIVERY_EVENTS: Record<string, 'delivered' | 'opened' | 'bounced' | 'complained'> = {
+// ★ 2026-09-30 (row 293): opens are NOT tracked. email.opened is no longer mapped, so it falls
+// through to the "not an event this function cares about" acknowledgement below (200, so Svix
+// does not retry). Rows marked 'opened' before this change keep that status; nothing new is
+// written. A bounce now records WHEN and WHY (Resend's data.bounce: type, subType, message);
+// a complaint records when.
+const DELIVERY_EVENTS: Record<string, 'delivered' | 'bounced' | 'complained'> = {
   'email.delivered': 'delivered',
-  'email.opened': 'opened',
   'email.bounced': 'bounced',
   'email.complained': 'complained'
 };
@@ -102,8 +106,16 @@ Deno.serve(async (req) => {
       const at = (payload.created_at && new Date(payload.created_at).toString() !== 'Invalid Date') ? new Date(payload.created_at).toISOString() : new Date().toISOString();
       const patch: Record<string, unknown> = {};
       if (status === 'delivered') { patch.delivered_at = at; }
-      if (status === 'opened') { patch.opened_at = at; }
-      // opened outranks delivered; a bounce/complaint always wins.
+      if (status === 'bounced') {
+        patch.bounced_at = at;
+        const bounce = (payload.data && payload.data.bounce) || {};
+        const kind = [bounce.type, bounce.subType].filter(Boolean).join(' / ');
+        const reason = [kind, bounce.message].filter(Boolean).join(': ');
+        patch.bounce_reason = reason ? reason.slice(0, 1000) : null;
+      }
+      if (status === 'complained') { patch.complained_at = at; }
+      // A bounce/complaint always wins; 'opened' (rows from before 2026-09-30) still outranks
+      // delivered, so a late delivered event cannot downgrade one.
       const { data: existing } = await admin.from('messages').select('id, delivery_status').eq('resend_id', resendId).maybeSingle();
       if (!existing) return jsonResponse({ ignored: true, type: payload.type, reason: 'no message with that resend_id' }, 200);
       const rank: Record<string, number> = { sent: 0, delivered: 1, opened: 2, bounced: 3, complained: 3 };

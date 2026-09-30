@@ -131,6 +131,8 @@ async function main() {
     const e1 = await convo({ contact_email: 'cold-' + suffix + '@example.com', contact_name: 'Sofia Berg', kind: 'email', subject: 'Question about your fees', status: 'open', created_at: ago(20) });
     await msg({ conversation_id: e1, channel: 'email', direction: 'inbound', body: 'What are your management fees for a $200k portfolio?', sender_name: 'Sofia Berg', sender_email: 'cold-' + suffix + '@example.com', sent_at: ago(20), message_id: '<in-' + suffix + '@example.com>' });
     await msg({ conversation_id: e1, channel: 'email', direction: 'outbound', body: 'Thanks Sofia — our advisory fee is 1.25% per year.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(19), message_id: '<out-' + suffix + '@marketswave.net>', resend_id: 're_ui_' + suffix, delivery_status: 'opened', delivered_at: ago(19), opened_at: ago(18) });
+    // Row 293: a bounced outbound email — the client did not receive it, so the page must say so unmistakably.
+    await msg({ conversation_id: e1, channel: 'email', direction: 'outbound', body: 'Resending the fee schedule as requested.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(18.5), message_id: '<out2-' + suffix + '@marketswave.net>', resend_id: 're_ui_b_' + suffix, delivery_status: 'bounced', bounced_at: ago(18.4), bounce_reason: 'Permanent / General: The recipient mailbox does not exist.' });
     await admin.from('conversations').update({ unread_by_pm: false }).eq('id', e1);
     // A live presence session for the client.
     await admin.from('visitors').insert({ id: visitorRowId, visit_count: 3, first_seen_at: ago(48), last_seen_at: new Date().toISOString() });
@@ -239,8 +241,13 @@ async function main() {
     rows()[0].click();
     await sleep(200);
     const mail = D.querySelectorAll('#thread-messages .ibx-mail');
-    check('email renders as cards with a subject line', mail.length === 2 && /Question about your fees/.test(mail[0].querySelector('.ibx-s').textContent));
-    check('...and the outbound card shows delivery + open state', /Delivered · opened/.test(D.getElementById('thread-messages').querySelector('.ibx-status').textContent), D.getElementById('thread-messages').querySelector('.ibx-status') && D.getElementById('thread-messages').querySelector('.ibx-status').textContent);
+    check('email renders as cards with a subject line', mail.length === 3 && /Question about your fees/.test(mail[0].querySelector('.ibx-s').textContent));
+    // Row 293: opens are not tracked — a row marked 'opened' before 2026-09-30 reads as plain Delivered.
+    const firstStatus = D.getElementById('thread-messages').querySelector('.ibx-status');
+    check('...and the delivered card shows Delivered with no open information (opens are not tracked)', !!firstStatus && /^Delivered /.test(firstStatus.textContent.trim()) && !/opened/i.test(firstStatus.textContent), firstStatus && firstStatus.textContent);
+    const bounce = D.querySelector('#thread-messages .ibx-bounce');
+    check('★ a bounced email is unmistakable: its own block saying it was not delivered and the client did not receive it, with the reason and time', !!bounce && bounce.getAttribute('role') === 'note' && /Not delivered/.test(bounce.textContent) && /did not receive it/.test(bounce.textContent) && /mailbox does not exist/.test(bounce.textContent) && !!bounce.querySelector('.ibx-bounce-when'), bounce && bounce.textContent);
+    check('...and it sits on the bounced message, not the delivered one', !!bounce && /Resending the fee schedule/.test(bounce.closest('.ibx-m').textContent) && !/advisory fee is 1.25%/.test(bounce.closest('.ibx-m').textContent));
     check('an inbound email shows the real sender address', /from cold-/.test(D.querySelector('#thread-messages .ibx-m:not(.is-out) .ibx-addr').textContent));
     check('the composer defaults to Email for an email thread with nobody online, and carries the subject with Re:', D.querySelector('.ibx-ctab[data-channel="email"]').classList.contains('is-on') && !D.getElementById('composer-subject').hidden && D.getElementById('composer-subject').textContent === 'Subject: Re: Question about your fees', D.getElementById('composer-subject').textContent);
 

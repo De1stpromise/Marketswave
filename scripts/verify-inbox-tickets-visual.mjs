@@ -201,6 +201,7 @@ async function main() {
     const e1 = await convo({ contact_email: 'cold-' + suffix + '@example.com', contact_name: 'Sofia Berg', kind: 'email', subject: 'Re: Your deposit has been credited', status: 'open', created_at: ago(20) });
     await msg({ conversation_id: e1, channel: 'email', direction: 'inbound', body: 'Thanks for confirming. Could I get the Q3 statement early — I\'m travelling from the 20th.', sender_name: 'Sofia Berg', sender_email: 'cold-' + suffix + '@example.com', sent_at: ago(20), message_id: '<vis-in-' + suffix + '@example.com>' });
     await msg({ conversation_id: e1, channel: 'email', direction: 'outbound', body: 'Of course — I\'ll have it with you by Thursday.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(19), message_id: '<vis-out-' + suffix + '@marketswave.net>', resend_id: 're_vis_' + suffix, delivery_status: 'opened', delivered_at: ago(19), opened_at: ago(18) });
+    await msg({ conversation_id: e1, channel: 'email', direction: 'outbound', body: 'Resending the fee schedule as requested.', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', sent_at: ago(18.5), message_id: '<vis-outb-' + suffix + '@marketswave.net>', resend_id: 're_visb_' + suffix, delivery_status: 'bounced', bounced_at: ago(18.4), bounce_reason: 'Permanent / General: The recipient mailbox does not exist.' });
     await admin.from('conversations').update({ unread_by_pm: false }).eq('id', e1);
     await admin.from('visitors').insert({ id: visitorRowId, visit_count: 2, first_seen_at: ago(48), last_seen_at: new Date().toISOString() });
     const { data: sess } = await admin.from('visitor_sessions').insert({ id: crypto.randomUUID(), visitor_id: visitorRowId, visit_number: 2, conversation_id: a1, started_at: ago(0.1), last_seen_at: new Date().toISOString(), current_path: '/services', page_count: 2, journey: [], city: 'Stockholm', country: 'Sweden' }).select('id').single();
@@ -338,6 +339,45 @@ async function main() {
       check('320px: the iframe genuinely reports 320px', n.reported === 320, JSON.stringify(n));
       check('320px: the two seeded tickets render (the deep link lands in the Tickets view), the rail is a strip, no overflow before opening a thread', n.before.rows >= 2 && n.before.railHorizontal && n.before.bodyScroll <= 320, JSON.stringify(n.before));
       check('320px: with a thread open, the list hides and nothing escapes the viewport', n.threadOpen && n.listHidden && n.afterBodyScroll <= 320 && n.maxMsgRight <= 321 && n.taRight <= 321, JSON.stringify(n));
+
+      // -- The bounce notice (2026-09-30, row 293): on a REAL phone profile (touch, DPR 3, proven
+      // by matchMedia rather than inferred from width) and in a real 320px iframe, the bounce
+      // block must render in full, inside the viewport, with its reason wrapping rather than
+      // escaping. A bounce that can be missed on a phone is the failure this block exists to stop.
+      const BOUNCE = `(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
+        const doc = window.__mwDoc || document;
+        for (let i = 0; i < 150; i++) { if (doc.querySelector('.ibx-bounce')) break; await nap(200); }
+        await nap(400);
+        const b = doc.querySelector('.ibx-bounce'); if (!b) return { found: false };
+        const r = b.getBoundingClientRect(); const why = doc.querySelector('.ibx-bounce-why');
+        const vw = doc.documentElement.clientWidth;
+        return { found: true, vw, left: +r.left.toFixed(1), right: +r.right.toFixed(1), h: +r.height.toFixed(1),
+          whyRight: why ? +why.getBoundingClientRect().right.toFixed(1) : null,
+          text: b.textContent, bodyScroll: doc.body.scrollWidth,
+          coarse: (doc.defaultView || window).matchMedia('(pointer: coarse)').matches,
+          dpr: (doc.defaultView || window).devicePixelRatio };
+      })()`;
+      for (const width of [390, 375]) {
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 3, mobile: true });
+        await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+        await cdp.send('Page.navigate', { url: BASE + '/admin-inbox.html?c=' + e1 });
+        await sleep(1200);
+        const bm = await cdp.evaluate(BOUNCE);
+        check(width + 'px phone: a real phone profile (coarse pointer, DPR 3)', bm.coarse === true && bm.dpr === 3, JSON.stringify({ coarse: bm.coarse, dpr: bm.dpr }));
+        check(width + 'px phone: the bounce notice renders in full, inside the viewport, reason included', bm.found && bm.left >= 0 && bm.right <= width + 0.5 && bm.whyRight <= width + 0.5 && bm.bodyScroll <= width && /Not delivered/.test(bm.text) && /mailbox does not exist/.test(bm.text), JSON.stringify(bm));
+      }
+      await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 900, height: 900, deviceScaleFactor: 1, mobile: true });
+      await cdp.send('Page.navigate', { url: BASE + '/' });
+      await sleep(800);
+      const b320 = await cdp.evaluate(`(async () => { const nap = (ms) => new Promise(r => setTimeout(r, ms));
+        for (let i = 0; i < 80 && !document.body; i++) await nap(100);
+        const f = document.createElement('iframe'); f.style.cssText = 'width:320px;height:900px;border:0';
+        f.src = '/admin-inbox.html?c=' + ${JSON.stringify(e1)};
+        document.body.appendChild(f); await new Promise(r => f.addEventListener('load', r));
+        window.__mwDoc = f.contentDocument; return 1; })()`);
+      const bi = await cdp.evaluate(BOUNCE);
+      check('320px iframe: the bounce notice renders in full inside 320px, reason wrapping', b320 === 1 && bi.found && bi.vw === 320 && bi.right <= 320.5 && bi.whyRight <= 320.5 && bi.bodyScroll <= 320, JSON.stringify(bi));
     } finally {
       clearInterval(keepAlive);
       await cdp.close();

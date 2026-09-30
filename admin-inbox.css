@@ -143,6 +143,14 @@
 .ibx-m.is-out .ibx-bub .ibx-att b { color: #fff; }
 .ibx-status { font-size: 10.5px; color: #475569; margin-top: 4px; text-align: right; display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
 .ibx-status svg { color: #16A34A; }
+/* ★ A bounced email (row 293): the client did not receive it, so it must be unmistakable —
+   a bordered red block with the reason, never a grey status word. */
+.ibx-bounce { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; padding: 9px 11px; border: 1px solid #FCA5A5; border-left: 3px solid #B91C1C; border-radius: 8px; background: #FEF2F2; color: #7F1D1D; font-size: 12px; line-height: 1.45; text-align: left; }
+.ibx-bounce svg { color: #B91C1C; flex-shrink: 0; margin-top: 1px; }
+.ibx-bounce b { font-weight: 700; }
+.ibx-bounce-why { display: block; margin-top: 3px; color: #7F1D1D; overflow-wrap: anywhere; }
+.ibx-bounce-when { display: block; margin-top: 2px; color: #7F1D1D; font-size: 11px; }
+.ibx-status.is-complained { color: #92400E; }
 .ibx-sysline { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 0 0 16px; font-size: 10.5px; color: #475569; text-align: center; }
 .ibx-sysline i { width: 5px; height: 5px; border-radius: 50%; background: #CBD5E1; flex-shrink: 0; }
 .ibx-typing { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 6px; }

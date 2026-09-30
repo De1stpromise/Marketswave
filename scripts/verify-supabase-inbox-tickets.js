@@ -244,8 +244,8 @@ async function main() {
     const secret = readLocalWebhookSecret();
     const fakeResendId = 're_test_' + suffix;
     const { data: outMsg } = await admin.from('messages').insert({ conversation_id: newConvo.id, channel: 'email', direction: 'outbound', body: 'delivery test', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', resend_id: fakeResendId, delivery_status: 'sent' }).select('id').single();
-    async function webhook(type) {
-      const body = JSON.stringify({ type, created_at: new Date().toISOString(), data: { email_id: fakeResendId } });
+    async function webhook(type, extra, resendId) {
+      const body = JSON.stringify({ type, created_at: new Date().toISOString(), data: Object.assign({ email_id: resendId || fakeResendId }, extra || {}) });
       const id = 'msg_' + crypto.randomBytes(8).toString('hex'); const ts = String(Math.floor(Date.now() / 1000));
       const res = await fetch(url + '/functions/v1/receive-inbound-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': svixSignature(secret, id, ts, body) }, body });
       return { status: res.status, body: await res.json() };
@@ -253,15 +253,33 @@ async function main() {
     const d1 = await webhook('email.delivered');
     const { data: afterDelivered } = await admin.from('messages').select('delivery_status, delivered_at').eq('id', outMsg.id).single();
     check('email.delivered marks the message delivered with a time', d1.status === 200 && afterDelivered.delivery_status === 'delivered' && afterDelivered.delivered_at, JSON.stringify(d1.body));
+    // ★ Opens are NOT tracked (2026-09-30, row 293): email.opened is acknowledged and ignored.
     const d2 = await webhook('email.opened');
     const { data: afterOpened } = await admin.from('messages').select('delivery_status, opened_at').eq('id', outMsg.id).single();
-    check('email.opened marks it opened with a time', d2.status === 200 && afterOpened.delivery_status === 'opened' && afterOpened.opened_at);
+    check('★ email.opened is acknowledged (200) and records NOTHING — no open tracking', d2.status === 200 && d2.body.ignored === true && afterOpened.delivery_status === 'delivered' && afterOpened.opened_at === null, JSON.stringify({ d2: d2.body, afterOpened }));
     const d3 = await webhook('email.delivered');
     const { data: afterLate } = await admin.from('messages').select('delivery_status').eq('id', outMsg.id).single();
-    check('a late "delivered" never downgrades an "opened"', d3.status === 200 && afterLate.delivery_status === 'opened');
-    const d4 = await webhook('email.bounced');
-    const { data: afterBounce } = await admin.from('messages').select('delivery_status').eq('id', outMsg.id).single();
-    check('email.bounced always wins', afterBounce.delivery_status === 'bounced');
+    check('a second "delivered" leaves it delivered', d3.status === 200 && afterLate.delivery_status === 'delivered');
+    const bounceDetail = { bounce: { type: 'Permanent', subType: 'Suppressed', message: 'The recipient address is on the suppression list.' } };
+    const d4 = await webhook('email.bounced', bounceDetail);
+    const { data: afterBounce } = await admin.from('messages').select('delivery_status, bounced_at, bounce_reason').eq('id', outMsg.id).single();
+    check('★ email.bounced always wins, recording WHEN and WHY', afterBounce.delivery_status === 'bounced' && !!afterBounce.bounced_at && afterBounce.bounce_reason === 'Permanent / Suppressed: The recipient address is on the suppression list.', JSON.stringify(afterBounce));
+    const d5 = await webhook('email.delivered');
+    const { data: afterBounceLate } = await admin.from('messages').select('delivery_status').eq('id', outMsg.id).single();
+    check('a late "delivered" never un-bounces a message', d5.status === 200 && afterBounceLate.delivery_status === 'bounced');
+    const complainId = 're_test_c_' + suffix;
+    const { data: cMsg } = await admin.from('messages').insert({ conversation_id: newConvo.id, channel: 'email', direction: 'outbound', body: 'complaint test', sender_name: 'Portfolio Manager', sender_email: 'pm@marketswave.local', resend_id: complainId, delivery_status: 'delivered' }).select('id').single();
+    await webhook('email.complained', {}, complainId);
+    const { data: afterComplain } = await admin.from('messages').select('delivery_status, complained_at').eq('id', cMsg.id).single();
+    check('★ email.complained lands on the RIGHT message (its own resend_id), with a time', afterComplain.delivery_status === 'complained' && !!afterComplain.complained_at, JSON.stringify(afterComplain));
+    const { data: firstStill } = await admin.from('messages').select('delivery_status').eq('id', outMsg.id).single();
+    check('...and the other message is untouched', firstStill.delivery_status === 'bounced');
+    // A delivery event with a wrong signature is refused before anything is read or written.
+    const forgedBody = JSON.stringify({ type: 'email.delivered', data: { email_id: complainId } });
+    const fid = 'msg_' + crypto.randomBytes(8).toString('hex'); const fts = String(Math.floor(Date.now() / 1000));
+    const forged = await fetch(url + '/functions/v1/receive-inbound-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'svix-id': fid, 'svix-timestamp': fts, 'svix-signature': svixSignature('whsec_' + Buffer.from('not-the-secret-' + suffix).toString('base64'), fid, fts, forgedBody) }, body: forgedBody });
+    const { data: afterForged } = await admin.from('messages').select('delivery_status').eq('id', cMsg.id).single();
+    check('★ a delivery event with a bad signature is refused 401 and changes nothing', forged.status === 401 && afterForged.delivery_status === 'complained', forged.status + ' ' + afterForged.delivery_status);
     const unknownBody = JSON.stringify({ type: 'email.delivered', data: { email_id: 'no-such-id' } });
     const uid = 'msg_' + crypto.randomBytes(8).toString('hex'); const uts = String(Math.floor(Date.now() / 1000));
     const unknown = await fetch(url + '/functions/v1/receive-inbound-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'svix-id': uid, 'svix-timestamp': uts, 'svix-signature': svixSignature(secret, uid, uts, unknownBody) }, body: unknownBody });

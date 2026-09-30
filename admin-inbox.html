@@ -535,17 +535,28 @@
         if (!m.attachment_path) return '<span class="ibx-att is-missing">📎 ' + escapeHtml(m.attachment_name) + ' <span>(filed before evidence files were stored — no file attached)</span></span>';
         return '<button type="button" class="ibx-att thread-attachment" data-path="' + escapeHtml(m.attachment_path) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><b>' + escapeHtml(m.attachment_name) + '</b>' + (m.attachment_size ? '<span>' + fmtBytes(m.attachment_size) + '</span>' : '') + '</button>';
       }
+      // ★ Delivery status (row 293), from Resend's delivery webhook. Opens are not tracked: a row
+      // marked 'opened' before 2026-09-30 reads as delivered. A BOUNCE must be unmistakable — it
+      // means the client did not receive this email — so it is its own red block with the reason,
+      // not a word in the grey status line.
       function deliveryHTML(m) {
         if (m.direction !== 'outbound' || m.channel !== 'email') return '';
         var s = m.delivery_status;
-        var text;
-        if (s === 'opened') text = 'Delivered · opened ' + fmtTime(m.opened_at);
-        else if (s === 'delivered') text = 'Delivered ' + fmtTime(m.delivered_at);
-        else if (s === 'bounced') text = 'Bounced';
-        else if (s === 'complained') text = 'Marked as spam';
-        else text = 'Sent';
-        var ok = s === 'opened' || s === 'delivered';
-        return '<div class="ibx-status">' + (ok ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + escapeHtml(text) + '</div>';
+        if (s === 'bounced') {
+          return '<div class="ibx-bounce" role="note" data-delivery="bounced">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5h.01"/></svg>' +
+            '<div><b>Not delivered — this email bounced.</b> The client did not receive it.' +
+            (m.bounce_reason ? '<span class="ibx-bounce-why">' + escapeHtml(m.bounce_reason) + '</span>' : '') +
+            (m.bounced_at ? '<span class="ibx-bounce-when">' + escapeHtml(fmtTime(m.bounced_at)) + '</span>' : '') +
+            '</div></div>';
+        }
+        if (s === 'complained') {
+          return '<div class="ibx-status is-complained" data-delivery="complained">Delivered, then marked as spam by the recipient' + (m.complained_at ? ' · ' + escapeHtml(fmtTime(m.complained_at)) : '') + '</div>';
+        }
+        var ok = s === 'delivered' || s === 'opened';
+        var when = m.delivered_at || m.opened_at;
+        var text = ok ? (when ? 'Delivered ' + fmtTime(when) : 'Delivered') : 'Sent';
+        return '<div class="ibx-status" data-delivery="' + (ok ? 'delivered' : 'sent') + '">' + (ok ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + escapeHtml(text) + '</div>';
       }
       function messageHTML(c, m, isOpening) {
         if (m.channel === 'system') {
