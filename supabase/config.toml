@@ -804,6 +804,12 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/get-watchlist/index.ts"
 
+# ★ The client's own risk profile (2026-09-30, row 292) — self-only; the JWT is verified in-function.
+[functions.set-risk-profile]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/set-risk-profile/index.ts"
+
 [functions.add-watchlist-symbol]
 enabled = true
 verify_jwt = false

@@ -292,6 +292,7 @@
   // "not submitted" (a client who applied before 2026-09-18 has no server record unless their
   // browser reclaimed it at a later login — nothing was lost, it was never sent), and the panel
   // shows what signup COLLECTS: country of residence, which is not tax residence.
+  var RISK_LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
   function renderOnboarding(d) {
     var p = d.p.profile;
     var o = d.p.onboarding || {};
@@ -327,6 +328,11 @@
         kv('Address', addr) +
         kv('ID document', idTxt) +
         kv('Account type', d.p.client.accountType) +
+        // ★ The level the client chose on the Risk Meter (row 292) — distinct from the signup
+        // questionnaire answers below. "Not set" is an honest absence, never a default.
+        kvRaw('Risk profile', p.riskProfile
+          ? esc(RISK_LABELS[p.riskProfile] || p.riskProfile) + ' <span class="cp-hint" data-cp-risk-set-at>set ' + esc(dateShort(p.riskProfileSetAt)) + '</span>'
+          : '<span class="cp-risk-unset" data-cp-risk-unset>Not set</span>') +
         kvRaw('Date of birth', dob ? esc(dob) : '<span class="cp-unsub" data-cp-unsubmitted="dateOfBirth">Not submitted</span>') +
       '</div>' +
       '<div class="cp-kv cp-kv-groups">' + groups + '</div>' +

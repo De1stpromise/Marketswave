@@ -182,13 +182,15 @@
               <p class="text-lg font-semibold text-navy" id="risk-tolerance-value">Balanced</p>
               <p class="text-xs text-slate-500 mt-1" id="risk-tolerance-description">Comfortable accepting short-term volatility in pursuit of long-term growth.</p>
             </div>
-            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4">
+            <!-- ★ Risk capacity (2026-09-30, register row 294, the fabricated-content class of rows
+                 76-77). This card used to state "Moderate-High" and "Stable income and sufficient
+                 reserves support measured risk-taking" to EVERY client, and a badge judged each
+                 previewed level against a capacity hardcoded as "Moderate" — demo values shown as
+                 a client's own finances. Nothing assesses capacity yet, so the card says so. -->
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-4" data-risk-capacity="not-assessed">
               <p class="text-xs text-slate-500 mb-1">Risk Capacity</p>
-              <p class="text-lg font-semibold text-navy">Moderate–High</p>
-              <p class="text-xs text-slate-500 mt-1">Stable income and sufficient reserves support measured risk-taking.</p>
-              <div class="mt-3 pt-3 border-t border-slate-200">
-                <span id="capacity-suitability-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium">—</span>
-              </div>
+              <p class="text-lg font-semibold text-navy" id="risk-capacity-value">Not yet assessed</p>
+              <p class="text-xs text-slate-500 mt-1" id="risk-capacity-description">Risk capacity is how much loss your finances could absorb. It hasn’t been assessed for your account yet, so nothing on this page compares your chosen profile against it.</p>
             </div>
             <!-- Client Dashboard Visual Treatment, Stage 2 (2026-09-06): glass-subtle here
                  only, per instruction — the Risk Meter card itself and its own locked
@@ -293,6 +295,7 @@
   <script src="motion-helpers.js"></script>
   <script src="dashboard-notifications.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="risk-profile.js"></script>
   <script src="chat-widget.js"></script>
   <script src="site-presence.js"></script>
   <script>
@@ -341,7 +344,9 @@
     (function () {
       // Multi-Client Data Model Phase, Step 2 (Aug 21, 2026): scoped via engine-core.js's
       // clientScopedKey() — safe since engine-core.js always loads before this page's own script.
-      const STORAGE_KEY = clientScopedKey('marketswave_risk_profile');
+      // ★ The saved level now lives on the server (row 292): read through RiskProfile.load() —
+      // which also performs the one-time reclaim of a value this browser still holds — and
+      // written through RiskProfile.save() (set-risk-profile, self-only).
       const LEVELS = ['conservative', 'balanced', 'aggressive'];
       const LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
       const TOLERANCE_DESCRIPTIONS = {
@@ -350,10 +355,8 @@
         aggressive: 'Prioritizes long-term growth and can tolerate significant short-term volatility, including drawdowns.'
       };
 
-      // Suitability check: previewed tolerance vs. the client's actual (fixed) risk capacity.
-      // Capacity itself never moves — it's a fact about the client, not a function of preview state.
-      const TOLERANCE_ORDINAL = { conservative: 1, balanced: 2, aggressive: 3 };
-      const CAPACITY_ORDINAL = 2; // client's actual capacity ("Moderate"), fixed demo data
+      // (Row 294: the suitability check against a hardcoded "Moderate" capacity is removed — there
+      // is no assessed capacity to compare a previewed level against.)
 
       // Reference model mixes per tolerance level, used only for the Risk Meter's OWN
       // hypothetical preview-delta line ("if I switched to X, my score would be Y") — these
@@ -399,12 +402,15 @@
         toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
       }
 
-      const stored = localStorage.getItem(STORAGE_KEY);
-      let actualLevel = LEVELS.includes(stored) ? stored : 'balanced';
+      // savedLevel is what the SERVER holds (null until one is saved); actualLevel is where the
+      // meter sits. With nothing saved the meter starts at Balanced for previewing, but the pill
+      // says "Not set" — it used to claim "Balanced" for a client who had never chosen anything.
+      let savedLevel = null;
+      let actualLevel = 'balanced';
       let previewLevel = actualLevel;
 
       function renderActual() {
-        currentPill.textContent = `Current Profile: ${LABELS[actualLevel]}`;
+        currentPill.textContent = savedLevel ? `Current Profile: ${LABELS[savedLevel]}` : 'Current Profile: Not set';
       }
 
       // Position/size the sliding pill from the clicked segment's actual rendered box —
@@ -425,17 +431,6 @@
         });
       }
 
-      function renderSuitability() {
-        const badge = document.getElementById('capacity-suitability-badge');
-        const exceeds = TOLERANCE_ORDINAL[previewLevel] > CAPACITY_ORDINAL;
-        badge.textContent = exceeds
-          ? '⚠ Selected tolerance exceeds your risk capacity'
-          : '✓ Aligned with your risk capacity';
-        badge.classList.toggle('bg-amber-50', exceeds);
-        badge.classList.toggle('text-amber-700', exceeds);
-        badge.classList.toggle('bg-emerald-50', !exceeds);
-        badge.classList.toggle('text-emerald-700', !exceeds);
-      }
 
       function renderTolerance() {
         document.getElementById('risk-tolerance-value').textContent = LABELS[previewLevel];
@@ -485,7 +480,6 @@
 
         renderSavedDot();
         renderTolerance();
-        renderSuitability();
         renderDiversificationDelta();
       }
       // Exposed so the real Diversification Score fetch (below) can re-trigger a full render
@@ -506,20 +500,39 @@
       });
 
       saveBtn.addEventListener('click', () => {
-        actualLevel = previewLevel;
-        localStorage.setItem(STORAGE_KEY, actualLevel);
-        // Explicitly re-sync preview to the newly saved level, then re-render every piece of state
-        // that depends on it (pill position, active label, saved dot, preview indicator,
-        // tolerance card, capacity suitability chip, diversification delta) — nothing should be
-        // left showing whatever was previewed a moment ago.
-        previewLevel = actualLevel;
-        renderActual();
-        renderPreview();
-        showToast(`Risk profile updated to ${LABELS[actualLevel]}.`);
+        const chosen = previewLevel;
+        MarketswaveData.withButtonBusy(saveBtn, 'Saving…', () => window.RiskProfile.save(chosen)).then((res) => {
+          savedLevel = res.riskProfile;
+          actualLevel = res.riskProfile;
+          // Explicitly re-sync preview to the newly saved level, then re-render every piece of
+          // state that depends on it (pill position, active label, saved dot, preview indicator,
+          // tolerance card, capacity suitability chip, diversification delta) — nothing should be
+          // left showing whatever was previewed a moment ago.
+          previewLevel = actualLevel;
+          renderActual();
+          renderPreview();
+          showToast(`Risk profile updated to ${LABELS[actualLevel]}.`);
+        }).catch((err) => {
+          showToast('Could not save your risk profile: ' + MarketswaveData.writeErrorMessage(err));
+        });
       });
 
       renderActual();
       renderPreview();
+      if (window.RiskProfile) {
+        window.RiskProfile.load().then((res) => {
+          if (res.riskProfile) {
+            savedLevel = res.riskProfile;
+            actualLevel = res.riskProfile;
+            previewLevel = actualLevel;
+          }
+          renderActual();
+          renderPreview();
+          if (res.reclaimed) showToast(`Your saved risk profile (${LABELS[res.riskProfile]}) is now stored with your account.`);
+        }).catch(() => {
+          currentPill.textContent = 'Current Profile: could not be loaded';
+        });
+      }
 
       // The pill's left/width are read from live layout (offsetLeft/offsetWidth), so keep them
       // correct if web-font swap or a window resize shifts the segments after first paint.

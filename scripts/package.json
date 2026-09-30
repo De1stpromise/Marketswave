@@ -116,6 +116,7 @@
     "verify-inbox-catchup": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-inbox-catchup.mjs",
     "verify-fired-alerts": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-fired-alerts.mjs",
     "verify-collection-gain-badge": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-collection-gain-badge.mjs",
+    "verify-risk-profile": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-risk-profile.mjs",
     "verify-inbox-tickets-visual": "node verify-inbox-tickets-visual.mjs",
     "verify-label-association": "node verify-label-association.mjs",
     "verify-live-pricing-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-live-pricing-ui-wiring.mjs",

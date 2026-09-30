@@ -126,7 +126,9 @@ async function main() {
   const riskPath = fileURLToPath(new URL('../risk-management.html', import.meta.url));
   const riskDom = buildPageDom(riskPath);
   riskDom.window.MarketswaveData = MarketswaveData;
-  riskDom.window.clientScopedKey = function (key) { return key + ':' + clientId; }; // the Risk Meter's own local-only storage, unaffected by this stage
+  riskDom.window.clientScopedKey = function (key) { return key + ':' + clientId; };
+  // Row 292: the Risk Meter now reads/writes the server through risk-profile.js, which the real page loads first.
+  riskDom.window.eval(readFileSync(new URL('../risk-profile.js', import.meta.url), 'utf8'));
   const riskScript = extractInlineScript(riskPath, 'UI Wiring — Stage 5');
   const R = riskDom.window.document;
   const scoreEl = R.getElementById('diversification-score');
@@ -166,10 +168,15 @@ async function main() {
   R.querySelector('.risk-preview-tab[data-level="aggressive"]').click();
   check('the delta line compares against the real current score, not a hardcoded reference mix', deltaEl.textContent.indexOf('Loading your real diversification data') === -1 && deltaEl.textContent.indexOf('/100') !== -1, deltaEl.textContent);
 
-  console.log('\n3. The Risk Meter itself stays 100% local (confirmed no real backend exists) — a real save still works unaffected');
+  // Row 292 (2026-09-30): this section used to assert the Risk Meter stayed 100% local. It now has
+  // a server home - client_profiles.risk_profile through set-risk-profile - so the same click is
+  // proven to reach the SERVER. The full boundary (self-only, reclaim) is verify-risk-profile.
+  console.log('\n3. The Risk Meter saves to the server (row 292)');
   R.querySelector('.risk-preview-tab[data-level="conservative"]').click();
   R.getElementById('risk-save-profile').click();
-  check('Risk Meter save still works via localStorage, completely unaffected by this stage', R.getElementById('risk-current-pill').textContent.indexOf('Conservative') !== -1, R.getElementById('risk-current-pill').textContent);
+  for (let i = 0; i < 60 && R.getElementById('risk-current-pill').textContent.indexOf('Conservative') === -1; i++) await new Promise((r) => setTimeout(r, 200));
+  const { data: savedRow } = await admin.from('client_profiles').select('risk_profile').eq('client_id', clientId).maybeSingle();
+  check('Risk Meter save reaches the server and the pill reads the saved level', R.getElementById('risk-current-pill').textContent.indexOf('Conservative') !== -1 && savedRow && savedRow.risk_profile === 'conservative', R.getElementById('risk-current-pill').textContent + ' | server=' + JSON.stringify(savedRow));
 
   // ===========================================================================================
   // PART 2 — settings.html
@@ -206,7 +213,10 @@ async function main() {
   check('the real clients.email row is confirmed completely untouched by the disclosed-unavailable Save attempt', emailUnchanged.email === REAL_EMAIL, JSON.stringify(emailUnchanged));
 
   console.log('\n2. Legal Name / Address / ID Document — real client_profiles display + real request-profile-change');
-  await admin.from('client_profiles').insert({ client_id: clientId, legal_name: { firstName: 'Jane', lastName: 'Doe' } });
+  // Upsert, not insert: since row 292 the Risk Meter save above genuinely creates this client's
+  // client_profiles row, so a plain insert here would hit it and fail silently.
+  const { error: seedErr } = await admin.from('client_profiles').upsert({ client_id: clientId, legal_name: { firstName: 'Jane', lastName: 'Doe' } }, { onConflict: 'client_id' });
+  if (seedErr) throw new Error('seeding legal_name: ' + seedErr.message);
 
   // Force a real reload so the just-seeded client_profiles row is genuinely picked up (mirrors
   // every other stage's own forceReload pattern, rather than asserting against a stale

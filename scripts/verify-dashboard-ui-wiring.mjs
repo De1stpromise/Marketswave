@@ -281,6 +281,8 @@ async function main() {
     const dom = new JSDOM('<!doctype html><html><body>' + body + '</body></html>', { url: 'http://localhost/', runScripts: 'outside-only', virtualConsole: vc });
     dom.window.MarketswaveData = MarketswaveData;
     dom.window.clientScopedKey = function (key) { return key; }; // real per-client scoping is out of this stage's scope — a plain passthrough is sufficient for this test
+    // The real page loads risk-profile.js before its own script (row 292); the Risk metrics card reads the server value through it.
+    dom.window.eval(readFileSync(new URL('../risk-profile.js', import.meta.url), 'utf8'));
     dom.window.Chart = function () { return { destroy() {}, update() {} }; };
     dom.window.eval(overviewSource);
     dom.window.eval(scriptSource); // synchronous portion runs immediately — this is where skeletons paint
@@ -350,7 +352,7 @@ async function main() {
   const largest = nordicValue >= equityValue ? { name: 'Nordic Growth Fund', v: nordicValue } : { name: 'Global Equity ETF', v: equityValue };
   const expectedLargestPct = (largest.v / expectedTpv * 100).toFixed(1);
   check('★ Largest position is the PM briefing\'s own concentration signal: the biggest real holding as a share of total portfolio value, named, with the 40% rule stated', doc.getElementById('risk-largest-value').textContent === expectedLargestPct + '%' && doc.getElementById('risk-largest-name').textContent === largest.name && /Above 40%/.test(doc.getElementById('risk-largest-desc').textContent), doc.getElementById('risk-row-largest').textContent.replace(/\s+/g, ' '));
-  check('Risk profile: none set on this device, so the row says so honestly and the link reads "Set profile" — never a fabricated "Balanced"', doc.getElementById('risk-profile-badge').textContent === 'Not set' && /No risk profile is set on this device/.test(doc.getElementById('risk-profile-desc').textContent) && doc.getElementById('risk-profile-link').textContent === 'Set profile', doc.getElementById('risk-row-profile').textContent.replace(/\s+/g, ' '));
+  check('Risk profile: none set on the account (row 292), so the row says so honestly and the link reads "Set profile" — never a fabricated "Balanced"', doc.getElementById('risk-profile-badge').textContent === 'Not set' && /You have not set a risk profile yet/.test(doc.getElementById('risk-profile-desc').textContent) && doc.getElementById('risk-profile-link').textContent === 'Set profile', doc.getElementById('risk-row-profile').textContent.replace(/\s+/g, ' '));
 
   check('Activity shows the most recent transactions newest first (WITHDRAWAL, then SELL, then BUY, then the DEPOSIT)', function () {
     const types = [...activityEl.querySelectorAll('.ac-row')].map(function (r) { return r.dataset.txnType; });

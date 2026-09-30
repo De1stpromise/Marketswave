@@ -383,6 +383,7 @@
   <script src="engine-core.js"></script>
   <script src="asset-mark.js"></script>
   <script src="supabase-data.js"></script>
+  <script src="risk-profile.js"></script>
   <script src="chat-widget.js"></script>
   <script src="site-presence.js"></script>
   <script src="portfolio-overview.js"></script>
@@ -785,7 +786,14 @@
       var profileBadgeEl = document.getElementById('risk-profile-badge');
       MarketswaveData.renderAsyncBundle([document.getElementById('risk-cash-desc'), document.getElementById('risk-util-desc'), document.getElementById('risk-largest-desc'), document.getElementById('risk-profile-desc')], {
         skeletonHTML: MarketswaveData.skeleton.text('w-56', { height: 'h-3' }),
-        load: loadOverviewAndReturns,
+        // The risk profile now comes from the server (row 292, risk-profile.js). A failed read
+        // must not take the other three rows down, and must not pretend nothing is set.
+        load: function () {
+          return Promise.all([
+            loadOverviewAndReturns(),
+            window.RiskProfile ? window.RiskProfile.load().catch(function () { return { unavailable: true }; }) : Promise.resolve({ unavailable: true })
+          ]).then(function (x) { x[0].risk = x[1]; return x[0]; });
+        },
         render: function (data) {
           var account = data.overview.account || { unallocated: 0, deployed: 0, realised: 0 };
           var r = data.returns;
@@ -836,23 +844,27 @@
             setBar('risk-largest-bar', share, lpTone);
           }
 
-          // Risk profile as a COMPARISON. The chosen profile lives in localStorage
-          // (risk-management.html sets it — no server home yet, row 251); the crypto share
-          // is the server's byClass value against the portfolio. The model mixes are
-          // risk-management.html's own MODEL_MIXES crypto weights (5 / 12 / 25) — a small,
-          // disclosed duplication of three numbers; the guide is that weight plus 10 points.
+          // Risk profile as a COMPARISON. The chosen profile is the server's
+          // client_profiles.risk_profile (row 292; set on risk-management.html through
+          // set-risk-profile); the crypto share is the server's byClass value against the
+          // portfolio. The model mixes are risk-management.html's own MODEL_MIXES crypto weights
+          // (5 / 12 / 25) — a small, disclosed duplication of three numbers; the guide is that
+          // weight plus 10 points.
           var LEVELS = ['conservative', 'balanced', 'aggressive'];
           var LABELS = { conservative: 'Conservative', balanced: 'Balanced', aggressive: 'Aggressive' };
           var CRYPTO_WEIGHT = { conservative: 5, balanced: 12, aggressive: 25 };
-          var stored = null;
-          try { stored = localStorage.getItem(clientScopedKey('marketswave_risk_profile')); } catch (e) { stored = null; }
-          var level = LEVELS.indexOf(stored) !== -1 ? stored : null;
+          var risk = data.risk || { unavailable: true };
+          var level = LEVELS.indexOf(risk.riskProfile) !== -1 ? risk.riskProfile : null;
           var crypto = 0;
           (r.byClass || []).forEach(function (c) { if (c.assetClass === 'Crypto') crypto = c.currentValue; });
           var cryptoPct = portfolio > 0 ? (crypto / portfolio) * 100 : 0;
           var pdesc = document.getElementById('risk-profile-desc');
-          if (!level) {
-            pdesc.innerHTML = 'No risk profile is set on this device. ' + (cryptoPct > 0 ? cryptoPct.toFixed(1) + '% of your portfolio is crypto.' : '');
+          if (risk.unavailable) {
+            pdesc.textContent = 'Your risk profile could not be loaded right now.';
+            setSig('risk-profile-badge', 'flat', 'Unavailable');
+            document.getElementById('risk-profile-link').textContent = 'Review';
+          } else if (!level) {
+            pdesc.innerHTML = 'You have not set a risk profile yet. ' + (cryptoPct > 0 ? cryptoPct.toFixed(1) + '% of your portfolio is crypto.' : '');
             setSig('risk-profile-badge', 'flat', 'Not set');
             document.getElementById('risk-profile-link').textContent = 'Set profile';
           } else {

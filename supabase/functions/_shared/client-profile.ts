@@ -54,7 +54,7 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
 
   const now = new Date();
   const [profile, account, pockets, docs, convs, watch, assignments, routes, notes, identityDocs] = await Promise.all([
-    admin.from('client_profiles').select('legal_name, address, id_document, updated_at, date_of_birth, country_of_residence, financial_profile, goals_preferences, risk_questionnaire, entity_details, joint_holder, onboarding_submitted_at').eq('client_id', clientId).maybeSingle(),
+    admin.from('client_profiles').select('legal_name, address, id_document, updated_at, date_of_birth, country_of_residence, financial_profile, goals_preferences, risk_questionnaire, entity_details, joint_holder, onboarding_submitted_at, risk_profile, risk_profile_set_at').eq('client_id', clientId).maybeSingle(),
     admin.from('account_state').select('unallocated_capital, allocated_capital, asset_returns').eq('client_id', clientId).maybeSingle(),
     admin.from('hys_pockets').select('id, pocket_type, term_label, amount, projected_interest, maturity_date, status').eq('client_id', clientId).neq('status', 'withdrawn'),
     admin.from('documents').select('id, filename, category, direction, status, is_new, storage_path, created_at').eq('client_id', clientId).order('created_at', { ascending: false }),
@@ -196,7 +196,10 @@ export async function buildClientProfile(admin: Admin, clientId: string, pmId: s
       legalName: profile.data ? profile.data.legal_name : null,
       address: profile.data ? profile.data.address : null,
       idDocument: profile.data ? profile.data.id_document : null,
-      updatedAt: profile.data ? profile.data.updated_at : null
+      updatedAt: profile.data ? profile.data.updated_at : null,
+      // The level chosen on the Risk Meter (row 292), set through set-risk-profile.
+      riskProfile: profile.data ? profile.data.risk_profile : null,
+      riskProfileSetAt: profile.data ? profile.data.risk_profile_set_at : null
     },
     // The onboarding record signup collects, or an honest absence. `submittedAt` null means
     // the client has never submitted one to the server (pre-2026-09-18 signup with no reclaim
