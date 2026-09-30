@@ -249,10 +249,12 @@
     //     is the cost (audit-catalog-frame-cost.mjs), so the page never renders all of it.
     //   - THE ALLOCATION PANEL opens over the catalog (no page change): one modal, three
     //     states, every row present in every state, validated before submit.
-    // The one client-side money computation this page keeps — a holding's unrealised %
-    // for the held-card footer — is the pure port of engine-core.js's own
-    // getUnrealizedReturnPercent(), unchanged from Stage 2 (row 185 records it as the last
-    // place unrealised is computed in the browser).
+    // ★ No money is computed in this page any more (row 291/2026-09-30). A holding's unrealised
+    // figures for the held-card footer come from get-returns-summary's per-position
+    // `unrealized` / `unrealizedPercent` — the same payload Asset & performance renders — and are
+    // formatted with that page's own sign and tone rules, so the two can never disagree. The
+    // browser port of getUnrealizedReturnPercent() that used to live here (row 185's last
+    // client-side money computation) is deleted, not left dormant.
     (function () {
       if (typeof MarketswaveData === 'undefined') return; // supabase-data.js failed to load — bail defensively
 
@@ -282,15 +284,13 @@
       function holdingByProductId(id) { return holdings.find(function (h) { return h.productId === id; }); }
       function productById(id) { return allocatableProducts.find(function (p) { return p.id === id; }); }
 
-      // Pure port of engine-core.js's own getUnrealizedReturnPercent(productId).
-      function getUnrealizedReturnPercent(productId) {
-        var holding = holdingByProductId(productId);
-        if (!holding || holding.costBasis === 0) return 0;
-        var product = productById(productId);
-        if (!product) return 0;
-        var unrealized = holding.units * product.unitPrice - holding.costBasis;
-        return Math.round((unrealized / holding.costBasis) * 10000) / 100;
-      }
+      // Per-position unrealised figures from get-returns-summary, keyed by product id. Empty if
+      // that read failed — the badge is then omitted, never recomputed here.
+      var returnsByProduct = {};
+      // Asset & performance's own formatting (signedPct / toneClass): the sign and tone follow
+      // the DOLLAR figure, and zero reads "+0.0%", so a badge and that page's cell are identical.
+      function signedPct(n) { return (n < 0 ? '\u2212' : '+') + Math.abs(n).toFixed(1) + '%'; }
+      function gainDir(amount) { return amount > 0 ? 'up' : (amount < 0 ? 'dn' : 'flat'); }
 
       // ---- Search + filter + sort — pure functions over the whole catalog ----
       function matchesSearch(product, query) {
@@ -394,9 +394,11 @@
         }
         var footerMeta;
         if (holding) {
-          var pct = getUnrealizedReturnPercent(product.id);
-          var dir = pct > 0 ? 'up' : (pct < 0 ? 'dn' : 'flat');
-          footerMeta = '<span class="cat-pos">Holding <b>' + unitsText(holding.units) + '</b><span class="cat-g ' + dir + '">' + (pct > 0 ? '+' : (pct < 0 ? '−' : '')) + Math.abs(pct).toFixed(1) + '%</span></span>';
+          var pos = returnsByProduct[product.id];
+          var gain = pos
+            ? '<span class="cat-g ' + gainDir(pos.unrealized) + '" data-unrealized="' + pos.unrealized + '" data-unrealized-percent="' + pos.unrealizedPercent + '">' + signedPct(pos.unrealizedPercent) + '</span>'
+            : '';
+          footerMeta = '<span class="cat-pos">Holding <b>' + unitsText(holding.units) + '</b>' + gain + '</span>';
         } else {
           footerMeta = '<span class="cat-min">Min <b>' + formatUSD(product.minimumInvestment) + '</b></span>';
         }
@@ -468,7 +470,10 @@
             MarketswaveData.callFunction('get-account-state').catch(function (err) {
               if (err && (err.status === 404 || err.kind === 'not_found')) return { unallocatedCapital: 0 };
               return { unallocatedCapital: 0, unavailable: true };
-            })
+            }),
+            // The held-card gain badge's only source. A failure omits the badge rather than
+            // taking the catalog down or falling back to a browser computation.
+            MarketswaveData.callFunction('get-returns-summary').catch(function () { return null; })
           ]).then(function (results) {
             publishedDocumentIds = {};
             ((results[2] && results[2].published) || []).forEach(function (d) { publishedDocumentIds[d.productId] = true; });
@@ -489,6 +494,7 @@
                 };
               }),
               holdings: results[1],
+              positions: (results[4] && results[4].positions) || [],
               unallocatedCapital: Number(results[3] && (results[3].unallocatedCapital != null ? results[3].unallocatedCapital : results[3].unallocated_capital)) || 0
             };
           });
@@ -496,6 +502,8 @@
         render: function (data) {
           allocatableProducts = data.products.filter(function (p) { return p.assetClass !== UNALLOCATABLE_CLASS; });
           holdings = data.holdings;
+          returnsByProduct = {};
+          data.positions.forEach(function (p) { returnsByProduct[p.productId] = p; });
           unallocatedCapital = data.unallocatedCapital;
           dataLoaded = true;
           focusRequestedProduct();
