@@ -12345,18 +12345,25 @@ is for. Four stages, in order, each building on the last:
   can fail an assertion for the wrong reason** — and only `verify-dashboard-redesign` is fixed. **The
   cheapest decisive instrument is an external poller** logging that column's transitions every second
   while the suite runs: it separates 'written then cleared' from 'never written' in one run.
-  **(6) OPEN, PROVEN, NOT YET FIXED — `verify-portfolio-overview-visual.mjs:342` reads
-  `#tpv-amount` with no settle (2026-09-29).** That element is the one figure driven by
-  `MotionHelpers.countUp`, which animates from **0** to the target over 900 ms, so an early read is
-  low and the clause `#tpv-amount > 128000` fails. **It is NOT a product bug**: `accountSummary()`
-  computes `total = deployed + unallocated + pockets` and the headline genuinely settles at
-  **$200,185.41** against the $128,000 portfolio figure. Proven by sampling
-  (`$136,852.11 → $158,746.07 → $185,180.63 … settled $200,185.41`) and by the suite reaching
-  **71/71** with a settle inserted. It fails DETERMINISTICALLY in isolation, so it is not a flake —
-  the fix is the wait this suite already applies to `po-portfolio-value` (:338) and
-  `total-return-amount` (:344), i.e. row 251's own rule ("a suite reading a counted figure waits for
-  the exact text, not for the skeleton to leave") applied to the one figure with the largest
-  count-up. Six known causes now account for most of what a full pass loses.
+  **(6) FIXED 2026-09-30 (row 284) — `verify-portfolio-overview-visual.mjs` read `#tpv-amount`
+  with no settle.** That element is the one figure `MotionHelpers.countUp` animates from **0** over
+  900 ms, so an early read was low and the `> 128000` clause failed on every full pass. Not a
+  product bug: the headline settles on the account total (portfolio + pockets). The suite now
+  settles on the page's OWN `get-portfolio-overview` `account.total` (never a hardcoded figure — the
+  fixed pocket accrues interest by the second) within $0.05, and asserts the equality. Forced-failure
+  control: the wait reduced to one immediate read fails that check by name
+  (`got 187027.98, want 200185.41`).
+  **(7) OPEN — a suite that spans UTC midnight sees one extra price tick.**
+  `lib/simulated-test-product.mjs` seeds `last_tick_date` as today's UTC date; read after 00:00Z,
+  the engine applies one daily step, so a seeded figure drifts (−$27,000 read as −$26,953; $52,000
+  as $51,998.59). Not a product bug. Avoid starting a long visual suite shortly before 00:00Z.
+  **(8) OPEN, NEW REGRESSION — `supabase-verify-unified-inbox`'s live-Realtime assertion fails
+  when it runs after `supabase-verify-inbox-tickets`.** 40/40 in all 14 recorded runs 2026-09-14 →
+  09-23; 39/40 (`received … via a genuinely live Realtime event — null`) in the 09-28 full pass AND a
+  09-30 targeted pass, both times second after inbox-tickets; 40/40 alone. Order-dependent and new
+  since 09-23 — NOT the "known Realtime flake" row 283 called it. Candidate commits in the window:
+  318dd96/175d712 (Blog & Press), 8db391a (inbox layout), 3f4b9e9 (visit history, migration).
+  Not investigated yet.
 - **★★ THE ASYNC BLIND SPOT (2026-09-19, register row 253): `verify-control-patterns` and
   `verify-label-association` read the DOM a fixed ~1s after `readyState`, so on every page whose
   controls are painted by an async data load they enumerate the SKELETON and pass.** Four
