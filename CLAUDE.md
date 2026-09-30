@@ -1778,6 +1778,7 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     from this table shows successful sign-ins and sign-outs only.** Recording failed attempts needs
     the Password Verification Attempt auth hook, which is Team/Enterprise only (Supabase docs).
     Do not describe a page built on this table as a record of attempts.
+  - **★ ON THE LIVE PROJECT `ip_address` IS EMPTY (2026-09-30, row 287)** — measured on a real sign-in over the public internet after the switch went on. Do not build or describe anything as showing sign-in IPs until that changes. Suspected, not confirmed: `security_sb_forwarded_for_enabled = false`. **And the email is in `payload.traits.user_email` as well as `actor_username`** — redact both. A count of this table as `supabase_read_only_user` is trustworthy (that role and `postgres` have BYPASSRLS; the table has RLS on with no policies).
   - **Retention is 90 days** (operator's decision), enforced by `public.purge_auth_audit_log()`
     (SECURITY DEFINER, EXECUTE revoked from public/anon/authenticated) on cron job
     `marketswave-purge-auth-audit-log` at 03:45 UTC, running as `postgres` — which on the hosted
