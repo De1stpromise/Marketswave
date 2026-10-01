@@ -11755,7 +11755,11 @@ is for. Four stages, in order, each building on the last:
 
   It prints `BACKUP COMPLETE: <path>` and a size. **Confirm that line and a plausible size
   before pushing** — an exit code alone is not evidence, the same reason a batch function
-  deploy's exit code is not (row 219). ~3.6 MB and ~334 files as of 2026-09-24. The backup
+  deploy's exit code is not (row 219). **Since 2026-09-30 the same proof is written INTO the
+  backup as `BACKUP-COMPLETE.txt`** (line, size, UTC time, file counts, each db dump's byte
+  size), as the script's last act and by an atomic rename — so completion can be proven
+  afterwards, e.g. after a crash, instead of inferred from directory size. **A backup directory
+  without that file did not complete.** The four 2026-09-30 backups predate it and have none. ~3.6 MB and ~334 files as of 2026-09-24. The backup
   lives in `C:\WorkDirectory\marketswave-backups\`, a sibling of the repo: `C:\WorkDirectory`
   is not a git repo and has no parent repo, so git can never track it — which matters because
   the repo is public (row 256) and this is real client data. **It is written unencrypted;
