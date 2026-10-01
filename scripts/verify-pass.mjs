@@ -43,6 +43,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import dateGuard from './lib/date-guard.cjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -127,6 +128,8 @@ const verdict = (r) => r.code === 0 ? 'PASS' : r.code === 'GUARD' ? 'FAIL (read 
   const results = [];
   for (const name of wanted) {
     console.log('\n==== ' + name + ' (' + (results.length + 1) + '/' + wanted.length + ') ====');
+    // Date guard (row 302): a date-sensitive suite never starts close enough to 00:00Z to cross it.
+    await dateGuard.guardSuite(name);
     results.push(await runScript(name));
   }
   const total = results.reduce((a, r) => a + r.minutes, 0) + gate.minutes;

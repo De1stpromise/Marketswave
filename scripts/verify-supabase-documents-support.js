@@ -182,7 +182,7 @@ async function main() {
 
     // deadline_label real computation, relative to today.
     const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 10);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 10);   // UTC, like the slice below: a local setDate is shifted by a DST change inside the 10 days (row 302)
     const dueDateStr = dueDate.toISOString().slice(0, 10);
     const { data: publishedWithDue } = await adminSignIn.client.functions.invoke('publish-document', {
       body: { clientId: user.id, filename: 'Form ADV Part 2A.pdf', category: 'General', signatureRequired: false, dueDate: dueDateStr, fileBase64: TEST_FILE_BASE64 }

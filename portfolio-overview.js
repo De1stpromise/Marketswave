@@ -220,7 +220,10 @@
     var live = { date: now.toISOString().slice(0, 10), value: h.currentValue, capitalIn: h.live ? h.live.capitalIn : null, ret: h.live ? h.live.return : null, live: true };
     var anchors = h.anchors.map(function (a) { return { date: a.date, value: a.value, capitalIn: a.capitalIn, ret: a.return, live: false }; });
     if (months === null) return anchors.concat([live]);
-    var cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+    // Day clamped to the target month's last day, exactly as the server's rangeCutoff() (row 302):
+    // May 31 minus 3 months is Feb 28/29, not "Feb 31" rolled to Mar 3.
+    var cm = now.getUTCMonth() - months, cy = now.getUTCFullYear();
+    var cutoff = new Date(Date.UTC(cy, cm, Math.min(now.getUTCDate(), new Date(Date.UTC(cy, cm + 1, 0)).getUTCDate())));
     return anchors.filter(function (a) { return parseDate(a.date) >= cutoff; }).concat([live]);
   }
   function anchorCount(points) { return points.filter(function (p) { return !p.live; }).length; }

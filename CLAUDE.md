@@ -1793,6 +1793,29 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     buckets from the API. The database dumps completing is NOT a complete backup; wait for
     `BACKUP COMPLETE`.
 
+## ★★★ REBRAND RULE — Marketswave becomes IncMarketry (recorded 2026-10-01)
+
+The brand is changing from **Marketswave** to **IncMarketry**. Everything already built stays.
+**Only what a client can see changes** — page text and titles, meta descriptions, the text
+wordmarks and the "M" tile, email sender name, subjects, bodies and footers, the auth email
+templates, the signed-copy certificate, legal pages, Help Center and blog content, and the
+domain once a new one exists.
+
+**Everything internal stays exactly as it is**, and is NOT renamed as part of the rebrand:
+session and storage keys (`marketswave_*`, including the authenticated-client pair — renaming it
+signs every client out), the admin session's `storageKey` (`sb-marketswave-admin-auth-token` —
+renaming it signs every manager out), the `mw_vid` visitor cookie and the other `mw_*` browser
+keys (renaming resets visitor recognition and per-browser settings), cron job names
+(`marketswave-*`), code identifiers and globals (`MarketswaveData`, …), CSS prefixes (`.mw-*`),
+database columns and policy names (`blog_comments.is_marketswave`, …), the `config.toml`
+`project_id`, test fixture accounts, and file, package and repository names.
+
+**Nothing is renamed until the new brand system is designed and approved.** The preparation
+already done makes the change cheap when it comes: the site URL, email sender and support address
+are function secrets (`SITE_URL`, `EMAIL_FROM_ADDRESS`, `SUPPORT_EMAIL`), so a domain change is
+configuration; and the brand colours are being centralised so a new palette is one change.
+The sizing inventory (2026-10-01) is register row 301.
+
 ## Locked — do not restructure without explicit sign-off
 
 - The 9-step signup/onboarding flow and its step order.

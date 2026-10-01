@@ -205,7 +205,13 @@ async function main() {
         'payload index ' + appIdx);
 
       console.log('\n--- Since you last looked ---\n');
-      check('the stamp is the previous session\'s last read (40 minutes ago, today)', /^today, \d\d:\d\d$/.test(D.getElementById('since-stamp').textContent), D.getElementById('since-stamp').textContent);
+      // admin.html labels by the manager's LOCAL day, so a stamp 40 minutes old reads "yesterday"
+      // in the first 40 minutes after local midnight. Derive the expected label with the page's own
+      // rule (row 302) instead of hard-coding "today" — and match the exact time, not any time.
+      const seenAt = new Date(now - 40 * 60000);
+      const expWord = seenAt.toDateString() === new Date(now).toDateString() ? 'today' : 'yesterday';
+      const expStamp = expWord + ', ' + seenAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      check('the stamp is the previous session\'s last read (40 minutes ago, ' + expWord + ' by local day)', D.getElementById('since-stamp').textContent === expStamp, D.getElementById('since-stamp').textContent + ' vs ' + expStamp);
       const sinceRows = [...D.querySelectorAll('#panel-since .ov-r')];
       check('the ticket reply names the client and DISP id and deep-links into the inbox', sinceRows.some((r) => new RegExp(A.name + ' replied on DISP-0003').test(r.textContent) && r.getAttribute('href') === 'admin-inbox.html?c=' + t1));
       check('the email from a cold sender is listed', sinceRows.some((r) => /Sofia Berg wrote/.test(r.textContent)));

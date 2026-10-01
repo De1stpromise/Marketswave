@@ -247,7 +247,7 @@ async function main() {
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
       { client_id: A.id, type: 'HYS_TRANSFER_IN', total_value: 3000, status: 'completed', created_at: msAt(1, 12) },
       { client_id: A.id, type: 'HYS_DEPOSIT', total_value: 5000, status: 'completed', created_at: msAt(1, 15) },
-      { client_id: A.id, type: 'DEPOSIT', total_value: 15000, status: 'completed', created_at: msAt(0, 3) }
+      { client_id: A.id, type: 'DEPOSIT', total_value: 15000, status: 'completed', created_at: new Date(Math.min(Date.parse(msAt(0, 3)), Date.now() - 5 * 60e3)).toISOString() } // the 3rd, or 5 min ago on the 1st/2nd — never in the future (row 302)
     ]);
     for (const [fn, body] of [
       ['request-withdrawal', { method: 'bank', amount: 2500, currency: 'USD', destinationDetails: { bank: 'Test Bank', account: '123' } }],
@@ -422,7 +422,7 @@ async function main() {
       await sleep(500);
       await shot(cdp, '03-range-3m');
       const after = await cdp.evaluate('(()=>{const c=Chart.getChart("po-chart");return {data:c.data.datasets[0].data.map(p=>p.y),cap:c.data.datasets[1].data.map(p=>p.y),on:document.querySelector(".po-rg.is-on").dataset.range,pressed:document.querySelector(".po-rg[data-range=\\"3\\"]").getAttribute("aria-pressed"),stats:[...document.querySelectorAll("#po-stats > div")].map(d=>d.textContent.replace(/\\s+/g," ").trim())};})()');
-      const cutoff = new Date(); cutoff.setUTCMonth(cutoff.getUTCMonth() - 3);
+      const cutoff = (() => { const n = new Date(), cy = n.getUTCFullYear(), cm = n.getUTCMonth() - 3; return new Date(Date.UTC(cy, cm, Math.min(n.getUTCDate(), new Date(Date.UTC(cy, cm + 1, 0)).getUTCDate()))); })(); // the page's own rule: UTC midnight, day clamped (row 302)
       const expect3 = rows.filter((r) => new Date(r.month_start_date + 'T00:00:00Z') >= cutoff).map((r) => Number(r.value_at_anchor)).concat([liveValue]);
       check('★ a real click on 3M redraws the real chart with only the anchors in range + today', JSON.stringify(after.data) === JSON.stringify(expect3) && after.data.length < live.length && after.on === '3' && after.pressed === 'true', JSON.stringify({ after, expect3 }));
       check('★ ...and the period stats RECOMPUTE for 3M: best month +10.5%, low $109,500', /Best month\+10\.5%/.test(after.stats[2]) && /Period low\$109,500/.test(after.stats[1]), JSON.stringify(after.stats));

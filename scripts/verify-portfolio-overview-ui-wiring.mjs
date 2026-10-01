@@ -132,7 +132,7 @@ async function main() {
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
       { client_id: A.id, type: 'HYS_TRANSFER_IN', total_value: 3000, status: 'completed', created_at: msAt(1, 12) },
       { client_id: A.id, type: 'HYS_DEPOSIT', total_value: 5000, status: 'completed', created_at: msAt(1, 15) },
-      { client_id: A.id, type: 'DEPOSIT', total_value: 15000, status: 'completed', created_at: msAt(0, 3) }
+      { client_id: A.id, type: 'DEPOSIT', total_value: 15000, status: 'completed', created_at: new Date(Math.min(Date.parse(msAt(0, 3)), Date.now() - 5 * 60e3)).toISOString() } // the 3rd, or 5 min ago on the 1st/2nd — never in the future (row 302)
     ]);
     check('seed: five real ledger rows inserted (two deposits, a withdrawal, a transfer to savings, an external pocket deposit)', !ledgerErr, ledgerErr && ledgerErr.message);
     // Independent expectations, computed from the seed itself (not from the server):
@@ -242,7 +242,7 @@ async function main() {
     buttons.find((b) => b.dataset.range === '3').click();
     await sleep(50);
     const after3 = captured.slice(before).find((c) => c.type === 'line');
-    const cutoff = new Date(); cutoff.setUTCMonth(cutoff.getUTCMonth() - 3);
+    const cutoff = (() => { const n = new Date(), cy = n.getUTCFullYear(), cm = n.getUTCMonth() - 3; return new Date(Date.UTC(cy, cm, Math.min(n.getUTCDate(), new Date(Date.UTC(cy, cm + 1, 0)).getUTCDate()))); })(); // the page's own rule: UTC midnight, day clamped (row 302)
     const expected3 = h.anchors.filter((a) => new Date(a.date + 'T00:00:00Z') >= cutoff).map((a) => a.value).concat([h.currentValue]);
     check('★ 3M genuinely filters: the redrawn portfolio dataset is the anchors dated within 3 months + today, shorter than All', after3 && JSON.stringify(after3.data.datasets[0].data.map((p) => p.y)) === JSON.stringify(expected3) && expected3.length < expectedAll.length, JSON.stringify({ got: after3 && after3.data.datasets[0].data, expected3 }));
     check('★ ...and the period stats RECOMPUTE: best month is now +10.5% and the low $109,500', /Best month\+10\.5%/.test(statCells()[2]) && /Period low\$109,500/.test(statCells()[1]), JSON.stringify(statCells()));

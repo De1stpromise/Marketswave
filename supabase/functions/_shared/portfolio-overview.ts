@@ -177,8 +177,12 @@ function capitalInAsOf(events: CapitalEvent[], at: Date): number {
 
 // The range filter, shared with portfolio-overview.js's pointsFor(): an anchor is in an N-month
 // range when its label date is on or after today minus N months (same day of month).
+// The day is CLAMPED to the target month's last day (2026-10-01, row 302): without it, May 31
+// minus 3 months is "Feb 31", which Date.UTC rolls to Mar 3 and silently drops the Mar 1 anchor.
 export function rangeCutoff(months: number, now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+  const y = now.getUTCFullYear(), m = now.getUTCMonth() - months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(now.getUTCDate(), lastDay)));
 }
 
 const RANGE_MONTHS: Record<'3' | '6' | '12' | 'all', number | null> = { '3': 3, '6': 6, '12': 12, all: null };
