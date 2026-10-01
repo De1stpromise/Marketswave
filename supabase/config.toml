@@ -182,7 +182,10 @@ site_url = "https://marketswave.net"
 # new production entry needed at all); only http://127.0.0.1:8765/reset-password.html
 # (this project's own real local dev server, per README.md — not covered by the existing
 # :3000/:5500 entries) is genuinely new.
-additional_redirect_urls = ["https://127.0.0.1:3000", "https://marketswave.net/**", "https://de1stpromise.github.io/Marketswave/**", "http://127.0.0.1:5500/**", "http://127.0.0.1:8765/reset-password.html"]
+# 2026-10-01: https://de1stpromise.github.io/Marketswave/** REMOVED — from the live project by a
+# single-field PATCH (re-read: only uri_allow_list changed, 5 → 4 entries) and here to match, so
+# a future `config push` cannot restore it. The site is served from marketswave.net only.
+additional_redirect_urls = ["https://127.0.0.1:3000", "https://marketswave.net/**", "http://127.0.0.1:5500/**", "http://127.0.0.1:8765/reset-password.html"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
