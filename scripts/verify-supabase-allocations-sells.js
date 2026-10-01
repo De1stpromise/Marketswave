@@ -478,24 +478,24 @@ async function main() {
 
     const a = await signIn(url, anonKey, emailA, password);
 
-    const { data: ownAlloc } = await a.client.from('allocation_requests').select('*');
+    const { data: ownAlloc } = await a.client.from('my_allocation_requests').select('*');
     check('Client A can SELECT their own allocation_requests', ownAlloc && ownAlloc.length === 1);
-    const { data: ownSell } = await a.client.from('sell_requests').select('*');
+    const { data: ownSell } = await a.client.from('my_sell_requests').select('*');
     check('Client A can SELECT their own sell_requests', ownSell && ownSell.length === 1);
-    const { data: crossAlloc } = await a.client.from('allocation_requests').select('*').eq('client_id', userB.id);
+    const { data: crossAlloc } = await a.client.from('my_allocation_requests').select('*').eq('client_id', userB.id);
     check('Client A’s query for Client B’s allocation_requests returns empty (RLS-filtered, not an error)', crossAlloc && crossAlloc.length === 0);
 
-    const { data: legitInsert } = await a.client.from('allocation_requests').insert({ client_id: userA.id, product_id: PROD_ETF, requested_amount: 50, status: 'pending' }).select();
-    check('Client A CAN directly insert their own genuinely-pending allocation request via RLS', legitInsert && legitInsert.length === 1);
+    const { error: legitInsertErr } = await a.client.from('allocation_requests').insert({ client_id: userA.id, product_id: PROD_ETF, requested_amount: 50, status: 'pending' });
+    check('Client A CAN directly insert their own genuinely-pending allocation request via RLS', !legitInsertErr);
 
-    const { data: spoofClientInsert } = await a.client.from('allocation_requests').insert({ client_id: userB.id, product_id: PROD_ETF, requested_amount: 999, status: 'pending' }).select();
-    check('Client A cannot INSERT an allocation request under Client B’s client_id', !spoofClientInsert || spoofClientInsert.length === 0);
+    const { error: spoofClientInsertErr } = await a.client.from('allocation_requests').insert({ client_id: userB.id, product_id: PROD_ETF, requested_amount: 999, status: 'pending' });
+    check('Client A cannot INSERT an allocation request under Client B’s client_id', !!spoofClientInsertErr);
 
-    const { data: spoofStatusInsert } = await a.client.from('allocation_requests').insert({ client_id: userA.id, product_id: PROD_ETF, requested_amount: 999, status: 'approved' }).select();
-    check('Client A cannot INSERT an allocation request with a non-pending status', !spoofStatusInsert || spoofStatusInsert.length === 0);
+    const { error: spoofStatusInsertErr } = await a.client.from('allocation_requests').insert({ client_id: userA.id, product_id: PROD_ETF, requested_amount: 999, status: 'approved' });
+    check('Client A cannot INSERT an allocation request with a non-pending status', !!spoofStatusInsertErr);
 
-    const { data: spoofSellStatusInsert } = await a.client.from('sell_requests').insert({ client_id: userA.id, product_id: PROD_ETF, units_to_sell: 999, status: 'approved' }).select();
-    check('Client A cannot INSERT a sell request with a non-pending status', !spoofSellStatusInsert || spoofSellStatusInsert.length === 0);
+    const { error: spoofSellStatusInsertErr } = await a.client.from('sell_requests').insert({ client_id: userA.id, product_id: PROD_ETF, units_to_sell: 999, status: 'approved' });
+    check('Client A cannot INSERT a sell request with a non-pending status', !!spoofSellStatusInsertErr);
 
     const { data: updateAttempt } = await a.client.from('allocation_requests').update({ status: 'approved' }).eq('client_id', userA.id).select();
     check('Client A cannot UPDATE their own allocation_requests row directly', !updateAttempt || updateAttempt.length === 0);

@@ -127,7 +127,7 @@ async function main() {
     const { data: srcRows } = await admin.from('support_requests').select('display_id, migrated_conversation_id').eq('client_id', A.id);
     check('every source row records the conversation it became', srcRows.length === 3 && srcRows.every((r) => r.migrated_conversation_id));
 
-    const { data: ownTickets } = await A.client.from('conversations').select('id, display_id, kind').eq('kind', 'ticket').order('display_id');
+    const { data: ownTickets } = await A.client.from('my_conversations').select('id, display_id, kind').eq('kind', 'ticket').order('display_id');
     const { data: ownMsgs } = await A.client.from('messages').select('id').in('conversation_id', ownTickets.map((t) => t.id));
     check('the client\'s own RLS read shows all 3 migrated tickets with their full history (5 messages)', ownTickets.length === 3 && ownMsgs.length === 5, ownTickets.length + '/' + ownMsgs.length);
 
@@ -228,7 +228,7 @@ async function main() {
 
     // =======================================================================================
     console.log('\n--- 6. RLS — a second real client ---\n');
-    const { data: bSees } = await B.client.from('conversations').select('id');
+    const { data: bSees } = await B.client.from('my_conversations').select('id');
     check('client B sees none of A\'s conversations', bSees.length === 0, String(bSees.length));
     const { data: bMsgs } = await B.client.from('messages').select('id').eq('conversation_id', newConvo.id);
     check('...nor A\'s messages', bMsgs.length === 0);

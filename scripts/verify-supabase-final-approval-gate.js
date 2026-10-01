@@ -380,7 +380,7 @@ async function main() {
     // ---- Self-reads succeed, cross-client reads return empty ----------------------------
     const { data: ownProfile } = await a.client.from('client_profiles').select('*');
     check('Client A can SELECT their own client_profiles', ownProfile && ownProfile.length === 1);
-    const { data: ownRequests } = await a.client.from('profile_change_requests').select('*');
+    const { data: ownRequests } = await a.client.from('my_profile_change_requests').select('*');
     check('Client A can SELECT their own profile_change_requests', ownRequests && ownRequests.length === 1);
     const { data: crossProfile } = await a.client.from('client_profiles').select('*').eq('client_id', userB.id);
     check('Client A’s query for Client B’s client_profiles returns empty (RLS-filtered, not an error)', crossProfile && crossProfile.length === 0);
@@ -390,12 +390,12 @@ async function main() {
     check('Client A cannot INSERT a client_profiles row directly at all (profiles are created only via approve-profile-change)', !profileInsertAttempt || profileInsertAttempt.length === 0);
 
     // ---- profile_change_requests INSERT: only a genuinely own, genuinely pending row -------
-    const { data: legitInsert, error: legitErr } = await a.client.from('profile_change_requests').insert({ client_id: userA.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'pending' }).select();
-    check('Client A CAN directly insert their own genuinely-pending profile_change_requests row via RLS', legitInsert && legitInsert.length === 1, legitErr && legitErr.message);
-    const { data: spoofClientInsert } = await a.client.from('profile_change_requests').insert({ client_id: userB.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'pending' }).select();
-    check('Client A cannot INSERT a profile_change_requests row under Client B’s client_id', !spoofClientInsert || spoofClientInsert.length === 0);
-    const { data: spoofStatusInsert } = await a.client.from('profile_change_requests').insert({ client_id: userA.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'approved' }).select();
-    check('Client A cannot INSERT a profile_change_requests row with a non-pending status', !spoofStatusInsert || spoofStatusInsert.length === 0);
+    const { error: legitErr } = await a.client.from('profile_change_requests').insert({ client_id: userA.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'pending' });
+    check('Client A CAN directly insert their own genuinely-pending profile_change_requests row via RLS', !legitErr, legitErr && legitErr.message);
+    const { error: spoofClientInsertErr } = await a.client.from('profile_change_requests').insert({ client_id: userB.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'pending' });
+    check('Client A cannot INSERT a profile_change_requests row under Client B’s client_id', !!spoofClientInsertErr);
+    const { error: spoofStatusInsertErr } = await a.client.from('profile_change_requests').insert({ client_id: userA.id, field: 'idDocument', requested_value: { documentType: 'Passport' }, status: 'approved' });
+    check('Client A cannot INSERT a profile_change_requests row with a non-pending status', !!spoofStatusInsertErr);
 
     // ---- No UPDATE/DELETE path for any role but service_role ------------------------------
     const { data: profileUpdateAttempt } = await a.client.from('client_profiles').update({ legal_name: { firstName: 'Hacked', lastName: 'Name' } }).eq('client_id', userA.id).select();

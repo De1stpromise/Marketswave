@@ -169,16 +169,18 @@ async function main() {
 
     // ---- 4. RLS isolation, with a second real client ---------------------------------------
     console.log('\n4. RLS: a client can only ever see an address assigned to them');
-    const seenByA = (await A.client.from('deposit_addresses').select('id, address')).data || [];
+    const seenByA = (await A.client.from('my_deposit_addresses').select('id, address')).data || [];
     check('A sees exactly their two assigned addresses (BTC + TRC-20)', seenByA.length === 2 && seenByA.some((r) => r.id === btcId) && seenByA.some((r) => r.id === tronId), JSON.stringify(seenByA));
     check('...and NOT the unassigned legacy BTC / ERC-20 / ETH addresses', !seenByA.some((r) => r.id === btcLegacyId));
-    const seenByB = (await B.client.from('deposit_addresses').select('id')).data || [];
+    const seenByB = (await B.client.from('my_deposit_addresses').select('id')).data || [];
     check('★ B (a second real client, on the same BTC address) sees that one address only', seenByB.length === 1 && seenByB[0].id === btcId, JSON.stringify(seenByB));
-    const seenByC = (await C.client.from('deposit_addresses').select('id')).data || [];
+    const seenByC = (await C.client.from('my_deposit_addresses').select('id')).data || [];
     check('C, assigned nothing, sees zero addresses', seenByC.length === 0, JSON.stringify(seenByC));
     const assignmentsSeenByB = (await B.client.from('deposit_address_assignments').select('client_id')).data || [];
-    check('B sees only their own assignment row, never A\'s on the shared address',
-      assignmentsSeenByB.length === 1 && assignmentsSeenByB[0].client_id === B.id, JSON.stringify(assignmentsSeenByB));
+    // Assignments are PM-only since row 305 (they carry assigned_by/removed_by): a client reads
+    // none at all, so certainly never another client's on the shared address.
+    check('B reads no assignment rows at all (PM-only, row 305), so never A\'s on the shared address',
+      assignmentsSeenByB.length === 0, JSON.stringify(assignmentsSeenByB));
     // deposit_routes is the currency catalogue and adding a currency is one row (row 237's PYUSD
     // made this exact literal false), so the expected count is READ from the table with the
     // service role, never asserted as a number. The guard keeps the comparison non-vacuous.
@@ -269,13 +271,13 @@ async function main() {
     check('★★ a direct service_role UPDATE flipping it back to available is refused BY THE DATABASE', !!flipBack.error && /DEPOSIT_ADDRESS_RETIRED/.test(flipBack.error.message), JSON.stringify(flipBack.error));
     const stillRetired = (await admin.from('deposit_addresses').select('status').eq('id', btcId).single()).data;
     check('...and it is still retired afterwards', stillRetired.status === 'retired', stillRetired.status);
-    const cStillNone = (await C.client.from('deposit_addresses').select('id')).data || [];
+    const cStillNone = (await C.client.from('my_deposit_addresses').select('id')).data || [];
     check('C still sees nothing (the refused assignment left no trace)', cStillNone.length === 0);
     const neverAssigned = (await admin.from('deposit_addresses').select('status').eq('id', btcLegacyId).single()).data;
     check('an address that was NEVER assigned stays "available" — retirement only follows real history', neverAssigned.status === 'available', neverAssigned.status);
     const aNowFree = await callFunction(url, pmToken, 'assign-deposit-address', { addressId: btcLegacyId, clientId: A.id });
     check('A, now off the retired address, can be given the other BTC address', aNowFree.status === 200, JSON.stringify(aNowFree.body));
-    const aSeesNew = (await A.client.from('deposit_addresses').select('id')).data || [];
+    const aSeesNew = (await A.client.from('my_deposit_addresses').select('id')).data || [];
     check('...and A sees the new one and no longer the retired one', aSeesNew.some((r) => r.id === btcLegacyId) && !aSeesNew.some((r) => r.id === btcId), JSON.stringify(aSeesNew));
   } finally {
     // Order matters: requests reference addresses; assignments reference addresses.

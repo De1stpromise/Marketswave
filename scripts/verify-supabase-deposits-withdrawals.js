@@ -361,25 +361,25 @@ async function main() {
     const a = await signIn(url, anonKey, emailA, password);
 
     // ---- Self-reads succeed, cross-client reads return empty ----------------------------
-    const { data: ownDeposits } = await a.client.from('deposit_requests').select('*');
+    const { data: ownDeposits } = await a.client.from('my_deposit_requests').select('*');
     check('Client A can SELECT their own deposit_requests', ownDeposits && ownDeposits.length === 1);
-    const { data: ownWithdrawals } = await a.client.from('withdrawal_requests').select('*');
+    const { data: ownWithdrawals } = await a.client.from('my_withdrawal_requests').select('*');
     check('Client A can SELECT their own withdrawal_requests', ownWithdrawals && ownWithdrawals.length === 1);
-    const { data: crossDeposits } = await a.client.from('deposit_requests').select('*').eq('client_id', userB.id);
+    const { data: crossDeposits } = await a.client.from('my_deposit_requests').select('*').eq('client_id', userB.id);
     check('Client A’s query for Client B’s deposit_requests returns empty (RLS-filtered, not an error)', crossDeposits && crossDeposits.length === 0);
 
     // ---- INSERT: only a genuinely own, genuinely pending row is allowed -------------------
-    const { data: legitInsert, error: legitInsertErr } = await a.client.from('deposit_requests').insert({ client_id: userA.id, method: 'crypto', requested_amount: 50, currency: 'BTC', status: 'pending' }).select();
-    check('Client A CAN directly insert their own genuinely-pending deposit request via RLS (the policy this Edge Function’s own centralization sits on top of)', legitInsert && legitInsert.length === 1, legitInsertErr && legitInsertErr.message);
+    const { error: legitInsertErr } = await a.client.from('deposit_requests').insert({ client_id: userA.id, method: 'crypto', requested_amount: 50, currency: 'BTC', status: 'pending' });
+    check('Client A CAN directly insert their own genuinely-pending deposit request via RLS (the policy this Edge Function’s own centralization sits on top of)', !legitInsertErr, legitInsertErr && legitInsertErr.message);
 
-    const { data: spoofClientInsert } = await a.client.from('deposit_requests').insert({ client_id: userB.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'pending' }).select();
-    check('Client A cannot INSERT a deposit request under Client B’s client_id', !spoofClientInsert || spoofClientInsert.length === 0);
+    const { error: spoofClientInsertErr } = await a.client.from('deposit_requests').insert({ client_id: userB.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'pending' });
+    check('Client A cannot INSERT a deposit request under Client B’s client_id', !!spoofClientInsertErr);
 
-    const { data: spoofStatusInsert } = await a.client.from('deposit_requests').insert({ client_id: userA.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'credited' }).select();
-    check('Client A cannot INSERT a deposit request with a non-pending status', !spoofStatusInsert || spoofStatusInsert.length === 0);
+    const { error: spoofStatusInsertErr } = await a.client.from('deposit_requests').insert({ client_id: userA.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'credited' });
+    check('Client A cannot INSERT a deposit request with a non-pending status', !!spoofStatusInsertErr);
 
-    const { data: spoofWithdrawalInsert } = await a.client.from('withdrawal_requests').insert({ client_id: userA.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'approved' }).select();
-    check('Client A cannot INSERT a withdrawal request with a non-pending status', !spoofWithdrawalInsert || spoofWithdrawalInsert.length === 0);
+    const { error: spoofWithdrawalInsertErr } = await a.client.from('withdrawal_requests').insert({ client_id: userA.id, method: 'bank', requested_amount: 999, currency: 'USD', status: 'approved' });
+    check('Client A cannot INSERT a withdrawal request with a non-pending status', !!spoofWithdrawalInsertErr);
 
     // ---- No UPDATE/DELETE path for any role but service_role ------------------------------
     const { data: updateAttempt } = await a.client.from('deposit_requests').update({ status: 'credited', credited_amount: 999999 }).eq('client_id', userA.id).select();

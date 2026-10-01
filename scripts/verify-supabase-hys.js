@@ -567,9 +567,9 @@ async function main() {
     // ---- Self-reads succeed, cross-client reads return empty --------------------------------
     const { data: ownPockets } = await a.client.from('hys_pockets').select('*');
     check('Client A can SELECT their own hys_pockets', ownPockets && ownPockets.length === 1);
-    const { data: ownDeposits } = await a.client.from('hys_deposit_requests').select('*');
+    const { data: ownDeposits } = await a.client.from('my_hys_deposit_requests').select('*');
     check('Client A can SELECT their own hys_deposit_requests', ownDeposits && ownDeposits.length === 1);
-    const { data: ownWithdrawals } = await a.client.from('hys_withdrawal_requests').select('*');
+    const { data: ownWithdrawals } = await a.client.from('my_hys_withdrawal_requests').select('*');
     check('Client A can SELECT their own hys_withdrawal_requests', ownWithdrawals && ownWithdrawals.length === 1);
     const { data: crossPockets } = await a.client.from('hys_pockets').select('*').eq('client_id', userB.id);
     check('Client A’s query for Client B’s hys_pockets returns empty (RLS-filtered, not an error)', crossPockets && crossPockets.length === 0);
@@ -579,18 +579,18 @@ async function main() {
     check('Client A cannot INSERT a hys_pockets row directly at all — even a genuinely own one (pockets are created only via credit-hys-deposit)', !pocketInsertAttempt || pocketInsertAttempt.length === 0);
 
     // ---- hys_deposit_requests INSERT: only a genuinely own, genuinely pending row is allowed
-    const { data: legitDepositInsert, error: legitDepositErr } = await a.client.from('hys_deposit_requests').insert({ client_id: userA.id, pocket_type: 'ayw', requested_amount: 50, method: 'bank', currency: 'USD', status: 'pending' }).select();
-    check('Client A CAN directly insert their own genuinely-pending hys_deposit_requests row via RLS', legitDepositInsert && legitDepositInsert.length === 1, legitDepositErr && legitDepositErr.message);
-    const { data: spoofClientDepositInsert } = await a.client.from('hys_deposit_requests').insert({ client_id: userB.id, pocket_type: 'ayw', requested_amount: 999, method: 'bank', currency: 'USD', status: 'pending' }).select();
-    check('Client A cannot INSERT a hys_deposit_requests row under Client B’s client_id', !spoofClientDepositInsert || spoofClientDepositInsert.length === 0);
-    const { data: spoofStatusDepositInsert } = await a.client.from('hys_deposit_requests').insert({ client_id: userA.id, pocket_type: 'ayw', requested_amount: 999, method: 'bank', currency: 'USD', status: 'credited' }).select();
-    check('Client A cannot INSERT a hys_deposit_requests row with a non-pending status', !spoofStatusDepositInsert || spoofStatusDepositInsert.length === 0);
+    const { error: legitDepositErr } = await a.client.from('hys_deposit_requests').insert({ client_id: userA.id, pocket_type: 'ayw', requested_amount: 50, method: 'bank', currency: 'USD', status: 'pending' });
+    check('Client A CAN directly insert their own genuinely-pending hys_deposit_requests row via RLS', !legitDepositErr, legitDepositErr && legitDepositErr.message);
+    const { error: spoofClientDepositInsertErr } = await a.client.from('hys_deposit_requests').insert({ client_id: userB.id, pocket_type: 'ayw', requested_amount: 999, method: 'bank', currency: 'USD', status: 'pending' });
+    check('Client A cannot INSERT a hys_deposit_requests row under Client B’s client_id', !!spoofClientDepositInsertErr);
+    const { error: spoofStatusDepositInsertErr } = await a.client.from('hys_deposit_requests').insert({ client_id: userA.id, pocket_type: 'ayw', requested_amount: 999, method: 'bank', currency: 'USD', status: 'credited' });
+    check('Client A cannot INSERT a hys_deposit_requests row with a non-pending status', !!spoofStatusDepositInsertErr);
 
     // ---- hys_withdrawal_requests INSERT: same shape ----------------------------------------
-    const { data: legitWithdrawalInsert, error: legitWithdrawalErr } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 25, forfeit: false, method: 'internal', status: 'pending' }).select();
-    check('Client A CAN directly insert their own genuinely-pending hys_withdrawal_requests row via RLS', legitWithdrawalInsert && legitWithdrawalInsert.length === 1, legitWithdrawalErr && legitWithdrawalErr.message);
-    const { data: spoofStatusWithdrawalInsert } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 999, forfeit: false, method: 'internal', status: 'approved' }).select();
-    check('Client A cannot INSERT a hys_withdrawal_requests row with a non-pending status', !spoofStatusWithdrawalInsert || spoofStatusWithdrawalInsert.length === 0);
+    const { error: legitWithdrawalErr } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 25, forfeit: false, method: 'internal', status: 'pending' });
+    check('Client A CAN directly insert their own genuinely-pending hys_withdrawal_requests row via RLS', !legitWithdrawalErr, legitWithdrawalErr && legitWithdrawalErr.message);
+    const { error: spoofStatusWithdrawalInsertErr } = await a.client.from('hys_withdrawal_requests').insert({ client_id: userA.id, pocket_id: pocketA.id, pocket_type: 'ayw', receive_amount: 999, forfeit: false, method: 'internal', status: 'approved' });
+    check('Client A cannot INSERT a hys_withdrawal_requests row with a non-pending status', !!spoofStatusWithdrawalInsertErr);
 
     // ---- The external payout path is structurally impossible (2026-09-23) -------------------
     // The method constraints were REPLACED, not widened, so 'crypto'/'bank' are not writable by
