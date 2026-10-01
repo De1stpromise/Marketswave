@@ -10,6 +10,7 @@
 // showed and the server refuses the request if it is not this exact statement — a signature
 // under a different sentence is not this consent.
 import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
+import { BRAND_RGB } from './brand-colors.ts';
 
 /* SIGNING-TEXT-START */
 export const CONSENT_TEXT = 'I have read this document in full, I agree to be bound by it, and I accept that typing my name constitutes my signature.';
@@ -55,7 +56,7 @@ export async function appendSignatureCertificate(originalBytes: Uint8Array, inpu
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const page = doc.addPage([595.28, 841.89]); // A4 portrait
-  const navy = rgb(27 / 255, 58 / 255, 75 / 255);
+  const navy = rgb(BRAND_RGB.navy[0] / 255, BRAND_RGB.navy[1] / 255, BRAND_RGB.navy[2] / 255);   // the brand palette (row 303)
   const muted = rgb(0.36, 0.39, 0.42);
   const left = 56;
   let y = 780;

@@ -9958,9 +9958,13 @@ row 74.
     exit is not a cleanup for a suite whose characteristic failure is a dirty one. The fix has
     to be EXTERNAL to the process — a wrapper that restores after the child exits however it
     exits, or the next run repairing what it finds at startup (paused `marketswave-%` jobs,
-    `rr-*` clients, the `F` product and its cache row). Not built; row 214 holds it. Until
-    then, after any abnormal exit of this suite, check `cron.job.active` and delete its
-    residue by hand — the row-251 pass lost five suites to it in one run. **Two findings recorded as open
+    `rr-*` clients, the `F` product and its cache row). **★ BUILT 2026-10-01 (row 214): both.**
+    `npm run verify-round-robin-refresh` now goes through `run-round-robin.mjs`, which runs the
+    suite as a child and replays its journal (`lib/round-robin-restore.mjs`) however the child
+    exits, and the suite repairs a leftover journal at startup — proven by hard-killing it
+    mid-run. It is also BOUNDED by default (a 60-symbol subset, ~19 min on the shared key);
+    `npm run verify-round-robin-refresh-full` is the whole-union run, left out of `--full`.
+    (Before this, the row-251 pass lost five suites to a paused cron.) **Two findings recorded as open
     register rows rather than fixed here**: (row 213) the Finnhub key is SHARED with real
     cloud staging, whose 5-minute cron now spends 30 of the minute's 60 calls at :00/:05/… —
     any timing-sensitive local run can be starved by staging, and pausing the local cron no
@@ -10033,8 +10037,8 @@ row 74.
   UNRESOLVED while a random-suffix fixture is not. Temp dirs through the shared teardown
   helper, zero residue. `verify-supabase-asset-logos` re-run with the new fixture, 24/24. Also
   this session: recommendations 2 (rerun only what a fixture fix touched) and 3 (dedicated-key
-  opt-in built as `MW_FINNHUB_DEDICATED=1`; bounded-cycles default recorded, not built) — see
-  the Working conventions.
+  opt-in built as `MW_FINNHUB_DEDICATED=1`; bounded-cycles default recorded then — **built
+  2026-10-01, row 214**) — see the Working conventions.
 - **★ `verify-pass.mjs` — one committed runner for every verification pass, with the fixture
   gate built in (2026-09-14, row 216).** There was no runner: a targeted pass was hand-typed
   `npm run` calls and the full suite a scratchpad bash loop, so a pre-pass gate had nothing to
@@ -12344,7 +12348,10 @@ is for. Four stages, in order, each building on the last:
   test refreshes the 30 oldest symbols across the WHOLE union, so a suite cannot confine the
   rotation to a subset without the non-subset symbols becoming the oldest mid-run; it needs
   either a subset-aware seam in `refresh-market-data` or a throwaway union, both real design
-  work. Recorded here rather than half-done.
+  work. **Built 2026-10-01 (row 214) as the throwaway union**: every stock outside a 60-symbol
+  subset is stamped a day in the FUTURE for the duration, so the oldest-first selection never
+  reaches it — no change to the function. It is the default now; it took 18.7 min on the
+  shared key (the clear-minute waits dominate), and `-full` runs the whole union.
 - **Run `npm run verify-control-patterns` (from `scripts/`) after touching ANY button, form
   control or either of `control-patterns.css` / `tap-targets.css`.** It is the standing guard
   for two things that have each broken silently once: the three-tier geometry, and row 171's

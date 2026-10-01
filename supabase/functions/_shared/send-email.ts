@@ -23,6 +23,8 @@
 // admin-security.html's own audit log already established for a different domain — this is
 // a best-effort side effect with a real, honest record of what happened, not a transactional
 // step the primary action can be blocked by.
+import { BRAND } from './brand-colors.ts';   // the single brand palette (row 303)
+
 export async function sendEmail(
   admin: any,
   params: {
@@ -182,16 +184,18 @@ export async function logEmail(
 // the one real, canonical production URL).
 // ============================================================================================
 
+// The brand colours come from _shared/brand-colors.ts, generated from the single palette
+// (scripts/brand/brand-colors.json, row 303); the greys below are email-specific, not brand.
 const COLORS = {
-  navy: '#1B3A4B',
-  cream: '#F7F6F3',
-  border: '#EDE8E1',
-  mutedLabel: '#6B7178',
+  navy: BRAND['navy'],
+  cream: BRAND['cream'],
+  border: BRAND['cream-dark'],
+  mutedLabel: BRAND['muted'],
   bodyText: '#4A4A4A',
   legalText: '#8A8A8A',
   legalTextLight: '#A5A5A5',
   divider: '#E2DDD5',
-  gold: '#C8860A',
+  gold: BRAND['gold'],
   goldCalloutBg: '#FBF3E4',
   goldCalloutBorder: '#E9C77A'
 };
