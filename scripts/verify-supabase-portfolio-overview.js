@@ -100,7 +100,11 @@ async function main() {
     // Four anchors for A, oldest first, with the account moved between writes so the values
     // genuinely differ — the writer always records the value NOW under the date it is asked
     // to file it under; nothing is invented.
-    const plan = [[3, 100000], [2, 104000], [1, 101500], [0, 110000]];
+    // ★ Month -3 deliberately has NO anchor (2026-10-01, row 304). The 3M cutoff is today minus three
+    // months, so it always falls inside month -3 — and on the 1st it lands exactly ON that month's
+    // anchor, which made this scenario's 3M window differ two days a month. With the gap, -4 is
+    // always out and -2, -1, 0 are always in, whatever today's date.
+    const plan = [[4, 100000], [2, 104000], [1, 101500], [0, 110000]];
     const expected = [];
     for (const [offset, cash] of plan) {
       await admin.from('account_state').update({ unallocated_capital: cash }).eq('client_id', A.id);
@@ -165,13 +169,14 @@ async function main() {
     const noAuth = await callFunction(url, null, 'get-portfolio-overview', {});
     check('anonymous is refused (401)', noAuth.status === 401);
 
-    // A's four anchors carry no ledger rows, so its month figures are plain value changes:
-    // 100,000 -> 104,000 (+4.0%), -> 101,500 (-2.4%), -> 110,000 (+8.37%); high is today's
-    // 120,000, low the first anchor. Computed here from the plan, not read off the server.
+    // A's four anchors carry no ledger rows, so its month figures are plain value changes. Only
+    // CONSECUTIVE months count, and -4 -> -2 is not one, so there are two: 104,000 -> 101,500
+    // (-2.4%) and -> 110,000 (+8.37%); high is today's 120,000, low the first anchor (month -4).
+    // Computed here from the plan, not read off the server.
     const psA = (await callFunction(url, A.token, 'get-portfolio-overview', {})).body.history.periodStats;
     check('★ period stats (All): high = today 120,000, low = the first anchor 100,000, best month +8.37% (the third), worst −2.4% (the second)',
-      psA && psA.all && psA.all.high.live === true && psA.all.high.value === 120000 && psA.all.low.value === 100000 && psA.all.low.date === monthStart(3)
-      && psA.all.months === 3 && psA.all.bestMonth.percent === 8.37 && psA.all.bestMonth.month === monthStart(1).slice(0, 7) && psA.all.worstMonth.percent === -2.4 && psA.all.worstMonth.month === monthStart(2).slice(0, 7), JSON.stringify(psA && psA.all));
+      psA && psA.all && psA.all.high.live === true && psA.all.high.value === 120000 && psA.all.low.value === 100000 && psA.all.low.date === monthStart(4)
+      && psA.all.months === 2 && psA.all.bestMonth.percent === 8.37 && psA.all.bestMonth.month === monthStart(1).slice(0, 7) && psA.all.worstMonth.percent === -2.4 && psA.all.worstMonth.month === monthStart(2).slice(0, 7), JSON.stringify(psA && psA.all));
     check('period stats (3M) cover only the two months in range, so the best month is still +8.37% but the low is 101,500', psA['3'] && psA['3'].months === 2 && psA['3'].low.value === 101500 && psA['3'].bestMonth.percent === 8.37, JSON.stringify(psA['3']));
     check('B under the threshold carries no period stats at all', ovB2f.body.history.periodStats.all === null && ovB2f.body.history.periodStats['3'] === null, JSON.stringify(ovB2f.body.history.periodStats));
 

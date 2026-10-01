@@ -114,7 +114,11 @@ async function main() {
     // real dates — the same rows credit-deposit / approve-withdrawal / credit-hys-deposit
     // write, placed in time.
     const msAt = (offset, day) => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - offset, day)).toISOString(); };
-    const plan = [[3, 100000], [2, 112000], [1, 109500], [0, 118000]];
+    // ★ Month -3 deliberately has NO anchor (2026-10-01, row 304). The 3M cutoff (today minus three
+    // months) always falls inside month -3, and on the 1st it landed exactly ON that month's anchor,
+    // so this scenario's 3M window differed two days a month. With the gap, -5/-4 are always out of
+    // 3M and -2/-1/0 always in. -5 -> -4 keeps the +12% first month the All range is told apart by.
+    const plan = [[5, 100000], [4, 112000], [2, 112000], [1, 109500], [0, 118000]];
     for (const [offset, cash] of plan) {
       await admin.from('account_state').update({ unallocated_capital: cash }).eq('client_id', A.id);
       await callFunction(url, pmToken, 'snapshot-portfolio-values', { monthStartDate: monthStart(offset), clientId: A.id });
@@ -129,7 +133,7 @@ async function main() {
     // 110,000 + an 18,000 tally would be a state the real engine can no longer produce.
     await admin.from('account_state').update({ unallocated_capital: 128000, asset_returns: 18000 }).eq('client_id', A.id);
     const { error: ledgerErr } = await admin.from('transactions').insert([
-      { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(4, 20) },
+      { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(6, 20) },
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
       { client_id: A.id, type: 'HYS_TRANSFER_IN', total_value: 3000, status: 'completed', created_at: msAt(1, 12) },
       { client_id: A.id, type: 'HYS_DEPOSIT', total_value: 5000, status: 'completed', created_at: msAt(1, 15) },
@@ -140,8 +144,8 @@ async function main() {
     //   capital in: 100,000 before every anchor; -2,000 after the withdrawal (-2/10); -3,000
     //   after the transfer (-1/12); the pocket deposit changes nothing; +15,000 this month.
     const EXP = {
-      capitalInAtAnchor: [100000, 100000, 98000, 95000],
-      returnAtAnchor: [0, 12000, 11500, 23000],
+      capitalInAtAnchor: [100000, 100000, 100000, 98000, 95000],
+      returnAtAnchor: [0, 12000, 12000, 11500, 23000],
       capitalInNow: 110000, returnNow: 18000,
       thisMonth: { amount: 10000, percent: 8.47 },
       // month returns net of flows: (V1 - V0 - flow) / V0
@@ -172,10 +176,24 @@ async function main() {
     check('★ THE IDENTITY: live value minus capital in equals get-returns-summary\'s total return, exactly', Math.abs(h.live.return - returns.total) < 0.005, JSON.stringify({ gap: h.live.return, total: returns.total }));
     check('four capital events, in date order, with the right kinds — the HYS_DEPOSIT is NOT among them', h.capitalIn.events.length === 4 && h.capitalIn.events.map((e) => e.kind).join(',') === 'deposit,withdrawal,transfer_out,deposit' && h.capitalIn.events.map((e) => e.cumulativeAfter).join(',') === '100000,98000,95000,110000', JSON.stringify(h.capitalIn.events));
     check('this month: +$10,000 (+8.47%) against the month\'s 118,000 anchor', h.thisMonth && h.thisMonth.anchorValue === 118000 && h.thisMonth.amount === EXP.thisMonth.amount && h.thisMonth.percent === EXP.thisMonth.percent, JSON.stringify(h.thisMonth));
+    // ★ Date independence, proven for every day rather than only today: walk 731 consecutive days
+    // (two years, a leap day and every month length included) through the page's own cutoff rule
+    // and require the 3M window to hold exactly anchors -2, -1 and 0 of this plan on each of them.
+    const windowOk = (() => {
+      const bad = [];
+      for (let k = 0; k < 731; k++) {
+        const n = new Date(Date.UTC(2026, 0, 1 + k)), cy = n.getUTCFullYear(), cm = n.getUTCMonth() - 3;
+        const cut = new Date(Date.UTC(cy, cm, Math.min(n.getUTCDate(), new Date(Date.UTC(cy, cm + 1, 0)).getUTCDate())));
+        const inRange = plan.map(([off]) => off).filter((off) => new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() - off, 1)) >= cut);
+        if (inRange.join(',') !== '2,1,0') bad.push(n.toISOString().slice(0, 10) + ':' + inRange.join(','));
+      }
+      return bad;
+    })();
+    check('★ the 3M window holds exactly anchors -2, -1, 0 on every one of 731 consecutive days (the gap at month -3 makes it date-independent)', windowOk.length === 0, windowOk.slice(0, 5).join(' '));
     const ps = h.periodStats;
-    check('period stats exist for every range (four anchors fall inside 3M, 6M, 1Y and All)', ps && ps['3'] && ps['6'] && ps['12'] && ps.all, JSON.stringify(ps));
-    check('★ All: high is today (128,000), low is the first anchor (100,000)', ps.all.high.live === true && ps.all.high.value === 128000 && ps.all.low.value === 100000 && ps.all.low.date === monthStart(3), JSON.stringify(ps.all));
-    check('★ All: best month is the first (+12.0%, no flows) and worst the second (−0.45% — the 2,000 withdrawal is netted out, not read as a loss)', ps.all.bestMonth.percent === EXP.months.m3 && ps.all.bestMonth.month === monthStart(3).slice(0, 7) && ps.all.worstMonth.percent === EXP.months.m2 && ps.all.worstMonth.month === monthStart(2).slice(0, 7), JSON.stringify([ps.all.bestMonth, ps.all.worstMonth]));
+    check('period stats exist for every range (anchors fall inside 3M, 6M, 1Y and All)', ps && ps['3'] && ps['6'] && ps['12'] && ps.all, JSON.stringify(ps));
+    check('★ All: high is today (128,000), low is the first anchor (100,000)', ps.all.high.live === true && ps.all.high.value === 128000 && ps.all.low.value === 100000 && ps.all.low.date === monthStart(5), JSON.stringify(ps.all));
+    check('★ All: best month is the first (+12.0%, no flows) and worst the second (−0.45% — the 2,000 withdrawal is netted out, not read as a loss)', ps.all.bestMonth.percent === EXP.months.m3 && ps.all.bestMonth.month === monthStart(5).slice(0, 7) && ps.all.worstMonth.percent === EXP.months.m2 && ps.all.worstMonth.month === monthStart(2).slice(0, 7), JSON.stringify([ps.all.bestMonth, ps.all.worstMonth]));
     check('★ 3M: the stats genuinely differ — best month is now the third (+10.5%, the 3,000 transfer netted out) and the low is 109,500', ps['3'].bestMonth.percent === EXP.months.m1 && ps['3'].low.value === 109500 && ps['3'].months === 2 && ps.all.months === 3, JSON.stringify(ps['3']));
 
     // ================================================================================
@@ -205,7 +223,7 @@ async function main() {
     check('★ the 4px split bar shows unrealised against realised by magnitude — here 0% / 100% (this seed has no holdings; the whole return is realised cash)', !split.hidden && parseFloat(split.children[0].style.width) === 0 && parseFloat(split.children[1].style.width) === 100, split.outerHTML);
     const spark = D.getElementById('po-spark');
     const sparkPath = spark.querySelector('path');
-    check('★ the sparkline is the RETURN series: five points (four anchors + today) in one path, gain-toned since it ends above where it began', !spark.hasAttribute('hidden') && sparkPath && sparkPath.getAttribute('d').split(/[ML]/).filter(Boolean).length === 5 && sparkPath.getAttribute('stroke') === '#137254', spark.outerHTML);
+    check('★ the sparkline is the RETURN series: six points (five anchors + today) in one path, gain-toned since it ends above where it began', !spark.hasAttribute('hidden') && sparkPath && sparkPath.getAttribute('d').split(/[ML]/).filter(Boolean).length === 6 && sparkPath.getAttribute('stroke') === '#137254', spark.outerHTML);
     // (c) Best performing class — only the class, the pill, and "of N classes".
     const bpr = D.getElementById('best-performing-return');
     check('no holdings: the class cell reads an honest em dash and "No holdings yet", no pill, no ranking', D.getElementById('best-performing-class').textContent.trim() === '\u2014' && /No holdings yet/.test(bpr.textContent) && !bpr.querySelector('.ret-pc') && card.querySelectorAll('.po-cell:last-child .ret-sub').length === 1, bpr.textContent);
@@ -219,12 +237,12 @@ async function main() {
     const first = line[0];
     const expectedAll = h.anchors.map((a) => a.value).concat([h.currentValue]);
     const buttons = [...D.querySelectorAll('#po-ranges .po-rg')];
-    check('four range controls rendered, 1Y selected by default (4 anchors within a year)', buttons.length === 4 && buttons.find((b) => b.dataset.range === '12').classList.contains('is-on'));
+    check('four range controls rendered, 1Y selected by default (5 anchors within a year)', buttons.length === 4 && buttons.find((b) => b.dataset.range === '12').classList.contains('is-on'));
     const ds = first.data.datasets;
     check('★ dataset 0 (portfolio) equals the table anchors + today\'s live value, straight segments (tension 0)', JSON.stringify(ds[0].data.map((p) => p.y)) === JSON.stringify(expectedAll) && ds[0].tension === 0, JSON.stringify({ chart: ds[0].data, expectedAll }));
     const xOf = (iso) => new Date(iso + 'T00:00:00Z').getTime() / 86400000;
     const cap = ds[1].data;
-    check('★ dataset 1 (capital in) is stepped and dashed: starts at 100,000 on the first anchor, steps DOWN 2,000 then 3,000 at the withdrawal and transfer dates, UP 15,000 at this month\'s deposit, ends at 110,000 today', ds[1].borderDash && ds[1].borderDash.length === 2 && cap[0].y === 100000 && cap[0].x === xOf(h.anchors[0].date) && cap[cap.length - 1].y === 110000 && cap.filter((p, i) => i > 0 && cap[i - 1].x === p.x).length === 3 && JSON.stringify(cap.map((p) => p.y)) === JSON.stringify([100000, 100000, 98000, 98000, 95000, 95000, 110000, 110000]), JSON.stringify(cap));
+    check('★ dataset 1 (capital in) is stepped and dashed: starts at 100,000 on the first anchor, steps DOWN 2,000 then 3,000 at the withdrawal and transfer dates, UP 15,000 at this month\'s deposit, ends at 110,000 today', ds[1].borderDash && ds[1].borderDash.length === 2 && cap[0].y === 100000 && cap[0].x === xOf(h.anchors[0].date) && cap[cap.length - 1].y === 110000 && cap.filter((p, i) => i > 0 && cap[i - 1].x === p.x && cap[i - 1].y !== p.y).length === 3 && JSON.stringify(cap.map((p) => p.y).filter((y, i, a) => i === 0 || a[i - 1] !== y)) === JSON.stringify([100000, 98000, 95000, 110000]) && cap.every((p, i) => i === 0 || cap[i - 1].x <= p.x), JSON.stringify(cap));
     const ev = ds[2];
     check('★ dataset 2 (events) has three dots on the portfolio line — the withdrawal, the transfer and this month\'s deposit (the first deposit predates the range; the pocket deposit is not an event)', ev.type === 'scatter' && ev.data.length === 3 && ev.pointBackgroundColor.join(',') === '#ffffff,#ffffff,#C8860A', JSON.stringify(ev));
     const evY = ev.data.map((p) => p.y);

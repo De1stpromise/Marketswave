@@ -235,15 +235,18 @@ async function main() {
     // consistent end state: 110,000 net capital in plus 18,000 made from sales, all of it
     // spendable unallocated capital (row 264) — TPV 128,000.
     const A = await makeClient('a', 'Overview Visual A', 100000);
-    await anchors(A, [[3, 100000], [2, 112000], [1, 109500], [0, 118000]]);
-    await backdateAnchors(A, [3, 2, 1, 0]);
+    // ★ Month -3 has NO anchor (2026-10-01, row 304): the 3M cutoff always falls inside month -3,
+    // so with the gap the 3M window is anchors -2/-1/0 on every day of the month — on the 1st it
+    // used to land exactly on month -3's anchor. verify-portfolio-overview-ui-wiring walks 731 days.
+    await anchors(A, [[5, 100000], [4, 112000], [2, 112000], [1, 109500], [0, 118000]]);
+    await backdateAnchors(A, [5, 4, 2, 1, 0]);
     // Row 264 (2026-09-22): a sale credits its FULL proceeds to unallocated_capital, so a client
     // whose sales have made 18,000 holds that 18,000 INSIDE unallocated — asset_returns is the
     // lifetime tally of what sales have made, reported and never summed into a total. Seeding
     // 110,000 + an 18,000 tally would be a state the real engine can no longer produce.
     await admin.from('account_state').update({ unallocated_capital: 128000, asset_returns: 18000 }).eq('client_id', A.id);
     await admin.from('transactions').insert([
-      { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(4, 20) },
+      { client_id: A.id, type: 'DEPOSIT', total_value: 100000, status: 'completed', created_at: msAt(6, 20) },
       { client_id: A.id, type: 'WITHDRAWAL', total_value: 2000, status: 'completed', created_at: msAt(2, 10) },
       { client_id: A.id, type: 'HYS_TRANSFER_IN', total_value: 3000, status: 'completed', created_at: msAt(1, 12) },
       { client_id: A.id, type: 'HYS_DEPOSIT', total_value: 5000, status: 'completed', created_at: msAt(1, 15) },
@@ -306,7 +309,7 @@ async function main() {
     console.log('\n=== REAL CHART.JS — dataset vs the snapshot table, hover, ranges ===\n');
     const { data: rows } = await admin.from('portfolio_value_snapshots').select('month_start_date, value_at_anchor').eq('client_id', A.id).order('month_start_date');
     const tableValues = rows.map((r) => Number(r.value_at_anchor));
-    check('seed: the table holds four real anchors for the established client', tableValues.length === 4 && tableValues[1] === 112000, JSON.stringify(rows));
+    check('seed: the table holds five real anchors for the established client', tableValues.length === 5 && tableValues[1] === 112000, JSON.stringify(rows));
 
     const cdp = await connectChrome();
     // window.__shotUri(): the page asks Node for a screenshot through a CDP binding; Node
@@ -353,7 +356,7 @@ async function main() {
       check('the band: growth since joined against $118,000 deposited, this month +$10,000 (+8.5%), return +$18,000 gain-toned, split 0%/100%, class "—"', / since you joined/.test(band.change) && /\$118,000\.00 deposited/.test(band.change) && /\+\$10,000/.test(band.tm) && /\+8\.5%/.test(band.tm) && band.ret === '+$18,000' && /is-gain/.test(band.retCls) && !band.splitHidden && parseFloat(band.split[0]) === 0 && parseFloat(band.split[1]) === 100 && band.cls === '\u2014', JSON.stringify(band));
       check('the legend lists Portfolio value, Capital you put in, Deposit and the outflow entry (a withdrawal and a transfer are in range)', band.legend.length === 4 && /Capital you put in/.test(band.legend[1]) && /Deposit/.test(band.legend[2]) && /Withdrawal/.test(band.legend[3]), JSON.stringify(band.legend));
       check('three datasets: the portfolio line (tension 0), the dashed capital-in line, the event dots', ds.length === 3 && ds[0].tension === 0 && ds[1].dash && ds[1].dash.length === 2 && ds[2].type === 'scatter', JSON.stringify(ds.map((d) => [d.label, d.type, d.dash])));
-      check('★ the capital-in dataset steps at the ledger dates: 100,000 → 98,000 → 95,000 → 110,000', JSON.stringify(ds[1].data.map((p) => p.y)) === JSON.stringify([100000, 100000, 98000, 98000, 95000, 95000, 110000, 110000]), JSON.stringify(ds[1].data));
+      check('★ the capital-in dataset steps at the ledger dates: 100,000 → 98,000 → 95,000 → 110,000', JSON.stringify(ds[1].data.map((p) => p.y).filter((y, i, a) => i === 0 || a[i - 1] !== y)) === JSON.stringify([100000, 98000, 95000, 110000]) && ds[1].data.filter((p, i, a) => i > 0 && a[i - 1].x === p.x && a[i - 1].y !== p.y).length === 3, JSON.stringify(ds[1].data));
       check('three event dots (white-filled for the two outflows, gold for this month\'s deposit), each drawn ON the portfolio line', ds[2].data.length === 3 && ds[2].bg.join(',') === '#ffffff,#ffffff,#C8860A', JSON.stringify(ds[2]));
       const dotOnLine = await cdp.evaluate('(()=>{const c=Chart.getChart("po-chart");const line=c.getDatasetMeta(0).data;const dots=c.getDatasetMeta(2).data;return dots.map(d=>{let best=1e9;for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];if(d.x<Math.min(a.x,b.x)-0.5||d.x>Math.max(a.x,b.x)+0.5)continue;const t=(d.x-a.x)/((b.x-a.x)||1);const y=a.y+(b.y-a.y)*t;best=Math.min(best,Math.abs(y-d.y));}return Math.round(best*100)/100;});})()');
       check('...within a pixel of the drawn line at each dot\'s own x', dotOnLine.length === 3 && dotOnLine.every((d) => d <= 1), JSON.stringify(dotOnLine));
@@ -400,7 +403,10 @@ async function main() {
         const spPx=await window.__sample(uri,sp);
         out.spark=Math.round(ratio(spPx.darkest,spPx.median)*100)/100;
         const c=Chart.getChart('po-chart'); const cr=c.canvas.getBoundingClientRect();
-        const cap=c.getDatasetMeta(1).data; const a=cap[cap.length-2], b=cap[cap.length-1];
+        const cap=c.getDatasetMeta(1).data; let a=cap[0], b=cap[1];
+        // The widest HORIZONTAL run of the stepped line — never 'the last two points', which on the
+        // 1st/2nd of a month are a vertical step at today's edge (row 304).
+        for(let i=1;i<cap.length;i++){ if(Math.abs(cap[i].y-cap[i-1].y)<0.5 && Math.abs(cap[i].x-cap[i-1].x)>Math.abs(b.x-a.x)) { a=cap[i-1]; b=cap[i]; } }
         const capBox={x:cr.left+Math.min(a.x,b.x)+4,y:cr.top+a.y-3,w:Math.max(8,Math.abs(b.x-a.x)-8),h:6};
         const capPx=await window.__sample(uri,capBox);
         out.capital=Math.round(ratio(capPx.darkest,capPx.lightest)*100)/100;
@@ -453,6 +459,8 @@ async function main() {
       await cdp.evaluate(WAIT_OVERVIEW(false));
       await sleep(800);
       await shot(cdp, '05-new-client');
+      // Settle the counted headline first — cause (6) again: an unsettled read caught $51,999.83 (row 304).
+      await cdp.evaluate('(async()=>{const el=document.getElementById("tpv-amount");for(let i=0;i<60;i++){if(el.textContent.trim()==="$52,000.00")return;await new Promise(z=>setTimeout(z,100));}})()');
       const nb = await cdp.evaluate('(()=>{const g=(id)=>document.getElementById(id);const vis=(el)=>el&&getComputedStyle(el).display!=="none"&&!el.hidden;return {value:g("tpv-amount").textContent.trim(),tm:g("tpv-monthly-change").textContent.trim(),change:vis(g("po-change")),changeText:g("po-change").textContent,chart:vis(g("po-chart-wrap")),newc:vis(g("po-newc")),stats:vis(g("po-stats")),spark:vis(g("po-spark")),legend:vis(g("po-legend")),ranges:vis(g("po-ranges")),newcText:g("po-newc").textContent};})()');
       check('★ the new client: $52,000.00 in the headline, "New this month", growth "$0 since you joined" (never +$52,000), chart/legend/ranges/stats/sparkline hidden, the explanation shown', nb.value === '$52,000.00' && nb.tm === 'New this month' && nb.change && /^\$0 since you joined/.test(nb.changeText.trim()) && !nb.chart && nb.newc && !nb.stats && !nb.spark && !nb.legend && !nb.ranges && /1 so far/.test(nb.newcText), JSON.stringify(nb));
 

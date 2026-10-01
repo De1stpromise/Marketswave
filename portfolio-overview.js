@@ -228,6 +228,11 @@
   }
   function anchorCount(points) { return points.filter(function (p) { return !p.live; }).length; }
   function xOf(dateStr) { return parseDate(dateStr).getTime() / DAY; }
+  // A capital event's date is a full timestamp (the ledger row's created_at), but every point on
+  // the chart sits at UTC midnight of its day — today's live point included. Placing an event at
+  // its exact time put anything credited TODAY after the line's last point, so its step and its
+  // dot were silently dropped until tomorrow (found 2026-10-01, row 304). Events go on their day.
+  function eventX(e) { return xOf(String(e.date).slice(0, 10)); }
 
   // The capital-in step series for a range: the level before the first point, then a
   // vertical step (duplicate x) at every event inside the range, then the level today.
@@ -237,7 +242,7 @@
     var level = 0;
     var out = [];
     events.forEach(function (e) {
-      var x = xOf(e.date);
+      var x = eventX(e);
       if (x < x0) { level = e.cumulativeAfter; return; }
       if (x > x1) return;
       if (!out.length) out.push({ x: x0, y: level });
@@ -246,7 +251,8 @@
       out.push({ x: x, y: level });
     });
     if (!out.length) out.push({ x: x0, y: level });
-    out.push({ x: x1, y: level });
+    var last = out[out.length - 1];
+    if (!(last.x === x1 && last.y === level)) out.push({ x: x1, y: level });   // an event today already ends the line there
     return out;
   }
   // Linear y on the portfolio line at x — exact for straight segments (tension 0).
@@ -265,7 +271,7 @@
     var x0 = xOf(pts[0].date), x1 = xOf(pts[pts.length - 1].date);
     var out = [];
     events.forEach(function (e) {
-      var x = xOf(e.date);
+      var x = eventX(e);
       if (x < x0 || x > x1) return;
       var y = valueOnLineAt(pts, x);
       if (y === null) return;
@@ -462,6 +468,7 @@
             pointBackgroundColor: events.map(function (e) { return isCapitalInflow(e.event.kind) ? GOLD : '#ffffff'; }),
             pointBorderColor: events.map(function (e) { return isCapitalInflow(e.event.kind) ? '#ffffff' : GOLD; }),
             pointBorderWidth: 1.5,
+            clip: false,   // an event dated today sits ON the right edge; unclipped, it draws whole (row 304)
             order: 1
           }]
         },
@@ -470,6 +477,7 @@
           responsive: true,
           maintainAspectRatio: false,
           animation: { duration: 250 },
+          layout: { padding: { left: 7, right: 7 } },   // room for an unclipped edge dot (radius 4.5 + 1.5 border)
           interaction: { mode: 'nearest', intersect: false, axis: 'x' },
           plugins: {
             legend: { display: false },
