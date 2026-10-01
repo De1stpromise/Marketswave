@@ -1805,9 +1805,22 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   - **★ A change that narrows what a client can read ships in TWO migrations**: the new read
     path first, the pages that use it, THEN the tightening policy. Tighten first and every real
     client's page goes empty until the pages land.
-  - Other client-readable PM emails remain (`resolved_by_email` on the request tables,
-    `advisory_fee_rate.updated_by_email`, `conversations.resolved_by_email`, the deposit-address
-    attribution) — listed in row 304, same shape, same fix if wanted.
+  - **★ The same fix now covers the request tables, conversations, the fee rate and deposit
+    addresses (row 305).** Clients read `my_allocation_requests`, `my_sell_requests`,
+    `my_deposit_requests`, `my_withdrawal_requests`, `my_hys_deposit_requests`,
+    `my_hys_withdrawal_requests`, `my_profile_change_requests`, `my_conversations`,
+    `my_deposit_addresses` and `advisory_fee_rate_public`; the eleven base tables (assignments
+    included) are PM-only for SELECT. **A new client read of any of them goes through its view,
+    and a new column a client needs must be ADDED TO THE VIEW.** Two consequences worth knowing:
+    the `messages` policies check ownership through `owns_conversation()`, a definer helper —
+    a policy that looks `conversations` up as the caller now sees nothing; and a client's direct
+    `.insert(...).select()` on these tables fails, because `RETURNING` needs a SELECT policy —
+    real request paths go through the service role and are unaffected, but a suite must insert
+    without `.select()` and judge by the error.
+    Client ticket badges stay live through the `system` message `admin-update-conversation`
+    inserts on every status change (the `conversations` subscription is gone). **Staging holds
+    NO `advisory_fee_rate` row** — no PM has ever set a rate there, so clients read none; a
+    proof must not create one, since staging is the live site.
   - **A pdf-lib colour comes from `BRAND_RGB`** (`rgb(r/255, g/255, b/255)`); `verify-brand-colors`
     flags any literal `rgb()` with all arguments ≤ 1 in Edge Function source.
   - **★ Portfolio-overview scenarios use a GAP MONTH** (no anchor in month −3), so the 3M window
