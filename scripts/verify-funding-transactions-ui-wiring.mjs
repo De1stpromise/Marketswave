@@ -320,6 +320,7 @@ async function main() {
   const totalBuysEl = T.getElementById('total-buys-amount');
   const activityListEl = T.getElementById('recent-activity-list');
 
+  txnDom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8')); /* the page loads brand-colors.js in <head> (row 303) */ 
   txnDom.window.eval(txnScript);
   check('the loading skeleton genuinely appears immediately (ledger)', /animate-pulse/.test(ledgerBody.innerHTML), ledgerBody.innerHTML.slice(0, 200));
   check('the loading skeleton genuinely appears immediately (summary cards)', /animate-pulse/.test(totalBuysEl.innerHTML));

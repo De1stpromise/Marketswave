@@ -6,6 +6,8 @@
   <title>Open an Account — Marketswave</title>
   <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
@@ -248,7 +250,7 @@
     .account-type-card.is-selected {
       border-color: var(--primary);
       background: #FFFFFF;
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.13);
     }
 
     .account-type-card.is-selected::after {
@@ -286,7 +288,7 @@
     /* Focus lands on the clipped radio, so the ring is drawn on the visible card. */
     .account-type-card:has(input:focus-visible) {
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.28);
     }
 
     .account-type-icon {
@@ -364,7 +366,7 @@
     .signup-btn-next {
       background: var(--primary);
       color: #fff;
-      box-shadow: 0 8px 20px rgba(27, 58, 75, 0.18);
+      box-shadow: 0 8px 20px rgba(var(--brand-navy-rgb),0.18);
     }
     .signup-btn-next:hover:not(:disabled) {
       background: var(--primary-dark);
@@ -538,7 +540,7 @@
       outline: none;
       border-color: var(--accent-teal);
       background: #fff;
-      box-shadow: 0 0 0 3px rgba(22, 129, 95, 0.14);
+      box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb),0.14);
     }
 
     .fld input:focus + label,
@@ -659,7 +661,7 @@
     .risk-option:has(input:checked) {
       border-color: var(--primary);
       background: #FFFFFF;
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.13);
       font-weight: 500;
     }
 
@@ -712,7 +714,7 @@
     }
     .choice-card:has(input:focus-visible) {
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.28);
     }
     .choice-card:hover {
       border-color: #C4BFB6;
@@ -721,7 +723,7 @@
     .choice-card:has(input:checked) {
       border-color: var(--primary);
       background: #FFFFFF;
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.13);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.13);
       font-weight: 500;
     }
     @media (max-width: 600px) {
@@ -733,7 +735,7 @@
     /* Document Upload */
     /* Review & Consent */
     .review-box {
-      background: #F7F6F3;
+      background: var(--brand-cream);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 22px 24px;

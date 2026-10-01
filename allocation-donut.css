@@ -71,7 +71,7 @@
   align-items: center;
   gap: 12px;
   padding: 11px 0;
-  border-top: 1px solid rgba(27, 58, 75, .08);
+  border-top: 1px solid rgba(var(--brand-navy-rgb),.08);
 }
 .ad-row:first-child { border-top: none; padding-top: 2px; }
 
@@ -95,7 +95,7 @@
   flex: 0 0 52px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(27, 58, 75, .07);
+  background: rgba(var(--brand-navy-rgb),.07);
   overflow: hidden;
 }
 .ad-bar i { display: block; height: 100%; border-radius: 2px; }

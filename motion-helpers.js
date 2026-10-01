@@ -109,7 +109,7 @@
     var bar = document.createElement('div');
     bar.setAttribute('aria-hidden', 'true');
     bar.style.cssText =
-      'position:fixed;top:0;left:0;right:0;height:3px;background:var(--primary,#1B3A4B);' +
+      'position:fixed;top:0;left:0;right:0;height:3px;background:var(--primary,var(--brand-navy));' +
       'transform-origin:0%;transform:scaleX(0);z-index:9999;pointer-events:none;';
     document.body.appendChild(bar);
 

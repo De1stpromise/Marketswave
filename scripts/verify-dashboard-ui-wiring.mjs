@@ -284,6 +284,7 @@ async function main() {
     // The real page loads risk-profile.js before its own script (row 292); the Risk metrics card reads the server value through it.
     dom.window.eval(readFileSync(new URL('../risk-profile.js', import.meta.url), 'utf8'));
     dom.window.Chart = function () { return { destroy() {}, update() {} }; };
+    dom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8')); /* the page loads brand-colors.js in <head> (row 303) */ 
     dom.window.eval(overviewSource);
     dom.window.eval(scriptSource); // synchronous portion runs immediately — this is where skeletons paint
     return dom.window.document;

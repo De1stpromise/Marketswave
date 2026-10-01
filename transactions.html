@@ -6,6 +6,8 @@
   <title>Transactions — Marketswave</title>
   <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
@@ -475,7 +477,7 @@
             var g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
             if (topAlphaOverride) {
               g.addColorStop(0, topAlphaOverride);
-              g.addColorStop(1, 'rgba(27,58,75,0)');
+              g.addColorStop(1, MW_BRAND.rgba('navy', 0));
             } else {
               g.addColorStop(0, lightenHex(baseColor, 0.35));
               g.addColorStop(1, baseColor);
@@ -499,7 +501,7 @@
           beforeDatasetsDraw: function (chart) {
             var ctx = chart.ctx;
             ctx.save();
-            ctx.shadowColor = 'rgba(27,58,75,0.18)';
+            ctx.shadowColor = MW_BRAND.rgba('navy', 0.18);
             ctx.shadowBlur = 8;
             ctx.shadowOffsetY = 3;
           },
@@ -512,7 +514,7 @@
             data: {
               labels: labels,
               datasets: [
-                { label: 'Buys', data: buysData, backgroundColor: verticalGradientFill('#1B3A4B'), borderRadius: 6 },
+                { label: 'Buys', data: buysData, backgroundColor: verticalGradientFill(MW_BRAND.navy), borderRadius: 6 },
                 { label: 'Sells', data: sellsData, backgroundColor: verticalGradientFill('#C8A857'), borderRadius: 6 }
               ]
             },
@@ -534,15 +536,15 @@
               datasets: [{
                 label: 'Net Cash Flow',
                 data: netData,
-                borderColor: '#1B3A4B',
+                borderColor: MW_BRAND.navy,
                 // Consistency pass, per instruction ("any other real chart... apply
-                // consistently"): the flat rgba(27,58,75,0.08) area fill becomes a real
+                // consistently"): the flat navy-at-8% area fill becomes a real
                 // vertical gradient (a more opaque navy tint near the line, fading to
                 // fully transparent at the bottom) — the standard "glassy" area-chart
                 // treatment, matching the glossy/dimensional language applied to the
                 // pie and bar charts above without inventing a different effect for this
                 // one chart.
-                backgroundColor: verticalGradientFill(null, 'rgba(27,58,75,0.22)'),
+                backgroundColor: verticalGradientFill(null, MW_BRAND.rgba('navy', 0.22)),
                 fill: true,
                 tension: 0.35,
                 pointRadius: 3

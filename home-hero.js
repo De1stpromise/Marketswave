@@ -33,9 +33,9 @@
     }
 
     var lines = [
-      { c: 'rgba(27,58,75,.32)',   w: 1.6, y: 0.62, amp: 0.20, pts: series(seed(7),  120,  0.012, 0.10) },
-      { c: 'rgba(22,129,95,.34)',  w: 1.4, y: 0.55, amp: 0.16, pts: series(seed(23), 120,  0.010, 0.12) },
-      { c: 'rgba(200,134,10,.28)', w: 1.2, y: 0.70, amp: 0.13, pts: series(seed(51), 120,  0.006, 0.14) },
+      { c: MW_BRAND.rgba('navy', .32),   w: 1.6, y: 0.62, amp: 0.20, pts: series(seed(7),  120,  0.012, 0.10) },
+      { c: MW_BRAND.rgba('teal', .34),  w: 1.4, y: 0.55, amp: 0.16, pts: series(seed(23), 120,  0.010, 0.12) },
+      { c: MW_BRAND.rgba('gold', .28), w: 1.2, y: 0.70, amp: 0.13, pts: series(seed(51), 120,  0.006, 0.14) },
       { c: 'rgba(157,196,232,.34)',w: 1.1, y: 0.46, amp: 0.11, pts: series(seed(89), 120, -0.004, 0.11) }
     ];
 
@@ -67,8 +67,8 @@
         if (li === 0) {
           x.lineTo(W, H); x.lineTo(0, H); x.closePath();
           var g = x.createLinearGradient(0, H * 0.4, 0, H);
-          g.addColorStop(0, 'rgba(27,58,75,.05)');
-          g.addColorStop(1, 'rgba(27,58,75,0)');
+          g.addColorStop(0, MW_BRAND.rgba('navy', .05));
+          g.addColorStop(1, MW_BRAND.rgba('navy', 0));
           x.fillStyle = g; x.fill();
         }
       });
@@ -305,7 +305,7 @@
       var hi = Math.min(open, close) - rnd() * 8;
       var lo = Math.max(open, close) + rnd() * 8;
       var x = gap * i + gap / 2;
-      var col = up ? '#16815F' : '#C8542F';
+      var col = up ? MW_BRAND.teal : '#C8542F';
       var delay = (i * 0.34) + 's';
 
       var wick = document.createElementNS(NS, 'line');

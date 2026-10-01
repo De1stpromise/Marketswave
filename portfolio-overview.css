@@ -7,7 +7,7 @@
    the mockup's #8A9298 axis/secondary greys measure well below 4.5:1 inside a backdrop-filter
    layer (rows 193/200), so secondary text is #5C6367 at 12px+ and #475569 below that.
    Gain/loss tones are the returns-display pair (#137254 / #A8452F, rows 185/187); the
-   pending chip and the maturity bar reuse the locked gold (#C8860A). Figures are Inter with
+   pending chip and the maturity bar reuse the locked gold (var(--brand-gold)). Figures are Inter with
    tabular-nums (row 192) — never a second family. */
 
 /* ★ The three overview cards carry .glass-lift (glass-primitives.css): .glass's own sheen is
@@ -34,9 +34,9 @@
    market price behind the figure. Amber (.is-stale) with the statement when any holding is
    stale or failed: measured composited under the sheen, the amber ink is #6B4706 on a
    0.16-alpha gold tint (the same pair the pending chip already carries). */
-.po-asof { font-size: 11px; color: #3E4A52; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; background: rgba(27, 58, 75, 0.05); padding: 5px 10px; border-radius: 999px; max-width: 100%; }
+.po-asof { font-size: 11px; color: #3E4A52; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; background: rgba(var(--brand-navy-rgb),0.05); padding: 5px 10px; border-radius: 999px; max-width: 100%; }
 .po-asof i { width: 6px; height: 6px; border-radius: 50%; background: #137254; box-shadow: 0 0 6px rgba(19, 114, 84, 0.5); flex-shrink: 0; }
-.po-asof.is-stale { background: rgba(200, 134, 10, 0.16); color: #6B4706; font-weight: 600; }
+.po-asof.is-stale { background: rgba(var(--brand-gold-rgb),0.16); color: #6B4706; font-weight: 600; }
 .po-asof.is-stale i { background: #B07908; box-shadow: 0 0 6px rgba(176, 121, 8, 0.55); }
 .po-asof[hidden] { display: none; }
 
@@ -58,8 +58,8 @@
 .po-tm > b { margin-right: 4px; }
 
 /* The four-cell band: Portfolio / Savings pockets / Total return / Best performing class. */
-.po-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; border-top: 1px solid rgba(27, 58, 75, 0.09); padding: 0 28px; }
-.po-cell { padding: 12px 18px 12px 0; margin-right: 18px; border-right: 1px solid rgba(27, 58, 75, 0.1); position: relative; min-width: 0; }
+.po-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; border-top: 1px solid rgba(var(--brand-navy-rgb),0.09); padding: 0 28px; }
+.po-cell { padding: 12px 18px 12px 0; margin-right: 18px; border-right: 1px solid rgba(var(--brand-navy-rgb),0.1); position: relative; min-width: 0; }
 .po-cell:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .po-band .ret-k { font-size: 10.5px; color: #5C6367; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .po-kd { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
@@ -69,7 +69,7 @@
 .po-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; }
 .po-pill.is-up { background: rgba(19, 114, 84, 0.10); color: #137254; }
 .po-pill.is-dn { background: rgba(168, 69, 47, 0.10); color: #A8452F; }
-.po-pill.is-flat { background: rgba(27, 58, 75, 0.08); color: #3E4A52; }
+.po-pill.is-flat { background: rgba(var(--brand-navy-rgb),0.08); color: #3E4A52; }
 /* The Best performing class percentage is a pill (ret-pc) that also keeps ret-u for the
    contrast profiles that already select it. */
 .po-band .ret-pc { font-size: 11px; padding: 2px 8px; border-radius: 5px; }
@@ -80,7 +80,7 @@
 .po-msp path { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .po-msp[hidden] { display: none; }
 /* Unrealised / realised split, 4px, by magnitude. */
-.po-split { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 9px; width: 100%; max-width: 200px; background: rgba(27, 58, 75, 0.06); }
+.po-split { display: flex; height: 4px; border-radius: 2px; overflow: hidden; margin-top: 9px; width: 100%; max-width: 200px; background: rgba(var(--brand-navy-rgb),0.06); }
 .po-split i { display: block; height: 100%; }
 .po-split .is-u { background: #137254; }
 .po-split .is-r { background: #3A6785; }
@@ -88,7 +88,7 @@
 
 /* Chart section — titled "Portfolio value over time" and stating its own scope. */
 .po-chart-sec { padding: 0 28px 14px; }
-.po-ch-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 10px; padding-top: 14px; border-top: 1px solid rgba(27, 58, 75, 0.09); flex-wrap: wrap; }
+.po-ch-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 10px; padding-top: 14px; border-top: 1px solid rgba(var(--brand-navy-rgb),0.09); flex-wrap: wrap; }
 .po-ch-l { display: flex; flex-direction: column; min-width: 0; flex: 1 1 320px; }
 .po-ch-l .ret-k { margin: 0; font-size: 13px; color: #3E4A52; font-weight: 600; display: block; }
 .po-ch-scope { display: block; font-size: 11.5px; color: #5C6367; margin-top: 4px; line-height: 1.5; max-width: 72ch; }
@@ -96,14 +96,14 @@
 .po-leg span { display: flex; align-items: center; gap: 6px; }
 .po-leg i { width: 14px; height: 2.5px; border-radius: 2px; display: block; background: #137254; }
 .po-leg i.is-dash { background: repeating-linear-gradient(90deg, #5C6367 0 3px, transparent 3px 6px); }
-.po-leg i.is-dot { width: 8px; height: 8px; border-radius: 50%; background: #C8860A; }
-.po-leg i.is-dot-out { width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1.5px solid #C8860A; box-sizing: border-box; }
+.po-leg i.is-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-gold); }
+.po-leg i.is-dot-out { width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1.5px solid var(--brand-gold); box-sizing: border-box; }
 .po-leg[hidden] { display: none; }
 
 .po-ranges { display: flex; gap: 6px; }
 .po-rg.mw-btn { min-width: 0; padding: 0 12px; height: 34px; border: 1.5px solid #D6D0C6; background: rgba(255, 255, 255, 0.6); color: #3E4A52; font-size: 12px; }
-.po-rg.mw-btn.is-on { background: #1B3A4B; border-color: #1B3A4B; color: #F7F6F3; }
-.po-rg.mw-btn:focus-visible { box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.25); }
+.po-rg.mw-btn.is-on { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--brand-cream); }
+.po-rg.mw-btn:focus-visible { box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.25); }
 
 .po-chart { position: relative; height: 140px; }
 .po-chart canvas { width: 100% !important; height: 100% !important; }
@@ -111,9 +111,9 @@
 .po-hint { font-size: 11.5px; color: #5C6367; margin-top: 8px; }
 
 /* Three-row tooltip (date / portfolio / capital in / return), positioned by the chart. */
-.po-tip { position: absolute; z-index: 3; background: #12283A; color: #F7F6F3; border-radius: 10px; padding: 9px 12px; font-size: 11px; pointer-events: none; box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.5); min-width: 150px; opacity: 0; transition: opacity 0.12s; }
+.po-tip { position: absolute; z-index: 3; background: #12283A; color: var(--brand-cream); border-radius: 10px; padding: 9px 12px; font-size: 11px; pointer-events: none; box-shadow: 0 12px 26px -10px rgba(0, 0, 0, 0.5); min-width: 150px; opacity: 0; transition: opacity 0.12s; }
 .po-tip.is-on { opacity: 1; }
-.po-tip .po-td { color: rgba(247, 246, 243, 0.78); margin-bottom: 5px; }
+.po-tip .po-td { color: rgba(var(--brand-cream-rgb),0.78); margin-bottom: 5px; }
 .po-tip .po-tr { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
 .po-tip .po-tr + .po-tr { margin-top: 3px; }
 .po-tip .po-tr b { font-weight: 600; }
@@ -121,8 +121,8 @@
 .po-tip .po-tr b.is-dn { color: #F2A48E; }
 
 /* Period stats footer — computed server-side for the selected range. */
-.po-pf { display: flex; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(27, 58, 75, 0.08); }
-.po-pf > div { flex: 1; padding-right: 16px; margin-right: 16px; border-right: 1px solid rgba(27, 58, 75, 0.08); min-width: 0; }
+.po-pf { display: flex; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(var(--brand-navy-rgb),0.08); }
+.po-pf > div { flex: 1; padding-right: 16px; margin-right: 16px; border-right: 1px solid rgba(var(--brand-navy-rgb),0.08); min-width: 0; }
 .po-pf > div:last-child { border-right: none; margin-right: 0; padding-right: 0; }
 .po-pf .ret-k { font-size: 10px; margin-bottom: 5px; color: #5C6367; }
 .po-pf .po-pv { font-size: 14px; font-weight: 600; color: #12283A; font-variant-numeric: tabular-nums; }
@@ -135,7 +135,7 @@
 .po-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* New client / not enough anchors yet */
-.po-newc { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; border-radius: 12px; background: rgba(27, 58, 75, 0.04); border: 1px dashed rgba(27, 58, 75, 0.22); }
+.po-newc { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; border-radius: 12px; background: rgba(var(--brand-navy-rgb),0.04); border: 1px dashed rgba(var(--brand-navy-rgb),0.22); }
 .po-newc svg { flex-shrink: 0; margin-top: 2px; color: #5C6367; }
 .po-newc b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; margin-bottom: 4px; }
 .po-newc p { font-size: 12.5px; color: #5C6367; line-height: 1.65; }
@@ -148,7 +148,7 @@
   .po-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .po-cell { padding: 14px 18px 14px 0; }
   .po-cell:nth-child(2) { border-right: none; margin-right: 0; padding-right: 0; }
-  .po-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(27, 58, 75, 0.09); }
+  .po-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(var(--brand-navy-rgb),0.09); }
   .po-msp { display: none; }
   .po-pf { flex-wrap: wrap; gap: 12px; }
   .po-pf > div { flex: 0 0 calc(50% - 6px); border-right: none; margin-right: 0; padding-right: 0; }
@@ -162,7 +162,7 @@
   .po-hd .po-hr { order: 1; }
   .po-head .ret-v.po-big { font-size: 31px; }
   .po-band { grid-template-columns: 1fr; margin-top: 16px; }
-  .po-cell, .po-cell:nth-child(2) { border-right: none; margin-right: 0; padding: 13px 0; border-bottom: 1px solid rgba(27, 58, 75, 0.09); }
+  .po-cell, .po-cell:nth-child(2) { border-right: none; margin-right: 0; padding: 13px 0; border-bottom: 1px solid rgba(var(--brand-navy-rgb),0.09); }
   .po-cell:last-child { border-bottom: none; }
   .po-band .ret-v, .po-band .ret-class { font-size: 19px; }
   .po-ch-h { flex-direction: column; align-items: stretch; }
@@ -177,27 +177,27 @@
 }
 
 /* Pending requests — each row with its AGE (row 251). */
-.po-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); text-decoration: none; color: inherit; min-height: 60px; }
+.po-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(var(--brand-navy-rgb),0.08); text-decoration: none; color: inherit; min-height: 60px; }
 .po-row:first-child { border-top: none; padding-top: 4px; }
 .po-age { font-size: 11px; color: #6B4706; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .po-chips { display: none; }
 .po-row:hover .po-rt { text-decoration: underline; }
 .po-ic { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .po-ic.dep { background: rgba(19, 114, 84, 0.1); color: #137254; }
-.po-ic.alo { background: rgba(27, 58, 75, 0.08); color: #2C4658; }
+.po-ic.alo { background: rgba(var(--brand-navy-rgb),0.08); color: #2C4658; }
 .po-ic.wd { background: rgba(168, 69, 47, 0.1); color: #A8452F; }
-.po-ic.hys { background: rgba(200, 134, 10, 0.12); color: #7A5207; }
-.po-ic.prof { background: rgba(27, 58, 75, 0.08); color: #2C4658; }
+.po-ic.hys { background: rgba(var(--brand-gold-rgb),0.12); color: #7A5207; }
+.po-ic.prof { background: rgba(var(--brand-navy-rgb),0.08); color: #2C4658; }
 .po-rb { flex: 1; min-width: 0; }
 .po-rt { font-size: 13.5px; font-weight: 600; color: #12283A; overflow-wrap: anywhere; }
 .po-rs { font-size: 12px; color: #5C6367; margin-top: 2px; overflow-wrap: anywhere; }
 .po-ra { text-align: right; flex-shrink: 0; }
 .po-ra .po-v { font-size: 13.5px; font-weight: 700; color: #12283A; font-variant-numeric: tabular-nums; }
-.po-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px; padding: 2px 7px; border-radius: 5px; background: rgba(200, 134, 10, 0.14); color: #6B4706; display: inline-block; }
-.po-chip.is-internal { background: rgba(27, 58, 75, 0.08); color: #2C4658; margin-left: 4px; }
+.po-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px; padding: 2px 7px; border-radius: 5px; background: rgba(var(--brand-gold-rgb),0.14); color: #6B4706; display: inline-block; }
+.po-chip.is-internal { background: rgba(var(--brand-navy-rgb),0.08); color: #2C4658; margin-left: 4px; }
 
 /* Savings pockets — a matured pocket is marked "earning nothing" and offered its next step. */
-.po-mat { padding: 13px 0; border-top: 1px solid rgba(27, 58, 75, 0.08); }
+.po-mat { padding: 13px 0; border-top: 1px solid rgba(var(--brand-navy-rgb),0.08); }
 .po-mat:first-child { border-top: none; padding-top: 4px; }
 .po-md.is-matured { color: #6B4706; font-weight: 600; }
 .po-mact { display: inline-flex; align-items: center; min-height: 44px; font-size: 11.5px; font-weight: 600; color: #137254; text-decoration: none; margin-top: -4px; }
@@ -209,12 +209,12 @@
 .po-md { font-size: 12px; color: #5C6367; font-variant-numeric: tabular-nums; }
 .po-mi { font-size: 12px; font-weight: 600; color: #0F5C44; font-variant-numeric: tabular-nums; }
 .po-mi.is-none { color: #5C6367; font-weight: 500; }
-.po-bar { height: 5px; border-radius: 3px; background: rgba(27, 58, 75, 0.08); margin-top: 9px; overflow: hidden; }
-.po-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #C8860A, #E0A83C); }
+.po-bar { height: 5px; border-radius: 3px; background: rgba(var(--brand-navy-rgb),0.08); margin-top: 9px; overflow: hidden; }
+.po-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--brand-gold), #E0A83C); }
 
 /* Empty states */
 .po-empty { padding: 26px 10px; text-align: center; }
-.po-empty .po-ei { width: 40px; height: 40px; border-radius: 11px; background: rgba(27, 58, 75, 0.06); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: #5C6367; }
+.po-empty .po-ei { width: 40px; height: 40px; border-radius: 11px; background: rgba(var(--brand-navy-rgb),0.06); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: #5C6367; }
 .po-empty b { display: block; font-size: 13.5px; font-weight: 600; color: #12283A; margin-bottom: 5px; }
 .po-empty p { font-size: 12.5px; color: #5C6367; line-height: 1.7; max-width: 40ch; margin: 0 auto; }
 

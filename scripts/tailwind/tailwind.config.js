@@ -18,6 +18,7 @@
 // JavaScript is a whole string literal (a tone map, a template), never assembled from fragments;
 // keep it that way. `theme.extend` (never bare `theme.colors`, which would drop the default palette)
 // — the guard checks this file for that too.
+const BRAND = require('../brand/brand-colors.json').colors;   // the single brand palette (row 303)
 module.exports = {
   content: { relative: true, files: ['../../*.html', '../../*.js'] },   // relative to THIS file, not the cwd
   // darkMode is Tailwind 3's default ('media'), the same default the play CDN applied — the `dark:`
@@ -25,8 +26,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        navy: { DEFAULT: '#1B3A4B', dark: '#122A38', light: '#2A4F63' },
-        cream: { DEFAULT: '#F7F6F3', dark: '#EDE8E1' }
+        // From scripts/brand/brand-colors.json, the single source (row 303) — never retype a hex here.
+        navy: { DEFAULT: BRAND['navy'], dark: BRAND['navy-dark'], light: BRAND['navy-light'] },
+        cream: { DEFAULT: BRAND['cream'], dark: BRAND['cream-dark'] }
       }
     }
   },

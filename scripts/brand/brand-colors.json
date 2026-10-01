@@ -1,0 +1,14 @@
+{
+  "_comment": "THE single source of truth for the brand palette (2026-10-01, row 303). Change a value here, run `npm run build-brand` and `npm run build-tailwind` (from scripts/), commit the generated files. Generated from this file: ../../brand-tokens.css, ../../brand-colors.js, ../../supabase/functions/_shared/brand-colors.ts, ../../supabase/templates/recovery.html; the Tailwind config reads it directly. Values are today's Marketswave palette, unchanged.",
+  "colors": {
+    "navy": "#1B3A4B",
+    "navy-dark": "#122A38",
+    "navy-light": "#2A4F63",
+    "cream": "#F7F6F3",
+    "cream-dark": "#EDE8E1",
+    "gold": "#C8860A",
+    "teal": "#16815F",
+    "text": "#1A1C1E",
+    "muted": "#6B7178"
+  }
+}

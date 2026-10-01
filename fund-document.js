@@ -168,7 +168,7 @@
               plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return formatDate(points[items[0].dataIndex].date); }, label: function (item) { return formatUSD(item.parsed.y, 2) + ' per unit'; } } } },
               scales: {
                 x: { grid: { display: false }, ticks: { color: '#5C6367', font: { family: 'Inter', size: 11 } } },
-                y: { grid: { color: 'rgba(27,58,75,0.08)' }, ticks: { color: '#5C6367', font: { family: 'Inter', size: 11 }, callback: function (v) { return formatUSD(Number(v), 0); } } }
+                y: { grid: { color: MW_BRAND.rgba('navy', 0.08) }, ticks: { color: '#5C6367', font: { family: 'Inter', size: 11 }, callback: function (v) { return formatUSD(Number(v), 0); } } }
               }
             }
           });

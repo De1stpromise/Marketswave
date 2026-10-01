@@ -97,6 +97,7 @@ async function main() {
     dom.window.clientScopedKey = (k) => k + ':' + client.id;
     dom.window.Chart = function (ctx, cfg) { captured.push(cfg); return { destroy() {}, update() {}, data: cfg.data }; };
     dom.window.Chart.getChart = () => null;
+    dom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8')); /* the page loads brand-colors.js in <head> (row 303) */ 
     dom.window.eval(overviewSource);
     const shared = await MarketswaveData.getSupabaseClient();
     await shared.auth.signInWithPassword({ email: client.email, password });

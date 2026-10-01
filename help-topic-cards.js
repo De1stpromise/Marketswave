@@ -71,7 +71,7 @@
   function topicCard(topic, inTopic, showList, articleHref) {
     var card = el('div', 'glass glass-lift hc-cat');
     var ci = el('span', 'hc-ci');
-    ci.appendChild(svg(TOPIC_ICONS[topic.id] || ARROW, '#1B3A4B', 19, { w: '1.9' }));
+    ci.appendChild(svg(TOPIC_ICONS[topic.id] || ARROW, MW_BRAND.navy, 19, { w: '1.9' }));
     card.appendChild(ci);
     card.appendChild(el('h3', null, topic.name));
     card.appendChild(el('div', 'hc-d', topic.blurb || ''));

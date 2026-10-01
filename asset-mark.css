@@ -28,7 +28,7 @@
   overflow: hidden;
   vertical-align: middle;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(27, 58, 75, 0.14), inset 0 0 0 1px rgba(27, 58, 75, 0.07);
+  box-shadow: 0 1px 3px rgba(var(--brand-navy-rgb),0.14), inset 0 0 0 1px rgba(var(--brand-navy-rgb),0.07);
   line-height: 1;
   padding: 0;
 }
@@ -42,7 +42,7 @@
 /* Monogram: white bold text on a brand-palette gradient, the hue chosen deterministically
    from the ticker (or, for a fund with no ticker, from its name's initials) by
    asset-mark.js — so a given asset's mark is the same on every page and never re-rolls. */
-.mk-mono { color: #fff; box-shadow: 0 1px 3px rgba(27, 58, 75, 0.18); }
+.mk-mono { color: #fff; box-shadow: 0 1px 3px rgba(var(--brand-navy-rgb),0.18); }
 .mk-t {
   display: block;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -64,7 +64,7 @@
    4.5:1 floor before antialiasing even ate into them. Every light stop here computes ≥6.4:1
    against white, and the composited result is measured on real pixels by
    verify-asset-logos-visual (a monogram sits on a .glass card under the sheen). */
-.mk-h0 { background: linear-gradient(135deg, #2C4E63, #1B3A4B); }
+.mk-h0 { background: linear-gradient(135deg, #2C4E63, var(--brand-navy)); }
 .mk-h1 { background: linear-gradient(135deg, #126B4F, #0F5A42); }
 .mk-h2 { background: linear-gradient(135deg, #7F5405, #6E4804); }
 .mk-h3 { background: linear-gradient(135deg, #35617D, #2A5470); }
@@ -83,4 +83,4 @@
   margin-top: 14px;
 }
 .asset-logo-credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
-.asset-logo-credit a:hover { color: #1B3A4B; }
+.asset-logo-credit a:hover { color: var(--brand-navy); }

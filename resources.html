@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Resources — Marketswave</title>
   <meta name="description" content="Investment strategies, how our process works, research, and client support resources from Marketswave." />
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -82,7 +84,7 @@
       </div>
 
       <ol class="res-list">
-        <li class="res-item" style="--hue:#1B3A4B; --hue-text:#1B3A4B;">
+        <li class="res-item" style="--hue:var(--brand-navy); --hue-text:var(--brand-navy);">
           <span class="res-n">01</span>
           <span class="res-ttl">
             <span class="res-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
@@ -94,7 +96,7 @@
           <p>A cornerstone of our client service model, our asset management capabilities are enriched by the exhaustive view of the GP universe provided by our large-scale primary fund deployment on behalf of clients. As a trusted partner to fund managers, we have preferred access to investment opportunities, enabling the creation of more selective, bespoke solutions across sectors, strategies and structures. When the strategy is conducive to a multi-manager solutions approach, we design commingled vehicles that empower clients to invest in a range of strategies while gaining exposure to quality assets.</p>
         </li>
 
-        <li class="res-item" style="--hue:#16815F; --hue-text:#137053;">
+        <li class="res-item" style="--hue:var(--brand-teal); --hue-text:#137053;">
           <span class="res-n">02</span>
           <span class="res-ttl">
             <span class="res-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
@@ -106,7 +108,7 @@
           <p>Multi-Asset Class Expertise. Spanning private equity, infrastructure, private debt and real estate, our expert teams of sector specialists give clients a significant edge in shaping and sustaining single- or multi-asset class exposures to meet their investment goals. Our reach and expertise across asset classes, investment strategies, commercial structures and geographies help drive and define the customized solutions at the heart of our offering. Whatever the scale of involvement or exposure, we build relationships that are mutually respectful and rewarding.</p>
         </li>
 
-        <li class="res-item" style="--hue:#C8860A; --hue-text:#885B07;">
+        <li class="res-item" style="--hue:var(--brand-gold); --hue-text:#885B07;">
           <span class="res-n">03</span>
           <span class="res-ttl">
             <span class="res-ico" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7l-3.5-3.5L3 16.4"/></svg></span>
@@ -225,51 +227,51 @@
           <svg class="hiw-art" viewBox="0 0 320 340" role="presentation" focusable="false">
             <!-- baseplate: always present, so the artifact never reads as empty -->
             <g opacity=".5">
-              <ellipse cx="160" cy="286" rx="118" ry="30" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".22"/>
-              <ellipse cx="160" cy="286" rx="78" ry="20" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".16"/>
-              <ellipse cx="160" cy="286" rx="38" ry="10" fill="none" stroke="#1B3A4B" stroke-width=".8" opacity=".12"/>
+              <ellipse class="svg-stroke-navy" cx="160" cy="286" rx="118" ry="30" fill="none" stroke-width=".8" opacity=".22"/>
+              <ellipse class="svg-stroke-navy" cx="160" cy="286" rx="78" ry="20" fill="none" stroke-width=".8" opacity=".16"/>
+              <ellipse class="svg-stroke-navy" cx="160" cy="286" rx="38" ry="10" fill="none" stroke-width=".8" opacity=".12"/>
             </g>
 
             <!-- 01 seed -->
             <g class="hiw-lay" data-layer="1">
-              <circle cx="160" cy="286" r="7" fill="#C8860A"/>
-              <circle cx="160" cy="286" r="14" fill="none" stroke="#C8860A" stroke-width="1" opacity=".45"/>
+              <circle class="svg-fill-gold" cx="160" cy="286" r="7"/>
+              <circle class="svg-stroke-gold" cx="160" cy="286" r="14" fill="none" stroke-width="1" opacity=".45"/>
             </g>
 
             <!-- 02 plan frame -->
             <g class="hiw-lay" data-layer="2">
-              <path d="M62 286 L160 232 L258 286" fill="none" stroke="#1B3A4B" stroke-width="1.2" opacity=".5"/>
-              <path d="M62 286 L62 250 M258 286 L258 250" stroke="#1B3A4B" stroke-width="1.2" opacity=".35"/>
-              <circle cx="160" cy="232" r="3.5" fill="#1B3A4B"/>
+              <path class="svg-stroke-navy" d="M62 286 L160 232 L258 286" fill="none" stroke-width="1.2" opacity=".5"/>
+              <path class="svg-stroke-navy" d="M62 286 L62 250 M258 286 L258 250" stroke-width="1.2" opacity=".35"/>
+              <circle class="svg-fill-navy" cx="160" cy="232" r="3.5"/>
             </g>
 
             <!-- 03 custody vessel -->
             <g class="hiw-lay" data-layer="3">
-              <ellipse cx="160" cy="252" rx="96" ry="24" fill="none" stroke="#1B3A4B" stroke-width="1.4"/>
-              <path d="M64 252 L64 272 A96 24 0 0 0 256 272 L256 252" fill="rgba(27,58,75,.05)" stroke="#1B3A4B" stroke-width="1.4"/>
+              <ellipse class="svg-stroke-navy" cx="160" cy="252" rx="96" ry="24" fill="none" stroke-width="1.4"/>
+              <path style="fill:rgba(var(--brand-navy-rgb),.05)" class="svg-stroke-navy" d="M64 252 L64 272 A96 24 0 0 0 256 272 L256 252" stroke-width="1.4"/>
             </g>
 
             <!-- 04 allocation layers, one per asset-class hue -->
             <g class="hiw-lay" data-layer="4">
-              <ellipse cx="160" cy="222" rx="88" ry="22" fill="rgba(27,58,75,.14)" stroke="#1B3A4B" stroke-width="1"/>
-              <ellipse cx="160" cy="196" rx="74" ry="18.5" fill="rgba(22,129,95,.16)" stroke="#16815F" stroke-width="1"/>
-              <ellipse cx="160" cy="174" rx="58" ry="14.5" fill="rgba(200,134,10,.18)" stroke="#C8860A" stroke-width="1"/>
+              <ellipse style="fill:rgba(var(--brand-navy-rgb),.14)" class="svg-stroke-navy" cx="160" cy="222" rx="88" ry="22" stroke-width="1"/>
+              <ellipse style="fill:rgba(var(--brand-teal-rgb),.16)" class="svg-stroke-teal" cx="160" cy="196" rx="74" ry="18.5" stroke-width="1"/>
+              <ellipse style="fill:rgba(var(--brand-gold-rgb),.18)" class="svg-stroke-gold" cx="160" cy="174" rx="58" ry="14.5" stroke-width="1"/>
               <ellipse cx="160" cy="156" rx="42" ry="10.5" fill="rgba(74,127,165,.18)" stroke="#4A7FA5" stroke-width="1"/>
             </g>
 
             <!-- 05 monitoring orbit -->
             <g class="hiw-lay" data-layer="5">
-              <ellipse cx="160" cy="190" rx="118" ry="46" fill="none" stroke="#16815F" stroke-width="1" stroke-dasharray="4 6" opacity=".7"/>
-              <line class="hiw-beam" id="hiw-beam" x1="278" y1="190" x2="160" y2="190" stroke="#16815F"/>
-              <circle id="hiw-sat" cx="278" cy="190" r="5" fill="#16815F"/>
+              <ellipse class="svg-stroke-teal" cx="160" cy="190" rx="118" ry="46" fill="none" stroke-width="1" stroke-dasharray="4 6" opacity=".7"/>
+              <line class="hiw-beam svg-stroke-teal" id="hiw-beam" x1="278" y1="190" x2="160" y2="190"/>
+              <circle class="svg-fill-teal" id="hiw-sat" cx="278" cy="190" r="5"/>
             </g>
 
             <!-- 06 reporting ring -->
             <g class="hiw-lay" data-layer="6">
-              <circle class="hiw-ring" id="hiw-ring" cx="160" cy="120" r="30" stroke="#1B3A4B" stroke-width="2" stroke-dasharray="189" stroke-dashoffset="189"/>
-              <path d="M160 96 L160 144 M136 120 L184 120" stroke="#1B3A4B" stroke-width="1" opacity=".3"/>
-              <circle cx="160" cy="120" r="6" fill="#1B3A4B"/>
-              <path d="M160 150 L160 168" stroke="#1B3A4B" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/>
+              <circle class="hiw-ring svg-stroke-navy" id="hiw-ring" cx="160" cy="120" r="30" stroke-width="2" stroke-dasharray="189" stroke-dashoffset="189"/>
+              <path class="svg-stroke-navy" d="M160 96 L160 144 M136 120 L184 120" stroke-width="1" opacity=".3"/>
+              <circle class="svg-fill-navy" cx="160" cy="120" r="6"/>
+              <path class="svg-stroke-navy" d="M160 150 L160 168" stroke-width="1" opacity=".35" stroke-dasharray="3 3"/>
             </g>
           </svg>
 

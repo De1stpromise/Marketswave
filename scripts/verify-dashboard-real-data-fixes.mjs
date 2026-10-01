@@ -216,6 +216,7 @@ async function main() {
     // loaded into the page like the real <script src> would; Chart.js is stubbed (no canvas).
     dom.window.Chart = function () { return { destroy() {}, update() {} }; };
     dom.window.Chart.getChart = () => null;
+    dom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8')); /* the page loads brand-colors.js in <head> (row 303) */ 
     dom.window.eval(readFileSync(fileURLToPath(new URL('../portfolio-overview.js', import.meta.url)), 'utf8'));
 
     // This context's own MarketswaveData still resolves the ADMIN-independent local bootstrap

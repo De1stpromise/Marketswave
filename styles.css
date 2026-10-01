@@ -5,17 +5,17 @@
 ===================================================== */
 :root {
   /* Core palette (locked) */
-  --bg: #F7F6F3;                  /* Soft Hospital White — main page background */
-  --surface: #EDE8E1;             /* Warm Stone Cream — cards, soft sections */
+  --bg: var(--brand-cream);                  /* Soft Hospital White — main page background */
+  --surface: var(--brand-cream-dark);             /* Warm Stone Cream — cards, soft sections */
   --border: #E5E2DC;              /* Soft border */
   --border-strong: #D4CFC7;
-  --text: #1A1C1E;                /* Deep Graphite — headlines, primary text */
-  --text-muted: #6B7178;          /* Precision Grey — secondary text, labels */
-  --primary: #1B3A4B;             /* Institutional Navy — buttons, key highlights, links */
-  --primary-dark: #122A38;        /* Darker navy for hover / footer */
-  --primary-light: #2A4F63;       /* Lighter navy */
+  --text: var(--brand-text);                /* Deep Graphite — headlines, primary text */
+  --text-muted: var(--brand-muted);          /* Precision Grey — secondary text, labels */
+  --primary: var(--brand-navy);             /* Institutional Navy — buttons, key highlights, links */
+  --primary-dark: var(--brand-navy-dark);        /* Darker navy for hover / footer */
+  --primary-light: var(--brand-navy-light);       /* Lighter navy */
   --white: #FFFFFF;
-  --accent: #1B3A4B;              /* Same as primary for consistency with locked palette */
+  --accent: var(--brand-navy);              /* Same as primary for consistency with locked palette */
 
   /* Homepage Visual Redesign — Stage 1 (2026-09-05): a deliberate, SCOPED palette
      expansion — same category as risk-management.html's own gold/mahogany + deep-green
@@ -29,12 +29,12 @@
      to 8.47:1 against the same background, comfortably passing. Still never used as a flat
      UI background, never on buttons/cards, never as body text on the light --bg/--surface
      tokens. See CLAUDE.md's Tech Stack entry for the full writeup. */
-  --accent-teal: #16815F;         /* deep teal — gradient-text stop, eyebrow badge text/dot */
+  --accent-teal: var(--brand-teal);         /* deep teal — gradient-text stop, eyebrow badge text/dot */
   --accent-teal-soft: #7FD4B4;    /* soft pastel teal — blob backgrounds, and (2026-09-06)
                                       accent text on the Get Access modal's dark value panel */
   --accent-gold-soft: #F0C878;    /* soft pastel gold — blob backgrounds only. NOTE: the
                                       DEEP gold used in gradient-text is NOT a new color —
-                                      it reuses the already-locked #C8860A risk-meter/
+                                      it reuses the already-locked var(--brand-gold) risk-meter/
                                       service-tag gold (see styles.css's own comment near
                                       that exception), deliberately not duplicated as a
                                       second token here. */
@@ -42,8 +42,8 @@
   /* Layout & effects */
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(27, 58, 75, 0.07);
-  --shadow-hover: 0 12px 40px rgba(27, 58, 75, 0.12);
+  --shadow: 0 4px 24px rgba(var(--brand-navy-rgb),0.07);
+  --shadow-hover: 0 12px 40px rgba(var(--brand-navy-rgb),0.12);
   --container: 1180px;
   --font: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -295,8 +295,8 @@ body.has-overlay-header .hero {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(18px) saturate(165%);
   -webkit-backdrop-filter: blur(18px) saturate(165%);
-  border-bottom-color: rgba(27, 58, 75, 0.10);
-  box-shadow: 0 10px 30px -18px rgba(27, 58, 75, 0.45);
+  border-bottom-color: rgba(var(--brand-navy-rgb),0.10);
+  box-shadow: 0 10px 30px -18px rgba(var(--brand-navy-rgb),0.45);
 }
 
 /* ---- Liquid indicator ---------------------------------------------------------------
@@ -315,7 +315,7 @@ body.has-overlay-header .hero {
   height: 34px;
   margin-top: -17px;
   border-radius: 999px;
-  background: rgba(27, 58, 75, 0.085);
+  background: rgba(var(--brand-navy-rgb),0.085);
   pointer-events: none;
   z-index: 0;
   opacity: 0;
@@ -481,8 +481,8 @@ body.has-overlay-header .hero {
   bottom: 12%;
   z-index: -1;
   background:
-    radial-gradient(ellipse at 30% 50%, rgba(22, 129, 95, .22), transparent 62%),
-    radial-gradient(ellipse at 78% 50%, rgba(200, 134, 10, .20), transparent 62%);
+    radial-gradient(ellipse at 30% 50%, rgba(var(--brand-teal-rgb),.22), transparent 62%),
+    radial-gradient(ellipse at 78% 50%, rgba(var(--brand-gold-rgb),.20), transparent 62%);
   filter: blur(26px);
   animation: heroGlowBreathe 7s ease-in-out infinite;
   pointer-events: none;
@@ -518,10 +518,10 @@ body.has-overlay-header .hero {
   font-size: 0.95rem;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: var(--white);
-  box-shadow: 0 14px 28px rgba(27,58,75,0.28), inset 0 1px 0 rgba(255,255,255,0.15);
+  box-shadow: 0 14px 28px rgba(var(--brand-navy-rgb),0.28), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 .hero-btn-primary:hover {
-  box-shadow: 0 18px 34px rgba(27,58,75,0.34), inset 0 1px 0 rgba(255,255,255,0.15);
+  box-shadow: 0 18px 34px rgba(var(--brand-navy-rgb),0.34), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 /* The light sweep — ported verbatim from login.html's .gate-btn, the reference
    this pattern converges on. The hero primary was the one gradient button on
@@ -596,7 +596,7 @@ body.has-overlay-header .hero {
   height: 34px;
   border-radius: 9px;
   margin-bottom: 12px;
-  background: linear-gradient(135deg, rgba(27,58,75,0.1), rgba(27,58,75,0.04));
+  background: linear-gradient(135deg, rgba(var(--brand-navy-rgb),0.1), rgba(var(--brand-navy-rgb),0.04));
   color: var(--primary);
   display: flex;
   align-items: center;
@@ -691,7 +691,7 @@ body.has-overlay-header .hero {
 }
 .account-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 24px 44px -14px rgba(27,58,75,0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(27,58,75,0.06);
+  box-shadow: 0 24px 44px -14px rgba(var(--brand-navy-rgb),0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(var(--brand-navy-rgb),0.06);
 }
 
 .account-card .icon {
@@ -747,7 +747,7 @@ body.has-overlay-header .hero {
 }
 .service-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 24px 44px -14px rgba(27,58,75,0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(27,58,75,0.06);
+  box-shadow: 0 24px 44px -14px rgba(var(--brand-navy-rgb),0.24), inset 0 1px 1px rgba(255,255,255,0.9), inset 0 -1px 1px rgba(var(--brand-navy-rgb),0.06);
 }
 
 .service-card .icon {
@@ -814,10 +814,10 @@ body.has-overlay-header .hero {
 
 /* Gold accent — a scoped exception to the navy/cream palette, same category as the
    Risk Meter's own .rm-* gold/mahogany accent (risk-management.html). Do not reuse
-   #C8860A anywhere else on this page or site. */
+   var(--brand-gold) anywhere else on this page or site. */
 .service-tag {
   display: block;
-  color: #C8860A;
+  color: var(--brand-gold);
   text-transform: uppercase;
   font-size: 0.78rem;
   font-weight: 700;
@@ -1346,8 +1346,8 @@ body.has-overlay-header .hero {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(58% 62% at 22% 0%, rgba(22, 129, 95, 0.12) 0%, transparent 62%),
-    radial-gradient(48% 55% at 82% 18%, rgba(200, 134, 10, 0.08) 0%, transparent 66%);
+    radial-gradient(58% 62% at 22% 0%, rgba(var(--brand-teal-rgb),0.12) 0%, transparent 62%),
+    radial-gradient(48% 55% at 82% 18%, rgba(var(--brand-gold-rgb),0.08) 0%, transparent 66%);
 }
 .site-footer::after {
   content: "";
@@ -1474,7 +1474,7 @@ body.has-overlay-header .hero {
    during investigation, not previously flagged — this banner (shared across 7 inner pages:
    about, blog-press, contact, help-center, legal, resources, services) never received any
    glass treatment while every one of those pages' own content BELOW it did (Homepage Visual
-   Redesign, Stage 2). Its own solid gradient (#1B3A4B -> #122A38) is near-identical to
+   Redesign, Stage 2). Its own solid gradient (var(--brand-navy) -> var(--brand-navy-dark)) is near-identical to
    .glass-dark's own navy tones, making that the natural, zero-risk fit here — unlike the
    admin sidebar, no new variant was needed. background removed from this rule; `glass-dark
    blob-field` is added to the real `<section class="page-hero">` markup on all 7 pages
@@ -1672,8 +1672,8 @@ body.has-overlay-header .hero {
   position: absolute;
   inset: -20% -10% -10%;
   background-image:
-    linear-gradient(rgba(27, 58, 75, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(27, 58, 75, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(var(--brand-navy-rgb),0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--brand-navy-rgb),0.04) 1px, transparent 1px);
   background-size: 74px 74px;
   transform: perspective(900px) rotateX(58deg) translateY(-6%) scale(1.5);
   transform-origin: 50% 0%;
@@ -1734,7 +1734,7 @@ body.has-overlay-header .hero {
   background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.72));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(27, 58, 75, 0.07);
+  border-top: 1px solid rgba(var(--brand-navy-rgb),0.07);
   overflow: hidden; z-index: 6;
 }
 .hero-tape-track {
@@ -1769,13 +1769,13 @@ body.has-overlay-header .hero {
 
 /* L7 — streaks, grain, vignette */
 .hero-streak { position: absolute; top: -30%; width: 1px; height: 160%; transform: rotate(16deg); pointer-events: none; }
-.hero-streak--1 { left: 38%; background: linear-gradient(180deg, transparent, rgba(27,58,75,0.13), transparent); }
-.hero-streak--2 { left: 64%; background: linear-gradient(180deg, transparent, rgba(22,129,95,0.16), transparent); }
+.hero-streak--1 { left: 38%; background: linear-gradient(180deg, transparent, rgba(var(--brand-navy-rgb),0.13), transparent); }
+.hero-streak--2 { left: 64%; background: linear-gradient(180deg, transparent, rgba(var(--brand-teal-rgb),0.16), transparent); }
 .hero-grain {
   position: absolute; inset: 0; pointer-events: none; opacity: .36; mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.42'/%3E%3C/svg%3E");
 }
-.hero-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(27,58,75,0.08) 100%); }
+.hero-vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(var(--brand-navy-rgb),0.08) 100%); }
 
 /* The site's default container is 1180px, which at 1440px leaves only 130px of gutter —
    less than a 158px data card, so the cards overlapped the copy (measured: the badge and the
@@ -1789,7 +1789,7 @@ body.has-overlay-header .hero {
   background: rgba(255,255,255,0.94);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.98);
-  box-shadow: 0 8px 24px -8px rgba(27,58,75,0.18);
+  box-shadow: 0 8px 24px -8px rgba(var(--brand-navy-rgb),0.18);
   padding: 9px 18px; border-radius: 999px;
   font-size: 12.5px; font-weight: 600; color: var(--accent-teal);
 }
@@ -1805,7 +1805,7 @@ body.has-overlay-header .hero {
 }
 .hero-trust span { display: flex; align-items: center; gap: 6px; }
 
-/* --text-muted (#6B7178) clears 4.5:1 on plain white, but the hero's own tinted glass pulls
+/* --text-muted (var(--brand-muted)) clears 4.5:1 on plain white, but the hero's own tinted glass pulls
    it to 4.17:1 — measured on real composited pixels. Scoped to the hero so the token itself,
    and every other page using it, is unchanged. */
 .hero .hero-lead { color: #5B6670; }
@@ -1821,8 +1821,8 @@ body.has-overlay-header .hero {
 .section-grid-tex {
   position: absolute; inset: 0; pointer-events: none;
   background-image:
-    linear-gradient(rgba(27,58,75,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(27,58,75,0.035) 1px, transparent 1px);
+    linear-gradient(rgba(var(--brand-navy-rgb),0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--brand-navy-rgb),0.035) 1px, transparent 1px);
   background-size: 56px 56px;
   -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, transparent 72%);
   mask-image: radial-gradient(ellipse at center, #000 0%, transparent 72%);
@@ -1845,14 +1845,14 @@ body.has-overlay-header .hero {
 .section-dark p,
 .section-dark .text-muted,
 .media-section p,
-.media-section .text-muted { color: rgba(247, 246, 243, 0.78); }
+.media-section .text-muted { color: rgba(var(--brand-cream-rgb),0.78); }
 .section-dark .eyebrow,
 .media-section .eyebrow { color: #9FE1CB; }
 /* The philosophy panel keeps its own copy styling; force it onto the dark treatment too. */
 .media-section .philosophy-panel h2,
 .media-section .philosophy-panel p { color: inherit; }
 .media-section .philosophy-panel h2 { color: var(--bg); }
-.media-section .philosophy-panel p { color: rgba(247, 246, 243, 0.78); }
+.media-section .philosophy-panel p { color: rgba(var(--brand-cream-rgb),0.78); }
 
 /* Eyebrow labels — teal on light, mint on dark (the .section-dark rule above overrides). */
 .eyebrow {
@@ -1883,8 +1883,8 @@ body.has-overlay-header .hero {
 .media-section { position: relative; overflow: hidden; background: var(--primary-dark); }
 .media-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 .media-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.media-scrim--video { background: linear-gradient(165deg, rgba(27,58,75,0.86) 0%, rgba(18,40,58,0.90) 60%, rgba(14,33,48,0.93) 100%); }
-.media-scrim--photo { background: linear-gradient(160deg, rgba(27,58,75,0.90) 0%, rgba(18,40,58,0.93) 55%, rgba(14,33,48,0.95) 100%); }
+.media-scrim--video { background: linear-gradient(165deg, rgba(var(--brand-navy-rgb),0.86) 0%, rgba(18,40,58,0.90) 60%, rgba(14,33,48,0.93) 100%); }
+.media-scrim--photo { background: linear-gradient(160deg, rgba(var(--brand-navy-rgb),0.90) 0%, rgba(18,40,58,0.93) 55%, rgba(14,33,48,0.95) 100%); }
 .media-section .container { position: relative; z-index: 2; }
 
 /* -------------------------------------------------------------------------------------
@@ -1902,7 +1902,7 @@ body.has-overlay-header .hero {
 ------------------------------------------------------------------------------------- */
 .field {
   --stone: #EEECE8;
-  --ink: #1A1C1E;
+  --ink: var(--brand-text);
   --ink-2: #4E5457;
   /* The mockup's own #6B6F72 measured 3.88:1 (eyebrow), 4.10:1 (lede) and 4.16:1 (panel
      index) against this surface once the multiply grain darkens it — all under 4.5:1.
@@ -2207,7 +2207,7 @@ body.has-overlay-header .hero {
   padding-top: 8px; padding-left: 26px;
   border-left: 1px solid rgba(159, 225, 203, .28);
 }
-.approach-side p { font-size: 14.5px; line-height: 1.75; color: rgba(247, 246, 243, .78); }
+.approach-side p { font-size: 14.5px; line-height: 1.75; color: rgba(var(--brand-cream-rgb),.78); }
 .approach-side p + p { margin-top: 16px; }
 
 .approach-esg {
@@ -2215,7 +2215,7 @@ body.has-overlay-header .hero {
   padding: 34px 0 34px 34px;
   border-left: 2px solid var(--accent-teal);
 }
-.approach-esg p { font-size: 16.5px; line-height: 1.75; color: rgba(247, 246, 243, .88); }
+.approach-esg p { font-size: 16.5px; line-height: 1.75; color: rgba(var(--brand-cream-rgb),.88); }
 .approach-esg-attrib {
   display: block; margin-top: 16px;
   font-weight: 700;
@@ -2248,7 +2248,7 @@ body.has-overlay-header .hero {
   font-size: 16px; font-weight: 600; letter-spacing: -.01em; color: var(--bg); margin-bottom: 8px;
 }
 .approach-step p {
-  font-size: 13px; line-height: 1.65; color: rgba(247, 246, 243, .68); max-width: 22ch;
+  font-size: 13px; line-height: 1.65; color: rgba(var(--brand-cream-rgb),.68); max-width: 22ch;
 }
 
 /* ---- B · what we stand for ------------------------------------------------------------- */
@@ -2275,11 +2275,11 @@ body.has-overlay-header .hero {
 
 /* An editorial list, deliberately not cards: hairline dividers, a tabular numeral, the
    name and the description, with the row lifting and sliding right on hover. */
-.values-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgba(27,58,75,.14); }
+.values-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgba(var(--brand-navy-rgb),.14); }
 .values-row {
   display: grid; grid-template-columns: 80px 1fr 1.4fr; gap: 32px;
   align-items: baseline; padding: 30px 4px;
-  border-bottom: 1px solid rgba(27, 58, 75, .14);
+  border-bottom: 1px solid rgba(var(--brand-navy-rgb),.14);
   transition: background .4s, padding-left .4s;
 }
 .values-row:hover { background: rgba(255, 255, 255, .55); padding-left: 16px; }
@@ -2349,7 +2349,7 @@ body.has-overlay-header .hero {
 #help p { color: #566066; }
 
 /* Same tone, same reason, one background wider (2026-09-09). `.section-alt` swaps the page
-   ground for --surface (#EDE8E1), which is dark enough that --text-muted's own #6B7178 drops
+   ground for --surface (var(--brand-cream-dark)), which is dark enough that --text-muted's own var(--brand-muted) drops
    to a measured 4.01:1 on it — a real fail, found on about.html's team-section lede and
    confirmed pre-existing on clean HEAD. #566066 takes it to 5.24:1.
 
@@ -2365,7 +2365,7 @@ body.has-overlay-header .hero {
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid rgba(27, 58, 75, .14);
+  border-top: 1px solid rgba(var(--brand-navy-rgb),.14);
 }
 
 .res-item {
@@ -2375,7 +2375,7 @@ body.has-overlay-header .hero {
   gap: 28px;
   align-items: start;
   padding: 26px 6px;
-  border-bottom: 1px solid rgba(27, 58, 75, .14);
+  border-bottom: 1px solid rgba(var(--brand-navy-rgb),.14);
   transition: background .45s ease, padding-left .45s cubic-bezier(.3, 1.2, .5, 1);
 }
 /* Two hues per row, and the split is load-bearing. --hue is the full-strength accent and
@@ -2385,11 +2385,11 @@ body.has-overlay-header .hero {
    (.res-n and .res-kind on hover).
 
    Measured, not assumed: against this row's own hover surface, five of the six accents fail
-   as text at full strength BEFORE the grain is even applied - gold #C8860A is 2.90:1, blue
-   #4A7FA5 4.09:1, violet #7A6BA8 4.43:1, teal #16815F 4.59:1 and rust #B4553F 4.62:1, the
+   as text at full strength BEFORE the grain is even applied - gold var(--brand-gold) is 2.90:1, blue
+   #4A7FA5 4.09:1, violet #7A6BA8 4.43:1, teal var(--brand-teal) 4.59:1 and rust #B4553F 4.62:1, the
    last two nominally passing but landing under 4.5:1 once composited and antialiased. The
    darkened companions clear 5.6:1 pure, which leaves enough headroom for the grain. Navy
-   #1B3A4B already measures 11.36:1, so row 01's two values are deliberately identical.
+   var(--brand-navy) already measures 11.36:1, so row 01's two values are deliberately identical.
    Same finding as the hero muted tone and the stone field's --ink-3 before it: an accent
    that reads well as a shape does not automatically read well as a letterform. */
 /* The accent rail, drawing down the left edge in this row's own hue. */
@@ -2420,13 +2420,13 @@ body.has-overlay-header .hero {
 .res-ico {
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   background: rgba(120, 132, 142, .09);
-  border: 1px solid rgba(27, 58, 75, .07);
+  border: 1px solid rgba(var(--brand-navy-rgb),.07);
   display: flex; align-items: center; justify-content: center;
   filter: grayscale(1); opacity: .6;
   transition: filter .45s, opacity .45s, transform .45s cubic-bezier(.3, 1.3, .5, 1);
 }
 .res-ico svg {
-  stroke: #6B7178; fill: none; stroke-width: 1.7;
+  stroke: var(--brand-muted); fill: none; stroke-width: 1.7;
   stroke-linecap: round; stroke-linejoin: round;
   transition: stroke .45s;
 }
@@ -2471,7 +2471,7 @@ body.has-overlay-header .hero {
    step spine are both bare), so a panel here would fight the page's own language.
 
    COLOUR: the approved mockup's greys are NOT used verbatim. Measured against this page's
-   own #F7F6F3 ground, before .page-grain's multiply darkens them further, the mockup's label
+   own var(--brand-cream) ground, before .page-grain's multiply darkens them further, the mockup's label
    #8A9298 is 2.92:1, its readout key #7C868C is 3.44:1 and its idle dot #96A0A6 is 2.47:1 -
    all well under 4.5:1. They are replaced with #5C6367 (5.66:1), which is not an invention:
    it is the tone .res-dot on this very page already uses, so the artifact matches its
@@ -2495,7 +2495,7 @@ body.has-overlay-header .hero {
   top: 6px;
   width: 1px;
   height: var(--hiw-fill, 0px);
-  background: linear-gradient(180deg, var(--accent-teal, #16815F), var(--primary, #1B3A4B));
+  background: linear-gradient(180deg, var(--accent-teal, var(--brand-teal)), var(--primary, var(--brand-navy)));
   transition: height .18s linear;
 }
 
@@ -2512,7 +2512,7 @@ body.has-overlay-header .hero {
   border-color: #137254;
   color: var(--bg);
   transform: scale(1.14);
-  box-shadow: 0 0 0 5px rgba(22, 129, 95, .14);
+  box-shadow: 0 0 0 5px rgba(var(--brand-teal-rgb),.14);
 }
 .res-st.is-past h3,
 .res-st.is-now h3 { color: #12283A; }
@@ -2526,7 +2526,7 @@ body.has-overlay-header .hero {
   justify-content: space-between;
   margin-bottom: 6px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(27, 58, 75, .14);
+  border-bottom: 1px solid rgba(var(--brand-navy-rgb),.14);
 }
 .hiw-cap b {
   font-size: 10px; font-weight: 700; letter-spacing: .14em;
@@ -2539,12 +2539,12 @@ body.has-overlay-header .hero {
 
 .hiw-art {
   display: block; width: 100%; height: auto; overflow: visible;
-  filter: drop-shadow(0 26px 34px rgba(27, 58, 75, .13));
+  filter: drop-shadow(0 26px 34px rgba(var(--brand-navy-rgb),.13));
 }
 
 .hiw-readout {
   margin-top: 6px; padding-top: 12px;
-  border-top: 1px solid rgba(27, 58, 75, .14);
+  border-top: 1px solid rgba(var(--brand-navy-rgb),.14);
   display: flex; flex-direction: column; gap: 7px;
 }
 .hiw-row {
@@ -2603,7 +2603,7 @@ body.has-overlay-header .hero {
 .res-steps::before {
   content: "";
   position: absolute; left: 11px; top: 6px; bottom: 6px; width: 1px;
-  background: linear-gradient(180deg, rgba(27, 58, 75, .25), rgba(27, 58, 75, .08));
+  background: linear-gradient(180deg, rgba(var(--brand-navy-rgb),.25), rgba(var(--brand-navy-rgb),.08));
 }
 .res-st { position: relative; padding: 0 0 34px; }
 .res-st:last-child { padding-bottom: 0; }
@@ -2611,7 +2611,7 @@ body.has-overlay-header .hero {
   position: absolute; left: -38px; top: 2px;
   width: 23px; height: 23px; border-radius: 50%;
   background: var(--bg);
-  border: 1px solid rgba(27, 58, 75, .22);
+  border: 1px solid rgba(var(--brand-navy-rgb),.22);
   display: flex; align-items: center; justify-content: center;
   font-variant-numeric: tabular-nums;
   font-size: 10px; color: #5C6367;
@@ -2712,7 +2712,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
      at 4.34:1. Darkened to clear the line wherever a caption happens to land. */
   color: #5C6367;
 }
-.sa-label.onDark { color: rgba(247, 246, 243, .78); }
+.sa-label.onDark { color: rgba(var(--brand-cream-rgb),.78); }
 .sa-tag {
   position: absolute;
   font-size: 12px;
@@ -2727,18 +2727,18 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-vault { position: absolute; left: 50%; top: 50%; width: 230px; height: 230px; transform: translate(-50%, -50%); perspective: 900px; }
 .sa-vwall {
   position: absolute; inset: 0; border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, #0B1A26 0%, #12283A 60%, #1B3A4B 100%);
+  background: radial-gradient(circle at 50% 50%, #0B1A26 0%, #12283A 60%, var(--brand-navy) 100%);
   box-shadow: 0 34px 68px -18px rgba(0,0,0,.6), inset 0 0 0 10px #2A4B60, inset 0 0 0 12px #16303F, inset 0 0 40px rgba(0,0,0,.6);
 }
 .sa-vglow {
   position: absolute; inset: 26%; border-radius: 50%; filter: blur(2px); opacity: 0;
-  background: radial-gradient(circle, rgba(243,212,138,.7), rgba(200,134,10,.25) 55%, transparent 72%);
+  background: radial-gradient(circle, rgba(243,212,138,.7), rgba(var(--brand-gold-rgb),.25) 55%, transparent 72%);
   animation: saVglow 10s ease-in-out infinite;
 }
 @keyframes saVglow { 0%,20%{opacity:0} 34%{opacity:.7} 52%{opacity:1} 64%{opacity:.7} 76%,100%{opacity:0} }
 .sa-bars { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-30%); display: flex; flex-direction: column; align-items: center; gap: 3px; opacity: 0; animation: saBars 10s ease-in-out infinite; }
 @keyframes saBars { 0%,22%{opacity:0} 30%,70%{opacity:1} 78%,100%{opacity:0} }
-.sa-bar { height: 14px; border-radius: 3px; background: linear-gradient(180deg,#F3D48A,#C8860A); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 6px rgba(0,0,0,.5); }
+.sa-bar { height: 14px; border-radius: 3px; background: linear-gradient(180deg,#F3D48A,var(--brand-gold)); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 6px rgba(0,0,0,.5); }
 .sa-bar.w1 { width: 66px; } .sa-bar.w2 { width: 56px; } .sa-bar.w3 { width: 46px; }
 .sa-vdoor {
   position: absolute; inset: 0; border-radius: 50%;
@@ -2751,7 +2751,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-wheel { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; border: 9px solid #2A4B60; box-shadow: inset 0 0 0 3px #5F6E7A, 0 4px 10px rgba(0,0,0,.4); animation: saWheel 10s cubic-bezier(.5,0,.3,1) infinite; }
 .sa-wheel::before, .sa-wheel::after { content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 100%; margin-left: -4px; transform: translateY(-50%); background: #2A4B60; border-radius: 4px; }
 .sa-wheel::after { transform: translateY(-50%) rotate(90deg); }
-.sa-wheel i { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #C8860A; box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
+.sa-wheel i { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--brand-gold); box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
 @keyframes saWheel { 0%{transform:rotate(0)} 14%{transform:rotate(-540deg)} 18%,74%{transform:rotate(-540deg)} 86%,100%{transform:rotate(0)} }
 .sa-bolt { position: absolute; right: -12px; width: 34px; height: 12px; border-radius: 6px; background: linear-gradient(180deg,#C4CBD1,#7E8A94); box-shadow: 0 3px 6px rgba(0,0,0,.4); animation: saBolt 10s ease-in-out infinite; }
 .sa-bolt.t { top: 34%; } .sa-bolt.m { top: 47%; } .sa-bolt.b { top: 60%; }
@@ -2759,7 +2759,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .rivet { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #3F4B55; box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
 .sa-coin {
   position: absolute; top: 50%; left: -40px; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%; z-index: 5;
-  background: radial-gradient(circle at 38% 34%, #F3D48A, #C8860A 58%, #8C5A06);
+  background: radial-gradient(circle at 38% 34%, #F3D48A, var(--brand-gold) 58%, #8C5A06);
   box-shadow: 0 10px 18px -6px rgba(0,0,0,.55), inset 0 2px 3px rgba(255,255,255,.5);
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 800; color: #5A3B00;
@@ -2772,7 +2772,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   58%{left:calc(50% - 15px);transform:scale(.6);opacity:.6}
   62%,100%{left:calc(50% - 15px);transform:scale(0);opacity:0}
 }
-.sa-track { position: absolute; left: 0; width: 50%; top: 50%; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, rgba(200,134,10,.5)); opacity: 0; animation: saTrack 10s ease-in-out infinite; }
+.sa-track { position: absolute; left: 0; width: 50%; top: 50%; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, rgba(var(--brand-gold-rgb),.5)); opacity: 0; animation: saTrack 10s ease-in-out infinite; }
 @keyframes saTrack { 0%,26%{opacity:0} 34%,56%{opacity:1} 64%,100%{opacity:0} }
 .sa-vtag { left: 50%; top: calc(50% + 130px); white-space: nowrap; color: var(--accent-teal); background: var(--bg); opacity: 0; animation: saVtag 10s ease-in-out infinite; }
 @keyframes saVtag { 0%,48%{opacity:0;transform:translate(-50%,6px)} 56%,74%{opacity:1;transform:translate(-50%,0)} 84%,100%{opacity:0;transform:translate(-50%,0)} }
@@ -2786,14 +2786,14 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-fp path:nth-child(2){animation-delay:.15s} .sa-fp path:nth-child(3){animation-delay:.3s}
 .sa-fp path:nth-child(4){animation-delay:.45s} .sa-fp path:nth-child(5){animation-delay:.6s}
 .sa-fp path:nth-child(6){animation-delay:.75s} .sa-fp path:nth-child(7){animation-delay:.9s}
-@keyframes saRidge { 0%{stroke-dashoffset:400;stroke:#1B3A4B} 26%{stroke-dashoffset:0;stroke:#1B3A4B} 52%,82%{stroke-dashoffset:0;stroke:#16815F} 94%,100%{stroke-dashoffset:400;stroke:#1B3A4B} }
+@keyframes saRidge { 0%{stroke-dashoffset:400;stroke:var(--brand-navy)} 26%{stroke-dashoffset:0;stroke:var(--brand-navy)} 52%,82%{stroke-dashoffset:0;stroke:var(--brand-teal)} 94%,100%{stroke-dashoffset:400;stroke:var(--brand-navy)} }
 .sa-fpscan { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #4FD1A3, transparent); box-shadow: 0 0 14px #4FD1A3; animation: saFps 6s ease-in-out infinite; }
 @keyframes saFps { 0%,28%{top:0;opacity:0} 32%{opacity:1} 50%{top:100%;opacity:1} 52%,100%{top:100%;opacity:0} }
 .sa-lock { width: 70px; height: 70px; }
 .sa-lock .shackle { transform-origin: 35px 32px; animation: saShk 6s ease-in-out infinite; }
 @keyframes saShk { 0%,50%{transform:translateY(-12px) rotate(-16deg)} 62%{transform:translateY(0) rotate(0)} 66%{transform:translateY(2px)} 70%,86%{transform:translateY(0)} 94%,100%{transform:translateY(-12px) rotate(-16deg)} }
 .sa-lock .body { animation: saLbody 6s ease-in-out infinite; }
-@keyframes saLbody { 0%,60%{fill:#1B3A4B} 68%,86%{fill:#16815F} 94%,100%{fill:#1B3A4B} }
+@keyframes saLbody { 0%,60%{fill:var(--brand-navy)} 68%,86%{fill:var(--brand-teal)} 94%,100%{fill:var(--brand-navy)} }
 .sa-idtag { font-size: 13px; font-weight: 600; color: var(--accent-teal); white-space: nowrap; opacity: 0; animation: saIdtag 6s ease-in-out infinite; }
 @keyframes saIdtag { 0%,64%{opacity:0;transform:translateX(-8px)} 72%,86%{opacity:1;transform:translateX(0)} 94%,100%{opacity:0} }
 
@@ -2803,7 +2803,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-peg { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); opacity: .45; transform: translate(-50%,-50%); }
 .sa-bin {
   position: absolute; bottom: 0; width: 104px; height: 52px;
-  border: 2px solid rgba(27,58,75,.2); border-top: none; border-radius: 0 0 10px 10px;
+  border: 2px solid rgba(var(--brand-navy-rgb),.2); border-top: none; border-radius: 0 0 10px 10px;
   display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
   font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   /* Navy, not the muted grey: once a bin fills, its label sits on the fill rather than on
@@ -2811,12 +2811,12 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   color: var(--primary); background: rgba(255,255,255,.6);
 }
 .sa-bin i { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 0 0 8px 8px; transform-origin: bottom; transform: scaleY(0); animation: saBinfill 6.5s ease-out infinite; }
-.sa-bin.b1 i { background: rgba(27,58,75,.35); height: 30px; animation-delay: 2.4s; }
-.sa-bin.b2 i { background: rgba(22,129,95,.4); height: 25px; animation-delay: 2.9s; }
-.sa-bin.b3 i { background: rgba(200,134,10,.4); height: 20px; animation-delay: 3.4s; }
+.sa-bin.b1 i { background: rgba(var(--brand-navy-rgb),.35); height: 30px; animation-delay: 2.4s; }
+.sa-bin.b2 i { background: rgba(var(--brand-teal-rgb),.4); height: 25px; animation-delay: 2.9s; }
+.sa-bin.b3 i { background: rgba(var(--brand-gold-rgb),.4); height: 20px; animation-delay: 3.4s; }
 .sa-bin.b4 i { background: rgba(157,196,232,.55); height: 14px; animation-delay: 3.9s; }
 @keyframes saBinfill { 0%,22%{transform:scaleY(0)} 40%,84%{transform:scaleY(1)} 96%,100%{transform:scaleY(0)} }
-.sa-pk { position: absolute; top: -14px; left: 260px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #C8860A; box-shadow: inset 0 0 0 1px #F3D48A, 0 4px 8px -3px rgba(0,0,0,.5); animation-duration: 6.5s; animation-timing-function: ease-in; animation-iteration-count: infinite; }
+.sa-pk { position: absolute; top: -14px; left: 260px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--brand-gold); box-shadow: inset 0 0 0 1px #F3D48A, 0 4px 8px -3px rgba(0,0,0,.5); animation-duration: 6.5s; animation-timing-function: ease-in; animation-iteration-count: infinite; }
 .sa-pk.a { animation-name: saPa; } .sa-pk.b { animation-name: saPb; animation-delay: 1.1s; }
 .sa-pk.c { animation-name: saPc; animation-delay: 2.2s; } .sa-pk.d { animation-name: saPd; animation-delay: .55s; }
 @keyframes saPa { 0%{transform:translate(0,0);opacity:0} 5%{opacity:1} 14%{transform:translate(-20px,42px)} 24%{transform:translate(-44px,84px)} 34%{transform:translate(-88px,126px)} 44%{transform:translate(-146px,168px)} 50%,84%{transform:translate(-182px,196px);opacity:1} 92%,100%{opacity:0;transform:translate(-182px,196px)} }
@@ -2849,12 +2849,12 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-radar {
   position: relative; width: 240px; height: 240px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
   background: radial-gradient(circle, #16303F 0%, #0E2130 100%);
-  box-shadow: 0 36px 70px -20px rgba(0,0,0,.55), inset 0 0 0 2px rgba(247,246,243,.35), inset 0 0 60px rgba(0,0,0,.35);
+  box-shadow: 0 36px 70px -20px rgba(0,0,0,.55), inset 0 0 0 2px rgba(var(--brand-cream-rgb),.35), inset 0 0 60px rgba(0,0,0,.35);
 }
-.sa-radar .rng { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(247,246,243,.18); }
+.sa-radar .rng { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(var(--brand-cream-rgb),.18); }
 .sa-radar .rng.r2 { inset: 18%; } .sa-radar .rng.r3 { inset: 36%; }
-.sa-radar .ax { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(247,246,243,.15); }
-.sa-radar .ay { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(247,246,243,.15); }
+.sa-radar .ax { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(var(--brand-cream-rgb),.15); }
+.sa-radar .ay { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(var(--brand-cream-rgb),.15); }
 .sa-radar .sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(79,209,163,.55) 0deg, rgba(79,209,163,.12) 40deg, transparent 60deg); animation: saSw 4s linear infinite; }
 @keyframes saSw { to { transform: rotate(360deg); } }
 .sa-radar .blip { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #E0705A; box-shadow: 0 0 12px #E0705A; animation: saBl 8s ease-in-out infinite; }
@@ -2878,10 +2878,10 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 
 /* ---- 6 COMPOUND ------------------------------------------------------------------------- */
 .sa-band--snowball { height: 180px; top: -90px; overflow: hidden; }
-.sa-slope { position: absolute; left: -2%; right: -2%; top: 118px; height: 2px; background: linear-gradient(90deg, transparent, rgba(27,58,75,.35) 20%, rgba(27,58,75,.35) 80%, transparent); transform: rotate(-2.5deg); transform-origin: left; }
+.sa-slope { position: absolute; left: -2%; right: -2%; top: 118px; height: 2px; background: linear-gradient(90deg, transparent, rgba(var(--brand-navy-rgb),.35) 20%, rgba(var(--brand-navy-rgb),.35) 80%, transparent); transform: rotate(-2.5deg); transform-origin: left; }
 .sa-ball {
   position: absolute; top: 104px; left: -40px; width: 20px; height: 20px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #F3D48A, #C8860A 55%, #8C5A06);
+  background: radial-gradient(circle at 35% 30%, #F3D48A, var(--brand-gold) 55%, #8C5A06);
   box-shadow: 0 18px 30px -10px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.5);
   display: flex; align-items: center; justify-content: center;
   color: #5A3B00; font-weight: 800; font-size: 9px;
@@ -2889,7 +2889,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   animation: saRoll 8s cubic-bezier(.4,0,.6,1) infinite;
 }
 @keyframes saRoll { 0%{transform:translate(0,0) rotate(0) scale(1);opacity:0} 5%{opacity:1} 92%{opacity:1} 100%{transform:translate(calc(100vw + 60px),-46px) rotate(1080deg) scale(4);opacity:0} }
-.sa-trail { position: absolute; top: 108px; width: 7px; height: 7px; border-radius: 50%; background: #C8860A; opacity: 0; animation: saTr 8s ease-out infinite; }
+.sa-trail { position: absolute; top: 108px; width: 7px; height: 7px; border-radius: 50%; background: var(--brand-gold); opacity: 0; animation: saTr 8s ease-out infinite; }
 @keyframes saTr { 0%{opacity:0;transform:scale(0)} 12%{opacity:.75;transform:scale(1)} 70%{opacity:.35} 100%{opacity:0;transform:translateY(20px)} }
 
 /* ---- 7 RETURN --------------------------------------------------------------------------- */
@@ -2897,20 +2897,20 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .sa-chq {
   position: absolute; left: 50%; top: 50%; width: 420px; height: 190px; margin: -95px 0 0 -210px;
   background: linear-gradient(180deg, #FFFFFF, #F7F5F0); border-radius: 8px; overflow: hidden;
-  box-shadow: 0 30px 60px -18px rgba(0,0,0,.5), inset 0 0 0 1px rgba(27,58,75,.08);
+  box-shadow: 0 30px 60px -18px rgba(0,0,0,.5), inset 0 0 0 1px rgba(var(--brand-navy-rgb),.08);
   padding: 18px 22px; color: var(--primary);
   font-variant-numeric: tabular-nums;
   animation: saChq 11s cubic-bezier(.4,0,.2,1) infinite;
 }
-.sa-chq::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(27,58,75,.1); border-radius: 5px; pointer-events: none; }
+.sa-chq::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(var(--brand-navy-rgb),.1); border-radius: 5px; pointer-events: none; }
 @keyframes saChq { 0%{transform:translate(0,90px) rotate(-2deg);opacity:0} 8%{transform:translate(0,0) rotate(0);opacity:1} 82%{transform:translate(0,0) rotate(0);opacity:1} 94%,100%{transform:translate(520px,-70px) rotate(8deg);opacity:0} }
 .sa-chq .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
 .sa-chq .brand { font-family: var(--font); font-weight: 800; font-size: 12px; letter-spacing: .1em; color: var(--primary); }
 .sa-chq .no { font-size: 10px; color: #5C6367; }
 .sa-chq .row { display: flex; align-items: baseline; gap: 10px; font-size: 10.5px; color: #5C6367; margin-bottom: 10px; }
-.sa-chq .line { flex: 1; border-bottom: 1px solid rgba(27,58,75,.2); height: 14px; position: relative; }
+.sa-chq .line { flex: 1; border-bottom: 1px solid rgba(var(--brand-navy-rgb),.2); height: 14px; position: relative; }
 .sa-chq .typed { position: absolute; left: 4px; bottom: 2px; font-size: 12px; color: var(--primary); white-space: nowrap; overflow: hidden; width: 0; animation: saType 11s steps(22) infinite; }
-.sa-chq .amtbox { border: 1.5px solid rgba(27,58,75,.25); border-radius: 4px; padding: 3px 8px; font-size: 13px; font-weight: 700; color: var(--primary); min-width: 110px; text-align: right; position: relative; overflow: hidden; }
+.sa-chq .amtbox { border: 1.5px solid rgba(var(--brand-navy-rgb),.25); border-radius: 4px; padding: 3px 8px; font-size: 13px; font-weight: 700; color: var(--primary); min-width: 110px; text-align: right; position: relative; overflow: hidden; }
 .sa-chq .amtbox span { display: inline-block; overflow: hidden; white-space: nowrap; width: 0; animation: saType2 11s steps(11) infinite; }
 @keyframes saType { 0%,12%{width:0} 22%,84%{width:150px} 96%,100%{width:0} }
 @keyframes saType2 { 0%,20%{width:0} 28%,84%{width:100px} 96%,100%{width:0} }
@@ -2994,7 +2994,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
    here before the footer. Large light-weight type is the only weight it carries. */
 .philosophy-quiet {
   position: relative;
-  /* Same gradient the other light sections use, not flat --bg: on flat #F7F6F3 the teal
+  /* Same gradient the other light sections use, not flat --bg: on flat var(--brand-cream) the teal
      eyebrow measured 4.48:1, just under the line, where the gradient's lighter top clears it. */
   background: linear-gradient(180deg, #FDFCFA 0%, var(--bg) 100%);
   padding: 150px 24px 170px;
@@ -3127,7 +3127,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
     gap: 0;
     background: var(--white);
     border-bottom: 1px solid var(--border);
-    box-shadow: 0 12px 24px rgba(27, 58, 75, 0.12);
+    box-shadow: 0 12px 24px rgba(var(--brand-navy-rgb),0.12);
     padding: 4px 24px 12px;
   }
   .main-nav.is-open {
@@ -3276,14 +3276,14 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .access-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(18, 42, 56, 0.55);
+  background: rgba(var(--brand-navy-dark-rgb),0.55);
   backdrop-filter: blur(4px);
 }
 
 /* Get Access Modal Redesign (2026-09-06): .glass REMOVED from this panel entirely — a real,
    measured contrast failure, not a stylistic call. The prior .glass treatment layered a
    light translucent gradient over the modal's OWN already-blurred dark backdrop
-   (.access-modal-backdrop, rgba(18,42,56,0.55) + blur(4px)) — composited, real body text
+   (.access-modal-backdrop, rgba(var(--brand-navy-dark-rgb),0.55) + blur(4px)) — composited, real body text
    (--text-muted) against that stack measured 1.86:1 to 2.93:1 depending on where in the
    glass gradient it fell, and even the navy title text sat right at 4.51:1, a hair above
    the WCAG floor with no real margin. Glass belongs on a card sitting over a page's own
@@ -3305,7 +3305,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   width: 100%;
   overflow: hidden;
   background: var(--white);
-  box-shadow: 0 24px 64px rgba(18, 42, 56, 0.25);
+  box-shadow: 0 24px 64px rgba(var(--brand-navy-dark-rgb),0.25);
   transform: translateY(12px) scale(0.98);
   transition: transform 0.22s ease;
 }
@@ -3611,7 +3611,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 }
 
 .contact-card:hover {
-  box-shadow: 0 20px 36px -12px rgba(27,58,75,0.2);
+  box-shadow: 0 20px 36px -12px rgba(var(--brand-navy-rgb),0.2);
 }
 
 .contact-card-label {
@@ -3701,7 +3701,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   outline: none;
   border-color: var(--primary);
   background: #FFFFFF;
-  box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+  box-shadow: 0 0 0 4px rgba(var(--brand-navy-rgb),0.10);
 }
 
 .form-group textarea {
@@ -3729,7 +3729,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 /* Frosted section background */
 .section:has(.contact-layout) {
   position: relative;
-  background: #EDE8E1;
+  background: var(--brand-cream-dark);
   overflow: hidden;
 }
 
@@ -3738,8 +3738,8 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   position: absolute;
   inset: 0;
   background: 
-    radial-gradient(ellipse at 30% 20%, rgba(27, 58, 75, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(27, 58, 75, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse at 30% 20%, rgba(var(--brand-navy-rgb),0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(var(--brand-navy-rgb),0.05) 0%, transparent 50%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   pointer-events: none;
@@ -3799,7 +3799,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 .custom-select.is-open .custom-select-trigger {
   border-color: var(--primary);
   background: #FFFFFF;
-  box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+  box-shadow: 0 0 0 4px rgba(var(--brand-navy-rgb),0.10);
 }
 
 .custom-select-value {
@@ -3832,7 +3832,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   background: #FFFFFF;
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(27, 58, 75, 0.12);
+  box-shadow: 0 12px 32px rgba(var(--brand-navy-rgb),0.12);
   z-index: 50;
   max-height: 260px;
   overflow-y: auto;
@@ -3861,7 +3861,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 }
 
 .custom-select-option.is-selected {
-  background: rgba(27, 58, 75, 0.08);
+  background: rgba(var(--brand-navy-rgb),0.08);
   color: var(--primary);
   font-weight: 500;
 }
@@ -3882,8 +3882,8 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
   display: inline-flex;
   align-items: center;
   padding: 8px 16px;
-  background: rgba(27, 58, 75, 0.06);
-  border: 1px solid rgba(27, 58, 75, 0.14);
+  background: rgba(var(--brand-navy-rgb),0.06);
+  border: 1px solid rgba(var(--brand-navy-rgb),0.14);
   border-radius: 8px;
   color: var(--primary);
   font-size: 0.9rem;
@@ -3892,7 +3892,7 @@ section:has(+ .seam-rail) { padding-bottom: 175px; }
 }
 
 .back-link-panel:hover {
-  background: rgba(27, 58, 75, 0.1);
-  border-color: rgba(27, 58, 75, 0.25);
+  background: rgba(var(--brand-navy-rgb),0.1);
+  border-color: rgba(var(--brand-navy-rgb),0.25);
   color: var(--primary-dark);
 }

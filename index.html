@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Marketswave — Investment Management & Capital Solutions</title>
   <meta name="description" content="Marketswave provides discretionary portfolio management, trading, retirement planning, and institutional grade capital solutions for individuals, families, and entities." />
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -66,11 +68,11 @@
     <canvas id="hero-market" aria-hidden="true"></canvas>
     <!-- L5 allocation ring -->
     <svg class="hero-ring" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
-      <circle cx="100" cy="100" r="88" stroke="#1B3A4B" stroke-width="1.2" stroke-dasharray="180 373"/>
-      <circle cx="100" cy="100" r="88" stroke="#16815F" stroke-width="1.2" stroke-dasharray="120 433" stroke-dashoffset="-185"/>
-      <circle cx="100" cy="100" r="88" stroke="#C8860A" stroke-width="1.2" stroke-dasharray="90 463" stroke-dashoffset="-310"/>
-      <circle cx="100" cy="100" r="70" stroke="#1B3A4B" stroke-width=".6" stroke-dasharray="2 6" opacity=".5"/>
-      <circle cx="100" cy="100" r="54" stroke="#1B3A4B" stroke-width=".6" opacity=".3"/>
+      <circle class="svg-stroke-navy" cx="100" cy="100" r="88" stroke-width="1.2" stroke-dasharray="180 373"/>
+      <circle class="svg-stroke-teal" cx="100" cy="100" r="88" stroke-width="1.2" stroke-dasharray="120 433" stroke-dashoffset="-185"/>
+      <circle class="svg-stroke-gold" cx="100" cy="100" r="88" stroke-width="1.2" stroke-dasharray="90 463" stroke-dashoffset="-310"/>
+      <circle class="svg-stroke-navy" cx="100" cy="100" r="70" stroke-width=".6" stroke-dasharray="2 6" opacity=".5"/>
+      <circle class="svg-stroke-navy" cx="100" cy="100" r="54" stroke-width=".6" opacity=".3"/>
     </svg>
     <!-- L7 streaks, vignette, grain -->
     <div class="hero-streak hero-streak--1" aria-hidden="true"></div>
@@ -171,7 +173,7 @@
         <span class="trend">6 core services</span>
       </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#1B3A4B"/></svg>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path class="svg-fill-navy" d="M0,90 L1440,10 L1440,90 Z"/></svg>
   </section>
 
   <!-- Seam artifact: VAULT. A zero-height rail between the two sections hosts a
@@ -310,9 +312,9 @@
         <path d="M90,165 C55,165 25,140 20,105"/>
       </svg><div class="sa-fpscan"></div></div>
       <svg class="sa-lock" viewBox="0 0 70 70">
-        <path class="shackle" d="M22,32 V24 a13,13 0 0 1 26,0 V32" fill="none" stroke="#1B3A4B" stroke-width="5.5" stroke-linecap="round"/>
-        <rect class="body" x="13" y="32" width="44" height="31" rx="7" fill="#1B3A4B"/>
-        <circle cx="35" cy="47" r="4" fill="#F7F6F3"/>
+        <path class="shackle svg-stroke-navy" d="M22,32 V24 a13,13 0 0 1 26,0 V32" fill="none" stroke-width="5.5" stroke-linecap="round"/>
+        <rect class="body svg-fill-navy" x="13" y="32" width="44" height="31" rx="7"/>
+        <circle class="svg-fill-cream" cx="35" cy="47" r="4"/>
       </svg>
       <span class="sa-idtag">Identity confirmed</span>
     </div>
@@ -452,7 +454,7 @@
         </div>
       </div>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#1B3A4B"/></svg>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path class="svg-fill-navy" d="M0,90 L1440,10 L1440,90 Z"/></svg>
   </section>
 
   <!-- Seam artifact: CANDLESTICK. A zero-height rail between the two sections hosts a
@@ -574,7 +576,7 @@
     </div>
 
     <div class="field-panels" id="field-panels">
-        <a class="fpanel is-on" href="services.html#trading" data-i="0" style="--fp-hue:#1B3A4B;">
+        <a class="fpanel is-on" href="services.html#trading" data-i="0" style="--fp-hue:var(--brand-navy);">
           <span class="fpanel-terrain" aria-hidden="true">
             <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice">
             <path d="M0.0,-2.4 L20.0,-2.3 L40.0,-2.2 L60.0,-2.6 L80.0,-3.5 L100.0,-5.0 L120.0,-7.3 L140.0,-10.2 L160.0,-13.7 L180.0,-17.5 L200.0,-21.6 L220.0,-25.5 L240.0,-29.0 L260.0,-31.7 L280.0,-33.5 L300.0,-34.2 L320.0,-33.5 L340.0,-31.4 L360.0,-28.0 L380.0,-23.3 L400.0,-17.5 L420.0,-11.0 L440.0,-4.0 L460.0,3.1 L480.0,10.0 L500.0,16.3 L520.0,21.6 L540.0,25.9 L560.0,28.8 L580.0,30.4 L600.0,30.6"/>
@@ -607,7 +609,7 @@
           </span>
         </a>
 
-        <a class="fpanel" href="services.html#discretionary" data-i="1" style="--fp-hue:#16815F;">
+        <a class="fpanel" href="services.html#discretionary" data-i="1" style="--fp-hue:var(--brand-teal);">
           <span class="fpanel-terrain" aria-hidden="true">
             <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice">
             <path d="M0.0,-29.2 L20.0,-12.7 L40.0,3.2 L60.0,16.5 L80.0,26.0 L100.0,31.4 L120.0,33.1 L140.0,32.1 L160.0,29.9 L180.0,28.0 L200.0,27.7 L220.0,29.7 L240.0,34.0 L260.0,39.7 L280.0,45.5 L300.0,49.6 L320.0,50.5 L340.0,46.8 L360.0,37.9 L380.0,24.1 L400.0,6.4 L420.0,-13.4 L440.0,-33.0 L460.0,-50.1 L480.0,-63.0 L500.0,-70.2 L520.0,-71.4 L540.0,-67.1 L560.0,-58.6 L580.0,-47.5 L600.0,-35.9"/>
@@ -640,7 +642,7 @@
           </span>
         </a>
 
-        <a class="fpanel" href="services.html#retirement" data-i="2" style="--fp-hue:#C8860A;">
+        <a class="fpanel" href="services.html#retirement" data-i="2" style="--fp-hue:var(--brand-gold);">
           <span class="fpanel-terrain" aria-hidden="true">
             <svg viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice">
             <path d="M0.0,-18.9 L20.0,-13.0 L40.0,-5.9 L60.0,1.5 L80.0,8.5 L100.0,14.6 L120.0,19.2 L140.0,22.3 L160.0,23.7 L180.0,23.6 L200.0,22.3 L220.0,20.1 L240.0,17.4 L260.0,14.4 L280.0,11.3 L300.0,8.1 L320.0,4.9 L340.0,1.4 L360.0,-2.3 L380.0,-6.4 L400.0,-10.9 L420.0,-15.5 L440.0,-20.1 L460.0,-24.2 L480.0,-27.5 L500.0,-29.3 L520.0,-29.4 L540.0,-27.5 L560.0,-23.4 L580.0,-17.3 L600.0,-9.5"/>
@@ -823,7 +825,7 @@
       </p>
       <a href="contact.html" class="btn hero-btn-primary">Start a Conversation</a>
     </div>
-    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0,90 L1440,10 L1440,90 Z" fill="#122A38"/></svg>
+    <svg class="section-angle-bot" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path class="svg-fill-navy-dark" d="M0,90 L1440,10 L1440,90 Z"/></svg>
   </section>
 
   <!-- Seam artifact: CHEQUE. A zero-height rail between the two sections hosts a

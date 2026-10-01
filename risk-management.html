@@ -6,6 +6,8 @@
   <title>Risk Management — Marketswave</title>
   <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
@@ -35,7 +37,7 @@
       left: 5px;
       width: 0;
       border-radius: 999px;
-      background: linear-gradient(135deg, #C8860A, #8B5A0F);
+      background: linear-gradient(135deg, var(--brand-gold), #8B5A0F);
       box-shadow: 0 3px 12px rgba(17,14,9,0.35);
       transition: left 280ms cubic-bezier(0.4,0,0.2,1), width 280ms cubic-bezier(0.4,0,0.2,1);
     }

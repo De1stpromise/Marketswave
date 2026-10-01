@@ -86,7 +86,7 @@
 /* Focus is never removed, only replaced — these are real form controls. */
 .mw-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+  box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.28);
 }
 
 /* ---- The light sweep (Tier A only). Ported verbatim from login.html's
@@ -130,12 +130,12 @@
    geometry, no gradient, no sweep. For a page with several primary-ish
    actions where a sweep on each would be noise. */
 .mw-btn.mw-btn-flat {
-  background: var(--primary, #1B3A4B);
+  background: var(--primary, var(--brand-navy));
   color: #FFFFFF;
-  box-shadow: 0 8px 20px rgba(27, 58, 75, 0.18);
+  box-shadow: 0 8px 20px rgba(var(--brand-navy-rgb),0.18);
 }
 .mw-btn.mw-btn-flat:hover:not(:disabled) {
-  background: #122A38;
+  background: var(--brand-navy-dark);
   transform: translateY(-1px);
 }
 
@@ -199,7 +199,7 @@
 .mw-btn.mw-btn-secondary:hover:not(:disabled) {
   background: #F5F3EF;
   border-color: #C4BFB6;
-  color: #1A1C1E;
+  color: var(--brand-text);
 }
 .mw-btn.mw-btn-secondary:focus-visible { box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.25); }
 
@@ -207,11 +207,11 @@
    Allocation" on a product card) — navy border and text, fills on hover. */
 .mw-btn.mw-btn-outline {
   background: transparent;
-  border: 1.5px solid var(--primary, #1B3A4B);
-  color: var(--primary, #1B3A4B);
+  border: 1.5px solid var(--primary, var(--brand-navy));
+  color: var(--primary, var(--brand-navy));
 }
 .mw-btn.mw-btn-outline:hover:not(:disabled) {
-  background: var(--primary, #1B3A4B);
+  background: var(--primary, var(--brand-navy));
   color: #FFFFFF;
 }
 
@@ -278,18 +278,18 @@
   background: #FCFBF9;
   font-family: inherit;
   font-size: 14px;
-  color: #1A1C1E;
+  color: var(--brand-text);
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
 }
-.mw-field::placeholder { color: #6B7178; }  /* was #9A9690, a measured 2.84:1 — below the
+.mw-field::placeholder { color: var(--brand-muted); }  /* was #9A9690, a measured 2.84:1 — below the
    4.5:1 floor for text, and a placeholder IS text. Pre-existing, fixed here because this
    sweep owns this declaration and the same tone is already proven elsewhere (4.93:1). */
 .mw-field:hover:not(:disabled) { border-color: #C4BFB6; background: #FFFFFF; }
 .mw-field:focus {
   outline: none;
-  border-color: var(--primary, #1B3A4B);
+  border-color: var(--primary, var(--brand-navy));
   background: #FFFFFF;
-  box-shadow: 0 0 0 4px rgba(27, 58, 75, 0.10);
+  box-shadow: 0 0 0 4px rgba(var(--brand-navy-rgb),0.10);
 }
 .mw-field:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -425,9 +425,9 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   transition: border-color 0.18s, background 0.18s, color 0.18s, box-shadow 0.18s;
 }
 .mw-upload-face:hover {
-  border-color: var(--primary, #1B3A4B);
+  border-color: var(--primary, var(--brand-navy));
   background: #FFFFFF;
-  color: #1A1C1E;
+  color: var(--brand-text);
 }
 .mw-upload-face svg { flex-shrink: 0; }
 
@@ -436,18 +436,18 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
    it a keyboard user has no idea where they are. */
 .mw-upload-input:focus-visible + .mw-upload-face {
   outline: none;
-  border-color: var(--primary, #1B3A4B);
+  border-color: var(--primary, var(--brand-navy));
   border-style: solid;
   background: #FFFFFF;
-  box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.28);
+  box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.28);
 }
 .mw-upload-input:disabled + .mw-upload-face { opacity: 0.5; cursor: not-allowed; }
 
 .mw-upload.has-file .mw-upload-face {
   border-style: solid;
-  border-color: var(--primary, #1B3A4B);
-  background: rgba(27, 58, 75, 0.04);
-  color: #1A1C1E;
+  border-color: var(--primary, var(--brand-navy));
+  background: rgba(var(--brand-navy-rgb),0.04);
+  color: var(--brand-text);
 }
 
 .mw-upload-meta {
@@ -459,7 +459,7 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   margin-top: 8px;
 }
 .mw-upload-hint { font-size: 12px; color: #5C6367; margin: 0; }
-.mw-upload-state { font-size: 13px; color: #1A1C1E; font-weight: 500; margin: 0; }
+.mw-upload-state { font-size: 13px; color: var(--brand-text); font-weight: 500; margin: 0; }
 .mw-upload.is-empty .mw-upload-state { color: #5C6367; font-weight: 400; }
 
 /* A real <button>, so it is reachable and activatable natively too. It carries
@@ -481,7 +481,7 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   cursor: pointer;
   transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
 }
-.mw-upload-clear:hover { background: #F5F3EF; border-color: #C4BFB6; color: #1A1C1E; }
+.mw-upload-clear:hover { background: #F5F3EF; border-color: #C4BFB6; color: var(--brand-text); }
 .mw-upload-clear:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.3); }
 
 /* The error is associated with the control via aria-describedby, not merely
@@ -550,7 +550,7 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   transform: translateY(-50%);
   font-size: 14px;
   font-weight: 400;
-  color: #6B7178;
+  color: var(--brand-muted);
   line-height: 1;
   /* Clicks fall through to the control beneath, which fills the whole box. The
      label still names the control in the accessibility tree — pointer-events
@@ -574,7 +574,7 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   text-transform: uppercase;
   color: #5C6367;
 }
-.mw-fld > .mw-field:focus + label { color: var(--primary, #1B3A4B); }
+.mw-fld > .mw-field:focus + label { color: var(--primary, var(--brand-navy)); }
 .mw-fld--admin > .mw-field:focus + label { color: #0F172A; }
 
 /* A textarea's label sits at the top rather than vertically centred — there is
@@ -601,7 +601,7 @@ input[type="date"].mw-field::-webkit-calendar-picker-indicator:hover { opacity: 
   color: transparent;
   transition: color 0.16s ease;
 }
-.mw-fld > .mw-field:focus::placeholder { color: #6B7178; }  /* 4.93:1 on the focused white ground; #9AA1A8 measured 2.61:1 */
+.mw-fld > .mw-field:focus::placeholder { color: var(--brand-muted); }  /* 4.93:1 on the focused white ground; #9AA1A8 measured 2.61:1 */
 
 /* The compact filter-bar variant is retired by this conversion: a raised label
    and a value cannot both fit in 40px. Every field is one height now, which is

@@ -100,7 +100,7 @@
    shared error card renderAsyncBundle paints on a failed load. */
 .wl-rows > :not(.wl-card) { grid-column: 1 / -1; }
 .wl-rows::-webkit-scrollbar { width: 6px; }
-.wl-rows::-webkit-scrollbar-thumb { background: rgba(27, 58, 75, 0.18); border-radius: 3px; }
+.wl-rows::-webkit-scrollbar-thumb { background: rgba(var(--brand-navy-rgb),0.18); border-radius: 3px; }
 @container (max-width: 599px) {
   .wl-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -110,7 +110,7 @@
 
 .wl-card {
   position: relative;
-  border: 1px solid rgba(27, 58, 75, 0.09);
+  border: 1px solid rgba(var(--brand-navy-rgb),0.09);
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.5);
   padding: 14px 15px;
@@ -120,9 +120,9 @@
   /* A real control, not a hover affordance: role=button + tabindex in the markup, and the
      whole face is the target — comfortably past the 44px floor on every side. */
 }
-.wl-card:hover { background: rgba(255, 255, 255, 0.78); border-color: rgba(27, 58, 75, 0.18); }
-.wl-card:focus-visible { outline: 2px solid #16815F; outline-offset: 2px; }
-.wl-card.is-open { border-color: #16815F; box-shadow: 0 0 0 3px rgba(22, 129, 95, 0.1); }
+.wl-card:hover { background: rgba(255, 255, 255, 0.78); border-color: rgba(var(--brand-navy-rgb),0.18); }
+.wl-card:focus-visible { outline: 2px solid var(--brand-teal); outline-offset: 2px; }
+.wl-card.is-open { border-color: var(--brand-teal); box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb),0.1); }
 
 .wl-tag {
   font-size: 13.5px;
@@ -202,7 +202,7 @@
   white-space: nowrap;
 }
 .wl-badge.wl-track {
-  background: rgba(27, 58, 75, 0.08);
+  background: rgba(var(--brand-navy-rgb),0.08);
   color: #4A5560;
 }
 
@@ -215,15 +215,15 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #C8860A;
+  background: var(--brand-gold);
 }
 
 /* The drawer is a grid item spanning every column; JS inserts it directly after the last
    card of the open card's row, so it always sits beneath that row. */
 .wl-drawer {
-  border: 1px solid rgba(22, 129, 95, 0.25);
+  border: 1px solid rgba(var(--brand-teal-rgb),0.25);
   border-radius: 13px;
-  background: rgba(22, 129, 95, 0.04);
+  background: rgba(var(--brand-teal-rgb),0.04);
   padding: 14px 16px;
   min-width: 0;
 }
@@ -255,8 +255,8 @@
 /* The bell is a Tier C control from control-patterns.css; only its "an alert is armed on
    this symbol" state is defined here, because that state is specific to this feature. */
 .wl-bell.is-on {
-  background: rgba(200, 134, 10, 0.14);
-  border-color: rgba(200, 134, 10, 0.5);
+  background: rgba(var(--brand-gold-rgb),0.14);
+  border-color: rgba(var(--brand-gold-rgb),0.5);
   color: #7A5206;
 }
 
@@ -275,7 +275,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #C8860A;
+  background: var(--brand-gold);
   flex-shrink: 0;
 }
 
@@ -287,7 +287,7 @@
   margin-top: 9px;
   padding: 5px 8px;
   border-radius: 7px;
-  background: rgba(200, 134, 10, 0.12);
+  background: rgba(var(--brand-gold-rgb),0.12);
   color: #6B4505;
   font-size: 12px;
   font-weight: 600;
@@ -298,7 +298,7 @@
 .wl-firedblock {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(200, 134, 10, 0.3);
+  border-top: 1px solid rgba(var(--brand-gold-rgb),0.3);
 }
 .wl-firedtext {
   font-size: 12.5px;
@@ -322,7 +322,7 @@
   margin-top: 14px;
   padding: 16px;
   border-radius: 12px;
-  border: 1px dashed rgba(27, 58, 75, 0.22);
+  border: 1px dashed rgba(var(--brand-navy-rgb),0.22);
   background: rgba(255, 255, 255, 0.45);
 }
 .wl-search { position: relative; }
@@ -332,7 +332,7 @@
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  color: #6B7178;
+  color: var(--brand-muted);
 }
 .wl-search .mw-field { padding-left: 40px; }
 
@@ -376,7 +376,7 @@
 .wl-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(18, 42, 56, 0.55);
+  background: rgba(var(--brand-navy-dark-rgb),0.55);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -387,8 +387,8 @@
 .wl-modal {
   background: #FFFFFF;
   border-radius: 16px;
-  border: 1px solid rgba(27, 58, 75, 0.12);
-  box-shadow: 0 22px 48px -20px rgba(27, 58, 75, 0.4);
+  border: 1px solid rgba(var(--brand-navy-rgb),0.12);
+  box-shadow: 0 22px 48px -20px rgba(var(--brand-navy-rgb),0.4);
   width: 100%;
   max-width: 420px;
   padding: 22px;

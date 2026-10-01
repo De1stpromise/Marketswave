@@ -6,6 +6,8 @@
   <title>Settings — Marketswave</title>
   <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
@@ -81,7 +83,7 @@
               <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
                 <div id="force-strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
               </div>
-              <p class="text-xs mt-1" id="force-strength-text" style="color: #6B7178;">Enter a password</p>
+              <p class="text-xs mt-1" id="force-strength-text" style="color: var(--brand-muted);">Enter a password</p>
             </div>
             <div>
               <div class="mw-fld">
@@ -339,7 +341,7 @@
                   <div class="h-1.5 rounded-full bg-slate-100 mt-2 overflow-hidden">
                     <div id="strength-fill" class="h-full rounded-full transition-all" style="width: 0%; background: #E5E2DC;"></div>
                   </div>
-                  <p class="text-xs mt-1" id="strength-text" style="color: #6B7178;">Enter a password</p>
+                  <p class="text-xs mt-1" id="strength-text" style="color: var(--brand-muted);">Enter a password</p>
                 </div>
                 <div>
                   <div class="mw-fld">

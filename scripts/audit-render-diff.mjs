@@ -42,7 +42,9 @@ async function browser(port) {
   let ws = null; for (let i = 0; i < 60 && !ws; i++) { try { const l = await (await fetch('http://127.0.0.1:' + port + '/json/list')).json(); const p = l.find((t) => t.type === 'page'); if (p) ws = p.webSocketDebuggerUrl; } catch (e) {} if (!ws) await sleep(250); }
   const s = new WebSocket(ws); await new Promise((r) => s.addEventListener('open', r)); let id = 0; const pend = new Map();
   s.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m.result); pend.delete(m.id); } });
-  const send = (m, p) => new Promise((r) => { const i = ++id; pend.set(i, r); s.send(JSON.stringify({ id: i, method: m, params: p || {} })); });
+  // A CDP call that never answers used to hang the whole run silently (2026-10-01: the public batch sat
+  // on index.html for minutes with no output). Every call now fails by name after 90 s.
+  const send = (m, p) => new Promise((r, rej) => { const i = ++id; const t = setTimeout(() => { pend.delete(i); rej(new Error('CDP ' + m + ' did not answer in 90s on port ' + port)); }, 90000); pend.set(i, (v) => { clearTimeout(t); r(v); }); s.send(JSON.stringify({ id: i, method: m, params: p || {} })); });
   await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
   const ev = async (x) => (await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: true })).result.value;
   return { send, ev, kill: () => chrome.kill() };
@@ -55,26 +57,53 @@ const boot = (role, origin) => {
 // Freeze the things that legitimately differ between two loads: the live clock, "Updated just now", presence dots, spinners.
 const FREEZE = `(() => { const s = document.createElement('style'); s.textContent = '#live-clock, [data-live-clock], .an-dot, .animate-spin, .animate-pulse { visibility: hidden !important; } * { animation-play-state: paused !important; transition: none !important; caret-color: transparent !important; }'; document.head.appendChild(s); for (const el of document.querySelectorAll('*')) { if (el.children.length === 0 && /^(Updated|Last updated|Refreshed)\\b/.test(el.textContent || '')) el.textContent = 'Updated'; if (el.children.length === 0 && /^\\d{1,2}:\\d{2}(:\\d{2})?\\s*(AM|PM)?$/.test((el.textContent||'').trim())) el.textContent = '00:00'; } return true; })()`;
 const CLIENT = ['dashboard.html', 'asset-performance.html', 'asset-collection.html', 'transactions.html', 'high-yield-savings.html', 'documents.html', 'risk-management.html', 'deploy-capital.html', 'settings.html', 'support.html', 'fund-document.html?product=PROD-0002'];
-const ADMIN = ['admin.html', 'admin-approvals.html', 'admin-inbox.html', 'admin-clients.html', 'admin-client-profile.html?client=' + gary.id, 'admin-presence.html', 'admin-products.html', 'admin-fund-document.html?product=PROD-0002', 'admin-deposit-addresses.html', 'admin-documents.html', 'admin-advisory-fee.html', 'admin-security.html', 'admin-login.html'];
+const ADMIN = ['admin.html', 'admin-approvals.html', 'admin-inbox.html', 'admin-clients.html', 'admin-client-profile.html?client=' + gary.id, 'admin-presence.html', 'admin-products.html', 'admin-fund-document.html?product=PROD-0002', 'admin-deposit-addresses.html', 'admin-documents.html', 'admin-advisory-fee.html', 'admin-security.html', 'admin-login.html', 'admin-blog.html', 'admin-blog-post.html', 'admin-help.html', 'admin-help-article.html'];
+// Every public page (2026-10-01, row 303) — no session, reduced motion; with the two lists above, all 41.
+const PUBLIC = ['index.html', 'services.html', 'resources.html', 'about.html', 'legal.html', 'contact.html', 'help.html', 'help-center.html', 'blog-press.html', 'signup.html', 'login.html', 'reset-password.html', 'thank-you.html'];
 const results = [];
-async function shoot(b, url, width) {
+const trace = (m) => { if (process.env.RD_TRACE) console.error(new Date().toISOString().slice(11, 19) + ' ' + m); };
+async function shoot(b, url, width, tiled) {
+  trace('load ' + url + ' @' + width);
   await b.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 500 });
   await b.send('Page.navigate', { url }); await sleep(9000);
   for (let i = 0; i < 40; i++) { const n = await b.ev('[...document.querySelectorAll(".animate-pulse")].filter(e=>e.getClientRects().length).length'); if (!n) break; await sleep(500); }
   await b.ev(FREEZE); await sleep(400);
-  const h = Math.min(await b.ev('Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)'), 6000);
+  const h = Math.min(await b.ev('Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)'), tiled ? 20000 : 6000);
+  if (tiled) {
+    // Public pages (2026-10-01): a single 6000px capture of index.html never returns (Page.captureScreenshot
+    // timed out at 90 s, reproducibly) — the home hero's canvas/video surfaces at that size. So keep the
+    // real 900px viewport, scroll in viewport steps, and stitch. Both sides tile identically, so a fixed
+    // header repeating per tile is the same in before and after and cannot produce a difference.
+    trace('tiles ' + width + 'x' + h);
+    const out = new PNG({ width, height: h });
+    for (let y = 0; y < h; y += 900) {
+      const at = await b.ev('window.scrollTo({ top: ' + y + ', behavior: "instant" }); window.scrollY');
+      await sleep(350);
+      const r = await b.send('Page.captureScreenshot', { format: 'png' });
+      const tile = PNG.sync.read(Buffer.from(r.data, 'base64'));
+      const skip = y - at;   // the last tile cannot scroll past the end; take its bottom rows only
+      const rows = Math.min(900, h - y, tile.height - skip);
+      PNG.bitblt(tile, out, 0, skip, Math.min(width, tile.width), rows, 0, y);
+    }
+    return out;
+  }
+  trace('capture ' + width + 'x' + h);
   await b.send('Emulation.setDeviceMetricsOverride', { width, height: h, deviceScaleFactor: 1, mobile: width < 500 }); await sleep(500);
-  const r = await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+  const r =await b.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
   return PNG.sync.read(Buffer.from(r.data, 'base64'));
 }
 const pairs = [];
 try {
-  for (const [role, pages] of [['client', CLIENT], ['admin', ADMIN]]) {
+  const ROLES = [['client', CLIENT], ['admin', ADMIN], ['public', PUBLIC]].filter(([r]) => !process.env.RD_ROLES || process.env.RD_ROLES.split(',').includes(r));
+  for (const [role, pages] of ROLES) {
     const B = await browser(9611), A = await browser(9612);
-    for (const [b, origin] of [[B, BEFORE], [A, AFTER]]) { await b.send('Page.addScriptToEvaluateOnNewDocument', { source: boot(role, origin) }); await b.send('Page.navigate', { url: origin + '/' + (role === 'client' ? 'dashboard.html' : 'admin.html') }); await sleep(4000); }
+    // The public role (2026-10-01, row 303): no session, and reduced motion in BOTH browsers so the
+    // home hero's canvas and the scroll reveals draw their final state once instead of mid-flight.
+    if (role === 'public') { for (const b of [B, A]) await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] }); }
+    else for (const [b, origin] of [[B, BEFORE], [A, AFTER]]) { await b.send('Page.addScriptToEvaluateOnNewDocument', { source: boot(role, origin) }); await b.send('Page.navigate', { url: origin + '/' + (role === 'client' ? 'dashboard.html' : 'admin.html') }); await sleep(4000); }
     if (role === 'client') for (const b of [B, A]) { for (let i = 0; i < 60 && !(await b.ev('typeof mirrorAuthenticatedClientLocally === "function"')); i++) await sleep(250); await b.ev('mirrorAuthenticatedClientLocally(' + JSON.stringify({ id: gary.id, name: gary.name, email: gary.email, phone: gary.phone, accountType: gary.account_type, status: gary.status, createdAt: null, applicationResolvedAt: null, applicationReason: null }) + '); setClientAuthenticated(' + JSON.stringify(gary.id) + '); true'); }
-    for (const p of pages) for (const w of [1440, 390]) {
-      const before = await shoot(B, BEFORE + '/' + p, w), after = await shoot(A, AFTER + '/' + p, w);
+    for (const p of pages.filter((x) => !process.env.RD_PAGES || process.env.RD_PAGES.split(",").includes(x))) for (const w of [1440, 390].filter((x) => !process.env.RD_WIDTHS || process.env.RD_WIDTHS.split(",").includes(String(x)))) {
+      const before = await shoot(B, BEFORE + "/" + p, w, role === "public"), after = await shoot(A, AFTER + "/" + p, w, role === "public");
       const W = Math.min(before.width, after.width), H = Math.min(before.height, after.height);
       const crop = (img) => { const o = new PNG({ width: W, height: H }); PNG.bitblt(img, o, 0, 0, W, H, 0, 0); return o; };
       const b1 = crop(before), a1 = crop(after); const diff = new PNG({ width: W, height: H });
@@ -88,4 +117,7 @@ try {
     B.kill(); A.kill(); await sleep(500);
   }
 } finally { writeFileSync(OUT + '/results.json', JSON.stringify(results, null, 1)); }
+const differing = results.filter((r) => r.pixels > 0 || r.hBefore !== r.hAfter);
+console.log('');
+console.log('RENDER DIFF: ' + results.length + ' page/width pairs compared; ' + differing.length + ' differ' + (differing.length ? ': ' + differing.map((r) => r.page + '@' + r.w + ' (' + r.pixels + ' px, h ' + r.hBefore + '→' + r.hAfter + ')').join(', ') : ''));
 console.log('written ' + OUT); process.exit(0);

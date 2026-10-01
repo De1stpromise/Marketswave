@@ -52,11 +52,11 @@
 
   var GAIN = '#137254';
   var LOSS = '#A8452F';
-  var NAVY = '#1B3A4B';
+  var NAVY = MW_BRAND.navy;
   // Measured composited on the glass card, the mockup's #7C868C at 1.4px read 2.48:1 — a thin
   // dashed stroke never reaches its declared colour through antialiasing. #5C6367 at 1.6px.
   var CAPITAL = '#5C6367';
-  var GOLD = '#C8860A';
+  var GOLD = MW_BRAND.gold;
   var DAY = 86400000;
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -478,7 +478,7 @@
           scales: {
             x: { type: 'linear', display: false, min: portfolio[0].x, max: portfolio[portfolio.length - 1].x },
             y: {
-              grid: { color: 'rgba(27,58,75,0.08)', drawBorder: false },
+              grid: { color: MW_BRAND.rgba('navy', 0.08), drawBorder: false },
               border: { display: false },
               ticks: { color: '#475569', font: { family: 'Inter', size: 10.5 }, maxTicksLimit: 5, callback: function (v) { return compactUSD(v); } }
             }

@@ -158,7 +158,9 @@
     "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs",
     "verify-no-functions-read": "node verify-no-functions-read.mjs",
     "verify-date-guard": "node verify-date-guard.mjs",
-    "verify-round-robin-refresh-full": "node run-round-robin.mjs verify-round-robin-refresh.mjs --full"
+    "verify-round-robin-refresh-full": "node run-round-robin.mjs verify-round-robin-refresh.mjs --full",
+    "verify-brand-colors": "node verify-brand-colors.mjs",
+    "build-brand": "node build-brand.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

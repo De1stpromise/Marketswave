@@ -7,6 +7,8 @@
 
   <!-- The Supabase SDK, self-hosted and preloaded here so it downloads beside the stylesheets instead of
        after the page script (row 258). Preload only: nothing evaluates until a page first imports it. -->
+  <link rel="stylesheet" href="brand-tokens.css">
+  <script src="brand-colors.js"></script>
   <link rel="modulepreload" href="vendor/supabase-js-2.112.4.min.js" />
   <link rel="modulepreload" href="supabase-endpoint.js" />
   <link rel="modulepreload" href="supabase-config.js" />
@@ -18,8 +20,8 @@
     body { font-family: 'Inter', sans-serif; }
     .option-card { transition: all 0.2s ease; }
     .option-card.is-selected {
-      border-color: #1B3A4B;
-      box-shadow: 0 0 0 3px rgba(27, 58, 75, 0.12);
+      border-color: var(--brand-navy);
+      box-shadow: 0 0 0 3px rgba(var(--brand-navy-rgb),0.12);
     }
     .form-panel { display: none; }
     .form-panel.is-active { display: block; animation: fadeIn 0.3s ease; }
@@ -28,23 +30,23 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .withdraw-method-tab { border-color: #E2E8F0; color: #64748B; }
-    .withdraw-method-tab.is-active { border-color: #1B3A4B; color: #1B3A4B; background: rgba(27, 58, 75, 0.06); }
+    .withdraw-method-tab.is-active { border-color: var(--brand-navy); color: var(--brand-navy); background: rgba(var(--brand-navy-rgb),0.06); }
     /* Crypto deposit routing (2026-09-11). Plain CSS rather than utilities where a value is
        not a Tailwind default (row 165: the CDN emits nothing for an unrecognised utility).
        The address is Inter with tabular figures, never a monospace face (row 192). */
     .dep-choice { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid #E4DFD7; border-radius: 12px; background: rgba(255,255,255,.6); cursor: pointer; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s; min-height: 44px; }
     .dep-choice:hover { border-color: #B9B1A6; }
-    .dep-choice.is-selected { border-color: #16815F; background: rgba(22,129,95,.05); box-shadow: 0 0 0 3px rgba(22,129,95,.08); }
-    .dep-choice b { display: block; font-size: 13.5px; font-weight: 600; color: #1B3A4B; }
+    .dep-choice.is-selected { border-color: var(--brand-teal); background: rgba(var(--brand-teal-rgb),.05); box-shadow: 0 0 0 3px rgba(var(--brand-teal-rgb),.08); }
+    .dep-choice b { display: block; font-size: 13.5px; font-weight: 600; color: var(--brand-navy); }
     .dep-choice .dep-net { display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #3E4A52; margin-top: 2px; } /* #5C6367 measured 3.91:1 at this size on the selected card's tinted ground */
     .dep-coin { width: 30px; height: 30px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
-    .dep-coin--btc { background: #C8860A; }
+    .dep-coin--btc { background: var(--brand-gold); }
     .dep-coin--eth { background: #4A5F8E; }
     .dep-coin--usdt { background: #149E7E; }
     .dep-addr { font-variant-numeric: tabular-nums; letter-spacing: .02em; word-break: break-all; }
     .dep-qr { width: 120px; height: 120px; border-radius: 10px; background: #fff; border: 1.5px solid #E4DFD7; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .dep-qr img, .dep-qr canvas { display: block; max-width: 100%; height: auto; }
-    .dep-pending-dot { width: 9px; height: 9px; border-radius: 9999px; background: #C8860A; margin-top: 5px; flex-shrink: 0; animation: depPulse 2.2s ease-in-out infinite; }
+    .dep-pending-dot { width: 9px; height: 9px; border-radius: 9999px; background: var(--brand-gold); margin-top: 5px; flex-shrink: 0; animation: depPulse 2.2s ease-in-out infinite; }
     @keyframes depPulse { 50% { opacity: .35; } }
     @media (prefers-reduced-motion: reduce) { .dep-pending-dot { animation: none; } }
   </style>
@@ -712,12 +714,12 @@
       }
 
       function pendingCardHTML(route, req) {
-        return '<div id="crypto-pending-card" class="flex gap-3.5 p-4 rounded-xl mb-4" style="background:rgba(200,134,10,.07);border:1px solid rgba(200,134,10,.26);">' +
+        return '<div id="crypto-pending-card" class="flex gap-3.5 p-4 rounded-xl mb-4" style="background:rgba(var(--brand-gold-rgb),.07);border:1px solid rgba(var(--brand-gold-rgb),.26);">' +
           '<span class="dep-pending-dot" aria-hidden="true"></span>' +
           '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-semibold text-navy mb-1">Deposit awaiting confirmation</p>' +
             '<p class="text-xs text-slate-600 leading-relaxed">We\'re verifying your transfer on ' + esc(networkPhrase(route)) + '. Once confirmed, your portfolio manager will credit the amount received to your account and you\'ll receive an email. There is no figure to show yet - the amount is determined from the chain, not from what was typed.</p>' +
-            '<div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 pt-3 text-xs text-slate-600" style="border-top:1px solid rgba(200,134,10,.22);">' +
+            '<div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 pt-3 text-xs text-slate-600" style="border-top:1px solid rgba(var(--brand-gold-rgb),.22);">' +
               '<span>Currency <b class="text-navy font-semibold">' + esc(route.currency_name) + ' · ' + esc(route.network_label) + '</b></span>' +
               '<span>Submitted <b class="text-navy font-semibold">' + esc(formatSubmitted(req.requestedAt)) + '</b></span>' +
               '<span class="min-w-0">Reference <b class="text-navy font-semibold dep-addr">' + esc(req.id) + '</b></span>' +
@@ -729,7 +731,7 @@
 
       function emptyStateHTML(route) {
         return '<div id="crypto-empty-state" class="text-center px-4 py-6">' +
-          '<div class="w-11 h-11 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(27,58,75,.06);">' +
+          '<div class="w-11 h-11 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(var(--brand-navy-rgb),.06);">' +
             '<svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
           '</div>' +
           '<p class="text-sm font-semibold text-navy mb-1">No ' + esc(route.currency_name) + ' (' + esc(route.network_label) + ') address assigned yet</p>' +
@@ -740,7 +742,7 @@
 
       function addressCardHTML(route, addr) {
         return '<div id="crypto-address-card">' +
-          '<div class="flex gap-3 p-4 rounded-xl mb-4" style="background:rgba(200,134,10,.09);border:1px solid rgba(200,134,10,.3);">' +
+          '<div class="flex gap-3 p-4 rounded-xl mb-4" style="background:rgba(var(--brand-gold-rgb),.09);border:1px solid rgba(var(--brand-gold-rgb),.3);">' +
             '<svg class="w-4 h-4 shrink-0 mt-0.5" style="color:#B07908" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>' +
             '<div><p id="crypto-warning-title" class="text-sm font-bold mb-0.5" style="color:#7A5207;">Send ' + esc(route.currency_name) + ' on ' + esc(networkPhrase(route)) + ' only</p>' +
             '<p id="crypto-warning-body" class="text-xs leading-relaxed" style="color:#6B5416;">This address accepts ' + esc(route.currency_name) + ' sent over ' + esc(networkPhrase(route)) + '. Funds sent on any other network, or in any other currency, will be permanently lost and cannot be recovered.</p></div>' +

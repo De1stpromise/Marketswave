@@ -110,7 +110,7 @@
     hw.appendChild(el('h1', null, 'How can we help?'));
     hw.appendChild(el('p', null, 'Answers to the questions clients actually ask, written around what you’ll see on screen.'));
     var sw = el('div', 'hc-search');
-    sw.appendChild(svg([{ c: [11, 11, 7] }, 'm20 20-3.5-3.5'], '#6B7178', 18, { w: '2.2' }));
+    sw.appendChild(svg([{ c: [11, 11, 7] }, 'm20 20-3.5-3.5'], MW_BRAND.muted, 18, { w: '2.2' }));
     var input = el('input');
     input.type = 'search'; input.id = 'hc-q';
     input.setAttribute('aria-label', 'Search the Help Center');
@@ -294,7 +294,7 @@
 
     var chat = el('button', 'hc-ch');
     chat.type = 'button';
-    var ci1 = el('span', 'hc-ci'); ci1.style.background = 'rgba(22,129,95,.1)';
+    var ci1 = el('span', 'hc-ci'); ci1.style.background = MW_BRAND.rgba('teal', .1);
     ci1.appendChild(svg(['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'], '#137254', 16));
     chat.appendChild(ci1);
     chat.appendChild(el('b', null, 'Live chat'));
@@ -307,14 +307,14 @@
 
     var mail = el('a', 'hc-ch'); mail.href = 'mailto:support@marketswave.net';
     var ci2 = el('span', 'hc-ci');
-    ci2.appendChild(svg(['M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z'], '#1B3A4B', 16));
+    ci2.appendChild(svg(['M4 8V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z'], MW_BRAND.navy, 16));
     mail.appendChild(ci2);
     mail.appendChild(el('b', null, 'Email us'));
     mail.appendChild(el('span', null, 'support@marketswave.net'));
     band.appendChild(mail);
 
     var call = el('a', 'hc-ch'); call.href = 'tel:+46766922906';
-    var ci3 = el('span', 'hc-ci'); ci3.style.background = 'rgba(200,134,10,.11)';
+    var ci3 = el('span', 'hc-ci'); ci3.style.background = MW_BRAND.rgba('gold', .11);
     ci3.appendChild(svg(['M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z'], '#B07908', 16));
     call.appendChild(ci3);
     call.appendChild(el('b', null, 'Call us'));

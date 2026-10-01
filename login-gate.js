@@ -71,8 +71,8 @@
 
     var lines = [
       { c: 'rgba(159,225,203,.45)', y: 0.62, a: 0.18, p: series(seeded(3), 110) },
-      { c: 'rgba(200,134,10,.35)',  y: 0.70, a: 0.13, p: series(seeded(29), 110) },
-      { c: 'rgba(247,246,243,.20)', y: 0.50, a: 0.11, p: series(seeded(71), 110) }
+      { c: MW_BRAND.rgba('gold', .35),  y: 0.70, a: 0.13, p: series(seeded(29), 110) },
+      { c: MW_BRAND.rgba('cream', .20), y: 0.50, a: 0.11, p: series(seeded(71), 110) }
     ];
 
     function draw() {
