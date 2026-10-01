@@ -288,7 +288,7 @@
       MarketswaveData.selectTable('sell_requests'),
       MarketswaveData.selectTable('hys_pockets'),
       MarketswaveData.selectTable('conversations'),
-      MarketswaveData.selectTable('products'),
+      MarketswaveData.selectTable('products_catalog'),
       MarketswaveData.selectTable('messages'),
       MarketswaveData.selectTable('blog_comments'),
       MarketswaveData.selectTable('blog_posts_public'),

@@ -462,7 +462,7 @@
         }).join(''),
         load: function () {
           return Promise.all([
-            MarketswaveData.selectTable('products'),
+            MarketswaveData.selectTable('products_catalog'),
             MarketswaveData.callFunction('get-holdings'),
             // A failure here must not take the whole catalog down — the cards still render,
             // just without document links until the next load.

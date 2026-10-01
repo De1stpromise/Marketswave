@@ -678,7 +678,7 @@
             if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
             throw err;
           }),
-          MarketswaveData.selectTable('products'),
+          MarketswaveData.selectTable('products_catalog'),
           MarketswaveData.selectTable('advisory_fee_rate')
         ]).then(function (results) {
           return {

@@ -564,7 +564,7 @@
           }),
           MarketswaveData.callFunction('get-holdings'),
           MarketswaveData.callFunction('get-total-portfolio-value'),
-          MarketswaveData.selectTable('products')
+          MarketswaveData.selectTable('products_catalog')
         ]).then(function (results) {
           var account = results[0];
           var holdings = results[1];
