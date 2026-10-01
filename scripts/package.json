@@ -141,7 +141,7 @@
     "verify-resources-redesign": "node verify-resources-redesign.mjs",
     "verify-returns-display": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-returns-display.mjs",
     "verify-returns-display-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-returns-display-visual.mjs",
-    "verify-round-robin-refresh": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-round-robin-refresh.mjs",
+    "verify-round-robin-refresh": "node run-round-robin.mjs verify-round-robin-refresh.mjs",
     "verify-settings-risk-support-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-settings-risk-support-ui-wiring.mjs",
     "verify-shared-stylesheet-coverage": "node verify-shared-stylesheet-coverage.mjs",
     "verify-sort-headers-visual": "node verify-sort-headers-visual.mjs",
@@ -157,7 +157,8 @@
     "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs",
     "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs",
     "verify-no-functions-read": "node verify-no-functions-read.mjs",
-    "verify-date-guard": "node verify-date-guard.mjs"
+    "verify-date-guard": "node verify-date-guard.mjs",
+    "verify-round-robin-refresh-full": "node run-round-robin.mjs verify-round-robin-refresh.mjs --full"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

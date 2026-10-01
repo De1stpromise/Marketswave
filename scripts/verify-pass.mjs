@@ -55,7 +55,9 @@ const NOT_A_SUITE = new Set([GATE, GATE + '-self-test', 'pass']);
 // (they print numbers, need the live site or a second origin, exit 0 regardless) and never join one.
 // A file that can fail a pass is a verify- by definition, whatever it was called (row 262).
 const isSuite = (name) => /^(verify|supabase-verify)-/.test(name) && !NOT_A_SUITE.has(name);
-const allSuites = Object.keys(scripts).filter(isSuite);
+// A "-full" variant (verify-round-robin-refresh-full, row 214) is the long form of a suite --full
+// already runs in its bounded form; it runs only when named, never as part of --full.
+const allSuites = Object.keys(scripts).filter((n) => isSuite(n) && !/-full$/.test(n));
 
 if (args.includes('--list')) {
   console.log('--full runs, in this order, after the gate:\n' + allSuites.map((s) => '  ' + s).join('\n'));

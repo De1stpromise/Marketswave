@@ -27,6 +27,16 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { writeJournal, readJournal, clearJournal, restoreFromJournal } from './lib/round-robin-restore.mjs';
+
+// ★ BOUNDED BY DEFAULT (2026-10-01, row 214). The full run proves the rotation over the WHOLE
+// stock union (285 symbols → 10 cycles → 30 measured runs, ~45-60 min). The default confines the
+// rotation to a 60-symbol subset (two runs' worth) by stamping every OTHER stock's cache row in
+// the FUTURE for the duration, so the oldest-first selection never reaches them — no seam in
+// refresh-market-data needed. Same properties, three rotations of two runs, ~10 min. `--full`
+// (npm run verify-round-robin-refresh-full) keeps the complete run. Every timestamp it touches is
+// in the journal and is put back by the finally AND by the external restore.
+const FULL = process.argv.includes('--full');
 
 let passed = 0, failed = 0;
 function check(label, condition, detail) {
@@ -131,7 +141,13 @@ async function waitForClearMinute() {
 }
 
 async function main() {
-  console.log('Round-robin market refresh + seeded catalog\n');
+  console.log('Round-robin market refresh + seeded catalog — ' + (FULL ? 'FULL run (whole union)' : 'bounded run (60-symbol subset; --full for the whole union)') + '\n');
+  // A journal left behind means an earlier run did not finish: repair before doing anything.
+  if (readJournal()) {
+    console.log('(a journal from an earlier unfinished run was found — repairing first)');
+    const rep = await restoreFromJournal();
+    if (!rep.ok) throw new Error('could not repair the earlier run\'s leftovers — see ROUND-ROBIN RESTORE above');
+  }
   if (DEDICATED_KEY) console.log('(MW_FINNHUB_DEDICATED=1: the local key is not shared with staging — skipping the clear-minute waits)');
   const { url, anonKey, serviceRoleKey } = readLocalStackCredentials();
   const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -148,10 +164,14 @@ async function main() {
   });
 
   const cleanup = { productIds: [], cacheSymbols: [], clientId: null };
-  setSchedulerActive(false);
-  console.log('(local pg_cron jobs paused for the duration — restored in the finally)');
-  // Cache timestamps are manipulated in Part C; the real ones are restored afterwards.
+  // Cache timestamps are manipulated in Part C; the real ones are restored afterwards — by the
+  // finally on a clean exit and by run-round-robin.mjs's external restore on any other.
   const cacheBefore = (await admin.from('market_data_cache').select('symbol, last_updated')).data || [];
+  const startedAt = new Date().toISOString();
+  const saveJournal = () => writeJournal({ startedAt, cronPaused: true, cacheBefore, cleanup });
+  saveJournal();   // BEFORE the first mutation, so the external restore always has it
+  setSchedulerActive(false);
+  console.log('(local pg_cron jobs paused for the duration — restored in the finally, and by the external restore if this process dies)');
 
   try {
     // ===================================================================================
@@ -181,7 +201,7 @@ async function main() {
     const created = await callFunction(url, pmToken, 'add-product', { pricingModel: 'market', source: 'finnhub', symbol: 'F', name: 'Ford Motor Company', investmentType: 'Stock', riskTier: 'balanced', minimumInvestment: 100, description: 'Common stock of Ford Motor Company, the US automaker.' });
     check('add-product created F through the real path', created.status === 200 && created.body && created.body.id, JSON.stringify(created.body));
     if (created.status === 200) {
-      cleanup.productIds.push(created.body.id); cleanup.cacheSymbols.push('F');
+      cleanup.productIds.push(created.body.id); cleanup.cacheSymbols.push('F'); saveJournal();
       const row = (await admin.from('products').select('unit_price, price_as_of, price_status, asset_class').eq('id', created.body.id).single()).data;
       check('★ the product row carries a live price immediately, not $0 and not awaiting a refresh', Number(row.unit_price) > 0 && row.price_as_of && (Date.now() - new Date(row.price_as_of).getTime()) < 30000 && row.price_status === 'ok', JSON.stringify(row));
       const cache = (await admin.from('market_data_cache').select('value, last_updated').eq('symbol', 'F').maybeSingle()).data;
@@ -196,7 +216,7 @@ async function main() {
     // ===================================================================================
     // A test client watching enough real symbols to exceed N stocks in the union.
     const { data: cu } = await admin.auth.admin.createUser({ email: 'rr-' + suffix + '@test.marketswave.local', password: 'RoundRobin-2026!', email_confirm: true });
-    cleanup.clientId = cu.user.id;
+    cleanup.clientId = cu.user.id; saveJournal();
     await admin.from('clients').insert({ id: cu.user.id, name: 'Round Robin Client', email: 'rr-' + cu.user.id, phone: '+1', account_type: 'Individual Account', status: 'active', watchlist_seeded_at: new Date().toISOString() });
     const { data: cs } = await anon.auth.signInWithPassword({ email: 'rr-' + suffix + '@test.marketswave.local', password: 'RoundRobin-2026!' });
     const clientToken = cs.session.access_token;
@@ -204,7 +224,7 @@ async function main() {
     let added = 0;
     for (const sym of extra) {
       const r = await callFunction(url, clientToken, 'add-watchlist-symbol', { symbol: sym, source: 'finnhub', name: sym });
-      if (r.status === 200) { added++; cleanup.cacheSymbols.push(sym); }
+      if (r.status === 200) { added++; cleanup.cacheSymbols.push(sym); saveJournal(); }
       else console.log('    (could not add ' + sym + ': ' + JSON.stringify(r.body) + ')');
       await sleep(1500);
     }
@@ -217,10 +237,10 @@ async function main() {
     const probe = await callFunction(url, pmToken, 'refresh-market-data');
     check('the refresh reports N per run = 30, derived from the measured 60/min limit at a 50% share', probe.body.stockSymbolsPerRun === N, JSON.stringify(probe.body));
     const S = probe.body.distinctStockSymbols;
-    const cycles = Math.ceil(S / N);
+    const cyclesUnion = Math.ceil(S / N);
     check('the union now exceeds one run (' + S + ' distinct stock symbols > ' + N + ')', S > N, String(S));
-    check('the report derives ' + cycles + ' cycles to cover them and a worst-case staleness of ' + (cycles * INTERVAL_MIN) + ' min', probe.body.cyclesToCoverAllStocks === cycles && probe.body.worstCaseStalenessMinutes === cycles * INTERVAL_MIN, JSON.stringify({ c: probe.body.cyclesToCoverAllStocks, w: probe.body.worstCaseStalenessMinutes }));
-    check('headroom = symbols addable before the worst case grows by a cycle', probe.body.headroom === cycles * N - S, String(probe.body.headroom));
+    check('the report derives ' + cyclesUnion + ' cycles to cover them and a worst-case staleness of ' + (cyclesUnion * INTERVAL_MIN) + ' min', probe.body.cyclesToCoverAllStocks === cyclesUnion && probe.body.worstCaseStalenessMinutes === cyclesUnion * INTERVAL_MIN, JSON.stringify({ c: probe.body.cyclesToCoverAllStocks, w: probe.body.worstCaseStalenessMinutes }));
+    check('headroom = symbols addable before the worst case grows by a cycle', probe.body.headroom === cyclesUnion * N - S, String(probe.body.headroom));
     check('a run past capacity refreshed exactly N and skipped the rest', probe.body.stockSymbolsSelected === N && probe.body.stockSymbolsSkippedThisRun === S - N, JSON.stringify({ sel: probe.body.stockSymbolsSelected, skip: probe.body.stockSymbolsSkippedThisRun }));
 
     // The stock symbols in the union = every stock cache row the run can see. Read them
@@ -230,7 +250,17 @@ async function main() {
     (await admin.from('watchlist_symbols').select('symbol, asset_type')).data.filter((r) => r.asset_type === 'stock').forEach((r) => unionStocks.add(r.symbol));
     (await admin.from('products').select('ticker, price_source').eq('pricing_model', 'market')).data.filter((r) => r.price_source === 'finnhub').forEach((r) => unionStocks.add(r.ticker));
     check('the union derived here matches the function\'s own count', unionStocks.size === S, unionStocks.size + ' vs ' + S);
-    const symbols = Array.from(unionStocks);
+    const unionSymbols = Array.from(unionStocks);
+    // Bounded: rotate within a subset of exactly two runs' worth; every other stock row is stamped
+    // a day in the FUTURE so the oldest-first selection cannot reach it (all restored afterwards).
+    const symbols = FULL ? unionSymbols : unionSymbols.slice(0, 2 * N);
+    const parked = FULL ? [] : unionSymbols.slice(2 * N);
+    if (parked.length) {
+      const future = new Date(Date.now() + 86400e3).toISOString();
+      for (const s of parked) await admin.from('market_data_cache').update({ last_updated: future }).eq('symbol', s);
+      console.log('    (bounded: rotating within ' + symbols.length + ' symbols; ' + parked.length + ' others parked in the future for the duration)');
+    }
+    const cycles = FULL ? cyclesUnion : Math.ceil(symbols.length / N);
 
     // Stagger every stock row to a distinct, LARGE age (10, 20, 30 ... minutes) so the
     // ordering is fully determined and the first run's leftover is genuinely old, then
@@ -277,7 +307,7 @@ async function main() {
       const seen = new Set(); for (let j = start; j < start + cycles; j++) runs[j].selected.forEach((sym) => seen.add(sym));
       symbols.filter((sym) => !seen.has(sym)).forEach((sym) => starved.push('run' + (start + 1) + ':' + sym));
     }
-    check('★ every one of the ' + S + ' symbols is refreshed in EVERY full rotation (' + cycles + ' consecutive runs) — none starved', starved.length === 0, starved.slice(0, 10).join(','));
+    check('★ every one of the ' + symbols.length + ' symbols is refreshed in EVERY full rotation (' + cycles + ' consecutive runs) — none starved', starved.length === 0, starved.slice(0, 10).join(','));
     check('...at least ' + (totalRuns / cycles) + ' refreshes per symbol over ' + totalRuns + ' runs', symbols.every((sym) => refreshedCount[sym] >= totalRuns / cycles), JSON.stringify(Object.entries(refreshedCount).filter(([, c]) => c < totalRuns / cycles)));
     const ages = runs.map((r) => r.oldest.ageMinutes);
     const steady = ages.slice(cycles);
@@ -403,6 +433,9 @@ async function main() {
     for (const r of cacheBefore) await admin.from('market_data_cache').update({ last_updated: r.last_updated }).eq('symbol', r.symbol);
     const residue = (await admin.from('watchlist_symbols').select('id', { count: 'exact', head: true }).eq('client_id', cleanup.clientId || '00000000-0000-0000-0000-000000000000')).count;
     if (residue) console.error('CLEANUP: ' + residue + ' watchlist rows left behind');
+    // Everything is back: the journal is no longer needed. If anything above failed, it stays,
+    // and run-round-robin.mjs's external restore (or the next run's startup repair) replays it.
+    if (restored && !residue) clearJournal();
   }
 
   console.log('\n' + passed + '/' + (passed + failed) + ' assertions passed.');
