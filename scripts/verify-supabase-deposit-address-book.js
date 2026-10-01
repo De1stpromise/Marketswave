@@ -173,7 +173,7 @@ async function main() {
     const clientSide = createClient(st.API_URL, st.ANON_KEY);
     await clientSide.auth.signInWithPassword({ email, password: PASSWORD });
     const { data: theirRoutes } = await clientSide.from('deposit_routes').select('*');
-    const { data: theirAddresses, error: taErr } = await clientSide.from('deposit_addresses').select('*');
+    const { data: theirAddresses, error: taErr } = await clientSide.from('my_deposit_addresses').select('*');
     check('★ the client sees PYUSD in their own deposit picker options',
       !taErr && theirRoutes.some((r) => r.currency === 'PYUSD'), taErr && taErr.message);
     check('★ ...and sees THEIR OWN PYUSD address, through RLS, exactly as deploy-capital reads it',

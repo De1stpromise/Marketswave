@@ -80,7 +80,7 @@ function buildPageDom(htmlPath) {
 
 async function main() {
   console.log('UI Wiring — Stage 5 verification (risk-management.html + settings.html + support.html), substituting for an unavailable browser tool\n');
-  const { url, serviceRoleKey } = readLocalStackCredentials();
+  const { url, anonKey, serviceRoleKey } = readLocalStackCredentials();
   console.log('API URL: ' + url + '\n');
 
   const admin = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -362,6 +362,23 @@ async function main() {
   await pollUntil(function () { return P.getElementById('support-toast-title').textContent === 'Reply Sent'; }, 15000);
   const { data: replyRows } = await admin.from('messages').select('direction, body').eq('conversation_id', cbRows[0].id || (await admin.from('conversations').select('id').eq('client_id', clientId).eq('display_id', 'DISP-0003').single()).data.id).order('sent_at');
   check('★ the client\'s reply is a real inbound message on the ticket — impossible before this consolidation', replyRows && replyRows.length === 2 && replyRows[1].direction === 'inbound' && /reply from the client/.test(replyRows[1].body), JSON.stringify(replyRows));
+
+  // Row 305: clients no longer receive Realtime UPDATEs on conversations (the table is admin-only), so
+  // the status badge must go live through the system message admin-update-conversation inserts on every
+  // status change. A real PM resolves the ticket; nothing in this suite calls reloadRequests.
+  const disp3 = (await admin.from('conversations').select('id').eq('client_id', clientId).eq('display_id', 'DISP-0003').single()).data;
+  const badgeOf = function () {
+    const row = [...requestsListEl.querySelectorAll('.request-row')].find(function (r) { return r.textContent.indexOf('DISP-0003') !== -1; });
+    return row ? row.textContent : '';
+  };
+  check('before the PM acts, DISP-0003 reads Open', /Open/.test(badgeOf()) && !/Resolved/.test(badgeOf()), badgeOf().slice(0, 120));
+  const pmSession = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  await pmSession.auth.signInWithPassword({ email: 'pm@marketswave.local', password: 'MarketswavePM-Local-2026!' });
+  const { error: resolveErr } = await pmSession.functions.invoke('admin-update-conversation', { body: { conversationId: disp3.id, status: 'resolved' } });
+  check('a real PM resolves DISP-0003 through admin-update-conversation', !resolveErr, resolveErr && resolveErr.message);
+  await pollUntil(function () { return /Resolved/.test(badgeOf()); }, 20000);
+  check('★ the client DISP-0003 badge turns Resolved LIVE, with no reload, driven by the arriving status message', /Resolved/.test(badgeOf()), badgeOf().slice(0, 160));
+  await pmSession.auth.signOut({ scope: 'local' });
 
   } finally {
     await admin.from('profile_change_requests').delete().eq('client_id', clientId);

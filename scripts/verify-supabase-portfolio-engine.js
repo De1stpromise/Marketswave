@@ -353,8 +353,10 @@ async function main() {
     check('Client A can SELECT the full product catalog through products_catalog (global, everyone reads it)', catalog && catalog.length >= 5);
     const { data: baseCatalog } = await a.client.from('products').select('id');
     check('Client A reading the BASE products table gets zero rows (admin-only since row 304)', Array.isArray(baseCatalog) && baseCatalog.length === 0);
-    const { data: feeRate } = await a.client.from('advisory_fee_rate').select('*');
-    check('Client A can SELECT the global advisory_fee_rate', feeRate && feeRate.length === 1);
+    const { data: feeRate } = await a.client.from('advisory_fee_rate_public').select('*');
+    check('Client A can SELECT the global advisory fee rate through advisory_fee_rate_public', feeRate && feeRate.length === 1);
+    const { data: baseFeeRate } = await a.client.from('advisory_fee_rate').select('id');
+    check('Client A reading the BASE advisory_fee_rate table gets zero rows (admin-only since row 305)', Array.isArray(baseFeeRate) && baseFeeRate.length === 0);
 
     const { data: crossState } = await a.client.from('account_state').select('*').eq('client_id', userB.id);
     check('Client A\'s query for Client B\'s account_state returns empty (RLS-filtered, not an error)', crossState && crossState.length === 0);
