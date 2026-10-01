@@ -1793,6 +1793,32 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     buckets from the API. The database dumps completing is NOT a complete backup; wait for
     `BACKUP COMPLETE`.
 
+- **★★ Products attribution closed, certificate greys, every-day portfolio suites, oneshot
+  runtime (2026-10-01, register row 304).** **Things a future session needs to know:**
+  - **★ CLIENTS READ `products_catalog`, NEVER `products`.** RLS restricts rows, not columns,
+    so staff attribution (`created_by_email` …) is kept from clients by a definer VIEW with an
+    explicit column list, plus an admin-only SELECT policy on the base table. A new client page
+    that reads the catalog uses `selectTable('products_catalog')`; PM pages and every Edge
+    Function (service role) keep `products`. **Do not add `security_invoker` to the view** — it
+    would inherit the admin-only policy and the catalog goes blank (row 270's lesson). A new
+    product column a client needs must be ADDED TO THE VIEW, or it is silently absent.
+  - **★ A change that narrows what a client can read ships in TWO migrations**: the new read
+    path first, the pages that use it, THEN the tightening policy. Tighten first and every real
+    client's page goes empty until the pages land.
+  - Other client-readable PM emails remain (`resolved_by_email` on the request tables,
+    `advisory_fee_rate.updated_by_email`, `conversations.resolved_by_email`, the deposit-address
+    attribution) — listed in row 304, same shape, same fix if wanted.
+  - **A pdf-lib colour comes from `BRAND_RGB`** (`rgb(r/255, g/255, b/255)`); `verify-brand-colors`
+    flags any literal `rgb()` with all arguments ≤ 1 in Edge Function source.
+  - **★ Portfolio-overview scenarios use a GAP MONTH** (no anchor in month −3), so the 3M window
+    holds the same three anchors on every day; `verify-portfolio-overview-ui-wiring` checks that
+    across 731 days. Assert step SEMANTICS, never a point count that depends on today.
+  - **Capital events are placed at their calendar day** (`eventX()` in `portfolio-overview.js`) —
+    a timestamp past today's midnight point used to fall off the axis, so an event dated today
+    vanished. The scatter dataset is `clip: false` with 7 px padding so an edge dot draws whole.
+  - **The LOCAL edge runtime is `policy = "oneshot"`** (`config.toml`, local only); confirm with
+    `docker inspect supabase_edge_runtime_Marketswave --format '{{json .Config.Cmd}}'`.
+
 ## ★★★ REBRAND RULE — Marketswave becomes IncMarketry (recorded 2026-10-01)
 
 The brand is changing from **Marketswave** to **IncMarketry**. Everything already built stays.
@@ -11885,7 +11911,11 @@ is for. Four stages, in order, each building on the last:
   `.pass-logs/<stamp>/` — which also means a full pass is not "done" until its 5 known-cause
   families (the bullet below) have been re-run in isolation. Third instance of this class, in both
   directions: row 219 (a batch deploy's exit 0 hiding a failure) and 2026-09-28 (a 402 error
-  hiding a success).
+  hiding a success). **Since 2026-10-01 (row 304) `verify-pass.mjs` prints `runner exit: <code>`
+  ITSELF, as the final line on every exit path** — so a watcher waits on that line
+  (`until grep -q "runner exit:" log`), never on the wrapper's exit code. A full pass outlives the
+  two-hour background-shell cap: launch it detached (`Start-Process cmd /c "npm run pass -- --full >
+  log"`) and watch the log, or the shell limit kills it mid-run.
 - **★ REVERT A TEMPORARY CONTROL SURGICALLY — `git checkout -- <file>` ALSO DISCARDS THE REAL FIX
   IN IT (2026-09-29).** A forced-failure control usually lives in the same file as the change it is
   proving. Checking the file out threw away an IPv6 regex fix along with the control line and it had
