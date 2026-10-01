@@ -198,7 +198,13 @@ const COLORS = {
 
 // ★ Resolved 2026-09-07 — see this file's own header comment above ("FOOTER SUPPORT ADDRESS
 // — RESOLVED"). A real, confirmed-monitored inbox on the now-verified marketswave.net domain.
-const FOOTER_SUPPORT_EMAIL = 'support@marketswave.net';
+// ★ 2026-10-01: read from a SUPPORT_EMAIL function secret (today's value set on staging), so a
+// domain change is configuration, not code — the same pattern as SITE_URL and EMAIL_FROM_ADDRESS
+// below. The default is today's address, so behaviour is unchanged wherever the secret is unset.
+export function getSupportEmail(): string {
+  return Deno.env.get('SUPPORT_EMAIL') || 'support@marketswave.net';
+}
+const FOOTER_SUPPORT_EMAIL = getSupportEmail();
 // The reply-to for every CONVERSATION email (PM tool revamp, part 1, 2026-09-14) — the
 // monitored inbox address the inbound receiver (receive-inbound-email) is subscribed to.
 export const SUPPORT_REPLY_TO = 'Marketswave Support <' + FOOTER_SUPPORT_EMAIL + '>';

@@ -8,7 +8,7 @@
 // AUTHORIZATION: admin-only, via getClaims(jwt) — same pattern as credit-deposit.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sendEmail, renderEmail, siteLink } from '../_shared/send-email.ts';
+import { sendEmail, renderEmail, siteLink, getSupportEmail } from '../_shared/send-email.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       const { html, text } = renderEmail({
         heading: 'An update on your Marketswave deposit request',
         introParagraphs: [request.method === 'crypto'
-          ? 'Hi ' + clientRow.name + ', we were not able to confirm a crypto transfer for this deposit request, so it has been closed without a credit. If you did send funds, contact support@marketswave.net with the transaction hash and your Portfolio Manager will look again.'
+          ? 'Hi ' + clientRow.name + ', we were not able to confirm a crypto transfer for this deposit request, so it has been closed without a credit. If you did send funds, contact ' + getSupportEmail() + ' with the transaction hash and your Portfolio Manager will look again.'
           : 'Hi ' + clientRow.name + ', your deposit request could not be approved. Please contact support if you have any questions.'],
         // Crypto deposit routing (2026-09-11): a crypto request has no requested_amount
         // (null), which the original line would have crashed on. Name the method and,
