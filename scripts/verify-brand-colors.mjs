@@ -39,9 +39,22 @@ function findBrand(text) {
   });
   return out;
 }
+// pdf-lib colours in Edge Function source (the signed-copy certificate) are rgb(r, g, b) on a 0-1
+// scale, which the brand-channel check above cannot see: rgb(0.36, 0.39, 0.42) is no brand triplet.
+// So any rgb() whose three arguments are all numeric LITERALS no greater than 1 is flagged — a
+// certificate colour must come from BRAND_RGB (2026-10-01, row 304: its greys escaped exactly so).
+function findLiteralPdfColour(text) {
+  const out = [];
+  text.split('\n').forEach((line, i) => {
+    for (const m of line.matchAll(/\brgb\(\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\s*,\s*(\d*\.?\d+)\s*\)/g)) {
+      if ([m[1], m[2], m[3]].every((v) => +v <= 1)) out.push({ line: i + 1, what: m[0] });
+    }
+  });
+  return out;
+}
 function shippedFiles(root) {
   const list = execSync('git ls-files --cached --others --exclude-standard', { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
-  return list.filter((f) => /^[^/]+\.(html|css|js)$/.test(f) || /^supabase\/functions\/.*\.ts$/.test(f) || /^supabase\/templates\//.test(f) || f === 'scripts/tailwind/tailwind.config.js');
+  return list.filter((f) => /^[^/]+\.(html|css|js)$/.test(f) || /^ctl\/.*\.ts$/.test(f) || /^supabase\/functions\/.*\.ts$/.test(f) || /^supabase\/templates\//.test(f) || f === 'scripts/tailwind/tailwind.config.js');
 }
 // Reads Edge Function source from git objects, never the working tree (row 255 — the guard would refuse).
 function readShipped(root, f) {
@@ -54,7 +67,12 @@ function readShipped(root, f) {
 }
 function scan(root) {
   const files = shippedFiles(root); const hits = [];
-  for (const f of files) { if (GENERATED.has(f)) continue; for (const h of findBrand(readShipped(root, f))) hits.push(f + ':' + h.line + ' ' + h.what); }
+  for (const f of files) {
+    if (GENERATED.has(f)) continue;
+    const text = readShipped(root, f);
+    for (const h of findBrand(text)) hits.push(f + ':' + h.line + ' ' + h.what);
+    if (/\.ts$/.test(f)) for (const h of findLiteralPdfColour(text)) hits.push(f + ':' + h.line + ' ' + h.what);
+  }
   return { files: files.length, hits };
 }
 function pageLinks(root) {
@@ -96,12 +114,16 @@ async function main() {
     fs.writeFileSync(path.join(tmp, 'a.css'), '.y { background: rgba(200, 134, 10, .4); }');
     fs.writeFileSync(path.join(tmp, 'b.js'), "var c = '#16815F';");
     fs.writeFileSync(path.join(tmp, 'ok.css'), '.z { color: var(--brand-navy); background: rgba(var(--brand-gold-rgb), .4); }');
+    fs.mkdirSync(path.join(tmp, 'ctl'));
+    fs.writeFileSync(path.join(tmp, 'ctl', 'cert.ts'), 'const muted = rgb(0.36, 0.39, 0.42);\nconst ok = rgb(BRAND_RGB.muted[0] / 255, BRAND_RGB.muted[1] / 255, BRAND_RGB.muted[2] / 255);\n');
     fs.writeFileSync(path.join(tmp, 'nolink.html'), '<html><head><style>.a{}</style></head></html>');
     const c = scan(tmp);
     check('control: a lowercase brand hex in a <style> block is named', c.hits.some((h) => /^page\.html:\d+ #1b3a4b/.test(h)), c.hits.join(' | '));
     check('control: gold as rgba() channels in a stylesheet is named', c.hits.some((h) => /^a\.css:1 rgba\(200, 134, 10/.test(h)), c.hits.join(' | '));
     check('control: a brand hex in a JavaScript string is named', c.hits.some((h) => /^b\.js:1 #16815F/.test(h)), c.hits.join(' | '));
     check('control: var()-based colours are NOT flagged', !c.hits.some((h) => h.startsWith('ok.css')), c.hits.join(' | '));
+    check('control: a literal pdf-lib grey in Edge Function source is named', c.hits.some((h) => /^ctl\/cert\.ts:1 rgb\(0\.36/.test(h)), c.hits.join(' | '));
+    check('control: a BRAND_RGB-derived pdf-lib colour is NOT flagged', !c.hits.some((h) => /^ctl\/cert\.ts:2/.test(h)), c.hits.join(' | '));
     const pl = pageLinks(tmp);
     check('control: a page without the palette links is named', pl.includes('nolink.html (missing)'), pl.join(', '));
   } finally { await releaseTempDir(tmp); }

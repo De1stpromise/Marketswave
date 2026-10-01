@@ -57,7 +57,8 @@ export async function appendSignatureCertificate(originalBytes: Uint8Array, inpu
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const page = doc.addPage([595.28, 841.89]); // A4 portrait
   const navy = rgb(BRAND_RGB.navy[0] / 255, BRAND_RGB.navy[1] / 255, BRAND_RGB.navy[2] / 255);   // the brand palette (row 303)
-  const muted = rgb(0.36, 0.39, 0.42);
+  const muted = rgb(BRAND_RGB.muted[0] / 255, BRAND_RGB.muted[1] / 255, BRAND_RGB.muted[2] / 255);
+  const ink = rgb(BRAND_RGB.text[0] / 255, BRAND_RGB.text[1] / 255, BRAND_RGB.text[2] / 255);   // the near-black this page always used, now named (identical once rounded)
   const left = 56;
   let y = 780;
 
@@ -88,7 +89,7 @@ export async function appendSignatureCertificate(originalBytes: Uint8Array, inpu
     const isHash = /^[0-9a-f]{64}$/.test(v);
     const lines = isHash ? [v] : wrap(v, 62);
     for (let i = 0; i < lines.length; i++) {
-      page.drawText(lines[i], { x: left + 150, y: y - i * 12, size: isHash ? 7.5 : 9, font, color: rgb(0.1, 0.11, 0.12) });
+      page.drawText(lines[i], { x: left + 150, y: y - i * 12, size: isHash ? 7.5 : 9, font, color: ink });
     }
     y -= 12 * Math.max(1, lines.length) + 8;
   }
@@ -97,7 +98,7 @@ export async function appendSignatureCertificate(originalBytes: Uint8Array, inpu
   page.drawText('Consent affirmed', { x: left, y, size: 9, font: bold, color: navy });
   y -= 14;
   for (const line of wrap(input.consentText, 95)) {
-    page.drawText(line, { x: left, y, size: 9, font, color: rgb(0.1, 0.11, 0.12) });
+    page.drawText(line, { x: left, y, size: 9, font, color: ink });
     y -= 12;
   }
 
