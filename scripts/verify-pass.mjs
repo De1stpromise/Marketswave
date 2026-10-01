@@ -45,6 +45,14 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import dateGuard from './lib/date-guard.cjs';
 
+// ★ The LAST line on EVERY exit path — a pass, a FAIL, a refused gate, a usage error, --list, an
+// uncaught crash — is `runner exit: <code>`, printed by the process itself (2026-10-01, row 304).
+// A watcher waits for THIS line, never for `VERIFICATION PASS:`, which the usage-error, --list and
+// crash paths never print. Two session watchers hung until their time limit for exactly that
+// reason, and `runner exit:` had been documented in CLAUDE.md while only an outer shell wrapper
+// ever printed it. The code here is the runner's own, not a wrapper's (see the 2026-09-29 Working convention).
+process.on('exit', (code) => { console.log('runner exit: ' + code); });
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
