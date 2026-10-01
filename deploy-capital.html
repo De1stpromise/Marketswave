@@ -533,8 +533,8 @@
       function loadFundingData() {
         if (dataPromise) return dataPromise;
         dataPromise = Promise.all([
-          MarketswaveData.selectTable('deposit_requests'),
-          MarketswaveData.selectTable('withdrawal_requests'),
+          MarketswaveData.selectTable('my_deposit_requests'),
+          MarketswaveData.selectTable('my_withdrawal_requests'),
           MarketswaveData.callFunction('get-account-state').catch(function (err) {
             if (err && err.status === 404) return { unallocatedCapital: 0, allocatedCapital: 0, assetReturns: 0 };
             throw err;
@@ -543,7 +543,7 @@
           // assigned addresses - RLS returns only addresses currently assigned to the caller,
           // so a plain table read is the isolation guarantee, not a filter this page applies.
           MarketswaveData.selectTable('deposit_routes'),
-          MarketswaveData.selectTable('deposit_addresses')
+          MarketswaveData.selectTable('my_deposit_addresses')
         ]).then(function (results) {
           return {
             depositRequests: results[0].map(function (r) {

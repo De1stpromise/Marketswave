@@ -408,7 +408,7 @@
       function loadRequests() {
         if (dataPromise) return dataPromise;
         dataPromise = Promise.all([
-          MarketswaveData.selectTable('conversations'),
+          MarketswaveData.selectTable('my_conversations'),
           MarketswaveData.selectTable('messages')
         ]).then(function (results) {
           const byConvo = {};
@@ -625,7 +625,9 @@
       MarketswaveData.getSupabaseClient().then(function (client) {
         client.channel('support-tickets-live')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, function () { reloadRequests(true); })
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, function () { reloadRequests(true); })
+          // No conversations subscription: that table is PM-only for SELECT (row 305), so Realtime
+          // would deliver nothing here. A status change writes a 'system' messages row, which the
+          // INSERT subscription above already picks up.
           .subscribe();
       }).catch(function () { /* the list still loads on demand */ });
 

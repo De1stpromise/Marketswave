@@ -520,8 +520,8 @@
       }).then(function () {
         return Promise.all([
           MarketswaveData.selectTable('hys_pockets'),
-          MarketswaveData.selectTable('hys_deposit_requests'),
-          MarketswaveData.selectTable('hys_withdrawal_requests'),
+          MarketswaveData.selectTable('my_hys_deposit_requests'),
+          MarketswaveData.selectTable('my_hys_withdrawal_requests'),
           // Savings deposit from unallocated capital (2026-09-11): the funding step needs the
           // client's real available balance. A client with no account_state row yet genuinely
           // has no capital, and get-account-state returns a real 404 for that case — the same

@@ -284,10 +284,10 @@
     if (typeof MarketswaveData === 'undefined') return Promise.resolve([]);
     return Promise.all([
       MarketswaveData.selectTable('documents'),
-      MarketswaveData.selectTable('allocation_requests'),
-      MarketswaveData.selectTable('sell_requests'),
+      MarketswaveData.selectTable('my_allocation_requests'),
+      MarketswaveData.selectTable('my_sell_requests'),
       MarketswaveData.selectTable('hys_pockets'),
-      MarketswaveData.selectTable('conversations'),
+      MarketswaveData.selectTable('my_conversations'),
       MarketswaveData.selectTable('products_catalog'),
       MarketswaveData.selectTable('messages'),
       MarketswaveData.selectTable('blog_comments'),

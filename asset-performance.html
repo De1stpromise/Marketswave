@@ -903,8 +903,8 @@
           MarketswaveData.callFunction('get-returns-summary'),
           MarketswaveData.callFunction('get-transaction-ledger'),
           MarketswaveData.selectTable('products_catalog'),
-          MarketswaveData.selectTable('allocation_requests'),
-          MarketswaveData.selectTable('sell_requests'),
+          MarketswaveData.selectTable('my_allocation_requests'),
+          MarketswaveData.selectTable('my_sell_requests'),
           // Pockets (with interest accrued to date), the ACCOUNT-scoped deposited figure and
           // client-since — the client's own read, the same one dashboard.html makes.
           MarketswaveData.callFunction('get-portfolio-overview')

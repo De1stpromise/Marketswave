@@ -679,7 +679,7 @@
             throw err;
           }),
           MarketswaveData.selectTable('products_catalog'),
-          MarketswaveData.selectTable('advisory_fee_rate')
+          MarketswaveData.selectTable('advisory_fee_rate_public')
         ]).then(function (results) {
           return {
             transactions: results[0].map(function (t) { return Object.assign({}, t, { date: toDateOnly(t.createdAt) }); }),

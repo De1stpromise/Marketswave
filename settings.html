@@ -895,7 +895,7 @@
         if (dataPromise) return dataPromise;
         dataPromise = Promise.all([
           MarketswaveData.selectTable('client_profiles'),
-          MarketswaveData.selectTable('profile_change_requests'),
+          MarketswaveData.selectTable('my_profile_change_requests'),
           MarketswaveData.selectTable('clients')
         ]).then(function (results) {
           var row = results[0] && results[0][0] ? results[0][0] : null;
