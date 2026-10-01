@@ -27,7 +27,7 @@ import { execSync, spawnSync, spawn } from 'node:child_process';
 import { makeTempDir, trackChild, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { createSimulatedTestProduct, deleteSimulatedTestProduct } from './lib/simulated-test-product.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
-import { findFixtureClient } from './lib/fixture-client.mjs';
+import { findFixtureClient, fixtureClientPassword } from './lib/fixture-client.mjs';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -218,7 +218,7 @@ async function main() {
   // ---- Gary, the established client ----------------------------------------------------
   const garyRow = await findFixtureClient(admin); // never an address literal in a suite (row 256)
   if (!garyRow) throw new Error('Gary is not seeded — run: node seed-client-gary.mjs');
-  const garyPw = (process.env.GARY_SEED_PASSWORD || readFileSync(ROOT + 'supabase/functions/.env', 'utf8').split(/\r?\n/).find((l) => l.startsWith('GARY_SEED_PASSWORD=')).slice(19).trim().replace(/^["']|["']$/g, ''));
+  const garyPw = fixtureClientPassword(); // env or the secrets file outside the repo, never supabase/functions/.env (row 255)
   const { data: gs, error: gErr } = await anon.auth.signInWithPassword({ email: garyRow.email, password: garyPw });
   if (gErr) throw new Error('Gary sign-in: ' + gErr.message);
   const gary = { id: garyRow.id, token: gs.session.access_token, bootstrap: bootstrapFor(gs.session, garyRow.id) };

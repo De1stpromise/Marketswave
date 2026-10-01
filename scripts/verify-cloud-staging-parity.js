@@ -168,9 +168,17 @@ if (FRESH_MODE) { /* nothing to compare */ } else if (missingRemote.length > 0) 
 }
 
 // ---- 2. Edge Functions: every local function directory must be ACTIVE on the remote ----
-const localFunctions = fs.readdirSync(FUNCTIONS_DIR)
-  .filter(f => f !== '_shared' && fs.statSync(path.join(FUNCTIONS_DIR, f)).isDirectory())
-  .sort();
+// From git (HEAD plus the index), never a readdir of supabase/functions: listing that tree on the
+// host restarts the local edge runtime (row 255, finished 2026-10-01). The cost, stated: a brand-new
+// function directory that is neither committed nor staged is not seen, so commit (or `git add`) a
+// new function before running this — nothing should be deployed uncommitted anyway.
+const localFunctions = [...new Set(
+  require('child_process').execFileSync('git', ['ls-files', '--', 'supabase/functions/'], { cwd: REPO_ROOT, encoding: 'utf8' })
+    .split(/\r?\n/).filter(Boolean)
+    .map(f => f.replace(/^supabase\/functions\//, '').split('/'))
+    .filter(parts => parts.length > 1 && parts[0] !== '_shared')
+    .map(parts => parts[0])
+)].sort();
 
 let remoteFunctionsRaw;
 try {

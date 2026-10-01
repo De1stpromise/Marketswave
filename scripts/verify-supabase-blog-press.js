@@ -426,16 +426,10 @@ async function main() {
       postNoQuestion.data.question === null, JSON.stringify(postNoQuestion.data));
 
   } finally {
-    // ---- cleanup: users first (cascades), then posts --------------------------------------
-    for (const id of made.users) {
-      await admin.from('clients').delete().eq('id', id);
-      await admin.auth.admin.deleteUser(id).catch(() => {});
-    }
-    for (const id of made.posts) await admin.from('blog_posts').delete().eq('id', id);
-    const { data: leftPosts } = await admin.from('blog_posts').select('id').like('slug', '%-' + SUF);
-    const { count: leftUsers } = await admin
-      .from('clients').select('id', { count: 'exact', head: true }).like('email', '%' + SUF + '%');
-    console.log('\ncleanup: posts remaining ' + ((leftPosts || []).length) + ', clients remaining ' + (leftUsers || 0));
+    // ---- cleanup: posts FIRST (their deletion cascades the comments whose removed_by blocks an
+    // account delete), then client rows and accounts, then a re-read of the ACCOUNTS themselves —
+    // see lib/blog-fixture-cleanup.cjs. (This used to delete users first and swallow the error.)
+    await require('./lib/blog-fixture-cleanup.cjs').cleanupBlogFixtures(admin, made, '-' + SUF + '@');
   }
 
   console.log('\n' + pass + ' passed, ' + fail + ' failed.');

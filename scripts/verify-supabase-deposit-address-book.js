@@ -292,7 +292,8 @@ async function main() {
 
     console.log('\n=== PART 7: the strip, and every read error-checked ===\n');
     const fs = require('fs');
-    const src = fs.readFileSync('../supabase/functions/_shared/deposit-address-book.ts', 'utf8');
+    // Committed source via git, never the working tree (row 255).
+    const src = require('./lib/function-source.cjs').readFunctionSource('_shared/deposit-address-book.ts');
     check('★ the shared module contains no unchecked `.data || []` — every read goes through must()',
       !/\.data\s*\|\|\s*\[\]/.test(src));
     check('...and must() genuinely wraps every one of its reads',

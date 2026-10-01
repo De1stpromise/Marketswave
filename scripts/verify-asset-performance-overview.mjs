@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { runVerifyMain } from './lib/run-verify.mjs';
-import { findFixtureClient } from './lib/fixture-client.mjs';
+import { findFixtureClient, fixtureClientPassword } from './lib/fixture-client.mjs';
 import { createSimulatedTestProduct, deleteSimulatedTestProduct } from './lib/simulated-test-product.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url)) ;
@@ -114,7 +114,7 @@ async function main() {
     console.log('\n=== PART 1 + 2: Gary — three distinct totals, every figure against its source ===\n');
     const gary = await findFixtureClient(admin); // never an address literal in a suite (row 256)
     if (!gary) throw new Error('Gary is not seeded — run: node seed-client-gary.mjs');
-    const garyPw = (process.env.GARY_SEED_PASSWORD || readFileSync(ROOT + 'supabase/functions/.env', 'utf8').split(/\r?\n/).find((l) => l.startsWith('GARY_SEED_PASSWORD=')).slice(19).trim().replace(/^["']|["']$/g, ''));
+    const garyPw = fixtureClientPassword(); // env or the secrets file outside the repo, never supabase/functions/.env (row 255)
     const { D, token } = await mount(gary, garyPw);
 
     const [ret, acct, tpvFn, ov] = await Promise.all([

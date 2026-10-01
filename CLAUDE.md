@@ -11390,7 +11390,9 @@ row 74.
     bounce renders as its own red `.ibx-bounce` block ("Not delivered — this email bounced.
     The client did not receive it.", reason, time), never a grey word. **Whether delivery
     events arrive at all is a Resend dashboard subscription on the existing webhook** — the
-    API key is send-only, so the subscription cannot be made from code.
+    API key is send-only, so the subscription cannot be made from code. **Subscribed and
+    proven 2026-10-01 (row 296)**: delivered / bounced / complained each landed on its own
+    message on the live project, the bounce rendered as the red block, inbound unaffected.
   - Help Center: article 27 "Your risk metrics" and the updated article 28 "Watchlist and
     price alerts" are **drafts** locally and on staging — publishing is the operator's call.
     A stray `blog-probe-hc-*` Help Center draft was found locally and deleted; the blog suite
@@ -12084,6 +12086,13 @@ is for. Four stages, in order, each building on the last:
   wrong reason: load is what reads the tree. **Fixes**: `fsutil behavior set disablelastaccess 1`
   (admin, system-wide, the operator's call — removes the trigger and the hourly re-arm);
   suites that assert against function source read it via `git show HEAD:<path>`, never in place
+  — **★ ENFORCED SINCE 2026-10-01 (row 295)**: function source through
+  `scripts/lib/function-source.cjs`, test secrets through `scripts/lib/local-secrets.cjs`
+  (environment, then `../marketswave-secrets/local-test.env` — never `supabase/functions/.env`),
+  and `verify-pass.mjs` preloads `scripts/lib/no-functions-read.cjs` into every suite, which
+  refuses any read, listing or `import()` under `supabase/functions` before it opens and fails
+  the suite by name even if it swallowed the error (`npm run verify-no-functions-read` is the
+  proof). A new suite that needs function source or a secret uses those two helpers
   (`supabase-verify-product-catalog` — fixed 2026-09-21 after it 502'd itself twice more, row 262;
   `supabase-verify-pm-attribution`); the runner boundary
   check below for anything else. Until one of those lands, EVERY full pass will lose suites to
@@ -12172,6 +12181,15 @@ is for. Four stages, in order, each building on the last:
   exactly this shape, and several "network flap / silent Node death / flakiness" triages in rows
   211, 214, 217, 221, 222 and 249 have its signature — not re-opened, but the cause existed the
   whole time and was invisible.
+- **★ TEARDOWN ORDER: DELETE WHATEVER CLEARS THE NEXT BLOCKER FIRST — not "accounts first"
+  (2026-10-01, rows 178 and 297).** Row 178 put the account first because deleting it cascaded
+  the holding that blocked the product. The blog suites copied "accounts first" and leaked every
+  account, because there the blocker runs the other way: `blog_comments.removed_by` references
+  `auth.users` with no cascade, and it is deleting the POST that clears the comment. Read the
+  foreign keys and order by what each deletion clears. And **read the error of every
+  supabase-js delete** — it resolves with `{ error }` instead of throwing, so `.catch(() => {})`
+  discards a refusal — then re-read the thing you meant to delete (accounts, not `clients` rows)
+  so a leak is counted, not assumed away.
 - **★ Every harness temp directory goes through `scripts/lib/harness-teardown.mjs` — never a
   bare `mkdtempSync`, never a `try { rmSync } catch {}`.** Added 2026-09-12 after 1,333
   leaked directories were found in `%TEMP%`: `chrome.kill()` returns before Windows releases

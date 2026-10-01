@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
 import { makeTempDir, releaseTempDir, forwardChildTeardown, reportSilentChild } from './lib/harness-teardown.mjs';
+import blogCleanup from './lib/blog-fixture-cleanup.cjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -193,13 +194,14 @@ async function main() {
 
   const profile = makeTempDir('mw-blogvis-');
   let cdp = null;
-  const made = { posts: [], users: [] };
+  const made = { posts: [], users: [], covers: [] };
   const P = {};
 
   try {
     section('Setup — real posts, a real cover, a real thread');
     const up = await callAs('upload-article-image', { filename: 'cover-' + SUF + '.png', contentType: 'image/png', scope: 'blog', fileBase64: PNG_1PX }, pmTok);
     const coverPath = up.body.path;
+    made.covers.push(coverPath);   // removed by lib/blog-fixture-cleanup.cjs
     for (const d of [
       { key: 'feat', title: 'Appraisal valuations, visually ' + SUF, cat: 'private-equity', featured: true },
       { key: 'news', title: 'A change worth knowing ' + SUF, cat: 'company-news' },
@@ -398,13 +400,9 @@ async function main() {
 
   } finally {
     if (cdp) { try { cdp.ws.close(); } catch (_e) {} }
-    for (const id of made.users) {
-      await admin.from('clients').delete().eq('id', id);
-      await admin.auth.admin.deleteUser(id).catch(() => {});
-    }
-    for (const id of made.posts) await admin.from('blog_posts').delete().eq('id', id);
-    const { data: leftP } = await admin.from('blog_posts').select('id').like('slug', '%' + SUF);
-    console.log('\ncleanup: posts remaining ' + ((leftP || []).length));
+    // posts first, then accounts (error read), then the uploaded cover, then a re-read of the
+    // accounts and covers themselves — lib/blog-fixture-cleanup.cjs.
+    await blogCleanup.cleanupBlogFixtures(admin, made, '-' + SUF + '@');
     if (cdp && cdp.chrome) cdp.chrome.kill();
     await releaseTempDir(profile);
   }

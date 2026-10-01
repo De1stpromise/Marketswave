@@ -12,24 +12,16 @@
 // operator seeded it with — the name lookup is what lets such a stack keep resolving with no
 // environment variable set, so no suite starts SKIPping a real assertion because a literal moved.
 // Two clients carrying the fixture's name is an error, not a guess.
-import { readFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const ENV_FILE = path.join(ROOT, 'supabase', 'functions', '.env');
+import localSecrets from './local-secrets.cjs';
 
 // A reserved TLD (RFC 2606): syntactically valid everywhere, deliverable nowhere.
 export const FIXTURE_CLIENT_DEFAULT_EMAIL = 'gary.sizemore@fixture.marketswave.test';
 
-/** process.env first, then supabase/functions/.env. Returns null when unset. */
+/** process.env first, then the local secrets file OUTSIDE the repository (lib/local-secrets.cjs).
+ *  Never supabase/functions/.env any more: a host-side read there restarts the local edge runtime
+ *  (row 255, finished 2026-10-01). Returns null when unset. */
 export function readSeedEnv(key) {
-  if (process.env[key]) return process.env[key];
-  if (!existsSync(ENV_FILE)) return null;
-  const line = readFileSync(ENV_FILE, 'utf8').split(/\r?\n/).find((l) => l.startsWith(key + '='));
-  if (!line) return null;
-  const v = line.slice(key.length + 1).trim().replace(/^["']|["']$/g, '');
-  return v || null;
+  return localSecrets.readLocalSecret(key);
 }
 
 export const FIXTURE_CLIENT = Object.freeze({
@@ -39,7 +31,7 @@ export const FIXTURE_CLIENT = Object.freeze({
 
 export function fixtureClientPassword() {
   const v = readSeedEnv('GARY_SEED_PASSWORD');
-  if (!v) throw new Error('GARY_SEED_PASSWORD is not set (supabase/functions/.env) — seed the fixture client first: node seed-client-gary.mjs');
+  if (!v) throw new Error('GARY_SEED_PASSWORD is not set — export it or add it to ' + localSecrets.secretsFile() + ', then seed the fixture client if needed: node seed-client-gary.mjs');
   return v;
 }
 

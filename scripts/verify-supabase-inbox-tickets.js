@@ -65,11 +65,11 @@ function svixSignature(secret, svixId, svixTimestamp, body) {
   return 'v1,' + crypto.createHmac('sha256', keyBytes).update(svixId + '.' + svixTimestamp + '.' + body).digest('base64');
 }
 function readLocalWebhookSecret() {
-  const fs = require('fs'); const path = require('path');
-  const env = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '.env'), 'utf8');
-  const m = /RESEND_WEBHOOK_SECRET=([^\r\n]+)/.exec(env);
-  if (!m) throw new Error('RESEND_WEBHOOK_SECRET not in supabase/functions/.env');
-  return m[1].trim();
+  // From the environment or the secrets file outside the repo, never supabase/functions/.env —
+  // a host-side read there restarts the local edge runtime (row 255). The value must equal the
+  // copy in supabase/functions/.env that the local function verifies against; if they drift,
+  // the signed-webhook assertions fail loudly as a forged signature.
+  return require('./lib/local-secrets.cjs').requireLocalSecret('RESEND_WEBHOOK_SECRET');
 }
 
 async function main() {

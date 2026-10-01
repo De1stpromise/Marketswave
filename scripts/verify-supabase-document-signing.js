@@ -125,7 +125,10 @@ async function main() {
     console.log('0. The consent and capture statements are byte-identical in signing.ts (Deno) and document-signing.js (browser)');
     const block = (src) => { const m = src.match(/SIGNING-TEXT-START \*\/([\s\S]*?)\/\* SIGNING-TEXT-END/); return m ? m[1].replace(/^\s*(export const|var) /gm, '').replace(/\r/g, '').trim() : null; };
     const fs = require('fs'); const path = require('path');
-    const tsBlock = block(fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'signing.ts'), 'utf8'));
+    // The Deno half comes from HEAD via git, never the working tree (row 255); the browser half is
+    // outside supabase/functions and is read in place. So an UNCOMMITTED edit to signing.ts is not
+    // seen here until it is committed.
+    const tsBlock = block(require('./lib/function-source.cjs').readFunctionSource('_shared/signing.ts'));
     const jsBlock = block(fs.readFileSync(path.join(__dirname, '..', 'document-signing.js'), 'utf8'));
     check('both files carry the marked block', !!tsBlock && !!jsBlock);
     check('★ the two blocks are byte-identical (CONSENT_TEXT + CAPTURE_TEXT)', tsBlock === jsBlock, (tsBlock || '').slice(0, 80) + ' vs ' + (jsBlock || '').slice(0, 80));

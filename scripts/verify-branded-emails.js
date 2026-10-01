@@ -28,6 +28,7 @@ const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const fnSource = require('./lib/function-source.cjs');
 
 let passed = 0;
 let failed = 0;
@@ -495,10 +496,9 @@ async function main() {
     // markers are present and independently re-implementing escapeHtml() to cross-check the
     // real function's own escaping behavior against a known-good reference, rather than
     // trusting the source's own claim about itself.
-    const sendEmailSrc = fs.readFileSync(
-      path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'send-email.ts'),
-      'utf8'
-    );
+    // Committed source via git, never the working tree (row 255: a read under supabase/functions
+    // restarts the local edge runtime).
+    const sendEmailSrc = fnSource.readFunctionSource('_shared/send-email.ts');
 
     check('_shared/send-email.ts contains the MARKETSWAVE wordmark', sendEmailSrc.includes('MARKETSWAVE'));
     check('_shared/send-email.ts contains the navy accent color', sendEmailSrc.includes('#1B3A4B'));
@@ -568,9 +568,8 @@ async function main() {
       ['notify-password-changed', 'general'], ['sync-hys-pocket-status', 'investment']
     ];
     for (const [fnName, expectedFooter] of touchedFunctions) {
-      const fnPath = path.join(__dirname, '..', 'supabase', 'functions', fnName, 'index.ts');
-      if (!fs.existsSync(fnPath)) { check(fnName + ' index.ts exists', false); continue; }
-      const src = fs.readFileSync(fnPath, 'utf8');
+      let src;
+      try { src = fnSource.readFunctionSource(fnName + '/index.ts'); } catch (_e) { check(fnName + ' index.ts exists (in HEAD)', false); continue; }
       const usesRenderEmail = src.includes('renderEmail(');
       check(fnName + ' calls the real renderEmail() (not a leftover string-concatenation template)', usesRenderEmail);
       if (usesRenderEmail) {

@@ -18,7 +18,7 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import fnSource from './lib/function-source.cjs';
 import { fileURLToPath } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
 
@@ -52,8 +52,11 @@ function readLocalStackCredentials() {
   return { url: status.API_URL, anonKey: status.ANON_KEY, serviceRoleKey: status.SERVICE_ROLE_KEY, functionsUrl: status.FUNCTIONS_URL };
 }
 
+// Committed source via git (lib/function-source.cjs), never the working tree: a read under
+// supabase/functions restarts the local edge runtime (row 255) — this suite did exactly that
+// at 00:21Z on 2026-10-01.
 function readFunctionSource(name) {
-  return readFileSync(scriptsDir + '/../supabase/functions/' + name + '/index.ts', 'utf8');
+  return fnSource.readFunctionSource(name + '/index.ts');
 }
 
 async function main() {

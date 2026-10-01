@@ -6,9 +6,23 @@
 // working — no transpile step, no Deno needed for this pure-crypto module with zero
 // Deno-specific imports).
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { runVerifyMain } from './lib/run-verify.mjs';
+import { makeTempDir, releaseTempDir } from './lib/harness-teardown.mjs';
+import fnSource from './lib/function-source.cjs';
 
-const { verifySvixWebhook } = await import('../supabase/functions/_shared/webhook-verify.ts');
+// Row 255 (finished 2026-10-01): the module is NOT imported from supabase/functions — loading it
+// there is a host-side read that restarts the local edge runtime. Its COMMITTED bytes (git show
+// HEAD:) are written to a registered harness temp dir and imported from there; webhook-verify.ts
+// imports nothing, so the copy is the real, deployed module, byte for byte. An uncommitted edit
+// to it is therefore not tested until it is committed.
+const moduleDir = makeTempDir('mw-webhookverify-');
+const modulePath = path.join(moduleDir, 'webhook-verify.ts');
+fs.writeFileSync(modulePath, fnSource.readFunctionSource('_shared/webhook-verify.ts'));
+const { verifySvixWebhook } = await import(pathToFileURL(modulePath).href);
+await releaseTempDir(moduleDir);
 
 let passed = 0, failed = 0;
 function check(label, condition, detail) {

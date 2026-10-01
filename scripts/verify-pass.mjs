@@ -74,6 +74,10 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const logDir = path.join(__dirname, '.pass-logs', stamp);
 fs.mkdirSync(logDir, { recursive: true });
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// Forward slashes ON PURPOSE: inside NODE_OPTIONS a backslash in a quoted value is an escape, so
+// "C:\WorkDirectory\..." arrives as "C:WorkDirectory..." and every suite dies at startup with
+// "Cannot find module" — verify-no-functions-read caught exactly that on its first run.
+const GUARD_PRELOAD = path.join(__dirname, 'lib', 'no-functions-read.cjs').replace(/\\/g, '/');
 
 function runScript(name) {
   return new Promise((resolve) => {
@@ -81,14 +85,27 @@ function runScript(name) {
     const log = fs.createWriteStream(logPath);
     const t0 = Date.now();
     // shell: true so npm.cmd resolves on Windows without a path lookup of our own.
-    const child = spawn(npmCmd, ['run', '--silent', name], { cwd: __dirname, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    const tee = (stream, out) => stream.on('data', (chunk) => { out.write(chunk); log.write(chunk); });
+    // ROW 255 GUARD (2026-10-01): every suite, and every node child it spawns (NODE_OPTIONS is
+    // inherited), runs with lib/no-functions-read.cjs preloaded, so a read under supabase/functions
+    // — which restarts the local edge runtime mid-pass — throws instead. A suite whose output
+    // carries a guard line FAILS even if it exited 0, because a try/catch can swallow the throw.
+    const env = Object.assign({}, process.env, { NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' --require "' + GUARD_PRELOAD + '"').trim() });
+    const child = spawn(npmCmd, ['run', '--silent', name], { cwd: __dirname, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env });
+    // The guard writes its marker at the START of a line; matching only there keeps a suite whose
+    // own label merely QUOTES the marker (verify-no-functions-read did) from failing itself. Each
+    // stream keeps its unfinished last line so a marker split across two chunks is still seen.
+    let guardHit = false;
+    const tee = (stream, out) => { let carry = ''; stream.on('data', (chunk) => {
+      const text = carry + chunk.toString(); const lines = text.split('\n'); carry = lines.pop();
+      if (!guardHit && lines.some((l) => l.startsWith('ROW 255 GUARD:'))) guardHit = true;
+      out.write(chunk); log.write(chunk);
+    }); stream.on('end', () => { if (!guardHit && carry.startsWith('ROW 255 GUARD:')) guardHit = true; }); };
     tee(child.stdout, process.stdout); tee(child.stderr, process.stderr);
-    child.on('close', (code) => { log.end(); resolve({ name, code, minutes: (Date.now() - t0) / 60000, logPath }); });
+    child.on('close', (code) => { log.end(); resolve({ name, code: (code === 0 && guardHit) ? 'GUARD' : code, minutes: (Date.now() - t0) / 60000, logPath }); });
   });
 }
 const mins = (m) => m.toFixed(1).padStart(5) + ' min';
-const verdict = (r) => r.code === 0 ? 'PASS' : (r.code === 127 ? 'exit 127 — read the log (row 198 post-assertion abort, or row 214 mid-run death)' : 'FAIL (exit ' + r.code + ')');
+const verdict = (r) => r.code === 0 ? 'PASS' : r.code === 'GUARD' ? 'FAIL (read under supabase/functions — ROW 255 GUARD line in the log)' : (r.code === 127 ? 'exit 127 — read the log (row 198 post-assertion abort, or row 214 mid-run death)' : 'FAIL (exit ' + r.code + ')');
 
 (async () => {
   console.log('VERIFICATION PASS — ' + (args.includes('--full') ? 'full, ' : 'targeted, ') + wanted.length + ' suite' + (wanted.length === 1 ? '' : 's') + '; logs in ' + path.relative(process.cwd(), logDir) + '\n');

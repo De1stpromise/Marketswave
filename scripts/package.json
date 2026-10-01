@@ -155,7 +155,8 @@
     "verify-presence-visit-history": "node verify-presence-visit-history.mjs",
     "verify-presence-visit-history-visual": "node verify-presence-visit-history-visual.mjs",
     "verify-watchlist-ui-wiring": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-ui-wiring.mjs",
-    "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs"
+    "verify-watchlist-visual": "node --experimental-loader ./lib/esm-loader-supabase-cdn.mjs verify-watchlist-visual.mjs",
+    "verify-no-functions-read": "node verify-no-functions-read.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

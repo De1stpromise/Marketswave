@@ -60,7 +60,9 @@ async function invoke(url, anonKey, token, fn, body) {
   return { status: r.status, body: json };
 }
 function extractVocabBlock(file) {
-  const s = fs.readFileSync(file, 'utf8');
+  return vocabBlockOf(fs.readFileSync(file, 'utf8'));
+}
+function vocabBlockOf(s) {
   const a = s.indexOf('{', s.indexOf('VOCAB-START'));
   const b = s.lastIndexOf('};', s.indexOf('VOCAB-END')) + 2;
   return s.slice(a, b);
@@ -88,7 +90,8 @@ async function main() {
   try {
     console.log('0. The vocabulary twins');
     const jsBlock = extractVocabBlock(path.join(__dirname, '..', 'onboarding-vocab.js'));
-    const tsBlock = extractVocabBlock(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'onboarding-vocab.ts'));
+    // The Deno half comes from HEAD via git, never the working tree (row 255).
+    const tsBlock = vocabBlockOf(require('./lib/function-source.cjs').readFunctionSource('_shared/onboarding-vocab.ts'));
     check('GUARD: both blocks were extracted (non-empty)', jsBlock.length > 1000 && tsBlock.length > 1000, jsBlock.length + '/' + tsBlock.length);
     check('★ onboarding-vocab.js and _shared/onboarding-vocab.ts carry a byte-identical VOCAB block', jsBlock === tsBlock);
 

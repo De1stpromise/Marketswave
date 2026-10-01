@@ -34,7 +34,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { FIXTURE_CLIENT, findFixtureClient } from './lib/fixture-client.mjs';
+import { FIXTURE_CLIENT, findFixtureClient, fixtureClientPassword } from './lib/fixture-client.mjs';
 import { makeTempDir, releaseTempDir, forwardChildTeardown } from './lib/harness-teardown.mjs';
 import { runVerifyMain } from './lib/run-verify.mjs';
 import { removeAllClientStorageObjects } from './lib/storage-test-cleanup.mjs';
@@ -61,13 +61,8 @@ function localStack() {
   if (!/127\.0\.0\.1|localhost/.test(j.API_URL)) throw new Error('refusing a non-local API_URL: ' + j.API_URL);
   return j;
 }
-function garyPassword() {
-  if (process.env.GARY_SEED_PASSWORD) return process.env.GARY_SEED_PASSWORD;
-  const f = path.join(ROOT, 'supabase', 'functions', '.env');
-  const line = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split(/\r?\n/).find((l) => l.startsWith('GARY_SEED_PASSWORD=')) : null;
-  if (!line) throw new Error('GARY_SEED_PASSWORD is not set (supabase/functions/.env) — seed Gary first: node seed-client-gary.mjs');
-  return line.slice('GARY_SEED_PASSWORD='.length).trim().replace(/^["']|["']$/g, '');
-}
+// env or the secrets file outside the repo, never supabase/functions/.env (row 255).
+function garyPassword() { return fixtureClientPassword(); }
 function runChild(script, env, label) {
   const res = spawnSync(process.execPath, [script], { cwd: HERE, encoding: 'utf8', env: Object.assign({}, process.env, env), maxBuffer: 64 * 1024 * 1024 });
   forwardChildTeardown(res, label);

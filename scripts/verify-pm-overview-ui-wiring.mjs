@@ -224,7 +224,19 @@ async function main() {
       check('the pocket maturing in 4 days: amount, soon, linking to the approval gate', dueRows.some((r) => /Savings pocket matures/.test(r.textContent) && /\$10,000/.test(r.textContent) && /in 4 days/.test(r.textContent) && r.querySelector('.ov-dv span').classList.contains('is-soon') && /admin-approvals\.html/.test(r.getAttribute('href'))));
       check('★ the quarterly fund valued 100 days ago reads as an OVERDUE NAV publication with its last valuation date and price', dueRows.some((r) => /NAV publication overdue · Overview Quarterly Fund/.test(r.textContent) && new RegExp('Valued quarterly · last ' + lastValued).test(r.textContent) && /\$646\.04/.test(r.textContent) && /days overdue/.test(r.textContent)));
       check('the unsigned document reads with its age', dueRows.some((r) => new RegExp('Document unsigned · ' + A.name).test(r.textContent) && /10 days unsigned/.test(r.textContent)));
-      check('the monthly snapshot is labelled honestly (no statements are generated)', dueRows.some((r) => /Monthly portfolio value snapshot/.test(r.textContent) && /no client statements are generated yet/.test(r.textContent)));
+      // The briefing lists the snapshot only when its next run (00:05 UTC on the 1st of NEXT month,
+      // _shared/pm-briefing.ts) falls inside the 30-day Coming-up window. On the 1st of a month
+      // followed by a 31-day month it is 31 days away and correctly absent — this assertion used
+      // to expect it unconditionally and failed on 2026-10-01 (a date fault, not a product one).
+      // Both branches assert something, so neither can pass vacuously.
+      const nowD = new Date();
+      const nextSnap = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth() + 1, 1, 0, 5));
+      const snapRows = dueRows.filter((r) => /Monthly portfolio value snapshot/.test(r.textContent));
+      if (nextSnap.getTime() <= nowD.getTime() + 30 * DAY) {
+        check('the monthly snapshot is labelled honestly (no statements are generated)', snapRows.some((r) => /no client statements are generated yet/.test(r.textContent)));
+      } else {
+        check('the monthly snapshot is correctly ABSENT — its next run (' + nextSnap.toISOString().slice(0, 10) + ') is outside the 30-day window', snapRows.length === 0, snapRows.length + ' snapshot rows');
+      }
 
       console.log('\n--- Worth acting on ---\n');
       const ops = [...D.querySelectorAll('#panel-acting .ov-op')];
