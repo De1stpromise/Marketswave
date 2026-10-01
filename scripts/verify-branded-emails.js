@@ -501,10 +501,13 @@ async function main() {
     const sendEmailSrc = fnSource.readFunctionSource('_shared/send-email.ts');
 
     check('_shared/send-email.ts contains the MARKETSWAVE wordmark', sendEmailSrc.includes('MARKETSWAVE'));
-    check('_shared/send-email.ts contains the navy accent color', sendEmailSrc.includes('#1B3A4B'));
+    // The colours live in the single palette since row 303: send-email.ts takes them from BRAND, and
+    // brand-colors.ts (generated from scripts/brand/brand-colors.json) holds the hex (row 304).
+    const brandSrc = fnSource.readFunctionSource('_shared/brand-colors.ts');
+    check('_shared/send-email.ts takes its navy accent from the brand palette', /import \{ BRAND \} from '\.\/brand-colors\.ts'/.test(sendEmailSrc) && sendEmailSrc.includes("navy: BRAND['navy']") && brandSrc.includes('"navy": "#1B3A4B"'));
     check('_shared/send-email.ts contains the real risk disclosure paragraph text', sendEmailSrc.includes('Alternative investments involve specific risks'));
     check('_shared/send-email.ts contains a real Disclaimer legal block', sendEmailSrc.includes('Disclaimer:'));
-    check('_shared/send-email.ts contains the real gold accent color (rejection callouts)', sendEmailSrc.includes('#C8860A'));
+    check('_shared/send-email.ts takes the real gold accent (rejection callouts) from the brand palette', sendEmailSrc.includes("gold: BRAND['gold']") && brandSrc.includes('"gold": "#C8860A"'));
     check('_shared/send-email.ts uses table-based layout only — no flexbox/grid anywhere in the template', !/display:\s*flex|display:\s*grid/.test(sendEmailSrc));
     // Check for REAL CSS usage specifically (a property assignment / function call), not the
     // bare word — this file's own header comment describes the exclusion in prose ("no

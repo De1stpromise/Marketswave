@@ -347,8 +347,12 @@ async function main() {
     check('Client A can SELECT their own holdings', ownHoldings && ownHoldings.length === 1);
     const { data: ownTxns } = await a.client.from('transactions').select('*');
     check('Client A can SELECT their own transactions', ownTxns && ownTxns.length === 1);
-    const { data: catalog } = await a.client.from('products').select('*');
-    check('Client A can SELECT the full product catalog (global, everyone reads it)', catalog && catalog.length >= 5);
+    // Since row 304 clients read the catalog through products_catalog (no staff attribution); the
+    // base table is admin-only, so a client's read of it returns nothing.
+    const { data: catalog } = await a.client.from('products_catalog').select('*');
+    check('Client A can SELECT the full product catalog through products_catalog (global, everyone reads it)', catalog && catalog.length >= 5);
+    const { data: baseCatalog } = await a.client.from('products').select('id');
+    check('Client A reading the BASE products table gets zero rows (admin-only since row 304)', Array.isArray(baseCatalog) && baseCatalog.length === 0);
     const { data: feeRate } = await a.client.from('advisory_fee_rate').select('*');
     check('Client A can SELECT the global advisory_fee_rate', feeRate && feeRate.length === 1);
 

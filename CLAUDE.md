@@ -1816,8 +1816,14 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
   - **Capital events are placed at their calendar day** (`eventX()` in `portfolio-overview.js`) —
     a timestamp past today's midnight point used to fall off the axis, so an event dated today
     vanished. The scatter dataset is `clip: false` with 7 px padding so an edge dot draws whole.
-  - **The LOCAL edge runtime is `policy = "oneshot"`** (`config.toml`, local only); confirm with
+  - **★ The LOCAL edge runtime is `per_worker`; `oneshot` was tried and REVERTED the same day.**
+    Under a full pass a fresh worker per request turned concurrent bursts into 503s and failed a
+    cold request in several suites. The per-worker CPU-limit drop-outs it was meant to fix are back
+    and are a KNOWN cause (row 255), not a regression. Confirm with
     `docker inspect supabase_edge_runtime_Marketswave --format '{{json .Config.Cmd}}'`.
+  - **A jsdom harness that builds a page from its inline script must load what the page's `<head>`
+    loads** — `brand-colors.js` above all (row 303): without `MW_BRAND` the render throws and the
+    page shows its generic error card, which reads like a backend failure.
 
 ## ★★★ REBRAND RULE — Marketswave becomes IncMarketry (recorded 2026-10-01)
 

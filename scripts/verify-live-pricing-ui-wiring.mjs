@@ -212,6 +212,7 @@ async function main() {
     txDom.window.MarketswaveData = MarketswaveData;
     txDom.window.Chart = function () { return { destroy() {} }; }; txDom.window.Chart.getChart = () => null;
     txDom.window.eval(formatHelpersSource);
+    txDom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8')); /* the page loads brand-colors.js in <head> (row 303); without it MW_BRAND is undefined and the ledger renders its error card */
     txDom.window.eval(extractInlineScript(txPath, 'UI Wiring — Stage 3'));
     const T = txDom.window.document;
     await pollUntil(() => /Ethereum/.test(T.getElementById('ledger-body').textContent), 30000);

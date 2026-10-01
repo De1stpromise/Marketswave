@@ -433,13 +433,12 @@ enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
-# ★ LOCAL ONLY (2026-10-01, row 304): `oneshot` — a fresh worker per request. Under a full pass,
-# `per_worker` workers accumulated CPU time across requests and hit the isolate soft limit
-# ("early termination ... CPU time soft limit reached"), failing whichever suite was in flight;
-# a oneshot worker starts clean every time. Costs a little latency per call and loses hot reload,
-# neither of which a verification pass needs. This setting governs `supabase functions serve` on
-# this machine only; the hosted project's runtime is not configured from here.
-policy = "oneshot"
+# ★ LOCAL: `per_worker` (the default). `oneshot` was tried on 2026-10-01 (row 304) to stop
+# per_worker workers hitting the isolate CPU soft limit mid-pass, and REVERTED the same day: under
+# a full pass a fresh worker per request turned concurrent bursts into 503s (74 of 90 in
+# verify-public-market-snapshot) and failed one cold request in roughly ten suites. The per-worker
+# drop-outs are back; they are a known cause, not a regression (row 304).
+policy = "per_worker"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
 # The Deno major version to use.
