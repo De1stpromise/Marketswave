@@ -1813,7 +1813,16 @@ database columns and policy names (`blog_comments.is_marketswave`, …), the `co
 **Nothing is renamed until the new brand system is designed and approved.** The preparation
 already done makes the change cheap when it comes: the site URL, email sender and support address
 are function secrets (`SITE_URL`, `EMAIL_FROM_ADDRESS`, `SUPPORT_EMAIL`), so a domain change is
-configuration; and the brand colours are being centralised so a new palette is one change.
+configuration; and **the brand colours live in ONE file, `scripts/brand/brand-colors.json`**
+(register row 303). `npm run build-brand` generates `brand-tokens.css` (`var(--brand-*)`,
+`rgba(var(--brand-*-rgb), a)`), `brand-colors.js` (`window.MW_BRAND`), the Edge Function module
+`_shared/brand-colors.ts` and the recovery email template; the Tailwind config reads the JSON.
+**Never write a brand hex or its rgb() channels anywhere else** — `verify-brand-colors` fails on
+it, and on a generated file that is stale against the JSON. A new palette is: edit the JSON,
+`npm run build-brand` + `npm run build-tailwind`, stage the regenerated files, redeploy every
+function that bundles `brand-colors.ts` (compute the set; 35 at the time of writing), push. Prove
+it with `audit-render-diff` (public pages tiled, `RD_PAGES`/`RD_WIDTHS` to narrow) and a
+before-vs-before control for anything that differs — charts and the header clock differ on their own.
 The sizing inventory (2026-10-01) is register row 301.
 
 ## Locked — do not restructure without explicit sign-off
