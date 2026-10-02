@@ -1820,7 +1820,10 @@ APIs are intentionally not built yet — everything is frontend-only, static HTM
     Client ticket badges stay live through the `system` message `admin-update-conversation`
     inserts on every status change (the `conversations` subscription is gone). **Staging holds
     NO `advisory_fee_rate` row** — no PM has ever set a rate there, so clients read none; a
-    proof must not create one, since staging is the live site.
+    proof must not create one, since staging is the live site. **A missing rate is never a
+    number (row 306)**: `transactions.html`'s fee card reads "Not yet set" — it used to default
+    the missing row to 0 and tell clients "$0 at 0% annual". Any new reader of the rate keeps a
+    missing row as `null`.
   - **A pdf-lib colour comes from `BRAND_RGB`** (`rgb(r/255, g/255, b/255)`); `verify-brand-colors`
     flags any literal `rgb()` with all arguments ≤ 1 in Edge Function source.
   - **★ Portfolio-overview scenarios use a GAP MONTH** (no anchor in month −3), so the 3M window

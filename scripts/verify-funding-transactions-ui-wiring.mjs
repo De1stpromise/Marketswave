@@ -339,6 +339,36 @@ async function main() {
   check('Net Invested shows the real seeded holding’s own cost basis ($5,000)', T.getElementById('net-invested-amount').textContent === '$' + expectedNetInvested.toLocaleString('en-US'), T.getElementById('net-invested-amount').textContent);
   check('Advisory Fee card shows the real, independently-computed accrual against the real global rate', T.getElementById('advisory-fee-amount').textContent === '$' + expectedAccrued.toLocaleString('en-US'), T.getElementById('advisory-fee-amount').textContent + ' vs expected $' + expectedAccrued);
   check('Advisory Fee rate display shows the real global rate, not a hardcoded one', T.getElementById('advisory-fee-rate-display').textContent === String(REAL_RATE), T.getElementById('advisory-fee-rate-display').textContent + ' vs real rate ' + REAL_RATE);
+  check('with a rate set, the "Based on a 30-day accrual" basis line is shown and the not-set line is hidden', T.getElementById('advisory-fee-basis-set').hidden === false && T.getElementById('advisory-fee-basis-unset').hidden === true);
+
+  // ---- 6b. NO RATE SET (row 306): a missing advisory_fee_rate row is never a number. ----
+  // Real cloud staging has no fee row (no PM has set one), and the card used to default the
+  // missing rate to 0 — "$0 ... at 0% annual", telling a client the firm charges nothing.
+  console.log('\n6b. Advisory Fee card with NO rate row — an honest "Not yet set", never $0 at 0%');
+  const { data: feeSnapshot } = await admin.from('advisory_fee_rate').select('*').eq('id', true).maybeSingle();
+  check('6b precondition: the local stack HAS a fee row to remove (non-vacuous)', !!feeSnapshot);
+  const { error: feeDelErr } = await admin.from('advisory_fee_rate').delete().eq('id', true);
+  try {
+    check('the fee row is genuinely removed for this check', !feeDelErr && !(await admin.from('advisory_fee_rate').select('id').eq('id', true).maybeSingle()).data, feeDelErr && feeDelErr.message);
+    const noRateDom = buildPageDom(txnPath);
+    noRateDom.window.MarketswaveData = MarketswaveData;
+    noRateDom.window.Chart = function () { return {}; };
+    noRateDom.window.eval(readFileSync(new URL('../brand-colors.js', import.meta.url), 'utf8'));
+    noRateDom.window.eval(txnScript);
+    const N = noRateDom.window.document;
+    await pollUntil(function () { return !/animate-pulse/.test(N.getElementById('advisory-fee-amount').innerHTML) && N.getElementById('advisory-fee-amount').textContent.trim() !== ''; }, 20000);
+    const amt = N.getElementById('advisory-fee-amount').textContent.trim();
+    const card = N.getElementById('advisory-fee-amount').parentElement;
+    const visibleBasis = [...card.querySelectorAll('span[id^="advisory-fee-basis"]')].filter(function (e) { return !e.hidden; }).map(function (e) { return e.textContent; }).join(' ');
+    check('★ with no rate row the fee figure reads "Not yet set"', amt === 'Not yet set', amt);
+    check('...and never a dollar figure', !/\$/.test(amt), amt);
+    check('the visible basis line says no rate has been set', /No advisory fee rate has been set yet/.test(visibleBasis), visibleBasis);
+    check('...and the card states no percentage at all (no "0%", no "at % annual")', !/%/.test(visibleBasis), visibleBasis);
+    check('the rest of the summary still renders (Total Buys $5,000) — a missing rate breaks nothing else', N.getElementById('total-buys-amount').textContent === '$5,000', N.getElementById('total-buys-amount').textContent);
+  } finally {
+    const { error: restoreErr } = await admin.from('advisory_fee_rate').upsert(feeSnapshot, { onConflict: 'id' });
+    check('the local fee row is restored exactly', !restoreErr && JSON.stringify((await admin.from('advisory_fee_rate').select('*').eq('id', true).single()).data) === JSON.stringify(feeSnapshot), restoreErr && restoreErr.message);
+  }
 
   console.log('\n7. Recent Activity + Ledger — DEPOSIT/WITHDRAWAL render correctly against real data');
   check('Recent Activity shows real entries (not empty)', activityListEl.textContent.indexOf('No recent activity') === -1);

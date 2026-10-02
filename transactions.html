@@ -80,7 +80,7 @@
           <div class="glass-subtle rounded-2xl p-5">
             <p class="text-xs text-slate-500 mb-1">Est. Monthly Advisory Fee</p>
             <p class="text-xl font-semibold text-navy" id="advisory-fee-amount">$0</p>
-            <p class="text-xs text-slate-400 mt-1">Based on a 30-day accrual at <span id="advisory-fee-rate-display">—</span>% annual</p>
+            <p class="text-xs text-slate-400 mt-1"><span id="advisory-fee-basis-set">Based on a 30-day accrual at <span id="advisory-fee-rate-display">—</span>% annual</span><span id="advisory-fee-basis-unset" hidden>No advisory fee rate has been set yet.</span></p>
           </div>
         </div>
 
@@ -377,6 +377,22 @@
         // rate) — the exact same math as the local engine's own getAdvisoryFeeAccrued(),
         // reproduced here client-side from the already-fetched account/rate data rather than
         // a dedicated Edge Function, no server-side-only logic involved.
+        //
+        // A MISSING rate is never a number (row 306). No advisory_fee_rate row means no rate has
+        // been set — not a 0% rate — so the card says "Not yet set" instead of a "$0 at 0%" that
+        // would tell the client the firm charges nothing. A rate genuinely SET to 0 is a real
+        // value and still renders as one.
+        var basisSet = document.getElementById('advisory-fee-basis-set');
+        var basisUnset = document.getElementById('advisory-fee-basis-unset');
+        if (rate === null) {
+          if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = 'Not yet set';
+          if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = '—';
+          if (basisSet) basisSet.hidden = true;
+          if (basisUnset) basisUnset.hidden = false;
+          return;
+        }
+        if (basisSet) basisSet.hidden = false;
+        if (basisUnset) basisUnset.hidden = true;
         var accrued = Math.round(account.allocatedCapital * (rate / 100) * (30 / 365) * 100) / 100;
         if (advisoryFeeAmountEl) advisoryFeeAmountEl.textContent = formatUSD(Math.round(accrued));
         if (advisoryFeeRateEl) advisoryFeeRateEl.textContent = rate;
@@ -686,7 +702,8 @@
             holdings: results[1],
             account: results[2],
             products: results[3].map(function (p) { return { id: p.id, name: p.name, assetClass: p.asset_class }; }),
-            rate: (results[4] && results[4][0] && results[4][0].rate) || 0
+            // null when no rate row exists — never defaulted to a number (row 306)
+            rate: (results[4] && results[4][0] && results[4][0].rate != null && isFinite(Number(results[4][0].rate))) ? Number(results[4][0].rate) : null
           };
         }).catch(function (err) {
           dataPromise = null;
